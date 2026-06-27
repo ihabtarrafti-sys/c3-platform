@@ -1,0 +1,14 @@
+{
+  "name": "c3-platform",
+  "private": true,
+  "workspaces": [
+    "packages/c3",
+    "packages/c3-spfx-host"
+  ],
+  "scripts": {
+    "build:c3": "npm --workspace packages/c3 run build",
+    "lint:c3": "npm --workspace packages/c3 run lint",
+    "build:spfx": "npm --workspace packages/c3-spfx-host run build",
+    "start:spfx": "npm --workspace packages/c3-spfx-host run start"
+  }
+}
