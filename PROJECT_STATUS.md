@@ -2,7 +2,7 @@
 
 ## Version
 
-v0.3.0-platform-foundation
+v0.3.2-platform-foundation
 
 ## Current Phase
 
