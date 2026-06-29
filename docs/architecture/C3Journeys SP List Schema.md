@@ -58,17 +58,19 @@ Add the following columns in order.
 | Indexed | **Yes** — C3 queries journeys by PersonID. |
 | Validation | No SP-level validation. C3 runtime validates FK integrity at read time and warns if PersonID does not resolve. |
 
-### 2. Type
+### 2. JourneyType
 
 | Property | Value |
 |---|---|
 | Display name | `Type` |
-| Internal name | `Type` |
+| Internal name | `JourneyType` |
 | Type | Choice |
 | Required | Yes |
 | Allow custom values | **No** |
 | Default value | `Onboarding` |
-| Indexed | **Yes** — C3 queries `getActiveJourney(personId, type)` and `listAllActiveJourneys(type)` which filter by Type. |
+| Indexed | **Yes** — C3 queries `getActiveJourney(personId, type)` and `listAllActiveJourneys(type)` which filter by JourneyType. |
+
+> **Critical — internal name must be `JourneyType`, not `Type`.** SharePoint treats `Type` as a reserved word in certain list contexts and may silently rename or conflict with built-in metadata. The internal name controls the REST API field name that C3 uses in `$select` and `$filter` clauses. The **display name** shown to ops staff in the list view remains `Type`. When provisioning via Site Settings → List Settings → Column, set the internal name field to `JourneyType`. Verify via the REST endpoint (`/_api/web/lists/getbytitle('C3 Journeys')/fields?$filter=Title eq 'Type'`) that `InternalName` equals `JourneyType` before signoff.
 
 **Choice values** (enter exactly as shown, one per line, preserving casing):
 
@@ -80,7 +82,7 @@ ContractRenewal
 Offboarding
 ```
 
-**Total: 5 values.** The TypeScript `JourneyType` union in C3 has exactly these 5 values. Any value not in this list will cause the C3 service to throw a parse warning and the Journey will be excluded from type-filtered queries.
+**Total: 5 values.** The TypeScript `JourneyType` union in C3 has exactly these 5 values. Any value not in this list will cause the C3 service to log a parse warning and the Journey will be excluded from type-filtered queries.
 
 ### 3. Status
 
@@ -245,7 +247,7 @@ Create indexes on the following columns:
 |---|---|
 | `PersonID` | `getActiveJourney()` and `listJourneysForPerson()` both filter by PersonID. Index prevents full-list scan. |
 | `Status` | `listAllActiveJourneys()` filters `Status eq 'Active'` across all persons. Index is critical for list performance. |
-| `Type` | `getActiveJourney(personId, type)` filters by both PersonID and Type. Index supports compound queries. |
+| `JourneyType` | `getActiveJourney(personId, type)` filters by both PersonID and JourneyType. Index supports compound queries. Internal name is `JourneyType`; display name is `Type`. |
 
 SharePoint supports up to 20 indexes per list. Using 3 here.
 
@@ -332,7 +334,7 @@ Provision these records before Sprint 16 regression testing. JourneyIDs and fiel
 |---|---|---|---|
 | 4 | *(blank)* | PER-0001 | Tests: hard reject for missing JourneyID (blank Title) |
 | 5 | JRN-0005 | PER-XXXX | Tests: unknown PersonID — C3 should warn that FK does not resolve but retain the Journey |
-| 6 | JRN-0006 | PER-0001 | Set Type to `UnknownType` (custom value). Tests: unknown JourneyType → warning, Journey excluded from type-filtered queries |
+| 6 | JRN-0006 | PER-0001 | Set the `JourneyType` field (display name: `Type`) to `UnknownType` (custom value). Tests: unknown JourneyType → hard reject, Journey excluded |
 
 **Expected diagnostic output for stress records:**
 ```
@@ -341,7 +343,7 @@ Provision these records before Sprint 16 regression testing. JourneyIDs and fiel
 [C3/Journey] Item 6: unknown JourneyType "UnknownType" — Journey excluded from type-filtered queries
 ```
 
-> Record 6 requires SP to allow custom choice values for the `Type` field, which conflicts with the `Allow custom values: No` setting. If SP blocks the entry, note this in the test runbook and mark the stress test as environment-limited.
+> Record 6 requires SP to allow custom choice values for the `JourneyType` field (internal name), which conflicts with the `Allow custom values: No` setting. If SP blocks the entry, note this in the test runbook and mark the stress test as environment-limited.
 
 ---
 
@@ -354,15 +356,15 @@ When implementing `spJourneyMapper.ts` (future sprint, after S16), map SP fields
 | `item.Id` | *(not mapped)* | SP item Id not used in Journey type |
 | `item.Title` | `Journey.JourneyID` | Title = JourneyID |
 | `item.PersonID` | `Journey.PersonID` | FK to C3People |
-| `item.Type` | `Journey.Type` | Cast to `JourneyType`; warn and skip if unknown |
-| `item.Status` | `Journey.Status` | Cast to `JourneyStatus`; warn and skip if unknown |
-| `item.InitiatedAt` | `Journey.InitiatedAt` | ISO 8601 datetime string via `normalizeSpDate()` |
+| `item.JourneyType` | `Journey.Type` | SP internal name is `JourneyType`; domain field is `Journey.Type`. Cast to `JourneyType` union; hard reject if unknown. |
+| `item.Status` | `Journey.Status` | Cast to `JourneyStatus`; hard reject if unknown |
+| `item.InitiatedAt` | `Journey.InitiatedAt` | Full ISO 8601 datetime string preserved as-is. Do **not** use `normalizeSpDate()` — it strips to date-only. Use private `normalizeSpDateTime()` in the mapper. |
 | `item.InitiatedBy` | `Journey.InitiatedBy` | String |
 | `item.AssignedTo` | `Journey.AssignedTo` | Optional string |
 | `item.InitiationReason` | `Journey.InitiationReason` | Optional string |
 | `item.ContractID` | `Journey.ContractID` | Optional string |
 | `item.MissionID` | `Journey.MissionID` | Optional string |
-| `item.CompletedAt` | `Journey.CompletedAt` | Optional ISO datetime via `normalizeSpDate()` |
+| `item.CompletedAt` | `Journey.CompletedAt` | Full ISO 8601 datetime string preserved as-is. Same rule as InitiatedAt — use `normalizeSpDateTime()`, not `normalizeSpDate()`. |
 | `item.Notes` | `Journey.Notes` | Optional string |
 | `item.ObligationAssignmentsJSON` | `Journey.obligationAssignments` | Parse JSON array; warn and treat as `undefined` if blank or malformed |
 
@@ -390,10 +392,11 @@ function parseObligationAssignments(raw: string | null | undefined): ObligationA
 
 - [ ] List created at the correct site URL (`https://geekaygames.sharepoint.com/sites/C3`)
 - [ ] All 12 custom columns present with correct internal names (check via Site Settings → List Settings)
-- [ ] `Type` choice field has exactly 5 values, matching TypeScript casing (`Onboarding`, `VisaRenewal`, etc.)
+- [ ] `JourneyType` choice field (display name: `Type`) has exactly 5 values, matching TypeScript casing (`Onboarding`, `VisaRenewal`, etc.)
+- [ ] `JourneyType` internal name verified via REST: `/_api/web/lists/getbytitle('C3 Journeys')/fields?$filter=Title eq 'Type'` → `InternalName` must equal `JourneyType`
 - [ ] `Status` choice field has exactly 4 values, matching TypeScript casing
 - [ ] `ObligationAssignmentsJSON` configured as plain text multiline (not Enhanced Rich Text)
-- [ ] Indexes created on `PersonID`, `Status`, `Type`
+- [ ] Indexes created on `PersonID`, `Status`, `JourneyType`
 - [ ] Default view configured
 - [ ] `Active Journeys` view configured
 - [ ] `Completed/Cancelled Journeys` view configured
