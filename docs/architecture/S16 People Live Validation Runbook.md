@@ -857,3 +857,88 @@ All gates must pass before S16 People integration is considered complete.
 ---
 
 *This runbook is the authoritative guide for S16 People live validation. When all hard gates in Section 5 pass and evidence is captured, S16 People integration is confirmed.*
+
+---
+
+## Section 6 — Live Validation Results (2026-06-29)
+
+**Executed by:** Ihab  
+**Environment:** SharePoint hosted workbench — `https://geekaygames.sharepoint.com/sites/C3/_layouts/15/workbench.aspx`  
+**Data source mode:** SharePoint (live data)
+
+---
+
+### 6.1 — People service result
+
+**Console output (initial run with stress rows present):**
+```
+[C3/People] listPeople: fetched 13 SP records. Mapped: 10. Rejected: 3. Warnings: 0.
+```
+
+The 3 rejected records were the blank/stress rows inserted during test dataset setup (Stress Records 11–13 or equivalent rows with blank Title or FullName). The mapper hard-rejected them correctly with zero warnings — exactly the expected behaviour.
+
+**Action:** Delete the stress rows from the C3People list via the SP list UI. They are not needed for ongoing operation and their purpose (hard-reject path validation) is confirmed.
+
+**Final expected state after cleanup:**
+```
+[C3/People] listPeople: fetched 10 SP records. Mapped: 10. Rejected: 0. Warnings: 0.
+```
+
+**S16 People live validation gate:** PASS — pending confirmation of 10/10/0/0 after stress row deletion.
+
+---
+
+### 6.2 — People Workspace and Person Profile
+
+- People Workspace populated with 10 live SP persons. ✓
+- Person Profile opens correctly when navigated to from the **Situation Room** (real PersonID path). ✓
+- No crashes on navigation. ✓
+- `[C3/People]` diagnostic prefix confirmed in console (no `[C3/Credential]` prefix contamination on People messages). ✓
+
+---
+
+### 6.3 — Known finding: Contract-to-person navigation uses legacy numeric IDs
+
+**Console output observed during Contract path:**
+```
+[C3/People] getPerson: no SP record found for PersonID "1"
+[C3/People] getPerson: no SP record found for PersonID "2"
+[C3/People] getPerson: no SP record found for PersonID "7"
+```
+
+**Diagnosis:** The contract navigation path calls `getPerson()` with numeric/legacy IDs (e.g. `"1"`, `"2"`, `"7"`) instead of canonical PersonID values (e.g. `"PER-0001"`). The SP `$filter=Title eq '1'` query finds no records because `Title` stores `PER-NNNN` format identifiers, not bare integers.
+
+The Situation Room path works correctly because it sources PersonID from the live People data, which carries the canonical `PER-NNNN` values.
+
+**Impact:** Person Profile is reachable via the Situation Room → Person path. It is not reachable from the Contract view until the Contracts/person FK alignment is resolved.
+
+**Resolution:** This is a known pre-existing misalignment between the Contracts mock data (numeric IDs) and the C3People schema (PersonID format). It is tied to the SP-02 Contracts integration workstream and is out of scope for S16.
+
+**Deferred to:** SP-02 — Contracts SharePoint integration. When `SharePointContractService` is implemented, contract records will carry `HolderPersonID` in `PER-NNNN` format, resolving this lookup path.
+
+**S16 gate impact:** None. `getPerson()` itself is validated and working (confirmed via Situation Room path). The numeric-ID calls are from the contract mock data layer, not from the People service or mapper.
+
+---
+
+### 6.4 — S16 People validation summary
+
+| Gate | Result |
+|---|---|
+| Network: C3People GET | PASS — HTTP 200, 13 records fetched (10 active mirror + 3 stress) |
+| Mapper: correct rejections | PASS — 3 stress records rejected, 0 warnings |
+| People Workspace populated | PASS — 10 live SP persons displayed |
+| Person Profile (Situation Room path) | PASS — opens correctly with real SP data |
+| Diagnostic prefix isolation | PASS — `[C3/People]` confirmed; no `[C3/Credential]` contamination |
+| No crash on navigation | PASS |
+| Contract-to-person navigation | DEFERRED — numeric FK mismatch; tracked as SP-02 blocker |
+| Final clean state (10/10/0/0) | PENDING — stress rows to be deleted from C3People list |
+
+---
+
+### 6.5 — Deferred items tracker
+
+| ID | Item | Status | Owner workstream |
+|---|---|---|---|
+| SP-02 | Contract records use numeric PersonID instead of PER-NNNN format; contract → person navigation broken in SP mode | Deferred | Contracts SharePoint integration (future sprint) |
+| S16-7 | Stress row cleanup: delete Stress Records from C3People list, confirm 10/10/0/0 | Pending — immediate action | Ops / IT |
+
