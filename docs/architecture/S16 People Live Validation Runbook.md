@@ -875,16 +875,16 @@ All gates must pass before S16 People integration is considered complete.
 [C3/People] listPeople: fetched 13 SP records. Mapped: 10. Rejected: 3. Warnings: 0.
 ```
 
-The 3 rejected records were the blank/stress rows inserted during test dataset setup (Stress Records 11–13 or equivalent rows with blank Title or FullName). The mapper hard-rejected them correctly with zero warnings — exactly the expected behaviour.
+The 3 rejected records were blank/stress rows inserted during test dataset setup. The mapper hard-rejected them correctly with zero warnings — the expected behaviour.
 
-**Action:** Delete the stress rows from the C3People list via the SP list UI. They are not needed for ongoing operation and their purpose (hard-reject path validation) is confirmed.
+Stress rows were subsequently deleted from the C3People list.
 
-**Final expected state after cleanup:**
+**Console output (confirmed final state):**
 ```
 [C3/People] listPeople: fetched 10 SP records. Mapped: 10. Rejected: 0. Warnings: 0.
 ```
 
-**S16 People live validation gate:** PASS — pending confirmation of 10/10/0/0 after stress row deletion.
+**S16 People live validation gate: PASS ✓**
 
 ---
 
@@ -922,16 +922,23 @@ The Situation Room path works correctly because it sources PersonID from the liv
 
 ### 6.4 — S16 People validation summary
 
+**Overall result: PASS**  
+**Confirmed:** 2026-06-29
+
 | Gate | Result |
 |---|---|
-| Network: C3People GET | PASS — HTTP 200, 13 records fetched (10 active mirror + 3 stress) |
-| Mapper: correct rejections | PASS — 3 stress records rejected, 0 warnings |
+| Network: C3People GET | PASS — HTTP 200, 10 active records returned |
+| People aggregate (final) | PASS — `fetched 10 SP records. Mapped: 10. Rejected: 0. Warnings: 0.` |
+| Mapper: stress rejections | PASS — 3 stress rows rejected correctly (confirmed, then rows deleted) |
 | People Workspace populated | PASS — 10 live SP persons displayed |
 | Person Profile (Situation Room path) | PASS — opens correctly with real SP data |
-| Diagnostic prefix isolation | PASS — `[C3/People]` confirmed; no `[C3/Credential]` contamination |
+| C3Credentials fetch unaffected | PASS — S15 service unbroken; `[C3/Credential]` aggregate confirmed |
+| No Toaster crash | PASS |
+| Diagnostic prefix isolation | PASS — `[C3/People]` and `[C3/Credential]` separate; no contamination |
 | No crash on navigation | PASS |
-| Contract-to-person navigation | DEFERRED — numeric FK mismatch; tracked as SP-02 blocker |
-| Final clean state (10/10/0/0) | PENDING — stress rows to be deleted from C3People list |
+| Non-People service stubs | PASS — expected stub warnings present; no S16 blockers |
+| Contract-to-person navigation | DEFERRED — numeric FK mismatch; tracked as SP-02 (see §6.3) |
+| S16 code change required | NONE — no source modifications needed for validation close |
 
 ---
 
@@ -939,6 +946,21 @@ The Situation Room path works correctly because it sources PersonID from the liv
 
 | ID | Item | Status | Owner workstream |
 |---|---|---|---|
-| SP-02 | Contract records use numeric PersonID instead of PER-NNNN format; contract → person navigation broken in SP mode | Deferred | Contracts SharePoint integration (future sprint) |
-| S16-7 | Stress row cleanup: delete Stress Records from C3People list, confirm 10/10/0/0 | Pending — immediate action | Ops / IT |
+| SP-02 | Contract records carry numeric PersonID (e.g. `"1"`) instead of `PER-NNNN` format; `getPerson()` SP lookup finds no record; contract → person navigation fails in SP mode | Deferred | Contracts SharePoint integration (future sprint). No S16 code change. |
+| S16-7 | Stress row deletion from C3People + 10/10/0/0 confirmation | **COMPLETE** — stress rows deleted; clean state confirmed | Ops / IT |
+
+---
+
+### 6.6 — Next recommended sprint step
+
+S16 People integration is closed. The next SharePoint data layer milestone is:
+
+**C3Journeys live read integration.**
+
+- Schema document: `docs/architecture/C3Journeys SP List Schema.md` (committed, Sprint 16)
+- Mapper: `spJourneyMapper.ts` — not yet implemented
+- Service: `SharePointJourneyService` — stub only
+- Parity harness: not yet created
+
+Do not proceed to contract navigation (SP-02) or governance Approval UI until the Journeys read layer is validated. Contract → person FK alignment will be resolved as part of the Contracts integration workstream when `HolderPersonID` in `C3Contracts` carries canonical `PER-NNNN` values.
 
