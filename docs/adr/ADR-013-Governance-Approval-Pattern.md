@@ -1,11 +1,12 @@
 # ADR-013 — Governance Approval Pattern
 
-**Status:** Proposed  
-**Sprint:** Sprint 16 — People Integration (design only)  
+**Status:** Approved  
+**Sprint:** Sprint 16 — People Integration (design); Sprint 18 — implementation begins  
 **Date:** 2026-06-29  
-**Author:** Architecture review — pre-Sprint 18 write-path preparation
+**Author:** Architecture review — pre-Sprint 18 write-path preparation  
+**Approved by:** Platform Owner — 2026-06-29
 
-> **This ADR must reach `Approved` status before any C3 write-path implementation begins.** The Platform Owner (`owner` C3Role) holds final approval. Implementation is planned for Sprint 18. This document is intentionally design-only — no source code, no UI components, no Power Automate flows.
+> **This ADR reached `Approved` status on 2026-06-29.** All six open decisions (Q1–Q6) have been resolved and are recorded in the Resolved Decisions section below. Sprint 18 implementation of the first governed write path (`initiateJourney`) may now proceed.
 
 > **Meta-note:** This ADR is itself subject to the pattern it defines. Its progression from `Proposed → Approved` demonstrates the lifecycle in practice.
 
@@ -13,7 +14,7 @@
 
 ## Context
 
-Sprints 1–16 implement C3 as a read-only intelligence platform. Data flows in one direction: SharePoint lists → C3 services → React UI. The platform reads credentials, contracts, people, journeys, and mission data; it computes gaps, generates work items, and surfaces readiness state. It writes nothing.
+Sprints 1–17 implement C3 as a read-only intelligence platform. Data flows in one direction: SharePoint lists → C3 services → React UI. The platform reads credentials, contracts, people, journeys, and mission data; it computes gaps, generates work items, and surfaces readiness state. It writes nothing.
 
 Starting Sprint 18, C3 will introduce write paths: Journey initiation, state transitions (complete, suspend, cancel), and obligation assignments. These are the first operations where C3 modifies production SharePoint data on behalf of ops staff.
 
@@ -38,54 +39,64 @@ These risks require a formal governance pattern before the first write path ship
 Every proposed write operation in C3 moves through the following states:
 
 ```
-Draft
-  │
-  │  (ops staff submits the proposed action)
-  ▼
 Submitted
   │
-  │  (Platform Owner or delegate reviews)
+  │  (Platform Owner or explicit delegate opens the review)
   ▼
-In Review
+InReview
   │
   ├──────────────────────────────────────┐
-  │  (approved)                          │  (rejected)
+  │  (approved; ReviewedBy ≠ SubmittedBy)│  (rejected; RejectionReason recorded)
   ▼                                      ▼
-Approved                             Rejected
-  │                                      │
-  │  (C3 executes the write)             │  (no write occurs; reason recorded)
+Approved                             Rejected  ←── terminal; record immutable
+  │
+  │  (C3 executes the SharePoint write)
+  │
+  ├──────────────────────────────────────┐
+  │  (write succeeds)                    │  (write fails)
   ▼                                      ▼
-Operational Truth               Rejection Archived
+Executed  ←── terminal            ExecutionFailed  ←── terminal; explicit resolution required
 ```
 
-**State definitions:**
+**Draft state removed.** The original design included a `Draft` state visible only to the submitter. This is deferred — Sprint 18 panels submit directly, with no save-as-draft step. Draft support may be added in Sprint 19+ if operators request it.
 
-| State | Meaning |
-|---|---|
-| `Draft` | The proposed operation has been composed but not submitted for review. Visible only to the submitter. No SharePoint write has occurred. |
-| `Submitted` | The submitter has formally submitted the operation for governance review. The Platform Owner is notified. No SharePoint write has occurred. |
-| `In Review` | The Platform Owner has opened the submission and is evaluating it. No SharePoint write has occurred. |
-| `Approved` | The Platform Owner has approved the operation. C3 executes the SharePoint write. The approval is recorded with timestamp and approver identity. |
-| `Rejected` | The Platform Owner has rejected the operation. No SharePoint write occurs. The rejection reason is recorded. The submitter is notified. |
-| `Operational Truth` | The write has been executed and the SharePoint record reflects the approved state. The approval record is retained as permanent audit history. |
+### State definitions
 
-**Irreversibility:** Once a write reaches `Operational Truth`, it cannot be undone through the approval pattern. Corrections require a new proposal moving through the full lifecycle. There is no rollback button.
+| State | Meaning | SharePoint write state |
+|---|---|---|
+| `Submitted` | The submitter has formally submitted the operation for governance review. The Platform Owner is notified. | No write has occurred. |
+| `InReview` | The Platform Owner (or explicit delegate) has opened the submission and is evaluating it. | No write has occurred. |
+| `Approved` | The approval decision has been granted. `ReviewedBy` ≠ `SubmittedBy` confirmed. C3 is executing the SharePoint write. | Write execution is in progress or pending. |
+| `Rejected` | The operation has been rejected. `RejectionReason` is recorded. The submitter is notified. | No write has occurred. Terminal. |
+| `Executed` | The SharePoint operational write succeeded. The record reflects approved state. `ExecutedAt` is set. | Write complete. Terminal. |
+| `ExecutionFailed` | Approval was granted but the SharePoint write failed. `ExecutionError` is populated. No operational record was created or mutated. Requires explicit resolution. | No write has occurred. Terminal — must not be silently ignored. |
+
+**Critical distinctions:**
+
+- `Approved` ≠ `Executed`. Approval is the governance decision. Execution is the SharePoint write. These are distinct states.
+- `Executed` = operational truth. The SharePoint record exists and reflects the approved operation.
+- `ExecutionFailed` = approval granted, write not completed. The operation must be re-triggered or restarted via a new proposal.
+- `Rejected` records are immutable. They form the permanent audit trail of declined operations.
+
+**Irreversibility:** Once a write reaches `Executed`, it cannot be undone through the approval pattern. Corrections require a new proposal moving through the full lifecycle. There is no rollback state.
 
 ---
 
 ## Known Decisions
 
-The following are locked and not subject to the open questions below.
+The following are locked and not subject to further debate.
 
-**Platform Owner holds final approval.** The `owner` C3Role is the sole authority for approving operational-truth-changing writes. This is not delegated by default. Any delegation is explicit, time-bounded, and recorded (see Open Decisions — Q4).
+**Platform Owner holds final approval.** The `owner` C3Role is the sole authority for approving operational-truth-changing writes by default. Any delegation is explicit, recorded, and all-or-nothing in scope (Sprint 18 — see Resolved Decisions Q4).
 
-**Self-approval is prohibited.** The system must verify that the approver identity differs from the submitter identity before executing a write. If they match, the approval is blocked with a recorded error.
+**Submission is always allowed for authorised submitters.** Any user with a qualifying C3Role (`operator`, `admin`, or `owner`) may submit a proposed operation. Submission is not restricted by the submitter's identity relative to the approver. The Platform Owner may submit their own proposals.
+
+**Self-approval is prohibited at the approval action.** The block applies when `ReviewedBy === SubmittedBy`. The system must enforce this check before advancing `ApprovalStatus` from `InReview` to `Approved`. If they match, the approval action fails with a recorded error; `ApprovalStatus` remains `InReview`. No write proceeds.
 
 **Read operations never require a gate.** No read path — including `listPeople()`, `listJourneysForPerson()`, `listAllCredentials()`, or any diagnostic read — is subject to the approval lifecycle. The gate applies exclusively to write paths.
 
 **Diagnostics writes are excluded.** High-frequency diagnostic log writes use a lighter confirmation pattern, not the full approval lifecycle. They carry no compliance surface.
 
-**Sprint 16 is design-only.** No approval UI, no Power Automate flows, no write operations, and no `C3Approvals` SharePoint list are created in Sprint 16. This ADR must reach `Approved` status during Sprint 16 before Sprint 18 implementation begins.
+**No operational-truth write may bypass ADR-013 in the C3 application layer.** There is no code path within C3 that writes to an operational SharePoint list without the approval gate. This constraint is enforced at the service layer, not the UI layer. Out-of-band direct SharePoint edits are a last resort, documented separately (see Resolved Decisions Q3), and are not a C3 application feature.
 
 ---
 
@@ -96,10 +107,18 @@ The following are locked and not subject to the open questions below.
 The Platform Owner:
 - Reviews all `Submitted` operations before any write executes
 - May approve or reject with a recorded reason
-- May not approve their own submissions (self-approval is prohibited — see Known Decisions)
-- Is the only role that can advance a proposal from `In Review` to `Approved` or `Rejected`
+- May submit their own proposals but may not approve them (self-approval prohibition — see Known Decisions)
+- Is the only role that can advance a proposal from `InReview` to `Approved` or `Rejected`, unless explicit delegation is in effect
 
-**Delegation:** Pending resolution of Open Decision Q4 below.
+**Delegation (Sprint 18 model — all-or-nothing):**
+- Delegation is explicit and recorded — `DelegatedBy` carries the `owner` identity; `DelegateTo` carries the delegate identity
+- A delegate may approve any operation type. Scoped delegation (per operation type) is deferred to Sprint 19+
+- Delegation must be established before the approval action, not retroactively
+- Self-approval prohibition applies equally to delegates — `ReviewedBy` must still differ from `SubmittedBy` even when a delegate is acting
+
+**Escalation (notification only):**
+- Escalation to `admin` role is a notification signal, not an authority transfer
+- `admin` does not gain approval capability through escalation. See Resolved Decisions Q1 for timeout policy.
 
 **Role matrix for write operations:**
 
@@ -108,34 +127,35 @@ The Platform Owner:
 | `viewer` | No | No | No | No |
 | `operator` | Yes | No | No | No |
 | `admin` | Yes | No | No | No |
-| `owner` | Yes (with self-approval prohibition) | Yes | Yes | No (write is automatic upon approval) |
+| `owner` | Yes (cannot self-approve) | Yes | Yes | No — write is automatic upon `Approved` |
+| explicit delegate | Yes (cannot self-approve) | Yes | Yes (within delegation scope) | No |
 
-The write execution itself is automated — no human manually executes the SharePoint call after approval. The approval unlocks the execution; C3 performs the write.
+The write execution itself is automated — no human manually executes the SharePoint call after approval. The `Approved` state unlocks execution; C3 performs the write and advances to `Executed` or `ExecutionFailed`.
 
 ---
 
 ## Operations Subject to the Approval Gate
 
-All operations that modify SharePoint data are subject to the approval gate. In the initial write-path implementation (Sprint 18), the following operations are in scope:
+All operations that modify SharePoint data are subject to the approval gate. Sprint 18 scope is limited to `initiateJourney` only. The full planned scope is listed below for governance record.
 
 **Journey operations:**
 
-| Operation | Trigger | Risk if wrong |
+| Operation | Sprint 18? | Risk if wrong |
 |---|---|---|
-| Initiate Journey | Ops staff opens a new engagement for a person | Creates a governance record; person appears as `Routed` in Situation Room |
-| Complete Journey | Ops staff marks engagement as finished | Removes person from active monitoring; gaps may no longer surface |
-| Suspend Journey | Ops staff pauses engagement | Correct but may mask a genuine urgency if applied prematurely |
-| Cancel Journey | Ops staff abandons engagement | Removes routing entirely; person may appear `Unrouted` |
-| Add/Update Obligation Assignment | Ops staff assigns an obligation to an owner | Gap moves from `Routed` to `Covered` — incorrect assignment hides a real gap |
+| Initiate Journey | **Yes — Sprint 18 only** | Creates a governance record; person appears as `Routed` in Situation Room |
+| Complete Journey | Sprint 19 | Removes person from active monitoring; gaps may no longer surface |
+| Suspend Journey | Sprint 19 | May mask a genuine urgency if applied prematurely |
+| Cancel Journey | Sprint 19 | Removes routing entirely; person may appear `Unrouted` |
+| Add/Update Obligation Assignment | Sprint 19 | Gap moves from `Routed` to `Covered` — incorrect assignment hides a real gap |
 
-**Future write paths (not Sprint 18 — noted for governance planning):**
+**Future write paths — governance record only:**
 
 | Operation | Planned Sprint |
 |---|---|
 | Credential create / renew | Sprint 20+ |
 | Credential deactivate | Sprint 20+ |
 | Contract milestone update | Sprint 19+ |
-| Person record update | Sprint 18+ |
+| Person record update | Sprint 19+ |
 
 ---
 
@@ -156,9 +176,10 @@ Every approval gate lifecycle event must be recorded with:
 
 - Timestamp (UTC ISO 8601)
 - Actor identity (email or display name)
-- Operation type and target (e.g. "Complete Journey JRN-0007 for PER-0003")
-- State transition (e.g. `Submitted → In Review`)
+- Operation type and target (e.g. `InitiateJourney` for `PER-0003`)
+- State transition (e.g. `Submitted → InReview`)
 - Reason (required for `Rejected`; optional for `Approved`)
+- `ExecutionError` (required for `ExecutionFailed`)
 
 The audit record is immutable once written. It may not be deleted through any C3 interface.
 
@@ -166,76 +187,36 @@ The audit record is immutable once written. It may not be deleted through any C3
 
 ---
 
-## Implementation Constraints (Design Principles)
+## Implementation Constraints
 
-These are design constraints for Sprint 18 implementation. No code is written in this ADR.
+These are enforced constraints for all Sprint 18 and later write-path implementations.
 
-**1. No write bypasses the gate.** There is no direct-write code path that skips the approval lifecycle. The approval gate is not a UI layer that can be bypassed by API calls — it is enforced at the service layer.
+**1. No write bypasses the gate.** There is no direct-write code path in C3 that skips the approval lifecycle. The approval gate is enforced at the service layer, not the UI layer. A UI that is bypassed (e.g. by API call or direct service call) does not bypass the gate.
 
-**2. Approval state lives in SharePoint.** The approval record is stored in a dedicated SharePoint list (`C3Approvals`), not in memory. This ensures the audit trail survives app restarts, session timeouts, and multi-user concurrent access.
+**2. Approval state lives in SharePoint.** The approval record is stored in `C3Approvals` (a dedicated SharePoint list), not in memory. This ensures the audit trail survives app restarts, session timeouts, and multi-user concurrent access.
 
-**3. Optimistic execution is prohibited.** C3 does not optimistically apply the write before approval. The write only executes after an `Approved` state is recorded. There is no undo.
+**3. Optimistic execution is prohibited.** C3 does not optimistically apply the write before `Approved` state is recorded. The write only executes after `Approved` is persisted to `C3Approvals`. There is no undo.
 
-**4. The gate applies to the intent, not the data.** The approval record captures what the op intends to do and why — not just the raw SharePoint field values. The approver reviews intent and context, not raw JSON.
+**4. `Approved` ≠ `Executed`.** The service must distinguish between the approval decision (`Approved`) and the execution outcome (`Executed` / `ExecutionFailed`). Both states must be persisted to `C3Approvals`. A write that reaches `Approved` but fails to reach `Executed` is an `ExecutionFailed` and must not be silently treated as successful.
 
-**5. Self-approval is prohibited.** The system must check that the approver identity differs from the submitter identity. If they match, the approval is blocked with a clear error.
+**5. The gate applies to the intent, not the data.** The `Payload` field in `C3Approvals` captures what the op intends to do and why — not just the raw SharePoint field values. The approver reviews intent and context, not raw JSON.
 
-**6. Platform Owner notification is synchronous.** When a proposal reaches `Submitted`, the Platform Owner is notified before the submitter's session ends. The notification mechanism (email, Teams message, in-app badge) is a Sprint 18 implementation decision.
+**6. Self-approval is enforced at the service layer.** The service checks `ReviewedBy !== SubmittedBy` before executing the approval action. A matching identity blocks the approval and returns a clear error. This check is not optional and cannot be skipped via UI state.
 
----
+**7. Platform Owner notification is synchronous on submission.** When a proposal reaches `Submitted`, the Platform Owner is notified before the submitter's session ends. The notification mechanism is an in-app badge (minimum for Sprint 18); Power Automate email is an enhancement for Sprint 19+.
 
-## Open Decisions Before Sprint 18
+**8. `ExecutionFailed` requires explicit resolution.** An `ExecutionFailed` record must not be auto-retried or silently discarded. The Platform Owner must be surfaced the failure. Resolution options are: re-trigger execution (if the failure was transient) or restart with a new proposal.
 
-These questions are formally unresolved. They must be answered and this ADR updated to `Approved` before Sprint 18 implementation begins. Resolving them during Sprint 16 is the target.
-
-**Q1 — Approval timeout.** If a `Submitted` proposal is not reviewed within N days, what happens?
-- Option A: Auto-reject with notification to submitter and escalation to admin
-- Option B: Escalate to a designated fallback approver
-- Option C: Remain pending indefinitely (risk: queue buildup blocks operations)
-- *Decision needed: timeout policy and escalation path*
-
-**Q2 — Batch approvals.** Can the Platform Owner approve multiple operations in a single review action (e.g. "approve all pending Journey initiations for this week's roster")? Or is each operation reviewed individually?
-- Batch is faster but reduces per-record scrutiny and makes the audit trail less granular
-- *Decision needed: batch allowed, batch allowed with individual confirmation, or individual-only*
-
-**Q3 — Emergency bypass.** Is there a break-glass procedure for time-sensitive situations (e.g. a person needs to travel in 2 hours, Journey must be completed immediately)?
-- If yes: who authorizes it, what is the post-hoc audit requirement, and how is abuse prevented?
-- If no: what is the fallback when approval is unavailable and urgency is real?
-- *Decision needed: bypass policy and accountability mechanism*
-
-**Q4 — Delegation scope.** Can delegation be scoped to operation type (e.g. "Deputy may approve Journey completions but not obligation assignments")? Or is delegation all-or-nothing?
-- Scoped delegation reduces risk; all-or-nothing is simpler to implement and audit
-- *Decision needed: scope model for delegation*
-
-**Q5 — C3Approvals list schema.** The Sprint 18 provisioning handover will require a `C3Approvals` SP list schema document (equivalent to `C3People SP List Schema.md`). This schema is not defined in this ADR — it is a Sprint 18 deliverable contingent on Q1–Q4 above being resolved.
-- *Deliverable needed: C3Approvals SP List Schema, authored in Sprint 18 pre-work*
-
-**Q6 — Rejection re-submission.** When a proposal is rejected, can the submitter revise and re-submit? Or must they create a new proposal?
-- Revision preserves context and reason history; new proposal is cleaner for audit purposes
-- *Decision needed: revision or new-proposal policy*
+**9. Mock mode is gate-free by design.** In mock mode, `initiateJourney()` and all other write methods write to in-memory state directly with no approval gate. The gate applies exclusively to the SharePoint service implementations. This is intentional — mock mode supports local development and testing without requiring the `C3Approvals` list to exist.
 
 ---
 
-## Consequences
+## Resolved Decisions
 
-**What becomes true when this ADR reaches `Approved`:**
-
-- No C3 write path may be implemented without the Approval Gate in place
-- Sprint 18 implementation scope includes the `C3Approvals` list, the approval service, the notification mechanism, and the approval UI — these are preconditions for any Journey write, not add-ons
-- The Sprint 18 baseline document must include gate passage criteria for the Approval Gate itself (i.e. the approval flow must be tested before any operational write is attempted)
-- Open Decisions Q1–Q6 above become Sprint 18 planning blockers; they must be resolved before implementation begins
-
-**What does not change:**
-
-- Sprint 16 and Sprint 17 remain read-only. This ADR has no implementation effect until Sprint 18.
-- The mock service continues to support write operations locally (no gate in mock mode) — this is by design. The gate applies to the SharePoint service layer only.
-- ADR-002 (SharePoint Read / Power Automate Write Pattern) predates this ADR. ADR-013 supersedes ADR-002's write guidance for direct C3 write operations. Power Automate flows remain an option for non-interactive background writes but are out of scope for Sprint 18.
+All six open decisions from the `Proposed` draft are resolved below. These decisions were confirmed by the Platform Owner on 2026-06-29 and supersede the option lists in the original draft.
 
 ---
 
-## ADR Progression
+**Q1 — Approval timeout policy**
 
-| State | Date | Actor | Notes |
-|---|---|---|---|
-| Proposed | 2026-06-29 | Architecture review | Initial draft — design only; open decisions Q1–Q6 outstanding |
-| Approved | — | Platform Owner | Prerequisite to Sprint 18; all open decisions must be resolved first |
+**Decision:** 3 business days without
