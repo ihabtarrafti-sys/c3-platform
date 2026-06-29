@@ -1,4 +1,5 @@
-I think we've officially earned this
+
+ADR-012 - Platform SDK v1.0 Freeze
 Platform SDK v1.0
 
 Status: ✅ Frozen

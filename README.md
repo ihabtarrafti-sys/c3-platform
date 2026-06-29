@@ -23,10 +23,16 @@ packages/
 
 ## Build
 
-```bash
-npm install
+- npm install
 
-npm run build:c3
-npm run build:c3-runtime-pkg
-npm run build:spfx
-npm run build:embedded
+- npm run build:c3
+- npm run build:c3-runtime-pkg
+- npm run build:spfx
+- npm run build:embedded
+
+## Documentation
+
+See:
+
+- PROJECT_STATUS.md
+- docs/
