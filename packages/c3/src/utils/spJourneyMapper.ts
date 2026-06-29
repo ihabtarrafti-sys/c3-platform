@@ -60,9 +60,10 @@ export interface SpJourneyItem {
 
   /**
    * Choice column — one of the 5 JourneyType values.
+   * SP internal column name is JourneyType (not Type -- reserved word in SP).
    * Unknown value → hard reject (Journey excluded from type-filtered queries).
    */
-  Type: string | null;
+  JourneyType: string | null;
 
   /**
    * Choice column — one of the 4 JourneyStatus values.
@@ -238,9 +239,9 @@ export function mapSpItemToJourney(
   }
 
   // ── Hard reject: unknown JourneyType ───────────────────────────────────
-  if (!item.Type || !VALID_JOURNEY_TYPES.has(item.Type)) {
+  if (!item.JourneyType || !VALID_JOURNEY_TYPES.has(item.JourneyType)) {
     console.warn(
-      `${PREFIX} ${itemLabel}: unknown JourneyType "${item.Type ?? ''}" — record rejected`,
+      `${PREFIX} ${itemLabel}: unknown JourneyType "${item.JourneyType ?? ''}" — record rejected`,
     );
     return null;
   }
@@ -263,7 +264,7 @@ export function mapSpItemToJourney(
   return {
     JourneyID:        item.Title.trim(),
     PersonID:         item.PersonID.trim(),
-    Type:             item.Type as JourneyType,
+    Type:             item.JourneyType as JourneyType,
     Status:           item.Status as JourneyStatus,
     InitiatedAt:      initiatedAt ?? '',
     InitiatedBy:      item.InitiatedBy?.trim() ?? '',

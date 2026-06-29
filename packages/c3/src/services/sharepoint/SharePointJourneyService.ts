@@ -47,7 +47,7 @@ const SELECT_FIELDS = [
   'Id',
   'Title',
   'PersonID',
-  'Type',
+  'JourneyType',
   'Status',
   'InitiatedAt',
   'InitiatedBy',
@@ -127,7 +127,7 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
 
   return {
     async listAllActiveJourneys(type?: JourneyType): Promise<Journey[]> {
-      const typeFilter = type ? ` and Type eq '${escOData(type)}'` : '';
+      const typeFilter = type ? ` and JourneyType eq '${escOData(type)}'` : '';
       const url =
         `${baseUrl}` +
         `?$select=${SELECT_FIELDS}` +
@@ -140,7 +140,7 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
     },
 
     async listJourneysForPerson(personId: string, type?: JourneyType): Promise<Journey[]> {
-      const typeFilter = type ? ` and Type eq '${escOData(type)}'` : '';
+      const typeFilter = type ? ` and JourneyType eq '${escOData(type)}'` : '';
       const url =
         `${baseUrl}` +
         `?$select=${SELECT_FIELDS}` +
@@ -157,7 +157,7 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
       const url =
         `${baseUrl}` +
         `?$select=${SELECT_FIELDS}` +
-        `&$filter=PersonID eq '${escOData(personId)}' and Type eq '${escOData(type)}' and Status eq 'Active'` +
+        `&$filter=PersonID eq '${escOData(personId)}' and JourneyType eq '${escOData(type)}' and Status eq 'Active'` +
         `&$top=1`;
 
       const items = await fetchItems(url);

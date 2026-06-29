@@ -16,8 +16,8 @@ export const useJourneyService = (): IJourneyService => {
 
   return useMemo(() => {
     if (config.dataSourceMode === 'sharepoint') {
-      return createSharePointJourneyService();
+      return createSharePointJourneyService(config.spSiteUrl);
     }
     return createMockJourneyService();
-  }, [config.dataSourceMode]);
+  }, [config.dataSourceMode, config.spSiteUrl]);
 };
