@@ -515,4 +515,3 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
     </div>
   );
 };
-                 

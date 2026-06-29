@@ -395,4 +395,21 @@ export const StartJourneyPanel = ({
           <Button
             appearance="secondary"
             onClick={handleDismiss}
-           
+            disabled={isPending}
+          >
+            Cancel
+          </Button>
+          <Button
+            appearance="primary"
+            onClick={() => void handleSubmit()}
+            disabled={!isValid || isPending}
+          >
+            {isPending
+              ? (isSpMode ? 'Submitting…' : 'Starting…')
+              : (isSpMode ? 'Submit for Approval' : 'Start Journey')}
+          </Button>
+        </div>
+      </DrawerFooter>
+    </OverlayDrawer>
+  );
+};
