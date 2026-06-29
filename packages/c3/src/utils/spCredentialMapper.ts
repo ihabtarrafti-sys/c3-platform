@@ -23,6 +23,7 @@
  */
 
 import type { Credential, CredentialType } from '@c3/types';
+import { normalizeSpDate } from './dateUtils';
 
 // ---------------------------------------------------------------------------
 // SpCredentialItem
@@ -121,34 +122,6 @@ function isValidCredentialType(val: unknown): val is CredentialType {
   return typeof val === 'string' && VALID_CREDENTIAL_TYPES.has(val);
 }
 
-// ---------------------------------------------------------------------------
-// Date normalisation
-//
-// SP DateOnly columns return ISO-like strings ("2026-07-09T00:00:00Z").
-// We normalise to date-only form ("2026-07-09") for the Credential interface.
-//
-// Invalid input → undefined, NOT a sentinel date.
-//   Returning a sentinel (e.g. "1970-01-01") would cause computeUrgency to
-//   see a 56-year-old expiry and produce false Critical urgency. Returning
-//   undefined means the document is treated as non-expiring — the safer
-//   operational default. The warning log records the anomaly for correction.
-// ---------------------------------------------------------------------------
-
-function normalizeSpDate(val: unknown, context: string, warnRef: { count: number }): string | undefined {
-  if (val === null || val === undefined || val === '') return undefined;
-  if (typeof val !== 'string') {
-    console.warn(`[C3/Credential] ${context}: unexpected date type ${typeof val} — treated as absent`);
-    warnRef.count++;
-    return undefined;
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) {
-    console.warn(`[C3/Credential] ${context}: invalid date "${val}" — treated as absent (non-expiring)`);
-    warnRef.count++;
-    return undefined;
-  }
-  return d.toISOString().split('T')[0];
-}
 
 // ---------------------------------------------------------------------------
 // IsActive parsing
