@@ -14,7 +14,7 @@ export const createSharePointServiceRegistry = (
   people: createSharePointPersonService(siteUrl),
   amendments: createSharePointAmendmentService(),
   credentials: createSharePointCredentialService(siteUrl),
-  journeys: createSharePointJourneyService(),
+  journeys: createSharePointJourneyService(siteUrl),
   users: createSharePointUserService(),
   diagnostics: createSharePointDiagnosticsService(siteUrl),
 });
