@@ -22,7 +22,8 @@
     "description": { "default": "C3Host description" },
     "officeFabricIconFontName": "Page",
     "properties": {
-      "description": "C3Host"
+      "description": "C3Host",
+      "dataSourceMode": "mock"
     }
   }]
 }

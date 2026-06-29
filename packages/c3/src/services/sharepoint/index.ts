@@ -13,7 +13,7 @@ export const createSharePointServiceRegistry = (
   contracts: createSharePointContractService(siteUrl),
   people: createSharePointPersonService(),
   amendments: createSharePointAmendmentService(),
-  credentials: createSharePointCredentialService(),
+  credentials: createSharePointCredentialService(siteUrl),
   journeys: createSharePointJourneyService(),
   users: createSharePointUserService(),
   diagnostics: createSharePointDiagnosticsService(siteUrl),

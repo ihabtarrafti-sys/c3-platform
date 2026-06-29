@@ -12,6 +12,10 @@ export interface PlatformServices {
 export interface PlatformContext {
   environment: PlatformEnvironment;
   dataSourceMode: PlatformDataSourceMode;
+  /** Absolute URL of the SharePoint web. Required when dataSourceMode is 'sharepoint'. */
+  spSiteUrl?: string;
+  /** When true, the host signals that Fluent UI Toaster registration is unsafe in this environment. */
+  disableToasts?: boolean;
   services?: PlatformServices;
 }
 
@@ -21,6 +25,8 @@ export interface PlatformHost {
 }
 
 export interface PlatformApplication {
-  start(host: PlatformHost): Promise<void>;
-  stop(): Promise<void>;
+  /** Mount the C3 application into the given container element. */
+  mount(container: HTMLElement, options: { context: PlatformContext }): void;
+  /** Unmount and clean up the C3 application from the given container element. */
+  unmount(container: HTMLElement): void;
 }

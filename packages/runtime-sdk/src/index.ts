@@ -12,6 +12,8 @@ export interface PlatformServices {
 export interface PlatformContext {
   environment: PlatformEnvironment;
   dataSourceMode: PlatformDataSourceMode;
+  /** Absolute URL of the SharePoint web. Required when dataSourceMode is 'sharepoint'. */
+  spSiteUrl?: string;
   services?: PlatformServices;
 }
 

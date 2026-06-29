@@ -18,6 +18,7 @@ export const LocalHost = () => {
     dataSourceMode: host.dataSourceMode,
     spSiteUrl:
       host.spSiteUrl ?? 'https://geekaygames.sharepoint.com/sites/C3',
+    disableToasts: host.disableToasts,
 
     authService: {
       getCurrentUser: async () => devUser,

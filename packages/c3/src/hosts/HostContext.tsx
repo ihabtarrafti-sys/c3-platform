@@ -7,6 +7,8 @@ export interface HostContextValue {
   environment: HostEnvironment;
   dataSourceMode: HostDataSourceMode;
   spSiteUrl?: string;
+  /** When true, the host signals that Fluent UI Toaster registration is unsafe (e.g. SPFx workbench). */
+  disableToasts?: boolean;
 }
 
 export const defaultHostContext: HostContextValue = {

@@ -17,8 +17,9 @@ export const useCredentialService = (): ICredentialService => {
 
   return useMemo(() => {
     if (config.dataSourceMode === 'sharepoint') {
-      return createSharePointCredentialService();
+      return createSharePointCredentialService(config.spSiteUrl);
     }
     return createMockCredentialService();
-  }, [config.dataSourceMode]);
+  }, [config.dataSourceMode, config.spSiteUrl]
+  );
 };

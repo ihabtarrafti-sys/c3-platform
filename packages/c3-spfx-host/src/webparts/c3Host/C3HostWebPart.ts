@@ -3,7 +3,8 @@ import * as ReactDom from 'react-dom';
 import { Version } from '@microsoft/sp-core-library';
 import {
   type IPropertyPaneConfiguration,
-  PropertyPaneTextField
+  PropertyPaneTextField,
+  PropertyPaneDropdown
 } from '@microsoft/sp-property-pane';
 import { BaseClientSideWebPart } from '@microsoft/sp-webpart-base';
 import { IReadonlyTheme } from '@microsoft/sp-component-base';
@@ -14,6 +15,8 @@ import { IC3HostProps } from './components/IC3HostProps';
 
 export interface IC3HostWebPartProps {
   description: string;
+  /** "mock" (default) or "sharepoint". Configurable via property pane. */
+  dataSourceMode: 'mock' | 'sharepoint';
 }
 
 export default class C3HostWebPart extends BaseClientSideWebPart<IC3HostWebPartProps> {
@@ -22,6 +25,10 @@ export default class C3HostWebPart extends BaseClientSideWebPart<IC3HostWebPartP
   private _environmentMessage: string = '';
 
   public render(): void {
+    const rawMode = this.properties.dataSourceMode;
+    const safeMode: 'mock' | 'sharepoint' =
+      rawMode === 'sharepoint' ? 'sharepoint' : 'mock';
+
     const element: React.ReactElement<IC3HostProps> = React.createElement(
       C3Host,
       {
@@ -29,7 +36,9 @@ export default class C3HostWebPart extends BaseClientSideWebPart<IC3HostWebPartP
         isDarkTheme: this._isDarkTheme,
         environmentMessage: this._environmentMessage,
         hasTeamsContext: !!this.context.sdks.microsoftTeams,
-        userDisplayName: this.context.pageContext.user.displayName
+        userDisplayName: this.context.pageContext.user.displayName,
+        spSiteUrl: this.context.pageContext.web.absoluteUrl,
+        dataSourceMode: safeMode,
       }
     );
 
@@ -110,6 +119,13 @@ export default class C3HostWebPart extends BaseClientSideWebPart<IC3HostWebPartP
               groupFields: [
                 PropertyPaneTextField('description', {
                   label: strings.DescriptionFieldLabel
+                }),
+                PropertyPaneDropdown('dataSourceMode', {
+                  label: 'Data source mode',
+                  options: [
+                    { key: 'mock',        text: 'Mock (local / dev)' },
+                    { key: 'sharepoint',  text: 'SharePoint (live data)' },
+                  ],
                 })
               ]
             }

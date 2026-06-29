@@ -5,4 +5,6 @@ export interface AppConfig {
   spSiteUrl: string;
   environment: 'dev' | 'staging' | 'production';
   dataSourceMode: 'mock' | 'sharepoint';
+  /** When true, the Toaster is not mounted. Set by hosts where Fluent UI toaster registration is unsafe. */
+  disableToasts?: boolean;
 }
