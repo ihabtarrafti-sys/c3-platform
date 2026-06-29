@@ -166,7 +166,7 @@ export const StartJourneyPanel = ({
   obligations,
   missionContext,
 }: StartJourneyPanelProps) => {
-  const { currentUser, config } = useApp();
+  const { config } = useApp();
   const { submitAsync, isPending } = useSubmitJourneyApproval();
   const toast = useToast();
   const isSpMode = config.dataSourceMode === 'sharepoint';
