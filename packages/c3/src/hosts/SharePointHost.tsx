@@ -8,12 +8,14 @@
  * (IC3HostProps → C3HostWebPart → C3Host → HostContext.userLoginName) and
  * surfaced here as currentUser.loginName.
  *
- * Sprint 18 Phase 2B stubs / non-authoritative fields:
+ * Sprint 18 Phase 2B / 3A stubs / non-authoritative fields:
  *   - currentUser.email: not threaded from SPFx pageContext yet (empty string).
- *   - currentUser.c3Role: hardcoded 'member' — NOT authoritative.
+ *   - currentUser.c3Role: temporary stub 'operations' for Sprint 18 hosted-workbench
+ *     validation only. 'operations' is the least-privileged role with canCreate: true,
+ *     allowing approval submission in Phase 3A without full role resolution.
  *     Real role resolution (SP group membership lookup) is Phase 3 scope.
  *     ADR-013 self-approval enforcement applies at patchApprovalStatus time;
- *     c3Role is not used for access control in Phase 2B.
+ *     c3Role is not used for access control in Phase 2B / 3A.
  *   - authService.getAccessToken: returns empty string (not required for
  *     same-origin SP REST calls with credentials: 'same-origin').
  *
@@ -32,10 +34,11 @@ export const SharePointHost = () => {
     displayName: '',                     // not threaded from SPFx in Phase 2B
     email: '',                           // not threaded from SPFx in Phase 2B
     loginName: host.userLoginName ?? '', // from pageContext.user.loginName
-    // STUB — not authoritative. 'visitor' is the most restrictive valid C3Role.
-    // Real role resolution (SP group membership lookup) is Phase 3 scope.
-    // ADR-013 self-approval enforcement is not implemented in Phase 2B.
-    c3Role: 'visitor',
+    // STUB — non-authoritative. 'operations' for Sprint 18 hosted-workbench validation.
+    // Least-privileged role with canCreate: true; allows approval submission (Phase 3A).
+    // Real SP group membership resolution is Phase 3 scope.
+    // ADR-013 self-approval enforcement applies at patchApprovalStatus time (Phase 4).
+    c3Role: 'operations',
   };
 
   const config: AppConfig = {
