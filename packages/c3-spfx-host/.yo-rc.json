@@ -1,0 +1,19 @@
+{
+  "@microsoft/generator-sharepoint": {
+    "useGulp": false,
+    "plusBeta": false,
+    "isCreatingSolution": true,
+    "nodeVersion": "18.19.1",
+    "sdksVersions": {},
+    "version": "1.23.0",
+    "libraryName": "c-3-spfx-host",
+    "libraryId": "45869e8b-fd26-40a3-b9f0-c07ce65c86de",
+    "environment": "spo",
+    "packageManager": "npm",
+    "solutionName": "c3-spfx-host",
+    "solutionShortDescription": "c3-spfx-host description",
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "componentType": "webpart"
+  }
+}

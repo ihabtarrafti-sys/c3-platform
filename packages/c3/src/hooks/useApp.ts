@@ -1,0 +1,1 @@
+export { useApp } from '@c3/context/AppContext';

@@ -1,0 +1,40 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/package-solution.schema.json",
+  "solution": {
+    "name": "c-3-spfx-host-client-side-solution",
+    "id": "45869e8b-fd26-40a3-b9f0-c07ce65c86de",
+    "version": "1.0.0.0",
+    "includeClientSideAssets": true,
+    "skipFeatureDeployment": true,
+    "isDomainIsolated": false,
+    "developer": {
+      "name": "",
+      "websiteUrl": "",
+      "privacyUrl": "",
+      "termsOfUseUrl": "",
+      "mpnId": "Undefined-1.23.0"
+    },
+    "metadata": {
+      "shortDescription": {
+        "default": "c3-spfx-host description"
+      },
+      "longDescription": {
+        "default": "c3-spfx-host description"
+      },
+      "screenshotPaths": [],
+      "videoUrl": "",
+      "categories": []
+    },
+    "features": [
+      {
+        "title": "c-3-spfx-host Feature",
+        "description": "The feature that activates elements of the c-3-spfx-host solution.",
+        "id": "ad43324c-75cb-4f9a-96b3-3c22cdde0c17",
+        "version": "1.0.0.0"
+      }
+    ]
+  },
+  "paths": {
+    "zippedPackage": "solution/c-3-spfx-host.sppkg"
+  }
+}

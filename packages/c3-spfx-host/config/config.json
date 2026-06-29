@@ -1,0 +1,18 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/spfx-build/config.2.0.schema.json",
+  "version": "2.0",
+  "bundles": {
+    "c-3-host-web-part": {
+      "components": [
+        {
+          "entrypoint": "./lib/webparts/c3Host/C3HostWebPart.js",
+          "manifest": "./src/webparts/c3Host/C3HostWebPart.manifest.json"
+        }
+      ]
+    }
+  },
+  "externals": {},
+  "localizedResources": {
+    "C3HostWebPartStrings": "lib/webparts/c3Host/loc/{locale}.js"
+  }
+}
