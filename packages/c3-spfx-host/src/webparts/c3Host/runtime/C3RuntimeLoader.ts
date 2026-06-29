@@ -14,6 +14,8 @@ export interface PlatformContext {
   dataSourceMode: PlatformDataSourceMode;
   /** Absolute URL of the SharePoint web. Required when dataSourceMode is 'sharepoint'. */
   spSiteUrl?: string;
+  /** SPFx claims login name, e.g. "i:0#.f|membership|user@tenant.onmicrosoft.com". */
+  userLoginName?: string;
   /** When true, the host signals that Fluent UI Toaster registration is unsafe in this environment. */
   disableToasts?: boolean;
   services?: PlatformServices;

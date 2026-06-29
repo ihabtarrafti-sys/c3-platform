@@ -32,6 +32,7 @@
  */
 
 import type { Journey, JourneyType, JourneyStatus, ObligationAssignment } from '@c3/types';
+import { normalizeSpDateTime } from './dateUtils';
 
 // ---------------------------------------------------------------------------
 // SpJourneyItem
@@ -138,40 +139,6 @@ const VALID_JOURNEY_STATUSES = new Set<string>([
 const PREFIX = '[C3/Journey]';
 
 /**
- * Normalise a raw SP DateTime column value to a trimmed ISO datetime string.
- *
- * Journey DateTime fields (InitiatedAt, CompletedAt, assignedAt) are SP
- * "Date and Time" columns that return full ISO 8601 strings. This helper
- * preserves the full datetime — do NOT use normalizeSpDate here, which
- * strips to date-only (YYYY-MM-DD).
- *
- * null / undefined / ''  → undefined (silent — absent field is expected)
- * non-string             → undefined + console.warn + warnRef.count++
- * unparseable string     → undefined + console.warn + warnRef.count++
- * valid datetime string  → raw trimmed SP value (full ISO string preserved)
- */
-function normalizeSpDateTime(
-  val: unknown,
-  context: string,
-  warnRef: { count: number },
-): string | undefined {
-  if (val === null || val === undefined || val === '') return undefined;
-  if (typeof val !== 'string') {
-    console.warn(`${PREFIX} ${context}: unexpected datetime type ${typeof val} — treated as absent`);
-    warnRef.count++;
-    return undefined;
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) {
-    console.warn(`${PREFIX} ${context}: invalid datetime "${val}" — treated as absent`);
-    warnRef.count++;
-    return undefined;
-  }
-  // Return raw trimmed SP value — full ISO datetime string is preserved.
-  return val.trim();
-}
-
-/**
  * Parse the ObligationAssignmentsJSON plain-text column.
  *
  * Blank/null  → undefined, no warn (absent optional field)
@@ -255,8 +222,8 @@ export function mapSpItemToJourney(
   }
 
   // ── DateTime fields — full ISO string preserved (not date-only) ─────────
-  const initiatedAt = normalizeSpDateTime(item.InitiatedAt, `${itemLabel}.InitiatedAt`, warnRef);
-  const completedAt = normalizeSpDateTime(item.CompletedAt, `${itemLabel}.CompletedAt`, warnRef);
+  const initiatedAt = normalizeSpDateTime(item.InitiatedAt, `${itemLabel}.InitiatedAt`, warnRef, PREFIX);
+  const completedAt = normalizeSpDateTime(item.CompletedAt, `${itemLabel}.CompletedAt`, warnRef, PREFIX);
 
   // ── ObligationAssignments — safe JSON parse ─────────────────────────────
   const obligationAssignments = parseObligationAssignments(item.ObligationAssignmentsJSON, warnRef);
@@ -320,3 +287,4 @@ export function mapSpItemsToJourneys(
 
   return { journeys, result };
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       

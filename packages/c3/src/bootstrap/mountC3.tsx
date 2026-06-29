@@ -2,6 +2,7 @@ import React from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
 import { LocalHost } from '../hosts/LocalHost';
+import { SharePointHost } from '../hosts/SharePointHost';
 import {
   defaultHostContext,
   HostContextProvider,
@@ -34,7 +35,9 @@ export const mountC3 = (
   root.render(
     <React.StrictMode>
       <HostContextProvider value={hostContext}>
-        <LocalHost />
+        {hostContext.dataSourceMode === 'sharepoint'
+          ? <SharePointHost />
+          : <LocalHost />}
       </HostContextProvider>
     </React.StrictMode>,
   );

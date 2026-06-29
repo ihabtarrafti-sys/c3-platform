@@ -37,6 +37,7 @@ export default class C3HostWebPart extends BaseClientSideWebPart<IC3HostWebPartP
         environmentMessage: this._environmentMessage,
         hasTeamsContext: !!this.context.sdks.microsoftTeams,
         userDisplayName: this.context.pageContext.user.displayName,
+        userLoginName: this.context.pageContext.user.loginName,
         spSiteUrl: this.context.pageContext.web.absoluteUrl,
         dataSourceMode: safeMode,
       }
@@ -127,7 +128,7 @@ export default class C3HostWebPart extends BaseClientSideWebPart<IC3HostWebPartP
                     { key: 'sharepoint',  text: 'SharePoint (live data)' },
                   ],
                 })
-              ]
+              ]
             }
           ]
         }

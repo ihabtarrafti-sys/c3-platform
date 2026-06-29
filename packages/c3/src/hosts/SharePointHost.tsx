@@ -1,3 +1,4 @@
-export const SharePointHost = () => {
-  return <div>SharePoint Host placeholder</div>;
-};
+/**
+ * SharePointHost.tsx
+ *
+ * SP-mode host component. Reads the HostContext populated b

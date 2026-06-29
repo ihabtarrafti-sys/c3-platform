@@ -56,8 +56,8 @@ export function normalizeSpDate(
   return d.toISOString().split('T')[0];
 }
 
-export const computeDaysToExpiry = (endDate: string): number => {
-  const today = normalizeToMidnight(new Date().toISOString());
-  const end = normalizeToMidnight(endDate);
-  return Math.floor((end.getTime() - today.getTime()) / (86_400 * 1000));
-};
+// ---------------------------------------------------------------------------
+// normalizeSpDateTime
+//
+// Normalises a raw SharePoint DateTime column value to a trimmed ISO datetime
+// string, preserving the full datetime (not stripping to date-on

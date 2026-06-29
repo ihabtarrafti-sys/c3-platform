@@ -35,6 +35,7 @@ export default class C3Host extends React.Component<IC3HostProps> {
         environment: 'dev',
         dataSourceMode: this.props.dataSourceMode,
         spSiteUrl: this.props.spSiteUrl,
+        userLoginName: this.props.userLoginName,
         // Fluent UI v9 Toaster registration fails in the SPFx-hosted workbench.
         // Disable Toaster mounting until root cause is resolved (Sprint 16).
         disableToasts: true,
@@ -50,6 +51,6 @@ export default class C3Host extends React.Component<IC3HostProps> {
   }
 
   public render(): React.ReactElement<IC3HostProps> {
-    return <div ref={this.containerRef} />;
+     return <div ref={this.containerRef} />;
   }
 }
