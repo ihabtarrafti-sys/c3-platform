@@ -39,16 +39,17 @@ export function normalizeSpDate(
   val: unknown,
   context: string,
   warnRef: { count: number },
+  prefix = '[C3/Credential]',
 ): string | undefined {
   if (val === null || val === undefined || val === '') return undefined;
   if (typeof val !== 'string') {
-    console.warn(`[C3/Credential] ${context}: unexpected date type ${typeof val} — treated as absent`);
+    console.warn(`${prefix} ${context}: unexpected date type ${typeof val} — treated as absent`);
     warnRef.count++;
     return undefined;
   }
   const d = new Date(val);
   if (isNaN(d.getTime())) {
-    console.warn(`[C3/Credential] ${context}: invalid date "${val}" — treated as absent (non-expiring)`);
+    console.warn(`${prefix} ${context}: invalid date "${val}" — treated as absent (non-expiring)`);
     warnRef.count++;
     return undefined;
   }
