@@ -17,6 +17,7 @@ import { ReadinessPanel } from '@c3/components/shared/ReadinessPanel';
 import { StageBadge } from '@c3/components/shared/StageBadge';
 import { StartJourneyPanel } from '@c3/components/shared/StartJourneyPanel';
 import { useNavigate } from '@c3/hooks/useNavigate';
+import { useSpReadOnly } from '@c3/hooks/useSpReadOnly';
 import { usePerson } from '@c3/hooks/usePerson';
 import { usePersonJourneys } from '@c3/hooks/usePersonJourneys';
 import { usePersonContracts } from '@c3/hooks/usePersonContracts';
@@ -119,6 +120,7 @@ const JOURNEY_BADGE_COLOR: Record<JourneyStatus, JourneyBadgeColor> = {
 
 export const PersonProfile = ({ personId, tab: initialTab, missionContext }: PersonProfileProps) => {
   const { navigate } = useNavigate();
+  const isSpReadOnly = useSpReadOnly();
   const [activeTab,          setActiveTab]          = useState<ProfileTab>(initialTab ?? 'profile');
   const [journeyPanelOpen,   setJourneyPanelOpen]   = useState(false);
   const [credentialPanelOpen, setCredentialPanelOpen] = useState(false);
@@ -315,16 +317,18 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
           <SectionCard
             title={`Credentials (${credentials.length})`}
             action={
-              <Button
-                appearance="subtle"
-                size="small"
-                onClick={() => {
-                  setResolveCapability(undefined);
-                  setCredentialPanelOpen(true);
-                }}
-              >
-                Add Credential
-              </Button>
+              !isSpReadOnly ? (
+                <Button
+                  appearance="subtle"
+                  size="small"
+                  onClick={() => {
+                    setResolveCapability(undefined);
+                    setCredentialPanelOpen(true);
+                  }}
+                >
+                  Add Credential
+                </Button>
+              ) : undefined
             }
           >
             {credentials.length === 0 ? (
@@ -333,16 +337,18 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                 title="No credentials registered"
                 description="Travel documents, visas, and identity credentials will appear here."
                 action={
-                  <Button
-                    appearance="primary"
-                    size="small"
-                    onClick={() => {
-                      setResolveCapability(undefined);
-                      setCredentialPanelOpen(true);
-                    }}
-                  >
-                    Add Credential
-                  </Button>
+                  !isSpReadOnly ? (
+                    <Button
+                      appearance="primary"
+                      size="small"
+                      onClick={() => {
+                        setResolveCapability(undefined);
+                        setCredentialPanelOpen(true);
+                      }}
+                    >
+                      Add Credential
+                    </Button>
+                  ) : undefined
                 }
               />
             ) : (
@@ -442,7 +448,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                 title="No onboarding journey"
                 description="Start an onboarding journey to assign an owner, record context, and begin tracking operational readiness."
                 action={
-                  !hasOnboardingJourney ? (
+                  !hasOnboardingJourney && !isSpReadOnly ? (
                     <Button
                       appearance="primary"
                       onClick={() => setJourneyPanelOpen(true)}
@@ -491,21 +497,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                 ) : evaluation ? (
                   <ReadinessPanel
                     evaluation={evaluation}
-                    onResolveObligation={handleResolveObligation}
+                    onResolveObligation={isSpReadOnly ? undefined : handleResolveObligation}
                   />
                 ) : (
-                  <EmptyState
-                    compact
-                    title="Unable to evaluate readiness"
-                    description="Credential data could not be loaded."
-                  />
-                )}
-              </SectionCard>
-            </>
-          )}
-        </>
-      )}
-
-    </div>
-  );
-};
+                  <EmptyS

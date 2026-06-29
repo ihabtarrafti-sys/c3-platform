@@ -23,6 +23,7 @@ import { useContract } from '@c3/hooks/useContract';
 import { useContractActivities } from '@c3/hooks/useContractActivities';
 import { useContractAmendments } from '@c3/hooks/useContractAmendments';
 import { useNavigate } from '@c3/hooks/useNavigate';
+import { useSpReadOnly } from '@c3/hooks/useSpReadOnly';
 import { usePeople } from '@c3/hooks/usePeople';
 import type { ContractTab } from '@c3/types';
 
@@ -54,6 +55,7 @@ export const ContractProfile = ({
   tab = 'overview',
 }: ContractProfileProps) => {
   const { navigate } = useNavigate();
+  const isSpReadOnly = useSpReadOnly();
   const { data: contract, isLoading, error } = useContract(contractId);
   const { data: people = [] } = usePeople();
   const {
@@ -150,15 +152,17 @@ export const ContractProfile = ({
           { label: 'Contracts', onClick: () => navigate({ id: 'contracts' }) },
         ]}
         actions={
-          <>
-            <Button appearance="subtle">Edit Contract</Button>
-            <Button
-              appearance="primary"
-              onClick={() => setAmendmentPanelOpen(true)}
-            >
-              Add Amendment
-            </Button>
-          </>
+          !isSpReadOnly ? (
+            <>
+              <Button appearance="subtle">Edit Contract</Button>
+              <Button
+                appearance="primary"
+                onClick={() => setAmendmentPanelOpen(true)}
+              >
+                Add Amendment
+              </Button>
+            </>
+          ) : undefined
         }
         lastUpdated={loadedAt}
       />
@@ -496,11 +500,4 @@ export const ContractProfile = ({
       </div>
 
       <CreateAmendmentPanel
-        contractId={contractId}
-        contractCode={contract.ContractID}
-        open={amendmentPanelOpen}
-        onDismiss={() => setAmendmentPanelOpen(false)}
-      />
-    </div>
-  );
-};
+        contractId={contractI
