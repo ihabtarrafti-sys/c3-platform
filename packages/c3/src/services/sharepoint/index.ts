@@ -11,7 +11,7 @@ export const createSharePointServiceRegistry = (
   siteUrl: string,
 ): ServiceRegistry => ({
   contracts: createSharePointContractService(siteUrl),
-  people: createSharePointPersonService(),
+  people: createSharePointPersonService(siteUrl),
   amendments: createSharePointAmendmentService(),
   credentials: createSharePointCredentialService(siteUrl),
   journeys: createSharePointJourneyService(),
