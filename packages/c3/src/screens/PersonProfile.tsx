@@ -500,4 +500,18 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                     onResolveObligation={isSpReadOnly ? undefined : handleResolveObligation}
                   />
                 ) : (
-                  <EmptyS
+                  <EmptyState
+                    compact
+                    title="Unable to evaluate readiness"
+                    description="Credential data could not be loaded."
+                  />
+                )}
+              </SectionCard>
+            </>
+          )}
+        </>
+      )}
+
+    </div>
+  );
+};

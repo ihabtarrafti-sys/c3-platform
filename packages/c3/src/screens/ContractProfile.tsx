@@ -500,4 +500,11 @@ export const ContractProfile = ({
       </div>
 
       <CreateAmendmentPanel
-        contractId={contractI
+        contractId={contractId}
+        contractCode={contract.ContractID}
+        open={amendmentPanelOpen}
+        onDismiss={() => setAmendmentPanelOpen(false)}
+      />
+    </div>
+  );
+};
