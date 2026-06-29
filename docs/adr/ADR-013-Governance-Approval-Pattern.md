@@ -219,4 +219,111 @@ All six open decisions from the `Proposed` draft are resolved below. These decis
 
 **Q1 — Approval timeout policy**
 
-**Decision:** 3 business days without
+**Decision:** 3 business days without `owner` action → escalation notification sent to `admin` role. If no `owner` action for a further 2 business days → auto-reject with notification to submitter.
+
+**Rules:**
+- Escalation to `admin` is a notification signal only. `admin` does not gain approval authority through escalation.
+- `owner` retains sole approval authority throughout the timeout period unless explicit delegation (Q4) is in effect.
+- Auto-reject sets `ApprovalStatus: Rejected` with `RejectionReason: "Auto-rejected: approval timeout after 5 business days"`.
+- The timeout clock pauses if the proposal enters `InReview` state (i.e. the Platform Owner has opened it). Auto-reject applies only if the proposal remains in `Submitted` without any owner action.
+
+---
+
+**Q2 — Batch approvals**
+
+**Decision:** Individual approvals only for Sprint 18. Each proposal is reviewed and actioned independently.
+
+**Rules:**
+- The `ApprovalGatePanel` presents one pending operation at a time in Sprint 18.
+- Batch approval capability is deferred to Sprint 19+ once the single-record flow is proven in production.
+- The `C3Approvals` list schema does not need to accommodate batch grouping for Sprint 18.
+
+---
+
+**Q3 — Emergency bypass**
+
+**Decision:** No automated break-glass mechanism in Sprint 18. Urgent approvals go through the standard owner approval panel (which is available immediately — there is no artificial delay in the approval UI).
+
+**Out-of-band fallback (last resort only):**
+- If the Platform Owner is genuinely unavailable and a time-critical operation cannot wait for approval, a direct SharePoint edit may be made by an authorised IT administrator.
+- Any out-of-band action of this kind requires a manual post-hoc audit entry to be added to `C3Approvals` within 24 hours of the action, with `OperationType`, `TargetID`, `SubmittedBy` (the person who acted), `ApprovalStatus: Executed`, and `Reason` noting the out-of-band justification.
+- Out-of-band actions are not a C3 application feature. C3 has no UI or service method to record or facilitate them. They are an operational escape valve only.
+- Abuse of the out-of-band path is subject to the same operational accountability as any direct SharePoint modification.
+
+---
+
+**Q4 — Delegation scope**
+
+**Decision:** All-or-nothing delegation for Sprint 18. A named delegate may approve any operation type.
+
+**Rules:**
+- Delegation is explicit: `DelegatedBy` carries the `owner` identity; `DelegateTo` carries the delegate identity. Both fields are recorded on the `C3Approvals` item at approval time.
+- Delegation must be established before the approval action. Retroactive delegation is not permitted.
+- Scoped delegation (per operation type, time-bounded) is deferred to Sprint 19+.
+- Self-approval prohibition applies equally to delegates: `ReviewedBy` must differ from `SubmittedBy` even when the delegate is acting.
+- Delegation does not persist across proposals. Each proposal where a delegate acts must carry `DelegatedBy` and `DelegateTo` on that record. There is no standing delegation configuration in Sprint 18 — delegation is recorded per-approval-action.
+
+---
+
+**Q5 — C3Approvals list schema**
+
+**Decision:** The 16-column schema below is approved as the starting point for Sprint 18. The full schema document (`C3Approvals SP List Schema.md`) will be authored in Sprint 18 Phase 1.
+
+| Column (Display Name) | SP Internal Name | SP Type | Notes |
+|---|---|---|---|
+| Title (rename: ApprovalID) | `Title` | Single line text | Custom ID format: APR-NNNN |
+| Operation Type | `OperationType` | Choice | Values: InitiateJourney, CompleteJourney, SuspendJourney, CancelJourney, AddCredential, DeactivateCredential |
+| Target ID | `TargetID` | Single line text | FK to target record (e.g. JRN-NNNN); blank for new-record operations before ID is assigned |
+| Target Person ID | `TargetPersonID` | Single line text | FK to C3People PersonID |
+| Submitted By | `SubmittedBy` | Single line text | Login name or display name of submitter |
+| Submitted At | `SubmittedAt` | Date and Time | UTC ISO |
+| Approval Status | `ApprovalStatus` | Choice | Submitted / InReview / Approved / Rejected / Executed / ExecutionFailed |
+| Reviewed By | `ReviewedBy` | Single line text | Identity of approver or rejecter — must differ from SubmittedBy |
+| Reviewed At | `ReviewedAt` | Date and Time | UTC ISO; null until reviewed |
+| Executed At | `ExecutedAt` | Date and Time | UTC ISO; set when SP operational write succeeds |
+| Execution Error | `ExecutionError` | Multi-line text | Error detail when ApprovalStatus = ExecutionFailed; null otherwise |
+| Delegated By | `DelegatedBy` | Single line text | Owner identity when delegation is in effect; null for direct approvals |
+| Delegate To | `DelegateTo` | Single line text | Delegate identity who reviewed; null when no delegation |
+| Reason | `Reason` | Multi-line text | Optional context from submitter |
+| Rejection Reason | `RejectionReason` | Multi-line text | Required on Rejected; null otherwise |
+| Payload | `Payload` | Multi-line text | Serialised JSON of the proposed write input (e.g. InitiateJourneyInput fields) |
+
+**Reserved-word note:** `ApprovalStatus` is used as the internal name (not `Status`) to avoid SP reserved-word collision — same class of issue as the `JourneyType` correction in Sprint 17.
+
+---
+
+**Q6 — Rejection re-submission**
+
+**Decision:** Re-submission creates a new proposal. The rejected `C3Approvals` record is immutable.
+
+**Rules:**
+- A rejected proposal may not be revised or mutated. `ApprovalStatus: Rejected` is a terminal state.
+- The submitter creates a fresh proposal through the normal submission flow.
+- UX may pre-populate the new proposal form from the rejected record as a convenience (e.g. carry forward `Reason`, `Payload` fields). This is a UX nicety — it does not modify the original record.
+- The new proposal receives a new `ApprovalID` and is evaluated independently.
+
+---
+
+## Consequences
+
+**What is now true (ADR status: Approved):**
+
+- No C3 write path may be implemented without the Approval Gate in place
+- Sprint 18 implementation scope includes the `C3Approvals` list, the approval service, the notification mechanism, and the approval UI — these are preconditions for any Journey write, not add-ons
+- The Sprint 18 baseline document must include gate passage criteria for the Approval Gate itself (the approval flow must be tested before any operational write is attempted)
+- `initiateJourney` is the only write operation in Sprint 18 scope. All other write paths require separate sprint-level approval
+
+**What does not change:**
+
+- Sprints 1–17 remain read-only. This ADR has no retroactive effect.
+- The mock service continues to support write operations locally (no gate in mock mode) — this is by design. The gate applies to the SharePoint service layer only.
+- ADR-002 (SharePoint Read / Power Automate Write Pattern) predates this ADR. ADR-013 supersedes ADR-002's write guidance for direct C3 write operations. Power Automate flows remain an option for non-interactive background writes but are out of scope for Sprint 18.
+
+---
+
+## ADR Progression
+
+| State | Date | Actor | Notes |
+|---|---|---|---|
+| Proposed | 2026-06-29 | Architecture review | Initial draft — design only; open decisions Q1–Q6 outstanding |
+| Approved | 2026-06-29 | Platform Owner | All Q1–Q6 resolved; approved for Sprint 18 governed `initiateJourney` implementation |
