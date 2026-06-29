@@ -18,4 +18,14 @@ export interface HostContextValue {
   disableToasts?: boolean;
 }
 
-export const default
+export const defaultHostContext: HostContextValue = {
+  environment: 'dev',
+  dataSourceMode: 'mock',
+  spSiteUrl: 'https://geekaygames.sharepoint.com/sites/C3',
+};
+
+const HostContext = createContext<HostContextValue>(defaultHostContext);
+
+export const HostContextProvider = HostContext.Provider;
+
+export const useHostContext = () => useContext(HostContext);

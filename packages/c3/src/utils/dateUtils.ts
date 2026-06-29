@@ -60,4 +60,53 @@ export function normalizeSpDate(
 // normalizeSpDateTime
 //
 // Normalises a raw SharePoint DateTime column value to a trimmed ISO datetime
-// string, preserving the full datetime (not stripping to date-on
+// string, preserving the full datetime (not stripping to date-only).
+//
+// Use this for SP "Date and Time" columns (InitiatedAt, SubmittedAt, etc.)
+// Do NOT use normalizeSpDate here — it strips to YYYY-MM-DD, corrupting
+// datetime semantics.
+//
+//   null / undefined / ''  → undefined (silent)
+//   non-string             → undefined + console.warn + warnRef.count++
+//   unparseable string     → undefined + console.warn + warnRef.count++
+//   valid datetime string  → raw trimmed SP value (full ISO string preserved)
+// ---------------------------------------------------------------------------
+
+/**
+ * Normalise a raw SharePoint DateTime column value to a full ISO datetime string.
+ *
+ * Shared by spJourneyMapper, spApprovalMapper, and any future mapper that
+ * consumes SP "Date and Time" columns.
+ *
+ * @param val      Raw value from SP REST response (may be null, undefined, or string).
+ * @param context  Log context label (e.g. "Item 7.InitiatedAt") for warning messages.
+ * @param warnRef  Shared warn counter — incremented on non-fatal anomalies.
+ * @param prefix   Diagnostic prefix (e.g. "[C3/Journey]", "[C3/Approvals]").
+ * @returns        Trimmed ISO string on success; undefined on null/empty/invalid.
+ */
+export function normalizeSpDateTime(
+  val: unknown,
+  context: string,
+  warnRef: { count: number },
+  prefix = '[C3]',
+): string | undefined {
+  if (val === null || val === undefined || val === '') return undefined;
+  if (typeof val !== 'string') {
+    console.warn(`${prefix} ${context}: unexpected datetime type ${typeof val} — treated as absent`);
+    warnRef.count++;
+    return undefined;
+  }
+  const d = new Date(val);
+  if (isNaN(d.getTime())) {
+    console.warn(`${prefix} ${context}: invalid datetime "${val}" — treated as absent`);
+    warnRef.count++;
+    return undefined;
+  }
+  return val.trim();
+}
+
+export const computeDaysToExpiry = (endDate: string): number => {
+  const today = normalizeToMidnight(new Date().toISOString());
+  const end = normalizeToMidnight(endDate);
+  return Math.floor((end.getTime() - today.getTime()) / (86_400 * 1000));
+};
