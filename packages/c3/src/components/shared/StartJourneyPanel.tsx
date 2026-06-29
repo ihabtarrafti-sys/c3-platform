@@ -49,7 +49,7 @@ import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { FormField } from '@c3/components/ui';
 import { useApp } from '@c3/hooks/useApp';
-import { useInitiateJourney } from '@c3/hooks/useInitiateJourney';
+import { useSubmitJourneyApproval } from '@c3/hooks/useSubmitJourneyApproval';
 import { useToast } from '@c3/hooks/useToast';
 import type { CredentialCapability, ObligationAssignment } from '@c3/types';
 
@@ -166,9 +166,10 @@ export const StartJourneyPanel = ({
   obligations,
   missionContext,
 }: StartJourneyPanelProps) => {
-  const { currentUser } = useApp();
-  const { mutateAsync, isPending } = useInitiateJourney();
+  const { currentUser, config } = useApp();
+  const { submitAsync, isPending } = useSubmitJourneyApproval();
   const toast = useToast();
+  const isSpMode = config.dataSourceMode === 'sharepoint';
 
   // ── Main form state ───────────────────────────────────────────────────────
   const [assignedTo,       setAssignedTo]       = useState('');
@@ -223,30 +224,36 @@ export const StartJourneyPanel = ({
       }));
 
     try {
-      await mutateAsync({
-        PersonID:         personId,
-        Type:             'Onboarding',
-        InitiatedBy:      currentUser.displayName,
-        AssignedTo:       assignedTo.trim(),
-        InitiationReason: initiationReason.trim(),
-        Notes:            notes.trim() || undefined,
-        MissionID:        missionContext?.missionId,
-        obligationAssignments: obligationAssignments.length > 0
-          ? obligationAssignments
-          : undefined,
+      const outcome = await submitAsync({
+        personId:          personId,
+        journeyType:       'Onboarding',
+        initiationReason:  initiationReason.trim(),
+        assignedTo:        assignedTo.trim(),
+        notes:             notes.trim() || undefined,
+        missionId:         missionContext?.missionId,
+        obligationAssignments,
       });
 
-      const coveredCount = obligationAssignments.length;
-      const missionSuffix = missionContext ? ` — linked to ${missionContext.missionId}` : '';
-      const detail = coveredCount > 0
-        ? `Journey opened and ${coveredCount} obligation${coveredCount === 1 ? '' : 's'} assigned.${missionSuffix}`
-        : `Journey opened for ${personName} and assigned to ${assignedTo.trim()}.${missionSuffix}`;
+      if (outcome.mode === 'direct') {
+        // Mock / dev path — journey created immediately.
+        const coveredCount = obligationAssignments.length;
+        const missionSuffix = missionContext ? ` — linked to ${missionContext.missionId}` : '';
+        const detail = coveredCount > 0
+          ? `Journey opened and ${coveredCount} obligation${coveredCount === 1 ? '' : 's'} assigned.${missionSuffix}`
+          : `Journey opened for ${personName} and assigned to ${assignedTo.trim()}.${missionSuffix}`;
+        toast.success('Onboarding journey started', detail);
+      } else {
+        // SharePoint approval path — no journey created yet.
+        toast.success(
+          'Approval submitted',
+          `Journey request for ${personName} is pending Platform Owner review. Ref: ${outcome.approvalTitle}`,
+        );
+      }
 
-      toast.success('Onboarding journey started', detail);
       handleDismiss();
     } catch {
       toast.error(
-        'Failed to start journey',
+        isSpMode ? 'Failed to submit approval' : 'Failed to start journey',
         'Please try again or contact support.',
       );
     }
@@ -388,19 +395,4 @@ export const StartJourneyPanel = ({
           <Button
             appearance="secondary"
             onClick={handleDismiss}
-            disabled={isPending}
-          >
-            Cancel
-          </Button>
-          <Button
-            appearance="primary"
-            onClick={() => void handleSubmit()}
-            disabled={!isValid || isPending}
-          >
-            {isPending ? 'Starting…' : 'Start Journey'}
-          </Button>
-        </div>
-      </DrawerFooter>
-    </OverlayDrawer>
-  );
-};
+           

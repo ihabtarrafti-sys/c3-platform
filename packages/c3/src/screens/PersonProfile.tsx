@@ -448,7 +448,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                 title="No onboarding journey"
                 description="Start an onboarding journey to assign an owner, record context, and begin tracking operational readiness."
                 action={
-                  !hasOnboardingJourney && !isSpReadOnly ? (
+                  !hasOnboardingJourney ? (
                     <Button
                       appearance="primary"
                       onClick={() => setJourneyPanelOpen(true)}
@@ -515,3 +515,4 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
     </div>
   );
 };
+                 
