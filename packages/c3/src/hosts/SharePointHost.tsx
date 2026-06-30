@@ -8,20 +8,29 @@
  * (IC3HostProps -> C3HostWebPart -> C3Host -> HostContext.userLoginName) and
  * surfaced here as currentUser.loginName.
  *
- * ── Beta / non-production stubs (Sprint 18 Phase 4B) ──────────────────────
+ * ── Role resolution (Sprint 19 Phase 1) ──────────────────────────────────
+ *
+ * c3Role is resolved from SharePoint security group membership via
+ * resolveSPRole() in spRoleResolver.ts. The role promise is memoized
+ * on [spSiteUrl, userLoginName] — the SP REST fetch fires exactly once
+ * per component mount. AppContext awaits it while showing a loading spinner.
+ *
+ * Group-to-role mapping (priority order):
+ *   C3 Platform Owners  →  owner
+ *   C3 Operations       →  operations
+ *   C3 HR               →  hr
+ *   C3 Legal            →  legal
+ *   C3 Finance          →  finance
+ *   C3 Management       →  management
+ *   (no match)          →  visitor
+ *
+ * Fail-close: empty loginName, empty siteUrl, fetch failure, or no group
+ * match all produce 'visitor'. See spRoleResolver.ts for full detail.
+ *
+ * ── Other non-production fields ───────────────────────────────────────────
  *
  *   currentUser.email
  *     Empty string. Not threaded from SPFx pageContext. Unused in beta.
- *
- *   currentUser.c3Role
- *     ⚠ WARNING — TEMPORARY BETA STUB. NOT PRODUCTION AUTHORIZATION.
- *     Hardcoded 'owner' for Sprint 18 Phase 4B hosted-workbench validation.
- *     All users see the owner role (Approvals screen + Approve/Reject/Execute).
- *     Real role resolution (SP security group membership lookup) is a future
- *     sprint deliverable. Before go-live this stub MUST be replaced with a
- *     real group-membership check. Do NOT deploy to production as-is.
- *     ADR-013 self-approval enforcement is enforced at the hook layer
- *     (patchApprovalStatus) and is not affected by the role stub.
  *
  *   authService.getAccessToken
  *     Returns empty string. Not required for same-origin SP REST calls
@@ -30,31 +39,54 @@
  * Replaces prior placeholder: `export const SharePointHost = () => <div>...</div>`
  */
 
+import { useMemo } from 'react';
+
 import type { AppConfig } from '@c3/config/AppConfig';
 import type { C3CurrentUser } from '@c3/services/auth';
 import { C3App } from '@c3/App';
 import { useHostContext } from './HostContext';
+import { resolveSPRole } from './spRoleResolver';
 
 export const SharePointHost = () => {
   const host = useHostContext();
 
+  const loginName = host.userLoginName ?? '';
+  const siteUrl   = host.spSiteUrl    ?? '';
+
+  // Resolve the C3Role from SP group membership exactly once per mount.
+  // useMemo ensures the Promise is not recreated on re-renders unless
+  // siteUrl or loginName changes (both are stable after mount).
+  // AppContext awaits this promise inside getCurrentUser() and renders a
+  // loading spinner until it resolves.
+  const rolePromise = useMemo(
+    () => resolveSPRole(siteUrl, loginName),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [siteUrl, loginName],
+  );
+
   const currentUser: C3CurrentUser = {
-    displayName: '',                     // not threaded from SPFx in Phase 2B
-    email: '',                           // not threaded from SPFx in Phase 2B
-    loginName: host.userLoginName ?? '', // from pageContext.user.loginName
-    // ⚠ BETA STUB — NOT PRODUCTION AUTHORIZATION. See file-level comment.
-    // Hardcoded 'owner' for Sprint 18 Phase 4B hosted-workbench validation only.
-    // Replace with real SP group membership lookup before go-live.
-    c3Role: 'owner',
+    displayName: '', // not threaded from SPFx pageContext
+    email:       '', // not threaded from SPFx pageContext
+    loginName,
+    // c3Role is intentionally absent here — it is resolved asynchronously
+    // by getCurrentUser() below. The AppContext loading spinner covers the gap.
+    c3Role: 'visitor', // safe initial value; overwritten by getCurrentUser()
   };
 
   const config: AppConfig = {
-    environment: host.environment,
+    environment:    host.environment,
     dataSourceMode: host.dataSourceMode,
-    spSiteUrl: host.spSiteUrl ?? '',
-    disableToasts: host.disableToasts,
+    spSiteUrl:      siteUrl,
+    disableToasts:  host.disableToasts,
     authService: {
-      getCurrentUser: async () => currentUser,
+      /**
+       * Called once by AppContext on mount. Awaits the memoized rolePromise
+       * so the SP group fetch fires exactly once regardless of re-renders.
+       */
+      getCurrentUser: async (): Promise<C3CurrentUser> => {
+        const c3Role = await rolePromise;
+        return { ...currentUser, c3Role };
+      },
       // getAccessToken not required for same-origin SP REST calls.
       getAccessToken: async () => '',
     },
