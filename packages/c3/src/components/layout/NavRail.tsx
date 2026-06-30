@@ -11,6 +11,7 @@ import {
   LightbulbRegular,
   SettingsRegular,
   WrenchRegular,
+  ShieldTaskRegular,
 } from '@fluentui/react-icons';
 
 import { useApp } from '@c3/hooks/useApp';
@@ -38,9 +39,10 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'people',         label: 'People',          icon: PeopleRegular },
   { id: 'renewals',       label: 'Renewals',        icon: ArrowClockwiseRegular, visibleWhen: role => role !== 'visitor' },
   { id: 'amendments',     label: 'Amendments',      icon: DocumentEditRegular },
-  { id: 'inbox',           label: 'Inbox',           icon: MailRegular,           visibleWhen: role => role !== 'visitor' },
+  { id: 'inbox',          label: 'Inbox',           icon: MailRegular,           visibleWhen: role => role !== 'visitor' },
   { id: 'situation-room', label: 'Situation Room',  icon: AlertUrgentRegular },
   { id: 'intelligence',   label: 'Intelligence',    icon: LightbulbRegular },
+  { id: 'approvals',      label: 'Approvals',       icon: ShieldTaskRegular,     visibleWhen: role => role !== 'visitor' },
   { id: 'settings',       label: 'Settings',        icon: SettingsRegular,       visibleWhen: (_role, caps) => caps.canManageSettings },
   { id: 'developer-diagnostics', label: 'Diagnostics', icon: WrenchRegular },
 ];
@@ -69,6 +71,7 @@ const toScreen = (id: C3Screen['id']): C3Screen => {
     case 'inbox':                 return { id: 'inbox' };
     case 'situation-room':        return { id: 'situation-room' };
     case 'intelligence':          return { id: 'intelligence' };
+    case 'approvals':             return { id: 'approvals' };
     case 'settings':              return { id: 'settings' };
     case 'contract-profile':      return { id: 'command-center' };
     case 'amendment-profile':     return { id: 'amendments' };

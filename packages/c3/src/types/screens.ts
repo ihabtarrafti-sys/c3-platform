@@ -18,7 +18,7 @@ export interface PersonFilter {
  * Minimal mission context carried through navigation when the user clicks
  * through from a Mission-scoped gap in the Situation Room.
  *
- * Passed as a prop to PersonProfile → StartJourneyPanel so the panel can
+ * Passed as a prop to PersonProfile -> StartJourneyPanel so the panel can
  * display mission context and tag the resulting Journey with MissionID.
  *
  * Sprint 10 (M10-4).
@@ -55,4 +55,5 @@ export type C3Screen =
       missionId?: string;
     }
   | { id: 'settings' }
-  | { id: 'developer-diagnostics' };
+  | { id: 'developer-diagnostics' }
+  | { id: 'approvals' };

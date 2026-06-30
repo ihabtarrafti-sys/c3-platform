@@ -17,6 +17,7 @@ import { useApp } from '@c3/hooks/useApp';
 import { useHostContext } from '@c3/hosts/HostContext';
 import { NavRail } from './NavRail';
 
+import { ApprovalInbox } from '@c3/screens/ApprovalInbox';
 import { CommandCenter } from '@c3/screens/CommandCenter';
 import { ContractsList } from '@c3/screens/ContractsList';
 import { ContractProfile } from '@c3/screens/ContractProfile';
@@ -42,7 +43,7 @@ import { DeveloperDiagnostics } from '@c3/screens/DeveloperDiagnostics';
  * that they are in demo mode and that any changes (journeys started,
  * credentials added) will not survive a page refresh.
  *
- * Dismissed per session via local React state. No localStorage —
+ * Dismissed per session via local React state. No localStorage --
  * the banner returns on every fresh load, which is intentional.
  */
 const MockBanner = () => {
@@ -162,6 +163,9 @@ export const AppShell = () => {
 
       case 'developer-diagnostics':
         return <DeveloperDiagnostics />;
+
+      case 'approvals':
+        return <ApprovalInbox />;
 
       default:
         return <CommandCenter />;

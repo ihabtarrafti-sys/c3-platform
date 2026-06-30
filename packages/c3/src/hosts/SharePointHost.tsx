@@ -5,17 +5,16 @@
  * (via mountC3.tsx) and assembles a typed AppConfig for the C3 runtime.
  *
  * Identity: pageContext.user.loginName is threaded through the SPFx host chain
- * (IC3HostProps → C3HostWebPart → C3Host → HostContext.userLoginName) and
+ * (IC3HostProps -> C3HostWebPart -> C3Host -> HostContext.userLoginName) and
  * surfaced here as currentUser.loginName.
  *
- * Sprint 18 Phase 2B / 3A stubs / non-authoritative fields:
+ * Sprint 18 Phase 2B / 3A / 3B stubs / non-authoritative fields:
  *   - currentUser.email: not threaded from SPFx pageContext yet (empty string).
- *   - currentUser.c3Role: temporary stub 'operations' for Sprint 18 hosted-workbench
- *     validation only. 'operations' is the least-privileged role with canCreate: true,
- *     allowing approval submission in Phase 3A without full role resolution.
+ *   - currentUser.c3Role: temporary stub 'owner' for Sprint 18 Phase 3B hosted-workbench
+ *     validation. 'owner' is required to access Approvals and action Approve/Reject.
  *     Real role resolution (SP group membership lookup) is Phase 3 scope.
  *     ADR-013 self-approval enforcement applies at patchApprovalStatus time;
- *     c3Role is not used for access control in Phase 2B / 3A.
+ *     c3Role is not used for SP-side access control in Phase 2B / 3A / 3B.
  *   - authService.getAccessToken: returns empty string (not required for
  *     same-origin SP REST calls with credentials: 'same-origin').
  *
@@ -34,11 +33,11 @@ export const SharePointHost = () => {
     displayName: '',                     // not threaded from SPFx in Phase 2B
     email: '',                           // not threaded from SPFx in Phase 2B
     loginName: host.userLoginName ?? '', // from pageContext.user.loginName
-    // STUB — non-authoritative. 'operations' for Sprint 18 hosted-workbench validation.
-    // Least-privileged role with canCreate: true; allows approval submission (Phase 3A).
+    // STUB — non-authoritative. 'owner' for Sprint 18 Phase 3B hosted-workbench validation.
+    // Required to access Approvals screen and action Approve/Reject.
     // Real SP group membership resolution is Phase 3 scope.
     // ADR-013 self-approval enforcement applies at patchApprovalStatus time (Phase 4).
-    c3Role: 'operations',
+    c3Role: 'owner',
   };
 
   const config: AppConfig = {

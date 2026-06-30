@@ -6,7 +6,10 @@
  * createApproval is live: derives the next APR-XXXX sequence, fetches a fresh
  * X-RequestDigest from /_api/contextinfo, then POSTs to C3Approvals.
  *
- * listApprovals, getApproval, patchApprovalStatus are Phase 3 stubs that throw.
+ * Sprint 18 Phase 3B:
+ *   listApprovals: GET with $filter on ApprovalStatus; maps via spApprovalMapper.
+ *   patchApprovalStatus: POST + X-HTTP-Method: MERGE. Stamps ReviewedBy / ReviewedAt.
+ *     For Rejected: also writes RejectionReason. Does NOT write ExecutedAt or create Journey.
  *
  * Design follows the S15/S16/S17 SP service pattern:
  *   - No PnP.js. Native fetch with credentials: 'same-origin'.
@@ -35,7 +38,10 @@ import type {
   IApprovalsService,
   CreateApprovalRequest,
   CreateApprovalResult,
+  PatchApprovalStatusRequest,
 } from '../interfaces/IApprovalsService';
+import { mapSpItemsToApprovals, type SpApprovalItem } from '@c3/utils/spApprovalMapper';
+import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
 const PREFIX = '[C3/Approvals]';
 const LIST_NAME = 'C3Approvals';
@@ -51,6 +57,10 @@ function buildListUrl(siteUrl: string): string {
 
 function buildContextInfoUrl(siteUrl: string): string {
   return `${siteUrl.replace(/\/$/, '')}/_api/contextinfo`;
+}
+
+function buildItemUrl(siteUrl: string, id: number): string {
+  return `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${LIST_NAME}')/items(${id})`;
 }
 
 /**
@@ -114,7 +124,7 @@ async function deriveNextSequenceNumber(siteUrl: string): Promise<number> {
   const lastTitle = json.value[0].Title;
   if (!lastTitle) return 1;
 
-  // Parse "APR-XXXX" → extract the numeric part
+  // Parse "APR-XXXX" -> extract the numeric part
   const match = lastTitle.match(/^APR-(\d+)$/i);
   if (!match) return 1;
 
@@ -185,18 +195,85 @@ export const createSharePointApprovalsService = (
     return { approvalId, title, status: 'Submitted' };
   },
 
-  async listApprovals(_filter?: Record<string, unknown>): Promise<never[]> {
-    console.warn(`${PREFIX} listApprovals: not implemented — Phase 3`);
-    throw new Error(`${PREFIX} listApprovals: not implemented`);
+  async listApprovals(filter?: { status?: string[] }): Promise<C3Approval[]> {
+    const statuses = filter?.status ?? ['Submitted', 'InReview'];
+
+    // Build OData $filter: ApprovalStatus eq 'Submitted' or ApprovalStatus eq 'InReview'
+    const statusFilter = statuses
+      .map(s => `ApprovalStatus eq '${s}'`)
+      .join(' or ');
+
+    const url =
+      `${buildListUrl(siteUrl)}` +
+      `?$filter=${encodeURIComponent(statusFilter)}` +
+      `&$orderby=SubmittedAt%20desc` +
+      `&$top=500`;
+
+    const response = await fetch(url, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json;odata=nometadata' },
+    });
+
+    if (!response.ok) {
+      throw new Error(
+        `${PREFIX} listApprovals: HTTP ${response.status} ${response.statusText}`,
+      );
+    }
+
+    const json = (await response.json()) as { value: SpApprovalItem[] };
+    const { approvals: items } = mapSpItemsToApprovals(json.value ?? []);
+
+    console.info(`${PREFIX} listApprovals: ${items.length} items returned (filter: ${statuses.join(', ')})`);
+    return items;
   },
 
   async getApproval(_id: number): Promise<null> {
-    console.warn(`${PREFIX} getApproval: not implemented — Phase 3`);
+    console.warn(`${PREFIX} getApproval: not implemented — Phase 4`);
     throw new Error(`${PREFIX} getApproval: not implemented`);
   },
 
-  async patchApprovalStatus(_id: number, _update: Record<string, unknown>): Promise<never> {
-    console.warn(`${PREFIX} patchApprovalStatus: not implemented — Phase 3`);
-    throw new Error(`${PREFIX} patchApprovalStatus: not implemented`);
+  async patchApprovalStatus(id: number, req: PatchApprovalStatusRequest): Promise<void> {
+    // Rejected requires a rejection reason
+    if (req.newStatus === 'Rejected' && !req.rejectionReason?.trim()) {
+      throw new Error(`${PREFIX} patchApprovalStatus: rejectionReason is required when rejecting`);
+    }
+
+    const digest = await fetchFormDigest(siteUrl);
+
+    const body: Record<string, unknown> = {
+      __metadata: { type: LIST_ITEM_TYPE },
+      ApprovalStatus: req.newStatus,
+      ReviewedBy:     currentUserLoginName,
+      ReviewedAt:     new Date().toISOString(),
+    };
+
+    if (req.newStatus === 'Rejected') {
+      body['RejectionReason'] = req.rejectionReason ?? '';
+    }
+
+    const response = await fetch(buildItemUrl(siteUrl, id), {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {
+        'Accept':           'application/json;odata=nometadata',
+        'Content-Type':     'application/json;odata=verbose',
+        'X-RequestDigest':  digest,
+        'X-HTTP-Method':    'MERGE',
+        'IF-MATCH':         '*',
+      },
+      body: JSON.stringify(body),
+    });
+
+    // SP MERGE returns 204 No Content on success
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '(unreadable)');
+      throw new Error(
+        `${PREFIX} patchApprovalStatus: HTTP ${response.status} ${response.statusText}. ` +
+        `Body: ${errorText}`,
+      );
+    }
+
+    console.info(`${PREFIX} patchApprovalStatus: ID ${id} -> ${req.newStatus}`);
   },
 });

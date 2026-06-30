@@ -3,20 +3,21 @@
  *
  * In-memory mock implementation of IApprovalsService.
  *
- * Sprint 18 Phase 2B — createApproval is live (synthetic APR-XXXX sequence).
- * listApprovals, getApproval, patchApprovalStatus are Phase 3 stubs that throw.
+ * Sprint 18 Phase 2B: createApproval live.
+ * Sprint 18 Phase 3B: listApprovals and patchApprovalStatus live.
  *
- * Gate-free: mock submissions are always accepted without auth or role checks.
- * This matches the ADR-013 constraint that the mock is gate-free (constraint #9).
+ * Gate-free creation: mock submissions are always accepted (ADR-013 constraint #9).
+ * Self-approval: enforced in patchApprovalStatus — throws SelfApprovalError.
  *
- * SubmittedBy is stamped from currentUserLoginName supplied at factory creation —
- * the caller does not supply identity fields.
+ * SubmittedBy / ReviewedBy are stamped from currentUserLoginName supplied at
+ * factory creation — callers do not supply identity fields.
  */
 
 import type {
   IApprovalsService,
   CreateApprovalRequest,
   CreateApprovalResult,
+  PatchApprovalStatusRequest,
 } from '../interfaces/IApprovalsService';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
@@ -56,24 +57,55 @@ export const createMockApprovalsService = (
     };
 
     approvalStore = [...approvalStore, approval];
-
     console.info(`${PREFIX} createApproval: created ${title} for ${req.targetPersonId}`);
 
     return { approvalId: id, title, status: 'Submitted' };
   },
 
-  async listApprovals(_filter?: Record<string, unknown>): Promise<never[]> {
-    console.warn(`${PREFIX} listApprovals: not implemented — Phase 3`);
-    throw new Error(`${PREFIX} listApprovals: not implemented`);
+  async listApprovals(filter?: { status?: string[] }): Promise<C3Approval[]> {
+    const statuses: string[] = filter?.status ?? ['Submitted', 'InReview'];
+    const results = approvalStore.filter(a => statuses.includes(a.approvalStatus));
+    console.info(`${PREFIX} listApprovals: returning ${results.length} records (filter: ${statuses.join(', ')})`);
+    return [...results];
   },
 
   async getApproval(_id: number): Promise<null> {
-    console.warn(`${PREFIX} getApproval: not implemented — Phase 3`);
+    console.warn(`${PREFIX} getApproval: not implemented — Phase 4`);
     throw new Error(`${PREFIX} getApproval: not implemented`);
   },
 
-  async patchApprovalStatus(_id: number, _update: Record<string, unknown>): Promise<never> {
-    console.warn(`${PREFIX} patchApprovalStatus: not implemented — Phase 3`);
-    throw new Error(`${PREFIX} patchApprovalStatus: not implemented`);
+  async patchApprovalStatus(id: number, req: PatchApprovalStatusRequest): Promise<void> {
+    const idx = approvalStore.findIndex(a => a.id === id);
+    if (idx === -1) {
+      throw new Error(`${PREFIX} patchApprovalStatus: record ${id} not found`);
+    }
+
+    const existing = approvalStore[idx];
+
+    // Self-approval enforcement (ADR-013)
+    if (currentUserLoginName && currentUserLoginName === existing.submittedBy) {
+      throw new Error(`[C3/Approvals] Self-approval not permitted (ADR-013). ReviewedBy must differ from SubmittedBy.`);
+    }
+
+    // Rejected requires a rejection reason
+    if (req.newStatus === 'Rejected' && !req.rejectionReason?.trim()) {
+      throw new Error(`${PREFIX} patchApprovalStatus: rejectionReason is required when rejecting`);
+    }
+
+    const now = new Date().toISOString();
+
+    approvalStore = [
+      ...approvalStore.slice(0, idx),
+      {
+        ...existing,
+        approvalStatus:  req.newStatus,
+        reviewedBy:      currentUserLoginName,
+        reviewedAt:      now,
+        rejectionReason: req.newStatus === 'Rejected' ? (req.rejectionReason ?? '') : existing.rejectionReason,
+      },
+      ...approvalStore.slice(idx + 1),
+    ];
+
+    console.info(`${PREFIX} patchApprovalStatus: ${existing.title} (ID ${id}) → ${req.newStatus}`);
   },
 });

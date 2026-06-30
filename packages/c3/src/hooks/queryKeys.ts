@@ -75,4 +75,10 @@ export const queryKeys = {
      */
     forMission: (missionId: string) => ['finance', missionId] as const,
   },
+  approvals: {
+    /** Root key — invalidate to refetch all approval queries. */
+    all: () => ['approvals'] as const,
+    /** Filtered list — default Submitted/InReview unless caller overrides. */
+    list: (filter?: { status?: string[] }) => ['approvals', 'list', filter] as const,
+  },
 } as const;
