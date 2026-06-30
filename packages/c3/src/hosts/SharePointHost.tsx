@@ -8,15 +8,24 @@
  * (IC3HostProps -> C3HostWebPart -> C3Host -> HostContext.userLoginName) and
  * surfaced here as currentUser.loginName.
  *
- * Sprint 18 Phase 2B / 3A / 3B stubs / non-authoritative fields:
- *   - currentUser.email: not threaded from SPFx pageContext yet (empty string).
- *   - currentUser.c3Role: temporary stub 'owner' for Sprint 18 Phase 3B hosted-workbench
- *     validation. 'owner' is required to access Approvals and action Approve/Reject.
- *     Real role resolution (SP group membership lookup) is Phase 3 scope.
- *     ADR-013 self-approval enforcement applies at patchApprovalStatus time;
- *     c3Role is not used for SP-side access control in Phase 2B / 3A / 3B.
- *   - authService.getAccessToken: returns empty string (not required for
- *     same-origin SP REST calls with credentials: 'same-origin').
+ * ── Beta / non-production stubs (Sprint 18 Phase 4B) ──────────────────────
+ *
+ *   currentUser.email
+ *     Empty string. Not threaded from SPFx pageContext. Unused in beta.
+ *
+ *   currentUser.c3Role
+ *     ⚠ WARNING — TEMPORARY BETA STUB. NOT PRODUCTION AUTHORIZATION.
+ *     Hardcoded 'owner' for Sprint 18 Phase 4B hosted-workbench validation.
+ *     All users see the owner role (Approvals screen + Approve/Reject/Execute).
+ *     Real role resolution (SP security group membership lookup) is a future
+ *     sprint deliverable. Before go-live this stub MUST be replaced with a
+ *     real group-membership check. Do NOT deploy to production as-is.
+ *     ADR-013 self-approval enforcement is enforced at the hook layer
+ *     (patchApprovalStatus) and is not affected by the role stub.
+ *
+ *   authService.getAccessToken
+ *     Returns empty string. Not required for same-origin SP REST calls
+ *     (credentials: 'same-origin'). Not a security gap in hosted-workbench.
  *
  * Replaces prior placeholder: `export const SharePointHost = () => <div>...</div>`
  */
@@ -33,10 +42,9 @@ export const SharePointHost = () => {
     displayName: '',                     // not threaded from SPFx in Phase 2B
     email: '',                           // not threaded from SPFx in Phase 2B
     loginName: host.userLoginName ?? '', // from pageContext.user.loginName
-    // STUB — non-authoritative. 'owner' for Sprint 18 Phase 3B hosted-workbench validation.
-    // Required to access Approvals screen and action Approve/Reject.
-    // Real SP group membership resolution is Phase 3 scope.
-    // ADR-013 self-approval enforcement applies at patchApprovalStatus time (Phase 4).
+    // ⚠ BETA STUB — NOT PRODUCTION AUTHORIZATION. See file-level comment.
+    // Hardcoded 'owner' for Sprint 18 Phase 4B hosted-workbench validation only.
+    // Replace with real SP group membership lookup before go-live.
     c3Role: 'owner',
   };
 

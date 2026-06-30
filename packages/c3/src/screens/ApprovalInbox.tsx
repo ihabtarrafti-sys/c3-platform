@@ -5,11 +5,20 @@
  *
  * Sprint 18 Phase 3B: list approvals, Approve/Reject for owners.
  * Sprint 18 Phase 4A: Execute button for Approved approvals (owner only).
+ * Sprint 18 Phase 4B: badge distinction Approved vs Executed; PayloadValidationError handling.
  *
  * Status-to-action matrix (owner):
  *   Submitted / InReview  -> Approve + Reject
  *   Approved              -> Execute
  *   Rejected / Executed / ExecutionFailed -> read-only
+ *
+ * Badge color intent:
+ *   Submitted       -> warning  (orange)
+ *   InReview        -> informative (blue)
+ *   Approved        -> brand    (purple) -- awaiting execution
+ *   Executed        -> success  (green)  -- terminal success
+ *   Rejected        -> danger   (red)
+ *   ExecutionFailed -> danger   (red)
  *
  * Execution sequence: see useExecuteApproval (ADR-013 / Phase 4A).
  * Scope: does NOT execute Submitted, InReview, Rejected, Executed, or ExecutionFailed approvals.
@@ -32,7 +41,7 @@ import {
 import { useApp } from '@c3/hooks/useApp';
 import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { usePatchApprovalStatus, SelfApprovalError } from '@c3/hooks/usePatchApprovalStatus';
-import { useExecuteApproval, DuplicateJourneyError, PartialExecutionError } from '@c3/hooks/useExecuteApproval';
+import { useExecuteApproval, DuplicateJourneyError, PartialExecutionError, PayloadValidationError } from '@c3/hooks/useExecuteApproval';
 import { useToast } from '@c3/hooks/useToast';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
@@ -40,12 +49,12 @@ import type { C3Approval } from '@c3/utils/spApprovalMapper';
 // Helpers
 // ---------------------------------------------------------------------------
 
-const STATUS_COLORS: Record<string, 'warning' | 'informative' | 'success' | 'danger'> = {
+const STATUS_COLORS: Record<string, 'warning' | 'informative' | 'brand' | 'success' | 'danger'> = {
   Submitted:       'warning',
   InReview:        'informative',
-  Approved:        'success',
+  Approved:        'brand',       // distinct from Executed — awaiting execution
   Rejected:        'danger',
-  Executed:        'success',
+  Executed:        'success',     // terminal success state
   ExecutionFailed: 'danger',
 };
 
@@ -171,14 +180,21 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
     } catch (err) {
       if (err instanceof DuplicateJourneyError) {
         toast.error(
-          'Execution failed',
-          'An active Onboarding journey already exists for this person.',
+          'Execution blocked — duplicate journey',
+          'An active Onboarding journey already exists for this person. ' +
+          'Approval has been marked ExecutionFailed.',
+        );
+      } else if (err instanceof PayloadValidationError) {
+        toast.error(
+          'Execution blocked — invalid payload',
+          'The approval payload is missing or malformed. No journey was created. ' +
+          'Contact support to correct the C3Approvals record.',
         );
       } else if (err instanceof PartialExecutionError) {
         toast.error(
-          'Partial execution',
-          'Journey was created but the approval record could not be updated. ' +
-          'Please update C3Approvals manually.',
+          'Partial execution — manual resolution required',
+          'Journey was created but the approval record could not be stamped Executed. ' +
+          'Manually update C3Approvals to Executed status.',
         );
       } else {
         const msg = err instanceof Error ? err.message : 'Unknown error.';
