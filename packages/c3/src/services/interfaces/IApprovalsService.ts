@@ -5,9 +5,10 @@
  *
  * Sprint 18 Phase 2B: createApproval live.
  * Sprint 18 Phase 3B: listApprovals and patchApprovalStatus live.
+ * Sprint 18 Phase 4A: stampExecution live.
  *
- * Lifecycle: Submitted → InReview → Approved → Executed | ExecutionFailed
- *                                 → Rejected
+ * Lifecycle: Submitted -> InReview -> Approved -> Executed | ExecutionFailed
+ *                                  -> Rejected
  *
  * Identity rules (ADR-013):
  *   - SubmittedBy is stamped by the service from currentUser.loginName.
@@ -77,10 +78,10 @@ export interface CreateApprovalResult {
 //
 // Caller supplies newStatus and optional rejectionReason.
 // The service stamps ReviewedBy (from its factory-captured loginName)
-// and ReviewedAt (current ISO datetime) — callers do not supply these.
+// and ReviewedAt (current ISO datetime) -- callers do not supply these.
 //
 // Phase 3B: Approved and Rejected only.
-// Executed and ExecutionFailed are Phase 4 (execution layer).
+// Executed and ExecutionFailed are Phase 4 (handled by stampExecution).
 // ---------------------------------------------------------------------------
 
 export interface PatchApprovalStatusRequest {
@@ -93,6 +94,40 @@ export interface PatchApprovalStatusRequest {
    */
   rejectionReason?: string;
 }
+
+// ---------------------------------------------------------------------------
+// StampExecutionRequest
+//
+// Discriminated union for Phase 4A execution stamping.
+//
+// Executed branch:
+//   - Sets ApprovalStatus = Executed
+//   - Sets ExecutedAt = ISO datetime provided by caller
+//   - Clears ExecutionError (null)
+//   - ReviewedBy / ReviewedAt already stamped at patchApprovalStatus time -- not touched.
+//
+// ExecutionFailed branch:
+//   - Sets ApprovalStatus = ExecutionFailed
+//   - Sets ExecutionError = useful message
+//   - Does NOT set ExecutedAt (omitted or cleared to null)
+//
+// Called by useExecuteApproval after journey creation succeeds or fails.
+// Never called by patchApprovalStatus.
+// ---------------------------------------------------------------------------
+
+export type StampExecutionRequest =
+  | {
+      newStatus: 'Executed';
+      /** ISO datetime string — wall-clock time of execution. */
+      executedAt: string;
+      executionError?: null;
+    }
+  | {
+      newStatus: 'ExecutionFailed';
+      /** Useful diagnostic message. Max ~250 chars recommended for SP column limits. */
+      executionError: string;
+      executedAt?: null;
+    };
 
 // ---------------------------------------------------------------------------
 // IApprovalsService
@@ -109,13 +144,13 @@ export interface IApprovalsService {
    * Returns active approvals (Submitted + InReview by default).
    * Live in Phase 3B.
    *
-   * filter.status: string[] — override the default status filter.
+   * filter.status: string[] -- override the default status filter.
    */
   listApprovals(filter?: { status?: string[] }): Promise<C3Approval[]>;
 
   /**
    * Returns a single approval by SP item ID.
-   * Phase 4+ stub — throws '[C3/Approvals] getApproval: not implemented'.
+   * Phase 4+ stub -- throws '[C3/Approvals] getApproval: not implemented'.
    */
   getApproval(id: number): Promise<null>;
 
@@ -134,4 +169,17 @@ export interface IApprovalsService {
    * ADR-013: execution is a separate phase (Phase 4).
    */
   patchApprovalStatus(id: number, req: PatchApprovalStatusRequest): Promise<void>;
+
+  /**
+   * Stamps C3Approvals as Executed or ExecutionFailed after an execution attempt.
+   * Live in Phase 4A.
+   *
+   * Executed:       sets ApprovalStatus = Executed, ExecutedAt = ISO datetime, ExecutionError = null.
+   * ExecutionFailed: sets ApprovalStatus = ExecutionFailed, ExecutionError = message.
+   *                  Does NOT set ExecutedAt.
+   *
+   * Called by useExecuteApproval ONLY. Never called by patchApprovalStatus.
+   * Only valid when the current ApprovalStatus is Approved -- callers must enforce this.
+   */
+  stampExecution(id: number, req: StampExecutionRequest): Promise<void>;
 }

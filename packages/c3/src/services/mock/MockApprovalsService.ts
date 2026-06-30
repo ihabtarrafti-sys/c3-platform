@@ -5,12 +5,13 @@
  *
  * Sprint 18 Phase 2B: createApproval live.
  * Sprint 18 Phase 3B: listApprovals and patchApprovalStatus live.
+ * Sprint 18 Phase 4A: stampExecution live.
  *
  * Gate-free creation: mock submissions are always accepted (ADR-013 constraint #9).
- * Self-approval: enforced in patchApprovalStatus — throws SelfApprovalError.
+ * Self-approval: enforced in patchApprovalStatus -- throws if ReviewedBy === SubmittedBy.
  *
  * SubmittedBy / ReviewedBy are stamped from currentUserLoginName supplied at
- * factory creation — callers do not supply identity fields.
+ * factory creation -- callers do not supply identity fields.
  */
 
 import type {
@@ -18,12 +19,13 @@ import type {
   CreateApprovalRequest,
   CreateApprovalResult,
   PatchApprovalStatusRequest,
+  StampExecutionRequest,
 } from '../interfaces/IApprovalsService';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
 const PREFIX = '[C3/Approvals/Mock]';
 
-// In-memory store — reset between module evaluations (hot reload aware).
+// In-memory store -- reset between module evaluations (hot reload aware).
 let approvalStore: C3Approval[] = [];
 let nextApprovalIndex = 1;
 
@@ -70,7 +72,7 @@ export const createMockApprovalsService = (
   },
 
   async getApproval(_id: number): Promise<null> {
-    console.warn(`${PREFIX} getApproval: not implemented — Phase 4`);
+    console.warn(`${PREFIX} getApproval: not implemented -- Phase 4`);
     throw new Error(`${PREFIX} getApproval: not implemented`);
   },
 
@@ -106,6 +108,41 @@ export const createMockApprovalsService = (
       ...approvalStore.slice(idx + 1),
     ];
 
-    console.info(`${PREFIX} patchApprovalStatus: ${existing.title} (ID ${id}) → ${req.newStatus}`);
+    console.info(`${PREFIX} patchApprovalStatus: ${existing.title} (ID ${id}) -> ${req.newStatus}`);
+  },
+
+  async stampExecution(id: number, req: StampExecutionRequest): Promise<void> {
+    const idx = approvalStore.findIndex(a => a.id === id);
+    if (idx === -1) {
+      throw new Error(`${PREFIX} stampExecution: record ${id} not found`);
+    }
+
+    const existing = approvalStore[idx];
+
+    let patch: Partial<C3Approval>;
+
+    if (req.newStatus === 'Executed') {
+      // Executed: stamp ExecutedAt, clear ExecutionError
+      patch = {
+        approvalStatus: 'Executed',
+        executedAt:     req.executedAt,
+        executionError: undefined,
+      };
+    } else {
+      // ExecutionFailed: stamp ExecutionError, do NOT set ExecutedAt
+      patch = {
+        approvalStatus: 'ExecutionFailed',
+        executionError: req.executionError,
+        executedAt:     undefined,
+      };
+    }
+
+    approvalStore = [
+      ...approvalStore.slice(0, idx),
+      { ...existing, ...patch },
+      ...approvalStore.slice(idx + 1),
+    ];
+
+    console.info(`${PREFIX} stampExecution: ${existing.title} (ID ${id}) -> ${req.newStatus}`);
   },
 });

@@ -1,30 +1,22 @@
 /**
  * SharePointApprovalsService.ts
  *
- * Sprint 18 Phase 2B — SP-backed implementation of IApprovalsService.
+ * Sprint 18 Phase 2B -- SP-backed implementation of IApprovalsService.
  *
- * createApproval is live: derives the next APR-XXXX sequence, fetches a fresh
- * X-RequestDigest from /_api/contextinfo, then POSTs to C3Approvals.
- *
- * Sprint 18 Phase 3B:
- *   listApprovals: GET with $filter on ApprovalStatus; maps via spApprovalMapper.
- *   patchApprovalStatus: POST + X-HTTP-Method: MERGE. Stamps ReviewedBy / ReviewedAt.
- *     For Rejected: also writes RejectionReason. Does NOT write ExecutedAt or create Journey.
+ * createApproval: live (derives APR-XXXX, fetches X-RequestDigest, POSTs to C3Approvals).
+ * listApprovals:  live (OData $filter on status, maps via spApprovalMapper).
+ * patchApprovalStatus: live (MERGE -- stamps ReviewedBy/ReviewedAt + Approved/Rejected status).
+ * stampExecution: live (MERGE -- stamps Executed+ExecutedAt, or ExecutionFailed+ExecutionError).
  *
  * Design follows the S15/S16/S17 SP service pattern:
  *   - No PnP.js. Native fetch with credentials: 'same-origin'.
  *   - Accept: application/json;odata=nometadata for GET responses.
  *   - Content-Type: application/json;odata=verbose for POST body.
- *   - X-RequestDigest fetched fresh per write call — never cached.
+ *   - X-RequestDigest fetched fresh per write call -- never cached.
  *     Digest TTL is 30 minutes; fetching per-call avoids stale-digest 403s.
  *
  * SubmittedBy is stamped from currentUserLoginName captured in the factory
- * closure — callers do not supply identity.
- *
- * Sequence number note: GET-last-then-increment is not atomic. Concurrent
- * submissions could derive the same APR title. SP does not enforce uniqueness
- * on Title. Acceptable for Phase 2B (single-user, single-submission flow).
- * Documented in C3Approvals SP List Schema.md.
+ * closure -- callers do not supply identity.
  *
  * __metadata.type: SP.Data.C3ApprovalsListItem is derived from the list title.
  * Verify against /_api/web/lists/getbytitle('C3Approvals')?$select=ListItemEntityTypeFullName
@@ -39,6 +31,7 @@ import type {
   CreateApprovalRequest,
   CreateApprovalResult,
   PatchApprovalStatusRequest,
+  StampExecutionRequest,
 } from '../interfaces/IApprovalsService';
 import { mapSpItemsToApprovals, type SpApprovalItem } from '@c3/utils/spApprovalMapper';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
@@ -65,7 +58,7 @@ function buildItemUrl(siteUrl: string, id: number): string {
 
 /**
  * Fetch a fresh Form Digest Value from SP for write operations.
- * Never cache — digest TTL is 30 minutes and staleness causes silent 403s.
+ * Never cache -- digest TTL is 30 minutes and staleness causes silent 403s.
  */
 async function fetchFormDigest(siteUrl: string): Promise<string> {
   const response = await fetch(buildContextInfoUrl(siteUrl), {
@@ -93,7 +86,7 @@ async function fetchFormDigest(siteUrl: string): Promise<string> {
  * Gets the most-recently created item by ID (descending), parses the title,
  * and increments. Returns 1 if no items exist.
  *
- * Not atomic — see module-level comment on sequence number race.
+ * Not atomic -- see module-level comment on sequence number race.
  */
 interface TitleItem { Title: string | null }
 interface TitleResponse { value: TitleItem[] }
@@ -118,13 +111,12 @@ async function deriveNextSequenceNumber(siteUrl: string): Promise<number> {
   const json = (await response.json()) as TitleResponse;
 
   if (!Array.isArray(json.value) || json.value.length === 0) {
-    return 1; // No existing items — start at APR-0001
+    return 1;
   }
 
   const lastTitle = json.value[0].Title;
   if (!lastTitle) return 1;
 
-  // Parse "APR-XXXX" -> extract the numeric part
   const match = lastTitle.match(/^APR-(\d+)$/i);
   if (!match) return 1;
 
@@ -133,6 +125,39 @@ async function deriveNextSequenceNumber(siteUrl: string): Promise<number> {
 
 function formatApprovalId(n: number): string {
   return `APR-${String(n).padStart(4, '0')}`;
+}
+
+/**
+ * Execute a MERGE (update) against a single list item.
+ * Shared by patchApprovalStatus and stampExecution.
+ */
+async function mergeItem(
+  siteUrl: string,
+  id: number,
+  body: Record<string, unknown>,
+): Promise<void> {
+  const digest = await fetchFormDigest(siteUrl);
+
+  const response = await fetch(buildItemUrl(siteUrl, id), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Accept':          'application/json;odata=nometadata',
+      'Content-Type':    'application/json;odata=verbose',
+      'X-RequestDigest': digest,
+      'X-HTTP-Method':   'MERGE',
+      'IF-MATCH':        '*',
+    },
+    body: JSON.stringify({ __metadata: { type: LIST_ITEM_TYPE }, ...body }),
+  });
+
+  // SP MERGE returns 204 No Content on success
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '(unreadable)');
+    throw new Error(
+      `${PREFIX} mergeItem(${id}): HTTP ${response.status} ${response.statusText}. Body: ${errorText}`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -145,14 +170,10 @@ export const createSharePointApprovalsService = (
 ): IApprovalsService => ({
 
   async createApproval(req: CreateApprovalRequest): Promise<CreateApprovalResult> {
-    // Step 1: derive next sequence number
     const seq   = await deriveNextSequenceNumber(siteUrl);
     const title = formatApprovalId(seq);
-
-    // Step 2: fetch fresh form digest for write
     const digest = await fetchFormDigest(siteUrl);
 
-    // Step 3: POST new list item
     const body = {
       __metadata: { type: LIST_ITEM_TYPE },
       Title:          title,
@@ -180,25 +201,20 @@ export const createSharePointApprovalsService = (
     if (!response.ok) {
       const errorText = await response.text().catch(() => '(unreadable)');
       throw new Error(
-        `${PREFIX} createApproval: HTTP ${response.status} ${response.statusText}. ` +
-        `Body: ${errorText}`,
+        `${PREFIX} createApproval: HTTP ${response.status} ${response.statusText}. Body: ${errorText}`,
       );
     }
 
     const created = (await response.json()) as { ID?: number; Title?: string };
-
-    // SP returns the created item; use its ID if available, else fall back to seq
     const approvalId = typeof created.ID === 'number' ? created.ID : seq;
 
     console.info(`${PREFIX} createApproval: created ${title} (ID ${approvalId}) for ${req.targetPersonId}`);
-
     return { approvalId, title, status: 'Submitted' };
   },
 
   async listApprovals(filter?: { status?: string[] }): Promise<C3Approval[]> {
     const statuses = filter?.status ?? ['Submitted', 'InReview'];
 
-    // Build OData $filter: ApprovalStatus eq 'Submitted' or ApprovalStatus eq 'InReview'
     const statusFilter = statuses
       .map(s => `ApprovalStatus eq '${s}'`)
       .join(' or ');
@@ -216,33 +232,27 @@ export const createSharePointApprovalsService = (
     });
 
     if (!response.ok) {
-      throw new Error(
-        `${PREFIX} listApprovals: HTTP ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`${PREFIX} listApprovals: HTTP ${response.status} ${response.statusText}`);
     }
 
     const json = (await response.json()) as { value: SpApprovalItem[] };
     const { approvals: items } = mapSpItemsToApprovals(json.value ?? []);
 
-    console.info(`${PREFIX} listApprovals: ${items.length} items returned (filter: ${statuses.join(', ')})`);
+    console.info(`${PREFIX} listApprovals: ${items.length} items (filter: ${statuses.join(', ')})`);
     return items;
   },
 
   async getApproval(_id: number): Promise<null> {
-    console.warn(`${PREFIX} getApproval: not implemented — Phase 4`);
+    console.warn(`${PREFIX} getApproval: not implemented -- Phase 4`);
     throw new Error(`${PREFIX} getApproval: not implemented`);
   },
 
   async patchApprovalStatus(id: number, req: PatchApprovalStatusRequest): Promise<void> {
-    // Rejected requires a rejection reason
     if (req.newStatus === 'Rejected' && !req.rejectionReason?.trim()) {
       throw new Error(`${PREFIX} patchApprovalStatus: rejectionReason is required when rejecting`);
     }
 
-    const digest = await fetchFormDigest(siteUrl);
-
     const body: Record<string, unknown> = {
-      __metadata: { type: LIST_ITEM_TYPE },
       ApprovalStatus: req.newStatus,
       ReviewedBy:     currentUserLoginName,
       ReviewedAt:     new Date().toISOString(),
@@ -252,28 +262,30 @@ export const createSharePointApprovalsService = (
       body['RejectionReason'] = req.rejectionReason ?? '';
     }
 
-    const response = await fetch(buildItemUrl(siteUrl, id), {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Accept':           'application/json;odata=nometadata',
-        'Content-Type':     'application/json;odata=verbose',
-        'X-RequestDigest':  digest,
-        'X-HTTP-Method':    'MERGE',
-        'IF-MATCH':         '*',
-      },
-      body: JSON.stringify(body),
-    });
+    await mergeItem(siteUrl, id, body);
+    console.info(`${PREFIX} patchApprovalStatus: ID ${id} -> ${req.newStatus}`);
+  },
 
-    // SP MERGE returns 204 No Content on success
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => '(unreadable)');
-      throw new Error(
-        `${PREFIX} patchApprovalStatus: HTTP ${response.status} ${response.statusText}. ` +
-        `Body: ${errorText}`,
-      );
+  async stampExecution(id: number, req: StampExecutionRequest): Promise<void> {
+    let body: Record<string, unknown>;
+
+    if (req.newStatus === 'Executed') {
+      // Executed: stamp ExecutedAt + clear ExecutionError
+      body = {
+        ApprovalStatus: 'Executed',
+        ExecutedAt:     req.executedAt,
+        ExecutionError: null,
+      };
+    } else {
+      // ExecutionFailed: stamp ExecutionError -- do NOT set ExecutedAt
+      body = {
+        ApprovalStatus: 'ExecutionFailed',
+        ExecutionError: req.executionError,
+        ExecutedAt:     null,
+      };
     }
 
-    console.info(`${PREFIX} patchApprovalStatus: ID ${id} -> ${req.newStatus}`);
+    await mergeItem(siteUrl, id, body);
+    console.info(`${PREFIX} stampExecution: ID ${id} -> ${req.newStatus}`);
   },
 });

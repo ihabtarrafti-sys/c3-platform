@@ -1,24 +1,18 @@
 /**
  * ApprovalInbox.tsx
  *
- * Approval Review MVP screen for C3 Platform.
+ * Approval Review + Execution screen for C3 Platform.
  *
- * Sprint 18 Phase 3B.
+ * Sprint 18 Phase 3B: list approvals, Approve/Reject for owners.
+ * Sprint 18 Phase 4A: Execute button for Approved approvals (owner only).
  *
- * Shows pending Submitted / InReview approvals from C3Approvals.
- * Owners can Approve or Reject each approval.
- * Non-owners see the list in read-only mode (buttons hidden).
+ * Status-to-action matrix (owner):
+ *   Submitted / InReview  -> Approve + Reject
+ *   Approved              -> Execute
+ *   Rejected / Executed / ExecutionFailed -> read-only
  *
- * Scope (ADR-013 / Phase 3B):
- *   - Approving sets ApprovalStatus -> Approved. Does NOT execute the journey.
- *   - Rejecting sets ApprovalStatus -> Rejected + writes RejectionReason.
- *   - No C3Journeys rows are created or updated here (Phase 4 scope).
- *
- * Self-approval enforcement: usePatchApprovalStatus throws SelfApprovalError
- * when currentUser.loginName === approval.submittedBy. The UI catches it and
- * shows a specific toast.
- *
- * Design follows C3 Design System v1.0 screen conventions.
+ * Execution sequence: see useExecuteApproval (ADR-013 / Phase 4A).
+ * Scope: does NOT execute Submitted, InReview, Rejected, Executed, or ExecutionFailed approvals.
  */
 
 import { useState } from 'react';
@@ -32,11 +26,13 @@ import {
 import {
   CheckmarkRegular,
   DismissRegular,
+  PlayRegular,
 } from '@fluentui/react-icons';
 
 import { useApp } from '@c3/hooks/useApp';
 import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { usePatchApprovalStatus, SelfApprovalError } from '@c3/hooks/usePatchApprovalStatus';
+import { useExecuteApproval, DuplicateJourneyError, PartialExecutionError } from '@c3/hooks/useExecuteApproval';
 import { useToast } from '@c3/hooks/useToast';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
@@ -45,14 +41,16 @@ import type { C3Approval } from '@c3/utils/spApprovalMapper';
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, 'warning' | 'informative' | 'success' | 'danger'> = {
-  Submitted: 'warning',
-  InReview:  'informative',
-  Approved:  'success',
-  Rejected:  'danger',
+  Submitted:       'warning',
+  InReview:        'informative',
+  Approved:        'success',
+  Rejected:        'danger',
+  Executed:        'success',
+  ExecutionFailed: 'danger',
 };
 
 function formatDateTime(iso: string | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return '--';
   try {
     return new Date(iso).toLocaleString(undefined, {
       dateStyle: 'medium',
@@ -73,6 +71,38 @@ function parsePayload(raw: string | undefined): Record<string, unknown> | null {
 }
 
 // ---------------------------------------------------------------------------
+// DetailCell
+// ---------------------------------------------------------------------------
+
+const DetailCell = ({
+  label,
+  value,
+  wide,
+}: {
+  label: string;
+  value: string;
+  wide?: boolean;
+}) => (
+  <div style={{ gridColumn: wide ? 'span 2' : undefined }}>
+    <Text
+      size={100}
+      style={{
+        color: 'var(--c3-gray-400)',
+        textTransform: 'uppercase',
+        letterSpacing: '0.06em',
+        display: 'block',
+        marginBottom: 2,
+      }}
+    >
+      {label}
+    </Text>
+    <Text size={200} style={{ color: 'var(--c3-gray-800)', wordBreak: 'break-all' }}>
+      {value}
+    </Text>
+  </div>
+);
+
+// ---------------------------------------------------------------------------
 // ApprovalCard
 // ---------------------------------------------------------------------------
 
@@ -82,18 +112,26 @@ interface ApprovalCardProps {
 }
 
 const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
-  const toast                     = useToast();
-  const { mutateAsync, isPending } = usePatchApprovalStatus();
+  const toast = useToast();
 
+  // Phase 3B: Approve / Reject
+  const { mutateAsync: patchAsync, isPending: isPatchPending } = usePatchApprovalStatus();
   const [showReject, setShowReject] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+
+  // Phase 4A: Execute
+  const { mutateAsync: executeAsync, isPending: isExecutePending } = useExecuteApproval();
+
+  const isPending = isPatchPending || isExecutePending;
 
   const parsedPayload = parsePayload(approval.payload);
   const statusColor   = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   const handleApprove = async () => {
     try {
-      await mutateAsync({ approval, newStatus: 'Approved' });
+      await patchAsync({ approval, newStatus: 'Approved' });
       toast.success('Approval approved', `${approval.title} has been approved.`);
     } catch (err) {
       if (err instanceof SelfApprovalError) {
@@ -107,7 +145,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const handleRejectConfirm = async () => {
     if (!rejectReason.trim()) return;
     try {
-      await mutateAsync({ approval, newStatus: 'Rejected', rejectionReason: rejectReason.trim() });
+      await patchAsync({ approval, newStatus: 'Rejected', rejectionReason: rejectReason.trim() });
       toast.success('Approval rejected', `${approval.title} has been rejected.`);
       setShowReject(false);
       setRejectReason('');
@@ -119,6 +157,37 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
       }
     }
   };
+
+  const handleExecute = async () => {
+    try {
+      await executeAsync(approval);
+      const personId = typeof parsedPayload?.['personId'] === 'string'
+        ? parsedPayload['personId']
+        : approval.targetPersonId ?? 'unknown';
+      toast.success(
+        'Approval executed',
+        `${approval.title} -- Journey created for ${personId}.`,
+      );
+    } catch (err) {
+      if (err instanceof DuplicateJourneyError) {
+        toast.error(
+          'Execution failed',
+          'An active Onboarding journey already exists for this person.',
+        );
+      } else if (err instanceof PartialExecutionError) {
+        toast.error(
+          'Partial execution',
+          'Journey was created but the approval record could not be updated. ' +
+          'Please update C3Approvals manually.',
+        );
+      } else {
+        const msg = err instanceof Error ? err.message : 'Unknown error.';
+        toast.error('Execution failed', msg.slice(0, 200));
+      }
+    }
+  };
+
+  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <div
@@ -155,8 +224,8 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           gap: 'var(--c3-space-3)',
         }}
       >
-        <DetailCell label="Person ID"   value={approval.targetPersonId ?? '—'} />
-        <DetailCell label="Submitted by" value={approval.submittedBy ?? '—'} />
+        <DetailCell label="Person ID"    value={approval.targetPersonId ?? '--'} />
+        <DetailCell label="Submitted by" value={approval.submittedBy ?? '--'} />
         {approval.reason && (
           <DetailCell label="Reason" value={approval.reason} wide />
         )}
@@ -166,104 +235,113 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         {parsedPayload && !!parsedPayload['assignedTo'] && (
           <DetailCell label="Assigned to" value={String(parsedPayload['assignedTo'])} />
         )}
+        {approval.reviewedBy && (
+          <DetailCell label="Reviewed by" value={approval.reviewedBy} />
+        )}
+        {approval.executedAt && (
+          <DetailCell label="Executed at" value={formatDateTime(approval.executedAt)} />
+        )}
+        {approval.executionError && (
+          <DetailCell label="Execution error" value={approval.executionError} wide />
+        )}
+        {approval.rejectionReason && (
+          <DetailCell label="Rejection reason" value={approval.rejectionReason} wide />
+        )}
       </div>
 
       {/* Owner action row */}
-      {isOwner && (approval.approvalStatus === 'Submitted' || approval.approvalStatus === 'InReview') && (
-        <div
-          style={{
-            borderTop: '1px solid var(--c3-gray-100)',
-            paddingTop: 'var(--c3-space-3)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 'var(--c3-space-3)',
-          }}
-        >
-          {showReject ? (
-            <>
-              <Textarea
-                value={rejectReason}
-                onChange={(_, d) => setRejectReason(d.value)}
-                placeholder="Rejection reason (required)…"
-                rows={3}
-                resize="vertical"
-              />
-              <div style={{ display: 'flex', gap: 'var(--c3-space-2)' }}>
-                <Button
-                  appearance="primary"
-                  style={{ background: 'var(--c3-error)' }}
-                  icon={<DismissRegular />}
-                  onClick={() => void handleRejectConfirm()}
-                  disabled={isPending || !rejectReason.trim()}
-                >
-                  {isPending ? 'Rejecting…' : 'Confirm Reject'}
-                </Button>
-                <Button
-                  appearance="secondary"
-                  onClick={() => { setShowReject(false); setRejectReason(''); }}
-                  disabled={isPending}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div style={{ display: 'flex', gap: 'var(--c3-space-2)' }}>
+      {isOwner && (() => {
+        // Submitted / InReview: Approve + Reject
+        if (approval.approvalStatus === 'Submitted' || approval.approvalStatus === 'InReview') {
+          return (
+            <div
+              style={{
+                borderTop: '1px solid var(--c3-gray-100)',
+                paddingTop: 'var(--c3-space-3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--c3-space-3)',
+              }}
+            >
+              {showReject ? (
+                <>
+                  <Textarea
+                    value={rejectReason}
+                    onChange={(_, d) => setRejectReason(d.value)}
+                    placeholder="Rejection reason (required)..."
+                    rows={3}
+                    resize="vertical"
+                  />
+                  <div style={{ display: 'flex', gap: 'var(--c3-space-2)' }}>
+                    <Button
+                      appearance="primary"
+                      style={{ background: 'var(--c3-error)' }}
+                      icon={<DismissRegular />}
+                      onClick={() => void handleRejectConfirm()}
+                      disabled={isPending || !rejectReason.trim()}
+                    >
+                      {isPending ? 'Rejecting...' : 'Confirm Reject'}
+                    </Button>
+                    <Button
+                      appearance="secondary"
+                      onClick={() => { setShowReject(false); setRejectReason(''); }}
+                      disabled={isPending}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <div style={{ display: 'flex', gap: 'var(--c3-space-2)' }}>
+                  <Button
+                    appearance="primary"
+                    icon={<CheckmarkRegular />}
+                    onClick={() => void handleApprove()}
+                    disabled={isPending}
+                  >
+                    {isPending ? 'Approving...' : 'Approve'}
+                  </Button>
+                  <Button
+                    appearance="secondary"
+                    icon={<DismissRegular />}
+                    onClick={() => setShowReject(true)}
+                    disabled={isPending}
+                  >
+                    Reject
+                  </Button>
+                </div>
+              )}
+            </div>
+          );
+        }
+
+        // Approved: Execute
+        if (approval.approvalStatus === 'Approved') {
+          return (
+            <div
+              style={{
+                borderTop: '1px solid var(--c3-gray-100)',
+                paddingTop: 'var(--c3-space-3)',
+              }}
+            >
               <Button
                 appearance="primary"
-                icon={<CheckmarkRegular />}
-                onClick={() => void handleApprove()}
-                disabled={isPending}
+                icon={<PlayRegular />}
+                onClick={() => void handleExecute()}
+                disabled={isExecutePending}
               >
-                {isPending ? 'Approving…' : 'Approve'}
-              </Button>
-              <Button
-                appearance="secondary"
-                icon={<DismissRegular />}
-                onClick={() => setShowReject(true)}
-                disabled={isPending}
-              >
-                Reject
+                {isExecutePending ? 'Executing...' : 'Execute'}
               </Button>
             </div>
-          )}
-        </div>
-      )}
+          );
+        }
+
+        // Rejected / Executed / ExecutionFailed: read-only (no buttons)
+        return null;
+      })()}
     </div>
   );
 };
-
-// ---------------------------------------------------------------------------
-// DetailCell
-// ---------------------------------------------------------------------------
-
-const DetailCell = ({
-  label,
-  value,
-  wide,
-}: {
-  label: string;
-  value: string;
-  wide?: boolean;
-}) => (
-  <div style={{ gridColumn: wide ? 'span 2' : undefined }}>
-    <Text
-      size={100}
-      style={{
-        color: 'var(--c3-gray-400)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.06em',
-        display: 'block',
-        marginBottom: 2,
-      }}
-    >
-      {label}
-    </Text>
-    <Text size={200} style={{ color: 'var(--c3-gray-800)', wordBreak: 'break-all' }}>
-      {value}
-    </Text>
-  </div>
-);
 
 // ---------------------------------------------------------------------------
 // ApprovalInbox
@@ -273,12 +351,15 @@ export const ApprovalInbox = () => {
   const { currentUser } = useApp();
   const isOwner = currentUser.c3Role === 'owner';
 
-  const { data: approvals, isLoading, isError, error } = useListApprovals();
+  // Fetch Submitted, InReview, and Approved -- all statuses that may need action.
+  const { data: approvals, isLoading, isError, error } = useListApprovals({
+    status: ['Submitted', 'InReview', 'Approved'],
+  });
 
   if (isLoading) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 'var(--c3-space-3)' }}>
-        <Spinner size="medium" label="Loading approvals…" />
+        <Spinner size="medium" label="Loading approvals..." />
       </div>
     );
   }
@@ -321,7 +402,7 @@ export const ApprovalInbox = () => {
           </Text>
           <Text size={200} style={{ color: 'var(--c3-gray-500)', display: 'block', marginTop: 'var(--c3-space-1)' }}>
             {isOwner
-              ? 'Pending submissions require your review before any journey is executed.'
+              ? 'Review pending submissions and execute approved records.'
               : 'Approval requests awaiting owner review.'}
           </Text>
         </div>
