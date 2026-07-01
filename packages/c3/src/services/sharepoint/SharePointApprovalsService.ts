@@ -81,48 +81,6 @@ async function fetchFormDigest(siteUrl: string): Promise<string> {
   return json.FormDigestValue;
 }
 
-/**
- * Derive the next APR-XXXX sequence number.
- * Gets the most-recently created item by ID (descending), parses the title,
- * and increments. Returns 1 if no items exist.
- *
- * Not atomic -- see module-level comment on sequence number race.
- */
-interface TitleItem { Title: string | null }
-interface TitleResponse { value: TitleItem[] }
-
-async function deriveNextSequenceNumber(siteUrl: string): Promise<number> {
-  const url =
-    `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${LIST_NAME}')/items` +
-    `?$select=Title&$orderby=ID%20desc&$top=1`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json;odata=nometadata' },
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `${PREFIX} deriveNextSequenceNumber: HTTP ${response.status} ${response.statusText}`,
-    );
-  }
-
-  const json = (await response.json()) as TitleResponse;
-
-  if (!Array.isArray(json.value) || json.value.length === 0) {
-    return 1;
-  }
-
-  const lastTitle = json.value[0].Title;
-  if (!lastTitle) return 1;
-
-  const match = lastTitle.match(/^APR-(\d+)$/i);
-  if (!match) return 1;
-
-  return parseInt(match[1], 10) + 1;
-}
-
 function formatApprovalId(n: number): string {
   return `APR-${String(n).padStart(4, '0')}`;
 }
@@ -170,13 +128,13 @@ export const createSharePointApprovalsService = (
 ): IApprovalsService => ({
 
   async createApproval(req: CreateApprovalRequest): Promise<CreateApprovalResult> {
-    const seq   = await deriveNextSequenceNumber(siteUrl);
-    const title = formatApprovalId(seq);
+    // S19-3: POST-then-MERGE pattern -- SP auto-ID is the atomic sequence source.
+    const placeholder = 'TMP-' + Date.now().toString(36);
     const digest = await fetchFormDigest(siteUrl);
 
     const body = {
       __metadata: { type: LIST_ITEM_TYPE },
-      Title:          title,
+      Title:          placeholder,
       OperationType:  req.operationType,
       TargetID:       req.targetId ?? null,
       TargetPersonID: req.targetPersonId,
@@ -205,11 +163,27 @@ export const createSharePointApprovalsService = (
       );
     }
 
-    const created = (await response.json()) as { ID?: number; Title?: string };
-    const approvalId = typeof created.ID === 'number' ? created.ID : seq;
+    const created = (await response.json()) as { ID?: number };
+    if (typeof created.ID !== 'number') {
+      throw new Error(
+        `${PREFIX} createApproval: SP did not return an item ID after POST. ` +
+        `Cannot derive APR sequence. An orphaned row with Title '${placeholder}' may exist in C3Approvals.`,
+      );
+    }
 
-    console.info(`${PREFIX} createApproval: created ${title} (ID ${approvalId}) for ${req.targetPersonId}`);
-    return { approvalId, title, status: 'Submitted' };
+    const title = formatApprovalId(created.ID);
+    try {
+      await mergeItem(siteUrl, created.ID, { Title: title });
+    } catch (mergeErr) {
+      throw new Error(
+        `${PREFIX} createApproval: POST succeeded (SP ID ${created.ID}) but Title MERGE failed. ` +
+        `An orphaned row with Title '${placeholder}' exists in C3Approvals. ` +
+        `Original error: ${mergeErr instanceof Error ? mergeErr.message : String(mergeErr)}`,
+      );
+    }
+
+    console.info(`${PREFIX} createApproval: created ${title} (SP ID ${created.ID}) for ${req.targetPersonId}`);
+    return { approvalId: created.ID, title, status: 'Submitted' };
   },
 
   async listApprovals(filter?: { status?: string[] }): Promise<C3Approval[]> {

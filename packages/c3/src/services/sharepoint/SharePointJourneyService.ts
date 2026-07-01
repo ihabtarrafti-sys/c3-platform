@@ -163,45 +163,38 @@ async function fetchFormDigest(siteUrl: string): Promise<string> {
   return json.FormDigestValue;
 }
 
+function formatJourneyId(n: number): string {
+  return `JRN-${String(n).padStart(4, '0')}`;
+}
+
 /**
- * Derive the next JRN-XXXX sequence number.
- * GETs the last item by ID descending, parses Title, increments.
- * Returns 1 if no items exist.
- *
- * Not atomic -- see module-level note on sequence number race.
+ * MERGE a freshly-created C3Journeys item to replace its placeholder Title
+ * with the canonical JRN-XXXX identifier derived from the SP item ID.
+ * Fetches a fresh digest -- the POST digest is consumed by the time we reach here.
+ * Throws with orphan-row context if the MERGE fails. (S19-3)
  */
-interface TitleOnlyItem { Title: string | null }
-interface TitleOnlyResponse { value: TitleOnlyItem[] }
+async function mergeJourneyTitle(siteUrl: string, id: number, title: string): Promise<void> {
+  const digest = await fetchFormDigest(siteUrl);
 
-async function deriveNextJourneySequence(siteUrl: string): Promise<number> {
-  const url =
-    `${buildListUrl(siteUrl)}?$select=Title&$orderby=ID%20desc&$top=1`;
-
-  const response = await fetch(url, {
-    method: 'GET',
+  const response = await fetch(buildItemUrl(siteUrl, id), {
+    method: 'POST',
     credentials: 'same-origin',
-    headers: { Accept: 'application/json;odata=nometadata' },
+    headers: {
+      'Accept':          'application/json;odata=nometadata',
+      'Content-Type':    'application/json;odata=verbose',
+      'X-RequestDigest': digest,
+      'X-HTTP-Method':   'MERGE',
+      'IF-MATCH':        '*',
+    },
+    body: JSON.stringify({ __metadata: { type: LIST_ITEM_TYPE }, Title: title }),
   });
 
   if (!response.ok) {
-    throw new Error(`${PREFIX} deriveNextJourneySequence: HTTP ${response.status} ${response.statusText}`);
+    const errorText = await response.text().catch(() => '(unreadable)');
+    throw new Error(
+      `${PREFIX} mergeJourneyTitle(${id}): HTTP ${response.status} ${response.statusText}. Body: ${errorText}`,
+    );
   }
-
-  const json = (await response.json()) as TitleOnlyResponse;
-
-  if (!Array.isArray(json.value) || json.value.length === 0) return 1;
-
-  const lastTitle = json.value[0].Title;
-  if (!lastTitle) return 1;
-
-  const match = lastTitle.match(/^JRN-(\d+)$/i);
-  if (!match) return 1;
-
-  return parseInt(match[1], 10) + 1;
-}
-
-function formatJourneyId(n: number): string {
-  return `JRN-${String(n).padStart(4, '0')}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -357,8 +350,8 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
     },
 
     async initiateJourney(input: InitiateJourneyInput): Promise<Journey> {
-      const seq    = await deriveNextJourneySequence(siteUrl);
-      const title  = formatJourneyId(seq);
+      // S19-3: POST-then-MERGE pattern -- SP auto-ID is the atomic sequence source.
+      const placeholder = 'TMP-' + Date.now().toString(36);
       const digest = await fetchFormDigest(siteUrl);
       const now = new Date().toISOString();
 
@@ -369,7 +362,7 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
 
       const body = {
         __metadata:               { type: LIST_ITEM_TYPE },
-        Title:                    title,
+        Title:                    placeholder,
         PersonID:                 input.PersonID,
         JourneyType:              input.Type,
         Status:                   'Active',
@@ -402,9 +395,25 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
       }
 
       const created = (await response.json()) as { ID?: number };
-      const spId = typeof created.ID === 'number' ? created.ID : seq;
+      if (typeof created.ID !== 'number') {
+        throw new Error(
+          `${PREFIX} initiateJourney: SP did not return an item ID after POST. ` +
+          `Cannot derive JRN sequence. An orphaned row with Title '${placeholder}' may exist in C3Journeys.`,
+        );
+      }
 
-      console.info(`${PREFIX} initiateJourney: created ${title} (SP ID ${spId}) for ${input.PersonID}`);
+      const title = formatJourneyId(created.ID);
+      try {
+        await mergeJourneyTitle(siteUrl, created.ID, title);
+      } catch (mergeErr) {
+        throw new Error(
+          `${PREFIX} initiateJourney: POST succeeded (SP ID ${created.ID}) but Title MERGE failed. ` +
+          `An orphaned row with Title '${placeholder}' exists in C3Journeys. ` +
+          `Original error: ${mergeErr instanceof Error ? mergeErr.message : String(mergeErr)}`,
+        );
+      }
+
+      console.info(`${PREFIX} initiateJourney: created ${title} (SP ID ${created.ID}) for ${input.PersonID}`);
 
       const journey: Journey = {
         JourneyID:        title,
