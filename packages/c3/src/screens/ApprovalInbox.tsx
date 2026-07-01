@@ -9,6 +9,7 @@
  * Sprint 20 Phase 1 (S20-P1): filter tabs, full audit field display, payload summary.
  * Sprint 20 Phase 2 (S20-P2): Recover Execution Stamp action for partial execution failures.
  * Sprint 20 Phase 3 (S20-P3): AddCredential payload summary; PartialCredentialExecutionError handling.
+ * Sprint 21 Phase 1 (S21-P1): AddCredential partial execution recovery UX (credential stamp-only path).
  *
  * Tab / filter structure (S20-P1):
  *   Pending  = Submitted + InReview   (default — actionable work queue)
@@ -23,17 +24,24 @@
  *
  * Status-to-action matrix (owner) — UNCHANGED from S18:
  *   Submitted / InReview  -> Approve + Reject
- *   Approved              -> Execute  OR  Recover Execution Stamp (S20-P2)
+ *   Approved              -> Execute  OR  Recover Execution Stamp (S20-P2 / S21-P1)
  *   Rejected / Executed / ExecutionFailed -> read-only (no buttons)
  *
  * Self-approval enforcement and owner-only action gating: UNCHANGED.
  *
- * Recovery detection (S20-P2):
+ * Recovery detection (S20-P2 — InitiateJourney):
  *   For each Approved + InitiateJourney card, a lazy useActiveJourney query
  *   checks whether an active Onboarding journey already exists for the payload
  *   personId. If so, the Execute button is replaced by Recover Execution Stamp.
  *   Recovery stamps the approval Executed without creating a new journey.
  *   Non-owner view remains read-only regardless.
+ *
+ * Credential recovery detection (S21-P1 — AddCredential):
+ *   For each Approved + AddCredential card, a lazy usePersonCredentials query
+ *   checks whether a credential matching credentialType + referenceNumber already
+ *   exists for holderPersonId. If so, the Execute button is replaced by Recover
+ *   Execution Stamp. Recovery stamps the approval Executed without creating a new
+ *   credential. Prevents duplicate CRED-XXXX rows on re-execution.
  *
  * Payload summary (S20-P1 + S20-P3):
  *   InitiateJourney: journeyType, personId, assignedTo, initiationReason, notes,
@@ -76,6 +84,11 @@ import {
   PartialCredentialExecutionError,
   PayloadValidationError,
 } from '@c3/hooks/useExecuteApproval';
+import { usePersonCredentials } from '@c3/hooks/usePersonCredentials';
+import {
+  useRecoverCredentialExecutionStamp,
+  CredentialRecoveryTargetMissingError,
+} from '@c3/hooks/useRecoverCredentialExecutionStamp';
 import { useRecoverExecutionStamp, RecoveryTargetMissingError } from '@c3/hooks/useRecoverExecutionStamp';
 import { useToast } from '@c3/hooks/useToast';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
@@ -166,6 +179,40 @@ function extractPayloadPersonId(raw: string | undefined): string {
     return typeof id === 'string' ? id.trim() : '';
   } catch {
     return '';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Safe credential recovery field extraction (S21-P1)
+// ---------------------------------------------------------------------------
+
+interface CredentialRecoveryFields {
+  holderPersonId: string;
+  credentialType: string;
+  referenceNumber: string;
+}
+
+function extractCredentialRecoveryFields(raw: string | undefined): CredentialRecoveryFields | null {
+  if (!raw || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const holderPersonId  = parsed['holderPersonId'];
+    const credentialType  = parsed['credentialType'];
+    const referenceNumber = parsed['referenceNumber'];
+    if (
+      typeof holderPersonId  === 'string' && holderPersonId.trim().length  > 0 &&
+      typeof credentialType  === 'string' && credentialType.trim().length  > 0 &&
+      typeof referenceNumber === 'string' && referenceNumber.trim().length > 0
+    ) {
+      return {
+        holderPersonId:  holderPersonId.trim(),
+        credentialType:  credentialType.trim(),
+        referenceNumber: referenceNumber.trim(),
+      };
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
@@ -433,19 +480,17 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const [showReject,   setShowReject]   = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  const { mutateAsync: executeAsync, isPending: isExecutePending } = useExecuteApproval();
-  const { mutateAsync: recoverAsync, isPending: isRecoverPending  } = useRecoverExecutionStamp();
+  const { mutateAsync: executeAsync,           isPending: isExecutePending           } = useExecuteApproval();
+  const { mutateAsync: recoverAsync,           isPending: isRecoverPending           } = useRecoverExecutionStamp();
+  const { mutateAsync: recoverCredentialAsync, isPending: isRecoverCredentialPending } = useRecoverCredentialExecutionStamp();
 
-  // ── Recovery candidate detection (S20-P2) ─────────────────────────────────
+  // ── Recovery candidate detection (S20-P2: InitiateJourney) ───────────────
   //
   // A recovery candidate is an Approved + InitiateJourney approval whose
   // payload contains a parseable personId. Only for these do we fire a
   // useActiveJourney query. The `enabled` param suppresses the query for all
   // other cards (Submitted / InReview / Rejected / Executed / ExecutionFailed,
   // Approved AddCredential cards, or missing personId).
-  //
-  // AddCredential approvals in Approved state use the normal Execute button —
-  // no recovery UX is implemented for credentials in Phase 3 (known gap, TD-13 residual).
 
   const payloadPersonId = useMemo(
     () => extractPayloadPersonId(approval.payload),
@@ -465,7 +510,47 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   // True only once the query has settled and returned a journey
   const isPartialExecutionRecovery = isRecoveryCandidate && existingJourney != null;
 
-  const isPending = isPatchPending || isExecutePending || isRecoverPending;
+  // ── Credential recovery candidate detection (S21-P1: AddCredential) ──────
+  //
+  // For Approved + AddCredential cards with parseable holderPersonId,
+  // credentialType, and referenceNumber, fire a usePersonCredentials query to
+  // check whether the credential already exists. Passing '' when not a candidate
+  // suppresses the query via the existing enabled guard in usePersonCredentials.
+  // isRecoveryCandidate and isCredRecoveryCandidate are mutually exclusive by
+  // operationType — only one query fires per card.
+
+  const credRecoveryFields = useMemo(
+    () => (
+      approval.approvalStatus === 'Approved' && approval.operationType === 'AddCredential'
+        ? extractCredentialRecoveryFields(approval.payload)
+        : null
+    ),
+    [approval.approvalStatus, approval.operationType, approval.payload],
+  );
+
+  const isCredRecoveryCandidate = credRecoveryFields !== null;
+
+  const {
+    data: personCredentials,
+    isLoading: isCredentialsChecking,
+  } = usePersonCredentials(credRecoveryFields?.holderPersonId ?? '');
+
+  const matchingCredential = useMemo(
+    () =>
+      isCredRecoveryCandidate && personCredentials != null
+        ? (personCredentials.find(
+            c =>
+              c.Type === credRecoveryFields!.credentialType &&
+              c.ReferenceNumber === credRecoveryFields!.referenceNumber,
+          ) ?? null)
+        : null,
+    [isCredRecoveryCandidate, personCredentials, credRecoveryFields],
+  );
+
+  const isPartialCredentialExecutionRecovery =
+    isCredRecoveryCandidate && matchingCredential !== null;
+
+  const isPending = isPatchPending || isExecutePending || isRecoverPending || isRecoverCredentialPending;
   const statusColor = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
 
   // ── Action handlers (UNCHANGED from S18/S20-P1/P2 except AddCredential toast) ──
@@ -573,6 +658,29 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         toast.error(
           'Recovery failed — no active journey found',
           `No active Onboarding journey was found for ${payloadPersonId}. ` +
+          'Use the Execute button to create one.',
+        );
+      } else {
+        toast.error(
+          'Recovery failed',
+          'Please retry or contact support.',
+        );
+      }
+    }
+  };
+
+  const handleRecoverCredential = async () => {
+    try {
+      await recoverCredentialAsync(approval);
+      toast.success(
+        'Execution stamp recovered',
+        `${approval.title} marked Executed. Existing credential for ${credRecoveryFields?.holderPersonId ?? ''} was preserved.`,
+      );
+    } catch (err) {
+      if (err instanceof CredentialRecoveryTargetMissingError) {
+        toast.error(
+          'Recovery failed — credential not found',
+          `No matching credential was found for ${credRecoveryFields?.holderPersonId ?? ''}. ` +
           'Use the Execute button to create one.',
         );
       } else {
@@ -722,9 +830,10 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           );
         }
 
-        // ── Approved: Execute OR Recover (S20-P2, unchanged for InitiateJourney) ──
-        // AddCredential approvals show the normal Execute button — no recovery
-        // UX for credentials in Phase 3 (isRecoveryCandidate is false for AddCredential).
+        // ── Approved: Execute OR Recover (S20-P2 / S21-P1) ───────────────
+        // Priority: journey recovery (S20-P2) > credential recovery (S21-P1) > Execute.
+        // isRecoveryCandidate and isCredRecoveryCandidate are mutually exclusive by
+        // operationType, so only one existence query fires per card.
         if (approval.approvalStatus === 'Approved') {
           return (
             <div
@@ -736,14 +845,14 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                 gap: 'var(--c3-space-3)',
               }}
             >
-              {/* Journey existence check is in-flight for recovery candidates */}
-              {isJourneyChecking ? (
+              {/* Existence check is in-flight for recovery candidates */}
+              {isJourneyChecking || (isCredRecoveryCandidate && isCredentialsChecking) ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--c3-space-2)' }}>
                   <Spinner size="extra-tiny" />
                   <Text size={200} style={{ color: 'var(--c3-gray-400)' }}>Checking...</Text>
                 </div>
               ) : isPartialExecutionRecovery ? (
-                /* ── Partial execution recovery path (InitiateJourney only) ─ */
+                /* ── InitiateJourney partial execution recovery (S20-P2) ─── */
                 <>
                   <MessageBar intent="warning">
                     <MessageBarBody>
@@ -769,8 +878,35 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                     {isRecoverPending ? 'Recovering...' : 'Recover Execution Stamp'}
                   </Button>
                 </>
+              ) : isPartialCredentialExecutionRecovery ? (
+                /* ── AddCredential partial execution recovery (S21-P1) ───── */
+                <>
+                  <MessageBar intent="warning">
+                    <MessageBarBody>
+                      <Text size={200}>
+                        A credential matching this type and reference number already exists for{' '}
+                        <strong>{credRecoveryFields!.holderPersonId}</strong>. This may be a
+                        partial execution failure. <strong>Recover</strong> will stamp this
+                        approval as Executed without creating a new credential.
+                      </Text>
+                    </MessageBarBody>
+                  </MessageBar>
+                  <Button
+                    appearance="primary"
+                    style={{
+                      backgroundColor: 'var(--colorPaletteMarigoldBackground3, #835B00)',
+                      color: '#ffffff',
+                      border: 'none',
+                    }}
+                    icon={<ArrowRepeatAllRegular />}
+                    onClick={() => void handleRecoverCredential()}
+                    disabled={isRecoverCredentialPending}
+                  >
+                    {isRecoverCredentialPending ? 'Recovering...' : 'Recover Execution Stamp'}
+                  </Button>
+                </>
               ) : (
-                /* ── Normal Execute path (UNCHANGED, also used for AddCredential) ─ */
+                /* ── Normal Execute path ──────────────────────────────────── */
                 <Button
                   appearance="primary"
                   icon={<PlayRegular />}
