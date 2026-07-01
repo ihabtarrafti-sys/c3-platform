@@ -13,8 +13,14 @@
  *     Called by useExecuteApproval after approved-approval guard and duplicate check.
  *     The journey is the operational fact; the approval is the audit record (ADR-013).
  *
- * Write stubs (not implemented):
- *   - completeJourney, suspendJourney, cancelJourney
+ * Sprint 19 Phase 2:
+ *   - completeJourney, suspendJourney, resumeJourney, cancelJourney: live.
+ *     Pattern: GET (current item by Title) -> guard -> PATCH (MERGE).
+ *     Actor login is required; fail-close on empty actor.
+ *     Audit trail appended to Notes field (structured line: [ts] ACTION by actor[ -- reason]).
+ *     InvalidTransitionError thrown when the current SP status does not permit the transition.
+ *     Governance: direct role-gated actions, not ADR-013 approval-gated.
+ *     See: docs/architecture/ADR-013 Addendum -- Journey Lifecycle Transitions.md
  *
  * Design:
  *   - No PnP.js. Native fetch with credentials: 'same-origin'.
@@ -38,7 +44,9 @@
  */
 
 import type { InitiateJourneyInput, Journey, JourneyType } from '@c3/types';
-import type { IJourneyService } from '../interfaces/IJourneyService';
+import type { IJourneyService, JourneyTransitionRequest } from '../interfaces/IJourneyService';
+import { canCancel, canComplete, canResume, canSuspend } from '../interfaces/IJourneyService';
+import { InvalidTransitionError } from '../errors';
 import { mapSpItemsToJourneys, mapSpItemToJourney } from '@c3/utils/spJourneyMapper';
 import type { SpJourneyItem } from '@c3/utils/spJourneyMapper';
 
@@ -197,6 +205,109 @@ function formatJourneyId(n: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Transition helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * SP item shape returned from transition GET (all SELECT_FIELDS).
+ */
+interface SpJourneyItemWithId extends SpJourneyItem {
+  Id: number;
+}
+
+/**
+ * Fetch a single C3Journeys SP item by its Title (JourneyID, e.g. "JRN-0001").
+ * Returns null if the item is not found.
+ */
+async function fetchItemByTitle(
+  siteUrl: string,
+  journeyId: string,
+): Promise<SpJourneyItemWithId | null> {
+  const url =
+    `${buildListUrl(siteUrl)}` +
+    `?$select=${SELECT_FIELDS}` +
+    `&$filter=Title eq '${escOData(journeyId)}'` +
+    `&$top=1`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json;odata=nometadata' },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `${PREFIX} fetchItemByTitle(${journeyId}): HTTP ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const json = (await response.json()) as { value?: SpJourneyItemWithId[] };
+  if (!Array.isArray(json.value) || json.value.length === 0) return null;
+
+  return json.value[0];
+}
+
+/**
+ * PATCH a C3Journeys SP list item using X-HTTP-Method: MERGE.
+ */
+async function patchJourneyItem(
+  siteUrl: string,
+  id: number,
+  digest: string,
+  fields: Record<string, string | null>,
+): Promise<void> {
+  const body = {
+    __metadata: { type: LIST_ITEM_TYPE },
+    ...fields,
+  };
+
+  const response = await fetch(buildItemUrl(siteUrl, id), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Accept':          'application/json;odata=nometadata',
+      'Content-Type':    'application/json;odata=verbose',
+      'X-RequestDigest': digest,
+      'X-HTTP-Method':   'MERGE',
+      'IF-MATCH':        '*',
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text().catch(() => '(unreadable)');
+    throw new Error(
+      `${PREFIX} patchJourneyItem(${id}): HTTP ${response.status} ${response.statusText}. Body: ${errorText}`,
+    );
+  }
+}
+
+/**
+ * Builds a structured audit line for the Notes append pattern.
+ * Format: "[ISO_TIMESTAMP] ACTION by LOGINNAME[ -- reason]"
+ */
+function buildAuditLine(
+  action: 'COMPLETED' | 'SUSPENDED' | 'RESUMED' | 'CANCELLED',
+  actorLoginName: string,
+  reason: string | undefined,
+): string {
+  const ts = new Date().toISOString();
+  const base = `[${ts}] ${action} by ${actorLoginName}`;
+  return reason ? `${base} -- ${reason}` : base;
+}
+
+/**
+ * Appends an audit line to existing Notes, preserving existing content.
+ */
+function appendAuditLine(
+  existingNotes: string | null | undefined,
+  line: string,
+): string | undefined {
+  if (!existingNotes || !existingNotes.trim()) return line;
+  return `${existingNotes}\n${line}`;
+}
+
+// ---------------------------------------------------------------------------
 // Factory
 // ---------------------------------------------------------------------------
 
@@ -246,17 +357,11 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
     },
 
     async initiateJourney(input: InitiateJourneyInput): Promise<Journey> {
-      // Step 1: derive next JRN-XXXX sequence
       const seq    = await deriveNextJourneySequence(siteUrl);
       const title  = formatJourneyId(seq);
-
-      // Step 2: fetch fresh form digest
       const digest = await fetchFormDigest(siteUrl);
-
-      // Step 3: build POST body
       const now = new Date().toISOString();
 
-      // ObligationAssignmentsJSON: JSON array string when assignments exist, else null
       const obligationJson =
         input.obligationAssignments && input.obligationAssignments.length > 0
           ? JSON.stringify(input.obligationAssignments)
@@ -274,11 +379,10 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
         InitiationReason:         input.InitiationReason ?? null,
         Notes:                    input.Notes ?? null,
         MissionID:                input.MissionID ?? null,
-        ContractID:               null,      // not supplied at execution time
+        ContractID:               null,
         ObligationAssignmentsJSON: obligationJson,
       };
 
-      // Step 4: POST to C3Journeys
       const response = await fetch(buildListUrl(siteUrl), {
         method: 'POST',
         credentials: 'same-origin',
@@ -302,7 +406,6 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
 
       console.info(`${PREFIX} initiateJourney: created ${title} (SP ID ${spId}) for ${input.PersonID}`);
 
-      // Step 5: return the typed Journey domain object
       const journey: Journey = {
         JourneyID:        title,
         PersonID:         input.PersonID,
@@ -323,27 +426,130 @@ export const createSharePointJourneyService = (siteUrl: string): IJourneyService
       return journey;
     },
 
-    async completeJourney(journeyId: string): Promise<Journey> {
-      void journeyId;
-      console.warn(`${PREFIX} completeJourney: not implemented`);
-      throw new Error(`${PREFIX} completeJourney: not implemented`);
+    async completeJourney(req: JourneyTransitionRequest): Promise<Journey> {
+      const { journeyId, actorLoginName, reason } = req;
+      if (!actorLoginName.trim()) {
+        throw new Error(`${PREFIX} completeJourney: actorLoginName is empty. Refusing to write without an identifiable actor.`);
+      }
+
+      const current = await fetchItemByTitle(siteUrl, journeyId);
+      if (!current) {
+        throw new Error(`${PREFIX} completeJourney: Journey not found in C3Journeys: ${journeyId}`);
+      }
+      const currentStatus = current.Status as Journey['Status'];
+      if (!canComplete(currentStatus)) {
+        throw new InvalidTransitionError(journeyId, currentStatus, 'complete');
+      }
+
+      const now = new Date().toISOString();
+      const auditLine = buildAuditLine('COMPLETED', actorLoginName, reason);
+      const newNotes = appendAuditLine(current.Notes, auditLine);
+
+      const digest = await fetchFormDigest(siteUrl);
+      await patchJourneyItem(siteUrl, current.Id, digest, {
+        Status:      'Completed',
+        CompletedAt: now,
+        Notes:       newNotes ?? null,
+      });
+
+      console.info(`${PREFIX} completeJourney: ${journeyId} -> Completed by ${actorLoginName}`);
+
+      const warnRef = { count: 0 };
+      const base = mapSpItemToJourney(current, warnRef);
+      return { ...base, JourneyID: journeyId, Status: 'Completed', CompletedAt: now, Notes: newNotes } as Journey;
     },
 
-    async suspendJourney(journeyId: string): Promise<Journey> {
-      void journeyId;
-      console.warn(`${PREFIX} suspendJourney: not implemented`);
-      throw new Error(`${PREFIX} suspendJourney: not implemented`);
+    async suspendJourney(req: JourneyTransitionRequest): Promise<Journey> {
+      const { journeyId, actorLoginName, reason } = req;
+      if (!actorLoginName.trim()) {
+        throw new Error(`${PREFIX} suspendJourney: actorLoginName is empty. Refusing to write without an identifiable actor.`);
+      }
+
+      const current = await fetchItemByTitle(siteUrl, journeyId);
+      if (!current) {
+        throw new Error(`${PREFIX} suspendJourney: Journey not found in C3Journeys: ${journeyId}`);
+      }
+      const currentStatus = current.Status as Journey['Status'];
+      if (!canSuspend(currentStatus)) {
+        throw new InvalidTransitionError(journeyId, currentStatus, 'suspend');
+      }
+
+      const auditLine = buildAuditLine('SUSPENDED', actorLoginName, reason);
+      const newNotes = appendAuditLine(current.Notes, auditLine);
+
+      const digest = await fetchFormDigest(siteUrl);
+      await patchJourneyItem(siteUrl, current.Id, digest, {
+        Status: 'Suspended',
+        Notes:  newNotes ?? null,
+      });
+
+      console.info(`${PREFIX} suspendJourney: ${journeyId} -> Suspended by ${actorLoginName}`);
+
+      const warnRef = { count: 0 };
+      const base = mapSpItemToJourney(current, warnRef);
+      return { ...base, JourneyID: journeyId, Status: 'Suspended', Notes: newNotes } as Journey;
     },
 
-    async cancelJourney(journeyId: string): Promise<Journey> {
-      void journeyId;
-      console.warn(`${PREFIX} cancelJourney: not implemented`);
-      throw new Error(`${PREFIX} cancelJourney: not implemented`);
+    async resumeJourney(req: Omit<JourneyTransitionRequest, 'reason'>): Promise<Journey> {
+      const { journeyId, actorLoginName } = req;
+      if (!actorLoginName.trim()) {
+        throw new Error(`${PREFIX} resumeJourney: actorLoginName is empty. Refusing to write without an identifiable actor.`);
+      }
+
+      const current = await fetchItemByTitle(siteUrl, journeyId);
+      if (!current) {
+        throw new Error(`${PREFIX} resumeJourney: Journey not found in C3Journeys: ${journeyId}`);
+      }
+      const currentStatus = current.Status as Journey['Status'];
+      if (!canResume(currentStatus)) {
+        throw new InvalidTransitionError(journeyId, currentStatus, 'resume');
+      }
+
+      const auditLine = buildAuditLine('RESUMED', actorLoginName, undefined);
+      const newNotes = appendAuditLine(current.Notes, auditLine);
+
+      const digest = await fetchFormDigest(siteUrl);
+      await patchJourneyItem(siteUrl, current.Id, digest, {
+        Status: 'Active',
+        Notes:  newNotes ?? null,
+      });
+
+      console.info(`${PREFIX} resumeJourney: ${journeyId} -> Active (resumed) by ${actorLoginName}`);
+
+      const warnRef = { count: 0 };
+      const base = mapSpItemToJourney(current, warnRef);
+      return { ...base, JourneyID: journeyId, Status: 'Active', Notes: newNotes } as Journey;
     },
 
-    // completeJourney / suspendJourney / cancelJourney also use MERGE when implemented.
-    // The buildItemUrl helper above is available for that purpose.
-    // Suppress unused-variable warning until those methods are live.
-    ...((() => { void buildItemUrl; return {}; })()),
+    async cancelJourney(req: JourneyTransitionRequest): Promise<Journey> {
+      const { journeyId, actorLoginName, reason } = req;
+      if (!actorLoginName.trim()) {
+        throw new Error(`${PREFIX} cancelJourney: actorLoginName is empty. Refusing to write without an identifiable actor.`);
+      }
+
+      const current = await fetchItemByTitle(siteUrl, journeyId);
+      if (!current) {
+        throw new Error(`${PREFIX} cancelJourney: Journey not found in C3Journeys: ${journeyId}`);
+      }
+      const currentStatus = current.Status as Journey['Status'];
+      if (!canCancel(currentStatus)) {
+        throw new InvalidTransitionError(journeyId, currentStatus, 'cancel');
+      }
+
+      const auditLine = buildAuditLine('CANCELLED', actorLoginName, reason);
+      const newNotes = appendAuditLine(current.Notes, auditLine);
+
+      const digest = await fetchFormDigest(siteUrl);
+      await patchJourneyItem(siteUrl, current.Id, digest, {
+        Status: 'Cancelled',
+        Notes:  newNotes ?? null,
+      });
+
+      console.info(`${PREFIX} cancelJourney: ${journeyId} -> Cancelled by ${actorLoginName}`);
+
+      const warnRef = { count: 0 };
+      const base = mapSpItemToJourney(current, warnRef);
+      return { ...base, JourneyID: journeyId, Status: 'Cancelled', Notes: newNotes } as Journey;
+    },
   };
 };

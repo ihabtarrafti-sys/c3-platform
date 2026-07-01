@@ -1,6 +1,18 @@
 import { useState } from 'react';
 
-import { Badge, Button, Text } from '@fluentui/react-components';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  Spinner,
+  Text,
+  Textarea,
+} from '@fluentui/react-components';
 import {
   DataRow,
   EmptyState,
@@ -16,13 +28,21 @@ import { AddCredentialPanel } from '@c3/components/shared/AddCredentialPanel';
 import { ReadinessPanel } from '@c3/components/shared/ReadinessPanel';
 import { StageBadge } from '@c3/components/shared/StageBadge';
 import { StartJourneyPanel } from '@c3/components/shared/StartJourneyPanel';
+import { useApp } from '@c3/hooks/useApp';
 import { useNavigate } from '@c3/hooks/useNavigate';
 import { useSpReadOnly } from '@c3/hooks/useSpReadOnly';
+import { useToast } from '@c3/hooks/useToast';
 import { usePerson } from '@c3/hooks/usePerson';
 import { usePersonJourneys } from '@c3/hooks/usePersonJourneys';
 import { usePersonContracts } from '@c3/hooks/usePersonContracts';
 import { usePersonCredentials } from '@c3/hooks/usePersonCredentials';
 import { usePersonReadiness } from '@c3/hooks/usePersonReadiness';
+import { useCompleteJourney } from '@c3/hooks/useCompleteJourney';
+import { useSuspendJourney } from '@c3/hooks/useSuspendJourney';
+import { useResumeJourney } from '@c3/hooks/useResumeJourney';
+import { useCancelJourney } from '@c3/hooks/useCancelJourney';
+import { canCancel, canComplete, canResume, canSuspend } from '@c3/services/interfaces/IJourneyService';
+import { InvalidTransitionError } from '@c3/services/errors';
 import { evaluateOnboardingObligations } from '@c3/protocols';
 import type { Credential, CredentialCapability, JourneyStatus, MissionNavContext } from '@c3/types';
 import { computeDaysToExpiry } from '@c3/utils/dateUtils';
@@ -54,6 +74,12 @@ const TABS: Array<{ id: ProfileTab; label: string }> = [
   { id: 'profile',   label: 'Profile' },
   { id: 'readiness', label: 'Readiness' },
 ];
+
+// ---------------------------------------------------------------------------
+// Journey lifecycle confirm action type
+// ---------------------------------------------------------------------------
+
+type JourneyConfirmAction = 'complete' | 'suspend' | 'resume' | 'cancel';
 
 // ---------------------------------------------------------------------------
 // Profile helpers
@@ -119,12 +145,19 @@ const JOURNEY_BADGE_COLOR: Record<JourneyStatus, JourneyBadgeColor> = {
 // ---------------------------------------------------------------------------
 
 export const PersonProfile = ({ personId, tab: initialTab, missionContext }: PersonProfileProps) => {
-  const { navigate } = useNavigate();
-  const isSpReadOnly = useSpReadOnly();
-  const [activeTab,          setActiveTab]          = useState<ProfileTab>(initialTab ?? 'profile');
-  const [journeyPanelOpen,   setJourneyPanelOpen]   = useState(false);
-  const [credentialPanelOpen, setCredentialPanelOpen] = useState(false);
-  const [resolveCapability,   setResolveCapability]   = useState<CredentialCapability | undefined>(undefined);
+  const { navigate }     = useNavigate();
+  const { currentUser }  = useApp();
+  const isSpReadOnly     = useSpReadOnly();
+  const toast            = useToast();
+
+  const [activeTab,            setActiveTab]            = useState<ProfileTab>(initialTab ?? 'profile');
+  const [journeyPanelOpen,     setJourneyPanelOpen]     = useState(false);
+  const [credentialPanelOpen,  setCredentialPanelOpen]  = useState(false);
+  const [resolveCapability,    setResolveCapability]     = useState<CredentialCapability | undefined>(undefined);
+
+  // Journey lifecycle confirm dialog state
+  const [confirmAction, setConfirmAction] = useState<JourneyConfirmAction | null>(null);
+  const [confirmReason, setConfirmReason] = useState('');
 
   const handleResolveObligation = (capability: CredentialCapability) => {
     setResolveCapability(capability);
@@ -157,7 +190,10 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
 
   // Show active journey first; fall back to most-recent (e.g. a completed journey).
   // listJourneysForPerson returns most-recent first.
-  const journey = onboardingJourneys.find(j => j.Status === 'Active') ?? onboardingJourneys[0] ?? null;
+  const journey = onboardingJourneys.find(j => j.Status === 'Active')
+    ?? onboardingJourneys.find(j => j.Status === 'Suspended')
+    ?? onboardingJourneys[0]
+    ?? null;
 
   // Button guard: offer "Start Onboarding Journey" only when no Onboarding journey
   // of any status exists. Once one exists (Active, Completed, Suspended, Cancelled),
@@ -173,6 +209,88 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
       requirement: o.requirement,
       suggestedOwner: o.defaultOwner,
     })) ?? [];
+
+  // ---------------------------------------------------------------------------
+  // Journey lifecycle mutations
+  //
+  // Role guard: owner and operations may manage journey lifecycle.
+  // This is NOT gated on isSpReadOnly — lifecycle transitions are available in
+  // both mock and SP modes. isSpReadOnly returns true in SP mode and would hide
+  // these actions incorrectly. The explicit role check is the authoritative gate.
+  // ---------------------------------------------------------------------------
+
+  const canManageJourneyLifecycle =
+    currentUser.c3Role === 'owner' || currentUser.c3Role === 'operations';
+
+  const completeJourneyMutation = useCompleteJourney();
+  const suspendJourneyMutation  = useSuspendJourney();
+  const resumeJourneyMutation   = useResumeJourney();
+  const cancelJourneyMutation   = useCancelJourney();
+
+  const isTransitionPending =
+    completeJourneyMutation.isPending ||
+    suspendJourneyMutation.isPending  ||
+    resumeJourneyMutation.isPending   ||
+    cancelJourneyMutation.isPending;
+
+  const handleOpenConfirm = (action: JourneyConfirmAction) => {
+    setConfirmReason('');
+    setConfirmAction(action);
+  };
+
+  const handleDismissConfirm = () => {
+    if (isTransitionPending) return; // block dismiss while in-flight
+    setConfirmAction(null);
+    setConfirmReason('');
+  };
+
+  const handleConfirm = async () => {
+    if (!journey || !person || !confirmAction) return;
+
+    const base = {
+      journeyId:     journey.JourneyID,
+      actorLoginName: currentUser.loginName,
+      personId:      person.PersonID,
+      journeyType:   journey.Type,
+    };
+
+    try {
+      if (confirmAction === 'complete') {
+        await completeJourneyMutation.mutateAsync({
+          ...base,
+          reason: confirmReason.trim() || undefined,
+        });
+        toast.success('Journey completed.');
+      } else if (confirmAction === 'suspend') {
+        await suspendJourneyMutation.mutateAsync({
+          ...base,
+          reason: confirmReason.trim() || undefined,
+        });
+        toast.success('Journey suspended.');
+      } else if (confirmAction === 'resume') {
+        await resumeJourneyMutation.mutateAsync(base);
+        toast.success('Journey resumed.');
+      } else if (confirmAction === 'cancel') {
+        await cancelJourneyMutation.mutateAsync({
+          ...base,
+          reason: confirmReason.trim() || undefined,
+        });
+        toast.success('Journey cancelled.');
+      }
+      setConfirmAction(null);
+      setConfirmReason('');
+    } catch (err) {
+      if (err instanceof InvalidTransitionError) {
+        toast.error(
+          'Action no longer valid',
+          'The journey status has changed. Please refresh.',
+        );
+      } else {
+        const msg = err instanceof Error ? err.message : String(err);
+        toast.error('Failed to update journey', msg.slice(0, 200));
+      }
+    }
+  };
 
   // ── Loading ──────────────────────────────────────────────────────────────
 
@@ -225,6 +343,42 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   }
 
   const profileSubtitle = [person.PersonID, person.IGN].filter(Boolean).join(' · ');
+
+  // ── Confirm dialog content (derives from confirmAction) ──────────────────
+
+  const confirmDialogConfig: Record<
+    JourneyConfirmAction,
+    { title: string; body: string; showReason: boolean; confirmLabel: string; isDanger: boolean }
+  > = {
+    complete: {
+      title:        'Mark as Completed?',
+      body:         `Mark ${journey?.JourneyID ?? 'this journey'} as Completed for ${person.FullName}? The journey will be closed and the action logged.`,
+      showReason:   false,
+      confirmLabel: 'Mark Completed',
+      isDanger:     false,
+    },
+    suspend: {
+      title:        'Suspend Journey?',
+      body:         `Suspend ${journey?.JourneyID ?? 'this journey'}? The journey will be paused. It can be resumed or cancelled later.`,
+      showReason:   true,
+      confirmLabel: 'Suspend',
+      isDanger:     false,
+    },
+    resume: {
+      title:        'Resume Journey?',
+      body:         `Resume ${journey?.JourneyID ?? 'this journey'}? The journey will return to Active status.`,
+      showReason:   false,
+      confirmLabel: 'Resume',
+      isDanger:     false,
+    },
+    cancel: {
+      title:        'Cancel Journey?',
+      body:         `Cancel ${journey?.JourneyID ?? 'this journey'} for ${person.FullName}? The credential gap will remain open until a new journey is started.`,
+      showReason:   true,
+      confirmLabel: 'Cancel Journey',
+      isDanger:     true,
+    },
+  };
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -437,6 +591,70 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
         capabilityHint={resolveCapability}
       />
 
+      {/* ── Journey lifecycle confirm dialog ─────────────────────────────────
+           Mounted outside the tab tree — must survive tab switches.
+           Only renders when confirmAction is set (a transition was requested).  */}
+      {confirmAction && (
+        <Dialog
+          open={!!confirmAction}
+          onOpenChange={(_e, data) => { if (!data.open) handleDismissConfirm(); }}
+        >
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle>{confirmDialogConfig[confirmAction].title}</DialogTitle>
+              <DialogContent>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-3)' }}>
+                  <Text size={300} style={{ color: 'var(--c3-gray-700)' }}>
+                    {confirmDialogConfig[confirmAction].body}
+                  </Text>
+                  {confirmDialogConfig[confirmAction].showReason && (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-1)' }}>
+                      <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+                        Reason (optional — recorded in journey log)
+                      </Text>
+                      <Textarea
+                        value={confirmReason}
+                        onChange={(_e, data) => setConfirmReason(data.value)}
+                        placeholder={
+                          confirmAction === 'suspend'
+                            ? 'e.g. Waiting for visa documentation'
+                            : 'e.g. Journey no longer required'
+                        }
+                        resize="vertical"
+                        rows={2}
+                        disabled={isTransitionPending}
+                      />
+                    </div>
+                  )}
+                </div>
+              </DialogContent>
+              <DialogActions>
+                <Button
+                  appearance="secondary"
+                  onClick={handleDismissConfirm}
+                  disabled={isTransitionPending}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  appearance={confirmDialogConfig[confirmAction].isDanger ? 'primary' : 'primary'}
+                  style={
+                    confirmDialogConfig[confirmAction].isDanger
+                      ? { backgroundColor: 'var(--c3-critical)', border: 'none' }
+                      : undefined
+                  }
+                  onClick={() => { void handleConfirm(); }}
+                  disabled={isTransitionPending}
+                  icon={isTransitionPending ? <Spinner size="tiny" /> : undefined}
+                >
+                  {isTransitionPending ? 'Updating…' : confirmDialogConfig[confirmAction].confirmLabel}
+                </Button>
+              </DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+      )}
+
       {/* ── Readiness tab ─────────────────────────────────────────────────── */}
 
       {activeTab === 'readiness' && (
@@ -467,9 +685,10 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    gap: 'var(--c3-space-2)',
+                    gap: 'var(--c3-space-3)',
                   }}
                 >
+                  {/* Status + ID row */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--c3-space-2)' }}>
                     <Badge color={JOURNEY_BADGE_COLOR[journey.Status]} size="small">
                       {journey.Status}
@@ -478,15 +697,78 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                       {journey.JourneyID}
                     </Text>
                   </div>
+
+                  {/* Initiation reason */}
                   {journey.InitiationReason && (
                     <Text size={300} style={{ color: 'var(--c3-gray-700)' }}>
                       {journey.InitiationReason}
                     </Text>
                   )}
+
+                  {/* Metadata line */}
                   <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
                     Initiated by {journey.InitiatedBy} · {formatDate(journey.InitiatedAt)}
                     {journey.CompletedAt ? ` · Completed ${formatDate(journey.CompletedAt)}` : ''}
                   </Text>
+
+                  {/* ── Journey lifecycle actions ─────────────────────────────────
+                       Visible only to owner and operations roles.
+                       NOT gated on isSpReadOnly — that guard returns true in SP mode
+                       and would incorrectly hide these actions. Role is the gate.
+                       Each button is conditionally rendered per transition guard.    */}
+                  {canManageJourneyLifecycle && (
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: 'var(--c3-space-2)',
+                        flexWrap: 'wrap',
+                        paddingTop: 'var(--c3-space-1)',
+                        borderTop: '1px solid var(--c3-gray-100)',
+                      }}
+                    >
+                      {canComplete(journey.Status) && (
+                        <Button
+                          appearance="subtle"
+                          size="small"
+                          disabled={isTransitionPending}
+                          onClick={() => handleOpenConfirm('complete')}
+                        >
+                          Mark Completed
+                        </Button>
+                      )}
+                      {canSuspend(journey.Status) && (
+                        <Button
+                          appearance="subtle"
+                          size="small"
+                          disabled={isTransitionPending}
+                          onClick={() => handleOpenConfirm('suspend')}
+                        >
+                          Suspend
+                        </Button>
+                      )}
+                      {canResume(journey.Status) && (
+                        <Button
+                          appearance="subtle"
+                          size="small"
+                          disabled={isTransitionPending}
+                          onClick={() => handleOpenConfirm('resume')}
+                        >
+                          Resume
+                        </Button>
+                      )}
+                      {canCancel(journey.Status) && (
+                        <Button
+                          appearance="subtle"
+                          size="small"
+                          disabled={isTransitionPending}
+                          style={{ color: 'var(--c3-critical)' }}
+                          onClick={() => handleOpenConfirm('cancel')}
+                        >
+                          Cancel Journey
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </div>
               </SectionCard>
 
