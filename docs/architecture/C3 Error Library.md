@@ -1,0 +1,419 @@
+# C3 Error Library
+**C3 Contract Control Center**
+**Status:** BETA — Sprint 22
+**Last updated:** 2026-07-01
+**See also:** C3 Beta Operational Runbook.md, C3 Beta Checkpoint — Sprint 21.md, C3 Tech Debt Register.md
+
+> **Purpose:** Single-source catalog of all known C3 errors, failure modes, and operational issues. Each entry carries a stable ERR-XXX ID for cross-referencing from the runbook, sprint docs, and operator notes. Entries are grouped by category: Active Runtime Errors, SP Environment Issues, Deployment and Tooling Issues, and Latent / Future Risks.
+
+---
+
+## Quick Reference
+
+| ID | Name | Category | Toast / Signal |
+|----|------|----------|---------------|
+| ERR-001 | DuplicateJourneyError | Active Runtime | "Execution blocked — duplicate journey…" |
+| ERR-002 | SelfApprovalError | Active Runtime | "Self-approval not permitted…" |
+| ERR-003 | PayloadValidationError | Active Runtime | "Execution blocked — invalid payload…" |
+| ERR-004 | ApprovalStatusGuardError | Active Runtime | Console only (not normally user-facing) |
+| ERR-005 | PartialExecutionError | Active Runtime | "Partial execution — manual resolution required" |
+| ERR-006 | PartialCredentialExecutionError | Active Runtime | "Partial execution — credential created…" |
+| ERR-007 | InvalidTransitionError | Active Runtime | Toast: transition blocked message |
+| ERR-008 | Stamp-only safety re-check failure | Active Runtime | Toast: recovery blocked |
+| ERR-009 | getApproval not implemented | Latent | Console throw if called |
+| ERR-010 | Runtime bundle SHA mismatch | Deployment / Tooling | `verify:runtime` FAIL |
+| ERR-011 | TMP-* orphan row | Deployment / Tooling | Silent (visible in SP only) |
+| ERR-012 | NUL byte in source file | Deployment / Tooling | tsc / parity failure |
+| ERR-013 | Git index corruption | Deployment / Tooling | `git add` fatal error |
+| ERR-014 | C3Approvals list inaccessible | SP Environment | Error state / empty queue |
+| ERR-015 | loginName empty / role resolution failure | SP Environment | `c3Role: 'visitor'` unexpectedly |
+| ERR-016 | OperationType missing AddCredential | SP Environment | SP 400 on credential submission |
+| ERR-017 | `$top=500` approval history truncation | Latent | Silent data gap in PersonProfile |
+| ERR-018 | C3Credentials missing required column | SP Environment | SP 400 on credential execution |
+| ERR-019 | ToasterGuard / Toaster context unavailable | Active Runtime | No toasts appear |
+
+---
+
+## Category A — Active Runtime Errors
+
+These errors are observable in the current beta runtime. Each has a defined recovery path.
+
+---
+
+### ERR-001 — DuplicateJourneyError
+
+**Type:** Active Runtime
+**Symptom:** Toast: "Execution blocked — duplicate journey. An active Onboarding journey already exists for this person. Approval has been marked ExecutionFailed."
+**Cause:** `useExecuteApproval` (InitiateJourney branch) queries `C3Journeys` before writing. If a row with `Status = Active` already exists for `TargetPersonID`, execution is blocked. `C3Journeys` row is NOT created. `C3Approvals` is stamped `ExecutionFailed`.
+**Detection:**
+- Toast text as above
+- SP confirm: `C3Approvals.ApprovalStatus = ExecutionFailed`; `ExecutionError` contains duplicate message
+- SP confirm: `C3Approvals.ExecutedAt` is null (ExecutionFailed must not set a timestamp — discriminant check)
+- SP confirm: no new `C3Journeys` row for the person
+
+**User Impact:** The InitiateJourney operation is blocked. The ExecutionFailed approval record is terminal — it cannot be re-executed. A new approval must be submitted if the operation should proceed.
+
+**Recovery:** See Runbook §7.1. If the existing active journey should be superseded, close it in SP (`Status = Closed`), then re-submit and re-execute.
+
+**Prevention:** Check PersonProfile Readiness tab for an active Onboarding journey before submitting a new approval.
+
+**Related files:** `useExecuteApproval.ts`, `SharePointJourneyService.ts`
+
+---
+
+### ERR-002 — SelfApprovalError
+
+**Type:** Active Runtime
+**Symptom:** Toast: "Self-approval not permitted — You cannot approve your own submission." `ApprovalStatus` unchanged.
+**Cause:** `usePatchApprovalStatus` (Approve path) compares `currentUser.loginName` to `approval.submittedBy`. If equal, throws `SelfApprovalError` before any SP write. Governed by ADR-013.
+**Detection:**
+- Toast text as above
+- SP confirm: `C3Approvals.ApprovalStatus` still `Submitted` or `InReview` — unchanged
+
+**User Impact:** The approval cannot be self-approved. A different account must perform the Approve action.
+
+**Recovery:** See Runbook §7.3. Use a second account for the Approve action.
+
+**Prevention:** In a multi-user beta, the submitter and approver must be different accounts. In single-operator beta, this is a known limitation — document that the same user performed both actions and accept in the trusted beta environment.
+
+**Related files:** `usePatchApprovalStatus.ts`, ADR-013
+
+---
+
+### ERR-003 — PayloadValidationError
+
+**Type:** Active Runtime
+**Symptom:** Toast: "Execution blocked — invalid payload. The approval payload is missing or malformed. No journey/credential was created." `ApprovalStatus` unchanged.
+**Cause:** `useExecuteApproval` parses `approval.payload` (a JSON string in the `Payload` column). If null, empty, or unparseable, throws `PayloadValidationError` before any SP write.
+**Detection:**
+- Toast text as above
+- SP confirm: `C3Approvals.ApprovalStatus` still `Approved` — unchanged
+- SP confirm: `C3Approvals.Payload` is null or corrupt — inspect the column value
+
+**User Impact:** Execution blocked. No data was written. The Approved approval remains in the inbox. The operation must be re-submitted.
+
+**Recovery:** See Runbook §7.2. Inspect and correct `Payload` in SP if recoverable; otherwise submit a new approval.
+
+**Prevention:** Payloads are generated by C3 submission forms (`useSubmitJourneyApproval`, `useSubmitCredentialApproval`). Malformed payloads should not occur from normal C3 use. Avoid manually editing the `Payload` column in SP.
+
+**Related files:** `useExecuteApproval.ts`, `approvalPayloadUtils.ts`, `useSubmitJourneyApproval.ts`, `useSubmitCredentialApproval.ts`
+
+---
+
+### ERR-004 — ApprovalStatusGuardError
+
+**Type:** Active Runtime
+**Symptom:** No toast appears. Console: "Only approved approvals can be executed. Current status: <X>." No SP write occurs.
+**Cause:** `useExecuteApproval` mutationFn first guard: `if (approval.approvalStatus !== 'Approved') throw`. Fires before any SP write. In normal UI operation, the Execute button is only rendered for Approved cards, so this fires only if the card state is stale or if a hook is called directly.
+**Detection:** DevTools console error. No SP change.
+
+**User Impact:** None in normal operation. This guard is intentional and defensive.
+
+**Recovery:** Refresh the inbox (polling or manual reload). Confirm the approval's current `ApprovalStatus` in SP. Re-evaluate whether the approval is in a state that permits execution.
+
+**Prevention:** No action needed. The guard is correct behavior.
+
+**Related files:** `useExecuteApproval.ts`
+
+---
+
+### ERR-005 — PartialExecutionError (InitiateJourney)
+
+**Type:** Active Runtime
+**Symptom:** Toast: "Partial execution — manual resolution required." `C3Journeys` row exists and is `Active`. `C3Approvals` remains `Approved` with no `ExecutedAt`. ApprovalInbox card shows **Recover Execution Stamp** button.
+**Cause:** `useExecuteApproval` (InitiateJourney): Step 4 — C3Journeys POST-then-MERGE — succeeded. Step 5 — stamp `C3Approvals → Executed` — failed (SP write timeout, 429, network drop). Journey is valid; approval stamp is missing.
+**Detection:**
+- Toast text as above
+- SP confirm: `C3Journeys` has new `Active` row for `TargetPersonID`
+- SP confirm: `C3Approvals.ApprovalStatus` still `Approved`; `ExecutedAt` is null
+
+**User Impact:** Journey is active and valid in SP. ApprovalInbox shows the card in an incorrect `Approved` state with a recovery prompt. No data is lost; the approval needs a stamp-only recovery.
+
+**Recovery:** See Runbook §7.4.
+- In-app: click **Recover Execution Stamp** — `useRecoverExecutionStamp` confirms the journey exists, then stamps the approval without creating a new row.
+- Manual: set `ApprovalStatus = Executed` and `ExecutedAt = <ISO timestamp>` in SP.
+
+**Prevention:** SP reliability; no preventive action possible in beta.
+
+**Related files:** `useExecuteApproval.ts`, `useRecoverExecutionStamp.ts`, `useActiveJourney.ts`, `ApprovalInbox.tsx`
+
+---
+
+### ERR-006 — PartialCredentialExecutionError (AddCredential)
+
+**Type:** Active Runtime
+**Symptom:** Toast: "Partial execution — credential created but approval stamp failed." `C3Credentials` row exists. `C3Approvals` remains `Approved` with no `ExecutedAt`. ApprovalInbox card may show **Recover Execution Stamp** button.
+**Cause:** `useExecuteApproval` (AddCredential): `credentialService.addCredential` POST-then-MERGE succeeded (credential exists in SP). Approval stamp to `Executed` failed.
+**Detection:**
+- Toast text as above
+- SP confirm: `C3Credentials` has new row for `HolderPersonID`
+- SP confirm: `C3Approvals.ApprovalStatus` still `Approved`; `ExecutedAt` is null
+
+**User Impact:** Credential is created and active in SP. ApprovalInbox shows card in incorrect `Approved` state. Recovery button may or may not appear depending on card state at reload.
+
+**Recovery:** See Runbook §7.5.
+- In-app: click **Recover Execution Stamp** if visible — `useRecoverCredentialExecutionStamp` confirms the credential exists, then stamps the approval.
+- Manual fallback: set `ApprovalStatus = Executed` and `ExecutedAt` in SP. Manual path is required if the card no longer shows the Recover button (e.g., after page reload with stale cache).
+
+**Caveat (TD-13 / S21-P1):** `useRecoverCredentialExecutionStamp` was implemented in S21-P1. However, recovery detection in the inbox does not trigger if the card has already transitioned out of the `Approved` state (e.g., due to a page reload between the partial execution and the recovery attempt). Manual SP recovery is always available as a fallback.
+
+**Prevention:** SP reliability; no preventive action possible in beta.
+
+**Related files:** `useExecuteApproval.ts`, `useRecoverCredentialExecutionStamp.ts`, `SharePointCredentialService.ts`, `ApprovalInbox.tsx`
+
+---
+
+### ERR-007 — InvalidTransitionError
+
+**Type:** Active Runtime
+**Symptom:** Toast: journey lifecycle transition blocked (e.g., "Cannot complete a cancelled journey"). The lifecycle action is not applied.
+**Cause:** Journey lifecycle hooks (`useCompleteJourney`, `useSuspendJourney`, `useCancelJourney`) validate the requested transition against the current `Status` before writing. Throws `InvalidTransitionError` if the transition is not permitted. Valid transitions: `Active → Completed`, `Active → Suspended`, `Active/Suspended → Cancelled`.
+**Detection:**
+- Toast with transition blocked message
+- SP confirm: `C3Journeys.Status` unchanged
+
+**User Impact:** The requested lifecycle action is blocked. No data is written.
+
+**Recovery:** Check the journey's current `Status` in PersonProfile Readiness tab or via SP REST. Perform only valid transitions. If the journey is in a terminal state (Completed, Cancelled), it cannot be transitioned further.
+
+**Prevention:** Confirm the journey's current status before initiating a lifecycle action.
+
+**Related files:** Journey lifecycle hooks, `SharePointJourneyService.ts`, `ADR-013 Addendum — Journey Lifecycle Transitions.md`
+
+---
+
+### ERR-008 — Stamp-only Safety Re-check Failure
+
+**Type:** Active Runtime
+**Symptom:** **Recover Execution Stamp** clicked; toast: recovery blocked (target journey/credential not found). No stamp written. `C3Approvals.ApprovalStatus` remains `Approved`.
+**Cause:** `useRecoverExecutionStamp` or `useRecoverCredentialExecutionStamp` performs a safety re-check at stamp time — queries for the target journey or credential. If the target does not exist (manual SP deletion, race condition, or the row was never created), the stamp is blocked. This prevents a stamp-without-target write, which would create a false `Executed` record.
+**Detection:** Toast indicates recovery blocked. `C3Approvals.ApprovalStatus` still `Approved`.
+
+**User Impact:** Recovery attempt blocked. Data integrity preserved (no false stamp). The underlying cause (missing journey/credential) needs investigation.
+
+**Recovery:** Investigate whether the target row was deleted or was never successfully created. If the `C3Journeys` or `C3Credentials` row was deleted manually, either re-execute the original approval (if possible — only if status is still `Approved` and the journey/credential was fully deleted) or manually resolve the SP records and stamp the approval manually.
+
+**Prevention:** Do not manually delete `C3Journeys` or `C3Credentials` rows that have associated pending `C3Approvals` records.
+
+**Related files:** `useRecoverExecutionStamp.ts`, `useRecoverCredentialExecutionStamp.ts`
+
+---
+
+### ERR-019 — Toaster Context Unavailable (ToasterGuard)
+
+**Type:** Active Runtime
+**Symptom:** C3 operations complete (approvals process, journeys create) but no toast notifications appear. No console error.
+**Cause:** FluentUI v9 `Toaster` context is not available at render time. `ToasterGuard` (TD-16) is the current workaround; if it is not correctly in place, toast calls fail silently.
+**Detection:** Perform an action that should produce a toast (e.g., approve a submission). If no toast appears, check the React component tree for the Toaster provider placement. Check TD-16 for the current state of the workaround.
+
+**User Impact:** Operations succeed but operator receives no confirmation feedback. Risk of unintentionally repeating an action that already completed.
+
+**Recovery:** Verify `ToasterGuard` is present and correctly positioned in the component tree (wrapping the screens that trigger toasts). See TD-16 for investigation guidance.
+
+**Prevention:** Do not remove `ToasterGuard` without fully resolving the underlying FluentUI Toaster provider placement issue.
+
+**Related files:** Toast provider, `AppShell.tsx` or equivalent, TD-16
+
+---
+
+## Category B — SP Environment Issues
+
+These errors indicate a SharePoint configuration or provisioning problem. They prevent C3 from functioning correctly and must be resolved by the operator before use.
+
+---
+
+### ERR-014 — C3Approvals List Inaccessible
+
+**Type:** SP Environment
+**Symptom:** ApprovalInbox shows error state or empty queue when approvals should be present. Console: SP REST 404 or 403 on `C3Approvals` endpoint.
+**Cause:** The list does not exist at the expected internal name; SP permissions are misconfigured; or the list was renamed.
+**Detection:**
+```
+GET {siteUrl}/_api/web/lists/getbytitle('C3Approvals')
+```
+- 200 = accessible
+- 404 = list not found (not provisioned or wrong name)
+- 403 = permissions insufficient
+
+**User Impact:** Approval workflow entirely unavailable. No approvals can be viewed or processed.
+
+**Recovery:** Provision or repair the `C3Approvals` list per `S18 C3Approvals SP List Schema.md`. Verify SP list permissions — the workbench user needs at least Read access; owners need Write access.
+
+**Related files:** `SharePointApprovalsService.ts`, `S18 C3Approvals SP List Schema.md`
+
+---
+
+### ERR-015 — loginName Empty / Role Resolution Failure
+
+**Type:** SP Environment
+**Symptom:** `[C3]` console log shows `currentUser.loginName: ''`. Role resolves to `visitor` regardless of SP group membership. Approvals inbox may be hidden from an owner account.
+**Cause:** `pageContext.user.loginName` is empty for the current user. This can occur with guest accounts, external users, or certain AAD configurations that do not populate the SPFx page context `loginName`. The C3 role resolver fail-closes to `visitor` when `loginName` is empty.
+**Detection:** DevTools console → `[C3]` log → look for `currentUser.loginName: ''`.
+
+**User Impact:** Role-gated features (Approvals inbox, Execute buttons, Add Credential) are unavailable even for a Platform Owner account. Self-approval guard is also unreliable when `loginName` is empty.
+
+**Recovery:** Use a standard Microsoft 365 member account (not a guest or external account) for all beta testing. Verify that `pageContext.user.loginName` is populated for the account type in use.
+
+**Related files:** `SharePointHost.tsx`, `spRoleResolver.ts`
+
+---
+
+### ERR-016 — OperationType Choice Column Missing AddCredential
+
+**Type:** SP Environment
+**Symptom:** Submitting a credential approval returns SP 400. `C3Approvals` row is not created. `useSubmitCredentialApproval` errors.
+**Cause:** The `OperationType` Choice column in `C3Approvals` does not include `AddCredential` as a valid choice value. The S18-era list provisioning may have only included `InitiateJourney`. The SP service sends `OperationType = AddCredential` in the POST body; SP rejects it with 400 because the value is not in the column's choice list.
+**Detection:** SP REST 400 response body. Check `C3Approvals` list settings → `OperationType` column → Edit → Choices.
+
+**User Impact:** All credential approval submissions fail. The credential governance workflow is unavailable.
+
+**Recovery:** In SP list settings, edit the `OperationType` Choice column and add `AddCredential` to the choices. Confirm both `InitiateJourney` and `AddCredential` are present. Refer to Beta Checkpoint Part 0.2 for the full required choice set.
+
+**Related files:** `SharePointApprovalsService.ts`, `S18 C3Approvals SP List Schema.md`
+
+---
+
+### ERR-018 — C3Credentials Missing Required Column
+
+**Type:** SP Environment
+**Symptom:** Credential execution returns SP 400. `C3Credentials` row is not created.
+**Cause:** The `C3Credentials` list is missing a required column — most commonly `HolderPersonID`, `CredentialType`, `ReferenceNumber`, or `IsActive`. SP rejects the POST body because the field does not exist on the list.
+**Detection:** SP REST 400 response body. Check `C3Credentials` list settings and compare against the required columns listed in `C3 Beta Operational Runbook.md §2.3`.
+
+**User Impact:** Credential execution fails. No `C3Credentials` row is created. `C3Approvals` record remains `Approved`.
+
+**Recovery:** Add the missing column(s) per the schema in `C3 Beta Operational Runbook.md §2.3`. Reattempt execution after the column is added.
+
+**Related files:** `SharePointCredentialService.ts`, S21 C3Credentials SP List Schema.md
+
+---
+
+## Category C — Deployment and Tooling Issues
+
+These errors affect the development/deployment workflow. They do not surface in the production workbench unless a broken build was deployed.
+
+---
+
+### ERR-010 — Runtime Bundle SHA Mismatch
+
+**Type:** Deployment / Tooling
+**Symptom:** `npm run verify:runtime` fails with `SHA mismatch` or `FAIL`. One of: the dist build and SPFx host asset have different hashes; or one file is missing or empty.
+**Cause:** `npm run copy:c3-runtime` was not run after the build, or `beta:runtime` was partially interrupted. The two copies of `c3-runtime.js` are out of sync.
+**Detection:** `npm run verify:runtime` output.
+
+**User Impact (if deployed in this state):** Hosted workbench may load a stale C3 runtime — source behavior and deployed behavior diverge. parity harnesses and tsc will still pass (they test source), but the workbench test is invalid.
+
+**Recovery:** Run `npm run beta:runtime` (build + copy), then `npm run verify:runtime`. Expect PASS. Commit updated bundle (Runbook §4.3). If `verify-c3-runtime.mjs` itself fails with a syntax error, the mnt filesystem may have truncated the script file — restore via `git show HEAD:scripts/verify-c3-runtime.mjs`.
+
+**Prevention:** Always use `npm run beta:runtime` (never `build:c3-runtime` alone). Never manually edit runtime bundle files.
+
+**Related files:** `scripts/verify-c3-runtime.mjs`, `package.json` (beta:runtime, verify:runtime scripts), TD-15
+
+---
+
+### ERR-011 — TMP-* Orphan Row
+
+**Type:** Deployment / Tooling (SP write failure)
+**Symptom:** A `C3Approvals` or `C3Credentials` row exists with a `Title` matching `TMP-<base36>`. The row has no canonical APR-XXXX or CRED-XXXX identifier. Silent — no toast in C3.
+**Cause:** The POST to create the row succeeded (SP assigned an integer ID). The MERGE to update the `Title` to the canonical identifier failed (SP timeout, 429, or network drop). The TMP placeholder was not overwritten.
+**Detection:**
+```
+GET {siteUrl}/_api/web/lists/getbytitle('C3Approvals')/items?$filter=startswith(Title,'TMP-')
+GET {siteUrl}/_api/web/lists/getbytitle('C3Credentials')/items?$filter=startswith(Title,'TMP-')
+```
+
+**User Impact:** The orphan row may appear in the C3 UI with an incorrect title. The operation that created it did not fully complete.
+
+**Recovery:** See Runbook §7.6. Delete the TMP-* row from SP. Re-submit the operation from C3.
+
+**Prevention:** SP reliability; the POST-then-MERGE pattern is required for SP auto-ID atomicity. No preventive action in beta.
+
+**Related files:** `SharePointApprovalsService.ts`, `SharePointJourneyService.ts`, `SharePointCredentialService.ts`
+
+---
+
+### ERR-012 — NUL Byte in Source File
+
+**Type:** Deployment / Tooling (developer environment issue)
+**Symptom:** `tsc` fails with "Invalid or unexpected token" at a specific line. Parity harness outputs garbled characters or fails unexpectedly. NUL byte audit returns non-zero count.
+**Cause:** File write via the Write or Edit tool on Windows/mnt paths sometimes inserts NUL bytes (0x00) into file content, particularly in large Markdown or TypeScript files. The resulting file appears valid but contains embedded NUL characters that TypeScript and Node cannot parse.
+**Detection:**
+```bash
+python3 -c "
+files = ['packages/c3/src/...']
+for f in files:
+    d = open(f,'rb').read()
+    n = d.count(b'\x00')
+    print(f'{f}: {n} NUL bytes' + (' ⚠' if n else ' ✓'))
+"
+```
+
+**User Impact:** TypeScript compilation fails; parity harnesses fail. Beta build is broken until fixed.
+
+**Recovery:** Restore the affected file from git: `git show HEAD:<path>` then write back via Python subprocess with explicit UTF-8 encoding. Re-run NUL audit to confirm zero bytes. Re-run `tsc` and parity harnesses.
+
+**Prevention:** For files > ~50 lines, always write via a Python script (Write tool creates `.py` in outputs directory; bash executes it). Never write large content files directly via Edit/Write tool to mnt paths.
+
+**Related files:** Any source or doc file on the mnt filesystem.
+
+---
+
+### ERR-013 — Git Index Corruption
+
+**Type:** Deployment / Tooling (developer environment issue)
+**Symptom:** `git add` returns: `error: bad signature 0x00000000` / `fatal: index file corrupt`. Staging is blocked.
+**Cause:** The mnt filesystem (Windows host, accessed from the Linux sandbox) intermittently corrupts the `.git/index` file during `git add` operations.
+**Detection:** `git add` error output as above.
+
+**User Impact:** Cannot stage or commit until the index is repaired.
+
+**Recovery:**
+```bash
+export GIT_INDEX_FILE=/tmp/c3-git-index
+git read-tree HEAD
+git add <files>
+git commit -m "..."
+```
+Keep `GIT_INDEX_FILE` exported for all subsequent git operations in the same shell session.
+
+**Prevention:** Always use `GIT_INDEX_FILE=/tmp/c3-git-index` for all git staging operations in the mnt-mounted sandbox. Do not attempt to repair `.git/index` directly.
+
+**Related files:** `.git/index` on mnt filesystem.
+
+---
+
+## Category D — Latent / Future Risks
+
+These are known issues that do not cause observable failures in the current beta environment but will cause problems at scale or when related features are built.
+
+---
+
+### ERR-009 — getApproval Not Implemented
+
+**Type:** Latent
+**Symptom:** Any code path calling `approvalsService.getApproval(id)` throws immediately with "not implemented". No SP call is made.
+**Cause:** Both `MockApprovalsService.getApproval` and `SharePointApprovalsService.getApproval` throw "not implemented". No current screen or hook calls this method. See TD-06.
+**Detection:** Console: "not implemented". Only observable if new code calls `getApproval`.
+
+**User Impact:** Zero in current beta. Any future screen requiring single-approval fetch by ID will crash on first use.
+
+**Recovery (when triggered):** Implement `getApproval` in both service classes before building any consumer. See TD-06.
+
+**Related files:** `MockApprovalsService.ts`, `SharePointApprovalsService.ts`, `IApprovalsService.ts`
+
+---
+
+### ERR-017 — $top=500 Approval History Truncation
+
+**Type:** Latent
+**Symptom:** PersonProfile Approvals tab shows incomplete approval history for a person even though more records exist in SP. No error; data is silently truncated.
+**Cause:** `listApprovals` SP query uses `$top=500`. `usePersonApprovals` (S21-P2) filters client-side by `targetPersonId`. If `C3Approvals` total record count exceeds 500, earlier records fall outside the fetch window and are invisible to person-scoped filtering.
+**Detection:** Cross-reference PersonProfile Approvals tab count against a direct SP query filtered by `TargetPersonID`. Discrepancy indicates truncation. See TD-19.
+
+**User Impact (when triggered):** Approval history for high-volume persons may appear incomplete. Display-only gap; no action-blocking.
+
+**Risk level:** Not a concern in beta. Becomes relevant at ~400–500 total `C3Approvals` records.
+
+**Mitigation (future):** Implement OData `$filter=TargetPersonID eq '...'` in SP service (TD-07), or add pagination support to `listApprovals`. See TD-19.
+
+**Related files:** `SharePointApprovalsService.ts`, `usePersonApprovals.ts`

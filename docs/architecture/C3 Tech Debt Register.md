@@ -1,6 +1,6 @@
 # C3 Tech Debt Register
 
-**Last updated:** 2026-07-01 (Sprint 21 Closeout)
+**Last updated:** 2026-07-01 (Sprint 22)
 **Maintained by:** Engineering (C3 Platform)
 **Purpose:** Single-source list of known technical debts, design gaps, and deferred decisions.
 Each item carries a severity, sprint attribution, and a clear resolution path.
@@ -267,7 +267,15 @@ remains at `Approved` status. Operator must manually set the approval to `Execut
 Credential recovery UX (equivalent to `useRecoverExecutionStamp` for credentials) is deferred
 post-S20.
 
-**Resolution commit:** Sprint 20 Phase 3 source commit.
+**S21-P1 update:** `useRecoverCredentialExecutionStamp` was implemented in Sprint 21 Phase 1,
+providing an in-app Recover Execution Stamp button on AddCredential cards that remain in
+`Approved` state. The hook confirms the credential row exists before stamping — stamp-only,
+no new row created. Caveat: if the card has already transitioned out of the `Approved` state
+(e.g., after a page reload between partial execution and recovery), recovery detection does
+not trigger. Manual SP recovery (`ApprovalStatus = Executed`, `ExecutedAt` set manually)
+remains the fallback in that case. See ERR-006 in C3 Error Library.
+
+**Resolution commit:** Sprint 20 Phase 3 source commit (core); Sprint 21 Phase 1 source commit (recovery UX).
 
 ---
 
@@ -371,6 +379,50 @@ approvals fall outside the top 500 by submitted date.
 as a general latent risk. TD-19 specifically records the person-history truncation
 consequence introduced by S21-P2's client-side filtering approach.
 
+---
+
+### TD-20 — `deactivateCredential` not implemented
+
+**Severity:** 🟠 Functional gap
+**Sprint attributed:** S20-P3 (credential write path implemented; deactivation deferred)
+**File:** `packages/c3/src/services/sharepoint/SharePointCredentialService.ts`
+
+The `deactivateCredential` method is not implemented in the SP service (stub or not present).
+Operators cannot deactivate credentials through the C3 UI. The credential `IsActive` flag
+must be set manually in the `C3Credentials` SP list.
+
+This gap is noted in Beta Checkpoint (Sprint 21) Part 14 as a known operational caveat.
+It has no in-app error surface — the deactivate action is simply unavailable.
+
+**Resolution:** Implement `SharePointCredentialService.deactivateCredential` as a MERGE
+on the `C3Credentials` item setting `IsActive = false`. Wire a deactivate action into the
+credential card in PersonProfile (owner/operations role gate). The credential should then
+appear as inactive in the profile view.
+
+---
+
+### TD-21 — No audit timestamp columns for journey lifecycle transitions
+
+**Severity:** 🟡 Quality gap
+**Sprint attributed:** S20-P2 (lifecycle transitions implemented; audit timestamps deferred)
+**File:** `C3Journeys` SP list, `packages/c3/src/services/sharepoint/SharePointJourneyService.ts`
+
+Journey lifecycle transitions (Suspend, Cancel, Complete) are recorded via a Notes-append
+pattern in the `C3Journeys` record, but there are no dedicated timestamp columns
+(`SuspendedAt`, `CancelledAt`, `CompletedAt`) in the SP list schema. This means there is
+no machine-readable record of when a specific lifecycle transition occurred — only the
+narrative Notes append.
+
+This gap is noted in Beta Checkpoint (Sprint 21) Part 14 as a known operational caveat.
+It is a quality gap, not a blocking issue for beta.
+
+**Resolution:** Add `SuspendedAt`, `CancelledAt`, `CompletedAt` (Date and Time columns)
+to the `C3Journeys` SP list schema. Update `SharePointJourneyService` lifecycle methods
+(`suspendJourney`, `cancelJourney`, `completeJourney`) to populate the respective timestamp
+alongside the `Status` transition MERGE. Schema change required — plan with SP list
+migration if live data already exists.
+
+
 ## Resolved Items (Sprint Archive)
 
 | ID | Item | Resolution | Sprint |
@@ -379,4 +431,4 @@ consequence introduced by S21-P2's client-side filtering approach.
 | ✅ | PersonProfile cancel confirm button invisible in dark/SP context | `var(--c3-critical, #DC2626)` inline fallback | S19 Phase 2 |
 | ✅ | PersonProfile "Cancel" dismiss button confusing label | `'Go Back'` when action is cancel | S19 Phase 2 |
 | ✅ | No SP role resolver (hardcoded mock roles in SP DSM) | `spRoleResolver.ts` queries SP groups | S19 Phase 1 |
-| ✅ | Journey lifecycle transitions not
+| ✅ | Journey lifecycle transitions not guarded against invalid states | `InvalidTransitionError` + lifecycle hooks added | S19 Phase 2 |

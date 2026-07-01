@@ -16,11 +16,11 @@
 - [ ] `git status` is clean (no uncommitted changes)
 - [ ] `git log --oneline -5` shows:
   ```
+  7c7967e docs(s22): Add beta operational runbook and error library
+  4d9f3f2 docs(backlog): Record C3 product expansion backlog
+  998aa6f docs(s21): Close Sprint 21 and update beta baseline
   22c9a5e chore(s21-phase-4): Add beta runtime verification scripts
   e226257 build(s21-phase-3): Update SPFx runtime bundle after credential UX hardening
-  d7068bd fix(s21-phase-3): Harden credential approval UX and beta checklist
-  7a20cda build(s21-phase-2): Update SPFx runtime bundle after profile approval history
-  16c8b39 feat(s21-phase-2): Add person-scoped approval history to PersonProfile
   ```
 - [ ] Parity harnesses all pass:
   ```bash
