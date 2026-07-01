@@ -7,6 +7,7 @@
  * Sprint 18 Phase 4A: Execute button for Approved approvals (owner only).
  * Sprint 18 Phase 4B: badge distinction Approved vs Executed.
  * Sprint 20 Phase 1 (S20-P1): filter tabs, full audit field display, payload summary.
+ * Sprint 20 Phase 2 (S20-P2): Recover Execution Stamp action for partial execution failures.
  *
  * Tab / filter structure (S20-P1):
  *   Pending  = Submitted + InReview   (default — actionable work queue)
@@ -21,10 +22,17 @@
  *
  * Status-to-action matrix (owner) — UNCHANGED from S18:
  *   Submitted / InReview  -> Approve + Reject
- *   Approved              -> Execute
+ *   Approved              -> Execute  OR  Recover Execution Stamp (S20-P2)
  *   Rejected / Executed / ExecutionFailed -> read-only (no buttons)
  *
  * Self-approval enforcement and owner-only action gating: UNCHANGED.
+ *
+ * Recovery detection (S20-P2):
+ *   For each Approved + InitiateJourney card, a lazy useActiveJourney query
+ *   checks whether an active Onboarding journey already exists for the payload
+ *   personId. If so, the Execute button is replaced by Recover Execution Stamp.
+ *   Recovery stamps the approval Executed without creating a new journey.
+ *   Non-owner view remains read-only regardless.
  *
  * Payload summary (InitiateJourney, S20-P1):
  *   Safe parse — crashes are impossible; malformed JSON yields an
@@ -35,6 +43,8 @@ import { useMemo, useState } from 'react';
 import {
   Badge,
   Button,
+  MessageBar,
+  MessageBarBody,
   Spinner,
   Tab,
   TabList,
@@ -42,16 +52,19 @@ import {
   Textarea,
 } from '@fluentui/react-components';
 import {
+  ArrowRepeatAllRegular,
   CheckmarkRegular,
   DismissRegular,
   PlayRegular,
 } from '@fluentui/react-icons';
 
 import { EmptyState } from '@c3/components/ui';
+import { useActiveJourney } from '@c3/hooks/useActiveJourney';
 import { useApp } from '@c3/hooks/useApp';
 import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { usePatchApprovalStatus, SelfApprovalError } from '@c3/hooks/usePatchApprovalStatus';
 import { useExecuteApproval, DuplicateJourneyError, PartialExecutionError, PayloadValidationError } from '@c3/hooks/useExecuteApproval';
+import { useRecoverExecutionStamp, RecoveryTargetMissingError } from '@c3/hooks/useRecoverExecutionStamp';
 import { useToast } from '@c3/hooks/useToast';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
@@ -130,6 +143,21 @@ function formatDateTime(iso: string | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
+// Safe personId extraction (no import coupling to payload types)
+// ---------------------------------------------------------------------------
+
+function extractPayloadPersonId(raw: string | undefined): string {
+  if (!raw || !raw.trim()) return '';
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const id = parsed['personId'];
+    return typeof id === 'string' ? id.trim() : '';
+  } catch {
+    return '';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // DetailCell
 // ---------------------------------------------------------------------------
 
@@ -174,8 +202,6 @@ const DetailCell = ({
 //
 // Never throws: malformed JSON yields a labelled error + collapsed raw block.
 // Only rendered for OperationType === 'InitiateJourney'.
-// Does not import approvalPayloads.ts to avoid coupling — accesses fields
-// dynamically with type guards.
 // ---------------------------------------------------------------------------
 
 const PayloadSummary = ({
@@ -187,7 +213,6 @@ const PayloadSummary = ({
 }) => {
   if (operationType !== 'InitiateJourney') return null;
 
-  // ── Missing payload ──────────────────────────────────────────────────────
   if (!raw) {
     return (
       <div
@@ -215,12 +240,10 @@ const PayloadSummary = ({
     );
   }
 
-  // ── Parse attempt ────────────────────────────────────────────────────────
   let parsed: Record<string, unknown> | null = null;
   try {
     parsed = JSON.parse(raw) as Record<string, unknown>;
   } catch {
-    // Safe fallback — show labelled error + collapsed raw block.
     return (
       <div
         style={{
@@ -270,7 +293,6 @@ const PayloadSummary = ({
     );
   }
 
-  // ── Structured display ───────────────────────────────────────────────────
   const journeyType        = typeof parsed['journeyType']        === 'string' ? parsed['journeyType']        : '--';
   const personId           = typeof parsed['personId']           === 'string' ? parsed['personId']           : '--';
   const assignedTo         = typeof parsed['assignedTo']         === 'string' ? parsed['assignedTo']         : null;
@@ -340,11 +362,42 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const [rejectReason, setRejectReason] = useState('');
 
   const { mutateAsync: executeAsync, isPending: isExecutePending } = useExecuteApproval();
+  const { mutateAsync: recoverAsync, isPending: isRecoverPending  } = useRecoverExecutionStamp();
 
-  const isPending  = isPatchPending || isExecutePending;
+  // ── Recovery candidate detection (S20-P2) ─────────────────────────────────
+  //
+  // A recovery candidate is an Approved + InitiateJourney approval whose
+  // payload contains a parseable personId. Only for these do we fire a
+  // useActiveJourney query. The `enabled` param suppresses the query for all
+  // other cards (Submitted / InReview / Rejected / Executed / ExecutionFailed,
+  // or Approved with non-InitiateJourney operationType, or missing personId).
+  //
+  // If the query returns a Journey, an active Onboarding journey already exists
+  // for the target person → this is likely a partial execution recovery case.
+  // The Execute button is swapped for Recover Execution Stamp.
+
+  const payloadPersonId = useMemo(
+    () => extractPayloadPersonId(approval.payload),
+    [approval.payload],
+  );
+
+  const isRecoveryCandidate =
+    approval.approvalStatus === 'Approved' &&
+    approval.operationType  === 'InitiateJourney' &&
+    payloadPersonId.length  > 0;
+
+  const {
+    data: existingJourney,
+    isLoading: isJourneyChecking,
+  } = useActiveJourney(payloadPersonId, 'Onboarding', isRecoveryCandidate);
+
+  // True only once the query has settled and returned a journey
+  const isPartialExecutionRecovery = isRecoveryCandidate && existingJourney != null;
+
+  const isPending = isPatchPending || isExecutePending || isRecoverPending;
   const statusColor = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
 
-  // ── Handlers (UNCHANGED from S18) ─────────────────────────────────────────
+  // ── Action handlers (UNCHANGED from S18/S20-P1 except recoverAsync) ───────
 
   const handleApprove = async () => {
     try {
@@ -377,7 +430,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
 
   const handleExecute = async () => {
     let parsedPayload: Record<string, unknown> | null = null;
-    try { parsedPayload = JSON.parse(approval.payload ?? ''); } catch { /* handled below */ }
+    try { parsedPayload = JSON.parse(approval.payload ?? '') as Record<string, unknown>; } catch { /* handled below */ }
     try {
       await executeAsync(approval);
       const personId = typeof parsedPayload?.['personId'] === 'string'
@@ -409,6 +462,29 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
       } else {
         const msg = err instanceof Error ? err.message : 'Unknown error.';
         toast.error('Execution failed', msg.slice(0, 200));
+      }
+    }
+  };
+
+  const handleRecover = async () => {
+    try {
+      await recoverAsync(approval);
+      toast.success(
+        'Execution stamp recovered',
+        `${approval.title} marked Executed. Existing journey for ${payloadPersonId} was preserved.`,
+      );
+    } catch (err) {
+      if (err instanceof RecoveryTargetMissingError) {
+        toast.error(
+          'Recovery failed — no active journey found',
+          `No active Onboarding journey was found for ${payloadPersonId}. ` +
+          'Use the Execute button to create one.',
+        );
+      } else {
+        toast.error(
+          'Recovery failed',
+          'Please retry or contact support.',
+        );
       }
     }
   };
@@ -457,26 +533,21 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           gap: 'var(--c3-space-3)',
         }}
       >
-        {/* Identity fields — always shown */}
         <DetailCell label="Person ID"    value={approval.targetPersonId ?? '--'} />
         <DetailCell label="Submitted By" value={approval.submittedBy    ?? '--'} />
 
-        {/* Reason — show if present */}
         {approval.reason && (
           <DetailCell label="Reason" value={approval.reason} wide />
         )}
 
-        {/* Review fields — show when the record has been reviewed */}
         {approval.reviewedBy  && <DetailCell label="Reviewed By" value={approval.reviewedBy} />}
         {approval.reviewedAt  && <DetailCell label="Reviewed At" value={formatDateTime(approval.reviewedAt)} />}
 
-        {/* Execution fields — show for terminal execution states */}
         {approval.executedAt  && <DetailCell label="Executed At"     value={formatDateTime(approval.executedAt)} />}
         {approval.executionError && (
           <DetailCell label="Execution Error" value={approval.executionError} wide danger />
         )}
 
-        {/* Rejection reason — show with danger color */}
         {approval.rejectionReason && (
           <DetailCell label="Rejection Reason" value={approval.rejectionReason} wide danger />
         )}
@@ -485,8 +556,10 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
       {/* ── Payload summary (S20-P1) — InitiateJourney only ────────────── */}
       <PayloadSummary raw={approval.payload} operationType={approval.operationType} />
 
-      {/* ── Owner action row (UNCHANGED from S18) ───────────────────────── */}
+      {/* ── Owner action row ────────────────────────────────────────────── */}
       {isOwner && (() => {
+
+        // ── Submitted / InReview: Approve + Reject (UNCHANGED) ───────────
         if (approval.approvalStatus === 'Submitted' || approval.approvalStatus === 'InReview') {
           return (
             <div
@@ -554,27 +627,67 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           );
         }
 
+        // ── Approved: Execute OR Recover (S20-P2) ─────────────────────────
         if (approval.approvalStatus === 'Approved') {
           return (
             <div
               style={{
                 borderTop: '1px solid var(--c3-gray-100)',
                 paddingTop: 'var(--c3-space-3)',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: 'var(--c3-space-3)',
               }}
             >
-              <Button
-                appearance="primary"
-                icon={<PlayRegular />}
-                onClick={() => void handleExecute()}
-                disabled={isExecutePending}
-              >
-                {isExecutePending ? 'Executing...' : 'Execute'}
-              </Button>
+              {/* Journey existence check is in-flight for recovery candidates */}
+              {isJourneyChecking ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--c3-space-2)' }}>
+                  <Spinner size="extra-tiny" />
+                  <Text size={200} style={{ color: 'var(--c3-gray-400)' }}>Checking...</Text>
+                </div>
+              ) : isPartialExecutionRecovery ? (
+                /* ── Partial execution recovery path ──────────────────────── */
+                <>
+                  <MessageBar intent="warning">
+                    <MessageBarBody>
+                      <Text size={200}>
+                        An active Onboarding journey already exists for{' '}
+                        <strong>{payloadPersonId}</strong>. This may be a partial execution
+                        failure. <strong>Recover</strong> will stamp this approval as Executed
+                        without creating a new journey.
+                      </Text>
+                    </MessageBarBody>
+                  </MessageBar>
+                  <Button
+                    appearance="primary"
+                    style={{
+                      backgroundColor: 'var(--colorPaletteMarigoldBackground3, #835B00)',
+                      color: '#ffffff',
+                      border: 'none',
+                    }}
+                    icon={<ArrowRepeatAllRegular />}
+                    onClick={() => void handleRecover()}
+                    disabled={isRecoverPending}
+                  >
+                    {isRecoverPending ? 'Recovering...' : 'Recover Execution Stamp'}
+                  </Button>
+                </>
+              ) : (
+                /* ── Normal Execute path (UNCHANGED) ─────────────────────── */
+                <Button
+                  appearance="primary"
+                  icon={<PlayRegular />}
+                  onClick={() => void handleExecute()}
+                  disabled={isExecutePending}
+                >
+                  {isExecutePending ? 'Executing...' : 'Execute'}
+                </Button>
+              )}
             </div>
           );
         }
 
-        // Rejected / Executed / ExecutionFailed: read-only
+        // ── Rejected / Executed / ExecutionFailed: read-only ──────────────
         return null;
       })()}
     </div>
@@ -591,8 +704,6 @@ export const ApprovalInbox = () => {
 
   const [activeTab, setActiveTab] = useState<InboxTab>('pending');
 
-  // Single query for all statuses — tab filtering is client-side.
-  // refetchInterval keeps the Pending tab live for real-time review queue.
   const {
     data: allApprovals = [],
     isLoading,
@@ -685,7 +796,6 @@ export const ApprovalInbox = () => {
               : 'Governance approval audit trail and status history.'}
           </Text>
         </div>
-        {/* Pending count badge — actionable work indicator */}
         {pendingCount > 0 && (
           <Badge appearance="filled" color="warning" size="large">
             {pendingCount} pending

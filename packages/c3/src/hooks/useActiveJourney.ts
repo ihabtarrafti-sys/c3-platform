@@ -14,13 +14,21 @@ import type { Journey, JourneyType } from '@c3/types';
  *
  * Journeys belong to Person — they are initiated by operational decision,
  * not by contract or document.
+ *
+ * Sprint 20 Phase 2: added optional `enabled` parameter so callers can
+ * suppress the query until a condition is met (e.g. recovery candidate check
+ * in ApprovalInbox). Defaults to `true` — all existing callers are unchanged.
  */
-export const useActiveJourney = (personId: string, type: JourneyType) => {
+export const useActiveJourney = (
+  personId: string,
+  type: JourneyType,
+  enabled = true,
+) => {
   const journeyService = useJourneyService();
 
   return useQuery<Journey | null>({
     queryKey: queryKeys.journey.active(personId, type),
     queryFn: () => journeyService.getActiveJourney(personId, type),
-    enabled: personId.trim().length > 0,
+    enabled: enabled && personId.trim().length > 0,
   });
 };
