@@ -1,6 +1,6 @@
 # C3 Tech Debt Register
 
-**Last updated:** 2026-07-01 (Sprint 21 Phase 4)
+**Last updated:** 2026-07-01 (Sprint 21 Closeout)
 **Maintained by:** Engineering (C3 Platform)
 **Purpose:** Single-source list of known technical debts, design gaps, and deferred decisions.
 Each item carries a severity, sprint attribution, and a clear resolution path.
@@ -128,17 +128,29 @@ the history tab cannot be built.
 **Resolution:** Add `targetPersonId?: string` to the filter type and implement OData
 `$filter=TargetPersonID eq '${targetPersonId}'` in the SP service. Planned for S20 Phase 1.
 
+**S21-P2 note:** `usePersonApprovals` (PersonProfile Approvals tab) works around the missing
+server-side filter by fetching all 6 statuses and filtering client-side by `targetPersonId`.
+This is a known workaround — see TD-19 for the truncation risk consequence. TD-07 remains open;
+the OData filter is not yet implemented in the SP service.
+
 ---
 
 ### TD-08 — Approval History tab not visible (Rejected/Executed/ExecutionFailed)
-**Severity:** 🟠 Latent risk — beta gap B7
-**Sprint attributed:** S18 (deferred), S20 Phase 1 (planned)
+**Severity:** 🟠 → ✅ **Resolved in Sprint 20 Phase 1**
+**Sprint attributed:** S18 (deferred), S20-P1 (resolved)
 **File:** `ApprovalInbox.tsx`
 
 `ApprovalInbox` queries only `['Submitted', 'InReview', 'Approved']`. Rejected, Executed,
 and ExecutionFailed records are invisible to all users. `ApprovalCard` already renders all
-terminal-state fields. A History tab with two `useListApprovals` calls (terminal statuses)
-is planned for S20 Phase 1.
+terminal-state fields.
+
+**Resolution (S20-P1):** `ApprovalInbox` now fetches all statuses in a single `listApprovals`
+call with client-side tab filtering. Six tabs: Pending / Approved / Executed / Rejected / Failed
+/ All. `ReviewedAt`, `RejectionReason`, and `ExecutionError` are surfaced in card detail views.
+See S20-P1 commit and Sprint 20 Closeout Report.
+
+**S21-P2 extension:** `usePersonApprovals` extends the same all-status fetch to power the
+PersonProfile Approvals tab (read-only person-scoped view, shared query cache with ApprovalInbox).
 
 ---
 
@@ -201,15 +213,22 @@ controlled beta environment where SP is not modified manually, this will not occ
 ---
 
 ### TD-12 — Approval audit visibility (who reviewed, when)
-**Severity:** 🟠 Latent risk — beta gap
-**Sprint attributed:** S18 (deferred)
+**Severity:** 🟠 → ✅ **Partially resolved — S20-P1 + S21-P2**
+**Sprint attributed:** S18 (deferred), S20-P1 (ApprovalInbox history tabs), S21-P2 (PersonProfile Approvals tab)
 
-The `ReviewedBy` and `ReviewedAt` fields are written to SP on `patchApprovalStatus` but are
+The `ReviewedBy` and `ReviewedAt` fields are written to SP on `patchApprovalStatus` but were
 not surfaced in any screen except `ApprovalCard` (visible only to inbox users). No audit log
-view exists for tracking who approved or rejected what, and when.
+view existed for tracking who approved or rejected what, and when.
 
-**Resolution:** Approval History tab (TD-08) will surface `ReviewedBy` / `ReviewedAt` fields
-via the History tab. Full audit log is deferred post-beta.
+**Resolution (S20-P1):** `ApprovalInbox` history tabs (Executed / Rejected / Failed) now surface
+`ReviewedBy`, `ReviewedAt`, `RejectionReason`, and `ExecutionError` on audit cards.
+
+**S21-P2 extension:** `PersonApprovalHistoryCard` in PersonProfile Approvals tab renders the same
+audit fields in a person-scoped read-only view. Rejection reason, execution error, and executedAt
+are surfaced for the specific person.
+
+**Remaining gap:** No full cross-person audit log (all approvals by reviewer, all approvals in a
+date range). Full audit log is deferred post-beta.
 
 ---
 
@@ -360,7 +379,4 @@ consequence introduced by S21-P2's client-side filtering approach.
 | ✅ | PersonProfile cancel confirm button invisible in dark/SP context | `var(--c3-critical, #DC2626)` inline fallback | S19 Phase 2 |
 | ✅ | PersonProfile "Cancel" dismiss button confusing label | `'Go Back'` when action is cancel | S19 Phase 2 |
 | ✅ | No SP role resolver (hardcoded mock roles in SP DSM) | `spRoleResolver.ts` queries SP groups | S19 Phase 1 |
-| ✅ | Journey lifecycle transitions not gated by role | `canManageJourneyLifecycle` guard on all transition hooks | S19 Phase 2 |
-| ✅ | No React Error Boundary | `ErrorBoundary.tsx` + AppShell wrap | S20 Phase 0 |
-| ✅ | CommandCenter false "All clear" on SP failure | Error threaded through useWorkItems | S20 Phase 0 |
-| ✅ | Amendments silent stub in SP DSM | NavRail mode gate | S20 Phase 0 |
+| ✅ | Journey lifecycle transitions not
