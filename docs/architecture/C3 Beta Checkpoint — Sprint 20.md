@@ -436,7 +436,7 @@ Goal: Platform Owner approves and executes the AddCredential approval. C3Credent
 
 | Caveat | Risk | Operator action |
 |--------|------|-----------------|
-| Manual runtime bundle commit required | Medium | After every code change: `npm run build:runtime` + bundle commit |
+| Manual runtime bundle commit required | Medium | After every source change: `npm run beta:runtime` (build + copy in one step), then `npm run verify:runtime` (SHA-256 sync check), then `git add .../c3-runtime.js && git commit` |
 | `PartialCredentialExecutionError` (CRED created, stamp failed) | Low — no in-app recovery UX | Manually set `ApprovalStatus = Executed` in C3Approvals for the affected record |
 | `PartialExecutionError` recovery false positive (manual SP row) | Very low | If a CRED row was manually inserted in SP outside C3, the recovery detector may not trigger correctly |
 | TMP-* orphan row if MERGE fails after POST | Very low | Delete the TMP-* row in SP; re-submit the operation |
@@ -488,6 +488,13 @@ Goal: Platform Owner approves and executes the AddCredential approval. C3Credent
 ## Validation commands
 
 ```bash
+# Runtime bundle (after any source change)
+npm run beta:runtime     # build:c3-runtime + copy:c3-runtime in one step
+npm run verify:runtime   # confirm both files exist, non-empty, SHA-256 match
+# Then commit the bundle:
+#   git add packages/c3-spfx-host/src/webparts/c3Host/assets/c3-runtime/c3-runtime.js
+#   git commit -m "build(...): Update SPFx runtime bundle"
+
 # Parity harnesses
 node scripts/s18-parity-approvals.mjs
 node scripts/s17-parity-journeys.mjs

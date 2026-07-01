@@ -1,6 +1,6 @@
 # C3 Tech Debt Register
 
-**Last updated:** 2026-07-01 (Sprint 20 Phase 3)
+**Last updated:** 2026-07-01 (Sprint 21 Phase 4)
 **Maintained by:** Engineering (C3 Platform)
 **Purpose:** Single-source list of known technical debts, design gaps, and deferred decisions.
 Each item carries a severity, sprint attribution, and a clear resolution path.
@@ -278,6 +278,14 @@ for deployment simplicity before CI/CD exists.
 **Resolution:** Once CI/CD is in place (TD-14), bundles should be generated on deploy and
 not committed. Until then, the dual-commit pattern is accepted. Bundle files are committed
 on a separate source-agnostic commit to keep the diff reviewable.
+
+**S21-P4 partial mitigation:** Added `npm run beta:runtime` to combine
+`build:c3-runtime` + `copy:c3-runtime` into a single command, and
+`npm run verify:runtime` (`scripts/verify-c3-runtime.mjs`) to confirm both the
+dist-runtime build output and the tracked SPFx host asset exist, are non-empty,
+and have identical SHA-256 hashes. Reduces the manual error surface without
+removing the dual-commit pattern. The underlying tech debt (tracked bundle,
+repo bloat) remains open until TD-14 (CI/CD) is resolved.
 
 ---
 
