@@ -4,7 +4,7 @@ import { useAmendments } from '@c3/hooks/useAmendments';
 import { useContracts } from '@c3/hooks/useContracts';
 import { usePeople } from '@c3/hooks/usePeople';
 
-import { getContractKpis } from '@c3/intelligence';
+import { getContractKpis } from '@c3/intelligence/contractKpis';
 import {
   getAmendmentBreakdown,
   getDispositionBreakdown,

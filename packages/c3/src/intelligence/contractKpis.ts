@@ -5,12 +5,14 @@ export const isActiveDisposition = (contract: Contract) =>
   contract.Disposition1 === 'Active' || contract.Disposition1 === null;
 
 export const isRenewalWindow = (contract: Contract) => {
+  if (!contract.EndDate) return false;
   const days = computeDaysToExpiry(contract.EndDate);
 
   return isActiveDisposition(contract) && days >= 0 && days <= 90;
 };
 
 export const isCriticalRenewal = (contract: Contract) => {
+  if (!contract.EndDate) return false;
   const days = computeDaysToExpiry(contract.EndDate);
 
   return isActiveDisposition(contract) && days >= 0 && days <= 30;

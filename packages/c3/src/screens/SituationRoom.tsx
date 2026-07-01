@@ -674,6 +674,16 @@ export const SituationRoom = ({ onNavigateToPerson, initialMissionId }: Situatio
   // Only fires when the operator clicks the action bar button on a FinancePending mission.
   const { mutate: approveMission, isPending: isApprovingMission } = useApproveMission();
 
+  // Participant count for the mission header: sourced from MissionParticipant records.
+  // S14-2: uses useMissionParticipants (replaces Mission.ParticipantPersonIDs which
+  // was removed). The hook shares the TanStack Query cache key with useMissionGaps,
+  // so no additional network call is made when useMissionGaps has already fetched.
+  // fix(s24-p1): moved before loading guard to satisfy Rules of Hooks (SP async path).
+  const { data: selectedMissionParticipants } = useMissionParticipants(
+    selectedMission?.MissionID ?? '',
+  );
+  const missionParticipantCount = selectedMissionParticipants.length;
+
   // ── Active data source ────────────────────────────────────────────────────
   const isMissionMode = selectedMissionId !== null;
   const gaps = isMissionMode ? missionGaps : allGaps;
@@ -761,15 +771,6 @@ export const SituationRoom = ({ onNavigateToPerson, initialMissionId }: Situatio
         : undefined;
     onNavigateToPerson?.(personId, missionCtx);
   };
-
-  // Participant count for the mission header: sourced from MissionParticipant records.
-  // S14-2: uses useMissionParticipants (replaces Mission.ParticipantPersonIDs which
-  // was removed). The hook shares the TanStack Query cache key with useMissionGaps,
-  // so no additional network call is made when useMissionGaps has already fetched.
-  const { data: selectedMissionParticipants } = useMissionParticipants(
-    selectedMission?.MissionID ?? '',
-  );
-  const missionParticipantCount = selectedMissionParticipants.length;
 
   // ── Empty state copy ──────────────────────────────────────────────────────
   const emptyAllCopy = isMissionMode && selectedMission

@@ -22,6 +22,7 @@ export const getOperationalInsights = ({
   const insights: OperationalInsight[] = [];
 
   const needsRenewalDecision = contracts.filter(contract => {
+    if (!contract.EndDate) return false;
     const days = computeDaysToExpiry(contract.EndDate);
 
     return (

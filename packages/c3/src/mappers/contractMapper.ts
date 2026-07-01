@@ -11,6 +11,9 @@
  *   - ContractOwner is two plain-text columns (ContractOwnerName, ContractOwnerEmail).
  *   - PersonID propagated from SP item to Contract (PER-XXXX canonical FK).
  *
+ * fix(s24-p1): Guard deriveOpsStatus against undefined/null EndDate — SP items
+ *   may omit EndDate; without the guard the .split('T') call throws at read time.
+ *
  * See: docs/architecture/C3Contracts SP List Schema.md
  */
 
@@ -57,8 +60,12 @@ export interface SPContractItem {
  *   <= 7  → Expiring7
  *   <= 30 → Expiring30
  *   > 30  → Active
+ *
+ * fix(s24-p1): Returns 'Active' for missing EndDate rather than crashing.
+ * SP items from the C3Contracts list may omit EndDate if not yet provisioned.
  */
-const deriveOpsStatus = (endDate: string): OpsStatus => {
+const deriveOpsStatus = (endDate: string | null | undefined): OpsStatus => {
+  if (!endDate) return 'Active';
   const today = new Date(
     new Date().toISOString().split('T')[0] + 'T00:00:00Z',
   );
