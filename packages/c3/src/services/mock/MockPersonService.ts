@@ -17,17 +17,14 @@ export const createMockPersonService = (): IPersonService => ({
     return Promise.resolve(person);
   },
 
-  listPersonContracts(personId: number): Promise<Contract[]> {
-    const person = mockPeople.find(p => p.Id === personId);
-    if (!person) {
+  // Sprint 24 Phase 1: Filter by PersonID (PER-XXXX canonical FK).
+  // PersonnelCode cross-reference removed — Contract.PersonID is now the FK.
+  listPersonContracts(personId: string): Promise<Contract[]> {
+    if (!personId || personId.trim().length === 0) {
       return Promise.resolve([]);
     }
     return Promise.resolve(
-      mockContracts.filter(
-        contract =>
-          contract.PersonnelCode &&
-          contract.PersonnelCode === person.PersonnelCode,
-      ),
+      mockContracts.filter(c => c.PersonID === personId),
     );
   },
 

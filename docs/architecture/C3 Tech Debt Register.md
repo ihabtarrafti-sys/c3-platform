@@ -68,21 +68,23 @@ in `visibleWhen`). Amendments remain fully available in Mock DSM for demo/regres
 ---
 
 ### TD-04 — SharePointContractService uses PnP.js (inconsistent with native-fetch services)
-**Severity:** 🟠 Latent risk
-**Sprint attributed:** S13 (origin — predates native-fetch migration)
+**Severity:** 🟠 → ✅ **Resolved in Sprint 24 Phase 1**
+**Sprint attributed:** S13 (origin — predates native-fetch migration), S24-P1 (resolved)
 **File:** `packages/c3/src/services/sharepoint/SharePointContractService.ts`
 
-All SP services written in S15–S19 use native `fetch` with `credentials: 'same-origin'`,
+~~All SP services written in S15–S19 use native `fetch` with `credentials: 'same-origin'`,
 `X-RequestDigest`, and the `application/json;odata=verbose` pattern. `SharePointContractService`
-predates this migration and uses `@pnp/sp` (PnP.js) with `spfi`. This creates:
-- Bundle size overhead from the PnP.js package
-- A different auth and error propagation model vs. all other SP services
-- Risk of divergence when PnP.js upstream changes
+predates this migration and uses `@pnp/sp` (PnP.js) with `spfi`.~~
 
-**Risk level:** Low in beta — contract service is read-only; no writes go through PnP.js.
+**Resolved (S24-P1):** `SharePointContractService` has been completely rewritten with native
+`fetch`, `credentials: 'same-origin'`, and `Accept: application/json;odata=nometadata` —
+consistent with all S15–S23 SP services. All `@pnp/sp` / `spfi` / `SPFI` imports removed.
+The service now targets `C3Contracts` (new list) rather than the legacy `C3_Contracts` list.
+`SPContractItem` in `contractMapper.ts` updated to match the flat C3Contracts schema (no SP
+lookup column shapes). `OpsStatus` is now computed from `EndDate` in the mapper rather than
+read from a stored SP column.
 
-**Resolution:** Rewrite `SharePointContractService` using native fetch following the S15-S19
-pattern. Not in S20 scope.
+**Resolution commit:** S24-P1 source commit.
 
 ---
 
@@ -426,6 +428,7 @@ alongside the `Status` transition MERGE. Schema change required — plan with SP
 migration if live data already exists.
 
 
+
 ### TD-22 — Legacy `C3_Contracts` list not migrated to `C3Contracts`
 
 **Severity:** 🟡 Quality gap
@@ -433,4 +436,26 @@ migration if live data already exists.
 **Files:** Legacy `C3_Contracts` SP list (SharePoint); `packages/c3/src/services/sharepoint/SharePointContractService.ts`
 
 Sprint 24 Phase 1 targets the new `C3Contracts` list (CamelCase, PersonID FK model). The legacy
-`C3_Contracts` list (underscore naming, SP lookup 
+`C3_Contracts` list (underscore naming, SP lookup columns for `Person`, `Team`, `GameTitle`) is
+left in place as a historical reference and is not migrated in this sprint.
+
+Consequences:
+- Contract history from `C3_Contracts` is not visible through the C3 application after S24-P1 implementation
+- Any contracts entered in `C3_Contracts` must be manually re-entered in `C3Contracts` if needed in C3
+- The legacy list can be decommissioned once migration is complete
+
+**Resolution:** Build an import/export tool or migration script to transfer `C3_Contracts` rows
+to `C3Contracts`, mapping SP lookup column values to plain-text `PersonID` (PER-XXXX) via the
+`C3People` list. Assign to Import/Export track (Track 16 in Product Expansion Backlog). Not in S24 scope.
+
+## Resolved Items (Sprint Archive)
+
+| ID | Item | Resolution | Sprint |
+|----|------|-----------|--------|
+| ✅ TD-04 | SharePointContractService used PnP.js (bundle overhead, inconsistent auth model) | Rewritten with native fetch targeting C3Contracts; PnP.js removed | S24 Phase 1 |
+| ✅ | Derive-then-POST sequence number collision risk | Replaced with POST-then-MERGE (SP auto-ID) | S19 Phase 3 |
+| ✅ | PersonProfile cancel confirm button invisible in dark/SP context | `var(--c3-critical, #DC2626)` inline fallback | S19 Phase 2 |
+| ✅ TD-20 | `deactivateCredential` not implemented (functional gap) | Full governed path: MERGE + ADR-013 approval + recovery | S23 Phase 1 |
+| ✅ | PersonProfile "Cancel" dismiss button confusing label | `'Go Back'` when action is cancel | S19 Phase 2 |
+| ✅ | No SP role resolver (hardcoded mock roles in SP DSM) | `spRoleResolver.ts` queries SP groups | S19 Phase 1 |
+| ✅ | Journey lifecycle transitions not guarded against invalid states | `InvalidTransitionError` + lifecycle hooks added | S19 Phase 2 |

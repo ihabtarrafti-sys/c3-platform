@@ -26,6 +26,7 @@ export interface Contract {
   Title: string;
 
   // Person
+  PersonID: string;
   FullName: string;
   DisplayName?: string;
   IGN?: string;

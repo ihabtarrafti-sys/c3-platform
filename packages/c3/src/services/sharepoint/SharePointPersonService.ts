@@ -35,6 +35,7 @@ import {
   mapSpItemToPerson,
 } from '@c3/utils/spPersonMapper';
 import type { SpPersonItem } from '@c3/utils/spPersonMapper';
+import { mapContract, type SPContractItem } from '@c3/mappers';
 
 // ---------------------------------------------------------------------------
 // SP REST query constants
@@ -190,17 +191,63 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
       return mapped;
     },
 
-    // ── listPersonContracts (stub) ──────────────────────────────────────────
-    // Contracts are fetched via SharePointContractService, not via the person
-    // service. This stub satisfies the IPersonService interface.
-    // Sprint 16 scope: stubs only. Real implementation deferred.
-    async listPersonContracts(personId: number): Promise<Contract[]> {
-      void personId;
-      console.warn(
-        '[C3/People] listPersonContracts: not implemented in S16. ' +
-        'Use SharePointContractService to query contracts by person.',
-      );
-      return [];
+    // ── listPersonContracts ─────────────────────────────────────────────────
+    // Sprint 24 Phase 1: Real implementation. Queries C3Contracts by PersonID.
+    // PersonID is the canonical PER-XXXX FK — not the SP numeric Id.
+    // Returns [] gracefully if C3Contracts is not yet provisioned (404).
+    async listPersonContracts(personId: string): Promise<Contract[]> {
+      if (!personId || personId.trim().length === 0) {
+        return [];
+      }
+
+      const contractsUrl =
+        `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('C3Contracts')/items` +
+        `?$select=*` +
+        `&$filter=PersonID eq '${escOData(personId)}'` +
+        `&$top=500`;
+
+      let response: Response;
+      try {
+        response = await fetch(contractsUrl, {
+          method: 'GET',
+          credentials: 'same-origin',
+          headers: { Accept: 'application/json;odata=nometadata' },
+        });
+      } catch (err) {
+        console.error('[C3/People] listPersonContracts: network error:', err);
+        return [];
+      }
+
+      if (!response.ok) {
+        if (response.status === 404) {
+          console.warn(
+            `[C3/People] listPersonContracts: C3Contracts list not found (HTTP 404). ` +
+            'Returning empty contract list for PersonProfile stability. ' +
+            'Provision C3Contracts and add contracts to see results here.',
+          );
+        } else {
+          console.error(
+            `[C3/People] listPersonContracts: HTTP ${response.status} from C3Contracts. ` +
+            `Returning empty contract list.`,
+          );
+        }
+        return [];
+      }
+
+      let json: { value: SPContractItem[] };
+      try {
+        json = (await response.json()) as { value: SPContractItem[] };
+      } catch (err) {
+        console.error('[C3/People] listPersonContracts: failed to parse JSON:', err);
+        return [];
+      }
+
+      if (!Array.isArray(json.value)) {
+        console.error('[C3/People] listPersonContracts: unexpected response shape from C3Contracts.');
+        return [];
+      }
+
+      return json.value.map(mapContract);
     },
 
     // ── listPersonActivities (stub) ─────────────────────────────────────────

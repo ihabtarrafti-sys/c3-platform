@@ -6,6 +6,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKE-PL-2026-003',
     Title: 'GKE-PL-2026-003 | Player Contract | Abdulaziz Alabdullatif',
 
+    PersonID: 'PER-0001',
     FullName: 'Abdulaziz Alabdullatif',
     DisplayName: 'Abdulaziz Alabdullatif',
     IGN: 'Kakarot',
@@ -52,6 +53,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKE-PL-2026-004',
     Title: 'GKE-PL-2026-004 | Player Contract | Mohammad Alkhalailah',
 
+    PersonID: 'PER-0002',
     FullName: 'Mohammad Alkhalailah',
     DisplayName: 'Mohammad Alkhalailah',
     IGN: 'Klownz',
@@ -97,6 +99,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKD-GD-2026-001',
     Title: 'GKD-GD-2026-001 | Staff Contract | Diab Hassan',
 
+    PersonID: 'PER-0003',
     FullName: 'Diab Hassan',
     DisplayName: 'Diab Hassan',
     IGN: 'Diab',
@@ -140,6 +143,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKA-AN-2026-001',
     Title: 'GKA-AN-2026-001 | Staff Contract | Elaf Hussein',
 
+    PersonID: 'PER-0004',
     FullName: 'Elaf Hussein',
     DisplayName: 'Elaf Hussein',
     IGN: 'Elaf',
@@ -184,6 +188,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKA-AN-2026-002',
     Title: 'GKA-AN-2026-002 | Staff Contract | Bechir Mettali',
 
+    PersonID: 'PER-0005',
     FullName: 'Bechir Mettali',
     DisplayName: 'Bechir Mettali',
     IGN: 'Boch',
@@ -228,6 +233,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKD-GD-2026-002',
     Title: 'GKD-GD-2026-002 | Staff Contract | Sari Al-Khatib',
 
+    PersonID: 'PER-0006',
     FullName: 'Sari Al-Khatib',
     DisplayName: 'Sari Al-Khatib',
     IGN: 'Sari',
@@ -271,6 +277,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKD-VE-2026-003',
     Title: 'GKD-VE-2026-003 | Staff Contract | Nadia Khoury',
 
+    PersonID: 'PER-0007',
     FullName: 'Nadia Khoury',
     DisplayName: 'Nadia Khoury',
     IGN: 'Nadia',
@@ -314,6 +321,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKA-PL-2026-001',
     Title: 'GKA-PL-2026-001 | Player Contract | Keon Williams',
 
+    PersonID: 'PER-0008',
     FullName: 'Keon Williams',
     DisplayName: 'Keon Williams',
     IGN: 'Keon',
@@ -358,6 +366,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKA-AC-2026-003',
     Title: 'GKA-AC-2026-003 | Coach Contract | Jamison Moore',
 
+    PersonID: 'PER-0009',
     FullName: 'Jamison Moore',
     DisplayName: 'Jamison Moore',
     IGN: 'Jxmo',
@@ -402,6 +411,7 @@ export const mockContracts: Contract[] = [
     ContractID: 'GKA-PL-2026-002',
     Title: 'GKA-PL-2026-002 | Player Contract | Tyler Johnson',
 
+    PersonID: 'PER-0010',
     FullName: 'Tyler Johnson',
     DisplayName: 'Tyler Johnson',
     IGN: 'Phantom',

@@ -8,7 +8,7 @@ export interface SPService {
 
   listPeople(): Promise<Person[]>;
   getPerson(personId: string): Promise<Person>;
-  listPersonContracts(personId: number): Promise<Contract[]>;
+  listPersonContracts(personId: string): Promise<Contract[]>;
   listPersonActivities(personId: string, limit?: number): Promise<Activity[]>;
 
   listAllAmendments(): Promise<Amendment[]>;

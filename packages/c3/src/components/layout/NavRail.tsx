@@ -35,7 +35,10 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'command-center', label: 'Command Center',  icon: GridRegular },
-  { id: 'contracts',      label: 'Contracts',       icon: DocumentRegular },
+  // S24-P1: Temporarily hidden in SP DSM until C3Contracts list is provisioned and validated.
+  // Remove this guard (or change to `true`) once IT confirms the list is live and a smoke test passes.
+  // PersonProfile contract section is unaffected — it queries C3Contracts regardless of nav visibility.
+  { id: 'contracts',      label: 'Contracts',       icon: DocumentRegular, visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
   { id: 'people',         label: 'People',          icon: PeopleRegular },
   { id: 'renewals',       label: 'Renewals',        icon: ArrowClockwiseRegular, visibleWhen: role => role !== 'visitor' },
   // S20-P0-3: SharePointAmendmentService is a stub — hide in SP DSM to prevent

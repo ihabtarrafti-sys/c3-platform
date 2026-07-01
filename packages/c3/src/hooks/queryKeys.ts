@@ -16,7 +16,7 @@ export const queryKeys = {
     detail: (id: string) => ['person', id] as const,
   },
   person: {
-    contracts: (id: number) => ['person-contracts', id] as const,
+    contracts: (id: string) => ['person-contracts', id] as const,
     activities: (id: string, limit?: number) => ['person-activities', id, limit] as const,
     credentials: (id: string) => ['person-credentials', id] as const,
   },

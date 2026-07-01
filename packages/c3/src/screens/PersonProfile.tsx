@@ -178,7 +178,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   };
 
   const { data: person, isLoading, error } = usePerson(personId);
-  const { data: contracts    = [] } = usePersonContracts(person?.Id ?? 0);
+  const { data: contracts    = [] } = usePersonContracts(person?.PersonID ?? '');
   const { data: credentials  = [] } = usePersonCredentials(person?.PersonID ?? '');
   const { data: journeys     = [] } = usePersonJourneys(person?.PersonID ?? '');
 
