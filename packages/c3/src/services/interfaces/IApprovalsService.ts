@@ -6,6 +6,7 @@
  * Sprint 18 Phase 2B: createApproval live.
  * Sprint 18 Phase 3B: listApprovals and patchApprovalStatus live.
  * Sprint 18 Phase 4A: stampExecution live.
+ * Sprint 20 Phase 3:  operationType widened to include 'AddCredential'.
  *
  * Lifecycle: Submitted -> InReview -> Approved -> Executed | ExecutionFailed
  *                                  -> Rejected
@@ -48,8 +49,15 @@ export const APPROVAL_STATUS_VALUES: ReadonlySet<string> = new Set<ApprovalStatu
 // ---------------------------------------------------------------------------
 
 export interface CreateApprovalRequest {
-  /** PascalCase. Only 'InitiateJourney' is live in Phase 2B. */
-  operationType: 'InitiateJourney';
+  /**
+   * PascalCase operation type.
+   * 'InitiateJourney' is live since Phase 2B.
+   * 'AddCredential'   is live from Sprint 20 Phase 3.
+   *
+   * The C3Approvals SP list OperationType choice column already has both values
+   * provisioned (C3Approvals SP List Schema.md §3.2).
+   */
+  operationType: 'InitiateJourney' | 'AddCredential';
   /** Opaque secondary target reference (optional). */
   targetId?: string;
   /** Canonical C3 PersonID of the target person, e.g. "PER-0001". */
@@ -111,7 +119,7 @@ export interface PatchApprovalStatusRequest {
 //   - Sets ExecutionError = useful message
 //   - Does NOT set ExecutedAt (omitted or cleared to null)
 //
-// Called by useExecuteApproval after journey creation succeeds or fails.
+// Called by useExecuteApproval after the operational write succeeds or fails.
 // Never called by patchApprovalStatus.
 // ---------------------------------------------------------------------------
 
@@ -165,7 +173,7 @@ export interface IApprovalsService {
    * hook layer (usePatchApprovalStatus) and also in MockApprovalsService.
    * SharePointApprovalsService trusts the hook layer check.
    *
-   * Does NOT set ExecutedAt, ExecutionError, or create C3Journeys rows.
+   * Does NOT set ExecutedAt, ExecutionError, or create any operational rows.
    * ADR-013: execution is a separate phase (Phase 4).
    */
   patchApprovalStatus(id: number, req: PatchApprovalStatusRequest): Promise<void>;
@@ -174,7 +182,7 @@ export interface IApprovalsService {
    * Stamps C3Approvals as Executed or ExecutionFailed after an execution attempt.
    * Live in Phase 4A.
    *
-   * Executed:       sets ApprovalStatus = Executed, ExecutedAt = ISO datetime, ExecutionError = null.
+   * Executed:        sets ApprovalStatus = Executed, ExecutedAt = ISO datetime, ExecutionError = null.
    * ExecutionFailed: sets ApprovalStatus = ExecutionFailed, ExecutionError = message.
    *                  Does NOT set ExecutedAt.
    *

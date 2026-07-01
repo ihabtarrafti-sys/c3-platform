@@ -8,6 +8,7 @@
  * Sprint 18 Phase 4B: badge distinction Approved vs Executed.
  * Sprint 20 Phase 1 (S20-P1): filter tabs, full audit field display, payload summary.
  * Sprint 20 Phase 2 (S20-P2): Recover Execution Stamp action for partial execution failures.
+ * Sprint 20 Phase 3 (S20-P3): AddCredential payload summary; PartialCredentialExecutionError handling.
  *
  * Tab / filter structure (S20-P1):
  *   Pending  = Submitted + InReview   (default — actionable work queue)
@@ -34,9 +35,14 @@
  *   Recovery stamps the approval Executed without creating a new journey.
  *   Non-owner view remains read-only regardless.
  *
- * Payload summary (InitiateJourney, S20-P1):
- *   Safe parse — crashes are impossible; malformed JSON yields an
- *   "Invalid payload" label plus a collapsed raw-payload disclosure block.
+ * Payload summary (S20-P1 + S20-P3):
+ *   InitiateJourney: journeyType, personId, assignedTo, initiationReason, notes,
+ *                    missionId, obligationAssignments count.
+ *   AddCredential:   credentialType, referenceNumber, holderPersonId, issuedBy,
+ *                    issuedDate, expiryDate, notes, subType, validFromDate,
+ *                    supersedesCredentialId.
+ *   Unknown operationType: raw JSON disclosure block.
+ *   All parsing is safe — malformed JSON yields "Invalid payload" label + collapsed raw block.
  */
 
 import { useMemo, useState } from 'react';
@@ -63,7 +69,13 @@ import { useActiveJourney } from '@c3/hooks/useActiveJourney';
 import { useApp } from '@c3/hooks/useApp';
 import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { usePatchApprovalStatus, SelfApprovalError } from '@c3/hooks/usePatchApprovalStatus';
-import { useExecuteApproval, DuplicateJourneyError, PartialExecutionError, PayloadValidationError } from '@c3/hooks/useExecuteApproval';
+import {
+  useExecuteApproval,
+  DuplicateJourneyError,
+  PartialExecutionError,
+  PartialCredentialExecutionError,
+  PayloadValidationError,
+} from '@c3/hooks/useExecuteApproval';
 import { useRecoverExecutionStamp, RecoveryTargetMissingError } from '@c3/hooks/useRecoverExecutionStamp';
 import { useToast } from '@c3/hooks/useToast';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
@@ -198,10 +210,10 @@ const DetailCell = ({
 );
 
 // ---------------------------------------------------------------------------
-// PayloadSummary — safe display of InitiateJourney payload (S20-P1)
+// PayloadSummary — safe display of typed approval payloads (S20-P1 + S20-P3)
 //
 // Never throws: malformed JSON yields a labelled error + collapsed raw block.
-// Only rendered for OperationType === 'InitiateJourney'.
+// Renders for InitiateJourney and AddCredential; unknown types show raw block.
 // ---------------------------------------------------------------------------
 
 const PayloadSummary = ({
@@ -211,7 +223,11 @@ const PayloadSummary = ({
   raw: string | undefined;
   operationType: string;
 }) => {
-  if (operationType !== 'InitiateJourney') return null;
+  // Only render for known operation types with defined payload shapes
+  if (operationType !== 'InitiateJourney' && operationType !== 'AddCredential') return null;
+
+  const sectionLabel =
+    operationType === 'AddCredential' ? 'Credential Payload' : 'Journey Payload';
 
   if (!raw) {
     return (
@@ -231,7 +247,7 @@ const PayloadSummary = ({
             marginBottom: 'var(--c3-space-2)',
           }}
         >
-          Journey Payload
+          {sectionLabel}
         </Text>
         <Text size={200} style={{ color: 'var(--c3-gray-400)', fontStyle: 'italic' }}>
           No payload recorded.
@@ -262,7 +278,7 @@ const PayloadSummary = ({
             letterSpacing: '0.06em',
           }}
         >
-          Journey Payload
+          {sectionLabel}
         </Text>
         <Text size={200} style={{ color: 'var(--c3-critical, #DC2626)' }}>
           Invalid payload — JSON parse failed.
@@ -293,15 +309,71 @@ const PayloadSummary = ({
     );
   }
 
-  const journeyType        = typeof parsed['journeyType']        === 'string' ? parsed['journeyType']        : '--';
-  const personId           = typeof parsed['personId']           === 'string' ? parsed['personId']           : '--';
-  const assignedTo         = typeof parsed['assignedTo']         === 'string' ? parsed['assignedTo']         : null;
-  const initiationReason   = typeof parsed['initiationReason']   === 'string' ? parsed['initiationReason']   : null;
-  const notes              = typeof parsed['notes']              === 'string' ? parsed['notes']              : null;
-  const missionId          = typeof parsed['missionId']          === 'string' ? parsed['missionId']          : null;
-  const obligationCount    = Array.isArray(parsed['obligationAssignments'])
-    ? (parsed['obligationAssignments'] as unknown[]).length
-    : 0;
+  // ── InitiateJourney payload fields ──────────────────────────────────────
+  if (operationType === 'InitiateJourney') {
+    const journeyType      = typeof parsed['journeyType']      === 'string' ? parsed['journeyType']      : '--';
+    const personId         = typeof parsed['personId']         === 'string' ? parsed['personId']         : '--';
+    const assignedTo       = typeof parsed['assignedTo']       === 'string' ? parsed['assignedTo']       : null;
+    const initiationReason = typeof parsed['initiationReason'] === 'string' ? parsed['initiationReason'] : null;
+    const notes            = typeof parsed['notes']            === 'string' ? parsed['notes']            : null;
+    const missionId        = typeof parsed['missionId']        === 'string' ? parsed['missionId']        : null;
+    const obligationCount  = Array.isArray(parsed['obligationAssignments'])
+      ? (parsed['obligationAssignments'] as unknown[]).length
+      : 0;
+
+    return (
+      <div
+        style={{
+          borderTop: '1px solid var(--c3-gray-100)',
+          paddingTop: 'var(--c3-space-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
+        <Text
+          size={100}
+          style={{
+            color: 'var(--c3-gray-400)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          Journey Payload
+        </Text>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: 'var(--c3-space-3)',
+          }}
+        >
+          <DetailCell label="Journey Type" value={journeyType} />
+          <DetailCell label="Person ID"    value={personId} />
+          <DetailCell
+            label="Obligation Assignments"
+            value={`${obligationCount} assignment${obligationCount !== 1 ? 's' : ''}`}
+          />
+          {assignedTo       && <DetailCell label="Assigned To"      value={assignedTo} />}
+          {missionId        && <DetailCell label="Mission ID"        value={missionId} />}
+          {initiationReason && <DetailCell label="Initiation Reason" value={initiationReason} wide />}
+          {notes            && <DetailCell label="Notes"             value={notes}             wide />}
+        </div>
+      </div>
+    );
+  }
+
+  // ── AddCredential payload fields (S20-P3) ───────────────────────────────
+  const credentialType         = typeof parsed['credentialType']         === 'string' ? parsed['credentialType']         : '--';
+  const referenceNumber        = typeof parsed['referenceNumber']        === 'string' ? parsed['referenceNumber']        : '--';
+  const holderPersonId         = typeof parsed['holderPersonId']         === 'string' ? parsed['holderPersonId']         : '--';
+  const issuedBy               = typeof parsed['issuedBy']               === 'string' ? parsed['issuedBy']               : null;
+  const issuedDate             = typeof parsed['issuedDate']             === 'string' ? parsed['issuedDate']             : null;
+  const expiryDate             = typeof parsed['expiryDate']             === 'string' ? parsed['expiryDate']             : null;
+  const credNotes              = typeof parsed['notes']                  === 'string' ? parsed['notes']                  : null;
+  const subType                = typeof parsed['subType']                === 'string' ? parsed['subType']                : null;
+  const validFromDate          = typeof parsed['validFromDate']          === 'string' ? parsed['validFromDate']          : null;
+  const supersedesCredentialId = typeof parsed['supersedesCredentialId'] === 'string' ? parsed['supersedesCredentialId'] : null;
 
   return (
     <div
@@ -321,7 +393,7 @@ const PayloadSummary = ({
           letterSpacing: '0.06em',
         }}
       >
-        Journey Payload
+        Credential Payload
       </Text>
       <div
         style={{
@@ -330,16 +402,16 @@ const PayloadSummary = ({
           gap: 'var(--c3-space-3)',
         }}
       >
-        <DetailCell label="Journey Type" value={journeyType} />
-        <DetailCell label="Person ID"    value={personId} />
-        <DetailCell
-          label="Obligation Assignments"
-          value={`${obligationCount} assignment${obligationCount !== 1 ? 's' : ''}`}
-        />
-        {assignedTo       && <DetailCell label="Assigned To"       value={assignedTo} />}
-        {missionId        && <DetailCell label="Mission ID"         value={missionId} />}
-        {initiationReason && <DetailCell label="Initiation Reason"  value={initiationReason} wide />}
-        {notes            && <DetailCell label="Notes"              value={notes}             wide />}
+        <DetailCell label="Credential Type"   value={credentialType} />
+        <DetailCell label="Reference Number"  value={referenceNumber} />
+        <DetailCell label="Holder Person ID"  value={holderPersonId} />
+        {issuedBy               && <DetailCell label="Issued By"               value={issuedBy} />}
+        {issuedDate             && <DetailCell label="Issue Date"               value={issuedDate} />}
+        {expiryDate             && <DetailCell label="Expiry Date"              value={expiryDate} />}
+        {validFromDate          && <DetailCell label="Valid From"               value={validFromDate} />}
+        {subType                && <DetailCell label="Sub-Type"                 value={subType} />}
+        {supersedesCredentialId && <DetailCell label="Supersedes Credential"   value={supersedesCredentialId} />}
+        {credNotes              && <DetailCell label="Notes"                    value={credNotes} wide />}
       </div>
     </div>
   );
@@ -370,11 +442,10 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   // payload contains a parseable personId. Only for these do we fire a
   // useActiveJourney query. The `enabled` param suppresses the query for all
   // other cards (Submitted / InReview / Rejected / Executed / ExecutionFailed,
-  // or Approved with non-InitiateJourney operationType, or missing personId).
+  // Approved AddCredential cards, or missing personId).
   //
-  // If the query returns a Journey, an active Onboarding journey already exists
-  // for the target person → this is likely a partial execution recovery case.
-  // The Execute button is swapped for Recover Execution Stamp.
+  // AddCredential approvals in Approved state use the normal Execute button —
+  // no recovery UX is implemented for credentials in Phase 3 (known gap, TD-13 residual).
 
   const payloadPersonId = useMemo(
     () => extractPayloadPersonId(approval.payload),
@@ -397,7 +468,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const isPending = isPatchPending || isExecutePending || isRecoverPending;
   const statusColor = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
 
-  // ── Action handlers (UNCHANGED from S18/S20-P1 except recoverAsync) ───────
+  // ── Action handlers (UNCHANGED from S18/S20-P1/P2 except AddCredential toast) ──
 
   const handleApprove = async () => {
     try {
@@ -431,15 +502,33 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const handleExecute = async () => {
     let parsedPayload: Record<string, unknown> | null = null;
     try { parsedPayload = JSON.parse(approval.payload ?? '') as Record<string, unknown>; } catch { /* handled below */ }
+
     try {
       await executeAsync(approval);
-      const personId = typeof parsedPayload?.['personId'] === 'string'
-        ? parsedPayload['personId']
-        : approval.targetPersonId ?? 'unknown';
-      toast.success(
-        'Approval executed',
-        `${approval.title} — Journey created for ${personId}.`,
-      );
+
+      // Build a contextual success message based on operationType
+      const opType = parsedPayload?.['operationType'];
+      if (opType === 'AddCredential') {
+        const holderPersonId = typeof parsedPayload?.['holderPersonId'] === 'string'
+          ? parsedPayload['holderPersonId']
+          : approval.targetPersonId ?? 'unknown';
+        const credType = typeof parsedPayload?.['credentialType'] === 'string'
+          ? parsedPayload['credentialType']
+          : '';
+        toast.success(
+          'Approval executed',
+          `${approval.title} — ${credType} credential registered for ${holderPersonId}.`,
+        );
+      } else {
+        // InitiateJourney or other (default)
+        const personId = typeof parsedPayload?.['personId'] === 'string'
+          ? parsedPayload['personId']
+          : approval.targetPersonId ?? 'unknown';
+        toast.success(
+          'Approval executed',
+          `${approval.title} — Journey created for ${personId}.`,
+        );
+      }
     } catch (err) {
       if (err instanceof DuplicateJourneyError) {
         toast.error(
@@ -450,13 +539,19 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
       } else if (err instanceof PayloadValidationError) {
         toast.error(
           'Execution blocked — invalid payload',
-          'The approval payload is missing or malformed. No journey was created. ' +
+          'The approval payload is missing or malformed. No record was created. ' +
           'Contact support to correct the C3Approvals record.',
         );
       } else if (err instanceof PartialExecutionError) {
         toast.error(
           'Partial execution — manual resolution required',
           'Journey was created but the approval record could not be stamped Executed. ' +
+          'Manually update C3Approvals to Executed status.',
+        );
+      } else if (err instanceof PartialCredentialExecutionError) {
+        toast.error(
+          'Partial execution — manual resolution required',
+          'Credential was registered but the approval record could not be stamped Executed. ' +
           'Manually update C3Approvals to Executed status.',
         );
       } else {
@@ -553,7 +648,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         )}
       </div>
 
-      {/* ── Payload summary (S20-P1) — InitiateJourney only ────────────── */}
+      {/* ── Payload summary (S20-P1 + S20-P3) ──────────────────────────── */}
       <PayloadSummary raw={approval.payload} operationType={approval.operationType} />
 
       {/* ── Owner action row ────────────────────────────────────────────── */}
@@ -627,7 +722,9 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           );
         }
 
-        // ── Approved: Execute OR Recover (S20-P2) ─────────────────────────
+        // ── Approved: Execute OR Recover (S20-P2, unchanged for InitiateJourney) ──
+        // AddCredential approvals show the normal Execute button — no recovery
+        // UX for credentials in Phase 3 (isRecoveryCandidate is false for AddCredential).
         if (approval.approvalStatus === 'Approved') {
           return (
             <div
@@ -646,7 +743,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                   <Text size={200} style={{ color: 'var(--c3-gray-400)' }}>Checking...</Text>
                 </div>
               ) : isPartialExecutionRecovery ? (
-                /* ── Partial execution recovery path ──────────────────────── */
+                /* ── Partial execution recovery path (InitiateJourney only) ─ */
                 <>
                   <MessageBar intent="warning">
                     <MessageBarBody>
@@ -673,7 +770,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                   </Button>
                 </>
               ) : (
-                /* ── Normal Execute path (UNCHANGED) ─────────────────────── */
+                /* ── Normal Execute path (UNCHANGED, also used for AddCredential) ─ */
                 <Button
                   appearance="primary"
                   icon={<PlayRegular />}

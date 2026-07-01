@@ -16,7 +16,7 @@
  *     without referencing other SP lists.
  *
  * Sprint 18 Phase 3A: InitiateJourneyApprovalPayload only.
- * Future operation types add their payload interfaces here.
+ * Sprint 20 Phase 3:  AddCredentialApprovalPayload added.
  *
  * See: docs/architecture/C3Approvals SP List Schema.md §3.16
  * See: docs/adr/ADR-013-Governance-Approval-Pattern.md
@@ -67,3 +67,64 @@ export interface InitiateJourneyApprovalPayload {
    */
   obligationAssignments: ObligationAssignment[];
 }
+
+// ---------------------------------------------------------------------------
+// AddCredentialApprovalPayload
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for OperationType = 'AddCredential'.
+ *
+ * Captures the full intent of creating a new credential record for a person.
+ * CredentialID (CRED-XXXX) is intentionally absent at submission time — it will
+ * be assigned at execution time via the POST-then-MERGE pattern against C3Credentials.
+ *
+ * credentialType: plain string to survive JSON round-trip. Validated against
+ *   VALID_CREDENTIAL_TYPES at execution time before the SP write.
+ *
+ * Date fields (issuedDate, expiryDate, validFromDate): ISO 8601 date strings
+ *   (date-only, e.g. "2026-07-01"). SP C3Credentials uses Date Only columns
+ *   for these — no time component is stored.
+ *
+ * Sprint 20 Phase 3.
+ * See: docs/architecture/C3Credentials SP List Schema.md
+ */
+export interface AddCredentialApprovalPayload {
+  /** Must equal the OperationType column value. */
+  operationType: 'AddCredential';
+  /** Canonical C3 PersonID of the credential holder, e.g. "PER-0004". */
+  holderPersonId: string;
+  /** One of the 18 CredentialType values. Validated at execution time. */
+  credentialType: string;
+  /** The document's own reference number (passport no., visa no., etc.). */
+  referenceNumber: string;
+  /** Issuing authority (optional). */
+  issuedBy?: string;
+  /** ISO 8601 date-only string, e.g. "2026-01-15" (optional). */
+  issuedDate?: string;
+  /** ISO 8601 date-only string. Absent means non-expiring (optional). */
+  expiryDate?: string;
+  /** ISO 8601 date-only string for permits with a future start date (optional). */
+  validFromDate?: string;
+  /** Sub-type discriminator, e.g. "Employment", "Tourist" (optional). */
+  subType?: string;
+  /** Free-text notes for ops staff (optional). */
+  notes?: string;
+  /** CredentialID of the document this one replaces (optional). */
+  supersedesCredentialId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// ApprovalPayload
+// ---------------------------------------------------------------------------
+
+/**
+ * Discriminated union of all typed approval payload shapes.
+ * Keyed by the operationType discriminant field.
+ *
+ * Used by useExecuteApproval to narrow the payload to the correct type
+ * before dispatching to the operation-specific execution path.
+ */
+export type ApprovalPayload =
+  | InitiateJourneyApprovalPayload
+  | AddCredentialApprovalPayload;

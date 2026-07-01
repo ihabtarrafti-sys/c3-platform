@@ -16,10 +16,17 @@
  * Constraints (Sprint 7):
  *   Add only. No edit, delete, deactivate, supersession, upload, or OCR.
  *
+ * Mode-aware submission (Sprint 20 Phase 3):
+ *   Mock DSM: direct credential creation (unchanged from pre-Phase-3 behaviour).
+ *     Button: "Register Credential". Toast: "Credential registered".
+ *   SP DSM:   submits a C3Approvals record (OperationType: AddCredential).
+ *     No C3Credentials row is created at this point.
+ *     Button: "Submit for Approval". Toast: "Credential approval submitted (APR-XXXX)".
+ *
  * Behaviour:
  *   - Required: Credential Type, Reference Number
  *   - Optional: Expiry Date, Issue Date, Issued By, Sub-Type, Notes
- *   - On success: toast (names the credential type added) + dismiss + form reset
+ *   - On success: toast + dismiss + form reset
  *   - On error: toast, panel stays open
  *
  * Layer: Shared (components/shared) — imports domain types, hooks, protocols.
@@ -41,7 +48,8 @@ import {
 import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { FormField } from '@c3/components/ui';
-import { useAddCredential } from '@c3/hooks/useAddCredential';
+import { useApp } from '@c3/hooks/useApp';
+import { useSubmitCredentialApproval } from '@c3/hooks/useSubmitCredentialApproval';
 import { useToast } from '@c3/hooks/useToast';
 import { credentialTypesFor } from '@c3/protocols';
 import type { CredentialCapability, CredentialType } from '@c3/types';
@@ -80,8 +88,11 @@ export const AddCredentialPanel = ({
   onDismiss,
   capabilityHint,
 }: AddCredentialPanelProps) => {
-  const { mutateAsync, isPending } = useAddCredential();
+  const { config } = useApp();
+  const { submitAsync, isPending } = useSubmitCredentialApproval();
   const toast = useToast();
+
+  const isSP = config.dataSourceMode === 'sharepoint';
 
   // Form state
   const [credentialType,  setCredentialType]  = useState<CredentialType | ''>('');
@@ -112,7 +123,7 @@ export const AddCredentialPanel = ({
   const handleSubmit = async () => {
     if (!credentialType) return;
     try {
-      await mutateAsync({
+      const outcome = await submitAsync({
         HolderPersonID:  personId,
         Type:            credentialType,
         ReferenceNumber: referenceNumber.trim(),
@@ -122,16 +133,34 @@ export const AddCredentialPanel = ({
         SubType:         subType.trim()   || undefined,
         Notes:           notes.trim()     || undefined,
       });
-      toast.success(
-        'Credential registered',
-        `${CREDENTIAL_TYPE_LABELS[credentialType]} added successfully.`,
-      );
+
+      if (outcome.mode === 'approval') {
+        // SP DSM — approval submitted
+        toast.success(
+          'Credential approval submitted',
+          `${outcome.approvalTitle} submitted for owner review. ` +
+          `No credential has been created yet.`,
+        );
+      } else {
+        // Mock DSM — direct creation (existing behaviour)
+        toast.success(
+          'Credential registered',
+          `${CREDENTIAL_TYPE_LABELS[credentialType]} added successfully.`,
+        );
+      }
       handleDismiss();
     } catch {
-      toast.error(
-        'Failed to register credential',
-        'Please try again or contact support.',
-      );
+      if (isSP) {
+        toast.error(
+          'Failed to submit approval',
+          'Please try again or contact support.',
+        );
+      } else {
+        toast.error(
+          'Failed to register credential',
+          'Please try again or contact support.',
+        );
+      }
     }
   };
 
@@ -147,6 +176,12 @@ export const AddCredentialPanel = ({
   const panelTitle = capabilityHint
     ? `Add Credential — Resolves ${CAPABILITY_LABELS[capabilityHint]}`
     : 'Add Credential';
+
+  // ── Submit button labels ──────────────────────────────────────────────────
+  // SP DSM: submission creates a governed approval, not a credential directly.
+
+  const submitLabel  = isSP ? 'Submit for Approval' : 'Register Credential';
+  const pendingLabel = isSP ? 'Submitting…'          : 'Registering…';
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -335,7 +370,7 @@ export const AddCredentialPanel = ({
             onClick={() => void handleSubmit()}
             disabled={!isValid || isPending}
           >
-            {isPending ? 'Registering…' : 'Register Credential'}
+            {isPending ? pendingLabel : submitLabel}
           </Button>
         </div>
       </DrawerFooter>

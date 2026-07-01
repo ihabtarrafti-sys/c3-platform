@@ -101,7 +101,7 @@ export interface SpCredentialMapResult {
 // set as its choice field — divergence indicates a schema drift.
 // ---------------------------------------------------------------------------
 
-const VALID_CREDENTIAL_TYPES = new Set<string>([
+export const VALID_CREDENTIAL_TYPES = new Set<string>([
   // Identity & Residency (6)
   'Passport', 'NationalID', 'EmiratesID', 'Iqama', 'ResidencePermit', 'DriversLicense',
   // Visa & Entry (2)

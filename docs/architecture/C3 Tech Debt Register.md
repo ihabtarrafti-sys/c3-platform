@@ -1,6 +1,6 @@
 # C3 Tech Debt Register
 
-**Last updated:** 2026-07-01 (Sprint 20 Phase 0)
+**Last updated:** 2026-07-01 (Sprint 20 Phase 3)
 **Maintained by:** Engineering (C3 Platform)
 **Purpose:** Single-source list of known technical debts, design gaps, and deferred decisions.
 Each item carries a severity, sprint attribution, and a clear resolution path.
@@ -214,14 +214,41 @@ via the History tab. Full audit log is deferred post-beta.
 ---
 
 ### TD-13 — Credential write path not implemented
-**Severity:** 🟠 Latent risk — feature gap
-**Sprint attributed:** Deferred per S20 scope boundary
-**File:** `SharePointCredentialService.ts` (write methods are stubs)
+**Severity:** 🟠 → ✅ **Resolved in Sprint 20 Phase 3 (with partial-execution caveat)**
+**Sprint attributed:** Deferred per S20 scope boundary (origin), S20-P3 (resolved)
+**File:** `SharePointCredentialService.ts`, `useSubmitCredentialApproval.ts` (new),
+`useExecuteApproval.ts` (extended), `AddCredentialPanel.tsx` (updated), `ApprovalInbox.tsx` (updated)
 
-`addCredential` and related write operations are not implemented for SP DSM. In SP DSM,
-credential creation silently fails or throws. All credential views are read-only.
+`addCredential` and related write operations were not implemented for SP DSM. In SP DSM,
+credential creation silently failed or threw. All credential views were read-only.
 
-**Resolution:** Planned credential write sprint (post-S20 Phase 1).
+**Resolution (S20-P3):**
+- `SharePointCredentialService.addCredential` implemented with POST-then-MERGE (same pattern
+  as journey and approval services). POSTs to `C3Credentials` with a `TMP-<Date.now().toString(36)>`
+  placeholder title, receives the SP integer ID, derives `CRED-XXXX`, and MERGEs the canonical
+  title back. CredentialType is validated against `VALID_CREDENTIAL_TYPES` before the POST.
+- **ADR-013 governance gate**: In SP DSM, `AddCredentialPanel` no longer calls
+  `addCredential` directly. Instead, `useSubmitCredentialApproval` creates a `C3Approvals`
+  record (`operationType: AddCredential`) and returns an approval title. No `C3Credentials`
+  row is written from the UI in SP DSM.
+- `useExecuteApproval` dispatches on `operationType`. The `AddCredential` branch validates
+  the payload, calls `credentialService.addCredential`, then stamps the approval `Executed`.
+  No duplicate guard (multiple credentials of the same type are valid per person).
+- `PartialCredentialExecutionError` thrown when the credential row was created but the
+  `Executed` stamp failed. Operator must manually update C3Approvals.
+- Mock DSM behavior: `AddCredentialPanel` continues to call `addCredential` directly
+  (bypasses approval). No change to mock workflow.
+- No C3Credentials schema change. No C3Approvals schema change.
+
+**Known gap — partial credential execution recovery:**
+There is no in-app recovery UX for `PartialCredentialExecutionError` (analogous to TD-11
+`PartialExecutionError` before S20-P2). If the credential write succeeds but the approval
+stamp fails, `ApprovalInbox` shows a `PartialCredentialExecutionError` toast and the approval
+remains at `Approved` status. Operator must manually set the approval to `Executed` in SP.
+Credential recovery UX (equivalent to `useRecoverExecutionStamp` for credentials) is deferred
+post-S20.
+
+**Resolution commit:** Sprint 20 Phase 3 source commit.
 
 ---
 
@@ -287,7 +314,7 @@ Config reviewed in Sprint 20 Phase 0:
 ```
 staleTime: 2min  — appropriate for operational data
 gcTime: 10min    — acceptable cache retention
-retry: 1         — correct for SP REST (avoids auth failure loops)
+— correct for SP REST (avoids auth failure loops)
 refetchOnWindowFocus: false — correct for SPFx embedded context
 ```
 No changes required. Documented here for completeness.
