@@ -638,3 +638,72 @@ For the internal pilot, yes. For productization, a generic web application host 
 ---
 
 *This document supersedes the roadmap section of the Sprint 16 Planning Memo. The Sprint 16 Planning Memo remains authoritative for the technical schema and mapper specifications for People and Journeys.*
+
+---
+
+## Post-Beta Foundation Capabilities
+
+> **Status:** Documentation only. None of the items in this section are authorised for implementation.
+> **Recorded:** 2026-07-01 (Sprint 20 closeout)
+
+---
+
+### INDUCTION-01 — Induction
+
+**Title:** Induction
+**Priority:** P1 / Post-beta foundation
+**Status:** Planned — not implemented, no UI, no schema
+
+#### Definition
+
+Induction is the guided C3 operational workflow that takes a person from intake to operational readiness. It is an orchestration layer, not a replacement for Journey or Mission.
+
+| C3 concept | Role |
+|-----------|------|
+| **Journey** | Tracks onboarding/governance work — the what and who of the compliance record |
+| **Mission** | Tracks operational commitment/event participation — the where and when |
+| **Induction** | Guides the operator through setting up the person, contract, credentials, readiness, and mission linkage in a single coherent flow |
+
+#### Conceptual flow
+
+```
+Person intake
+  → Contract details (C3 contract record)
+  → Credential submission (through ADR-013 approval loop)
+  → Readiness / Journey initiation
+  → Link to existing Mission  OR  Create new Mission with this person included
+  → Generate missing obligations / operational gaps
+  → Done (person is operationally ready)
+```
+
+#### Backlog description
+
+A guided operational workflow that converts a person into an operationally ready participant by collecting contract details, submitting credentials through the ADR-013 governed approval loop, confirming onboarding/readiness, and linking the person to an existing or new mission. The operator is walked through each stage with pre-validation, progress tracking, and resolution of gaps before the next stage begins.
+
+Induction is not a screen replacement — it is an orchestrated step sequence that calls the existing screens and services in a defined order. No new SP lists or schema changes are introduced by Induction itself.
+
+#### Dependencies (all must be live before Induction can be implemented)
+
+| Dependency | Status |
+|-----------|--------|
+| Person write path (C3People governed write) | Not yet implemented |
+| Contract/SP-02 FK alignment | Not yet implemented |
+| Credential governed write path | ✅ Live (Sprint 20 Phase 3) |
+| Mission participant write path | Not yet implemented |
+| Mission creation/linking | Not yet implemented |
+| Operational gap generation (SP mode, live people + credentials) | Partial (credentials live S15; People live S16) |
+| Approval history / audit visibility | ✅ Live (Sprint 20 Phase 1) |
+
+**Minimum unlocked when:** Person write path + Contract/SP-02 + Mission participant write path are all live.
+
+#### Positioning boundaries
+
+- Induction does not replace Journey. Journey creation remains a governed ADR-013 operation triggered independently.
+- Induction does not replace Mission. Mission creation remains a separate governed operation.
+- Induction does not bypass the ADR-013 approval loop for any write operation. Credential submissions made during Induction still create C3Approvals records and require Platform Owner approval.
+- Induction is UI-only orchestration — no new service interfaces, SP lists, or schema columns.
+
+#### Recommended Sprint
+
+Not before Sprint 23. Blocked by Person write path (post-beta), Contract/SP-02, and Mission participant write path.
+
