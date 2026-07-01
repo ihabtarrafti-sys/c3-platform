@@ -56,6 +56,8 @@ export interface UseWorkItemsResult {
   counts: WorkItemCounts;
   /** True while gaps, missions, or milestones are still loading. */
   isLoading: boolean;
+  /** First error encountered across data sources, or null if all succeeded. */
+  error: Error | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,15 +79,17 @@ export interface UseWorkItemsResult {
  * returns empty items and zero counts until all three sources are ready.
  */
 export const useWorkItems = (): UseWorkItemsResult => {
-  const { gaps, isLoading: gapsLoading }         = useOperationalGaps();
-  const { data: missions = [], isLoading: missionsLoading }   = useMissions();
-  const { data: milestones = [], isLoading: milestonesLoading } = useAllMilestones();
+  const { gaps, isLoading: gapsLoading, error: gapsError }         = useOperationalGaps();
+  const { data: missions = [], isLoading: missionsLoading, error: missionsError }   = useMissions();
+  const { data: milestones = [], isLoading: milestonesLoading, error: milestonesError } = useAllMilestones();
   const {
     participantPersonIdsByMission,
     isLoading: participantsLoading,
+    error: participantsError,
   } = useAllMissionParticipants();
 
   const isLoading = gapsLoading || missionsLoading || milestonesLoading || participantsLoading;
+  const error = gapsError ?? missionsError ?? milestonesError ?? participantsError ?? null;
 
   const items = useMemo<WorkItem[]>(() => {
     if (isLoading) return [];
@@ -104,5 +108,5 @@ export const useWorkItems = (): UseWorkItemsResult => {
     }, { ...zero });
   }, [items]);
 
-  return { items, counts, isLoading };
+  return { items, counts, isLoading, error };
 };

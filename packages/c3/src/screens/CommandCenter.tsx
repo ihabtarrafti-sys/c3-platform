@@ -184,7 +184,7 @@ const QueueSkeleton = () => (
 
 export const CommandCenter = () => {
   const { navigate } = useApp();
-  const { items, counts, isLoading } = useWorkItems();
+  const { items, counts, isLoading, error } = useWorkItems();
 
   // ── Navigation handler ───────────────────────────────────────────────────
   //
@@ -198,6 +198,21 @@ export const CommandCenter = () => {
       navigate({ id: 'person-profile', personId: item.links.personId, tab: 'readiness' });
     }
   };
+
+  // ── Error ─────────────────────────────────────────────────────────────────
+  // Explicit error state prevents a silent false-positive "All clear" banner
+  // when SP data sources fail to load (S20-P0-2).
+  if (error) {
+    return (
+      <div style={{ padding: 'var(--c3-space-8)' }}>
+        <EmptyState
+          variant="error"
+          title="Queue unavailable"
+          description="Could not load the operations work queue. Check your connection and reload the page."
+        />
+      </div>
+    );
+  }
 
   // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {

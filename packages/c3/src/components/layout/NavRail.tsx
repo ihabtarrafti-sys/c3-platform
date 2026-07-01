@@ -26,7 +26,7 @@ type NavItem = {
   id: C3Screen['id'];
   label: string;
   icon: React.ComponentType<React.SVGProps<SVGSVGElement>>;
-  visibleWhen?: (role: C3Role, caps: C3Capabilities) => boolean;
+  visibleWhen?: (role: C3Role, caps: C3Capabilities, dataSourceMode: string) => boolean;
 };
 
 // ---------------------------------------------------------------------------
@@ -38,7 +38,9 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'contracts',      label: 'Contracts',       icon: DocumentRegular },
   { id: 'people',         label: 'People',          icon: PeopleRegular },
   { id: 'renewals',       label: 'Renewals',        icon: ArrowClockwiseRegular, visibleWhen: role => role !== 'visitor' },
-  { id: 'amendments',     label: 'Amendments',      icon: DocumentEditRegular },
+  // S20-P0-3: SharePointAmendmentService is a stub — hide in SP DSM to prevent
+  // silent empty-data false positive. Re-enable when SP adapter is implemented.
+  { id: 'amendments',     label: 'Amendments',      icon: DocumentEditRegular,   visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
   { id: 'inbox',          label: 'Inbox',           icon: MailRegular,           visibleWhen: role => role !== 'visitor' },
   { id: 'situation-room', label: 'Situation Room',  icon: AlertUrgentRegular },
   { id: 'intelligence',   label: 'Intelligence',    icon: LightbulbRegular },
@@ -140,11 +142,11 @@ const NavButton = ({ item, active, onClick }: NavButtonProps) => {
 // ---------------------------------------------------------------------------
 
 export const NavRail = () => {
-  const { currentUser, screen, navigate } = useApp();
+  const { currentUser, screen, navigate, config } = useApp();
   const capabilities = useCapabilities();
 
   const visibleItems = NAV_ITEMS.filter(item =>
-    item.visibleWhen ? item.visibleWhen(currentUser.c3Role, capabilities) : true
+    item.visibleWhen ? item.visibleWhen(currentUser.c3Role, capabilities, config.dataSourceMode) : true
   );
 
   const activeId = toScreen(screen.id).id;

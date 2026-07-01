@@ -16,6 +16,7 @@ import { Dismiss16Regular } from '@fluentui/react-icons';
 import { useApp } from '@c3/hooks/useApp';
 import { useHostContext } from '@c3/hosts/HostContext';
 import { NavRail } from './NavRail';
+import { ErrorBoundary } from '@c3/components/ErrorBoundary';
 
 import { ApprovalInbox } from '@c3/screens/ApprovalInbox';
 import { CommandCenter } from '@c3/screens/CommandCenter';
@@ -186,7 +187,7 @@ export const AppShell = () => {
             backgroundColor: '#F8FAFC',
           }}
         >
-          {renderScreen()}
+          <ErrorBoundary>{renderScreen()}</ErrorBoundary>
         </main>
       </div>
     </div>

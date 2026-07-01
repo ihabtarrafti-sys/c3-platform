@@ -28,10 +28,11 @@ export const useAllMissionParticipants = (): {
   allParticipants:              MissionParticipant[];
   participantPersonIdsByMission: Map<string, string[]>;
   isLoading:                    boolean;
+  error:                        Error | null;
 } => {
   const missionService = useMissionService();
 
-  const { data: allParticipants = [], isLoading } = useQuery<MissionParticipant[]>({
+  const { data: allParticipants = [], isLoading, error } = useQuery<MissionParticipant[]>({
     queryKey: queryKeys.mission.allParticipants(),
     queryFn:  () => missionService.listAllMissionParticipants(),
   });
@@ -49,5 +50,5 @@ export const useAllMissionParticipants = (): {
     return map;
   }, [allParticipants]);
 
-  return { allParticipants, participantPersonIdsByMission, isLoading };
+  return { allParticipants, participantPersonIdsByMission, isLoading, error: (error ?? null) as Error | null };
 };

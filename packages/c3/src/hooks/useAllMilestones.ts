@@ -22,13 +22,14 @@ import type { MissionMilestone } from '@c3/types';
 export const useAllMilestones = (): {
   data: MissionMilestone[] | undefined;
   isLoading: boolean;
+  error: Error | null;
 } => {
   const milestoneService = useMilestoneService();
 
-  const { data, isLoading } = useQuery<MissionMilestone[]>({
+  const { data, isLoading, error } = useQuery<MissionMilestone[]>({
     queryKey: queryKeys.milestone.all(),
     queryFn:  () => milestoneService.listAllMilestones(),
   });
 
-  return { data, isLoading };
+  return { data, isLoading, error: (error ?? null) as Error | null };
 };

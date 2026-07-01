@@ -28,13 +28,13 @@ import type { Mission, MissionFilter } from '@c3/types';
  */
 export const useMissions = (
   filter?: MissionFilter,
-): { data: Mission[] | undefined; isLoading: boolean } => {
+): { data: Mission[] | undefined; isLoading: boolean; error: Error | null } => {
   const missionService = useMissionService();
 
-  const { data, isLoading } = useQuery<Mission[]>({
+  const { data, isLoading, error } = useQuery<Mission[]>({
     queryKey: queryKeys.mission.filtered(filter),
     queryFn: () => missionService.listMissions(filter),
   });
 
-  return { data, isLoading };
+  return { data, isLoading, error: (error ?? null) as Error | null };
 };

@@ -54,20 +54,20 @@ const DEFAULT_PROTOCOLS: ProtocolFn[] = [evaluateOnboardingObligations];
  */
 export const useOperationalGaps = (
   filter?: GapFilter,
-): { gaps: OperationalGap[]; isLoading: boolean } => {
-  const { data: people, isLoading: peopleLoading } = usePeople();
+): { gaps: OperationalGap[]; isLoading: boolean; error: Error | null } => {
+  const { data: people, isLoading: peopleLoading, error: peopleError } = usePeople();
   const credentialService = useCredentialService();
   const journeyService    = useJourneyService();
 
   // ── Batch credential fetch ────────────────────────────────────────────────
-  const { data: allCredentials, isLoading: credentialsLoading } = useQuery<Credential[]>({
+  const { data: allCredentials, isLoading: credentialsLoading, error: credentialsError } = useQuery<Credential[]>({
     queryKey: queryKeys.credentials.all(),
     queryFn:  () => credentialService.listAllCredentials(),
   });
 
   // ── Batch journey fetch — active Onboarding journeys only ─────────────────
   // When multi-protocol support is added, fetch by each protocol's journey type.
-  const { data: allJourneys, isLoading: journeysLoading } = useQuery<Journey[]>({
+  const { data: allJourneys, isLoading: journeysLoading, error: journeysError } = useQuery<Journey[]>({
     queryKey: queryKeys.journey.allActive('Onboarding'),
     queryFn:  () => journeyService.listAllActiveJourneys('Onboarding'),
   });
@@ -119,5 +119,6 @@ export const useOperationalGaps = (
     );
   }, [people, allCredentials, allJourneys, filter]);
 
-  return { gaps, isLoading };
+  const error = (peopleError ?? credentialsError ?? journeysError ?? null) as Error | null;
+  return { gaps, isLoading, error };
 };
