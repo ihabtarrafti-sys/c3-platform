@@ -362,6 +362,32 @@ Goal: Platform Owner approves and executes the AddCredential approval. C3Credent
 
 - [ ] If PersonProfile is opened without a valid PersonID, a clear empty/selection state is shown — not the "Could not load person" error from before S20 fix
 
+### 12.11 AddCredential — invalid payload blocked at execution (S21-P3)
+
+- [ ] Corrupt or missing payload on an Approved AddCredential card → click Execute
+- [ ] Toast: "Execution blocked — invalid payload. The approval payload is missing or malformed. No record was created."
+- [ ] SP verify: `ApprovalStatus` unchanged (still `Approved`); no `C3Credentials` row created
+- [ ] `ExecutedAt` null; `ExecutionError` absent
+
+### 12.12 AddCredential — execution failure stamps ExecutionFailed (S21-P3)
+
+- [ ] Simulate SP write failure mid-execution (e.g. digest expired, permissions revoked)
+- [ ] Toast: "Execution failed" with error detail
+- [ ] SP verify: `ApprovalStatus = ExecutionFailed`; `ExecutedAt` null; no orphan `C3Credentials` row (if CRED POST failed)
+- [ ] If `PartialCredentialExecutionError`: CRED row exists, `ApprovalStatus` not yet stamped
+
+### 12.13 AddCredential — partial execution recovery (S21-P1 / S21-P3)
+
+- [ ] `ExecutionFailed` AddCredential card where matching `CRED-XXXX` row already exists in SP → card shows **Recover Execution Stamp** button (not Execute)
+- [ ] Click Recover → approval stamped `Executed`; no new `C3Credentials` row created
+- [ ] SP verify: one `C3Credentials` row for the person/type/ref combination; `ApprovalStatus = Executed`
+
+### 12.14 AddCredential — recovery target missing (S21-P3)
+
+- [ ] `ExecutionFailed` AddCredential card where no matching `CRED-XXXX` row exists → card shows **Execute** button (not Recover)
+- [ ] Attempting Recover when target is missing → `CredentialRecoveryTargetMissingError`
+- [ ] Toast indicates recovery not possible; operator uses Execute path instead
+
 ---
 
 ## Part 13 — Beta Go/No-Go Criteria
@@ -417,6 +443,45 @@ Goal: Platform Owner approves and executes the AddCredential approval. C3Credent
 | No dedicated audit columns for journey lifecycle transitions | Low | Notes-append is the audit trail; SuspendedAt/CancelledAt deferred to Sprint 21 |
 | `deactivateCredential` not implemented | Functional gap — credentials cannot be deactivated via C3 | Manage credential IsActive flag directly in SP |
 | Contracts/SP-02 not resolved | Functional gap | Separate workstream |
+
+
+---
+
+## Part 15 — PersonProfile Approvals Tab Checklist (NEW in S21)
+
+### 15.1 Approvals tab visible
+
+- [ ] Open any Person Profile → three tabs visible: **Profile**, **Readiness**, **Approvals**
+- [ ] Approvals tab is accessible to both owner and operations roles
+
+### 15.2 Active approvals section
+
+- [ ] With pending approvals for the person: "Active / Needs Attention" section shows cards (Submitted / InReview / Approved / ExecutionFailed)
+- [ ] Each row shows: title, operationType, status badge, human-readable payload summary (e.g. "League Registration · A12345678 · PER-0004")
+- [ ] Payload summary uses label ("League Registration") not raw key ("LeagueRegistration")
+- [ ] No Approve / Reject / Execute / Recover buttons anywhere in PersonProfile Approvals tab
+
+### 15.3 History section
+
+- [ ] Executed and Rejected approvals appear in "History" section
+- [ ] Rejection reason displayed on rejected rows
+- [ ] Execution error displayed on ExecutionFailed rows
+- [ ] `executedAt` displayed on Executed rows
+
+### 15.4 Empty state
+
+- [ ] Person with no approvals → single empty state message ("No approval activity for this person yet.")
+- [ ] Person with approvals but all terminal → Active section shows inner empty state; History section shows records
+
+### 15.5 No action buttons (explicit check)
+
+- [ ] Inspect DOM / visual check: zero Approve, Reject, Execute, Recover buttons rendered in Approvals tab
+- [ ] Confirm ApprovalInbox is unchanged and remains the sole action surface
+
+### 15.6 Safe summaries only — no raw JSON
+
+- [ ] Payload summary renders plain-text label strings only
+- [ ] No raw JSON block visible in PersonProfile Approvals tab under any condition
 
 ---
 

@@ -321,6 +321,29 @@ No changes required. Documented here for completeness.
 
 ---
 
+---
+
+### TD-19 — Approval list top-500 truncation risk in person-scoped history
+**Severity:** 🟠 Latent risk
+**Sprint attributed:** S21 Phase 2 (identified at build time)
+**File:** `packages/c3/src/services/sharepoint/SharePointApprovalsService.ts`, `packages/c3/src/hooks/usePersonApprovals.ts`
+
+`listApprovals` SP query uses `$top=500`. `usePersonApprovals` (S21-P2) filters
+client-side by `targetPersonId`. If C3Approvals exceeds 500 total records, the
+PersonProfile Approvals tab will silently truncate results for any person whose
+approvals fall outside the top 500 by submitted date.
+
+**Risk level:** Not a concern in beta; becomes relevant at operational scale (~500+ total approval records).
+
+**Recommended mitigation:**
+- Add `targetPersonId?: string` to the `listApprovals` filter and implement
+  OData `$filter=TargetPersonID eq '...'` in SP service (related to TD-07), or
+- Add pagination support to `listApprovals`.
+
+**Note:** TD-07 already tracks the missing `targetPersonId` filter on `listApprovals`
+as a general latent risk. TD-19 specifically records the person-history truncation
+consequence introduced by S21-P2's client-side filtering approach.
+
 ## Resolved Items (Sprint Archive)
 
 | ID | Item | Resolution | Sprint |

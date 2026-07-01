@@ -41,6 +41,8 @@ import {
   DrawerHeaderTitle,
   Input,
   Label,
+  MessageBar,
+  MessageBarBody,
   OverlayDrawer,
   Select,
   Textarea,
@@ -104,6 +106,10 @@ export const AddCredentialPanel = ({
   const [notes,           setNotes]           = useState('');
 
   const isValid = credentialType !== '' && referenceNumber.trim().length > 0;
+
+  // Advisory-only: warn when expiry is before issue date (submit not blocked).
+  const isDateOrderWarning =
+    expiryDate.length > 0 && issueDate.length > 0 && expiryDate < issueDate;
 
   const resetForm = () => {
     setCredentialType('');
@@ -303,6 +309,15 @@ export const AddCredentialPanel = ({
               onChange={(_, data) => setIssueDate(data.value)}
             />
           </FormField>
+
+          {/* Date order warning — advisory only, submit not blocked */}
+          {isDateOrderWarning && (
+            <MessageBar intent="warning">
+              <MessageBarBody>
+                Expiry date is before issue date. Verify this is intentional.
+              </MessageBarBody>
+            </MessageBar>
+          )}
 
           {/* Issued By */}
           <FormField

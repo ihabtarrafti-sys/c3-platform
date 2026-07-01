@@ -2,6 +2,7 @@
  * approvalPayloadUtils.ts
  *
  * Sprint 21 Phase 2 — Pure helpers for approval payload display.
+ * Sprint 21 Phase 3 — Humanize AddCredential credentialType using CREDENTIAL_TYPE_LABELS.
  *
  * All functions are pure (no React, no hooks, no side effects).
  * Safe parse only — never throws on bad input, never outputs raw JSON.
@@ -11,6 +12,9 @@
  *
  * See: packages/c3/src/services/interfaces/approvalPayloads.ts (payload shapes)
  */
+
+import type { CredentialType } from '@c3/types';
+import { CREDENTIAL_TYPE_LABELS } from '@c3/utils/credentialLabels';
 
 // ---------------------------------------------------------------------------
 // formatApprovalPayloadSummary
@@ -29,8 +33,8 @@
  *
  * Examples:
  *   InitiateJourney: "Onboarding · PER-0004"
- *   AddCredential:   "Passport · A12345678 · PER-0004 · Expires 2027-06-01"
- *   AddCredential (no expiry): "Working Visa · V-2024-001 · PER-0007"
+ *   AddCredential:   "League Registration · A12345678 · PER-0004 · Expires 2027-06-01"
+ *   AddCredential (no expiry): "Work Permit · V-2024-001 · PER-0007"
  */
 export function formatApprovalPayloadSummary(
   raw: string | undefined,
@@ -56,14 +60,21 @@ export function formatApprovalPayloadSummary(
   }
 
   if (operationType === 'AddCredential') {
-    const credType    = typeof parsed['credentialType']  === 'string' && parsed['credentialType'].trim()
-      ? parsed['credentialType'].trim()  : null;
-    const refNum      = typeof parsed['referenceNumber'] === 'string' && parsed['referenceNumber'].trim()
+    // Humanize the raw credentialType key (e.g. "LeagueRegistration" → "League Registration").
+    // Falls back to the raw key if not found in the labels map (forward-compat safety).
+    const rawType = typeof parsed['credentialType'] === 'string' && parsed['credentialType'].trim()
+      ? parsed['credentialType'].trim()
+      : null;
+    const credType = rawType
+      ? (CREDENTIAL_TYPE_LABELS[rawType as CredentialType] ?? rawType)
+      : null;
+
+    const refNum     = typeof parsed['referenceNumber'] === 'string' && parsed['referenceNumber'].trim()
       ? parsed['referenceNumber'].trim() : null;
-    const holderId    = typeof parsed['holderPersonId']  === 'string' && parsed['holderPersonId'].trim()
+    const holderId   = typeof parsed['holderPersonId']  === 'string' && parsed['holderPersonId'].trim()
       ? parsed['holderPersonId'].trim()  : null;
-    const expiryDate  = typeof parsed['expiryDate']      === 'string' && parsed['expiryDate'].trim()
-      ? `Expires ${parsed['expiryDate'].trim()}`         : null;
+    const expiryDate = typeof parsed['expiryDate']      === 'string' && parsed['expiryDate'].trim()
+      ? `Expires ${parsed['expiryDate'].trim()}`        : null;
 
     const parts = [credType, refNum, holderId, expiryDate].filter(Boolean);
     return parts.length > 0 ? parts.join(' · ') : null;

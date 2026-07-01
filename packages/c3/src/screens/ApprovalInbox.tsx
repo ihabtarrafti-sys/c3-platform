@@ -91,6 +91,8 @@ import {
 } from '@c3/hooks/useRecoverCredentialExecutionStamp';
 import { useRecoverExecutionStamp, RecoveryTargetMissingError } from '@c3/hooks/useRecoverExecutionStamp';
 import { useToast } from '@c3/hooks/useToast';
+import type { CredentialType } from '@c3/types';
+import { CREDENTIAL_TYPE_LABELS } from '@c3/utils/credentialLabels';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
 // ---------------------------------------------------------------------------
@@ -597,12 +599,15 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         const holderPersonId = typeof parsedPayload?.['holderPersonId'] === 'string'
           ? parsedPayload['holderPersonId']
           : approval.targetPersonId ?? 'unknown';
-        const credType = typeof parsedPayload?.['credentialType'] === 'string'
+        const rawCredType = typeof parsedPayload?.['credentialType'] === 'string'
           ? parsedPayload['credentialType']
+          : '';
+        const credTypeLabel = rawCredType
+          ? (CREDENTIAL_TYPE_LABELS[rawCredType as CredentialType] ?? rawCredType)
           : '';
         toast.success(
           'Approval executed',
-          `${approval.title} — ${credType} credential registered for ${holderPersonId}.`,
+          `${approval.title} — ${credTypeLabel} credential registered for ${holderPersonId}.`,
         );
       } else {
         // InitiateJourney or other (default)
