@@ -640,7 +640,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                   appearance={confirmDialogConfig[confirmAction].isDanger ? 'primary' : 'primary'}
                   style={
                     confirmDialogConfig[confirmAction].isDanger
-                      ? { backgroundColor: 'var(--c3-critical)', border: 'none' }
+                      ? { backgroundColor: 'var(--c3-critical, #DC2626)', color: '#ffffff', border: 'none' }
                       : undefined
                   }
                   onClick={() => { void handleConfirm(); }}
