@@ -287,4 +287,22 @@ Config reviewed in Sprint 20 Phase 0:
 ```
 staleTime: 2min  — appropriate for operational data
 gcTime: 10min    — acceptable cache retention
-retry: 1         �
+retry: 1         — correct for SP REST (avoids auth failure loops)
+refetchOnWindowFocus: false — correct for SPFx embedded context
+```
+No changes required. Documented here for completeness.
+
+---
+
+## Resolved Items (Sprint Archive)
+
+| ID | Item | Resolution | Sprint |
+|----|------|-----------|--------|
+| ✅ | Derive-then-POST sequence number collision risk | Replaced with POST-then-MERGE (SP auto-ID) | S19 Phase 3 |
+| ✅ | PersonProfile cancel confirm button invisible in dark/SP context | `var(--c3-critical, #DC2626)` inline fallback | S19 Phase 2 |
+| ✅ | PersonProfile "Cancel" dismiss button confusing label | `'Go Back'` when action is cancel | S19 Phase 2 |
+| ✅ | No SP role resolver (hardcoded mock roles in SP DSM) | `spRoleResolver.ts` queries SP groups | S19 Phase 1 |
+| ✅ | Journey lifecycle transitions not gated by role | `canManageJourneyLifecycle` guard on all transition hooks | S19 Phase 2 |
+| ✅ | No React Error Boundary | `ErrorBoundary.tsx` + AppShell wrap | S20 Phase 0 |
+| ✅ | CommandCenter false "All clear" on SP failure | Error threaded through useWorkItems | S20 Phase 0 |
+| ✅ | Amendments silent stub in SP DSM | NavRail mode gate | S20 Phase 0 |
