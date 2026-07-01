@@ -435,7 +435,7 @@ Goal: Platform Owner approves and executes the AddCredential approval. C3Credent
 | `PartialExecutionError` recovery false positive (manual SP row) | Very low | If a row was manually inserted in SP, the recovery detector may not trigger correctly |
 | TMP-* orphan row if MERGE fails after POST | Very low | Delete the TMP-* row in SP; re-submit the operation |
 | No dedicated audit columns for journey lifecycle transitions | Low | Notes-append is the audit trail; SuspendedAt/CancelledAt deferred to Sprint 22 |
-| `deactivateCredential` not implemented | Functional gap | Manage credential IsActive flag directly in SP |
+| ~~`deactivateCredential` not implemented~~ | ~~Functional gap~~ | Resolved S23-P1 — governed via DeactivateCredential approval loop |
 | Contracts/SP-02 not resolved | Functional gap | Separate workstream |
 | `$top=500` truncation in person-scoped approval history | Latent — not a beta concern | Not a concern until C3Approvals exceeds 500 total records |
 
@@ -479,6 +479,62 @@ Goal: Platform Owner approves and executes the AddCredential approval. C3Credent
 
 ---
 
+## Part 16 — Credential Deactivation Checklist (NEW in S23-P1)
+
+### 16.1 PersonProfile — Deactivate button visible (owner/operations)
+
+- [ ] Open any Person Profile with at least one credential → "Deactivate" button visible on each credential row
+- [ ] Button visible to `owner` and `operations` roles only — hidden for `management`, `hr`, `legal`, `finance`, `visitor`
+- [ ] Button renders at the right edge of each credential DataRow (action slot)
+
+### 16.2 PersonProfile — Deactivation confirm dialog
+
+- [ ] Clicking "Deactivate" opens a confirm dialog with the credential label and reference number
+- [ ] Dialog contains a required "Reason" textarea
+- [ ] "Deactivate" confirm button is disabled until a non-blank reason is entered
+- [ ] "Go Back" closes the dialog without submitting
+
+### 16.3 Mock DSM — direct deactivation
+
+- [ ] In Mock DSM, clicking Deactivate + entering reason + confirming → success toast "Credential deactivated."
+- [ ] Credential disappears from the credentials list immediately (cache invalidated)
+- [ ] No approval appears in ApprovalInbox (Mock DSM bypasses approval)
+
+### 16.4 SP DSM — approval submission
+
+- [ ] In SP DSM, clicking Deactivate + entering reason + confirming → success toast "Deactivation submitted: APR-XXXX"
+- [ ] Credential remains active in PersonProfile (deactivation deferred to execution)
+- [ ] New C3Approvals record appears in ApprovalInbox with OperationType: DeactivateCredential and status Submitted
+- [ ] Payload summary in ApprovalInbox shows credentialId, holderPersonId, credentialType, referenceNumber, reason
+
+### 16.5 SP DSM — approval execution
+
+- [ ] Owner approves the DeactivateCredential approval (Submitted → Approved)
+- [ ] Execute button visible on Approved + DeactivateCredential card
+- [ ] Clicking Execute → credential `IsActive = false` in C3Credentials (verify in SP list)
+- [ ] Approval stamped Executed; card moves to Executed tab
+- [ ] PersonProfile credentials panel no longer shows the deactivated credential
+
+### 16.6 Recovery detection (PartialDeactivationExecutionError)
+
+- [ ] If credential is already `IsActive = false` but approval is still Approved: ApprovalInbox shows "Recover Execution Stamp" (amber) with warning MessageBar
+- [ ] Clicking "Recover Execution Stamp" stamps the approval Executed without modifying C3Credentials
+- [ ] Toast: "Execution stamp recovered: APR-XXXX marked Executed. Credential CRED-XXXX confirmed inactive."
+
+### 16.7 CredentialAlreadyInactiveError (defence against double-click)
+
+- [ ] If Execute is clicked on a card where `IsActive` is already `false` → error toast "Execution blocked — credential already inactive"
+- [ ] Approval remains Approved (not stamped ExecutionFailed)
+- [ ] Recovery path (16.6) resolves the record
+
+### 16.8 Payload summary in ApprovalInbox
+
+- [ ] DeactivateCredential approval card shows "Deactivation Payload" section
+- [ ] Displays: Credential ID, Holder Person ID, Credential Type (humanized label), Reference Number, Reason
+- [ ] Malformed payload → "Invalid payload — JSON parse failed." (same guard as AddCredential)
+
+---
+
 ## Validation commands
 
 ```bash
@@ -486,20 +542,4 @@ Goal: Platform Owner approves and executes the AddCredential approval. C3Credent
 npm run beta:runtime     # build:c3-runtime + copy:c3-runtime in one step
 npm run verify:runtime   # confirm both files exist, non-empty, SHA-256 match
 # Then commit the bundle:
-#   git add packages/c3-spfx-host/src/webparts/c3Host/assets/c3-runtime/c3-runtime.js
-#   git commit -m "build(...): Update SPFx runtime bundle"
-
-# Parity harnesses
-node scripts/s18-parity-approvals.mjs
-node scripts/s17-parity-journeys.mjs
-node scripts/s15-parity-test.mjs
-node scripts/s16-parity-people.mjs
-
-# TypeScript
-npx tsc --noEmit -p packages/c3/tsconfig.json
-npx tsc --noEmit -p packages/c3-spfx-host/tsconfig.json
-
-# Confirm clean working tree
-git status
-git diff --cached --name-only
-```
+#   git add

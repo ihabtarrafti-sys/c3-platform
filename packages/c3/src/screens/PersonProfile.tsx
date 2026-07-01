@@ -37,6 +37,8 @@ import { usePerson } from '@c3/hooks/usePerson';
 import { usePersonJourneys } from '@c3/hooks/usePersonJourneys';
 import { usePersonContracts } from '@c3/hooks/usePersonContracts';
 import { usePersonCredentials } from '@c3/hooks/usePersonCredentials';
+import { useSubmitDeactivationApproval } from '@c3/hooks/useSubmitDeactivationApproval';
+import type { DeactivateCredentialInput } from '@c3/hooks/useSubmitDeactivationApproval';
 import { usePersonReadiness } from '@c3/hooks/usePersonReadiness';
 import { useCompleteJourney } from '@c3/hooks/useCompleteJourney';
 import { useSuspendJourney } from '@c3/hooks/useSuspendJourney';
@@ -157,6 +159,10 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   const [credentialPanelOpen,  setCredentialPanelOpen]  = useState(false);
   const [resolveCapability,    setResolveCapability]     = useState<CredentialCapability | undefined>(undefined);
 
+  // Deactivation confirm dialog state (Sprint 23 Phase 1)
+  const [deactivateTarget, setDeactivateTarget] = useState<import('@c3/types').Credential | null>(null);
+  const [deactivateReason, setDeactivateReason] = useState('');
+
   // Journey lifecycle confirm dialog state
   const [confirmAction, setConfirmAction] = useState<JourneyConfirmAction | null>(null);
   const [confirmReason, setConfirmReason] = useState('');
@@ -235,6 +241,10 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
     resumeJourneyMutation.isPending   ||
     cancelJourneyMutation.isPending;
 
+  // Deactivation hook (Sprint 23 Phase 1)
+  const { submitAsync: submitDeactivation, isPending: isDeactivationPending } =
+    useSubmitDeactivationApproval();
+
   const handleOpenConfirm = (action: JourneyConfirmAction) => {
     setConfirmReason('');
     setConfirmAction(action);
@@ -244,6 +254,38 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
     if (isTransitionPending) return; // block dismiss while in-flight
     setConfirmAction(null);
     setConfirmReason('');
+  };
+
+  // ── Deactivation confirm handlers (Sprint 23 Phase 1) ──────────────────
+
+  const handleDeactivateDismiss = () => {
+    if (isDeactivationPending) return;
+    setDeactivateTarget(null);
+    setDeactivateReason('');
+  };
+
+  const handleDeactivateConfirm = async () => {
+    if (!deactivateTarget || !person) return;
+    const input: DeactivateCredentialInput = {
+      credentialId:   deactivateTarget.CredentialID,
+      holderPersonId: deactivateTarget.HolderPersonID,
+      credentialType: deactivateTarget.Type,
+      referenceNumber: deactivateTarget.ReferenceNumber,
+      reason: deactivateReason.trim(),
+    };
+    try {
+      const outcome = await submitDeactivation(input);
+      if (outcome.mode === 'direct') {
+        toast.success('Credential deactivated.');
+      } else {
+        toast.success(`Deactivation submitted: ${outcome.approvalTitle}`);
+      }
+      setDeactivateTarget(null);
+      setDeactivateReason('');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Failed to deactivate credential', msg.slice(0, 200));
+    }
   };
 
   const handleConfirm = async () => {
@@ -530,6 +572,22 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                         {formatCredentialExpiry(credential.ExpiryDate)}
                       </span>
                     }
+                    action={
+                      canManageJourneyLifecycle ? (
+                        <Button
+                          appearance="subtle"
+                          size="small"
+                          style={{ color: 'var(--c3-critical)', flexShrink: 0 }}
+                          disabled={isDeactivationPending}
+                          onClick={() => {
+                            setDeactivateTarget(credential);
+                            setDeactivateReason('');
+                          }}
+                        >
+                          Deactivate
+                        </Button>
+                      ) : undefined
+                    }
                   />
                 ))}
               </div>
@@ -650,6 +708,64 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                   icon={isTransitionPending ? <Spinner size="tiny" /> : undefined}
                 >
                   {isTransitionPending ? 'Updating…' : confirmDialogConfig[confirmAction].confirmLabel}
+                </Button>
+              </DialogActions>
+            </DialogBody>
+          </DialogSurface>
+        </Dialog>
+      )}
+
+      {/* ── Credential deactivation confirm dialog (Sprint 23 Phase 1) ───────
+           Mounted outside the tab tree. Opens when the Deactivate button is
+           clicked on a credential row. Requires a non-empty reason.
+           Mock DSM: deactivates directly. SP DSM: submits approval.         */}
+      {deactivateTarget && (
+        <Dialog
+          open={!!deactivateTarget}
+          onOpenChange={(_e, data) => { if (!data.open) handleDeactivateDismiss(); }}
+        >
+          <DialogSurface>
+            <DialogBody>
+              <DialogTitle>Deactivate Credential?</DialogTitle>
+              <DialogContent>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-3)' }}>
+                  <Text size={300} style={{ color: 'var(--c3-gray-700)' }}>
+                    Deactivate{' '}
+                    <strong>{getCredentialLabel(deactivateTarget)}</strong>{' '}
+                    ({deactivateTarget.ReferenceNumber}) for {person?.FullName ?? deactivateTarget.HolderPersonID}?
+                    The credential will be marked inactive and will no longer satisfy obligations.
+                  </Text>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-1)' }}>
+                    <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+                      Reason (required — recorded in the approval log)
+                    </Text>
+                    <Textarea
+                      value={deactivateReason}
+                      onChange={(_e, data) => setDeactivateReason(data.value)}
+                      placeholder="e.g. Document expired and superseded, or document was revoked"
+                      resize="vertical"
+                      rows={2}
+                      disabled={isDeactivationPending}
+                    />
+                  </div>
+                </div>
+              </DialogContent>
+              <DialogActions>
+                <Button
+                  appearance="secondary"
+                  onClick={handleDeactivateDismiss}
+                  disabled={isDeactivationPending}
+                >
+                  Go Back
+                </Button>
+                <Button
+                  appearance="primary"
+                  style={{ backgroundColor: 'var(--c3-critical, #DC2626)', color: '#ffffff', border: 'none' }}
+                  onClick={() => { void handleDeactivateConfirm(); }}
+                  disabled={isDeactivationPending || !deactivateReason.trim()}
+                  icon={isDeactivationPending ? <Spinner size="tiny" /> : undefined}
+                >
+                  {isDeactivationPending ? 'Processing…' : 'Deactivate'}
                 </Button>
               </DialogActions>
             </DialogBody>

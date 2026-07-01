@@ -400,10 +400,65 @@ export const createSharePointCredentialService = (siteUrl: string): ICredentialS
       return mapped;
     },
 
-    // ── deactivateCredential (stub) ─────────────────────────────────────────
-    async deactivateCredential(_credentialId: string): Promise<void> {
-      console.warn(
-        `${PREFIX} deactivateCredential: write operations are not implemented in S15.`,
+    // ── deactivateCredential ────────────────────────────────────────────────
+    //
+    // Sprint 23 Phase 1 -- governed write path (ADR-013).
+    // Called by useExecuteApproval after a DeactivateCredential approval is
+    // Approved and executed. Also called directly by useSubmitDeactivationApproval
+    // in mock DSM.
+    //
+    // Sequence:
+    //   1. Resolve CRED-XXXX to SP integer ID via getCredential.
+    //      getCredential has no IsActive filter -- returns inactive records too,
+    //      allowing the execution pre-check (is it still active?) to work correctly.
+    //   2. Fetch X-RequestDigest.
+    //   3. MERGE C3Credentials item: IsActive = false.
+    //      SP MERGE on success returns 204 No Content -- no body to parse.
+    //
+    // Error behaviour: throws on any step failure -- does NOT swallow errors.
+    // The caller (useExecuteApproval) catches and stamps ExecutionFailed.
+    //
+    // No POST-then-MERGE needed -- the credential already has an SP integer ID.
+    async deactivateCredential(credentialId: string): Promise<void> {
+      // Step 1: Resolve CRED-XXXX to SP item via getCredential (no IsActive filter).
+      const credential = await this.getCredential(credentialId);
+      if (credential === null || credential === undefined) {
+        throw new Error(
+          `${PREFIX} deactivateCredential: credential '${credentialId}' not found in ${LIST_NAME}. ` +
+          `Cannot deactivate a non-existent record.`,
+        );
+      }
+
+      // Step 2: Fetch fresh digest (POST digest is consumed by prior requests).
+      const digest = await fetchFormDigest(siteUrl);
+
+      // Step 3: MERGE IsActive = false.
+      const response = await fetch(buildItemUrl(siteUrl, credential.Id), {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept':          'application/json;odata=nometadata',
+          'Content-Type':    'application/json;odata=verbose',
+          'X-RequestDigest': digest,
+          'X-HTTP-Method':   'MERGE',
+          'IF-MATCH':        '*',
+        },
+        body: JSON.stringify({ __metadata: { type: LIST_ITEM_TYPE }, IsActive: false }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '(unreadable)');
+        throw new Error(
+          `${PREFIX} deactivateCredential: MERGE failed for ${credentialId} ` +
+          `(SP ID ${credential.Id}). HTTP ${response.status} ${response.statusText}. ` +
+          `Body: ${errorText}`,
+        );
+      }
+
+      // SP MERGE returns 204 No Content on success -- nothing to parse.
+      console.info(
+        `${PREFIX} deactivateCredential: ${credentialId} (SP ID ${credential.Id}) ` +
+        `set IsActive = false.`,
       );
     },
   };

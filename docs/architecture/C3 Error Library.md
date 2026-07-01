@@ -1,6 +1,6 @@
 # C3 Error Library
 **C3 Contract Control Center**
-**Status:** BETA — Sprint 22
+**Status:** BETA — Sprint 23
 **Last updated:** 2026-07-01
 **See also:** C3 Beta Operational Runbook.md, C3 Beta Checkpoint — Sprint 21.md, C3 Tech Debt Register.md
 
@@ -31,6 +31,8 @@
 | ERR-017 | `$top=500` approval history truncation | Latent | Silent data gap in PersonProfile |
 | ERR-018 | C3Credentials missing required column | SP Environment | SP 400 on credential execution |
 | ERR-019 | ToasterGuard / Toaster context unavailable | Active Runtime | No toasts appear |
+| ERR-020 | CredentialAlreadyInactiveError | Active Runtime | "Execution blocked — credential already inactive…" |
+| ERR-021 | PartialDeactivationExecutionError | Active Runtime | "Partial execution — credential deactivated…" |
 
 ---
 
@@ -213,6 +215,46 @@ These errors are observable in the current beta runtime. Each has a defined reco
 **Prevention:** Do not remove `ToasterGuard` without fully resolving the underlying FluentUI Toaster provider placement issue.
 
 **Related files:** Toast provider, `AppShell.tsx` or equivalent, TD-16
+
+---
+
+### ERR-020 — CredentialAlreadyInactiveError
+
+**Type:** Active Runtime
+**Symptom:** Executing an Approved + DeactivateCredential approval returns "Execution blocked — credential already inactive". No SP writes occur. No approval stamp is written.
+**Cause:** The target credential already has `IsActive = false` in C3Credentials. This is the expected outcome of a partial execution failure where Step 4 (the IsActive MERGE) succeeded but Step 5 (stampExecution) failed.
+**Detection:** Toast: "Execution blocked — credential already inactive." Approval card shows Execute button active (approval remains Approved). ApprovalInbox recovery detector should have flagged this card — if the Execute button is still showing, the lazy `useGetCredential` query may not have settled yet.
+
+**User Impact:** Operator clicks Execute and sees the error toast. The approval remains Approved. The credential is already inactive (correct state). No data is changed.
+
+**Recovery:**
+1. Wait a moment for the recovery detector to settle — the card should automatically switch to "Recover Execution Stamp" with a warning MessageBar.
+2. If the recovery button does not appear after a reload, use `useRecoverDeactivationExecutionStamp` (Sprint 23 Phase 1): stamp the approval Executed without re-applying the MERGE.
+3. If the button appears, click "Recover Execution Stamp". This stamps the approval Executed without re-running deactivateCredential.
+
+**Prevention:** Avoid clicking Execute rapidly on DeactivateCredential cards. Wait for the existence check spinner to clear. The recovery path is safe — no SP data is modified.
+
+**Related files:** `useExecuteApproval.ts` (`CredentialAlreadyInactiveError`), `useRecoverDeactivationExecutionStamp.ts`, `ApprovalInbox.tsx`
+
+---
+
+### ERR-021 — PartialDeactivationExecutionError
+
+**Type:** Active Runtime
+**Symptom:** Toast: "Partial execution — credential deactivated but the approval record could not be stamped Executed." The credential `IsActive` flag is now `false` in C3Credentials, but the C3Approvals record remains in Approved status.
+**Cause:** Step 4 of the DeactivateCredential execution path (`deactivateCredential` SP MERGE) succeeded; Step 5 (`stampExecution`) failed. This is a partial write failure — network interruption, SP throttle, or form digest expiry between the two steps.
+**Detection:** Toast as above. Credential appears inactive in PersonProfile (correct state). ApprovalInbox card still shows Approved status.
+
+**User Impact:** Credential is correctly inactive. The approval audit record does not reflect Executed status until resolved.
+
+**Recovery:**
+1. In ApprovalInbox, reload. The recovery detector (`useGetCredential`) should detect `IsActive = false` and replace the Execute button with "Recover Execution Stamp" (amber).
+2. Click "Recover Execution Stamp". The recovery hook stamps the approval Executed without re-applying the MERGE.
+3. If the card is no longer Approved (e.g. manually updated in SP), use `useRecoverDeactivationExecutionStamp` directly.
+
+**Prevention:** Retry at a low-traffic time. Ensure network is stable between execution steps. If error recurs, examine SP throttle logs.
+
+**Related files:** `useExecuteApproval.ts` (`PartialDeactivationExecutionError`), `useRecoverDeactivationExecutionStamp.ts`, `ApprovalInbox.tsx`
 
 ---
 

@@ -10,6 +10,7 @@
  * Sprint 20 Phase 2 (S20-P2): Recover Execution Stamp action for partial execution failures.
  * Sprint 20 Phase 3 (S20-P3): AddCredential payload summary; PartialCredentialExecutionError handling.
  * Sprint 21 Phase 1 (S21-P1): AddCredential partial execution recovery UX (credential stamp-only path).
+ * Sprint 23 Phase 1 (S23-P1): DeactivateCredential payload summary and partial execution recovery UX.
  *
  * Tab / filter structure (S20-P1):
  *   Pending  = Submitted + InReview   (default — actionable work queue)
@@ -43,12 +44,21 @@
  *   Execution Stamp. Recovery stamps the approval Executed without creating a new
  *   credential. Prevents duplicate CRED-XXXX rows on re-execution.
  *
- * Payload summary (S20-P1 + S20-P3):
- *   InitiateJourney: journeyType, personId, assignedTo, initiationReason, notes,
- *                    missionId, obligationAssignments count.
- *   AddCredential:   credentialType, referenceNumber, holderPersonId, issuedBy,
- *                    issuedDate, expiryDate, notes, subType, validFromDate,
- *                    supersedesCredentialId.
+ * Deactivation recovery detection (S23-P1 — DeactivateCredential):
+ *   For each Approved + DeactivateCredential card, a lazy useGetCredential query
+ *   checks whether the target credential already has IsActive = false. If so, the
+ *   Execute button is replaced by Recover Execution Stamp. Recovery stamps the
+ *   approval Executed without re-applying the deactivation MERGE.
+ *   Prevents double-MERGE on a credential already inactive.
+ *
+ * Payload summary (S20-P1 + S20-P3 + S23-P1):
+ *   InitiateJourney:      journeyType, personId, assignedTo, initiationReason, notes,
+ *                         missionId, obligationAssignments count.
+ *   AddCredential:        credentialType, referenceNumber, holderPersonId, issuedBy,
+ *                         issuedDate, expiryDate, notes, subType, validFromDate,
+ *                         supersedesCredentialId.
+ *   DeactivateCredential: credentialId, holderPersonId, credentialType, referenceNumber,
+ *                         reason, requestedBy.
  *   Unknown operationType: raw JSON disclosure block.
  *   All parsing is safe — malformed JSON yields "Invalid payload" label + collapsed raw block.
  */
@@ -82,13 +92,21 @@ import {
   DuplicateJourneyError,
   PartialExecutionError,
   PartialCredentialExecutionError,
+  PartialDeactivationExecutionError,
+  CredentialAlreadyInactiveError,
   PayloadValidationError,
 } from '@c3/hooks/useExecuteApproval';
+import { useGetCredential } from '@c3/hooks/useGetCredential';
 import { usePersonCredentials } from '@c3/hooks/usePersonCredentials';
 import {
   useRecoverCredentialExecutionStamp,
   CredentialRecoveryTargetMissingError,
 } from '@c3/hooks/useRecoverCredentialExecutionStamp';
+import {
+  useRecoverDeactivationExecutionStamp,
+  DeactivationRecoveryTargetMissingError,
+  DeactivationRecoveryTargetActiveError,
+} from '@c3/hooks/useRecoverDeactivationExecutionStamp';
 import { useRecoverExecutionStamp, RecoveryTargetMissingError } from '@c3/hooks/useRecoverExecutionStamp';
 import { useToast } from '@c3/hooks/useToast';
 import type { CredentialType } from '@c3/types';
@@ -219,6 +237,36 @@ function extractCredentialRecoveryFields(raw: string | undefined): CredentialRec
 }
 
 // ---------------------------------------------------------------------------
+// Safe deactivation recovery field extraction (S23-P1)
+// ---------------------------------------------------------------------------
+
+interface DeactivationRecoveryFieldsInbox {
+  credentialId: string;
+  holderPersonId: string;
+}
+
+function extractDeactivationRecoveryFields(raw: string | undefined): DeactivationRecoveryFieldsInbox | null {
+  if (!raw || !raw.trim()) return null;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const credentialId   = parsed['credentialId'];
+    const holderPersonId = parsed['holderPersonId'];
+    if (
+      typeof credentialId   === 'string' && credentialId.trim().length   > 0 &&
+      typeof holderPersonId === 'string' && holderPersonId.trim().length > 0
+    ) {
+      return {
+        credentialId:   credentialId.trim(),
+        holderPersonId: holderPersonId.trim(),
+      };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // DetailCell
 // ---------------------------------------------------------------------------
 
@@ -273,10 +321,16 @@ const PayloadSummary = ({
   operationType: string;
 }) => {
   // Only render for known operation types with defined payload shapes
-  if (operationType !== 'InitiateJourney' && operationType !== 'AddCredential') return null;
+  if (
+    operationType !== 'InitiateJourney' &&
+    operationType !== 'AddCredential' &&
+    operationType !== 'DeactivateCredential'
+  ) return null;
 
   const sectionLabel =
-    operationType === 'AddCredential' ? 'Credential Payload' : 'Journey Payload';
+    operationType === 'AddCredential'        ? 'Credential Payload' :
+    operationType === 'DeactivateCredential' ? 'Deactivation Payload' :
+    'Journey Payload';
 
   if (!raw) {
     return (
@@ -412,6 +466,56 @@ const PayloadSummary = ({
     );
   }
 
+  // ── DeactivateCredential payload fields (S23-P1) ────────────────────────
+  if (operationType === 'DeactivateCredential') {
+    const credentialId   = typeof parsed['credentialId']    === 'string' ? parsed['credentialId']    : '--';
+    const holderPersonId = typeof parsed['holderPersonId']  === 'string' ? parsed['holderPersonId']  : '--';
+    const credTypeRaw    = typeof parsed['credentialType']  === 'string' ? parsed['credentialType']  : null;
+    const credTypeLabel  = credTypeRaw
+      ? (CREDENTIAL_TYPE_LABELS[credTypeRaw as CredentialType] ?? credTypeRaw)
+      : '--';
+    const referenceNumber = typeof parsed['referenceNumber'] === 'string' ? parsed['referenceNumber'] : '--';
+    const reason          = typeof parsed['reason']          === 'string' ? parsed['reason']          : null;
+    const requestedBy     = typeof parsed['requestedBy']     === 'string' ? parsed['requestedBy']     : null;
+
+    return (
+      <div
+        style={{
+          borderTop: '1px solid var(--c3-gray-100)',
+          paddingTop: 'var(--c3-space-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
+        <Text
+          size={100}
+          style={{
+            color: 'var(--c3-gray-400)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          Deactivation Payload
+        </Text>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: 'var(--c3-space-3)',
+          }}
+        >
+          <DetailCell label="Credential ID"    value={credentialId} />
+          <DetailCell label="Holder Person ID" value={holderPersonId} />
+          <DetailCell label="Credential Type"  value={credTypeLabel} />
+          <DetailCell label="Reference Number" value={referenceNumber} />
+          {requestedBy && <DetailCell label="Requested By" value={requestedBy} />}
+          {reason      && <DetailCell label="Reason"       value={reason} wide />}
+        </div>
+      </div>
+    );
+  }
+
   // ── AddCredential payload fields (S20-P3) ───────────────────────────────
   const credentialType         = typeof parsed['credentialType']         === 'string' ? parsed['credentialType']         : '--';
   const referenceNumber        = typeof parsed['referenceNumber']        === 'string' ? parsed['referenceNumber']        : '--';
@@ -485,6 +589,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const { mutateAsync: executeAsync,           isPending: isExecutePending           } = useExecuteApproval();
   const { mutateAsync: recoverAsync,           isPending: isRecoverPending           } = useRecoverExecutionStamp();
   const { mutateAsync: recoverCredentialAsync, isPending: isRecoverCredentialPending } = useRecoverCredentialExecutionStamp();
+  const { mutateAsync: recoverDeactivationAsync, isPending: isRecoverDeactivationPending } = useRecoverDeactivationExecutionStamp();
 
   // ── Recovery candidate detection (S20-P2: InitiateJourney) ───────────────
   //
@@ -552,7 +657,39 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const isPartialCredentialExecutionRecovery =
     isCredRecoveryCandidate && matchingCredential !== null;
 
-  const isPending = isPatchPending || isExecutePending || isRecoverPending || isRecoverCredentialPending;
+  // ── Deactivation recovery candidate detection (S23-P1: DeactivateCredential) ──
+  //
+  // For Approved + DeactivateCredential cards with parseable credentialId, fire a
+  // useGetCredential query to check whether the credential is already inactive.
+  // useGetCredential has no IsActive filter so it finds deactivated credentials
+  // (usePersonCredentials would filter them out). Passing '' + enabled=false when
+  // not a candidate suppresses the query. Mutually exclusive with journey and
+  // credential recovery candidates by operationType.
+
+  const deactivationRecoveryFields = useMemo(
+    () => (
+      approval.approvalStatus === 'Approved' && approval.operationType === 'DeactivateCredential'
+        ? extractDeactivationRecoveryFields(approval.payload)
+        : null
+    ),
+    [approval.approvalStatus, approval.operationType, approval.payload],
+  );
+
+  const isDeactivationRecoveryCandidate = deactivationRecoveryFields !== null;
+
+  const {
+    data: deactivationTargetCredential,
+    isLoading: isDeactivationCredentialChecking,
+  } = useGetCredential(
+    deactivationRecoveryFields?.credentialId ?? '',
+    isDeactivationRecoveryCandidate,
+  );
+
+  // True when the credential is confirmed inactive — deactivation already applied.
+  const isPartialDeactivationExecutionRecovery =
+    isDeactivationRecoveryCandidate && deactivationTargetCredential?.IsActive === false;
+
+  const isPending = isPatchPending || isExecutePending || isRecoverPending || isRecoverCredentialPending || isRecoverDeactivationPending;
   const statusColor = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
 
   // ── Action handlers (UNCHANGED from S18/S20-P1/P2 except AddCredential toast) ──
@@ -609,6 +746,17 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           'Approval executed',
           `${approval.title} — ${credTypeLabel} credential registered for ${holderPersonId}.`,
         );
+      } else if (opType === 'DeactivateCredential') {
+        const holderPersonId = typeof parsedPayload?.['holderPersonId'] === 'string'
+          ? parsedPayload['holderPersonId']
+          : approval.targetPersonId ?? 'unknown';
+        const credentialId = typeof parsedPayload?.['credentialId'] === 'string'
+          ? parsedPayload['credentialId']
+          : approval.targetId ?? 'unknown';
+        toast.success(
+          'Approval executed',
+          `${approval.title} — ${credentialId} deactivated for ${holderPersonId}.`,
+        );
       } else {
         // InitiateJourney or other (default)
         const personId = typeof parsedPayload?.['personId'] === 'string'
@@ -642,6 +790,18 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         toast.error(
           'Partial execution — manual resolution required',
           'Credential was registered but the approval record could not be stamped Executed. ' +
+          'Manually update C3Approvals to Executed status.',
+        );
+      } else if (err instanceof CredentialAlreadyInactiveError) {
+        toast.error(
+          'Execution blocked — credential already inactive',
+          'This credential is already IsActive = false. ' +
+          'Use Recover Execution Stamp to stamp the approval as Executed.',
+        );
+      } else if (err instanceof PartialDeactivationExecutionError) {
+        toast.error(
+          'Partial execution — manual resolution required',
+          'Credential was deactivated but the approval record could not be stamped Executed. ' +
           'Manually update C3Approvals to Executed status.',
         );
       } else {
@@ -693,6 +853,32 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           'Recovery failed',
           'Please retry or contact support.',
         );
+      }
+    }
+  };
+
+  const handleRecoverDeactivation = async () => {
+    const credId = deactivationRecoveryFields?.credentialId ?? '';
+    const hpid  = deactivationRecoveryFields?.holderPersonId ?? '';
+    try {
+      await recoverDeactivationAsync(approval);
+      toast.success(
+        'Execution stamp recovered',
+        `${approval.title} marked Executed. Credential ${credId} confirmed inactive for ${hpid}.`,
+      );
+    } catch (err) {
+      if (err instanceof DeactivationRecoveryTargetMissingError) {
+        toast.error(
+          'Recovery failed — credential not found',
+          `Credential '${credId}' could not be found. Contact support.`,
+        );
+      } else if (err instanceof DeactivationRecoveryTargetActiveError) {
+        toast.error(
+          'Recovery blocked — credential is still active',
+          `Credential '${credId}' is still IsActive = true. Use the Execute button to deactivate it.`,
+        );
+      } else {
+        toast.error('Recovery failed', 'Please retry or contact support.');
       }
     }
   };
@@ -851,7 +1037,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
               }}
             >
               {/* Existence check is in-flight for recovery candidates */}
-              {isJourneyChecking || (isCredRecoveryCandidate && isCredentialsChecking) ? (
+              {isJourneyChecking || (isCredRecoveryCandidate && isCredentialsChecking) || (isDeactivationRecoveryCandidate && isDeactivationCredentialChecking) ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--c3-space-2)' }}>
                   <Spinner size="extra-tiny" />
                   <Text size={200} style={{ color: 'var(--c3-gray-400)' }}>Checking...</Text>
@@ -908,6 +1094,34 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                     disabled={isRecoverCredentialPending}
                   >
                     {isRecoverCredentialPending ? 'Recovering...' : 'Recover Execution Stamp'}
+                  </Button>
+                </>
+              ) : isPartialDeactivationExecutionRecovery ? (
+                /* ── DeactivateCredential partial execution recovery (S23-P1) */
+                <>
+                  <MessageBar intent="warning">
+                    <MessageBarBody>
+                      <Text size={200}>
+                        Credential{' '}
+                        <strong>{deactivationRecoveryFields!.credentialId}</strong>{' '}
+                        is already inactive (IsActive = false). This may be a partial execution
+                        failure. <strong>Recover</strong> will stamp this approval as Executed
+                        without re-applying the deactivation.
+                      </Text>
+                    </MessageBarBody>
+                  </MessageBar>
+                  <Button
+                    appearance="primary"
+                    style={{
+                      backgroundColor: 'var(--colorPaletteMarigoldBackground3, #835B00)',
+                      color: '#ffffff',
+                      border: 'none',
+                    }}
+                    icon={<ArrowRepeatAllRegular />}
+                    onClick={() => void handleRecoverDeactivation()}
+                    disabled={isRecoverDeactivationPending}
+                  >
+                    {isRecoverDeactivationPending ? 'Recovering...' : 'Recover Execution Stamp'}
                   </Button>
                 </>
               ) : (

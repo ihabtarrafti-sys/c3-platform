@@ -383,21 +383,24 @@ consequence introduced by S21-P2's client-side filtering approach.
 
 ### TD-20 — `deactivateCredential` not implemented
 
-**Severity:** 🟠 Functional gap
+**Severity:** 🟠 → ✅ **Resolved in Sprint 23 Phase 1**
 **Sprint attributed:** S20-P3 (credential write path implemented; deactivation deferred)
 **File:** `packages/c3/src/services/sharepoint/SharePointCredentialService.ts`
 
-The `deactivateCredential` method is not implemented in the SP service (stub or not present).
+~~The `deactivateCredential` method is not implemented in the SP service (stub or not present).
 Operators cannot deactivate credentials through the C3 UI. The credential `IsActive` flag
-must be set manually in the `C3Credentials` SP list.
+must be set manually in the `C3Credentials` SP list.~~
 
-This gap is noted in Beta Checkpoint (Sprint 21) Part 14 as a known operational caveat.
-It has no in-app error surface — the deactivate action is simply unavailable.
+**Resolved (S23-P1):** `SharePointCredentialService.deactivateCredential` is now fully
+implemented as a simple MERGE on the C3Credentials SP item setting `IsActive = false`.
+No new SP list row is created — the existing CRED-XXXX row is updated in place.
 
-**Resolution:** Implement `SharePointCredentialService.deactivateCredential` as a MERGE
-on the `C3Credentials` item setting `IsActive = false`. Wire a deactivate action into the
-credential card in PersonProfile (owner/operations role gate). The credential should then
-appear as inactive in the profile view.
+The full governed path is live:
+- SP DSM: PersonProfile "Deactivate" button (owner/operations only) → `useSubmitDeactivationApproval` → `C3Approvals` record (OperationType: DeactivateCredential, status: Submitted). Owner reviews and executes in ApprovalInbox. Execution calls `deactivateCredential` (MERGE IsActive = false) + stamps approval Executed.
+- Mock DSM: direct `deactivateCredential` call (no approval submitted). Cache invalidated immediately.
+- Partial execution recovery: `useRecoverDeactivationExecutionStamp` (S23-P1) stamps Executed without re-applying the MERGE. `ApprovalInbox` recovery detector uses `useGetCredential` to detect `IsActive = false` and shows the recovery path automatically.
+
+Beta Checkpoint Part 14 caveat removed (S23-P1 update). ERR-020 and ERR-021 added to C3 Error Library.
 
 ---
 
@@ -429,6 +432,7 @@ migration if live data already exists.
 |----|------|-----------|--------|
 | ✅ | Derive-then-POST sequence number collision risk | Replaced with POST-then-MERGE (SP auto-ID) | S19 Phase 3 |
 | ✅ | PersonProfile cancel confirm button invisible in dark/SP context | `var(--c3-critical, #DC2626)` inline fallback | S19 Phase 2 |
+| ✅ TD-20 | `deactivateCredential` not implemented (functional gap) | Full governed path: MERGE + ADR-013 approval + recovery | S23 Phase 1 |
 | ✅ | PersonProfile "Cancel" dismiss button confusing label | `'Go Back'` when action is cancel | S19 Phase 2 |
 | ✅ | No SP role resolver (hardcoded mock roles in SP DSM) | `spRoleResolver.ts` queries SP groups | S19 Phase 1 |
 | ✅ | Journey lifecycle transitions not guarded against invalid states | `InvalidTransitionError` + lifecycle hooks added | S19 Phase 2 |

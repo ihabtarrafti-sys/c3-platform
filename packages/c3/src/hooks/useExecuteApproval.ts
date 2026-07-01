@@ -5,6 +5,7 @@
  *
  * Sprint 18 Phase 4A: InitiateJourney execution path.
  * Sprint 20 Phase 3:  AddCredential dispatch branch added.
+ * Sprint 23 Phase 1:  DeactivateCredential dispatch branch added.
  *
  * Dispatch is by operationType extracted from the approval payload.
  * Each branch has its own validation and execution sequence.
@@ -39,11 +40,28 @@
  *   - Does not modify Contracts, Missions, or Finance.
  *   - Does not change journey lifecycle behavior.
  *
+ * ── DeactivateCredential execution sequence (Sprint 23 Phase 1) ─────────────
+ *   1. Guard: approvalStatus must be 'Approved'.
+ *   2. Parse payload, validate required fields (credentialId, holderPersonId,
+ *      credentialType, referenceNumber, reason).
+ *   3. Get target credential via credentialService.getCredential(credentialId).
+ *      Not found  -> throw PayloadValidationError (pre-write, no stamp).
+ *      IsActive = false -> throw CredentialAlreadyInactiveError (do NOT stamp
+ *                          ExecutionFailed; operator should use stamp recovery).
+ *      IsActive = true  -> proceed.
+ *   4. Deactivate: credentialService.deactivateCredential(credentialId).
+ *      Failure -> stamp ExecutionFailed + throw.
+ *   5. Stamp approval Executed.
+ *      Failure -> LOG + throw PartialDeactivationExecutionError.
+ *   6. Invalidate approvals.all(), person.credentials(holderPersonId), credentials.all().
+ *
  * Exported error classes:
  *   - DuplicateJourneyError:              active journey already exists for the target person.
  *   - PayloadValidationError:             approval payload is invalid or malformed.
  *   - PartialExecutionError:              journey created but approval stamp failed.
  *   - PartialCredentialExecutionError:    credential created but approval stamp failed.
+ *   - CredentialAlreadyInactiveError:     target credential is already IsActive = false.
+ *   - PartialDeactivationExecutionError:  credential deactivated but approval stamp failed.
  *
  * See: docs/adr/ADR-013-Governance-Approval-Pattern.md
  */
@@ -122,6 +140,45 @@ export class PartialCredentialExecutionError extends Error {
       `[C3/Execution] Credential ${credentialId} was created for approval ${approvalId}, ` +
       `but stamping Executed on the approval record failed. ` +
       `The credential is valid. Manually update C3Approvals ID ${approvalId} to Executed. ` +
+      `Stamp error: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+  }
+}
+
+/**
+ * Thrown when a DeactivateCredential approval is executed but the target
+ * credential is already IsActive = false. Hard block -- do NOT stamp
+ * ExecutionFailed (the credential state IS the desired outcome).
+ * The approval record remains Approved. Use useRecoverDeactivationExecutionStamp
+ * to stamp it Executed without re-applying the deactivation.
+ *
+ * Sprint 23 Phase 1.
+ */
+export class CredentialAlreadyInactiveError extends Error {
+  override readonly name = 'CredentialAlreadyInactiveError';
+  constructor(credentialId: string) {
+    super(
+      `[C3/Execution] Credential ${credentialId} is already IsActive = false. ` +
+      `Use Recover Execution Stamp to stamp the approval as Executed.`,
+    );
+  }
+}
+
+/**
+ * Thrown when the credential was deactivated (IsActive = false MERGE succeeded)
+ * but the C3Approvals stamp to Executed failed. The credential is inactive and
+ * valid. The approval record remains in Approved status.
+ * Operator must manually resolve via SharePoint or use stamp recovery.
+ *
+ * Sprint 23 Phase 1.
+ */
+export class PartialDeactivationExecutionError extends Error {
+  override readonly name = 'PartialDeactivationExecutionError';
+  constructor(credentialId: string, approvalId: number, cause: unknown) {
+    super(
+      `[C3/Execution] Credential ${credentialId} was deactivated for approval ${approvalId}, ` +
+      `but stamping Executed on the approval record failed. ` +
+      `The credential is inactive. Manually update C3Approvals ID ${approvalId} to Executed. ` +
       `Stamp error: ${cause instanceof Error ? cause.message : String(cause)}`,
     );
   }
@@ -359,10 +416,85 @@ export const useExecuteApproval = () => {
         return;
       }
 
+      // ── DeactivateCredential branch (Sprint 23 Phase 1) ───────────────────
+      if (opType === 'DeactivateCredential') {
+        // Step 2: Validate required payload fields.
+        const credentialId = payloadObj['credentialId'];
+        const holderPersonId = payloadObj['holderPersonId'];
+        const credentialType = payloadObj['credentialType'];
+        const referenceNumber = payloadObj['referenceNumber'];
+        const reason = payloadObj['reason'];
+
+        if (typeof credentialId   !== 'string' || !credentialId.trim())   throw new PayloadValidationError('Payload.credentialId is missing or blank.');
+        if (typeof holderPersonId !== 'string' || !holderPersonId.trim()) throw new PayloadValidationError('Payload.holderPersonId is missing or blank.');
+        if (typeof credentialType !== 'string' || !credentialType.trim()) throw new PayloadValidationError('Payload.credentialType is missing or blank.');
+        if (typeof referenceNumber !== 'string' || !referenceNumber.trim()) throw new PayloadValidationError('Payload.referenceNumber is missing or blank.');
+        if (typeof reason !== 'string' || !reason.trim()) throw new PayloadValidationError('Payload.reason is missing or blank.');
+
+        const cid = credentialId.trim();
+        const hpid = holderPersonId.trim();
+
+        // Step 3: Get target credential (no IsActive filter -- finds inactive too).
+        const target = await credentialService.getCredential(cid);
+        if (target === null || target === undefined) {
+          throw new PayloadValidationError(
+            `Credential '${cid}' not found in C3Credentials. Cannot deactivate.`,
+          );
+        }
+
+        // Already inactive: block execution without stamping ExecutionFailed.
+        // The credential IS in the desired state. Use stamp recovery instead.
+        if (!target.IsActive) {
+          throw new CredentialAlreadyInactiveError(cid);
+        }
+
+        // Step 4: Deactivate the credential (MERGE IsActive = false).
+        try {
+          await credentialService.deactivateCredential(cid);
+        } catch (deactivateErr) {
+          const errMsg = deactivateErr instanceof Error ? deactivateErr.message : String(deactivateErr);
+          try {
+            await approvalsService.stampExecution(approval.id, {
+              newStatus:      'ExecutionFailed',
+              executionError: errMsg.slice(0, 250),
+            });
+          } catch (stampErr) {
+            console.error(
+              '[C3/Execution] Failed to stamp ExecutionFailed after deactivateCredential error:',
+              stampErr,
+            );
+          }
+          throw deactivateErr;
+        }
+
+        // Step 5: Stamp approval Executed.
+        const executedAt = new Date().toISOString();
+        try {
+          await approvalsService.stampExecution(approval.id, {
+            newStatus: 'Executed',
+            executedAt,
+          });
+        } catch (stampErr) {
+          console.error(
+            '[C3/Execution] PARTIAL FAILURE: credential was deactivated but approval stamp failed.',
+            `CredentialID: ${cid} | ApprovalID: ${approval.id}`,
+            stampErr,
+          );
+          throw new PartialDeactivationExecutionError(cid, approval.id, stampErr);
+        }
+
+        console.info(
+          `[C3/Execution] Approval ${approval.title} executed. ` +
+          `Credential ${cid} (${String(credentialType)}) deactivated for ${hpid}. ` +
+          `ExecutedAt: ${executedAt}`,
+        );
+        return;
+      }
+
       // ── Unknown operationType ──────────────────────────────────────────────
       throw new PayloadValidationError(
         `Unknown operationType: '${String(opType)}'. ` +
-        `Supported: 'InitiateJourney', 'AddCredential'.`,
+        `Supported: 'InitiateJourney', 'AddCredential', 'DeactivateCredential'.`,
       );
     },
 
@@ -382,6 +514,12 @@ export const useExecuteApproval = () => {
           }
           void queryClient.invalidateQueries({ queryKey: queryKeys.journey.allActive('Onboarding') });
         } else if (opType === 'AddCredential') {
+          const holderPersonId = typeof p['holderPersonId'] === 'string' ? p['holderPersonId'] : undefined;
+          if (holderPersonId) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.person.credentials(holderPersonId) });
+          }
+          void queryClient.invalidateQueries({ queryKey: queryKeys.credentials.all() });
+        } else if (opType === 'DeactivateCredential') {
           const holderPersonId = typeof p['holderPersonId'] === 'string' ? p['holderPersonId'] : undefined;
           if (holderPersonId) {
             void queryClient.invalidateQueries({ queryKey: queryKeys.person.credentials(holderPersonId) });
@@ -408,6 +546,13 @@ export const useExecuteApproval = () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.journey.list(personId) });
           }
         } else if (opType === 'AddCredential') {
+          const holderPersonId = typeof p['holderPersonId'] === 'string' ? p['holderPersonId'] : undefined;
+          if (holderPersonId) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.person.credentials(holderPersonId) });
+          }
+        } else if (opType === 'DeactivateCredential') {
+          // CredentialAlreadyInactiveError: credential may have been deactivated
+          // externally -- refresh so PersonProfile reflects the true state.
           const holderPersonId = typeof p['holderPersonId'] === 'string' ? p['holderPersonId'] : undefined;
           if (holderPersonId) {
             void queryClient.invalidateQueries({ queryKey: queryKeys.person.credentials(holderPersonId) });

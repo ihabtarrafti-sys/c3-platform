@@ -23,6 +23,10 @@ export const queryKeys = {
   credentials: {
     all: () => ['credentials-all'] as const,
   },
+  credential: {
+    /** Single credential by CRED-XXXX. Used by useGetCredential for deactivation recovery. */
+    byId: (credentialId: string) => ['credential', credentialId] as const,
+  },
   journey: {
     active: (personId: string, type: string) => ['journey-active', personId, type] as const,
     list: (personId: string) => ['journeys', personId] as const,

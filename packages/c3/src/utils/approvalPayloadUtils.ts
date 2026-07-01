@@ -3,6 +3,7 @@
  *
  * Sprint 21 Phase 2 — Pure helpers for approval payload display.
  * Sprint 21 Phase 3 — Humanize AddCredential credentialType using CREDENTIAL_TYPE_LABELS.
+ * Sprint 23 Phase 1 — DeactivateCredential payload summary.
  *
  * All functions are pure (no React, no hooks, no side effects).
  * Safe parse only — never throws on bad input, never outputs raw JSON.
@@ -32,9 +33,10 @@ import { CREDENTIAL_TYPE_LABELS } from '@c3/utils/credentialLabels';
  * Never throws. Never returns raw JSON.
  *
  * Examples:
- *   InitiateJourney: "Onboarding · PER-0004"
- *   AddCredential:   "League Registration · A12345678 · PER-0004 · Expires 2027-06-01"
+ *   InitiateJourney:    "Onboarding · PER-0004"
+ *   AddCredential:      "League Registration · A12345678 · PER-0004 · Expires 2027-06-01"
  *   AddCredential (no expiry): "Work Permit · V-2024-001 · PER-0007"
+ *   DeactivateCredential: "Deactivate · League Registration · A12345678 · PER-0004"
  */
 export function formatApprovalPayloadSummary(
   raw: string | undefined,
@@ -78,6 +80,23 @@ export function formatApprovalPayloadSummary(
 
     const parts = [credType, refNum, holderId, expiryDate].filter(Boolean);
     return parts.length > 0 ? parts.join(' · ') : null;
+  }
+
+  if (operationType === 'DeactivateCredential') {
+    const rawType = typeof parsed['credentialType'] === 'string' && parsed['credentialType'].trim()
+      ? parsed['credentialType'].trim()
+      : null;
+    const credType = rawType
+      ? (CREDENTIAL_TYPE_LABELS[rawType as CredentialType] ?? rawType)
+      : null;
+
+    const refNum   = typeof parsed['referenceNumber'] === 'string' && parsed['referenceNumber'].trim()
+      ? parsed['referenceNumber'].trim() : null;
+    const holderId = typeof parsed['holderPersonId']  === 'string' && parsed['holderPersonId'].trim()
+      ? parsed['holderPersonId'].trim()  : null;
+
+    const parts = ['Deactivate', credType, refNum, holderId].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : 'Deactivate credential';
   }
 
   // Unknown operationType — do not surface raw payload

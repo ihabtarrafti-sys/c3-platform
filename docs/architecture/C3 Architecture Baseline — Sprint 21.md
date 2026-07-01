@@ -2,7 +2,8 @@
 **C3 Contract Control Center**
 **Sprint:** 21 — Credential Recovery, Approval Visibility, and Beta Tooling
 **Baseline date:** 2026-07-01
-**Status:** CLOSED — 2026-07-01
+**Last updated:** 2026-07-01 (S23-P1 amendment)
+**Status:** CLOSED — 2026-07-01 (amended S23-P1)
 
 ---
 
@@ -11,6 +12,10 @@
 Sprint 21 closes as:
 
 > **"C3 now supports two governed operational write paths through ADR-013: Journey initiation (live since Sprint 18) and Credential creation (live Sprint 20). Both write paths have in-app partial execution recovery UX (S20-P2 for journeys, S21-P1 for credentials). C3Approvals is both the governance trail for ADR-013 operations and the person-scoped audit source — PersonProfile now surfaces the complete approval history for a given individual in a read-only Approvals tab. ApprovalInbox remains the sole action surface; PersonProfile Approvals tab is display-only. Payload summaries use human-readable labels throughout (CREDENTIAL_TYPE_LABELS). The runtime bundle workflow is now a single combined build/copy command (beta:runtime) with SHA-256 hash verification (verify:runtime). SP DSM is the beta operational path. Mock DSM remains the demo and regression baseline."**
+
+---
+
+> **Sprint 23 Phase 1 amendment (2026-07-01):** Credential deactivation (previously deferred) is now live. `deactivateCredential` is implemented as a governed ADR-013 path (Sections 3, 4, 6 and 7 updated below). TD-20 resolved. ERR-020 and ERR-021 added to C3 Error Library. Beta Checkpoint Part 14 caveat updated.
 
 ---
 
@@ -115,7 +120,7 @@ Node.js ESM script (no external dependencies). Reads both bundle files, computes
 | People | Reads C3People | Live (S16) |
 | Credentials (read) | Reads C3Credentials | Live (S15) |
 | Credentials — `addCredential` | POST-then-MERGE → CRED-XXXX | Live (S20) |
-| Credentials — `deactivateCredential` | Stub-throwing | Deferred — Sprint 22 |
+| Credentials — `deactivateCredential` | MERGE `IsActive = false` on existing CRED-XXXX item | Live (S23-P1) |
 | Contracts | Returns `[]` graceful stub | Deferred — SP-02 |
 | Missions | Returns `[]` graceful stub | Deferred — future sprint |
 | Milestones | Returns `[]` graceful stub | Deferred — future sprint |
@@ -125,7 +130,7 @@ Node.js ESM script (no external dependencies). Reads both bundle files, computes
 
 **Mock DSM** — demo and regression baseline. All writes are direct in-memory. No approval gate. All write surfaces visible (role-gated only). `canCreate` capability gate applies.
 
-**SP DSM** — beta operational path. Journey initiation and credential creation gated by ADR-013 approval loop. Journey lifecycle transitions are direct role-gated PATCH operations. Role resolved from SP security-group membership at mount. PersonProfile Approvals tab powered by `usePersonApprovals` (shared cache with ApprovalInbox).
+**SP DSM** — beta operational path. Journey initiation, credential creation, and credential deactivation gated by ADR-013 approval loop. Journey lifecycle transitions are direct role-gated PATCH operations. Role resolved from SP security-group membership at mount. PersonProfile Approvals tab powered by `usePersonApprovals` (shared cache with ApprovalInbox).
 
 ### C3Approvals — dual role
 
@@ -181,7 +186,7 @@ All requests: `credentials: 'same-origin'`. No PnP.js.
 | Recover journey execution stamp | Stamp-only (no new row) | Approved + active journey pre-confirmed |
 | Recover credential execution stamp | Stamp-only (no new row) | Approved + existing CRED row pre-confirmed |
 | Complete/Suspend/Resume/Cancel journey | Direct role-gated PATCH | `owner` or `operations` role only |
-| Deactivate credential (future) | ADR-013 approval loop (planned S22) | Same gate pattern |
+| Deactivate credential | ADR-013 approval loop | Submit → Review → Approved → Execute (S23-P1) |
 
 ### Role capabilities
 
@@ -205,6 +210,7 @@ All requests: `credentials: 'same-origin'`. No PnP.js.
 
 - Journey initiation: `C3Approvals` row (permanent record of proposal, review, execution)
 - Credential creation: `C3Approvals` row (same lifecycle)
+- Credential deactivation: `C3Approvals` row (OperationType: DeactivateCredential, S23-P1)
 - Journey lifecycle transitions: `Notes` field append with `[ISO_TIMESTAMP] ACTION by LOGINNAME[ — reason]`
 - Person-scoped approval history: PersonProfile Approvals tab (read-only, backed by `usePersonApprovals`)
 - Dedicated audit columns (`SuspendedAt`, `CancelledAt`, etc.) deferred to Sprint 22+ schema work
@@ -230,9 +236,9 @@ Parity baselines unchanged from Sprint 20.
 
 ## Section 6 — What is deferred to Sprint 22 and beyond
 
-### Credential deactivation (Sprint 22)
+### ~~Credential deactivation (Sprint 22)~~ — DELIVERED in Sprint 23 Phase 1
 
-`deactivateCredential` is stub-throwing. ADR-013 gate applies. Requires `DeactivateCredential` operation type in `C3Approvals.OperationType`. Pattern mirrors `AddCredential`.
+`deactivateCredential` is live. MERGE pattern on existing CRED-XXXX row. Full ADR-013 approval loop: PersonProfile Deactivate button → C3Approvals (DeactivateCredential) → ApprovalInbox Execute → IsActive MERGE + stamp. Partial execution recovery via `useRecoverDeactivationExecutionStamp`. See TD-20 (resolved).
 
 ### Server-side TargetPersonID filter (Sprint 22)
 
@@ -276,3 +282,22 @@ TD-14. Manual `npm run beta:runtime` + `npm run verify:runtime` + bundle commit 
 | `docs/architecture/C3 Architecture Baseline — Sprint 21.md` | New | This document |
 | `docs/architecture/C3 Beta Checkpoint — Sprint 21.md` | New | Active beta validation checklist (supersedes Sprint 20) |
 | `packages/c3-spfx-host/src/.../c3-runtime.js` | Modified | Rebuilt after Phase 1, Phase 2, and Phase 3 |
+
+### Sprint 23 Phase 1 additions and modifications
+
+| File | Status | Notes |
+|------|--------|-------|
+| `packages/c3/src/services/interfaces/approvalPayloads.ts` | Modified | `DeactivateCredentialApprovalPayload` + widened `ApprovalPayload` union |
+| `packages/c3/src/services/interfaces/IApprovalsService.ts` | Modified | `operationType` union widened to include `DeactivateCredential` |
+| `packages/c3/src/hooks/queryKeys.ts` | Modified | `credential.byId(credentialId)` query key group added |
+| `packages/c3/src/services/sharepoint/SharePointCredentialService.ts` | Modified | `deactivateCredential` MERGE implementation (TD-20 resolved) |
+| `packages/c3/src/hooks/useGetCredential.ts` | New | Single-credential query hook; no IsActive filter; used for deactivation recovery detection |
+| `packages/c3/src/hooks/useSubmitDeactivationApproval.ts` | New | Mode-branching submission hook: Mock DSM direct / SP DSM approval |
+| `packages/c3/src/hooks/useExecuteApproval.ts` | Modified | DeactivateCredential dispatch branch; `CredentialAlreadyInactiveError`; `PartialDeactivationExecutionError` |
+| `packages/c3/src/hooks/useRecoverDeactivationExecutionStamp.ts` | New | Stamp-only recovery for `PartialDeactivationExecutionError` |
+| `packages/c3/src/screens/PersonProfile.tsx` | Modified | Deactivate button on credential rows (owner/ops gate); confirm dialog with required reason |
+| `packages/c3/src/screens/ApprovalInbox.tsx` | Modified | DeactivateCredential payload summary; recovery detection; recovery UX; execute toast |
+| `packages/c3/src/utils/approvalPayloadUtils.ts` | Modified | `DeactivateCredential` case in `formatApprovalPayloadSummary` |
+| `docs/architecture/C3 Error Library.md` | Modified | ERR-020, ERR-021 added |
+| `docs/architecture/C3 Tech Debt Register.md` | Modified | TD-20 resolved (S23-P1) |
+| `docs/architecture/C3 Beta Checkpoint — Sprint 21.md` | Modified | Part 14 caveat updated; Part 16 added |

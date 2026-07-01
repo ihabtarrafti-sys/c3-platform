@@ -7,6 +7,7 @@
  * Sprint 18 Phase 3B: listApprovals and patchApprovalStatus live.
  * Sprint 18 Phase 4A: stampExecution live.
  * Sprint 20 Phase 3:  operationType widened to include 'AddCredential'.
+ * Sprint 23 Phase 1:  operationType widened to include 'DeactivateCredential'.
  *
  * Lifecycle: Submitted -> InReview -> Approved -> Executed | ExecutionFailed
  *                                  -> Rejected
@@ -57,7 +58,7 @@ export interface CreateApprovalRequest {
    * The C3Approvals SP list OperationType choice column already has both values
    * provisioned (C3Approvals SP List Schema.md §3.2).
    */
-  operationType: 'InitiateJourney' | 'AddCredential';
+  operationType: 'InitiateJourney' | 'AddCredential' | 'DeactivateCredential';
   /** Opaque secondary target reference (optional). */
   targetId?: string;
   /** Canonical C3 PersonID of the target person, e.g. "PER-0001". */
