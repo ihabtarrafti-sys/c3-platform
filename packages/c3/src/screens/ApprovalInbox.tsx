@@ -5,30 +5,39 @@
  *
  * Sprint 18 Phase 3B: list approvals, Approve/Reject for owners.
  * Sprint 18 Phase 4A: Execute button for Approved approvals (owner only).
- * Sprint 18 Phase 4B: badge distinction Approved vs Executed; PayloadValidationError handling.
+ * Sprint 18 Phase 4B: badge distinction Approved vs Executed.
+ * Sprint 20 Phase 1 (S20-P1): filter tabs, full audit field display, payload summary.
  *
- * Status-to-action matrix (owner):
+ * Tab / filter structure (S20-P1):
+ *   Pending  = Submitted + InReview   (default — actionable work queue)
+ *   Approved = Approved               (awaiting execution)
+ *   Executed = Executed               (terminal success)
+ *   Rejected = Rejected               (terminal rejection)
+ *   Failed   = ExecutionFailed        (terminal failure)
+ *   All      = all 6 statuses         (full audit trail)
+ *
+ * A single listApprovals call fetches all statuses; tabs filter client-side.
+ * refetchInterval (30s) remains active — keeps the Pending tab live.
+ *
+ * Status-to-action matrix (owner) — UNCHANGED from S18:
  *   Submitted / InReview  -> Approve + Reject
  *   Approved              -> Execute
- *   Rejected / Executed / ExecutionFailed -> read-only
+ *   Rejected / Executed / ExecutionFailed -> read-only (no buttons)
  *
- * Badge color intent:
- *   Submitted       -> warning  (orange)
- *   InReview        -> informative (blue)
- *   Approved        -> brand    (purple) -- awaiting execution
- *   Executed        -> success  (green)  -- terminal success
- *   Rejected        -> danger   (red)
- *   ExecutionFailed -> danger   (red)
+ * Self-approval enforcement and owner-only action gating: UNCHANGED.
  *
- * Execution sequence: see useExecuteApproval (ADR-013 / Phase 4A).
- * Scope: does NOT execute Submitted, InReview, Rejected, Executed, or ExecutionFailed approvals.
+ * Payload summary (InitiateJourney, S20-P1):
+ *   Safe parse — crashes are impossible; malformed JSON yields an
+ *   "Invalid payload" label plus a collapsed raw-payload disclosure block.
  */
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Badge,
   Button,
   Spinner,
+  Tab,
+  TabList,
   Text,
   Textarea,
 } from '@fluentui/react-components';
@@ -38,6 +47,7 @@ import {
   PlayRegular,
 } from '@fluentui/react-icons';
 
+import { EmptyState } from '@c3/components/ui';
 import { useApp } from '@c3/hooks/useApp';
 import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { usePatchApprovalStatus, SelfApprovalError } from '@c3/hooks/usePatchApprovalStatus';
@@ -46,15 +56,64 @@ import { useToast } from '@c3/hooks/useToast';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
 // ---------------------------------------------------------------------------
-// Helpers
+// Tab configuration
+// ---------------------------------------------------------------------------
+
+type InboxTab = 'pending' | 'approved' | 'executed' | 'rejected' | 'failed' | 'all';
+
+/** All 6 lifecycle statuses — fetched in one request, filtered client-side. */
+const ALL_STATUSES = [
+  'Submitted',
+  'InReview',
+  'Approved',
+  'Rejected',
+  'Executed',
+  'ExecutionFailed',
+] as const;
+
+/** Statuses that belong to each tab. */
+const TAB_STATUSES: Record<InboxTab, readonly string[]> = {
+  pending:  ['Submitted', 'InReview'],
+  approved: ['Approved'],
+  executed: ['Executed'],
+  rejected: ['Rejected'],
+  failed:   ['ExecutionFailed'],
+  all:      ALL_STATUSES,
+};
+
+/** Tab display labels. */
+const TAB_LABELS: Record<InboxTab, string> = {
+  pending:  'Pending',
+  approved: 'Approved',
+  executed: 'Executed',
+  rejected: 'Rejected',
+  failed:   'Failed',
+  all:      'All',
+};
+
+/** Ordered tab list for rendering. */
+const TAB_ORDER: InboxTab[] = ['pending', 'approved', 'executed', 'rejected', 'failed', 'all'];
+
+/** Empty-state messages per tab. */
+const EMPTY_MESSAGES: Record<InboxTab, { title: string; description: string }> = {
+  pending:  { title: 'No pending approvals',       description: 'All submissions have been reviewed.' },
+  approved: { title: 'No approved approvals',      description: 'No approvals are awaiting execution.' },
+  executed: { title: 'No executed approvals',      description: 'No approvals have been executed yet.' },
+  rejected: { title: 'No rejected approvals',      description: 'No approvals have been rejected.' },
+  failed:   { title: 'No failed executions',       description: 'All executed approvals completed successfully.' },
+  all:      { title: 'No approvals found',         description: 'No approvals exist in C3 yet.' },
+};
+
+// ---------------------------------------------------------------------------
+// Status display helpers
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, 'warning' | 'informative' | 'brand' | 'success' | 'danger'> = {
   Submitted:       'warning',
   InReview:        'informative',
-  Approved:        'brand',       // distinct from Executed — awaiting execution
+  Approved:        'brand',
   Rejected:        'danger',
-  Executed:        'success',     // terminal success state
+  Executed:        'success',
   ExecutionFailed: 'danger',
 };
 
@@ -70,15 +129,6 @@ function formatDateTime(iso: string | undefined): string {
   }
 }
 
-function parsePayload(raw: string | undefined): Record<string, unknown> | null {
-  if (!raw) return null;
-  try {
-    return JSON.parse(raw) as Record<string, unknown>;
-  } catch {
-    return null;
-  }
-}
-
 // ---------------------------------------------------------------------------
 // DetailCell
 // ---------------------------------------------------------------------------
@@ -87,10 +137,12 @@ const DetailCell = ({
   label,
   value,
   wide,
+  danger,
 }: {
   label: string;
   value: string;
   wide?: boolean;
+  danger?: boolean;
 }) => (
   <div style={{ gridColumn: wide ? 'span 2' : undefined }}>
     <Text
@@ -105,11 +157,171 @@ const DetailCell = ({
     >
       {label}
     </Text>
-    <Text size={200} style={{ color: 'var(--c3-gray-800)', wordBreak: 'break-all' }}>
+    <Text
+      size={200}
+      style={{
+        color: danger ? 'var(--c3-critical, #DC2626)' : 'var(--c3-gray-800)',
+        wordBreak: 'break-word',
+      }}
+    >
       {value}
     </Text>
   </div>
 );
+
+// ---------------------------------------------------------------------------
+// PayloadSummary — safe display of InitiateJourney payload (S20-P1)
+//
+// Never throws: malformed JSON yields a labelled error + collapsed raw block.
+// Only rendered for OperationType === 'InitiateJourney'.
+// Does not import approvalPayloads.ts to avoid coupling — accesses fields
+// dynamically with type guards.
+// ---------------------------------------------------------------------------
+
+const PayloadSummary = ({
+  raw,
+  operationType,
+}: {
+  raw: string | undefined;
+  operationType: string;
+}) => {
+  if (operationType !== 'InitiateJourney') return null;
+
+  // ── Missing payload ──────────────────────────────────────────────────────
+  if (!raw) {
+    return (
+      <div
+        style={{
+          borderTop: '1px solid var(--c3-gray-100)',
+          paddingTop: 'var(--c3-space-3)',
+        }}
+      >
+        <Text
+          size={100}
+          style={{
+            color: 'var(--c3-gray-400)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+            display: 'block',
+            marginBottom: 'var(--c3-space-2)',
+          }}
+        >
+          Journey Payload
+        </Text>
+        <Text size={200} style={{ color: 'var(--c3-gray-400)', fontStyle: 'italic' }}>
+          No payload recorded.
+        </Text>
+      </div>
+    );
+  }
+
+  // ── Parse attempt ────────────────────────────────────────────────────────
+  let parsed: Record<string, unknown> | null = null;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    // Safe fallback — show labelled error + collapsed raw block.
+    return (
+      <div
+        style={{
+          borderTop: '1px solid var(--c3-gray-100)',
+          paddingTop: 'var(--c3-space-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--c3-space-2)',
+        }}
+      >
+        <Text
+          size={100}
+          style={{
+            color: 'var(--c3-gray-400)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          Journey Payload
+        </Text>
+        <Text size={200} style={{ color: 'var(--c3-critical, #DC2626)' }}>
+          Invalid payload — JSON parse failed.
+        </Text>
+        <details>
+          <summary style={{ fontSize: 11, color: 'var(--c3-gray-400)', cursor: 'pointer' }}>
+            Show raw payload
+          </summary>
+          <pre
+            style={{
+              fontSize: 11,
+              fontFamily: 'monospace',
+              color: 'var(--c3-gray-600)',
+              background: 'var(--c3-gray-50)',
+              border: '1px solid var(--c3-gray-200)',
+              borderRadius: 4,
+              padding: '8px',
+              overflowX: 'auto',
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+              marginTop: 4,
+            }}
+          >
+            {raw}
+          </pre>
+        </details>
+      </div>
+    );
+  }
+
+  // ── Structured display ───────────────────────────────────────────────────
+  const journeyType        = typeof parsed['journeyType']        === 'string' ? parsed['journeyType']        : '--';
+  const personId           = typeof parsed['personId']           === 'string' ? parsed['personId']           : '--';
+  const assignedTo         = typeof parsed['assignedTo']         === 'string' ? parsed['assignedTo']         : null;
+  const initiationReason   = typeof parsed['initiationReason']   === 'string' ? parsed['initiationReason']   : null;
+  const notes              = typeof parsed['notes']              === 'string' ? parsed['notes']              : null;
+  const missionId          = typeof parsed['missionId']          === 'string' ? parsed['missionId']          : null;
+  const obligationCount    = Array.isArray(parsed['obligationAssignments'])
+    ? (parsed['obligationAssignments'] as unknown[]).length
+    : 0;
+
+  return (
+    <div
+      style={{
+        borderTop: '1px solid var(--c3-gray-100)',
+        paddingTop: 'var(--c3-space-3)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 'var(--c3-space-3)',
+      }}
+    >
+      <Text
+        size={100}
+        style={{
+          color: 'var(--c3-gray-400)',
+          textTransform: 'uppercase',
+          letterSpacing: '0.06em',
+        }}
+      >
+        Journey Payload
+      </Text>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
+        <DetailCell label="Journey Type" value={journeyType} />
+        <DetailCell label="Person ID"    value={personId} />
+        <DetailCell
+          label="Obligation Assignments"
+          value={`${obligationCount} assignment${obligationCount !== 1 ? 's' : ''}`}
+        />
+        {assignedTo       && <DetailCell label="Assigned To"       value={assignedTo} />}
+        {missionId        && <DetailCell label="Mission ID"         value={missionId} />}
+        {initiationReason && <DetailCell label="Initiation Reason"  value={initiationReason} wide />}
+        {notes            && <DetailCell label="Notes"              value={notes}             wide />}
+      </div>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // ApprovalCard
@@ -123,20 +335,16 @@ interface ApprovalCardProps {
 const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const toast = useToast();
 
-  // Phase 3B: Approve / Reject
   const { mutateAsync: patchAsync, isPending: isPatchPending } = usePatchApprovalStatus();
-  const [showReject, setShowReject] = useState(false);
+  const [showReject,   setShowReject]   = useState(false);
   const [rejectReason, setRejectReason] = useState('');
 
-  // Phase 4A: Execute
   const { mutateAsync: executeAsync, isPending: isExecutePending } = useExecuteApproval();
 
-  const isPending = isPatchPending || isExecutePending;
+  const isPending  = isPatchPending || isExecutePending;
+  const statusColor = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
 
-  const parsedPayload = parsePayload(approval.payload);
-  const statusColor   = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
-
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers (UNCHANGED from S18) ─────────────────────────────────────────
 
   const handleApprove = async () => {
     try {
@@ -168,6 +376,8 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   };
 
   const handleExecute = async () => {
+    let parsedPayload: Record<string, unknown> | null = null;
+    try { parsedPayload = JSON.parse(approval.payload ?? ''); } catch { /* handled below */ }
     try {
       await executeAsync(approval);
       const personId = typeof parsedPayload?.['personId'] === 'string'
@@ -175,7 +385,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         : approval.targetPersonId ?? 'unknown';
       toast.success(
         'Approval executed',
-        `${approval.title} -- Journey created for ${personId}.`,
+        `${approval.title} — Journey created for ${personId}.`,
       );
     } catch (err) {
       if (err instanceof DuplicateJourneyError) {
@@ -217,8 +427,15 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         gap: 'var(--c3-space-4)',
       }}
     >
-      {/* Header row */}
-      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--c3-space-3)' }}>
+      {/* ── Header row ──────────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-1)' }}>
           <Text weight="semibold" size={400} style={{ color: 'var(--c3-gray-900)' }}>
             {approval.title}
@@ -232,7 +449,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         </Badge>
       </div>
 
-      {/* Detail grid */}
+      {/* ── Core detail grid ────────────────────────────────────────────── */}
       <div
         style={{
           display: 'grid',
@@ -240,34 +457,36 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           gap: 'var(--c3-space-3)',
         }}
       >
+        {/* Identity fields — always shown */}
         <DetailCell label="Person ID"    value={approval.targetPersonId ?? '--'} />
-        <DetailCell label="Submitted by" value={approval.submittedBy ?? '--'} />
+        <DetailCell label="Submitted By" value={approval.submittedBy    ?? '--'} />
+
+        {/* Reason — show if present */}
         {approval.reason && (
           <DetailCell label="Reason" value={approval.reason} wide />
         )}
-        {parsedPayload && !!parsedPayload['initiationReason'] && (
-          <DetailCell label="Initiation reason" value={String(parsedPayload['initiationReason'])} wide />
-        )}
-        {parsedPayload && !!parsedPayload['assignedTo'] && (
-          <DetailCell label="Assigned to" value={String(parsedPayload['assignedTo'])} />
-        )}
-        {approval.reviewedBy && (
-          <DetailCell label="Reviewed by" value={approval.reviewedBy} />
-        )}
-        {approval.executedAt && (
-          <DetailCell label="Executed at" value={formatDateTime(approval.executedAt)} />
-        )}
+
+        {/* Review fields — show when the record has been reviewed */}
+        {approval.reviewedBy  && <DetailCell label="Reviewed By" value={approval.reviewedBy} />}
+        {approval.reviewedAt  && <DetailCell label="Reviewed At" value={formatDateTime(approval.reviewedAt)} />}
+
+        {/* Execution fields — show for terminal execution states */}
+        {approval.executedAt  && <DetailCell label="Executed At"     value={formatDateTime(approval.executedAt)} />}
         {approval.executionError && (
-          <DetailCell label="Execution error" value={approval.executionError} wide />
+          <DetailCell label="Execution Error" value={approval.executionError} wide danger />
         )}
+
+        {/* Rejection reason — show with danger color */}
         {approval.rejectionReason && (
-          <DetailCell label="Rejection reason" value={approval.rejectionReason} wide />
+          <DetailCell label="Rejection Reason" value={approval.rejectionReason} wide danger />
         )}
       </div>
 
-      {/* Owner action row */}
+      {/* ── Payload summary (S20-P1) — InitiateJourney only ────────────── */}
+      <PayloadSummary raw={approval.payload} operationType={approval.operationType} />
+
+      {/* ── Owner action row (UNCHANGED from S18) ───────────────────────── */}
       {isOwner && (() => {
-        // Submitted / InReview: Approve + Reject
         if (approval.approvalStatus === 'Submitted' || approval.approvalStatus === 'InReview') {
           return (
             <div
@@ -291,7 +510,11 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                   <div style={{ display: 'flex', gap: 'var(--c3-space-2)' }}>
                     <Button
                       appearance="primary"
-                      style={{ background: 'var(--c3-error)' }}
+                      style={{
+                        backgroundColor: 'var(--c3-critical, #DC2626)',
+                        color: '#ffffff',
+                        border: 'none',
+                      }}
                       icon={<DismissRegular />}
                       onClick={() => void handleRejectConfirm()}
                       disabled={isPending || !rejectReason.trim()}
@@ -331,7 +554,6 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           );
         }
 
-        // Approved: Execute
         if (approval.approvalStatus === 'Approved') {
           return (
             <div
@@ -352,7 +574,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           );
         }
 
-        // Rejected / Executed / ExecutionFailed: read-only (no buttons)
+        // Rejected / Executed / ExecutionFailed: read-only
         return null;
       })()}
     </div>
@@ -367,33 +589,68 @@ export const ApprovalInbox = () => {
   const { currentUser } = useApp();
   const isOwner = currentUser.c3Role === 'owner';
 
-  // Fetch Submitted, InReview, and Approved -- all statuses that may need action.
-  const { data: approvals, isLoading, isError, error } = useListApprovals({
-    status: ['Submitted', 'InReview', 'Approved'],
+  const [activeTab, setActiveTab] = useState<InboxTab>('pending');
+
+  // Single query for all statuses — tab filtering is client-side.
+  // refetchInterval keeps the Pending tab live for real-time review queue.
+  const {
+    data: allApprovals = [],
+    isLoading,
+    isError,
+    error,
+  } = useListApprovals({
+    status:          [...ALL_STATUSES],
+    refetchInterval: 30_000,
   });
 
+  // ── Per-tab counts for tab labels ─────────────────────────────────────────
+  const counts = useMemo(() => ({
+    pending:  allApprovals.filter(a => TAB_STATUSES.pending.includes(a.approvalStatus)).length,
+    approved: allApprovals.filter(a => TAB_STATUSES.approved.includes(a.approvalStatus)).length,
+    executed: allApprovals.filter(a => TAB_STATUSES.executed.includes(a.approvalStatus)).length,
+    rejected: allApprovals.filter(a => TAB_STATUSES.rejected.includes(a.approvalStatus)).length,
+    failed:   allApprovals.filter(a => TAB_STATUSES.failed.includes(a.approvalStatus)).length,
+    all:      allApprovals.length,
+  }), [allApprovals]);
+
+  // ── Visible items for the active tab ─────────────────────────────────────
+  const visibleApprovals = useMemo(
+    () => allApprovals.filter(a => TAB_STATUSES[activeTab].includes(a.approvalStatus)),
+    [allApprovals, activeTab],
+  );
+
+  // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', gap: 'var(--c3-space-3)' }}>
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          height: '100%',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
         <Spinner size="medium" label="Loading approvals..." />
       </div>
     );
   }
 
+  // ── Error ─────────────────────────────────────────────────────────────────
   if (isError) {
     return (
-      <div style={{ padding: 'var(--c3-space-8)', maxWidth: 600 }}>
-        <Text size={400} weight="semibold" style={{ color: 'var(--c3-error)', display: 'block' }}>
-          Failed to load approvals
-        </Text>
-        <Text size={200} style={{ color: 'var(--c3-gray-500)', display: 'block', marginTop: 'var(--c3-space-2)' }}>
-          {error instanceof Error ? error.message : 'An unexpected error occurred.'}
-        </Text>
+      <div style={{ padding: 'var(--c3-space-8)' }}>
+        <EmptyState
+          variant="error"
+          title="Failed to load approvals"
+          description={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+        />
       </div>
     );
   }
 
-  const items: C3Approval[] = approvals ?? [];
+  // ── Main render ───────────────────────────────────────────────────────────
+  const pendingCount = counts.pending;
 
   return (
     <div
@@ -402,11 +659,17 @@ export const ApprovalInbox = () => {
         maxWidth: 900,
         display: 'flex',
         flexDirection: 'column',
-        gap: 'var(--c3-space-6)',
+        gap: 'var(--c3-space-5)',
       }}
     >
-      {/* Page header */}
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+      {/* ── Page header ─────────────────────────────────────────────────── */}
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+        }}
+      >
         <div>
           <Text
             as="h1"
@@ -418,40 +681,54 @@ export const ApprovalInbox = () => {
           </Text>
           <Text size={200} style={{ color: 'var(--c3-gray-500)', display: 'block', marginTop: 'var(--c3-space-1)' }}>
             {isOwner
-              ? 'Review pending submissions and execute approved records.'
-              : 'Approval requests awaiting owner review.'}
+              ? 'Review pending submissions, execute approved records, and audit history.'
+              : 'Governance approval audit trail and status history.'}
           </Text>
         </div>
-        {items.length > 0 && (
+        {/* Pending count badge — actionable work indicator */}
+        {pendingCount > 0 && (
           <Badge appearance="filled" color="warning" size="large">
-            {items.length}
+            {pendingCount} pending
           </Badge>
         )}
       </div>
 
-      {/* Empty state */}
-      {items.length === 0 && (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: 'var(--c3-space-10) var(--c3-space-6)',
-            border: '1px dashed var(--c3-gray-300)',
-            borderRadius: 'var(--c3-radius-lg)',
-          }}
+      {/* ── Tab bar ──────────────────────────────────────────────────────── */}
+      <div
+        style={{
+          background: 'var(--c3-white)',
+          borderRadius: 'var(--c3-radius-md)',
+          border: '1px solid var(--c3-gray-200)',
+          padding: 'var(--c3-space-1) var(--c3-space-4)',
+          boxShadow: 'var(--c3-shadow-1)',
+        }}
+      >
+        <TabList
+          selectedValue={activeTab}
+          onTabSelect={(_, data) => setActiveTab(data.value as InboxTab)}
         >
-          <Text size={400} weight="semibold" style={{ color: 'var(--c3-gray-600)', display: 'block' }}>
-            All clear
-          </Text>
-          <Text size={200} style={{ color: 'var(--c3-gray-400)', display: 'block', marginTop: 'var(--c3-space-2)' }}>
-            No pending approvals at this time.
-          </Text>
-        </div>
-      )}
+          {TAB_ORDER.map(tab => {
+            const count = counts[tab];
+            const label = TAB_LABELS[tab];
+            return (
+              <Tab key={tab} value={tab}>
+                {count > 0 ? `${label} (${count})` : label}
+              </Tab>
+            );
+          })}
+        </TabList>
+      </div>
 
-      {/* Approval cards */}
-      {items.length > 0 && (
+      {/* ── Tab content ──────────────────────────────────────────────────── */}
+      {visibleApprovals.length === 0 ? (
+        <EmptyState
+          variant="empty"
+          title={EMPTY_MESSAGES[activeTab].title}
+          description={EMPTY_MESSAGES[activeTab].description}
+        />
+      ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-4)' }}>
-          {items.map(approval => (
+          {visibleApprovals.map(approval => (
             <ApprovalCard
               key={approval.id}
               approval={approval}
