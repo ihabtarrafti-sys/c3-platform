@@ -371,7 +371,7 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
                   key={person.Id}
                   person={person}
                   onClick={() =>
-                    navigate({ id: 'person-profile', personId: String(person.Id) })
+                    navigate({ id: 'person-profile', personId: person.PersonID })
                   }
                 />
               ))}

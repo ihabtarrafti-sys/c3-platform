@@ -30,7 +30,7 @@ import { StageBadge } from '@c3/components/shared/StageBadge';
 import { StartJourneyPanel } from '@c3/components/shared/StartJourneyPanel';
 import { useApp } from '@c3/hooks/useApp';
 import { useNavigate } from '@c3/hooks/useNavigate';
-import { useSpReadOnly } from '@c3/hooks/useSpReadOnly';
+import { useCapabilities } from '@c3/hooks/useCapabilities';
 import { useToast } from '@c3/hooks/useToast';
 import { usePerson } from '@c3/hooks/usePerson';
 import { usePersonJourneys } from '@c3/hooks/usePersonJourneys';
@@ -147,7 +147,7 @@ const JOURNEY_BADGE_COLOR: Record<JourneyStatus, JourneyBadgeColor> = {
 export const PersonProfile = ({ personId, tab: initialTab, missionContext }: PersonProfileProps) => {
   const { navigate }     = useNavigate();
   const { currentUser }  = useApp();
-  const isSpReadOnly     = useSpReadOnly();
+  const { canCreate }    = useCapabilities();
   const toast            = useToast();
 
   const [activeTab,            setActiveTab]            = useState<ProfileTab>(initialTab ?? 'profile');
@@ -471,7 +471,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
           <SectionCard
             title={`Credentials (${credentials.length})`}
             action={
-              !isSpReadOnly ? (
+              canCreate ? (
                 <Button
                   appearance="subtle"
                   size="small"
@@ -491,7 +491,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                 title="No credentials registered"
                 description="Travel documents, visas, and identity credentials will appear here."
                 action={
-                  !isSpReadOnly ? (
+                  canCreate ? (
                     <Button
                       appearance="primary"
                       size="small"
@@ -779,7 +779,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                 ) : evaluation ? (
                   <ReadinessPanel
                     evaluation={evaluation}
-                    onResolveObligation={isSpReadOnly ? undefined : handleResolveObligation}
+                    onResolveObligation={canCreate ? handleResolveObligation : undefined}
                   />
                 ) : (
                   <EmptyState
