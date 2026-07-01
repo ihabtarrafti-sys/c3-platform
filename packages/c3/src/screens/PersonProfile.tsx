@@ -25,6 +25,7 @@ import {
 import { DaysPill } from '@c3/components/shared/DaysPill';
 import { DispositionBadge } from '@c3/components/shared/DispositionBadge';
 import { AddCredentialPanel } from '@c3/components/shared/AddCredentialPanel';
+import { PersonApprovalHistoryCard } from '@c3/components/shared/PersonApprovalHistoryCard';
 import { ReadinessPanel } from '@c3/components/shared/ReadinessPanel';
 import { StageBadge } from '@c3/components/shared/StageBadge';
 import { StartJourneyPanel } from '@c3/components/shared/StartJourneyPanel';
@@ -68,11 +69,12 @@ interface PersonProfileProps {
 // Tab definitions
 // ---------------------------------------------------------------------------
 
-type ProfileTab = 'profile' | 'readiness';
+type ProfileTab = 'profile' | 'readiness' | 'approvals';
 
 const TABS: Array<{ id: ProfileTab; label: string }> = [
   { id: 'profile',   label: 'Profile' },
   { id: 'readiness', label: 'Readiness' },
+  { id: 'approvals', label: 'Approvals' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -792,6 +794,12 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
             </>
           )}
         </>
+      )}
+
+      {/* ── Approvals tab (S21-P2) ────────────────────────────────────────── */}
+
+      {activeTab === 'approvals' && (
+        <PersonApprovalHistoryCard personId={person.PersonID} />
       )}
 
     </div>

@@ -1,0 +1,74 @@
+/**
+ * approvalPayloadUtils.ts
+ *
+ * Sprint 21 Phase 2 — Pure helpers for approval payload display.
+ *
+ * All functions are pure (no React, no hooks, no side effects).
+ * Safe parse only — never throws on bad input, never outputs raw JSON.
+ *
+ * Used by PersonApprovalHistoryCard for compact per-row payload summaries.
+ * ApprovalInbox uses its own full-grid PayloadSummary component (unchanged).
+ *
+ * See: packages/c3/src/services/interfaces/approvalPayloads.ts (payload shapes)
+ */
+
+// ---------------------------------------------------------------------------
+// formatApprovalPayloadSummary
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a short plain-text summary of an approval payload, suitable for
+ * inline display in a compact list row.
+ *
+ * Returns null when:
+ *   - raw is undefined/empty
+ *   - JSON parse fails
+ *   - operationType is not recognised
+ *
+ * Never throws. Never returns raw JSON.
+ *
+ * Examples:
+ *   InitiateJourney: "Onboarding · PER-0004"
+ *   AddCredential:   "Passport · A12345678 · PER-0004 · Expires 2027-06-01"
+ *   AddCredential (no expiry): "Working Visa · V-2024-001 · PER-0007"
+ */
+export function formatApprovalPayloadSummary(
+  raw: string | undefined,
+  operationType: string,
+): string | null {
+  if (!raw || !raw.trim()) return null;
+
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    return null;
+  }
+
+  if (operationType === 'InitiateJourney') {
+    const journeyType = typeof parsed['journeyType'] === 'string' && parsed['journeyType'].trim()
+      ? parsed['journeyType'].trim()
+      : 'Journey';
+    const personId = typeof parsed['personId'] === 'string' && parsed['personId'].trim()
+      ? parsed['personId'].trim()
+      : null;
+    return [journeyType, personId].filter(Boolean).join(' · ');
+  }
+
+  if (operationType === 'AddCredential') {
+    const credType    = typeof parsed['credentialType']  === 'string' && parsed['credentialType'].trim()
+      ? parsed['credentialType'].trim()  : null;
+    const refNum      = typeof parsed['referenceNumber'] === 'string' && parsed['referenceNumber'].trim()
+      ? parsed['referenceNumber'].trim() : null;
+    const holderId    = typeof parsed['holderPersonId']  === 'string' && parsed['holderPersonId'].trim()
+      ? parsed['holderPersonId'].trim()  : null;
+    const expiryDate  = typeof parsed['expiryDate']      === 'string' && parsed['expiryDate'].trim()
+      ? `Expires ${parsed['expiryDate'].trim()}`         : null;
+
+    const parts = [credType, refNum, holderId, expiryDate].filter(Boolean);
+    return parts.length > 0 ? parts.join(' · ') : null;
+  }
+
+  // Unknown operationType — do not surface raw payload
+  return null;
+}
