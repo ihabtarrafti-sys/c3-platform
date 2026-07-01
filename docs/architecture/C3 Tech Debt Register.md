@@ -426,13 +426,11 @@ alongside the `Status` transition MERGE. Schema change required — plan with SP
 migration if live data already exists.
 
 
-## Resolved Items (Sprint Archive)
+### TD-22 — Legacy `C3_Contracts` list not migrated to `C3Contracts`
 
-| ID | Item | Resolution | Sprint |
-|----|------|-----------|--------|
-| ✅ | Derive-then-POST sequence number collision risk | Replaced with POST-then-MERGE (SP auto-ID) | S19 Phase 3 |
-| ✅ | PersonProfile cancel confirm button invisible in dark/SP context | `var(--c3-critical, #DC2626)` inline fallback | S19 Phase 2 |
-| ✅ TD-20 | `deactivateCredential` not implemented (functional gap) | Full governed path: MERGE + ADR-013 approval + recovery | S23 Phase 1 |
-| ✅ | PersonProfile "Cancel" dismiss button confusing label | `'Go Back'` when action is cancel | S19 Phase 2 |
-| ✅ | No SP role resolver (hardcoded mock roles in SP DSM) | `spRoleResolver.ts` queries SP groups | S19 Phase 1 |
-| ✅ | Journey lifecycle transitions not guarded against invalid states | `InvalidTransitionError` + lifecycle hooks added | S19 Phase 2 |
+**Severity:** 🟡 Quality gap
+**Sprint attributed:** S24-P0 (identified at schema definition time)
+**Files:** Legacy `C3_Contracts` SP list (SharePoint); `packages/c3/src/services/sharepoint/SharePointContractService.ts`
+
+Sprint 24 Phase 1 targets the new `C3Contracts` list (CamelCase, PersonID FK model). The legacy
+`C3_Contracts` list (underscore naming, SP lookup 
