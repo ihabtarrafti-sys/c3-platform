@@ -634,7 +634,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                   onClick={handleDismissConfirm}
                   disabled={isTransitionPending}
                 >
-                  Cancel
+                  {confirmAction === 'cancel' ? 'Go Back' : 'Cancel'}
                 </Button>
                 <Button
                   appearance={confirmDialogConfig[confirmAction].isDanger ? 'primary' : 'primary'}
