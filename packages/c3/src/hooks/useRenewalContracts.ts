@@ -9,6 +9,7 @@ export const useRenewalContracts = () => {
   const renewalContracts = useMemo(
     () =>
       data.filter(contract => {
+        if (!contract.EndDate) return false; // fix(s24-p1): guard missing EndDate
         const days = computeDaysToExpiry(contract.EndDate);
         return days <= 90;
       }),

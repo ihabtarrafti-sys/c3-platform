@@ -47252,7 +47252,7 @@ const gK = ({ evaluation: t, onResolveObligation: n }) => {
   const { data: t = [], ...n } = Y1();
   return {
     data: B.useMemo(
-      () => t.filter((i) => _n(i.EndDate) <= 90),
+      () => t.filter((i) => i.EndDate ? _n(i.EndDate) <= 90 : !1),
       [t]
     ),
     ...n
@@ -50712,7 +50712,7 @@ const gK = ({ evaluation: t, onResolveObligation: n }) => {
             overflow: "auto",
             backgroundColor: "#F8FAFC"
           },
-          children: /* @__PURE__ */ v.jsx(lV, { children: i() })
+          children: /* @__PURE__ */ v.jsx(lV, { children: i() }, t.id)
         }
       )
     ] })

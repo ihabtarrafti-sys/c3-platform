@@ -187,7 +187,7 @@ export const AppShell = () => {
             backgroundColor: '#F8FAFC',
           }}
         >
-          <ErrorBoundary>{renderScreen()}</ErrorBoundary>
+          <ErrorBoundary key={screen.id}>{renderScreen()}</ErrorBoundary>
         </main>
       </div>
     </div>
