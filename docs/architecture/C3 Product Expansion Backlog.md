@@ -39,12 +39,13 @@
 
 ```
 Sprint 22  — Beta Operational Readiness + Error Library basics
-Sprint 23  — Contracts / SP-02
-Sprint 24  — Mission / Event Foundation
-Sprint 25  — Mission Participants + Jersey / Logistics Tracking
-Sprint 26  — Mission Budgeting + Budget Sheet Approval Workflow
-Sprint 27  — Operational Gaps + Readiness Recommendations
-Sprint 28  — Induction
+Sprint 23  — Credential Lifecycle Hardening (DeactivateCredential, recovery) ✅ CLOSED
+Sprint 24  — Contracts / SP-02 Foundation (read path, PersonID FK) ✅ CLOSED
+Sprint 25  — Mission / Event Foundation
+Sprint 26  — Mission Participants + Jersey / Logistics Tracking
+Sprint 27  — Mission Budgeting + Budget Sheet Approval Workflow
+Sprint 28  — Operational Gaps + Readiness Recommendations
+Sprint 29  — Induction
 
 Later      — SharePoint Import/Export
            — AI Recommendations expansion
@@ -201,7 +202,8 @@ A governed process for adding new users to C3 and assigning them roles. Currentl
 ### 5 — Contracts / SP-02
 
 **Track:** Core platform
-**Timing:** After beta operational readiness is confirmed; Sprint 23 target
+**Timing:** S24 delivered read foundation. Contract writes and approval workflow are Sprint 25+ scope.
+**Status:** 🔵 Partial — read path live in Mock DSM; SP DSM pending C3Contracts provisioning
 **Type:** Feature — data foundation
 
 #### Description
@@ -233,7 +235,7 @@ SharePoint-backed contract records for people managed in C3. Currently `SharePoi
 ### 6 — Mission / Event Foundation
 
 **Track:** Core platform
-**Timing:** After Contracts / SP-02; Sprint 24 target
+**Timing:** After Contracts / SP-02 write path; Sprint 25 target
 **Type:** Feature — data foundation
 
 #### Description
