@@ -459,3 +459,17 @@ These are known issues that do not cause observable failures in the current beta
 **Mitigation (future):** Implement OData `$filter=TargetPersonID eq '...'` in SP service (TD-07), or add pagination support to `listApprovals`. See TD-19.
 
 **Related files:** `SharePointApprovalsService.ts`, `usePersonApprovals.ts`
+
+---
+
+### ERR-022 — Intelligence SP DSM Cold-Load Crash
+
+**Type:** Runtime / First-load
+**Symptom:** In hosted SP DSM, first navigation into Intelligence (immediately after a hard refresh, with no query cache) triggers an ErrorBoundary with: `Cannot read properties of undefined (reading 'set')`. Navigating away and returning to Intelligence works correctly on the second visit.
+**Cause:** Under investigation. Leading hypothesis: React Query v5 `isLoading = isPending && isFetching`. On the first render frame (before effects run), `fetchStatus` starts as `'idle'`, producing `isLoading = false` with `data = undefined`. Intelligence briefly renders full content — mounting Fluent UI Card Griffel style-cache Maps — then switches to skeleton one tick later when the fetch starts in effects. The unmount cleanup's `.set()` call hits a partially torn-down style-cache Map. The `isPending` fix in commit `46b193d` addresses this hypothesis; result remains unconfirmed in hosted SP DSM.
+**Data impact:** None. All contract, people, credentials, and approvals data is unaffected.
+**Detection:** Hard refresh in SP DSM → click Intelligence nav item → ErrorBoundary triggers with `Cannot read properties of undefined (reading 'set')`.
+**Mitigation:** Intelligence is hidden from the SP DSM NavRail via a `visibleWhen` guard (S24-P1). Intelligence remains fully visible and functional in Mock DSM.
+**Resolution path:** See TD-23. Re-enable after hosted hard-refresh first-click passes cleanly. If crash recurs after `isPending` fix, investigate Fluent UI Card/Griffel `stylesInsertion` cache teardown at unmount time.
+
+**Related files:** `packages/c3/src/intelligence/useIntelligence.ts`, `packages/c3/src/components/layout/NavRail.tsx`, `packages/c3/src/components/intelligence/OperationalInsightsPanel.tsx`

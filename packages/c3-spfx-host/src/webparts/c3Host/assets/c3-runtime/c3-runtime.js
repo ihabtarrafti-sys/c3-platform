@@ -37531,7 +37531,9 @@ const V5 = B.createContext(null), eV = () => /* @__PURE__ */ v.jsx("div", { styl
   { id: "amendments", label: "Amendments", icon: F8, visibleWhen: (t, n, o) => o !== "sharepoint" },
   { id: "inbox", label: "Inbox", icon: O8, visibleWhen: (t) => t !== "visitor" },
   { id: "situation-room", label: "Situation Room", icon: q8 },
-  { id: "intelligence", label: "Intelligence", icon: H8 },
+  // Temporary S24-P1 guard: Intelligence hidden in SP DSM due to cold-load Fluent UI/React Query crash.
+  // Track in Tech Debt (TD-23); re-enable after stabilization (hosted hard-refresh first-click must pass).
+  { id: "intelligence", label: "Intelligence", icon: H8, visibleWhen: (t, n, o) => o !== "sharepoint" },
   { id: "approvals", label: "Approvals", icon: V8, visibleWhen: (t) => t !== "visitor" },
   { id: "settings", label: "Settings", icon: L8, visibleWhen: (t, n) => n.canManageSettings },
   { id: "developer-diagnostics", label: "Diagnostics", icon: K8 }

@@ -46,7 +46,9 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'amendments',     label: 'Amendments',      icon: DocumentEditRegular,   visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
   { id: 'inbox',          label: 'Inbox',           icon: MailRegular,           visibleWhen: role => role !== 'visitor' },
   { id: 'situation-room', label: 'Situation Room',  icon: AlertUrgentRegular },
-  { id: 'intelligence',   label: 'Intelligence',    icon: LightbulbRegular },
+  // Temporary S24-P1 guard: Intelligence hidden in SP DSM due to cold-load Fluent UI/React Query crash.
+  // Track in Tech Debt (TD-23); re-enable after stabilization (hosted hard-refresh first-click must pass).
+  { id: 'intelligence',   label: 'Intelligence',    icon: LightbulbRegular, visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
   { id: 'approvals',      label: 'Approvals',       icon: ShieldTaskRegular,     visibleWhen: role => role !== 'visitor' },
   { id: 'settings',       label: 'Settings',        icon: SettingsRegular,       visibleWhen: (_role, caps) => caps.canManageSettings },
   { id: 'developer-diagnostics', label: 'Diagnostics', icon: WrenchRegular },

@@ -448,6 +448,40 @@ Consequences:
 to `C3Contracts`, mapping SP lookup column values to plain-text `PersonID` (PER-XXXX) via the
 `C3People` list. Assign to Import/Export track (Track 16 in Product Expansion Backlog). Not in S24 scope.
 
+---
+
+### TD-23 — Intelligence SP DSM cold-load crash
+
+**Severity:** 🟠 Beta UX risk, contained
+**Sprint attributed:** S24 Phase 1
+**Status:** Open / Deferred
+**Files:** `packages/c3/src/intelligence/useIntelligence.ts`, `packages/c3/src/components/layout/NavRail.tsx`
+
+In hosted SP DSM, the first navigation into Intelligence after a hard refresh triggers an
+ErrorBoundary with `Cannot read properties of undefined (reading 'set')`. The crash occurs during
+the initial cold-load render cycle. ErrorBoundary reset (added in S24-P1 commit `28b9d77`)
+prevents app-wide lockup, and a second navigation into Intelligence works correctly, but the
+first-load crash remains unresolved after extensive investigation.
+
+Root cause investigation summary:
+- All Maps in `intelligenceMetrics.ts` are locally initialized (`new Map()`) — not the source
+- React Query v5 `isLoading = isPending && isFetching`; on first render `fetchStatus` starts as
+  `'idle'` before effects run, producing `isLoading = false` with `data = undefined`. This flash
+  causes Intelligence to mount Fluent UI Card style-cache Maps then immediately unmount them
+  when the fetch starts in effects — likely triggering the cleanup `.set()` call on a torn-down Map
+- `isPending` fix applied (commit `46b193d`) addresses the flash hypothesis; result unconfirmed
+  in hosted SP DSM due to decision to contain and defer rather than continue debugging loop
+
+**Mitigation:** Intelligence is hidden in SP DSM NavRail via `visibleWhen` guard. Intelligence
+remains fully visible and functional in Mock DSM. Data, contracts, people, credentials, and
+all other screens are unaffected.
+
+**Resolution:** Re-enable Intelligence in SP DSM after the following are confirmed:
+1. Hard-refresh first-click into Intelligence in hosted SP DSM does not trigger ErrorBoundary
+2. Verify against a provisioned `C3Contracts` list with real contract data
+3. Investigate Fluent UI Card/Griffel style-cache teardown behavior if crash recurs after `isPending` fix
+4. Remove `visibleWhen` guard from NavRail Intelligence item
+
 ## Resolved Items (Sprint Archive)
 
 | ID | Item | Resolution | Sprint |
