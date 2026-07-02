@@ -54,6 +54,7 @@ export type C3Screen =
        */
       missionId?: string;
     }
+  | { id: 'missions' }
   | { id: 'settings' }
   | { id: 'developer-diagnostics' }
   | { id: 'approvals' };

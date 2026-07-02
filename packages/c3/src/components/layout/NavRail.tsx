@@ -8,6 +8,7 @@ import {
   DocumentEditRegular,
   MailRegular,
   AlertUrgentRegular,
+  TrophyRegular,
   LightbulbRegular,
   SettingsRegular,
   WrenchRegular,
@@ -46,6 +47,11 @@ const NAV_ITEMS: NavItem[] = [
   { id: 'amendments',     label: 'Amendments',      icon: DocumentEditRegular,   visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
   { id: 'inbox',          label: 'Inbox',           icon: MailRegular,           visibleWhen: role => role !== 'visitor' },
   { id: 'situation-room', label: 'Situation Room',  icon: AlertUrgentRegular },
+  // S26-4: Missions hidden in SP DSM until the C3Missions list is provisioned and a hosted
+  // smoke test passes. Track in Tech Debt (TD-25). The SP read service is 404-safe, so lifting
+  // the guard early degrades to an empty state -- but hidden-until-provisioned is the locked
+  // beta-containment pattern (same as Contracts S24-P1 and Amendments S20-P0-3).
+  { id: 'missions',       label: 'Missions',        icon: TrophyRegular, visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
   // Temporary S24-P1 guard: Intelligence hidden in SP DSM due to cold-load Fluent UI/React Query crash.
   // Track in Tech Debt (TD-23); re-enable after stabilization (hosted hard-refresh first-click must pass).
   { id: 'intelligence',   label: 'Intelligence',    icon: LightbulbRegular, visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
@@ -77,6 +83,7 @@ const toScreen = (id: C3Screen['id']): C3Screen => {
     case 'amendments':            return { id: 'amendments' };
     case 'inbox':                 return { id: 'inbox' };
     case 'situation-room':        return { id: 'situation-room' };
+    case 'missions':              return { id: 'missions' };
     case 'intelligence':          return { id: 'intelligence' };
     case 'approvals':             return { id: 'approvals' };
     case 'settings':              return { id: 'settings' };

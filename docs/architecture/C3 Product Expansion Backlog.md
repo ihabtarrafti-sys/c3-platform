@@ -236,26 +236,28 @@ SharePoint-backed contract records for people managed in C3. Currently `SharePoi
 ### 6 — Mission / Event Foundation
 
 **Track:** Core platform
-**Timing:** After Contracts / SP-02 write path; Sprint 26 target (shifted from S25 — S25 delivered Governed AddPerson Foundation)
+**Timing:** Sprint 26 — **read foundation delivered**; write path deferred to a future sprint
 **Type:** Feature — data foundation
 
 #### Description
 
-SharePoint-backed records for tournaments, events, and operational missions. Currently `SharePointMissionService` returns `[]`. Missions are the organisational anchor for participants, budgets, logistics, and finance. Nothing in the Mission/Finance tracks can be built until Mission foundation is live.
+SharePoint-backed records for tournaments, events, and operational missions. Missions are the
+organisational anchor for participants, budgets, logistics, and finance. Nothing in the
+Mission/Finance tracks can be built until Mission foundation is live.
 
-#### Scope
+#### Scope / Status (updated S26)
 
-- Provision `C3Missions` SP list
-- Implement `SharePointMissionService` using native-fetch pattern
-- Mission record: name, type (tournament/event/operation), start date, end date, owner, status
-- Mission read path: Mission Workspace screen (currently stub)
-- Mission write path: create mission (governed ADR-013 or direct role-gated, TBD at sprint planning)
-- Mission linkage to people: groundwork for Mission Participants (Track 7)
+- ✅ `C3Missions` SP list schema defined (`docs/architecture/C3Missions SP List Schema.md`) — IT provisioning pending
+- ✅ `SharePointMissionService` read path (`listMissions` / `getMission`) — native fetch, 404-safe, `spMissionMapper`
+- ✅ Mission Workspace screen — read-only register (cards + KPI strip); visible in Mock DSM, hidden in SP DSM until provisioning (TD-25)
+- ✅ Mission record uses the existing frozen business model (`MissionID` TR/SATR code, Name, Game, Organizer, Entity, Status, Jurisdiction, Span, OperatingCurrency) — the generic fields originally sketched here (type/owner) were superseded by the existing mission model
+- ⬜ Mission write path: create mission (governed ADR-013 or direct role-gated, TBD at sprint planning) — deferred
+- ⬜ Mission linkage to people: groundwork for Mission Participants (Track 7) — Sprint 27
 
 #### Dependencies
 
-- Contracts / SP-02 (Track 5): mission-person linkage needs a stable person model
-- IT provisioning: `C3Missions` SP list
+- ~~Contracts / SP-02 (Track 5)~~ — met (S24)
+- IT provisioning: `C3Missions` SP list (schema doc ready; still the blocker for SP DSM visibility)
 
 ---
 

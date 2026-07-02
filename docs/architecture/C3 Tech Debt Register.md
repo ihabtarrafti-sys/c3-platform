@@ -490,4 +490,43 @@ all other screens are unaffected.
 
 The `C3People` SP list — provisioned in Sprint 16 — has no `Email` column in its schema. The
 `Person` TypeScript type and `CreatePersonInput` therefore omit an email field. `AddPersonPanel`
-deliberately omits an Email input for this reason (noted in
+deliberately omits an Email input for this reason (noted in the panel's implementation comments).
+
+> **S26 repair note:** this entry was truncated mid-sentence in commit `2020180` (S25 closeout)
+> by the sandbox file-corruption issue documented in the handoff package (§9.4). The text from
+> this point on was reconstructed in Sprint 26 from the S25 closeout context.
+
+Consequences:
+- No email-based duplicate detection at AddPerson time — duplicate protection relies on
+  FullName/PersonnelCode review by the approving owner
+- No email available for future notification flows (Power Automate approval notifications)
+
+**Resolution:** Add an `Email` column to `C3People`, extend `Person` / `CreatePersonInput` and
+the AddPerson form, and add a duplicate-email check to the governed AddPerson execution path.
+Requires a schema change + provisioning coordination; assign to a post-beta hardening sprint.
+
+---
+
+### TD-25 — SP DSM missions nav hidden pending C3Missions provisioning
+
+**Severity:** 🟡 Beta containment (by design)
+**Sprint attributed:** S26 (Mission/Event Read Foundation)
+**Status:** Open — pending IT provisioning
+**Files:** `packages/c3/src/components/layout/NavRail.tsx`, `packages/c3/src/services/sharepoint/SharePointMissionService.ts`, `docs/architecture/C3Missions SP List Schema.md`
+
+Sprint 26 implemented the native-fetch SP read path (`listMissions` / `getMission`) and the
+read-only Mission Workspace, but the `C3Missions` SP list does not exist yet. The Missions
+NavRail item is hidden in SP DSM via `visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint'`
+— the locked beta-containment pattern (same as Contracts S24-P1 and Amendments S20-P0-3).
+Missions remain fully visible and functional in Mock DSM.
+
+The read service is 404-safe (returns `[]` when the list is missing), so lifting the guard
+early would degrade to an empty state rather than a crash — but hidden-until-provisioned is
+the established pattern and avoids presenting a screen that silently shows no data.
+
+**Resolution:** Re-enable Missions in SP DSM after:
+1. IT provisions `C3Missions` per `docs/architecture/C3Missions SP List Schema.md`
+2. Internal names verified via REST field query (`MissionStatus`, not `Status`/`Status0`)
+3. At least one test row added and a hosted smoke test passes (missions render, no mapper
+   rejection warnings in console)
+4. Remove the `visibleWhen` guard from the NavRail missions item

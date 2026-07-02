@@ -29,6 +29,7 @@ import { Inbox } from '@c3/screens/Inbox';
 import { AmendmentWorkspace } from '@c3/screens/AmendmentWorkspace';
 import { AmendmentProfile } from '@c3/screens/AmendmentProfile';
 import { Intelligence } from '@c3/screens/Intelligence';
+import { MissionWorkspace } from '@c3/screens/MissionWorkspace';
 import { SituationRoom } from '@c3/screens/SituationRoom';
 import { Settings } from '@c3/screens/Settings';
 import { DeveloperDiagnostics } from '@c3/screens/DeveloperDiagnostics';
@@ -158,6 +159,9 @@ export const AppShell = () => {
             }
           />
         );
+
+      case 'missions':
+        return <MissionWorkspace />;
 
       case 'settings':
         return <Settings />;
