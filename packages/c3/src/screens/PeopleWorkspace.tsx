@@ -259,14 +259,7 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
 
   if (isLoading) {
     return (
-      <div
-        style={{
-          padding: 'var(--c3-space-8)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--c3-space-6)',
-        }}
-      >
+      <div style={{ padding: 'var(--c3-space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-6)' }}>
         <PageHeader
           title="People Workspace"
           subtitle="Contract participants, talent, staff and stakeholders."
@@ -279,14 +272,7 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
 
   if (error) {
     return (
-      <div
-        style={{
-          padding: 'var(--c3-space-8)',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 'var(--c3-space-6)',
-        }}
-      >
+      <div style={{ padding: 'var(--c3-space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-6)' }}>
         <PageHeader
           title="People Workspace"
           subtitle="Contract participants, talent, staff and stakeholders."

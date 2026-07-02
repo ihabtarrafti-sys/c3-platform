@@ -7,7 +7,7 @@
  * The Person domain is separated from the SPService monolith so that
  * createPerson() can be surfaced without adding write methods to SPService.
  *
- * Sprint 25 — createPerson() added to IPersonService; this hook provides
+ * Sprint 25 -- createPerson() added to IPersonService; this hook provides
  * the wiring for both Mock and SharePoint execution paths.
  *
  * Used by useExecuteApproval (AddPerson branch) and useSubmitAddPersonApproval.

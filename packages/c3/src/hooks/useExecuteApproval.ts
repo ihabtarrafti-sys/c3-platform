@@ -6,30 +6,34 @@
  * Sprint 18 Phase 4A: InitiateJourney execution path.
  * Sprint 20 Phase 3:  AddCredential dispatch branch added.
  * Sprint 23 Phase 1:  DeactivateCredential dispatch branch added.
+ * Sprint 25:          AddPerson dispatch branch added.
+ * Sprint 25 (polish): AddPerson Step 5 passes targetPersonId: createdPersonId to
+ *                     stampExecution -- backfills C3Approvals.TargetPersonID from
+ *                     'PENDING-ADDPERSON' to the created PER-XXXX in the same MERGE.
  *
  * Dispatch is by operationType extracted from the approval payload.
  * Each branch has its own validation and execution sequence.
  *
- * ── InitiateJourney execution sequence (ADR-013, unchanged) ──────────────────
+ * -- InitiateJourney execution sequence (ADR-013, unchanged) --
  *   1. Guard: approvalStatus must be 'Approved'.
  *   2. Parse payload, validate InitiateJourney fields.
  *   3. Duplicate check: getActiveJourney(personId, 'Onboarding').
- *      Duplicate → stamp ExecutionFailed + throw DuplicateJourneyError.
+ *      Duplicate -> stamp ExecutionFailed + throw DuplicateJourneyError.
  *   4. Create journey: journeyService.initiateJourney(input).
- *      Failure → stamp ExecutionFailed + throw.
+ *      Failure -> stamp ExecutionFailed + throw.
  *   5. Stamp approval Executed.
- *      Failure → LOG + throw PartialExecutionError (journey valid, stamp failed).
+ *      Failure -> LOG + throw PartialExecutionError (journey valid, stamp failed).
  *   6. Invalidate approvals.all(), journey.list(personId), journey.allActive('Onboarding').
  *
- * ── AddCredential execution sequence (Sprint 20 Phase 3) ─────────────────────
+ * -- AddCredential execution sequence (Sprint 20 Phase 3) --
  *   1. Guard: approvalStatus must be 'Approved' (same guard, shared).
  *   2. Parse payload, validate AddCredential fields (holderPersonId, credentialType, referenceNumber).
  *      CredentialType validated against VALID_CREDENTIAL_TYPES from spCredentialMapper.
- *   3. No duplicate guard — multiple credentials of the same type are valid per person.
+ *   3. No duplicate guard - multiple credentials of the same type are valid per person.
  *   4. Create credential: credentialService.addCredential(input).
- *      Failure → stamp ExecutionFailed + throw.
+ *      Failure -> stamp ExecutionFailed + throw.
  *   5. Stamp approval Executed.
- *      Failure → LOG + throw PartialCredentialExecutionError (credential valid, stamp failed).
+ *      Failure -> LOG + throw PartialCredentialExecutionError (credential valid, stamp failed).
  *   6. Invalidate approvals.all(), person.credentials(holderPersonId), credentials.all().
  *
  * Critical boundaries:
@@ -40,7 +44,7 @@
  *   - Does not modify Contracts, Missions, or Finance.
  *   - Does not change journey lifecycle behavior.
  *
- * ── DeactivateCredential execution sequence (Sprint 23 Phase 1) ─────────────
+ * -- DeactivateCredential execution sequence (Sprint 23 Phase 1) --
  *   1. Guard: approvalStatus must be 'Approved'.
  *   2. Parse payload, validate required fields (credentialId, holderPersonId,
  *      credentialType, referenceNumber, reason).
@@ -285,8 +289,8 @@ export const useExecuteApproval = () => {
   return useMutation({
     mutationFn: async (approval: C3Approval): Promise<void> => {
 
-      // ── Step 1: Approved guard ─────────────────────────────────────────────
-      // Must be first — before payload parsing, duplicate check, and any write.
+      // -- Step 1: Approved guard --
+      // Must be first -- before payload parsing, duplicate check, and any write.
       if (approval.approvalStatus !== 'Approved') {
         throw new Error(
           `[C3/Execution] Only approved approvals can be executed. ` +
@@ -294,11 +298,11 @@ export const useExecuteApproval = () => {
         );
       }
 
-      // ── Step 2: Parse payload and dispatch by operationType ────────────────
+      // -- Step 2: Parse payload and dispatch by operationType --
       const payloadObj = parseRawPayload(approval.payload);
       const opType = payloadObj['operationType'];
 
-      // ── InitiateJourney branch (unchanged from Sprint 18 Phase 4A) ─────────
+      // -- InitiateJourney branch (unchanged from Sprint 18 Phase 4A) --
       if (opType === 'InitiateJourney') {
         const payload = validateInitiateJourneyPayload(payloadObj);
         const personId = payload.personId;
@@ -372,12 +376,12 @@ export const useExecuteApproval = () => {
         return;
       }
 
-      // ── AddCredential branch (Sprint 20 Phase 3) ───────────────────────────
+      // -- AddCredential branch (Sprint 20 Phase 3) --
       if (opType === 'AddCredential') {
         const payload = validateAddCredentialPayload(payloadObj);
         const holderPersonId = payload.holderPersonId;
 
-        // Step 3: No duplicate guard — multiple credentials of the same type
+        // Step 3: No duplicate guard -- multiple credentials of the same type
         // are valid for a person (unlike journeys which have a one-active rule).
 
         // Step 4: Create credential
@@ -438,7 +442,7 @@ export const useExecuteApproval = () => {
         return;
       }
 
-      // ── DeactivateCredential branch (Sprint 23 Phase 1) ───────────────────
+      // -- DeactivateCredential branch (Sprint 23 Phase 1) --
       if (opType === 'DeactivateCredential') {
         // Step 2: Validate required payload fields.
         const credentialId = payloadObj['credentialId'];
@@ -513,7 +517,7 @@ export const useExecuteApproval = () => {
         return;
       }
 
-      // ── AddPerson branch (Sprint 25) ──────────────────────────────────────────
+      // -- AddPerson branch (Sprint 25) --
       if (opType === 'AddPerson') {
         // Step 2: Validate fullName (required).
         const fullName = payloadObj['fullName'];
@@ -524,7 +528,7 @@ export const useExecuteApproval = () => {
         const trimmedName = fullName.trim();
 
         // Step 3: FullName duplicate check against the cached People list.
-        // Client-side only — guards against the obvious case. See TD-24 for
+        // Client-side only -- guards against the obvious case. See TD-24 for
         // server-side uniqueness enforcement (requires Email column in C3People).
         const existingPeople =
           queryClient.getQueryData<import('@c3/types').Person[]>(queryKeys.people.all()) ?? [];
@@ -576,11 +580,15 @@ export const useExecuteApproval = () => {
         }
 
         // Step 5: Stamp approval Executed.
+        // Also backfill TargetPersonID: the approval was submitted with the
+        // 'PENDING-ADDPERSON' placeholder because no PER-XXXX existed at
+        // submission time. The same MERGE updates it to the created PersonID.
         const executedAt = new Date().toISOString();
         try {
           await approvalsService.stampExecution(approval.id, {
-            newStatus: 'Executed',
+            newStatus:      'Executed',
             executedAt,
+            targetPersonId: createdPersonId,  // backfill PENDING-ADDPERSON -> PER-XXXX
           });
         } catch (stampErr) {
           console.error(
@@ -598,7 +606,7 @@ export const useExecuteApproval = () => {
         return;
       }
 
-      // ── Unknown operationType ──────────────────────────────────────────────
+      // -- Unknown operationType --
       throw new PayloadValidationError(
         `Unknown operationType: '${String(opType)}'. ` +
         `Supported: 'InitiateJourney', 'AddCredential', 'DeactivateCredential', 'AddPerson'.`,
@@ -637,7 +645,7 @@ export const useExecuteApproval = () => {
           void queryClient.invalidateQueries({ queryKey: queryKeys.people.all() });
         }
       } catch {
-        // Ignore parse failures — approvals.all() invalidation above is sufficient
+        // Ignore parse failures -- approvals.all() invalidation above is sufficient
       }
     },
 
@@ -650,7 +658,7 @@ export const useExecuteApproval = () => {
         const opType = p['operationType'];
 
         if (opType === 'InitiateJourney') {
-          // Duplicate check may have found an existing journey — refresh journey state
+          // Duplicate check may have found an existing journey -- refresh journey state
           const personId = typeof p['personId'] === 'string' ? p['personId'] : undefined;
           if (personId) {
             void queryClient.invalidateQueries({ queryKey: queryKeys.journey.list(personId) });
@@ -668,7 +676,7 @@ export const useExecuteApproval = () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.person.credentials(holderPersonId) });
           }
         } else if (opType === 'AddPerson') {
-          // Partial execution may have created the person — refresh to show any partial state.
+          // Partial execution may have created the person -- refresh to show any partial state.
           void queryClient.invalidateQueries({ queryKey: queryKeys.people.all() });
         }
       } catch {

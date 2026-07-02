@@ -1,11 +1,11 @@
 /**
  * useRecoverCredentialExecutionStamp.ts
  *
- * Sprint 21 Phase 1 — AddCredential Partial Execution Recovery.
+ * Sprint 21 Phase 1 -- AddCredential Partial Execution Recovery.
  *
  * Handles the known partial-execution failure mode where:
  *   - Step 4 (addCredential) succeeded: the C3Credentials row exists and is valid.
- *   - Step 5 (stampExecution → Executed) failed: the approval remains at Approved.
+ *   - Step 5 (stampExecution -> Executed) failed: the approval remains at Approved.
  *
  * This hook stamps the approval Executed WITHOUT creating a new credential.
  * It is the only safe recovery path when a credential already exists for the
@@ -22,7 +22,7 @@
  *      and referenceNumber
  *   4. credentialService.listCredentialsForPerson(holderPersonId) must return a
  *      credential matching credentialType + referenceNumber (re-checked at stamp
- *      time — guards against stale cache or credential deactivated between
+ *      time -- guards against stale cache or credential deactivated between
  *      detection and the operator clicking Recover)
  *
  * If precondition 4 fails at stamp time, CredentialRecoveryTargetMissingError is
@@ -30,8 +30,8 @@
  * button to create a new credential.
  *
  * Exported error classes:
- *   CredentialRecoveryPreConditionError  — wrong status/operationType/bad payload
- *   CredentialRecoveryTargetMissingError — no matching credential at stamp time
+ *   CredentialRecoveryPreConditionError  -- wrong status/operationType/bad payload
+ *   CredentialRecoveryTargetMissingError -- no matching credential at stamp time
  *
  * Boundaries:
  *   - Never calls addCredential. No new C3Credentials row is created.
@@ -142,21 +142,21 @@ export const useRecoverCredentialExecutionStamp = () => {
   return useMutation({
     mutationFn: async (approval: C3Approval): Promise<{ holderPersonId: string }> => {
 
-      // ── Precondition 1: must be Approved ──────────────────────────────────
+      // -- Precondition 1: must be Approved --
       if (approval.approvalStatus !== 'Approved') {
         throw new CredentialRecoveryPreConditionError(
           `approvalStatus must be 'Approved', got '${approval.approvalStatus}'.`,
         );
       }
 
-      // ── Precondition 2: must be AddCredential ─────────────────────────────
+      // -- Precondition 2: must be AddCredential --
       if (approval.operationType !== 'AddCredential') {
         throw new CredentialRecoveryPreConditionError(
           `operationType must be 'AddCredential', got '${approval.operationType}'.`,
         );
       }
 
-      // ── Precondition 3: parse fields from payload ─────────────────────────
+      // -- Precondition 3: parse fields from payload --
       const fields = extractCredentialPayloadFields(approval.payload);
       if (!fields) {
         throw new CredentialRecoveryPreConditionError(
@@ -167,7 +167,7 @@ export const useRecoverCredentialExecutionStamp = () => {
 
       const { holderPersonId, credentialType, referenceNumber } = fields;
 
-      // ── Precondition 4: re-check credential exists at stamp time ──────────
+      // -- Precondition 4: re-check credential exists at stamp time --
       // Re-verify at mutation time to guard against stale cache or a credential
       // deactivated between detection and the operator clicking Recover.
       const credentials = await credentialService.listCredentialsForPerson(holderPersonId);
@@ -178,8 +178,8 @@ export const useRecoverCredentialExecutionStamp = () => {
         throw new CredentialRecoveryTargetMissingError(holderPersonId, credentialType, referenceNumber);
       }
 
-      // ── Stamp approval Executed ───────────────────────────────────────────
-      // Credential already exists — do NOT call addCredential.
+      // -- Stamp approval Executed --
+      // Credential already exists -- do NOT call addCredential.
       // stampExecution sets: ApprovalStatus = Executed, ExecutedAt = ISO datetime,
       // ExecutionError = null. No C3Credentials row is created or modified.
       const executedAt = new Date().toISOString();

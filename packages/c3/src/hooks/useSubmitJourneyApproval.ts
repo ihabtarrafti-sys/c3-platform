@@ -3,15 +3,15 @@
  *
  * Mode-branching hook for submitting a Start Onboarding Journey action.
  *
- * Mock mode  → calls useInitiateJourney().mutateAsync() — direct journey creation,
+ * Mock mode  -> calls useInitiateJourney().mutateAsync() -- direct journey creation,
  *              unchanged from pre-Phase-3A behaviour.
  *
- * SharePoint mode → calls useApprovalsService().createApproval() — creates one
+ * SharePoint mode -> calls useApprovalsService().createApproval() -- creates one
  *              C3Approvals row (ApprovalStatus: Submitted). No C3Journeys row
  *              is created. Journey creation is deferred to Phase 4 (execution).
  *
  * Both inner hooks (useInitiateJourney, useApprovalsService) are always called
- * unconditionally — React's rules of hooks prohibit conditional hook calls.
+ * unconditionally -- React's rules of hooks prohibit conditional hook calls.
  * The runtime branch happens inside submitAsync, not at hook instantiation.
  *
  * isPending is managed via local useState. useInitiateJourney exposes its own
@@ -39,7 +39,7 @@ export interface SubmitJourneyApprovalInput {
   personId: string;
   /** Journey type. Only 'Onboarding' is produced in Sprint 18. */
   journeyType: 'Onboarding';
-  /** Required — maps to Journey.InitiationReason and Approval.Reason. */
+  /** Required -- maps to Journey.InitiationReason and Approval.Reason. */
   initiationReason: string;
   /** Governance owner name or email. */
   assignedTo: string;
@@ -70,7 +70,7 @@ export const useSubmitJourneyApproval = () => {
     setIsPending(true);
     try {
       if (config.dataSourceMode !== 'sharepoint') {
-        // ── Mock / dev path ──────────────────────────────────────────────────
+        // -- Mock / dev path --
         // Direct journey creation. Unchanged from pre-Phase-3A behaviour.
         const journey = await initiateJourney.mutateAsync({
           PersonID:         input.personId,
@@ -88,7 +88,7 @@ export const useSubmitJourneyApproval = () => {
         return { mode: 'direct', journey };
       }
 
-      // ── SharePoint / approval path ────────────────────────────────────────
+      // -- SharePoint / approval path --
       // Submit an approval intent only. NO C3Journeys write occurs here.
       // Journey creation is deferred to execution time (Phase 4).
       const payload: InitiateJourneyApprovalPayload = {

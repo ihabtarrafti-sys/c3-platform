@@ -3,17 +3,17 @@
  *
  * Mode-branching hook for submitting an Add Credential action.
  *
- * Mock mode  → calls useAddCredential().mutateAsync() — direct credential creation,
+ * Mock mode  -> calls useAddCredential().mutateAsync() -- direct credential creation,
  *              preserving the pre-Phase-3 behaviour exactly. TanStack cache
  *              invalidation (person.credentials + credentials.all) fires as normal.
  *
- * SharePoint mode → calls useApprovalsService().createApproval() — creates one
+ * SharePoint mode -> calls useApprovalsService().createApproval() -- creates one
  *              C3Approvals row (OperationType: AddCredential, ApprovalStatus: Submitted).
  *              No C3Credentials row is created at submission time.
- *              Credential creation is deferred to execution (owner Approve → Execute).
+ *              Credential creation is deferred to execution (owner Approve -> Execute).
  *
  * Both inner hooks (useAddCredential, useApprovalsService) are always called
- * unconditionally — React's rules of hooks prohibit conditional hook calls.
+ * unconditionally -- React's rules of hooks prohibit conditional hook calls.
  * The runtime branch happens inside submitAsync, not at hook instantiation.
  *
  * isPending is managed via local useState. useAddCredential exposes its own
@@ -46,7 +46,7 @@ export type CredentialSubmissionOutcome =
   | {
       /**
        * SP DSM: an approval record was submitted.
-       * No credential row exists yet — it is created at execution time.
+       * No credential row exists yet -- it is created at execution time.
        */
       mode: 'approval';
       approvalTitle: string;
@@ -70,7 +70,7 @@ export const useSubmitCredentialApproval = () => {
    * Mock DSM: creates the credential directly (existing path, unchanged).
    * SP DSM:   submits an AddCredential approval. No credential row created.
    *
-   * Throws on failure in both modes — callers (AddCredentialPanel) catch
+   * Throws on failure in both modes -- callers (AddCredentialPanel) catch
    * and show error toasts.
    */
   const submitAsync = async (
@@ -79,7 +79,7 @@ export const useSubmitCredentialApproval = () => {
     setIsPending(true);
     try {
       if (config.dataSourceMode !== 'sharepoint') {
-        // ── Mock / dev path ────────────────────────────────────────────────
+        // -- Mock / dev path --
         // Direct credential creation. Unchanged from pre-Phase-3 behaviour.
         // Cache invalidation (person.credentials + credentials.all) fires via
         // useAddCredential.onSuccess as before.
@@ -87,14 +87,14 @@ export const useSubmitCredentialApproval = () => {
         return { mode: 'direct', credential };
       }
 
-      // ── SharePoint / approval path ─────────────────────────────────────
+      // -- SharePoint / approval path --
       // Submit an AddCredential approval intent only.
       // NO C3Credentials write occurs here.
       // Credential creation is deferred to execution time.
       const payload: AddCredentialApprovalPayload = {
         operationType:          'AddCredential',
         holderPersonId:         input.HolderPersonID,
-        credentialType:         input.Type,           // CredentialType union → string in payload
+        credentialType:         input.Type,           // CredentialType union -> string in payload
         referenceNumber:        input.ReferenceNumber,
         issuedBy:               input.IssuedBy,
         issuedDate:             input.IssuedDate,

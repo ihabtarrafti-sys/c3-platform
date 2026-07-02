@@ -1,13 +1,13 @@
 /**
  * approvalPayloadUtils.ts
  *
- * Sprint 21 Phase 2 — Pure helpers for approval payload display.
- * Sprint 21 Phase 3 — Humanize AddCredential credentialType using CREDENTIAL_TYPE_LABELS.
- * Sprint 23 Phase 1 — DeactivateCredential payload summary.
- * Sprint 25 — AddPerson payload summary.
+ * Sprint 21 Phase 2 -- Pure helpers for approval payload display.
+ * Sprint 21 Phase 3 -- Humanize AddCredential credentialType using CREDENTIAL_TYPE_LABELS.
+ * Sprint 23 Phase 1 -- DeactivateCredential payload summary.
+ * Sprint 25 -- AddPerson payload summary.
  *
  * All functions are pure (no React, no hooks, no side effects).
- * Safe parse only — never throws on bad input, never outputs raw JSON.
+ * Safe parse only -- never throws on bad input, never outputs raw JSON.
  *
  * Used by PersonApprovalHistoryCard for compact per-row payload summaries.
  * ApprovalInbox uses its own full-grid PayloadSummary component (unchanged).
@@ -34,10 +34,10 @@ import { CREDENTIAL_TYPE_LABELS } from '@c3/utils/credentialLabels';
  * Never throws. Never returns raw JSON.
  *
  * Examples:
- *   InitiateJourney:    "Onboarding · PER-0004"
- *   AddCredential:      "League Registration · A12345678 · PER-0004 · Expires 2027-06-01"
- *   AddCredential (no expiry): "Work Permit · V-2024-001 · PER-0007"
- *   DeactivateCredential: "Deactivate · League Registration · A12345678 · PER-0004"
+ *   InitiateJourney:    "Onboarding - PER-0004"
+ *   AddCredential:      "League Registration - A12345678 - PER-0004 - Expires 2027-06-01"
+ *   AddCredential (no expiry): "Work Permit - V-2024-001 - PER-0007"
+ *   DeactivateCredential: "Deactivate - League Registration - A12345678 - PER-0004"
  */
 export function formatApprovalPayloadSummary(
   raw: string | undefined,
@@ -59,12 +59,10 @@ export function formatApprovalPayloadSummary(
     const personId = typeof parsed['personId'] === 'string' && parsed['personId'].trim()
       ? parsed['personId'].trim()
       : null;
-    return [journeyType, personId].filter(Boolean).join(' · ');
+    return [journeyType, personId].filter(Boolean).join(' - ');
   }
 
   if (operationType === 'AddCredential') {
-    // Humanize the raw credentialType key (e.g. "LeagueRegistration" → "League Registration").
-    // Falls back to the raw key if not found in the labels map (forward-compat safety).
     const rawType = typeof parsed['credentialType'] === 'string' && parsed['credentialType'].trim()
       ? parsed['credentialType'].trim()
       : null;
@@ -77,10 +75,10 @@ export function formatApprovalPayloadSummary(
     const holderId   = typeof parsed['holderPersonId']  === 'string' && parsed['holderPersonId'].trim()
       ? parsed['holderPersonId'].trim()  : null;
     const expiryDate = typeof parsed['expiryDate']      === 'string' && parsed['expiryDate'].trim()
-      ? `Expires ${parsed['expiryDate'].trim()}`        : null;
+      ? ('Expires ' + parsed['expiryDate'].trim())      : null;
 
     const parts = [credType, refNum, holderId, expiryDate].filter(Boolean);
-    return parts.length > 0 ? parts.join(' · ') : null;
+    return parts.length > 0 ? parts.join(' - ') : null;
   }
 
   if (operationType === 'DeactivateCredential') {
@@ -97,7 +95,7 @@ export function formatApprovalPayloadSummary(
       ? parsed['holderPersonId'].trim()  : null;
 
     const parts = ['Deactivate', credType, refNum, holderId].filter(Boolean);
-    return parts.length > 0 ? parts.join(' · ') : 'Deactivate credential';
+    return parts.length > 0 ? parts.join(' - ') : 'Deactivate credential';
   }
 
   if (operationType === 'AddPerson') {
@@ -112,9 +110,9 @@ export function formatApprovalPayloadSummary(
       : null;
 
     const parts = [fullName, primaryRole, currentTeam].filter(Boolean);
-    return parts.length > 0 ? ('New Person · ' + parts.join(' · ')) : 'New person creation request';
+    return parts.length > 0 ? ('New Person - ' + parts.join(' - ')) : 'New person creation request';
   }
 
-  // Unknown operationType — do not surface raw payload
+  // Unknown operationType -- do not surface raw payload
   return null;
 }

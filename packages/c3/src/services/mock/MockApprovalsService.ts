@@ -122,11 +122,14 @@ export const createMockApprovalsService = (
     let patch: Partial<C3Approval>;
 
     if (req.newStatus === 'Executed') {
-      // Executed: stamp ExecutedAt, clear ExecutionError
+      // Executed: stamp ExecutedAt, clear ExecutionError.
+      // If targetPersonId is supplied (AddPerson path), backfill targetPersonId
+      // in the mock record -- mirrors the SP MERGE behaviour.
       patch = {
         approvalStatus: 'Executed',
         executedAt:     req.executedAt,
         executionError: undefined,
+        ...(req.targetPersonId ? { targetPersonId: req.targetPersonId } : {}),
       };
     } else {
       // ExecutionFailed: stamp ExecutionError, do NOT set ExecutedAt

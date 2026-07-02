@@ -1,22 +1,22 @@
 /**
  * SharePointPersonService.ts
  *
- * Sprint 16 (S16-7 prep) — SharePoint Person Integration.
+ * Sprint 16 (S16-7 prep) -- SharePoint Person Integration.
  *
  * Fetches Person records from the C3People SharePoint list using
  * the native Fetch API. All type-coercion and validation is delegated to
- * spPersonMapper.ts — this service stays thin.
+ * spPersonMapper.ts -- this service stays thin.
  *
  * Design principles:
  *   - No PnP.js. Native fetch with Accept: application/json;odata=nometadata.
- *   - credentials: 'same-origin' — relies on the SPFx authentication cookie.
+ *   - credentials: 'same-origin' -- relies on the SPFx authentication cookie.
  *   - Fails safely on any error: console.error + empty array/null, never throws.
  *   - listPersonContracts and listPersonActivities are stubs (out of scope S16).
  *   - listPeople:   $filter=IsActive eq 1, $top=2000
- *   - getPerson:    $filter=Title eq '...', $top=1 (no IsActive guard — caller
+ *   - getPerson:    $filter=Title eq '...', $top=1 (no IsActive guard -- caller
  *                   may need to look up an inactive person for audit purposes)
  *
- * CRITICAL — Title column mapping:
+ * CRITICAL -- Title column mapping:
  *   In C3People, the SP built-in Title column stores PersonID (e.g. "PER-0001").
  *   FullName is a SEPARATE column. getPerson() filters on Title, not FullName.
  *   See: docs/architecture/C3People SP List Schema.md
@@ -25,7 +25,7 @@
  * embedded single-quote before interpolation into the filter string.
  *
  * See: docs/architecture/C3People SP List Schema.md
- * See: docs/architecture/C3 Architecture Baseline — Sprint 16.md
+ * See: docs/architecture/C3 Architecture Baseline -- Sprint 16.md
  */
 
 import type { Activity, Contract, CreatePersonInput, Person } from '@c3/types';
@@ -47,7 +47,7 @@ const LIST_NAME = 'C3People';
  * Columns to $select from the C3People list.
  * Must match SpPersonItem field names exactly (SP internal column names).
  * Title = PersonID (repurposed built-in). FullName is a separate column.
- * CurrentTeam, CurrentGameTitle, PrimaryDepartment are plain text — NOT Lookups.
+ * CurrentTeam, CurrentGameTitle, PrimaryDepartment are plain text -- NOT Lookups.
  */
 const SELECT_FIELDS = [
   'Id',
@@ -122,7 +122,7 @@ async function fetchItems(url: string): Promise<SpPersonItem[]> {
   if (!Array.isArray(json.value)) {
     console.error(
       '[C3/People] SharePoint response is missing the "value" array. ' +
-      'Response shape is unexpected — check list REST endpoint and $select.',
+      'Response shape is unexpected -- check list REST endpoint and $select.',
     );
     return [];
   }
@@ -134,7 +134,7 @@ async function fetchItems(url: string): Promise<SpPersonItem[]> {
 // fetchFormDigest
 //
 // Fetches a fresh SP Form Digest Value for write operations.
-// Never cached — digest TTL is 30 minutes and staleness causes silent 403s.
+// Never cached -- digest TTL is 30 minutes and staleness causes silent 403s.
 // Same implementation as in SharePointApprovalsService.
 // ---------------------------------------------------------------------------
 
@@ -171,7 +171,7 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
   const baseUrl = buildListUrl(siteUrl);
 
   return {
-    // ── listPeople ──────────────────────────────────────────────────────────
+    // -- listPeople ----------------------------------------------------------
     // Returns only active persons. Inactive persons are filtered at the SP
     // query level ($filter=IsActive eq 1) so the mapper receives a clean set.
     // The mapper itself is IsActive-agnostic; filtering here is intentional.
@@ -187,9 +187,9 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
       return people;
     },
 
-    // ── getPerson ───────────────────────────────────────────────────────────
+    // -- getPerson -----------------------------------------------------------
     // Looks up a single person by PersonID (stored in the SP Title column).
-    // No IsActive guard — callers may need to retrieve inactive persons for
+    // No IsActive guard -- callers may need to retrieve inactive persons for
     // audit, journey history, or credential attribution purposes.
     async getPerson(personId: string): Promise<Person> {
       const url =
@@ -224,9 +224,9 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
       return mapped;
     },
 
-    // ── listPersonContracts ─────────────────────────────────────────────────
+    // -- listPersonContracts -------------------------------------------------
     // Sprint 24 Phase 1: Real implementation. Queries C3Contracts by PersonID.
-    // PersonID is the canonical PER-XXXX FK — not the SP numeric Id.
+    // PersonID is the canonical PER-XXXX FK -- not the SP numeric Id.
     // Returns [] gracefully if C3Contracts is not yet provisioned (404).
     async listPersonContracts(personId: string): Promise<Contract[]> {
       if (!personId || personId.trim().length === 0) {
@@ -283,7 +283,7 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
       return json.value.map(mapContract);
     },
 
-    // ── listPersonActivities (stub) ─────────────────────────────────────────
+    // -- listPersonActivities (stub) -----------------------------------------
     // Activity history is not part of the Sprint 16 data layer scope.
     // Deferred until the C3Activities list schema and service are defined.
     async listPersonActivities(personId: string, limit?: number): Promise<Activity[]> {
@@ -296,8 +296,8 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
       return [];
     },
 
-    // ── createPerson ─────────────────────────────────────────────────────────
-    // Sprint 25 — AddPerson SP DSM execution.
+    // -- createPerson --------------------------------------------------------
+    // Sprint 25 -- AddPerson SP DSM execution.
     //
     // POST-then-MERGE pattern (same as SharePointApprovalsService.createApproval):
     //   1. POST to C3People with all input fields.
@@ -306,15 +306,15 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
     //      originating approval if the MERGE step fails.
     //   2. Read the SP-assigned item ID from the response.
     //   3. MERGE Title (= PersonID) to PER-XXXX using the item ID as the
-    //      atomic sequence source — same pattern as APR-XXXX.
+    //      atomic sequence source -- same pattern as APR-XXXX.
     //   4. Return a mapped Person with the canonical PersonID.
     //
     // Failure modes:
-    //   POST fails              → throw immediately. No row created. Caller stamps ExecutionFailed.
-    //   POST ok, MERGE fails    → throw with SP item ID in message. Orphaned row exists in
+    //   POST fails              -> throw immediately. No row created. Caller stamps ExecutionFailed.
+    //   POST ok, MERGE fails    -> throw with SP item ID in message. Orphaned row exists in
     //                             C3People with TMP/PENDING title. Caller stamps ExecutionFailed.
     //                             Operator must fix Title manually or via recovery (TD-24).
-    //   GET-back-mapped fails   → throw. Row and PER-XXXX are valid; stamp failure handled by caller.
+    //   GET-back-mapped fails   -> throw. Row and PER-XXXX are valid; stamp failure handled by caller.
     //
     // Duplicate protection: FullName-based check is applied at the useExecuteApproval
     // layer before calling createPerson. This method trusts the caller has checked.
@@ -327,7 +327,7 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
 
       const digest = await fetchFormDigest(siteUrl);
 
-      // ── Step 1: POST with temporary Title ──────────────────────────────
+      // -- Step 1: POST with temporary Title ----------------------------------
       const tmpTitle = 'TMP-' + Date.now().toString(36);
 
       const postBody = {
@@ -375,7 +375,7 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
       const spItemId = created.ID;
       const personId = `PER-${String(spItemId).padStart(4, '0')}`;
 
-      // ── Step 2: MERGE canonical PersonID (Title) ────────────────────────
+      // -- Step 2: MERGE canonical PersonID (Title) ---------------------------
       const mergeDigest = await fetchFormDigest(siteUrl);
       const itemUrl = `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${LIST_NAME}')/items(${spItemId})`;
 
@@ -403,7 +403,7 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
         );
       }
 
-      // ── Step 3: Build and return the created Person ─────────────────────
+      // -- Step 3: Build and return the created Person ------------------------
       // Construct from the input and the assigned PersonID rather than fetching
       // back from SP (avoids an extra round-trip; the row is known-good).
       const warnRef = { count: 0 };
@@ -427,10 +427,10 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
 
       const person = mapSpItemToPerson(spItem, warnRef);
       if (person === null) {
-        // Should never happen — we just created the item with valid fields.
+        // Should never happen -- we just created the item with valid fields.
         throw new Error(
           `[C3/People] createPerson: SP item ${spItemId} was created (${personId}) ` +
-          `but mapper rejected it. This is an unexpected state — check C3People list.`,
+          `but mapper rejected it. This is an unexpected state -- check C3People list.`,
         );
       }
 

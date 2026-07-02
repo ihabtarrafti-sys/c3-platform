@@ -1,17 +1,17 @@
 /**
  * useCancelJourney.ts
  *
- * Sprint 19 Phase 2 — Journey Lifecycle Transitions.
+ * Sprint 19 Phase 2 -- Journey Lifecycle Transitions.
  *
  * Mutation hook for cancelling an Active or Suspended Journey.
  *
  * Governance: direct role-gated operational action (owner | operations).
- * Not approval-gated. See: docs/architecture/ADR-013 Addendum — Journey Lifecycle Transitions.md
+ * Not approval-gated. See: docs/architecture/ADR-013 Addendum -- Journey Lifecycle Transitions.md
  *
  * On success, invalidates:
- *   - journey.list(personId)       — PersonProfile journey card
- *   - journey.active(personId, type) — useActiveJourney callers
- *   - journey.allActive(type)      — Situation Room aggregation
+ *   - journey.list(personId)       -- PersonProfile journey card
+ *   - journey.active(personId, type) -- useActiveJourney callers
+ *   - journey.allActive(type)      -- Situation Room aggregation
  *
  * Throws InvalidTransitionError when the journey is Completed or already Cancelled.
  * Throws when actorLoginName is empty (service fail-close).
@@ -25,9 +25,9 @@ import type { JourneyTransitionRequest } from '@c3/services/interfaces/IJourneyS
 import type { Journey } from '@c3/types';
 
 export interface CancelJourneyVariables extends JourneyTransitionRequest {
-  /** PersonID of the journey owner — used to scope query invalidation. */
+  /** PersonID of the journey owner -- used to scope query invalidation. */
   personId: string;
-  /** JourneyType — used to scope allActive invalidation. */
+  /** JourneyType -- used to scope allActive invalidation. */
   journeyType: Journey['Type'];
 }
 

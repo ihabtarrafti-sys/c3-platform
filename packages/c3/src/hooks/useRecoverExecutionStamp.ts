@@ -1,11 +1,11 @@
 /**
  * useRecoverExecutionStamp.ts
  *
- * Sprint 20 Phase 2 — Partial Execution Recovery.
+ * Sprint 20 Phase 2 -- Partial Execution Recovery.
  *
  * Handles the known partial-execution failure mode where:
  *   - Step 4 (initiateJourney) succeeded: the C3Journeys row exists and is valid.
- *   - Step 5 (stampExecution → Executed) failed: the approval remains at Approved.
+ *   - Step 5 (stampExecution -> Executed) failed: the approval remains at Approved.
  *
  * This hook stamps the approval Executed WITHOUT creating a new journey.
  * It is the only safe recovery path when a journey already exists for the
@@ -16,7 +16,7 @@
  *   2. operationType === 'InitiateJourney'
  *   3. payload must be parseable JSON with a non-empty personId
  *   4. getActiveJourney(personId, 'Onboarding') must return a journey
- *      (re-checked at mutation time — guards against a race where the journey
+ *      (re-checked at mutation time -- guards against a race where the journey
  *      was cancelled between the UI detecting it and the operator clicking Recover)
  *
  * If precondition 4 fails at stamp time, RecoveryTargetMissingError is thrown.
@@ -24,8 +24,8 @@
  * to create a new journey.
  *
  * Exported error classes:
- *   RecoveryPreConditionError — wrong status / operationType / unparseable payload
- *   RecoveryTargetMissingError — no active Onboarding journey found at stamp time
+ *   RecoveryPreConditionError -- wrong status / operationType / unparseable payload
+ *   RecoveryTargetMissingError -- no active Onboarding journey found at stamp time
  *
  * Boundaries:
  *   - Never calls initiateJourney. No new C3Journeys row is created.
@@ -85,7 +85,7 @@ export class RecoveryTargetMissingError extends Error {
 }
 
 // ---------------------------------------------------------------------------
-// Safe personId extraction (shared utility — no import coupling to payload types)
+// Safe personId extraction (shared utility -- no import coupling to payload types)
 // ---------------------------------------------------------------------------
 
 function extractPersonId(raw: string | undefined): string {
@@ -111,21 +111,21 @@ export const useRecoverExecutionStamp = () => {
   return useMutation({
     mutationFn: async (approval: C3Approval): Promise<{ personId: string }> => {
 
-      // ── Precondition 1: must be Approved ──────────────────────────────────
+      // -- Precondition 1: must be Approved --
       if (approval.approvalStatus !== 'Approved') {
         throw new RecoveryPreConditionError(
           `approvalStatus must be 'Approved', got '${approval.approvalStatus}'.`,
         );
       }
 
-      // ── Precondition 2: must be InitiateJourney ───────────────────────────
+      // -- Precondition 2: must be InitiateJourney --
       if (approval.operationType !== 'InitiateJourney') {
         throw new RecoveryPreConditionError(
           `operationType must be 'InitiateJourney', got '${approval.operationType}'.`,
         );
       }
 
-      // ── Precondition 3: parse personId from payload ───────────────────────
+      // -- Precondition 3: parse personId from payload --
       const personId = extractPersonId(approval.payload);
       if (!personId) {
         throw new RecoveryPreConditionError(
@@ -133,7 +133,7 @@ export const useRecoverExecutionStamp = () => {
         );
       }
 
-      // ── Precondition 4: re-check active journey exists at stamp time ───────
+      // -- Precondition 4: re-check active journey exists at stamp time --
       // This is a safety re-check. The UI already checked before showing the
       // Recover button, but we re-verify here to guard against:
       //   - Stale query cache in the UI
@@ -144,8 +144,8 @@ export const useRecoverExecutionStamp = () => {
         throw new RecoveryTargetMissingError(personId);
       }
 
-      // ── Stamp approval Executed ───────────────────────────────────────────
-      // Journey already exists — do NOT call initiateJourney.
+      // -- Stamp approval Executed --
+      // Journey already exists -- do NOT call initiateJourney.
       // stampExecution sets: ApprovalStatus = Executed, ExecutedAt = ISO datetime,
       // ExecutionError = null. No C3Journeys row is created or modified.
       const executedAt = new Date().toISOString();

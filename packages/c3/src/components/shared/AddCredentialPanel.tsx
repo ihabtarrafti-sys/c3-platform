@@ -187,7 +187,7 @@ export const AddCredentialPanel = ({
   // SP DSM: submission creates a governed approval, not a credential directly.
 
   const submitLabel  = isSP ? 'Submit for Approval' : 'Register Credential';
-  const pendingLabel = isSP ? 'Submitting…'          : 'Registering…';
+  const pendingLabel = isSP ? 'Submitting…'     : 'Registering…';
 
   // ── Render ────────────────────────────────────────────────────────────────
 

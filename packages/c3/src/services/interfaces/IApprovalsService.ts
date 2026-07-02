@@ -8,7 +8,11 @@
  * Sprint 18 Phase 4A: stampExecution live.
  * Sprint 20 Phase 3:  operationType widened to include 'AddCredential'.
  * Sprint 23 Phase 1:  operationType widened to include 'DeactivateCredential'.
- * Sprint 25:           operationType widened to include 'AddPerson'.
+ * Sprint 25:          operationType widened to include 'AddPerson'.
+ * Sprint 25 (polish): StampExecutionRequest.Executed.targetPersonId added for AddPerson
+ *                     TargetPersonID backfill. AddPerson approvals submit with
+ *                     'PENDING-ADDPERSON' placeholder; after execution the field is
+ *                     updated to the created PER-XXXX in the same stampExecution MERGE.
  *
  * Lifecycle: Submitted -> InReview -> Approved -> Executed | ExecutionFailed
  *                                  -> Rejected
@@ -64,7 +68,12 @@ export interface CreateApprovalRequest {
   operationType: 'InitiateJourney' | 'AddCredential' | 'DeactivateCredential' | 'AddPerson';
   /** Opaque secondary target reference (optional). */
   targetId?: string;
-  /** Canonical C3 PersonID of the target person, e.g. "PER-0001". */
+  /**
+   * Canonical C3 PersonID of the target person, e.g. "PER-0001".
+   * For AddPerson approvals, pass "PENDING-ADDPERSON" at submission time --
+   * the person does not exist until execution. After execution, the field is
+   * backfilled to the created PER-XXXX via StampExecutionRequest.targetPersonId.
+   */
   targetPersonId: string;
   /** Human-readable reason for the request (optional). */
   reason?: string;
@@ -130,9 +139,18 @@ export interface PatchApprovalStatusRequest {
 export type StampExecutionRequest =
   | {
       newStatus: 'Executed';
-      /** ISO datetime string — wall-clock time of execution. */
+      /** ISO datetime string -- wall-clock time of execution. */
       executedAt: string;
       executionError?: null;
+      /**
+       * Optional: backfill TargetPersonID on the C3Approvals row after execution.
+       * Used by the AddPerson path only -- the approval was submitted with
+       * 'PENDING-ADDPERSON' because no PER-XXXX existed at submission time.
+       * Passing this field causes the MERGE to also write TargetPersonID = personId.
+       * Other operation types (InitiateJourney, AddCredential, DeactivateCredential)
+       * do not use this field and should not pass it.
+       */
+      targetPersonId?: string;
     }
   | {
       newStatus: 'ExecutionFailed';

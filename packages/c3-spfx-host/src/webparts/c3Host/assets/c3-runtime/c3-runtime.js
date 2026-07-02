@@ -38914,12 +38914,12 @@ const Z5 = () => ({
 function Mg(e, o, n, i = "[C3/Credential]") {
   if (e == null || e === "") return;
   if (typeof e != "string") {
-    console.warn(`${i} ${o}: unexpected date type ${typeof e} — treated as absent`), n.count++;
+    console.warn(`${i} ${o}: unexpected date type ${typeof e} -- treated as absent`), n.count++;
     return;
   }
   const c = new Date(e);
   if (isNaN(c.getTime())) {
-    console.warn(`${i} ${o}: invalid date "${e}" — treated as absent (non-expiring)`), n.count++;
+    console.warn(`${i} ${o}: invalid date "${e}" -- treated as absent (non-expiring)`), n.count++;
     return;
   }
   return c.toISOString().split("T")[0];
@@ -38927,12 +38927,12 @@ function Mg(e, o, n, i = "[C3/Credential]") {
 function Og(e, o, n, i = "[C3]") {
   if (e == null || e === "") return;
   if (typeof e != "string") {
-    console.warn(`${i} ${o}: unexpected datetime type ${typeof e} — treated as absent`), n.count++;
+    console.warn(`${i} ${o}: unexpected datetime type ${typeof e} -- treated as absent`), n.count++;
     return;
   }
   const c = new Date(e);
   if (isNaN(c.getTime())) {
-    console.warn(`${i} ${o}: invalid datetime "${e}" — treated as absent`), n.count++;
+    console.warn(`${i} ${o}: invalid datetime "${e}" -- treated as absent`), n.count++;
     return;
   }
   return e.trim();
@@ -38958,11 +38958,11 @@ function BV(e, o) {
   try {
     n = JSON.parse(e);
   } catch {
-    console.warn(`${Ic} ObligationAssignmentsJSON parse failed — treated as empty`), o.count++;
+    console.warn(`${Ic} ObligationAssignmentsJSON parse failed -- treated as empty`), o.count++;
     return;
   }
   if (!Array.isArray(n)) {
-    console.warn(`${Ic} ObligationAssignmentsJSON is not an array — treated as empty`), o.count++;
+    console.warn(`${Ic} ObligationAssignmentsJSON is not an array -- treated as empty`), o.count++;
     return;
   }
   return n;
@@ -38971,16 +38971,16 @@ function Vv(e, o) {
   var f, m, y, x, S, T;
   const n = `Item ${e.Id}`;
   if (!e.Title || e.Title.trim() === "")
-    return console.warn(`${Ic} ${n}: missing JourneyID — record rejected`), null;
+    return console.warn(`${Ic} ${n}: missing JourneyID -- record rejected`), null;
   if (!e.PersonID || e.PersonID.trim() === "")
-    return console.warn(`${Ic} ${n}: missing PersonID — record rejected`), null;
+    return console.warn(`${Ic} ${n}: missing PersonID -- record rejected`), null;
   if (!e.JourneyType || !AV.has(e.JourneyType))
     return console.warn(
-      `${Ic} ${n}: unknown JourneyType "${e.JourneyType ?? ""}" — record rejected`
+      `${Ic} ${n}: unknown JourneyType "${e.JourneyType ?? ""}" -- record rejected`
     ), null;
   if (!e.Status || !NV.has(e.Status))
     return console.warn(
-      `${Ic} ${n}: unknown JourneyStatus "${e.Status ?? ""}" — record rejected`
+      `${Ic} ${n}: unknown JourneyStatus "${e.Status ?? ""}" -- record rejected`
     ), null;
   const i = Og(e.InitiatedAt, `${n}.InitiatedAt`, o, Ic), c = Og(e.CompletedAt, `${n}.CompletedAt`, o, Ic), p = BV(e.ObligationAssignmentsJSON, o);
   return {
@@ -39365,7 +39365,8 @@ const OV = (e) => ({
     n.newStatus === "Executed" ? p = {
       approvalStatus: "Executed",
       executedAt: n.executedAt,
-      executionError: void 0
+      executionError: void 0,
+      ...n.targetPersonId ? { targetPersonId: n.targetPersonId } : {}
     } : p = {
       approvalStatus: "ExecutionFailed",
       executionError: n.executionError,
@@ -39388,17 +39389,17 @@ function LV(e, o) {
   var f, m, y, x, S, T, D, j, N, _;
   const n = `Item ${e.ID}`;
   if (e.ID == null || isNaN(e.ID))
-    return console.warn(`${ns} item with null ID — record rejected`), null;
+    return console.warn(`${ns} item with null ID -- record rejected`), null;
   if (!e.Title || e.Title.trim() === "")
-    return console.warn(`${ns} ${n}: missing Title (ApprovalID) — record rejected`), null;
+    return console.warn(`${ns} ${n}: missing Title (ApprovalID) -- record rejected`), null;
   if (!e.ApprovalStatus || !FV.has(e.ApprovalStatus))
     return console.warn(
-      `${ns} ${n}: invalid ApprovalStatus "${e.ApprovalStatus ?? ""}" — record rejected`
+      `${ns} ${n}: invalid ApprovalStatus "${e.ApprovalStatus ?? ""}" -- record rejected`
     ), null;
   if (!e.OperationType || e.OperationType.trim() === "")
-    return console.warn(`${ns} ${n}: missing OperationType — record rejected`), null;
-  e.SubmittedBy || (console.warn(`${ns} ${n}: missing SubmittedBy — identity will be empty`), o.count++), e.SubmittedAt || (console.warn(`${ns} ${n}: missing SubmittedAt — timestamp will be absent`), o.count++), e.Payload || (console.warn(`${ns} ${n}: missing Payload — execution will fail if attempted`), o.count++), e.ApprovalStatus === "Executed" && !e.ExecutedAt && (console.warn(
-    `${ns} ${n}: ApprovalStatus is Executed but ExecutedAt is absent — data inconsistency`
+    return console.warn(`${ns} ${n}: missing OperationType -- record rejected`), null;
+  e.SubmittedBy || (console.warn(`${ns} ${n}: missing SubmittedBy -- identity will be empty`), o.count++), e.SubmittedAt || (console.warn(`${ns} ${n}: missing SubmittedAt -- timestamp will be absent`), o.count++), e.Payload || (console.warn(`${ns} ${n}: missing Payload -- execution will fail if attempted`), o.count++), e.ApprovalStatus === "Executed" && !e.ExecutedAt && (console.warn(
+    `${ns} ${n}: ApprovalStatus is Executed but ExecutedAt is absent -- data inconsistency`
   ), o.count++);
   const i = Og(e.SubmittedAt, `${n}.SubmittedAt`, o, ns), c = Og(e.ReviewedAt, `${n}.ReviewedAt`, o, ns), p = Og(e.ExecutedAt, `${n}.ExecutedAt`, o, ns);
   return {
@@ -39556,11 +39557,11 @@ const VV = (e, o) => ({
   },
   async stampExecution(n, i) {
     let c;
-    i.newStatus === "Executed" ? c = {
+    i.newStatus === "Executed" ? (c = {
       ApprovalStatus: "Executed",
       ExecutedAt: i.executedAt,
       ExecutionError: null
-    } : c = {
+    }, i.targetPersonId && (c.TargetPersonID = i.targetPersonId)) : c = {
       ApprovalStatus: "ExecutionFailed",
       ExecutionError: i.executionError,
       ExecutedAt: null
@@ -40122,8 +40123,8 @@ const sA = () => ({
   listPersonActivities(e, o) {
     return Promise.resolve([]);
   },
-  // ── createPerson ──────────────────────────────────────────────────────────
-  // Sprint 25 — AddPerson mock execution.
+  // -- createPerson ----------------------------------------------------------
+  // Sprint 25 -- AddPerson mock execution.
   //
   // Generates a canonical PER-XXXX using the next available index (derived
   // from the highest existing static PersonID suffix, then incremented per call).
@@ -40160,7 +40161,7 @@ const sA = () => ({
 });
 function JV(e, o, n) {
   return typeof e == "boolean" ? e : e === 1 || e === "1" || e === "Yes" || e === "yes" ? !0 : (e === 0 || e === "0" || e === "No" || e === "no" || (console.warn(
-    `[C3/People] ${o}.IsActive: unknown value "${e}" — defaulting to false (inactive). Check SP column type; SP Yes/No should return boolean.`
+    `[C3/People] ${o}.IsActive: unknown value "${e}" -- defaulting to false (inactive). Check SP column type; SP Yes/No should return boolean.`
   ), n.count++), !1);
 }
 function QV(e, o, n) {
@@ -40168,7 +40169,7 @@ function QV(e, o, n) {
   const i = typeof e == "number" ? e : Number(e);
   if (!Number.isFinite(i)) {
     console.warn(
-      `[C3/People] ${o}.TotalContracts: non-numeric value "${e}" — treated as unknown.`
+      `[C3/People] ${o}.TotalContracts: non-numeric value "${e}" -- treated as unknown.`
     ), n.count++;
     return;
   }
@@ -40178,11 +40179,11 @@ function GT(e, o = { count: 0 }) {
   var f, m, y, x, S, T, D, j;
   const n = `Item ${e.Id}`;
   if (!e.Title || e.Title.trim() === "")
-    return console.warn(`[C3/People] ${n}: missing PersonID (blank Title) — record rejected`), null;
+    return console.warn(`[C3/People] ${n}: missing PersonID (blank Title) -- record rejected`), null;
   const i = e.Title.trim();
   if (!e.FullName || e.FullName.trim() === "")
     return console.warn(
-      `[C3/People] ${n} (${i}): missing FullName — record rejected. FullName is a required column in C3People; check SP list for data entry errors.`
+      `[C3/People] ${n} (${i}): missing FullName -- record rejected. FullName is a required column in C3People; check SP list for data entry errors.`
     ), null;
   const c = Mg(e.FirstContractDate, `${n}.FirstContractDate`, o, "[C3/People]"), p = Mg(e.LatestContractDate, `${n}.LatestContractDate`, o, "[C3/People]");
   return {
@@ -40295,7 +40296,7 @@ async function Zj(e) {
     return console.error("[C3/People] Failed to parse SharePoint JSON response:", i), [];
   }
   return Array.isArray(n.value) ? n.value : (console.error(
-    '[C3/People] SharePoint response is missing the "value" array. Response shape is unexpected — check list REST endpoint and $select.'
+    '[C3/People] SharePoint response is missing the "value" array. Response shape is unexpected -- check list REST endpoint and $select.'
   ), []);
 }
 function tW(e) {
@@ -40319,7 +40320,7 @@ async function eR(e) {
 const cA = (e) => {
   const o = eW(e);
   return {
-    // ── listPeople ──────────────────────────────────────────────────────────
+    // -- listPeople ----------------------------------------------------------
     // Returns only active persons. Inactive persons are filtered at the SP
     // query level ($filter=IsActive eq 1) so the mapper receives a clean set.
     // The mapper itself is IsActive-agnostic; filtering here is intentional.
@@ -40327,9 +40328,9 @@ const cA = (e) => {
       const n = `${o}?$select=${Yj}&$filter=IsActive eq 1&$top=${ZV}`, i = await Zj(n), { people: c } = YV(i);
       return c;
     },
-    // ── getPerson ───────────────────────────────────────────────────────────
+    // -- getPerson -----------------------------------------------------------
     // Looks up a single person by PersonID (stored in the SP Title column).
-    // No IsActive guard — callers may need to retrieve inactive persons for
+    // No IsActive guard -- callers may need to retrieve inactive persons for
     // audit, journey history, or credential attribution purposes.
     async getPerson(n) {
       const i = `${o}?$select=${Yj}&$filter=Title eq '${Xj(n)}'&$top=1`, c = await Zj(i);
@@ -40342,9 +40343,9 @@ const cA = (e) => {
         `[C3/People] getPerson: SP record for PersonID "${n}" was rejected by the mapper (missing PersonID or FullName). Check the C3People list for data entry errors on this record.`
       ), null) : f;
     },
-    // ── listPersonContracts ─────────────────────────────────────────────────
+    // -- listPersonContracts -------------------------------------------------
     // Sprint 24 Phase 1: Real implementation. Queries C3Contracts by PersonID.
-    // PersonID is the canonical PER-XXXX FK — not the SP numeric Id.
+    // PersonID is the canonical PER-XXXX FK -- not the SP numeric Id.
     // Returns [] gracefully if C3Contracts is not yet provisioned (404).
     async listPersonContracts(n) {
       if (!n || n.trim().length === 0)
@@ -40374,7 +40375,7 @@ const cA = (e) => {
       }
       return Array.isArray(p.value) ? p.value.map(KT) : (console.error("[C3/People] listPersonContracts: unexpected response shape from C3Contracts."), []);
     },
-    // ── listPersonActivities (stub) ─────────────────────────────────────────
+    // -- listPersonActivities (stub) -----------------------------------------
     // Activity history is not part of the Sprint 16 data layer scope.
     // Deferred until the C3Activities list schema and service are defined.
     async listPersonActivities(n, i) {
@@ -40382,8 +40383,8 @@ const cA = (e) => {
         "[C3/People] listPersonActivities: not implemented in S16. C3Activities list schema and service are deferred to a future sprint."
       ), [];
     },
-    // ── createPerson ─────────────────────────────────────────────────────────
-    // Sprint 25 — AddPerson SP DSM execution.
+    // -- createPerson --------------------------------------------------------
+    // Sprint 25 -- AddPerson SP DSM execution.
     //
     // POST-then-MERGE pattern (same as SharePointApprovalsService.createApproval):
     //   1. POST to C3People with all input fields.
@@ -40392,15 +40393,15 @@ const cA = (e) => {
     //      originating approval if the MERGE step fails.
     //   2. Read the SP-assigned item ID from the response.
     //   3. MERGE Title (= PersonID) to PER-XXXX using the item ID as the
-    //      atomic sequence source — same pattern as APR-XXXX.
+    //      atomic sequence source -- same pattern as APR-XXXX.
     //   4. Return a mapped Person with the canonical PersonID.
     //
     // Failure modes:
-    //   POST fails              → throw immediately. No row created. Caller stamps ExecutionFailed.
-    //   POST ok, MERGE fails    → throw with SP item ID in message. Orphaned row exists in
+    //   POST fails              -> throw immediately. No row created. Caller stamps ExecutionFailed.
+    //   POST ok, MERGE fails    -> throw with SP item ID in message. Orphaned row exists in
     //                             C3People with TMP/PENDING title. Caller stamps ExecutionFailed.
     //                             Operator must fix Title manually or via recovery (TD-24).
-    //   GET-back-mapped fails   → throw. Row and PER-XXXX are valid; stamp failure handled by caller.
+    //   GET-back-mapped fails   -> throw. Row and PER-XXXX are valid; stamp failure handled by caller.
     //
     // Duplicate protection: FullName-based check is applied at the useExecuteApproval
     // layer before calling createPerson. This method trusts the caller has checked.
@@ -40481,7 +40482,7 @@ const cA = (e) => {
       }, _ = GT(N, j);
       if (_ === null)
         throw new Error(
-          `[C3/People] createPerson: SP item ${y} was created (${x}) but mapper rejected it. This is an unexpected state — check C3People list.`
+          `[C3/People] createPerson: SP item ${y} was created (${x}) but mapper rejected it. This is an unexpected state -- check C3People list.`
         );
       return console.info(`[C3/People] createPerson: created ${x} ("${_.FullName}") at SP ID ${y}`), _;
     }
@@ -40638,12 +40639,12 @@ function JT(e, o = { count: 0 }) {
   var y, x, S, T, D, j, N;
   const n = `Item ${e.ID}`;
   if (!e.HolderPersonID || e.HolderPersonID.trim() === "")
-    return console.warn(`[C3/Credential] ${n}: missing HolderPersonID — record rejected`), null;
+    return console.warn(`[C3/Credential] ${n}: missing HolderPersonID -- record rejected`), null;
   const i = ((y = e.Title) == null ? void 0 : y.trim()) || `CRED-${e.ID}`;
-  (x = e.Title) != null && x.trim() || (console.warn(`[C3/Credential] ${n}: empty Title — CredentialID assigned as ${i}`), o.count++);
+  (x = e.Title) != null && x.trim() || (console.warn(`[C3/Credential] ${n}: empty Title -- CredentialID assigned as ${i}`), o.count++);
   let c;
   nW(e.CredentialType) ? c = e.CredentialType : (console.warn(
-    `[C3/Credential] ${n}: unknown CredentialType "${e.CredentialType}" — mapped to Other. This credential will satisfy no obligations. Check SP list choice values against CredentialType union.`
+    `[C3/Credential] ${n}: unknown CredentialType "${e.CredentialType}" -- mapped to Other. This credential will satisfy no obligations. Check SP list choice values against CredentialType union.`
   ), o.count++, c = "Other");
   const p = Mg(e.IssuedDate, `${n}.IssuedDate`, o), f = Mg(e.ExpiryDate, `${n}.ExpiryDate`, o), m = Mg(e.ValidFromDate, `${n}.ValidFromDate`, o);
   return {
@@ -41233,7 +41234,9 @@ const dW = () => {
         try {
           await o.stampExecution(f.id, {
             newStatus: "Executed",
-            executedAt: M
+            executedAt: M,
+            targetPersonId: _
+            // backfill PENDING-ADDPERSON -> PER-XXXX
           });
         } catch (P) {
           throw console.error(
@@ -43486,7 +43489,7 @@ const lG = [Pk], DA = (e) => {
       G,
       _,
       M
-      // No options — general (non-mission) evaluation.
+      // No options -- general (non-mission) evaluation.
     );
   }, [o, f, x, e]), isLoading: D, error: i ?? y ?? T ?? null };
 }, cG = [
@@ -44199,28 +44202,8 @@ const vG = () => ({
   if (i)
     return /* @__PURE__ */ v.jsxs("div", { style: { padding: "var(--c3-space-8)", display: "flex", flexDirection: "column", gap: "var(--c3-space-6)" }, children: [
       /* @__PURE__ */ v.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: 6 }, children: [
-        /* @__PURE__ */ v.jsx(
-          "div",
-          {
-            style: {
-              height: 28,
-              width: 260,
-              borderRadius: "var(--c3-radius-md)",
-              backgroundColor: "var(--c3-gray-200)"
-            }
-          }
-        ),
-        /* @__PURE__ */ v.jsx(
-          "div",
-          {
-            style: {
-              height: 14,
-              width: 180,
-              borderRadius: "var(--c3-radius-sm)",
-              backgroundColor: "var(--c3-gray-100)"
-            }
-          }
-        )
+        /* @__PURE__ */ v.jsx("div", { style: { height: 28, width: 260, borderRadius: "var(--c3-radius-md)", backgroundColor: "var(--c3-gray-200)" } }),
+        /* @__PURE__ */ v.jsx("div", { style: { height: 14, width: 180, borderRadius: "var(--c3-radius-sm)", backgroundColor: "var(--c3-gray-100)" } })
       ] }),
       /* @__PURE__ */ v.jsx(AG, {})
     ] });
@@ -44233,13 +44216,7 @@ const vG = () => ({
           as: "h1",
           weight: "semibold",
           size: 800,
-          style: {
-            color: "var(--c3-gray-950)",
-            display: "block",
-            margin: 0,
-            lineHeight: "1.1",
-            letterSpacing: "-0.02em"
-          },
+          style: { color: "var(--c3-gray-950)", display: "block", margin: 0, lineHeight: "1.1", letterSpacing: "-0.02em" },
           children: "Operations Work Queue"
         }
       ),
@@ -44252,62 +44229,22 @@ const vG = () => ({
         }
       )
     ] }),
-    n.total === 0 && /* @__PURE__ */ v.jsx(
-      "div",
+    n.total === 0 && /* @__PURE__ */ v.jsx("div", { style: { backgroundColor: "var(--c3-white)", borderRadius: "var(--c3-radius-lg)", boxShadow: "var(--c3-shadow-2)", padding: "var(--c3-space-8)" }, children: /* @__PURE__ */ v.jsx(
+      Jt,
       {
-        style: {
-          backgroundColor: "var(--c3-white)",
-          borderRadius: "var(--c3-radius-lg)",
-          boxShadow: "var(--c3-shadow-2)",
-          padding: "var(--c3-space-8)"
-        },
-        children: /* @__PURE__ */ v.jsx(
-          Jt,
-          {
-            variant: "success",
-            title: "All clear",
-            description: "No operational work items requiring attention. All gaps are either satisfied or covered."
-          }
-        )
+        variant: "success",
+        title: "All clear",
+        description: "No operational work items requiring attention. All gaps are either satisfied or covered."
       }
-    ),
+    ) }),
     n.total > 0 && /* @__PURE__ */ v.jsxs("div", { style: { display: "flex", flexDirection: "column", gap: "var(--c3-space-4)" }, children: [
-      /* @__PURE__ */ v.jsx(
-        QC,
-        {
-          config: JC[0],
-          items: f,
-          onAction: p
-        }
-      ),
-      /* @__PURE__ */ v.jsx(
-        QC,
-        {
-          config: JC[1],
-          items: m,
-          onAction: p
-        }
-      ),
-      /* @__PURE__ */ v.jsx(
-        QC,
-        {
-          config: JC[2],
-          items: y,
-          onAction: p
-        }
-      )
+      /* @__PURE__ */ v.jsx(QC, { config: JC[0], items: f, onAction: p }),
+      /* @__PURE__ */ v.jsx(QC, { config: JC[1], items: m, onAction: p }),
+      /* @__PURE__ */ v.jsx(QC, { config: JC[2], items: y, onAction: p })
     ] }),
     n.total > 0 && /* @__PURE__ */ v.jsxs("div", { style: { display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "var(--c3-space-3)" }, children: [
       /* @__PURE__ */ v.jsx(te, { size: 200, style: { color: "var(--c3-gray-400)" }, children: "Items computed from live operational state ·" }),
-      /* @__PURE__ */ v.jsx(
-        Nt,
-        {
-          appearance: "subtle",
-          size: "small",
-          onClick: () => e({ id: "situation-room" }),
-          children: "Open Situation Room"
-        }
-      )
+      /* @__PURE__ */ v.jsx(Nt, { appearance: "subtle", size: "small", onClick: () => e({ id: "situation-room" }), children: "Open Situation Room" })
     ] })
   ] });
 }, NA = (e) => e < 0 ? "expired" : e <= 7 ? "7d" : e <= 14 ? "14d" : e <= 30 ? "30d" : e <= 60 ? "60d" : e <= 90 ? "90d" : null, Uc = ({ endDate: e }) => {
@@ -45683,8 +45620,8 @@ const vG = () => ({
         requestedBy: o.loginName || void 0
       }, S = await i.createApproval({
         operationType: "AddPerson",
-        targetPersonId: "",
-        // Person does not exist yet -- no PER-XXXX to reference
+        targetPersonId: "PENDING-ADDPERSON",
+        // placeholder -- backfilled to PER-XXXX at execution
         reason: `Create new person: ${y.FullName}`,
         payload: JSON.stringify(x)
       });
@@ -46023,57 +45960,35 @@ const vG = () => ({
     [n]
   );
   if (i)
-    return /* @__PURE__ */ v.jsxs(
-      "div",
-      {
-        style: {
-          padding: "var(--c3-space-8)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--c3-space-6)"
-        },
-        children: [
-          /* @__PURE__ */ v.jsx(
-            an,
-            {
-              title: "People Workspace",
-              subtitle: "Contract participants, talent, staff and stakeholders."
-            }
-          ),
-          /* @__PURE__ */ v.jsx(xh, { count: 3 }),
-          /* @__PURE__ */ v.jsx(cK, {})
-        ]
-      }
-    );
+    return /* @__PURE__ */ v.jsxs("div", { style: { padding: "var(--c3-space-8)", display: "flex", flexDirection: "column", gap: "var(--c3-space-6)" }, children: [
+      /* @__PURE__ */ v.jsx(
+        an,
+        {
+          title: "People Workspace",
+          subtitle: "Contract participants, talent, staff and stakeholders."
+        }
+      ),
+      /* @__PURE__ */ v.jsx(xh, { count: 3 }),
+      /* @__PURE__ */ v.jsx(cK, {})
+    ] });
   if (c)
-    return /* @__PURE__ */ v.jsxs(
-      "div",
-      {
-        style: {
-          padding: "var(--c3-space-8)",
-          display: "flex",
-          flexDirection: "column",
-          gap: "var(--c3-space-6)"
-        },
-        children: [
-          /* @__PURE__ */ v.jsx(
-            an,
-            {
-              title: "People Workspace",
-              subtitle: "Contract participants, talent, staff and stakeholders."
-            }
-          ),
-          /* @__PURE__ */ v.jsx(
-            Jt,
-            {
-              variant: "error",
-              title: "Could not load people",
-              description: "Check your connection or contact an administrator."
-            }
-          )
-        ]
-      }
-    );
+    return /* @__PURE__ */ v.jsxs("div", { style: { padding: "var(--c3-space-8)", display: "flex", flexDirection: "column", gap: "var(--c3-space-6)" }, children: [
+      /* @__PURE__ */ v.jsx(
+        an,
+        {
+          title: "People Workspace",
+          subtitle: "Contract participants, talent, staff and stakeholders."
+        }
+      ),
+      /* @__PURE__ */ v.jsx(
+        Jt,
+        {
+          variant: "error",
+          title: "Could not load people",
+          description: "Check your connection or contact an administrator."
+        }
+      )
+    ] });
   const S = `${n.length} ${n.length === 1 ? "person" : "people"}`;
   return /* @__PURE__ */ v.jsxs(
     "div",
@@ -46188,7 +46103,7 @@ const vG = () => ({
         operationType: "AddCredential",
         holderPersonId: f.HolderPersonID,
         credentialType: f.Type,
-        // CredentialType union → string in payload
+        // CredentialType union -> string in payload
         referenceNumber: f.ReferenceNumber,
         issuedBy: f.IssuedBy,
         issuedDate: f.IssuedDate,
@@ -46463,7 +46378,7 @@ const vG = () => ({
   } = iA({
     status: [...hK],
     refetchInterval: !1
-    // history surface — no live polling
+    // history surface -- no live polling
   });
   return { data: A.useMemo(
     () => o.filter((f) => f.targetPersonId === e),
@@ -46480,19 +46395,19 @@ function gK(e, o) {
   }
   if (o === "InitiateJourney") {
     const i = typeof n.journeyType == "string" && n.journeyType.trim() ? n.journeyType.trim() : "Journey", c = typeof n.personId == "string" && n.personId.trim() ? n.personId.trim() : null;
-    return [i, c].filter(Boolean).join(" · ");
+    return [i, c].filter(Boolean).join(" - ");
   }
   if (o === "AddCredential") {
-    const i = typeof n.credentialType == "string" && n.credentialType.trim() ? n.credentialType.trim() : null, c = i ? $c[i] ?? i : null, p = typeof n.referenceNumber == "string" && n.referenceNumber.trim() ? n.referenceNumber.trim() : null, f = typeof n.holderPersonId == "string" && n.holderPersonId.trim() ? n.holderPersonId.trim() : null, m = typeof n.expiryDate == "string" && n.expiryDate.trim() ? `Expires ${n.expiryDate.trim()}` : null, y = [c, p, f, m].filter(Boolean);
-    return y.length > 0 ? y.join(" · ") : null;
+    const i = typeof n.credentialType == "string" && n.credentialType.trim() ? n.credentialType.trim() : null, c = i ? $c[i] ?? i : null, p = typeof n.referenceNumber == "string" && n.referenceNumber.trim() ? n.referenceNumber.trim() : null, f = typeof n.holderPersonId == "string" && n.holderPersonId.trim() ? n.holderPersonId.trim() : null, m = typeof n.expiryDate == "string" && n.expiryDate.trim() ? "Expires " + n.expiryDate.trim() : null, y = [c, p, f, m].filter(Boolean);
+    return y.length > 0 ? y.join(" - ") : null;
   }
   if (o === "DeactivateCredential") {
     const i = typeof n.credentialType == "string" && n.credentialType.trim() ? n.credentialType.trim() : null, c = i ? $c[i] ?? i : null, p = typeof n.referenceNumber == "string" && n.referenceNumber.trim() ? n.referenceNumber.trim() : null, f = typeof n.holderPersonId == "string" && n.holderPersonId.trim() ? n.holderPersonId.trim() : null, m = ["Deactivate", c, p, f].filter(Boolean);
-    return m.length > 0 ? m.join(" · ") : "Deactivate credential";
+    return m.length > 0 ? m.join(" - ") : "Deactivate credential";
   }
   if (o === "AddPerson") {
     const i = typeof n.fullName == "string" && n.fullName.trim() ? n.fullName.trim() : null, c = typeof n.primaryRole == "string" && n.primaryRole.trim() ? n.primaryRole.trim() : null, p = typeof n.currentTeam == "string" && n.currentTeam.trim() ? n.currentTeam.trim() : null, f = [i, c, p].filter(Boolean);
-    return f.length > 0 ? "New Person · " + f.join(" · ") : "New person creation request";
+    return f.length > 0 ? "New Person - " + f.join(" - ") : "New person creation request";
   }
   return null;
 }
@@ -46623,7 +46538,7 @@ const fR = ({ approval: e }) => {
         },
         children: [
           /* @__PURE__ */ v.jsx(Yf, { size: "small" }),
-          /* @__PURE__ */ v.jsx(te, { size: 200, style: { color: "var(--c3-gray-500)" }, children: "Loading approval history…" })
+          /* @__PURE__ */ v.jsx(te, { size: 200, style: { color: "var(--c3-gray-500)" }, children: "Loading approval history..." })
         ]
       }
     );

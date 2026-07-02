@@ -37,7 +37,7 @@ export const useAllMissionParticipants = (): {
     queryFn:  () => missionService.listAllMissionParticipants(),
   });
 
-  // Build missionId → personIds map once per data change.
+  // Build missionId -> personIds map once per data change.
   // Each MissionParticipant.PersonID is in the same namespace as
   // Person.PersonID, Credential.HolderPersonID, and Journey.PersonID.
   const participantPersonIdsByMission = useMemo<Map<string, string[]>>(() => {

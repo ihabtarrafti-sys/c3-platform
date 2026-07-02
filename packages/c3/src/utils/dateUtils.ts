@@ -10,15 +10,15 @@ const normalizeToMidnight = (isoStr: string): Date => {
 // string ("YYYY-MM-DD") for use in the Credential, Journey, and other
 // SP-backed interfaces.
 //
-// Invalid input → undefined, NOT a sentinel date.
+// Invalid input -> undefined, NOT a sentinel date.
 //   A sentinel (e.g. "1970-01-01") would cause computeUrgency to treat the
 //   document as critically expired from 56 years ago. undefined means the
-//   document is treated as non-expiring — the safer operational default.
+//   document is treated as non-expiring -- the safer operational default.
 //   The warning log records the anomaly for correction.
 //
-//   null / undefined / ''  → undefined (silent — absent field is expected)
-//   non-string             → undefined + console.warn
-//   unparseable string     → undefined + console.warn
+//   null / undefined / ''  -> undefined (silent -- absent field is expected)
+//   non-string             -> undefined + console.warn
+//   unparseable string     -> undefined + console.warn
 // ---------------------------------------------------------------------------
 
 /**
@@ -32,7 +32,7 @@ const normalizeToMidnight = (isoStr: string): Date => {
  *
  * @param val      Raw value from SP REST response (may be null, undefined, or string).
  * @param context  Log context label (e.g. "Item 7.ExpiryDate") for warning messages.
- * @param warnRef  Shared warn counter — incremented on non-fatal anomalies.
+ * @param warnRef  Shared warn counter -- incremented on non-fatal anomalies.
  * @returns        "YYYY-MM-DD" on success; undefined on null/empty/invalid.
  */
 export function normalizeSpDate(
@@ -43,13 +43,13 @@ export function normalizeSpDate(
 ): string | undefined {
   if (val === null || val === undefined || val === '') return undefined;
   if (typeof val !== 'string') {
-    console.warn(`${prefix} ${context}: unexpected date type ${typeof val} — treated as absent`);
+    console.warn(`${prefix} ${context}: unexpected date type ${typeof val} -- treated as absent`);
     warnRef.count++;
     return undefined;
   }
   const d = new Date(val);
   if (isNaN(d.getTime())) {
-    console.warn(`${prefix} ${context}: invalid date "${val}" — treated as absent (non-expiring)`);
+    console.warn(`${prefix} ${context}: invalid date "${val}" -- treated as absent (non-expiring)`);
     warnRef.count++;
     return undefined;
   }
@@ -63,13 +63,13 @@ export function normalizeSpDate(
 // string, preserving the full datetime (not stripping to date-only).
 //
 // Use this for SP "Date and Time" columns (InitiatedAt, SubmittedAt, etc.)
-// Do NOT use normalizeSpDate here — it strips to YYYY-MM-DD, corrupting
+// Do NOT use normalizeSpDate here -- it strips to YYYY-MM-DD, corrupting
 // datetime semantics.
 //
-//   null / undefined / ''  → undefined (silent)
-//   non-string             → undefined + console.warn + warnRef.count++
-//   unparseable string     → undefined + console.warn + warnRef.count++
-//   valid datetime string  → raw trimmed SP value (full ISO string preserved)
+//   null / undefined / ''  -> undefined (silent)
+//   non-string             -> undefined + console.warn + warnRef.count++
+//   unparseable string     -> undefined + console.warn + warnRef.count++
+//   valid datetime string  -> raw trimmed SP value (full ISO string preserved)
 // ---------------------------------------------------------------------------
 
 /**
@@ -80,7 +80,7 @@ export function normalizeSpDate(
  *
  * @param val      Raw value from SP REST response (may be null, undefined, or string).
  * @param context  Log context label (e.g. "Item 7.InitiatedAt") for warning messages.
- * @param warnRef  Shared warn counter — incremented on non-fatal anomalies.
+ * @param warnRef  Shared warn counter -- incremented on non-fatal anomalies.
  * @param prefix   Diagnostic prefix (e.g. "[C3/Journey]", "[C3/Approvals]").
  * @returns        Trimmed ISO string on success; undefined on null/empty/invalid.
  */
@@ -92,13 +92,13 @@ export function normalizeSpDateTime(
 ): string | undefined {
   if (val === null || val === undefined || val === '') return undefined;
   if (typeof val !== 'string') {
-    console.warn(`${prefix} ${context}: unexpected datetime type ${typeof val} — treated as absent`);
+    console.warn(`${prefix} ${context}: unexpected datetime type ${typeof val} -- treated as absent`);
     warnRef.count++;
     return undefined;
   }
   const d = new Date(val);
   if (isNaN(d.getTime())) {
-    console.warn(`${prefix} ${context}: invalid datetime "${val}" — treated as absent`);
+    console.warn(`${prefix} ${context}: invalid datetime "${val}" -- treated as absent`);
     warnRef.count++;
     return undefined;
   }

@@ -8,7 +8,7 @@
  * Invariants enforced here (ADR-013):
  *   - Self-approval blocked: throws SelfApprovalError when the current user
  *     is the same person who submitted the approval (loginName comparison).
- *   - Role gate is enforced in the UI — this hook is role-agnostic; callers
+ *   - Role gate is enforced in the UI -- this hook is role-agnostic; callers
  *     must not expose the mutation to non-owners.
  *   - patchApprovalStatus does NOT set ExecutedAt, ExecutionError, or
  *     create/update any C3Journeys record.
@@ -50,7 +50,7 @@ export class SelfApprovalError extends Error {
 // ---------------------------------------------------------------------------
 
 export interface PatchApprovalStatusVariables {
-  /** The approval being actioned — used for self-approval check and query context. */
+  /** The approval being actioned -- used for self-approval check and query context. */
   approval: C3Approval;
   /** The new status to apply. Only 'Approved' or 'Rejected' are valid. */
   newStatus: 'Approved' | 'Rejected';

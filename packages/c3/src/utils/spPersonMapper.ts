@@ -4,31 +4,31 @@
  * Pure mapping layer between raw SharePoint REST API list items and the
  * typed `Person` interface consumed by the C3 platform.
  *
- * Sprint 16 (S16-5) — People Integration.
+ * Sprint 16 (S16-5) -- People Integration.
  *
  * Design follows the S15 spCredentialMapper pattern:
  *   - No React, no hooks, no service dependencies. Pure functions only.
- *   - All validation and type-guarding lives here — the service layer calls
+ *   - All validation and type-guarding lives here -- the service layer calls
  *     mapSpItemsToPeople and receives typed Person[] with diagnostic counts.
  *   - Invalid/unknown values degrade gracefully:
- *       Missing/blank Title (PersonID)  → record rejected (hard reject)
- *       Missing/blank FullName          → record rejected (hard reject)
- *       Unknown IsActive value          → false with console.warn
- *       Invalid date string             → undefined with console.warn (via normalizeSpDate)
- *       Non-numeric TotalContracts      → undefined with console.warn
- *       All other optional text fields  → undefined (no warn — absent optional field)
+ *       Missing/blank Title (PersonID)  -> record rejected (hard reject)
+ *       Missing/blank FullName          -> record rejected (hard reject)
+ *       Unknown IsActive value          -> false with console.warn
+ *       Invalid date string             -> undefined with console.warn (via normalizeSpDate)
+ *       Non-numeric TotalContracts      -> undefined with console.warn
+ *       All other optional text fields  -> undefined (no warn -- absent optional field)
  *   - Inactive records are NOT rejected here. Filtering by IsActive belongs to the
  *     service layer via $filter=IsActive eq 1 in the SP query.
  *   - Aggregate diagnostic summary logged once per batch (console.info).
  *
- * CRITICAL — Title column mapping:
+ * CRITICAL -- Title column mapping:
  *   In C3People, the built-in Title column stores the PersonID (e.g. "PER-0001").
- *   FullName is a SEPARATE column. Do NOT map Title → FullName.
- *   The legacy mapper at src/mappers/personMapper.ts maps Title → FullName —
+ *   FullName is a SEPARATE column. Do NOT map Title -> FullName.
+ *   The legacy mapper at src/mappers/personMapper.ts maps Title -> FullName --
  *   that is wrong for this schema and must not be used or referenced here.
  *
  * See: docs/architecture/C3People SP List Schema.md (authoritative schema reference)
- * See: docs/architecture/C3 Architecture Baseline — Sprint 16.md
+ * See: docs/architecture/C3 Architecture Baseline -- Sprint 16.md
  */
 
 import type { Person } from '@c3/types';
@@ -40,28 +40,28 @@ import { normalizeSpDate } from './dateUtils';
 // Shape of a raw SharePoint REST list item for C3People.
 // Fields match the list schema column internal names exactly.
 // All fields are typed permissively (unknown | null) because SP REST
-// responses can return null for optional columns — the type-guard layer
+// responses can return null for optional columns -- the type-guard layer
 // below is responsible for narrowing.
 //
 // PLAIN TEXT FIELDS: CurrentTeam, CurrentGameTitle, PrimaryDepartment are
-// plain text columns in C3People — NOT SharePoint Lookup columns. They must
+// plain text columns in C3People -- NOT SharePoint Lookup columns. They must
 // never be typed as SPLookupValue or object. The schema doc explicitly
 // prohibits Lookup column creation for these fields to avoid complexity.
 // ---------------------------------------------------------------------------
 
 export interface SpPersonItem {
-  /** SP built-in integer primary key — maps to Person.Id. */
+  /** SP built-in integer primary key -- maps to Person.Id. */
   Id: number;
 
   /**
    * Title column repurposed as PersonID (e.g. "PER-0001").
-   * Missing/blank → hard reject. See schema doc: Title = PersonID, not FullName.
+   * Missing/blank -> hard reject. See schema doc: Title = PersonID, not FullName.
    */
   Title: string | null;
 
   /**
    * Full legal name of the person, e.g. "Abdulaziz Alabdullatif".
-   * Missing/blank → hard reject.
+   * Missing/blank -> hard reject.
    */
   FullName: string | null;
 
@@ -79,7 +79,7 @@ export interface SpPersonItem {
 
   /**
    * Current team assignment, plain text (e.g. "GKE Fortnite", "Operations").
-   * NOT a SP Lookup — schema doc explicitly requires plain text column.
+   * NOT a SP Lookup -- schema doc explicitly requires plain text column.
    */
   CurrentTeam: string | null;
 
@@ -101,13 +101,13 @@ export interface SpPersonItem {
    */
   IsActive: boolean | number | string | null;
 
-  /** SP DateOnly column — ISO-like string from REST, e.g. "2026-01-10T00:00:00Z". */
+  /** SP DateOnly column -- ISO-like string from REST, e.g. "2026-01-10T00:00:00Z". */
   FirstContractDate: string | null;
 
-  /** SP DateOnly column — ISO-like string from REST. */
+  /** SP DateOnly column -- ISO-like string from REST. */
   LatestContractDate: string | null;
 
-  /** SP Number column — running count of contracts. */
+  /** SP Number column -- running count of contracts. */
   TotalContracts: number | string | null;
 
   /** Free-text operational notes. Optional. */
@@ -134,7 +134,7 @@ export interface SpPersonMapResult {
 // IsActive parsing
 //
 // Follows the same pattern as spCredentialMapper.parseIsActive.
-// Conservative default: unknown → false (treat as inactive) so the person
+// Conservative default: unknown -> false (treat as inactive) so the person
 // does not silently satisfy obligations when their active status is uncertain.
 // ---------------------------------------------------------------------------
 
@@ -143,7 +143,7 @@ function parseIsActive(val: unknown, ctx: string, warnRef: { count: number }): b
   if (val === 1 || val === '1' || val === 'Yes' || val === 'yes') return true;
   if (val === 0 || val === '0' || val === 'No'  || val === 'no')  return false;
   console.warn(
-    `[C3/People] ${ctx}.IsActive: unknown value "${val}" — defaulting to false (inactive). ` +
+    `[C3/People] ${ctx}.IsActive: unknown value "${val}" -- defaulting to false (inactive). ` +
     `Check SP column type; SP Yes/No should return boolean.`,
   );
   warnRef.count++;
@@ -153,7 +153,7 @@ function parseIsActive(val: unknown, ctx: string, warnRef: { count: number }): b
 // ---------------------------------------------------------------------------
 // TotalContracts parsing
 //
-// SP Number column — REST returns a number. Defensive handling for edge cases
+// SP Number column -- REST returns a number. Defensive handling for edge cases
 // (stringified number, corrupt value). Returns undefined rather than 0 for
 // corrupt values: 0 is a meaningful state (no contracts) and should not be
 // silently assigned to records with corrupt data.
@@ -168,7 +168,7 @@ function parseTotalContracts(
   const n = typeof val === 'number' ? val : Number(val);
   if (!Number.isFinite(n)) {
     console.warn(
-      `[C3/People] ${ctx}.TotalContracts: non-numeric value "${val}" — treated as unknown.`,
+      `[C3/People] ${ctx}.TotalContracts: non-numeric value "${val}" -- treated as unknown.`,
     );
     warnRef.count++;
     return undefined;
@@ -182,14 +182,14 @@ function parseTotalContracts(
 // Returns a Person on success, null on hard rejection.
 //
 // Hard rejections:
-//   1. Missing/blank Title (PersonID) — cannot identify who this record is for.
-//   2. Missing/blank FullName — a person without a name cannot be displayed
+//   1. Missing/blank Title (PersonID) -- cannot identify who this record is for.
+//   2. Missing/blank FullName -- a person without a name cannot be displayed
 //      or matched. Required column per schema; blank indicates a data entry error.
 //
 // Soft warnings (record is still returned):
-//   - Unknown IsActive value → false
-//   - Invalid date value → undefined (non-expiring semantics for dates)
-//   - Non-numeric TotalContracts → undefined
+//   - Unknown IsActive value -> false
+//   - Invalid date value -> undefined (non-expiring semantics for dates)
+//   - Non-numeric TotalContracts -> undefined
 // ---------------------------------------------------------------------------
 
 /**
@@ -204,28 +204,28 @@ export function mapSpItemToPerson(
 ): Person | null {
   const ctx = `Item ${item.Id}`;
 
-  // ── Hard reject: missing PersonID (blank Title) ────────────────────────────
+  // Hard reject: missing PersonID (blank Title)
   if (!item.Title || item.Title.trim() === '') {
-    console.warn(`[C3/People] ${ctx}: missing PersonID (blank Title) — record rejected`);
+    console.warn(`[C3/People] ${ctx}: missing PersonID (blank Title) -- record rejected`);
     return null;
   }
 
   const personId = item.Title.trim();
 
-  // ── Hard reject: missing FullName ──────────────────────────────────────────
+  // Hard reject: missing FullName
   if (!item.FullName || item.FullName.trim() === '') {
     console.warn(
-      `[C3/People] ${ctx} (${personId}): missing FullName — record rejected. ` +
+      `[C3/People] ${ctx} (${personId}): missing FullName -- record rejected. ` +
       `FullName is a required column in C3People; check SP list for data entry errors.`,
     );
     return null;
   }
 
-  // ── Date fields ────────────────────────────────────────────────────────────
+  // Date fields
   const firstContractDate  = normalizeSpDate(item.FirstContractDate,  `${ctx}.FirstContractDate`,  warnRef, '[C3/People]');
   const latestContractDate = normalizeSpDate(item.LatestContractDate, `${ctx}.LatestContractDate`, warnRef, '[C3/People]');
 
-  // ── Build Person ───────────────────────────────────────────────────────────
+  // Build Person
   return {
     Id:                item.Id,
     PersonID:          personId,
@@ -254,7 +254,7 @@ export function mapSpItemToPerson(
 //
 // NOTE: This mapper does not filter by IsActive. The service layer applies
 // $filter=IsActive eq 1 in the SP REST query before calling this mapper.
-// Records with IsActive=false that reach the mapper are mapped normally —
+// Records with IsActive=false that reach the mapper are mapped normally --
 // they may appear here only if the service omits the IsActive filter (e.g.
 // in diagnostic or admin contexts). The mapper itself stays IsActive-agnostic.
 // ---------------------------------------------------------------------------

@@ -4,22 +4,22 @@
  * Pure mapping layer between raw SharePoint REST API list items and the
  * typed `Credential` interface consumed by the C3 protocol engine.
  *
- * Sprint 15 (S15-2) — SharePoint Credential Integration.
+ * Sprint 15 (S15-2) -- SharePoint Credential Integration.
  *
  * Design:
  *   - No React, no hooks, no service dependencies. Pure functions only.
- *   - All validation and type-guarding lives here — the service layer calls
+ *   - All validation and type-guarding lives here -- the service layer calls
  *     mapSpItemsToCredentials and receives typed Credential[] or null rejection.
  *   - Runtime guards match the TypeScript types exactly, not SP column labels.
  *   - Invalid/unknown values degrade gracefully:
- *       Missing HolderPersonID  → record rejected (hard reject)
- *       Unknown CredentialType  → mapped to 'Other' with console.warn
- *       Invalid date string     → undefined (non-expiring semantics) with console.warn
- *       Empty Title             → CRED-{SP_ID} fallback with console.warn
+ *       Missing HolderPersonID  -> record rejected (hard reject)
+ *       Unknown CredentialType  -> mapped to 'Other' with console.warn
+ *       Invalid date string     -> undefined (non-expiring semantics) with console.warn
+ *       Empty Title             -> CRED-{SP_ID} fallback with console.warn
  *   - Aggregate diagnostic summary logged once per batch (console.info).
  *
  * See: docs/architecture/C3Credentials SP List Schema.md
- * See: Sprint 15 Proposal — §2 (field mapping), §3 (type guards), §4 (dates)
+ * See: Sprint 15 Proposal -- S2 (field mapping), S3 (type guards), S4 (dates)
  */
 
 import type { Credential, CredentialType } from '@c3/types';
@@ -36,24 +36,24 @@ import { normalizeSpDate } from './dateUtils';
 // ---------------------------------------------------------------------------
 
 export interface SpCredentialItem {
-  /** SP built-in integer primary key — maps to Credential.Id. */
+  /** SP built-in integer primary key -- maps to Credential.Id. */
   ID: number;
 
   /**
    * Title column repurposed as CredentialID (e.g. "CRED-0001").
-   * Null or empty → falls back to CRED-{ID} at runtime.
+   * Null or empty -> falls back to CRED-{ID} at runtime.
    */
   Title: string | null;
 
   /**
    * Application-layer PersonID of the holder (e.g. "PER-0001").
-   * Plain text — NOT a SP Lookup. Missing/blank → record rejected.
+   * Plain text -- NOT a SP Lookup. Missing/blank -> record rejected.
    */
   HolderPersonID: string | null;
 
   /**
-   * Choice column — one of the 18 CredentialType values.
-   * Unknown value → mapped to 'Other' with warning.
+   * Choice column -- one of the 18 CredentialType values.
+   * Unknown value -> mapped to 'Other' with warning.
    */
   CredentialType: string | null;
 
@@ -98,7 +98,7 @@ export interface SpCredentialMapResult {
 // 18 values: 17 domain-specific types + 'Other' catch-all.
 // Must stay in sync with the CredentialType union in types/credentials.ts.
 // The SP list schema (C3Credentials SP List Schema.md) enforces the same
-// set as its choice field — divergence indicates a schema drift.
+// set as its choice field -- divergence indicates a schema drift.
 // ---------------------------------------------------------------------------
 
 export const VALID_CREDENTIAL_TYPES = new Set<string>([
@@ -128,14 +128,14 @@ function isValidCredentialType(val: unknown): val is CredentialType {
 //
 // SP Yes/No columns return boolean in the REST API.
 // Defensive handling for legacy or edge-case forms.
-// Conservative default: unknown → false (treat as inactive).
+// Conservative default: unknown -> false (treat as inactive).
 // ---------------------------------------------------------------------------
 
 function parseIsActive(val: unknown): boolean {
   if (typeof val === 'boolean') return val;
   if (val === 1 || val === '1' || val === 'Yes' || val === 'yes') return true;
   if (val === 0 || val === '0' || val === 'No'  || val === 'no')  return false;
-  // Unknown — log and treat as inactive so the credential doesn't silently
+  // Unknown -- log and treat as inactive so the credential doesn't silently
   // satisfy obligations when its active status is uncertain.
   return false;
 }
@@ -144,7 +144,7 @@ function parseIsActive(val: unknown): boolean {
 // Single-item mapper
 //
 // Returns a Credential on success, null on hard rejection.
-// Hard rejection: missing HolderPersonID — the record cannot be attributed
+// Hard rejection: missing HolderPersonID -- the record cannot be attributed
 //   to any person and is invisible to the protocol engine.
 // All other errors are soft (warnings); the record is still returned.
 // ---------------------------------------------------------------------------
@@ -161,38 +161,38 @@ export function mapSpItemToCredential(
 ): Credential | null {
   const ctx = `Item ${item.ID}`;
 
-  // ── Hard reject: missing HolderPersonID ────────────────────────────────────
+  // Hard reject: missing HolderPersonID
   if (!item.HolderPersonID || item.HolderPersonID.trim() === '') {
-    console.warn(`[C3/Credential] ${ctx}: missing HolderPersonID — record rejected`);
+    console.warn(`[C3/Credential] ${ctx}: missing HolderPersonID -- record rejected`);
     return null;
   }
 
-  // ── CredentialID: Title or CRED-{ID} fallback ──────────────────────────────
+  // CredentialID: Title or CRED-{ID} fallback
   const credentialId = item.Title?.trim() || `CRED-${item.ID}`;
   if (!item.Title?.trim()) {
-    console.warn(`[C3/Credential] ${ctx}: empty Title — CredentialID assigned as ${credentialId}`);
+    console.warn(`[C3/Credential] ${ctx}: empty Title -- CredentialID assigned as ${credentialId}`);
     warnRef.count++;
   }
 
-  // ── CredentialType: type guard or 'Other' ──────────────────────────────────
+  // CredentialType: type guard or 'Other'
   let type: CredentialType;
   if (isValidCredentialType(item.CredentialType)) {
     type = item.CredentialType;
   } else {
     console.warn(
-      `[C3/Credential] ${ctx}: unknown CredentialType "${item.CredentialType}" — mapped to Other. ` +
+      `[C3/Credential] ${ctx}: unknown CredentialType "${item.CredentialType}" -- mapped to Other. ` +
       `This credential will satisfy no obligations. Check SP list choice values against CredentialType union.`,
     );
     warnRef.count++;
     type = 'Other';
   }
 
-  // ── Date fields ────────────────────────────────────────────────────────────
+  // Date fields
   const issuedDate   = normalizeSpDate(item.IssuedDate,   `${ctx}.IssuedDate`,   warnRef);
   const expiryDate   = normalizeSpDate(item.ExpiryDate,   `${ctx}.ExpiryDate`,   warnRef);
   const validFromDate = normalizeSpDate(item.ValidFromDate, `${ctx}.ValidFromDate`, warnRef);
 
-  // ── Build Credential ───────────────────────────────────────────────────────
+  // Build Credential
   return {
     Id:                    item.ID,
     CredentialID:          credentialId,
@@ -258,7 +258,7 @@ export function mapSpItemsToCredentials(items: SpCredentialItem[]): SpCredential
 // known Person in the application.
 //
 // Not called in production paths. The service layer invokes this during
-// Phase B regression (Sprint 15 §10) when knownPersonIds is available.
+// Phase B regression (Sprint 15 S10) when knownPersonIds is available.
 // ---------------------------------------------------------------------------
 
 /**
@@ -266,14 +266,12 @@ export function mapSpItemsToCredentials(items: SpCredentialItem[]): SpCredential
  *
  * Logs a warning for each PersonID present in SP credentials but not in the
  * provided known-persons set. Records with unknown (but non-empty) PersonIDs
- * are valid SP records — they are not rejected, just flagged for investigation.
+ * are valid SP records -- they are not rejected, just flagged for investigation.
  *
  * Typical caller pattern:
- * ```typescript
  * const people = await mockPersonService.listPeople();
  * const knownIds = new Set(people.map(p => p.PersonID));
  * validateCredentialPersonIds(credentials, knownIds);
- * ```
  *
  * @param credentials    Mapped credentials (output of mapSpItemsToCredentials).
  * @param knownPersonIds Set of PersonID strings known to the application.
@@ -291,7 +289,7 @@ export function validateCredentialPersonIds(
   }
 
   if (unknownIds.size === 0) {
-    console.info('[C3/Credential] PersonID validation: all HolderPersonIDs matched known persons ✓');
+    console.info('[C3/Credential] PersonID validation: all HolderPersonIDs matched known persons');
     return;
   }
 

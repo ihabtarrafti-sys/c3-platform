@@ -5,7 +5,7 @@
  *
  * Sprint 18 Phase 3B.
  *
- * Defaults to Submitted + InReview — the two statuses an owner needs to action.
+ * Defaults to Submitted + InReview -- the two statuses an owner needs to action.
  * Caller may supply a custom status filter to widen the result set.
  *
  * Mode-transparent: selects SP vs mock implementation via useApprovalsService.

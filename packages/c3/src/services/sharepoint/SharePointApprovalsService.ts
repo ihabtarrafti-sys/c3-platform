@@ -7,6 +7,7 @@
  * listApprovals:  live (OData $filter on status, maps via spApprovalMapper).
  * patchApprovalStatus: live (MERGE -- stamps ReviewedBy/ReviewedAt + Approved/Rejected status).
  * stampExecution: live (MERGE -- stamps Executed+ExecutedAt, or ExecutionFailed+ExecutionError).
+ *                 Executed branch optionally backfills TargetPersonID (AddPerson path -- S25 polish).
  *
  * Design follows the S15/S16/S17 SP service pattern:
  *   - No PnP.js. Native fetch with credentials: 'same-origin'.
@@ -244,12 +245,18 @@ export const createSharePointApprovalsService = (
     let body: Record<string, unknown>;
 
     if (req.newStatus === 'Executed') {
-      // Executed: stamp ExecutedAt + clear ExecutionError
+      // Executed: stamp ExecutedAt + clear ExecutionError.
+      // If targetPersonId is supplied (AddPerson path), backfill TargetPersonID
+      // in the same MERGE -- the approval was submitted with PENDING-ADDPERSON
+      // because no PER-XXXX existed at submission time.
       body = {
         ApprovalStatus: 'Executed',
         ExecutedAt:     req.executedAt,
         ExecutionError: null,
       };
+      if (req.targetPersonId) {
+        body['TargetPersonID'] = req.targetPersonId;
+      }
     } else {
       // ExecutionFailed: stamp ExecutionError -- do NOT set ExecutedAt
       body = {

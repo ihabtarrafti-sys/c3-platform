@@ -90,8 +90,8 @@ const SP_ITEMS = [
     ReviewedAt:'2026-05-15T09:00:00Z', ExecutedAt:'2026-05-15T09:05:00Z', ExecutionError:null,
     DelegatedBy:null, DelegateTo:null, Reason:'Pre-season onboarding.', RejectionReason:null,
     Payload:'{"personId":"PER-0003","journeyType":"Onboarding"}' },
-  // S25: AddPerson approval -- TargetPersonID is empty (person does not exist at submission time)
-  { ID:4, Title:'APR-0004', OperationType:'AddPerson', TargetID:null, TargetPersonID:'',
+  // S25: AddPerson approval -- TargetPersonID uses PENDING-ADDPERSON placeholder (person does not exist at submission time)
+  { ID:4, Title:'APR-0004', OperationType:'AddPerson', TargetID:null, TargetPersonID:'PENDING-ADDPERSON',
     SubmittedBy:'i:0#.f|membership|ops@geekaygroupmea.com', SubmittedAt:'2026-07-01T10:00:00Z',
     ApprovalStatus:'Submitted', ReviewedBy:null, ReviewedAt:null, ExecutedAt:null, ExecutionError:null,
     DelegatedBy:null, DelegateTo:null, Reason:'New player signing.', RejectionReason:null,
@@ -158,13 +158,13 @@ assert('APR-0003 approvalStatus',        a3 && a3.approvalStatus,   'Executed');
 assert('APR-0003 executedAt (full ISO)', a3 && a3.executedAt,       '2026-05-15T09:05:00Z');
 assert('APR-0003 executedAt has T',      a3 && a3.executedAt && a3.executedAt.indexOf('T') !== -1, true);
 
-console.log('\n--- APR-0004 (AddPerson, Submitted, empty TargetPersonID) --- S25 ---');
+console.log('\n--- APR-0004 (AddPerson, Submitted, TargetPersonID: PENDING-ADDPERSON) --- S25 ---');
 const a4 = approvals.find(function(a) { return a.title === 'APR-0004'; });
-assert('APR-0004 present',               a4 !== undefined,            true);
-assert('APR-0004 operationType',         a4 && a4.operationType,     'AddPerson');
-assert('APR-0004 approvalStatus',        a4 && a4.approvalStatus,    'Submitted');
-// TargetPersonID='' maps to undefined (person does not exist at submission)
-assert('APR-0004 targetPersonId undef',  a4 && a4.targetPersonId,    undefined);
+assert('APR-0004 present',                    a4 !== undefined,            true);
+assert('APR-0004 operationType',              a4 && a4.operationType,     'AddPerson');
+assert('APR-0004 approvalStatus',             a4 && a4.approvalStatus,    'Submitted');
+// TargetPersonID='PENDING-ADDPERSON' -- placeholder because person does not exist at submission time
+assert('APR-0004 targetPersonId placeholder', a4 && a4.targetPersonId,    'PENDING-ADDPERSON');
 assert('APR-0004 payload present',       !!(a4 && a4.payload),       true);
 // Payload round-trip: fullName survives JSON parse
 const a4Payload = (function() { try { return JSON.parse(a4 && a4.payload || '{}'); } catch(e) { return {}; } })();

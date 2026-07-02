@@ -5,13 +5,13 @@
  *
  * Follows the parallel-factory hook pattern (useJourneyService, useCredentialService).
  * Approvals are NOT in the ServiceRegistry because the service requires both
- * siteUrl AND currentUser.loginName — the identity is needed to stamp SubmittedBy.
+ * siteUrl AND currentUser.loginName -- the identity is needed to stamp SubmittedBy.
  *
  * currentUser is always non-null here: AppProvider renders a loading spinner
  * until authService.getCurrentUser() resolves, so by the time any child
  * component calls useApp(), currentUser is guaranteed to be set.
  *
- * Sprint 18 Phase 2B — createApproval live; all other methods throw (Phase 3).
+ * Sprint 18 Phase 2B -- createApproval live; all other methods throw (Phase 3).
  */
 
 import { useMemo } from 'react';

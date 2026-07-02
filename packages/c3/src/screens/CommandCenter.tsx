@@ -186,11 +186,7 @@ export const CommandCenter = () => {
   const { navigate } = useApp();
   const { items, counts, isLoading, error } = useWorkItems();
 
-  // ── Navigation handler ───────────────────────────────────────────────────
-  //
-  // Each WorkItem carries links (personId, missionId) that determine the
-  // resolution context. MissionDeparturePressure navigates to the Situation
-  // Room pre-scoped to the mission; all other items navigate to PersonProfile.
+  // -- Navigation handler --
   const handleWorkItemAction = (item: WorkItem) => {
     if (item.category === 'MissionDeparturePressure' && item.links.missionId) {
       navigate({ id: 'situation-room', missionId: item.links.missionId });
@@ -199,9 +195,6 @@ export const CommandCenter = () => {
     }
   };
 
-  // ── Error ─────────────────────────────────────────────────────────────────
-  // Explicit error state prevents a silent false-positive "All clear" banner
-  // when SP data sources fail to load (S20-P0-2).
   if (error) {
     return (
       <div style={{ padding: 'var(--c3-space-8)' }}>
@@ -214,57 +207,32 @@ export const CommandCenter = () => {
     );
   }
 
-  // ── Loading ───────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
       <div style={{ padding: 'var(--c3-space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-6)' }}>
-        {/* Header skeleton */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-          <div
-            style={{
-              height: 28,
-              width: 260,
-              borderRadius: 'var(--c3-radius-md)',
-              backgroundColor: 'var(--c3-gray-200)',
-            }}
-          />
-          <div
-            style={{
-              height: 14,
-              width: 180,
-              borderRadius: 'var(--c3-radius-sm)',
-              backgroundColor: 'var(--c3-gray-100)',
-            }}
-          />
+          <div style={{ height: 28, width: 260, borderRadius: 'var(--c3-radius-md)', backgroundColor: 'var(--c3-gray-200)' }} />
+          <div style={{ height: 14, width: 180, borderRadius: 'var(--c3-radius-sm)', backgroundColor: 'var(--c3-gray-100)' }} />
         </div>
         <QueueSkeleton />
       </div>
     );
   }
 
-  // ── Partition items by priority ───────────────────────────────────────────
-  // Items are already sorted by generateWorkItems. Split preserves order.
   const immediateItems = items.filter((i) => i.priority === 'Immediate');
   const highItems      = items.filter((i) => i.priority === 'High');
   const normalItems    = items.filter((i) => i.priority === 'Normal');
 
-  // ── Main view ─────────────────────────────────────────────────────────────
   return (
     <div style={{ padding: 'var(--c3-space-8)', display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-6)' }}>
 
-      {/* ── Header ────────────────────────────────────────────────── */}
+      {/* Header */}
       <div>
         <Text
           as="h1"
           weight="semibold"
           size={800}
-          style={{
-            color: 'var(--c3-gray-950)',
-            display: 'block',
-            margin: 0,
-            lineHeight: '1.1',
-            letterSpacing: '-0.02em',
-          }}
+          style={{ color: 'var(--c3-gray-950)', display: 'block', margin: 0, lineHeight: '1.1', letterSpacing: '-0.02em' }}
         >
           Operations Work Queue
         </Text>
@@ -280,16 +248,9 @@ export const CommandCenter = () => {
         </Text>
       </div>
 
-      {/* ── Empty state ────────────────────────────────────────────── */}
+      {/* Empty state */}
       {counts.total === 0 && (
-        <div
-          style={{
-            backgroundColor: 'var(--c3-white)',
-            borderRadius: 'var(--c3-radius-lg)',
-            boxShadow: 'var(--c3-shadow-2)',
-            padding: 'var(--c3-space-8)',
-          }}
-        >
+        <div style={{ backgroundColor: 'var(--c3-white)', borderRadius: 'var(--c3-radius-lg)', boxShadow: 'var(--c3-shadow-2)', padding: 'var(--c3-space-8)' }}>
           <EmptyState
             variant="success"
             title="All clear"
@@ -298,38 +259,22 @@ export const CommandCenter = () => {
         </div>
       )}
 
-      {/* ── Priority bands ─────────────────────────────────────────── */}
+      {/* Priority bands */}
       {counts.total > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-4)' }}>
-          <PriorityBand
-            config={BANDS[0]}
-            items={immediateItems}
-            onAction={handleWorkItemAction}
-          />
-          <PriorityBand
-            config={BANDS[1]}
-            items={highItems}
-            onAction={handleWorkItemAction}
-          />
-          <PriorityBand
-            config={BANDS[2]}
-            items={normalItems}
-            onAction={handleWorkItemAction}
-          />
+          <PriorityBand config={BANDS[0]} items={immediateItems} onAction={handleWorkItemAction} />
+          <PriorityBand config={BANDS[1]} items={highItems}      onAction={handleWorkItemAction} />
+          <PriorityBand config={BANDS[2]} items={normalItems}    onAction={handleWorkItemAction} />
         </div>
       )}
 
-      {/* ── Footer hint (non-empty state) ──────────────────────────── */}
+      {/* Footer hint */}
       {counts.total > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 'var(--c3-space-3)' }}>
           <Text size={200} style={{ color: 'var(--c3-gray-400)' }}>
             Items computed from live operational state ·
           </Text>
-          <Button
-            appearance="subtle"
-            size="small"
-            onClick={() => navigate({ id: 'situation-room' })}
-          >
+          <Button appearance="subtle" size="small" onClick={() => navigate({ id: 'situation-room' })}>
             Open Situation Room
           </Button>
         </div>

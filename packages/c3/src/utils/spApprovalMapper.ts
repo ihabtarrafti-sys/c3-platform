@@ -9,20 +9,20 @@
  * Design follows the S15/S16/S17 spCredentialMapper / spPersonMapper /
  * spJourneyMapper pattern:
  *   - No React, no hooks, no service dependencies. Pure functions only.
- *   - All validation and type-guarding lives here — the service layer calls
+ *   - All validation and type-guarding lives here -- the service layer calls
  *     mapSpItemsToApprovals and receives typed C3Approval[] with counts.
  *   - Invalid/unknown values degrade gracefully:
- *       Missing/blank Title          → hard reject
- *       Missing/blank ApprovalStatus → hard reject
- *       Invalid ApprovalStatus value → hard reject
- *       Missing/blank OperationType  → hard reject
- *       Null ID                      → hard reject
- *       Missing SubmittedBy          → soft warn
- *       Missing SubmittedAt          → soft warn
- *       Missing Payload              → soft warn
- *       Executed but no ExecutedAt   → soft warn (data inconsistency)
+ *       Missing/blank Title          -> hard reject
+ *       Missing/blank ApprovalStatus -> hard reject
+ *       Invalid ApprovalStatus value -> hard reject
+ *       Missing/blank OperationType  -> hard reject
+ *       Null ID                      -> hard reject
+ *       Missing SubmittedBy          -> soft warn
+ *       Missing SubmittedAt          -> soft warn
+ *       Missing Payload              -> soft warn
+ *       Executed but no ExecutedAt   -> soft warn (data inconsistency)
  *   - DateTime fields (SubmittedAt, ReviewedAt, ExecutedAt) use
- *     normalizeSpDateTime (full ISO string preserved — not date-only).
+ *     normalizeSpDateTime (full ISO string preserved -- not date-only).
  *     normalizeSpDate must NOT be used here.
  *   - TargetPersonID is a plain-text canonical C3 PersonID (e.g. "PER-0001"),
  *     NOT a numeric SharePoint lookup item ID.
@@ -43,31 +43,31 @@ const PREFIX = '[C3/Approvals]';
 //
 // Raw shape of a C3Approvals SP list item from the REST API.
 // Field names match the provisioned list column InternalNames exactly.
-// All columns typed permissively — the guard layer narrows them.
+// All columns typed permissively -- the guard layer narrows them.
 // ---------------------------------------------------------------------------
 
 export interface SpApprovalItem {
   /** SP built-in integer primary key. */
   ID: number;
-  /** APR-XXXX reference identifier (Title column). Null → hard reject. */
+  /** APR-XXXX reference identifier (Title column). Null -> hard reject. */
   Title: string | null;
-  /** Governed operation type, e.g. 'InitiateJourney'. Null → hard reject. */
+  /** Governed operation type, e.g. 'InitiateJourney'. Null -> hard reject. */
   OperationType: string | null;
   /** Opaque secondary target reference (optional). */
   TargetID: string | null;
-  /** Canonical C3 PersonID (e.g. "PER-0001"). Plain Text — not a numeric lookup. */
+  /** Canonical C3 PersonID (e.g. "PER-0001"). Plain Text -- not a numeric lookup. */
   TargetPersonID: string | null;
-  /** SPFx claims-format login name of the submitter. Null → soft warn. */
+  /** SPFx claims-format login name of the submitter. Null -> soft warn. */
   SubmittedBy: string | null;
-  /** DateTime — full ISO string. Null → soft warn. */
+  /** DateTime -- full ISO string. Null -> soft warn. */
   SubmittedAt: string | null;
-  /** Current lifecycle state. Null or invalid value → hard reject. */
+  /** Current lifecycle state. Null or invalid value -> hard reject. */
   ApprovalStatus: string | null;
   /** Login name of the reviewer (set when entering InReview or Approved). */
   ReviewedBy: string | null;
-  /** DateTime — full ISO string. */
+  /** DateTime -- full ISO string. */
   ReviewedAt: string | null;
-  /** DateTime — full ISO string. Set on Executed state. */
+  /** DateTime -- full ISO string. Set on Executed state. */
   ExecutedAt: string | null;
   /** Error detail when ApprovalStatus is ExecutionFailed. */
   ExecutionError: string | null;
@@ -79,12 +79,12 @@ export interface SpApprovalItem {
   Reason: string | null;
   /** Reason for rejection (set when ApprovalStatus is Rejected). */
   RejectionReason: string | null;
-  /** JSON-serialised payload for the governed operation. Null → soft warn. */
+  /** JSON-serialised payload for the governed operation. Null -> soft warn. */
   Payload: string | null;
 }
 
 // ---------------------------------------------------------------------------
-// C3Approval — domain type
+// C3Approval -- domain type
 // ---------------------------------------------------------------------------
 
 export interface C3Approval {
@@ -141,56 +141,56 @@ export function mapSpItemToApproval(
 ): C3Approval | null {
   const itemLabel = `Item ${item.ID}`;
 
-  // ── Hard reject: null/NaN ID ───────────────────────────────────────────
+  // Hard reject: null/NaN ID
   if (item.ID == null || isNaN(item.ID)) {
-    console.warn(`${PREFIX} item with null ID — record rejected`);
+    console.warn(`${PREFIX} item with null ID -- record rejected`);
     return null;
   }
 
-  // ── Hard reject: missing ApprovalID (Title) ───────────────────────────
+  // Hard reject: missing ApprovalID (Title)
   if (!item.Title || item.Title.trim() === '') {
-    console.warn(`${PREFIX} ${itemLabel}: missing Title (ApprovalID) — record rejected`);
+    console.warn(`${PREFIX} ${itemLabel}: missing Title (ApprovalID) -- record rejected`);
     return null;
   }
 
-  // ── Hard reject: missing or invalid ApprovalStatus ────────────────────
+  // Hard reject: missing or invalid ApprovalStatus
   if (!item.ApprovalStatus || !APPROVAL_STATUS_VALUES.has(item.ApprovalStatus)) {
     console.warn(
-      `${PREFIX} ${itemLabel}: invalid ApprovalStatus "${item.ApprovalStatus ?? ''}" — record rejected`,
+      `${PREFIX} ${itemLabel}: invalid ApprovalStatus "${item.ApprovalStatus ?? ''}" -- record rejected`,
     );
     return null;
   }
 
-  // ── Hard reject: missing OperationType ────────────────────────────────
+  // Hard reject: missing OperationType
   if (!item.OperationType || item.OperationType.trim() === '') {
-    console.warn(`${PREFIX} ${itemLabel}: missing OperationType — record rejected`);
+    console.warn(`${PREFIX} ${itemLabel}: missing OperationType -- record rejected`);
     return null;
   }
 
-  // ── Soft warns ─────────────────────────────────────────────────────────
+  // Soft warns
   if (!item.SubmittedBy) {
-    console.warn(`${PREFIX} ${itemLabel}: missing SubmittedBy — identity will be empty`);
+    console.warn(`${PREFIX} ${itemLabel}: missing SubmittedBy -- identity will be empty`);
     warnRef.count++;
   }
 
   if (!item.SubmittedAt) {
-    console.warn(`${PREFIX} ${itemLabel}: missing SubmittedAt — timestamp will be absent`);
+    console.warn(`${PREFIX} ${itemLabel}: missing SubmittedAt -- timestamp will be absent`);
     warnRef.count++;
   }
 
   if (!item.Payload) {
-    console.warn(`${PREFIX} ${itemLabel}: missing Payload — execution will fail if attempted`);
+    console.warn(`${PREFIX} ${itemLabel}: missing Payload -- execution will fail if attempted`);
     warnRef.count++;
   }
 
   if (item.ApprovalStatus === 'Executed' && !item.ExecutedAt) {
     console.warn(
-      `${PREFIX} ${itemLabel}: ApprovalStatus is Executed but ExecutedAt is absent — data inconsistency`,
+      `${PREFIX} ${itemLabel}: ApprovalStatus is Executed but ExecutedAt is absent -- data inconsistency`,
     );
     warnRef.count++;
   }
 
-  // ── DateTime fields — full ISO string preserved ────────────────────────
+  // DateTime fields -- full ISO string preserved
   const submittedAt  = normalizeSpDateTime(item.SubmittedAt,  `${itemLabel}.SubmittedAt`,  warnRef, PREFIX);
   const reviewedAt   = normalizeSpDateTime(item.ReviewedAt,   `${itemLabel}.ReviewedAt`,   warnRef, PREFIX);
   const executedAt   = normalizeSpDateTime(item.ExecutedAt,   `${itemLabel}.ExecutedAt`,   warnRef, PREFIX);

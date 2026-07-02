@@ -69,8 +69,8 @@ export const createMockPersonService = (): IPersonService => ({
     return Promise.resolve([]);
   },
 
-  // ── createPerson ──────────────────────────────────────────────────────────
-  // Sprint 25 — AddPerson mock execution.
+  // -- createPerson ----------------------------------------------------------
+  // Sprint 25 -- AddPerson mock execution.
   //
   // Generates a canonical PER-XXXX using the next available index (derived
   // from the highest existing static PersonID suffix, then incremented per call).

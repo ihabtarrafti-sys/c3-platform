@@ -104,8 +104,11 @@ export const useSubmitAddPersonApproval = () => {
       // NO C3People write occurs here.
       // Person creation (POST -> MERGE PER-XXXX) is deferred to execution time.
       //
-      // targetPersonId is empty because the person does not yet exist.
-      // The payload carries the full creation intent.
+      // targetPersonId uses PENDING-ADDPERSON as a placeholder -- the person does
+      // not exist yet so no PER-XXXX is available at submission time. The SP list
+      // TargetPersonID column requires a non-empty value; an empty string triggers
+      // a SharePoint choice validation error. After execution the field is
+      // backfilled to the created PER-XXXX via stampExecution targetPersonId option.
       const payload: AddPersonApprovalPayload = {
         operationType:    'AddPerson',
         fullName:         input.FullName,
@@ -122,7 +125,7 @@ export const useSubmitAddPersonApproval = () => {
 
       const result = await approvalsService.createApproval({
         operationType:  'AddPerson',
-        targetPersonId: '',  // Person does not exist yet -- no PER-XXXX to reference
+        targetPersonId: 'PENDING-ADDPERSON',  // placeholder -- backfilled to PER-XXXX at execution
         reason:         `Create new person: ${input.FullName}`,
         payload:        JSON.stringify(payload),
       });

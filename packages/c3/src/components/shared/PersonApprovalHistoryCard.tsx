@@ -1,16 +1,16 @@
 /**
  * PersonApprovalHistoryCard.tsx
  *
- * Sprint 21 Phase 2 — Person-scoped approval history / visibility.
+ * Sprint 21 Phase 2 -- Person-scoped approval history / visibility.
  *
  * Renders all C3Approvals for a person, grouped into:
- *   Active / Needs Attention  — Submitted, InReview, Approved, ExecutionFailed
- *   History                   — Executed, Rejected
+ *   Active / Needs Attention  -- Submitted, InReview, Approved, ExecutionFailed
+ *   History                   -- Executed, Rejected
  *
  * Visibility surface only. No approve/reject/execute/recover buttons.
  * ApprovalInbox remains the action/work queue.
  *
- * Payload display uses formatApprovalPayloadSummary — compact plain-text only.
+ * Payload display uses formatApprovalPayloadSummary -- compact plain-text only.
  * Raw JSON is never rendered.
  *
  * Boundaries:
@@ -38,7 +38,7 @@ const ACTIVE_STATUSES  = new Set(['Submitted', 'InReview', 'Approved', 'Executio
 const HISTORY_STATUSES = new Set(['Executed', 'Rejected']);
 
 // ---------------------------------------------------------------------------
-// Status badge colors (mirrors ApprovalInbox — kept consistent)
+// Status badge colors (mirrors ApprovalInbox -- kept consistent)
 // ---------------------------------------------------------------------------
 
 const STATUS_COLORS: Record<string, 'warning' | 'informative' | 'brand' | 'success' | 'danger'> = {
@@ -67,7 +67,7 @@ function formatDateTime(iso: string | undefined): string {
 }
 
 // ---------------------------------------------------------------------------
-// ApprovalRow — single compact approval entry
+// ApprovalRow -- single compact approval entry
 // ---------------------------------------------------------------------------
 
 const ApprovalRow = ({ approval }: { approval: C3Approval }) => {
@@ -86,7 +86,7 @@ const ApprovalRow = ({ approval }: { approval: C3Approval }) => {
         border: '1px solid var(--c3-gray-100)',
       }}
     >
-      {/* ── Primary row: title + operationType + status badge ── */}
+      {/* Primary row: title + operationType + status badge */}
       <div
         style={{
           display: 'flex',
@@ -110,14 +110,14 @@ const ApprovalRow = ({ approval }: { approval: C3Approval }) => {
         </Badge>
       </div>
 
-      {/* ── Payload summary ── */}
+      {/* Payload summary */}
       {payloadSummary && (
         <Text size={200} style={{ color: 'var(--c3-gray-600)', fontStyle: 'italic' }}>
           {payloadSummary}
         </Text>
       )}
 
-      {/* ── Audit detail grid ── */}
+      {/* Audit detail grid */}
       <div
         style={{
           display: 'grid',
@@ -155,7 +155,7 @@ const ApprovalRow = ({ approval }: { approval: C3Approval }) => {
 };
 
 // ---------------------------------------------------------------------------
-// AuditField — compact label + value cell
+// AuditField -- compact label + value cell
 // ---------------------------------------------------------------------------
 
 const AuditField = ({
@@ -205,7 +205,7 @@ interface PersonApprovalHistoryCardProps {
 export const PersonApprovalHistoryCard = ({ personId }: PersonApprovalHistoryCardProps) => {
   const { data: approvals, isLoading, isError } = usePersonApprovals(personId);
 
-  // ── Loading ──────────────────────────────────────────────────────────────
+  // Loading
 
   if (isLoading) {
     return (
@@ -219,13 +219,13 @@ export const PersonApprovalHistoryCard = ({ personId }: PersonApprovalHistoryCar
       >
         <Spinner size="small" />
         <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
-          Loading approval history…
+          Loading approval history...
         </Text>
       </div>
     );
   }
 
-  // ── Error ────────────────────────────────────────────────────────────────
+  // Error
 
   if (isError) {
     return (
@@ -240,7 +240,7 @@ export const PersonApprovalHistoryCard = ({ personId }: PersonApprovalHistoryCar
     );
   }
 
-  // ── Empty (no approvals at all) ──────────────────────────────────────────
+  // Empty (no approvals at all)
 
   if (approvals.length === 0) {
     return (
@@ -254,7 +254,7 @@ export const PersonApprovalHistoryCard = ({ personId }: PersonApprovalHistoryCar
     );
   }
 
-  // ── Group by status ──────────────────────────────────────────────────────
+  // Group by status
 
   const activeApprovals  = approvals.filter(a => ACTIVE_STATUSES.has(a.approvalStatus));
   const historyApprovals = approvals.filter(a => HISTORY_STATUSES.has(a.approvalStatus));
@@ -272,7 +272,7 @@ export const PersonApprovalHistoryCard = ({ personId }: PersonApprovalHistoryCar
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-4)' }}>
 
-      {/* ── Active / Needs Attention ────────────────────────────────────── */}
+      {/* Active / Needs Attention */}
       <SectionCard title={`Active / Needs Attention (${sortedActive.length})`}>
         {sortedActive.length === 0 ? (
           <EmptyState
@@ -289,7 +289,7 @@ export const PersonApprovalHistoryCard = ({ personId }: PersonApprovalHistoryCar
         )}
       </SectionCard>
 
-      {/* ── History ─────────────────────────────────────────────────────── */}
+      {/* History */}
       <SectionCard title={`History (${sortedHistory.length})`}>
         {sortedHistory.length === 0 ? (
           <EmptyState

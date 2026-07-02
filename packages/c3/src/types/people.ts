@@ -49,14 +49,14 @@ export interface PersonProfile {
 // Fields mirror the writable columns of C3People (IsActive defaults to true
 // on creation; Id and PersonID are assigned by the service layer).
 //
-// Email is intentionally absent — it does not exist in the current C3People
+// Email is intentionally absent -- it does not exist in the current C3People
 // SP list schema. Duplicate protection is FullName-based. See TD-24.
 //
 // Sprint 25.
 // ---------------------------------------------------------------------------
 
 export interface CreatePersonInput {
-  /** Full legal name. Required — cannot create a person without a name. */
+  /** Full legal name. Required -- cannot create a person without a name. */
   FullName: string;
   /** In-game name / alias. Optional. */
   IGN?: string;
