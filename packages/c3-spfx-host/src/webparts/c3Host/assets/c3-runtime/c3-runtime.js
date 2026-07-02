@@ -48552,26 +48552,41 @@ const gK = ({ evaluation: t, onResolveObligation: n }) => {
     description: `${b.length} amendment(s) are still in draft or pending approval.`
   }), i;
 }, dJ = () => {
-  const t = Y1(), n = EA(), o = ay(), i = B.useMemo(() => {
-    const c = t.data ?? [], p = n.data ?? [], f = o.data ?? [];
-    return {
-      kpis: jG(c, p.length),
-      workflow: aJ(c),
-      dispositions: iJ(c),
-      amendments: sJ(p),
-      games: lJ(c),
-      teams: cJ(c),
+  const {
+    data: t = [],
+    isPending: n,
+    error: o
+  } = Y1(), {
+    data: i = [],
+    isPending: c,
+    error: p
+  } = EA(), {
+    data: f = [],
+    isPending: g,
+    error: b
+  } = ay(), x = B.useMemo(
+    () => ({
+      kpis: jG(
+        Array.isArray(t) ? t : [],
+        Array.isArray(i) ? i.length : 0
+      ),
+      workflow: aJ(Array.isArray(t) ? t : []),
+      dispositions: iJ(Array.isArray(t) ? t : []),
+      amendments: sJ(Array.isArray(i) ? i : []),
+      games: lJ(Array.isArray(t) ? t : []),
+      teams: cJ(Array.isArray(t) ? t : []),
       insights: uJ({
-        contracts: c,
-        amendments: p,
-        people: f
+        contracts: Array.isArray(t) ? t : [],
+        amendments: Array.isArray(i) ? i : [],
+        people: Array.isArray(f) ? f : []
       })
-    };
-  }, [t.data, n.data, o.data]);
+    }),
+    [t, i, f]
+  );
   return {
-    isLoading: t.isLoading || n.isLoading || o.isLoading,
-    error: t.error ?? n.error ?? o.error,
-    intelligence: i
+    isLoading: n || c || g,
+    error: o ?? p ?? b,
+    intelligence: x
   };
 }, tk = "Executive view of contract portfolio health, renewal workload, and amendment activity.", fJ = () => {
   const { intelligence: t, isLoading: n, error: o } = dJ();
