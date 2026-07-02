@@ -5,5 +5,6 @@ export { ReadinessPanel } from './ReadinessPanel';
 export { StageBadge } from './StageBadge';
 export { StagePipeline } from './StagePipeline';
 export { AddCredentialPanel } from './AddCredentialPanel';
+export { AddPersonPanel } from './AddPersonPanel';
 export { StartJourneyPanel } from './StartJourneyPanel';
 export { OperationalGapRow } from './OperationalGapRow';

@@ -8,6 +8,7 @@
  * Sprint 18 Phase 4A: stampExecution live.
  * Sprint 20 Phase 3:  operationType widened to include 'AddCredential'.
  * Sprint 23 Phase 1:  operationType widened to include 'DeactivateCredential'.
+ * Sprint 25:           operationType widened to include 'AddPerson'.
  *
  * Lifecycle: Submitted -> InReview -> Approved -> Executed | ExecutionFailed
  *                                  -> Rejected
@@ -53,12 +54,14 @@ export interface CreateApprovalRequest {
   /**
    * PascalCase operation type.
    * 'InitiateJourney' is live since Phase 2B.
-   * 'AddCredential'   is live from Sprint 20 Phase 3.
+   * 'AddCredential'        is live from Sprint 20 Phase 3.
+   * 'DeactivateCredential' is live from Sprint 23 Phase 1.
+   * 'AddPerson'            is live from Sprint 25.
    *
-   * The C3Approvals SP list OperationType choice column already has both values
-   * provisioned (C3Approvals SP List Schema.md §3.2).
+   * The C3Approvals SP list OperationType choice column must have 'AddPerson'
+   * provisioned before first SP DSM use (C3Approvals SP List Schema.md §3.2).
    */
-  operationType: 'InitiateJourney' | 'AddCredential' | 'DeactivateCredential';
+  operationType: 'InitiateJourney' | 'AddCredential' | 'DeactivateCredential' | 'AddPerson';
   /** Opaque secondary target reference (optional). */
   targetId?: string;
   /** Canonical C3 PersonID of the target person, e.g. "PER-0001". */

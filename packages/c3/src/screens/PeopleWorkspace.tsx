@@ -1,6 +1,8 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { Text } from '@fluentui/react-components';
+import { Button, Text } from '@fluentui/react-components';
+import { PersonAdd20Regular } from '@fluentui/react-icons';
 
+import { AddPersonPanel } from '@c3/components/shared/AddPersonPanel';
 import {
   EmptyState,
   MetricCard,
@@ -9,6 +11,7 @@ import {
   SkeletonRows,
 } from '@c3/components/ui';
 import { useApp } from '@c3/hooks/useApp';
+import { useCapabilities } from '@c3/hooks/useCapabilities';
 import { usePeople } from '@c3/hooks/usePeople';
 import type { Person, PersonFilter } from '@c3/types';
 
@@ -50,7 +53,7 @@ const HEADERS: { label: string; align?: 'left' | 'right' }[] = [
 ];
 
 // ---------------------------------------------------------------------------
-// RegisterPanel (no inner padding — table is full-bleed)
+// RegisterPanel (no inner padding - table is full-bleed)
 // ---------------------------------------------------------------------------
 
 interface RegisterPanelProps {
@@ -185,21 +188,21 @@ const PersonRow = ({ person, onClick }: { person: Person; onClick: () => void })
       {/* IGN */}
       <td style={CELL}>
         <Text size={300} style={{ color: 'var(--c3-gray-700)' }}>
-          {person.IGN ?? '—'}
+          {person.IGN ?? '--'}
         </Text>
       </td>
 
       {/* Role */}
       <td style={CELL}>
         <Text size={300} style={{ color: 'var(--c3-gray-700)' }}>
-          {person.PrimaryRole ?? '—'}
+          {person.PrimaryRole ?? '--'}
         </Text>
       </td>
 
       {/* Nationality */}
       <td style={CELL}>
         <Text size={300} style={{ color: 'var(--c3-gray-700)' }}>
-          {person.Nationality ?? '—'}
+          {person.Nationality ?? '--'}
         </Text>
       </td>
 
@@ -239,6 +242,8 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
   void filter;
   const { navigate } = useApp();
   const { data: people = [], isLoading, error } = usePeople();
+  const capabilities = useCapabilities();
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadedAt = useMemo(() => new Date().toISOString(), [people]);
@@ -310,6 +315,15 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
         title="People Workspace"
         subtitle="Contract participants, talent, staff and stakeholders."
         lastUpdated={loadedAt}
+        actions={capabilities.canCreate ? (
+          <Button
+            appearance="primary"
+            icon={<PersonAdd20Regular />}
+            onClick={() => setAddPersonOpen(true)}
+          >
+            Add Person
+          </Button>
+        ) : undefined}
       />
 
       {/* KPI strip */}
@@ -379,6 +393,14 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
           </table>
         )}
       </RegisterPanel>
+
+      {/* Add Person panel - governed by canCreate capability (owner + operations) */}
+      {capabilities.canCreate && (
+        <AddPersonPanel
+          open={addPersonOpen}
+          onDismiss={() => setAddPersonOpen(false)}
+        />
+      )}
     </div>
   );
 };

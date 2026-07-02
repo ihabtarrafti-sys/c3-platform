@@ -2,6 +2,7 @@
  * s18-parity-approvals.mjs
  * Sprint 18 Phase 2B -- Approvals mapper parity harness.
  * Local mapper parity only -- no live SharePoint dependency.
+ * Sprint 25: AddPerson approval mapping assertions added.
  * Run: node scripts/s18-parity-approvals.mjs
  */
 
@@ -89,6 +90,12 @@ const SP_ITEMS = [
     ReviewedAt:'2026-05-15T09:00:00Z', ExecutedAt:'2026-05-15T09:05:00Z', ExecutionError:null,
     DelegatedBy:null, DelegateTo:null, Reason:'Pre-season onboarding.', RejectionReason:null,
     Payload:'{"personId":"PER-0003","journeyType":"Onboarding"}' },
+  // S25: AddPerson approval -- TargetPersonID is empty (person does not exist at submission time)
+  { ID:4, Title:'APR-0004', OperationType:'AddPerson', TargetID:null, TargetPersonID:'',
+    SubmittedBy:'i:0#.f|membership|ops@geekaygroupmea.com', SubmittedAt:'2026-07-01T10:00:00Z',
+    ApprovalStatus:'Submitted', ReviewedBy:null, ReviewedAt:null, ExecutedAt:null, ExecutionError:null,
+    DelegatedBy:null, DelegateTo:null, Reason:'New player signing.', RejectionReason:null,
+    Payload:'{"operationType":"AddPerson","fullName":"Ahmed Al-Rashid","ign":"Phantom","primaryRole":"Player","currentTeam":"GKE Fortnite","requestedBy":"i:0#.f|membership|ops@geekaygroupmea.com"}' },
   { ID:101, Title:null, OperationType:'InitiateJourney', TargetID:null, TargetPersonID:'PER-0001',
     SubmittedBy:'i:0#.f|membership|ihab@geekaygroupmea.com', SubmittedAt:'2026-06-10T09:00:00Z',
     ApprovalStatus:'Submitted', ReviewedBy:null, ReviewedAt:null, ExecutedAt:null, ExecutionError:null,
@@ -119,7 +126,7 @@ console.log('\n=== S18 Approvals Mapper Parity Harness ===\n');
 const { approvals, result } = mapSpItemsToApprovals(SP_ITEMS);
 
 console.log('\n--- Batch count assertions ---');
-assert('mapped count (3 clean + APR-S3 soft warn)', result.mapped, 4);
+assert('mapped count (4 clean + APR-S3 soft warn)', result.mapped, 5);
 assert('rejected count', result.rejected, 2);
 assert('warnings count', result.warnings, 1);
 
@@ -150,6 +157,22 @@ assert('APR-0003 present',               a3 !== undefined,          true);
 assert('APR-0003 approvalStatus',        a3 && a3.approvalStatus,   'Executed');
 assert('APR-0003 executedAt (full ISO)', a3 && a3.executedAt,       '2026-05-15T09:05:00Z');
 assert('APR-0003 executedAt has T',      a3 && a3.executedAt && a3.executedAt.indexOf('T') !== -1, true);
+
+console.log('\n--- APR-0004 (AddPerson, Submitted, empty TargetPersonID) --- S25 ---');
+const a4 = approvals.find(function(a) { return a.title === 'APR-0004'; });
+assert('APR-0004 present',               a4 !== undefined,            true);
+assert('APR-0004 operationType',         a4 && a4.operationType,     'AddPerson');
+assert('APR-0004 approvalStatus',        a4 && a4.approvalStatus,    'Submitted');
+// TargetPersonID='' maps to undefined (person does not exist at submission)
+assert('APR-0004 targetPersonId undef',  a4 && a4.targetPersonId,    undefined);
+assert('APR-0004 payload present',       !!(a4 && a4.payload),       true);
+// Payload round-trip: fullName survives JSON parse
+const a4Payload = (function() { try { return JSON.parse(a4 && a4.payload || '{}'); } catch(e) { return {}; } })();
+assert('APR-0004 payload.fullName',      a4Payload['fullName'],       'Ahmed Al-Rashid');
+assert('APR-0004 payload.ign',           a4Payload['ign'],            'Phantom');
+assert('APR-0004 payload.primaryRole',   a4Payload['primaryRole'],    'Player');
+assert('APR-0004 payload.currentTeam',   a4Payload['currentTeam'],    'GKE Fortnite');
+assert('APR-0004 payload.operationType', a4Payload['operationType'],  'AddPerson');
 
 console.log('\n--- Stress record assertions ---');
 assert('APR-S1 (null Title) not mapped',     approvals.find(function(a) { return a.id === 101; }), undefined);

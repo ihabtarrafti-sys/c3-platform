@@ -69,12 +69,13 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './queryKeys';
 import { useApp } from './useApp';
+import { usePersonService } from './usePersonService';
 import { useApprovalsService } from './useApprovalsService';
 import { useJourneyService } from './useJourneyService';
 import { useCredentialService } from './useCredentialService';
 import { VALID_CREDENTIAL_TYPES } from '@c3/utils/spCredentialMapper';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
-import type { CredentialType, CreateCredentialInput } from '@c3/types';
+import type { CredentialType, CreateCredentialInput, CreatePersonInput } from '@c3/types';
 import type {
   InitiateJourneyApprovalPayload,
   AddCredentialApprovalPayload,
@@ -184,6 +185,26 @@ export class PartialDeactivationExecutionError extends Error {
   }
 }
 
+/**
+ * Thrown when the person was created successfully (PER-XXXX assigned) but
+ * the C3Approvals stamp to Executed failed. The C3People row exists and is
+ * valid with a canonical PersonID. The approval record remains in Approved status.
+ * Operator must manually update C3Approvals ID {approvalId} to Executed.
+ *
+ * Sprint 25.
+ */
+export class PartialAddPersonExecutionError extends Error {
+  override readonly name = 'PartialAddPersonExecutionError';
+  constructor(personId: string, approvalId: number, cause: unknown) {
+    super(
+      `[C3/Execution] Person ${personId} was created for approval ${approvalId}, ` +
+      `but stamping Executed on the approval record failed. ` +
+      `The person is valid. Manually update C3Approvals ID ${approvalId} to Executed. ` +
+      `Stamp error: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Payload parsing helpers
 // ---------------------------------------------------------------------------
@@ -258,6 +279,7 @@ export const useExecuteApproval = () => {
   const approvalsService   = useApprovalsService();
   const journeyService     = useJourneyService();
   const credentialService  = useCredentialService();
+  const personService      = usePersonService();
   const queryClient        = useQueryClient();
 
   return useMutation({
@@ -491,10 +513,95 @@ export const useExecuteApproval = () => {
         return;
       }
 
+      // ── AddPerson branch (Sprint 25) ──────────────────────────────────────────
+      if (opType === 'AddPerson') {
+        // Step 2: Validate fullName (required).
+        const fullName = payloadObj['fullName'];
+        if (typeof fullName !== 'string' || !fullName.trim()) {
+          throw new PayloadValidationError('Payload.fullName is missing or blank.');
+        }
+
+        const trimmedName = fullName.trim();
+
+        // Step 3: FullName duplicate check against the cached People list.
+        // Client-side only — guards against the obvious case. See TD-24 for
+        // server-side uniqueness enforcement (requires Email column in C3People).
+        const existingPeople =
+          queryClient.getQueryData<import('@c3/types').Person[]>(queryKeys.people.all()) ?? [];
+        const duplicate = existingPeople.find(
+          p => p.FullName.trim().toLowerCase() === trimmedName.toLowerCase(),
+        );
+        if (duplicate) {
+          const dupMsg =
+            `A person with the same full name already exists: "${duplicate.FullName}" ` +
+            `(${duplicate.PersonID}). Execution blocked to prevent duplicate person records.`;
+          await approvalsService.stampExecution(approval.id, {
+            newStatus:      'ExecutionFailed',
+            executionError: dupMsg.slice(0, 250),
+          });
+          throw new PayloadValidationError(dupMsg);
+        }
+
+        // Step 4: Create person via POST-then-MERGE PER-XXXX.
+        const personInput: CreatePersonInput = {
+          FullName:          trimmedName,
+          IGN:               typeof payloadObj['ign']               === 'string' && (payloadObj['ign'] as string).trim()               ? (payloadObj['ign'] as string).trim()               : undefined,
+          Nationality:       typeof payloadObj['nationality']       === 'string' && (payloadObj['nationality'] as string).trim()       ? (payloadObj['nationality'] as string).trim()       : undefined,
+          PrimaryRole:       typeof payloadObj['primaryRole']       === 'string' && (payloadObj['primaryRole'] as string).trim()       ? (payloadObj['primaryRole'] as string).trim()       : undefined,
+          PersonnelCode:     typeof payloadObj['personnelCode']     === 'string' && (payloadObj['personnelCode'] as string).trim()     ? (payloadObj['personnelCode'] as string).trim()     : undefined,
+          CurrentTeam:       typeof payloadObj['currentTeam']       === 'string' && (payloadObj['currentTeam'] as string).trim()       ? (payloadObj['currentTeam'] as string).trim()       : undefined,
+          CurrentGameTitle:  typeof payloadObj['currentGameTitle']  === 'string' && (payloadObj['currentGameTitle'] as string).trim()  ? (payloadObj['currentGameTitle'] as string).trim()  : undefined,
+          PrimaryDepartment: typeof payloadObj['primaryDepartment'] === 'string' && (payloadObj['primaryDepartment'] as string).trim() ? (payloadObj['primaryDepartment'] as string).trim() : undefined,
+          Notes:             typeof payloadObj['notes']             === 'string' && (payloadObj['notes'] as string).trim()             ? (payloadObj['notes'] as string).trim()             : undefined,
+        };
+
+        let createdPersonId: string;
+        try {
+          const person = await personService.createPerson(personInput);
+          createdPersonId = person.PersonID;
+        } catch (createErr) {
+          const errMsg = createErr instanceof Error ? createErr.message : String(createErr);
+          try {
+            await approvalsService.stampExecution(approval.id, {
+              newStatus:      'ExecutionFailed',
+              executionError: errMsg.slice(0, 250),
+            });
+          } catch (stampErr) {
+            console.error(
+              '[C3/Execution] Failed to stamp ExecutionFailed after createPerson error:',
+              stampErr,
+            );
+          }
+          throw createErr;
+        }
+
+        // Step 5: Stamp approval Executed.
+        const executedAt = new Date().toISOString();
+        try {
+          await approvalsService.stampExecution(approval.id, {
+            newStatus: 'Executed',
+            executedAt,
+          });
+        } catch (stampErr) {
+          console.error(
+            '[C3/Execution] PARTIAL FAILURE: person was created but approval stamp failed.',
+            `PersonID: ${createdPersonId} | ApprovalID: ${approval.id}`,
+            stampErr,
+          );
+          throw new PartialAddPersonExecutionError(createdPersonId, approval.id, stampErr);
+        }
+
+        console.info(
+          `[C3/Execution] Approval ${approval.title} executed. ` +
+          `Person ${createdPersonId} ("${trimmedName}") created. ExecutedAt: ${executedAt}`,
+        );
+        return;
+      }
+
       // ── Unknown operationType ──────────────────────────────────────────────
       throw new PayloadValidationError(
         `Unknown operationType: '${String(opType)}'. ` +
-        `Supported: 'InitiateJourney', 'AddCredential', 'DeactivateCredential'.`,
+        `Supported: 'InitiateJourney', 'AddCredential', 'DeactivateCredential', 'AddPerson'.`,
       );
     },
 
@@ -525,6 +632,9 @@ export const useExecuteApproval = () => {
             void queryClient.invalidateQueries({ queryKey: queryKeys.person.credentials(holderPersonId) });
           }
           void queryClient.invalidateQueries({ queryKey: queryKeys.credentials.all() });
+        } else if (opType === 'AddPerson') {
+          // Refresh people list so PeopleWorkspace shows the newly created person.
+          void queryClient.invalidateQueries({ queryKey: queryKeys.people.all() });
         }
       } catch {
         // Ignore parse failures — approvals.all() invalidation above is sufficient
@@ -557,6 +667,9 @@ export const useExecuteApproval = () => {
           if (holderPersonId) {
             void queryClient.invalidateQueries({ queryKey: queryKeys.person.credentials(holderPersonId) });
           }
+        } else if (opType === 'AddPerson') {
+          // Partial execution may have created the person — refresh to show any partial state.
+          void queryClient.invalidateQueries({ queryKey: queryKeys.people.all() });
         }
       } catch {
         // ignore

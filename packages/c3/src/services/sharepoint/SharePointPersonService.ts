@@ -28,7 +28,7 @@
  * See: docs/architecture/C3 Architecture Baseline — Sprint 16.md
  */
 
-import type { Activity, Contract, Person } from '@c3/types';
+import type { Activity, Contract, CreatePersonInput, Person } from '@c3/types';
 import type { IPersonService } from '../interfaces/IPersonService';
 import {
   mapSpItemsToPeople,
@@ -128,6 +128,39 @@ async function fetchItems(url: string): Promise<SpPersonItem[]> {
   }
 
   return json.value;
+}
+
+// ---------------------------------------------------------------------------
+// fetchFormDigest
+//
+// Fetches a fresh SP Form Digest Value for write operations.
+// Never cached — digest TTL is 30 minutes and staleness causes silent 403s.
+// Same implementation as in SharePointApprovalsService.
+// ---------------------------------------------------------------------------
+
+function buildContextInfoUrl(url: string): string {
+  return `${url.replace(/\/$/, '')}/_api/contextinfo`;
+}
+
+async function fetchFormDigest(siteUrl: string): Promise<string> {
+  const response = await fetch(buildContextInfoUrl(siteUrl), {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json;odata=nometadata' },
+  });
+
+  if (!response.ok) {
+    throw new Error(
+      `[C3/People] fetchFormDigest: /_api/contextinfo returned HTTP ${response.status} ${response.statusText}`,
+    );
+  }
+
+  const json = (await response.json()) as { FormDigestValue?: string };
+  if (!json.FormDigestValue) {
+    throw new Error('[C3/People] fetchFormDigest: FormDigestValue absent in contextinfo response');
+  }
+
+  return json.FormDigestValue;
 }
 
 // ---------------------------------------------------------------------------
@@ -261,6 +294,148 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
         'C3Activities list schema and service are deferred to a future sprint.',
       );
       return [];
+    },
+
+    // ── createPerson ─────────────────────────────────────────────────────────
+    // Sprint 25 — AddPerson SP DSM execution.
+    //
+    // POST-then-MERGE pattern (same as SharePointApprovalsService.createApproval):
+    //   1. POST to C3People with all input fields.
+    //      Title is set to a temporary value ('PENDING-{approvalTitle}' when
+    //      supplied, otherwise 'TMP-{timestamp}') so it is traceable to its
+    //      originating approval if the MERGE step fails.
+    //   2. Read the SP-assigned item ID from the response.
+    //   3. MERGE Title (= PersonID) to PER-XXXX using the item ID as the
+    //      atomic sequence source — same pattern as APR-XXXX.
+    //   4. Return a mapped Person with the canonical PersonID.
+    //
+    // Failure modes:
+    //   POST fails              → throw immediately. No row created. Caller stamps ExecutionFailed.
+    //   POST ok, MERGE fails    → throw with SP item ID in message. Orphaned row exists in
+    //                             C3People with TMP/PENDING title. Caller stamps ExecutionFailed.
+    //                             Operator must fix Title manually or via recovery (TD-24).
+    //   GET-back-mapped fails   → throw. Row and PER-XXXX are valid; stamp failure handled by caller.
+    //
+    // Duplicate protection: FullName-based check is applied at the useExecuteApproval
+    // layer before calling createPerson. This method trusts the caller has checked.
+    //
+    // Does NOT call createPerson from any UI path directly. Entry is useExecuteApproval only.
+    async createPerson(input: CreatePersonInput): Promise<Person> {
+      if (!input.FullName || !input.FullName.trim()) {
+        throw new Error('[C3/People] createPerson: FullName is required and must not be blank.');
+      }
+
+      const digest = await fetchFormDigest(siteUrl);
+
+      // ── Step 1: POST with temporary Title ──────────────────────────────
+      const tmpTitle = 'TMP-' + Date.now().toString(36);
+
+      const postBody = {
+        __metadata:        { type: 'SP.Data.C3PeopleListItem' },
+        Title:             tmpTitle,
+        FullName:          input.FullName.trim(),
+        IGN:               input.IGN?.trim()               ?? null,
+        Nationality:       input.Nationality?.trim()        ?? null,
+        PrimaryRole:       input.PrimaryRole?.trim()        ?? null,
+        PersonnelCode:     input.PersonnelCode?.trim()      ?? null,
+        CurrentTeam:       input.CurrentTeam?.trim()        ?? null,
+        CurrentGameTitle:  input.CurrentGameTitle?.trim()   ?? null,
+        PrimaryDepartment: input.PrimaryDepartment?.trim()  ?? null,
+        IsActive:          true,
+        Notes:             input.Notes?.trim()              ?? null,
+      };
+
+      const postResponse = await fetch(baseUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept':          'application/json;odata=nometadata',
+          'Content-Type':    'application/json;odata=verbose',
+          'X-RequestDigest': digest,
+        },
+        body: JSON.stringify(postBody),
+      });
+
+      if (!postResponse.ok) {
+        const errText = await postResponse.text().catch(() => '(unreadable)');
+        throw new Error(
+          `[C3/People] createPerson: POST failed (HTTP ${postResponse.status} ${postResponse.statusText}). ` +
+          `Body: ${errText}`,
+        );
+      }
+
+      const created = (await postResponse.json()) as { ID?: number };
+      if (typeof created.ID !== 'number') {
+        throw new Error(
+          `[C3/People] createPerson: POST succeeded but SP did not return an item ID. ` +
+          `An orphaned row with Title '${tmpTitle}' may exist in C3People.`,
+        );
+      }
+
+      const spItemId = created.ID;
+      const personId = `PER-${String(spItemId).padStart(4, '0')}`;
+
+      // ── Step 2: MERGE canonical PersonID (Title) ────────────────────────
+      const mergeDigest = await fetchFormDigest(siteUrl);
+      const itemUrl = `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${LIST_NAME}')/items(${spItemId})`;
+
+      const mergeResponse = await fetch(itemUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept':          'application/json;odata=nometadata',
+          'Content-Type':    'application/json;odata=verbose',
+          'X-RequestDigest': mergeDigest,
+          'X-HTTP-Method':   'MERGE',
+          'IF-MATCH':        '*',
+        },
+        body: JSON.stringify({ __metadata: { type: 'SP.Data.C3PeopleListItem' }, Title: personId }),
+      });
+
+      if (!mergeResponse.ok) {
+        const errText = await mergeResponse.text().catch(() => '(unreadable)');
+        throw new Error(
+          `[C3/People] createPerson: POST succeeded (SP ID ${spItemId}) but MERGE Title = ${personId} failed ` +
+          `(HTTP ${mergeResponse.status} ${mergeResponse.statusText}). ` +
+          `An orphaned row with Title '${tmpTitle}' exists in C3People (SP ID ${spItemId}). ` +
+          `Operator must manually set Title = ${personId} on that item, or use the AddPerson recovery path (TD-24). ` +
+          `Body: ${errText}`,
+        );
+      }
+
+      // ── Step 3: Build and return the created Person ─────────────────────
+      // Construct from the input and the assigned PersonID rather than fetching
+      // back from SP (avoids an extra round-trip; the row is known-good).
+      const warnRef = { count: 0 };
+      const spItem: SpPersonItem = {
+        Id:                spItemId,
+        Title:             personId,
+        FullName:          input.FullName.trim(),
+        IGN:               input.IGN?.trim()               ?? null,
+        Nationality:       input.Nationality?.trim()        ?? null,
+        PrimaryRole:       input.PrimaryRole?.trim()        ?? null,
+        PersonnelCode:     input.PersonnelCode?.trim()      ?? null,
+        CurrentTeam:       input.CurrentTeam?.trim()        ?? null,
+        CurrentGameTitle:  input.CurrentGameTitle?.trim()   ?? null,
+        PrimaryDepartment: input.PrimaryDepartment?.trim()  ?? null,
+        IsActive:          true,
+        FirstContractDate: null,
+        LatestContractDate: null,
+        TotalContracts:    null,
+        Notes:             input.Notes?.trim()              ?? null,
+      };
+
+      const person = mapSpItemToPerson(spItem, warnRef);
+      if (person === null) {
+        // Should never happen — we just created the item with valid fields.
+        throw new Error(
+          `[C3/People] createPerson: SP item ${spItemId} was created (${personId}) ` +
+          `but mapper rejected it. This is an unexpected state — check C3People list.`,
+        );
+      }
+
+      console.info(`[C3/People] createPerson: created ${personId} ("${person.FullName}") at SP ID ${spItemId}`);
+      return person;
     },
   };
 };

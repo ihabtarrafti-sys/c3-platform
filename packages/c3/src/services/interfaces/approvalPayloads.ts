@@ -6,6 +6,7 @@
  * Sprint 18 Phase 3A: InitiateJourneyApprovalPayload only.
  * Sprint 20 Phase 3:  AddCredentialApprovalPayload added.
  * Sprint 23 Phase 1:  DeactivateCredentialApprovalPayload added.
+ * Sprint 25:           AddPersonApprovalPayload added.
  *
  * See: docs/architecture/C3Approvals SP List Schema.md §3.16
  * See: docs/adr/ADR-013-Governance-Approval-Pattern.md
@@ -83,10 +84,59 @@ export interface DeactivateCredentialApprovalPayload {
 }
 
 // ---------------------------------------------------------------------------
+// AddPersonApprovalPayload
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for OperationType = 'AddPerson'.
+ *
+ * Captures the full intent of creating a new row in C3People. The person
+ * does not exist before approval execution — PersonID (PER-XXXX) is assigned
+ * by the service layer using the SP atomic item ID pattern.
+ *
+ * Required: fullName (cannot create without a name).
+ * All other fields are optional and mirror C3People writable columns.
+ *
+ * Email is intentionally absent — it is not in the current C3People SP list
+ * schema. Duplicate protection is FullName-based (client-side from loaded list).
+ * See TD-24 for server-side email uniqueness enforcement.
+ *
+ * Execution: POST to C3People (TMP title) → MERGE Title = PER-XXXX.
+ * IsActive defaults to true on creation.
+ *
+ * Sprint 25.
+ * See: docs/adr/ADR-013-Governance-Approval-Pattern.md
+ */
+export interface AddPersonApprovalPayload {
+  operationType: 'AddPerson';
+  /** Full legal name of the person to create. Required. */
+  fullName: string;
+  /** In-game name / alias. Optional. */
+  ign?: string;
+  /** Country of nationality, plain text. Optional. */
+  nationality?: string;
+  /** Primary role or job title. Optional. */
+  primaryRole?: string;
+  /** Internal HR personnel code (e.g. "FN/PL/001"). Optional. */
+  personnelCode?: string;
+  /** Current team assignment, plain text. Optional. */
+  currentTeam?: string;
+  /** Game title the person competes in or supports. Optional. */
+  currentGameTitle?: string;
+  /** Organisational department. Optional. */
+  primaryDepartment?: string;
+  /** Operational notes / reason for creation. Optional. */
+  notes?: string;
+  /** currentUser.loginName at submission time. Optional — audit display only. */
+  requestedBy?: string;
+}
+
+// ---------------------------------------------------------------------------
 // ApprovalPayload
 // ---------------------------------------------------------------------------
 
 export type ApprovalPayload =
   | InitiateJourneyApprovalPayload
   | AddCredentialApprovalPayload
-  | DeactivateCredentialApprovalPayload;
+  | DeactivateCredentialApprovalPayload
+  | AddPersonApprovalPayload;

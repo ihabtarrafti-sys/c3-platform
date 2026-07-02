@@ -11,9 +11,10 @@
  * Sprint 20 Phase 3 (S20-P3): AddCredential payload summary; PartialCredentialExecutionError handling.
  * Sprint 21 Phase 1 (S21-P1): AddCredential partial execution recovery UX (credential stamp-only path).
  * Sprint 23 Phase 1 (S23-P1): DeactivateCredential payload summary and partial execution recovery UX.
+ * Sprint 25 (S25):            AddPerson payload summary; PartialAddPersonExecutionError handling.
  *
  * Tab / filter structure (S20-P1):
- *   Pending  = Submitted + InReview   (default — actionable work queue)
+ *   Pending  = Submitted + InReview   (default -- actionable work queue)
  *   Approved = Approved               (awaiting execution)
  *   Executed = Executed               (terminal success)
  *   Rejected = Rejected               (terminal rejection)
@@ -21,30 +22,30 @@
  *   All      = all 6 statuses         (full audit trail)
  *
  * A single listApprovals call fetches all statuses; tabs filter client-side.
- * refetchInterval (30s) remains active — keeps the Pending tab live.
+ * refetchInterval (30s) remains active -- keeps the Pending tab live.
  *
- * Status-to-action matrix (owner) — UNCHANGED from S18:
+ * Status-to-action matrix (owner) -- UNCHANGED from S18:
  *   Submitted / InReview  -> Approve + Reject
  *   Approved              -> Execute  OR  Recover Execution Stamp (S20-P2 / S21-P1)
  *   Rejected / Executed / ExecutionFailed -> read-only (no buttons)
  *
  * Self-approval enforcement and owner-only action gating: UNCHANGED.
  *
- * Recovery detection (S20-P2 — InitiateJourney):
+ * Recovery detection (S20-P2 -- InitiateJourney):
  *   For each Approved + InitiateJourney card, a lazy useActiveJourney query
  *   checks whether an active Onboarding journey already exists for the payload
  *   personId. If so, the Execute button is replaced by Recover Execution Stamp.
  *   Recovery stamps the approval Executed without creating a new journey.
  *   Non-owner view remains read-only regardless.
  *
- * Credential recovery detection (S21-P1 — AddCredential):
+ * Credential recovery detection (S21-P1 -- AddCredential):
  *   For each Approved + AddCredential card, a lazy usePersonCredentials query
  *   checks whether a credential matching credentialType + referenceNumber already
  *   exists for holderPersonId. If so, the Execute button is replaced by Recover
  *   Execution Stamp. Recovery stamps the approval Executed without creating a new
  *   credential. Prevents duplicate CRED-XXXX rows on re-execution.
  *
- * Deactivation recovery detection (S23-P1 — DeactivateCredential):
+ * Deactivation recovery detection (S23-P1 -- DeactivateCredential):
  *   For each Approved + DeactivateCredential card, a lazy useGetCredential query
  *   checks whether the target credential already has IsActive = false. If so, the
  *   Execute button is replaced by Recover Execution Stamp. Recovery stamps the
@@ -59,8 +60,11 @@
  *                         supersedesCredentialId.
  *   DeactivateCredential: credentialId, holderPersonId, credentialType, referenceNumber,
  *                         reason, requestedBy.
+ *   AddPerson:            fullName, ign, primaryRole, nationality, currentTeam,
+ *                         currentGameTitle, primaryDepartment, personnelCode,
+ *                         requestedBy, notes.
  *   Unknown operationType: raw JSON disclosure block.
- *   All parsing is safe — malformed JSON yields "Invalid payload" label + collapsed raw block.
+ *   All parsing is safe -- malformed JSON yields "Invalid payload" label + collapsed raw block.
  */
 
 import { useMemo, useState } from 'react';
@@ -93,6 +97,7 @@ import {
   PartialExecutionError,
   PartialCredentialExecutionError,
   PartialDeactivationExecutionError,
+  PartialAddPersonExecutionError,
   CredentialAlreadyInactiveError,
   PayloadValidationError,
 } from '@c3/hooks/useExecuteApproval';
@@ -119,7 +124,7 @@ import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
 type InboxTab = 'pending' | 'approved' | 'executed' | 'rejected' | 'failed' | 'all';
 
-/** All 6 lifecycle statuses — fetched in one request, filtered client-side. */
+/** All 6 lifecycle statuses -- fetched in one request, filtered client-side. */
 const ALL_STATUSES = [
   'Submitted',
   'InReview',
@@ -307,7 +312,7 @@ const DetailCell = ({
 );
 
 // ---------------------------------------------------------------------------
-// PayloadSummary — safe display of typed approval payloads (S20-P1 + S20-P3)
+// PayloadSummary -- safe display of typed approval payloads (S20-P1 + S20-P3)
 //
 // Never throws: malformed JSON yields a labelled error + collapsed raw block.
 // Renders for InitiateJourney and AddCredential; unknown types show raw block.
@@ -324,12 +329,14 @@ const PayloadSummary = ({
   if (
     operationType !== 'InitiateJourney' &&
     operationType !== 'AddCredential' &&
-    operationType !== 'DeactivateCredential'
+    operationType !== 'DeactivateCredential' &&
+    operationType !== 'AddPerson'
   ) return null;
 
   const sectionLabel =
     operationType === 'AddCredential'        ? 'Credential Payload' :
     operationType === 'DeactivateCredential' ? 'Deactivation Payload' :
+    operationType === 'AddPerson'            ? 'Person Payload' :
     'Journey Payload';
 
   if (!raw) {
@@ -384,7 +391,7 @@ const PayloadSummary = ({
           {sectionLabel}
         </Text>
         <Text size={200} style={{ color: 'var(--c3-critical, #DC2626)' }}>
-          Invalid payload — JSON parse failed.
+          Invalid payload -- JSON parse failed.
         </Text>
         <details>
           <summary style={{ fontSize: 11, color: 'var(--c3-gray-400)', cursor: 'pointer' }}>
@@ -412,7 +419,7 @@ const PayloadSummary = ({
     );
   }
 
-  // ── InitiateJourney payload fields ──────────────────────────────────────
+  // -- InitiateJourney payload fields --
   if (operationType === 'InitiateJourney') {
     const journeyType      = typeof parsed['journeyType']      === 'string' ? parsed['journeyType']      : '--';
     const personId         = typeof parsed['personId']         === 'string' ? parsed['personId']         : '--';
@@ -466,7 +473,7 @@ const PayloadSummary = ({
     );
   }
 
-  // ── DeactivateCredential payload fields (S23-P1) ────────────────────────
+  // -- DeactivateCredential payload fields (S23-P1) --
   if (operationType === 'DeactivateCredential') {
     const credentialId   = typeof parsed['credentialId']    === 'string' ? parsed['credentialId']    : '--';
     const holderPersonId = typeof parsed['holderPersonId']  === 'string' ? parsed['holderPersonId']  : '--';
@@ -516,7 +523,62 @@ const PayloadSummary = ({
     );
   }
 
-  // ── AddCredential payload fields (S20-P3) ───────────────────────────────
+  // -- AddPerson payload fields (S25) --
+  if (operationType === 'AddPerson') {
+    const fullName          = typeof parsed['fullName']          === 'string' ? parsed['fullName']          : '--';
+    const ign               = typeof parsed['ign']               === 'string' ? parsed['ign']               : null;
+    const primaryRole       = typeof parsed['primaryRole']       === 'string' ? parsed['primaryRole']       : null;
+    const nationality       = typeof parsed['nationality']       === 'string' ? parsed['nationality']       : null;
+    const currentTeam       = typeof parsed['currentTeam']       === 'string' ? parsed['currentTeam']       : null;
+    const currentGameTitle  = typeof parsed['currentGameTitle']  === 'string' ? parsed['currentGameTitle']  : null;
+    const primaryDepartment = typeof parsed['primaryDepartment'] === 'string' ? parsed['primaryDepartment'] : null;
+    const personnelCode     = typeof parsed['personnelCode']     === 'string' ? parsed['personnelCode']     : null;
+    const requestedBy       = typeof parsed['requestedBy']       === 'string' ? parsed['requestedBy']       : null;
+    const personNotes       = typeof parsed['notes']             === 'string' ? parsed['notes']             : null;
+
+    return (
+      <div
+        style={{
+          borderTop: '1px solid var(--c3-gray-100)',
+          paddingTop: 'var(--c3-space-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
+        <Text
+          size={100}
+          style={{
+            color: 'var(--c3-gray-400)',
+            textTransform: 'uppercase',
+            letterSpacing: '0.06em',
+          }}
+        >
+          Person Payload
+        </Text>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: 'var(--c3-space-3)',
+          }}
+        >
+          <DetailCell label="Full Name"          value={fullName} />
+          {ign               && <DetailCell label="IGN / Alias"       value={ign} />}
+          {primaryRole       && <DetailCell label="Primary Role"      value={primaryRole} />}
+          {nationality       && <DetailCell label="Nationality"       value={nationality} />}
+          {currentTeam       && <DetailCell label="Current Team"      value={currentTeam} />}
+          {currentGameTitle  && <DetailCell label="Game Title"        value={currentGameTitle} />}
+          {primaryDepartment && <DetailCell label="Department"        value={primaryDepartment} />}
+          {personnelCode     && <DetailCell label="Personnel Code"    value={personnelCode} />}
+          {requestedBy       && <DetailCell label="Requested By"      value={requestedBy} />}
+          {personNotes       && <DetailCell label="Notes"             value={personNotes} wide />}
+        </div>
+      </div>
+    );
+  }
+
+  // -- AddCredential payload fields (S20-P3) --
   const credentialType         = typeof parsed['credentialType']         === 'string' ? parsed['credentialType']         : '--';
   const referenceNumber        = typeof parsed['referenceNumber']        === 'string' ? parsed['referenceNumber']        : '--';
   const holderPersonId         = typeof parsed['holderPersonId']         === 'string' ? parsed['holderPersonId']         : '--';
@@ -591,7 +653,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const { mutateAsync: recoverCredentialAsync, isPending: isRecoverCredentialPending } = useRecoverCredentialExecutionStamp();
   const { mutateAsync: recoverDeactivationAsync, isPending: isRecoverDeactivationPending } = useRecoverDeactivationExecutionStamp();
 
-  // ── Recovery candidate detection (S20-P2: InitiateJourney) ───────────────
+  // -- Recovery candidate detection (S20-P2: InitiateJourney) --
   //
   // A recovery candidate is an Approved + InitiateJourney approval whose
   // payload contains a parseable personId. Only for these do we fire a
@@ -617,14 +679,14 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   // True only once the query has settled and returned a journey
   const isPartialExecutionRecovery = isRecoveryCandidate && existingJourney != null;
 
-  // ── Credential recovery candidate detection (S21-P1: AddCredential) ──────
+  // -- Credential recovery candidate detection (S21-P1: AddCredential) --
   //
   // For Approved + AddCredential cards with parseable holderPersonId,
   // credentialType, and referenceNumber, fire a usePersonCredentials query to
   // check whether the credential already exists. Passing '' when not a candidate
   // suppresses the query via the existing enabled guard in usePersonCredentials.
   // isRecoveryCandidate and isCredRecoveryCandidate are mutually exclusive by
-  // operationType — only one query fires per card.
+  // operationType -- only one query fires per card.
 
   const credRecoveryFields = useMemo(
     () => (
@@ -657,7 +719,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
   const isPartialCredentialExecutionRecovery =
     isCredRecoveryCandidate && matchingCredential !== null;
 
-  // ── Deactivation recovery candidate detection (S23-P1: DeactivateCredential) ──
+  // -- Deactivation recovery candidate detection (S23-P1: DeactivateCredential) --
   //
   // For Approved + DeactivateCredential cards with parseable credentialId, fire a
   // useGetCredential query to check whether the credential is already inactive.
@@ -685,14 +747,14 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
     isDeactivationRecoveryCandidate,
   );
 
-  // True when the credential is confirmed inactive — deactivation already applied.
+  // True when the credential is confirmed inactive -- deactivation already applied.
   const isPartialDeactivationExecutionRecovery =
     isDeactivationRecoveryCandidate && deactivationTargetCredential?.IsActive === false;
 
   const isPending = isPatchPending || isExecutePending || isRecoverPending || isRecoverCredentialPending || isRecoverDeactivationPending;
   const statusColor = STATUS_COLORS[approval.approvalStatus] ?? 'informative';
 
-  // ── Action handlers (UNCHANGED from S18/S20-P1/P2 except AddCredential toast) ──
+  // -- Action handlers (UNCHANGED from S18/S20-P1/P2 except AddCredential toast) --
 
   const handleApprove = async () => {
     try {
@@ -744,7 +806,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           : '';
         toast.success(
           'Approval executed',
-          `${approval.title} — ${credTypeLabel} credential registered for ${holderPersonId}.`,
+          `${approval.title} -- ${credTypeLabel} credential registered for ${holderPersonId}.`,
         );
       } else if (opType === 'DeactivateCredential') {
         const holderPersonId = typeof parsedPayload?.['holderPersonId'] === 'string'
@@ -755,7 +817,15 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           : approval.targetId ?? 'unknown';
         toast.success(
           'Approval executed',
-          `${approval.title} — ${credentialId} deactivated for ${holderPersonId}.`,
+          `${approval.title} -- ${credentialId} deactivated for ${holderPersonId}.`,
+        );
+      } else if (opType === 'AddPerson') {
+        const fullName = typeof parsedPayload?.['fullName'] === 'string'
+          ? parsedPayload['fullName']
+          : 'unknown';
+        toast.success(
+          'Approval executed',
+          `${approval.title} -- Person record created for ${fullName}.`,
         );
       } else {
         // InitiateJourney or other (default)
@@ -764,45 +834,51 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           : approval.targetPersonId ?? 'unknown';
         toast.success(
           'Approval executed',
-          `${approval.title} — Journey created for ${personId}.`,
+          `${approval.title} -- Journey created for ${personId}.`,
         );
       }
     } catch (err) {
       if (err instanceof DuplicateJourneyError) {
         toast.error(
-          'Execution blocked — duplicate journey',
+          'Execution blocked -- duplicate journey',
           'An active Onboarding journey already exists for this person. ' +
           'Approval has been marked ExecutionFailed.',
         );
       } else if (err instanceof PayloadValidationError) {
         toast.error(
-          'Execution blocked — invalid payload',
+          'Execution blocked -- invalid payload',
           'The approval payload is missing or malformed. No record was created. ' +
           'Contact support to correct the C3Approvals record.',
         );
       } else if (err instanceof PartialExecutionError) {
         toast.error(
-          'Partial execution — manual resolution required',
+          'Partial execution -- manual resolution required',
           'Journey was created but the approval record could not be stamped Executed. ' +
           'Manually update C3Approvals to Executed status.',
         );
       } else if (err instanceof PartialCredentialExecutionError) {
         toast.error(
-          'Partial execution — manual resolution required',
+          'Partial execution -- manual resolution required',
           'Credential was registered but the approval record could not be stamped Executed. ' +
           'Manually update C3Approvals to Executed status.',
         );
       } else if (err instanceof CredentialAlreadyInactiveError) {
         toast.error(
-          'Execution blocked — credential already inactive',
+          'Execution blocked -- credential already inactive',
           'This credential is already IsActive = false. ' +
           'Use Recover Execution Stamp to stamp the approval as Executed.',
         );
       } else if (err instanceof PartialDeactivationExecutionError) {
         toast.error(
-          'Partial execution — manual resolution required',
+          'Partial execution -- manual resolution required',
           'Credential was deactivated but the approval record could not be stamped Executed. ' +
           'Manually update C3Approvals to Executed status.',
+        );
+      } else if (err instanceof PartialAddPersonExecutionError) {
+        toast.error(
+          'Partial execution -- manual resolution required',
+          'Person record was created in C3People but the approval record could not be stamped ' +
+          'Executed. Manually update C3Approvals to Executed status.',
         );
       } else {
         const msg = err instanceof Error ? err.message : 'Unknown error.';
@@ -821,7 +897,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
     } catch (err) {
       if (err instanceof RecoveryTargetMissingError) {
         toast.error(
-          'Recovery failed — no active journey found',
+          'Recovery failed -- no active journey found',
           `No active Onboarding journey was found for ${payloadPersonId}. ` +
           'Use the Execute button to create one.',
         );
@@ -844,7 +920,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
     } catch (err) {
       if (err instanceof CredentialRecoveryTargetMissingError) {
         toast.error(
-          'Recovery failed — credential not found',
+          'Recovery failed -- credential not found',
           `No matching credential was found for ${credRecoveryFields?.holderPersonId ?? ''}. ` +
           'Use the Execute button to create one.',
         );
@@ -869,12 +945,12 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
     } catch (err) {
       if (err instanceof DeactivationRecoveryTargetMissingError) {
         toast.error(
-          'Recovery failed — credential not found',
+          'Recovery failed -- credential not found',
           `Credential '${credId}' could not be found. Contact support.`,
         );
       } else if (err instanceof DeactivationRecoveryTargetActiveError) {
         toast.error(
-          'Recovery blocked — credential is still active',
+          'Recovery blocked -- credential is still active',
           `Credential '${credId}' is still IsActive = true. Use the Execute button to deactivate it.`,
         );
       } else {
@@ -883,7 +959,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // -- Render --
 
   return (
     <div
@@ -897,7 +973,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         gap: 'var(--c3-space-4)',
       }}
     >
-      {/* ── Header row ──────────────────────────────────────────────────── */}
+      {/* -- Header row -- */}
       <div
         style={{
           display: 'flex',
@@ -919,7 +995,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         </Badge>
       </div>
 
-      {/* ── Core detail grid ────────────────────────────────────────────── */}
+      {/* -- Core detail grid -- */}
       <div
         style={{
           display: 'grid',
@@ -947,13 +1023,13 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
         )}
       </div>
 
-      {/* ── Payload summary (S20-P1 + S20-P3) ──────────────────────────── */}
+      {/* -- Payload summary (S20-P1 + S20-P3) -- */}
       <PayloadSummary raw={approval.payload} operationType={approval.operationType} />
 
-      {/* ── Owner action row ────────────────────────────────────────────── */}
+      {/* -- Owner action row -- */}
       {isOwner && (() => {
 
-        // ── Submitted / InReview: Approve + Reject (UNCHANGED) ───────────
+        // -- Submitted / InReview: Approve + Reject (UNCHANGED) --
         if (approval.approvalStatus === 'Submitted' || approval.approvalStatus === 'InReview') {
           return (
             <div
@@ -1021,7 +1097,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           );
         }
 
-        // ── Approved: Execute OR Recover (S20-P2 / S21-P1) ───────────────
+        // -- Approved: Execute OR Recover (S20-P2 / S21-P1) --
         // Priority: journey recovery (S20-P2) > credential recovery (S21-P1) > Execute.
         // isRecoveryCandidate and isCredRecoveryCandidate are mutually exclusive by
         // operationType, so only one existence query fires per card.
@@ -1043,7 +1119,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                   <Text size={200} style={{ color: 'var(--c3-gray-400)' }}>Checking...</Text>
                 </div>
               ) : isPartialExecutionRecovery ? (
-                /* ── InitiateJourney partial execution recovery (S20-P2) ─── */
+                /* -- InitiateJourney partial execution recovery (S20-P2) -- */
                 <>
                   <MessageBar intent="warning">
                     <MessageBarBody>
@@ -1070,7 +1146,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                   </Button>
                 </>
               ) : isPartialCredentialExecutionRecovery ? (
-                /* ── AddCredential partial execution recovery (S21-P1) ───── */
+                /* -- AddCredential partial execution recovery (S21-P1) -- */
                 <>
                   <MessageBar intent="warning">
                     <MessageBarBody>
@@ -1097,7 +1173,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                   </Button>
                 </>
               ) : isPartialDeactivationExecutionRecovery ? (
-                /* ── DeactivateCredential partial execution recovery (S23-P1) */
+                /* -- DeactivateCredential partial execution recovery (S23-P1) */
                 <>
                   <MessageBar intent="warning">
                     <MessageBarBody>
@@ -1125,7 +1201,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
                   </Button>
                 </>
               ) : (
-                /* ── Normal Execute path ──────────────────────────────────── */
+                /* -- Normal Execute path -- */
                 <Button
                   appearance="primary"
                   icon={<PlayRegular />}
@@ -1139,7 +1215,7 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           );
         }
 
-        // ── Rejected / Executed / ExecutionFailed: read-only ──────────────
+        // -- Rejected / Executed / ExecutionFailed: read-only --
         return null;
       })()}
     </div>
@@ -1166,7 +1242,7 @@ export const ApprovalInbox = () => {
     refetchInterval: 30_000,
   });
 
-  // ── Per-tab counts for tab labels ─────────────────────────────────────────
+  // -- Per-tab counts for tab labels --
   const counts = useMemo(() => ({
     pending:  allApprovals.filter(a => TAB_STATUSES.pending.includes(a.approvalStatus)).length,
     approved: allApprovals.filter(a => TAB_STATUSES.approved.includes(a.approvalStatus)).length,
@@ -1176,13 +1252,13 @@ export const ApprovalInbox = () => {
     all:      allApprovals.length,
   }), [allApprovals]);
 
-  // ── Visible items for the active tab ─────────────────────────────────────
+  // -- Visible items for the active tab --
   const visibleApprovals = useMemo(
     () => allApprovals.filter(a => TAB_STATUSES[activeTab].includes(a.approvalStatus)),
     [allApprovals, activeTab],
   );
 
-  // ── Loading ───────────────────────────────────────────────────────────────
+  // -- Loading --
   if (isLoading) {
     return (
       <div
@@ -1199,7 +1275,7 @@ export const ApprovalInbox = () => {
     );
   }
 
-  // ── Error ─────────────────────────────────────────────────────────────────
+  // -- Error --
   if (isError) {
     return (
       <div style={{ padding: 'var(--c3-space-8)' }}>
@@ -1212,7 +1288,7 @@ export const ApprovalInbox = () => {
     );
   }
 
-  // ── Main render ───────────────────────────────────────────────────────────
+  // -- Main render --
   const pendingCount = counts.pending;
 
   return (
@@ -1225,7 +1301,7 @@ export const ApprovalInbox = () => {
         gap: 'var(--c3-space-5)',
       }}
     >
-      {/* ── Page header ─────────────────────────────────────────────────── */}
+      {/* -- Page header -- */}
       <div
         style={{
           display: 'flex',
@@ -1255,7 +1331,7 @@ export const ApprovalInbox = () => {
         )}
       </div>
 
-      {/* ── Tab bar ──────────────────────────────────────────────────────── */}
+      {/* -- Tab bar -- */}
       <div
         style={{
           background: 'var(--c3-white)',
@@ -1281,7 +1357,7 @@ export const ApprovalInbox = () => {
         </TabList>
       </div>
 
-      {/* ── Tab content ──────────────────────────────────────────────────── */}
+      {/* -- Tab content -- */}
       {visibleApprovals.length === 0 ? (
         <EmptyState
           variant="empty"

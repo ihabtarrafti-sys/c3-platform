@@ -4,6 +4,7 @@
  * Sprint 21 Phase 2 — Pure helpers for approval payload display.
  * Sprint 21 Phase 3 — Humanize AddCredential credentialType using CREDENTIAL_TYPE_LABELS.
  * Sprint 23 Phase 1 — DeactivateCredential payload summary.
+ * Sprint 25 — AddPerson payload summary.
  *
  * All functions are pure (no React, no hooks, no side effects).
  * Safe parse only — never throws on bad input, never outputs raw JSON.
@@ -97,6 +98,21 @@ export function formatApprovalPayloadSummary(
 
     const parts = ['Deactivate', credType, refNum, holderId].filter(Boolean);
     return parts.length > 0 ? parts.join(' · ') : 'Deactivate credential';
+  }
+
+  if (operationType === 'AddPerson') {
+    const fullName = typeof parsed['fullName'] === 'string' && parsed['fullName'].trim()
+      ? parsed['fullName'].trim()
+      : null;
+    const primaryRole = typeof parsed['primaryRole'] === 'string' && parsed['primaryRole'].trim()
+      ? parsed['primaryRole'].trim()
+      : null;
+    const currentTeam = typeof parsed['currentTeam'] === 'string' && parsed['currentTeam'].trim()
+      ? parsed['currentTeam'].trim()
+      : null;
+
+    const parts = [fullName, primaryRole, currentTeam].filter(Boolean);
+    return parts.length > 0 ? ('New Person · ' + parts.join(' · ')) : 'New person creation request';
   }
 
   // Unknown operationType — do not surface raw payload
