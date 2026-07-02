@@ -12,7 +12,7 @@
  *             The person is not visible in C3 until an owner approves and executes the request.
  *
  * Required field: Full Name.
- * Optional fields: IGN, Primary Role, Nationality, Current Team,
+ * Optional fields: IGN, Primary Role, Personnel Code, Nationality, Current Team,
  *                  Current Game Title, Primary Department, Notes.
  *
  * No email field -- Email is not in the current C3People SP list schema (TD-24).
@@ -75,6 +75,7 @@ export const AddPersonPanel = ({ open, onDismiss }: AddPersonPanelProps) => {
   const [fullName,          setFullName]          = useState('');
   const [ign,               setIgn]               = useState('');
   const [primaryRole,       setPrimaryRole]       = useState('');
+  const [personnelCode,     setPersonnelCode]     = useState('');
   const [nationality,       setNationality]       = useState('');
   const [currentTeam,       setCurrentTeam]       = useState('');
   const [currentGameTitle,  setCurrentGameTitle]  = useState('');
@@ -91,6 +92,7 @@ export const AddPersonPanel = ({ open, onDismiss }: AddPersonPanelProps) => {
     setFullName('');
     setIgn('');
     setPrimaryRole('');
+    setPersonnelCode('');
     setNationality('');
     setCurrentTeam('');
     setCurrentGameTitle('');
@@ -114,6 +116,7 @@ export const AddPersonPanel = ({ open, onDismiss }: AddPersonPanelProps) => {
         FullName:          fullName.trim(),
         IGN:               ign.trim()               || undefined,
         PrimaryRole:       primaryRole.trim()       || undefined,
+        PersonnelCode:     personnelCode.trim()     || undefined,
         Nationality:       nationality.trim()        || undefined,
         CurrentTeam:       currentTeam.trim()       || undefined,
         CurrentGameTitle:  currentGameTitle.trim()  || undefined,
@@ -205,6 +208,21 @@ export const AddPersonPanel = ({ open, onDismiss }: AddPersonPanelProps) => {
             value={primaryRole}
             onChange={(_, d) => setPrimaryRole(d.value)}
             disabled={isPending}
+          />
+        </FormField>
+
+        {/* Personnel Code */}
+        <FormField
+          label="Personnel Code"
+          hint="Internal HR reference code (e.g. FN/PL/001). Used for contract linking. Leave blank if not yet assigned."
+        >
+          <Input
+            id="add-person-personnel-code"
+            placeholder="e.g. FN/PL/001"
+            value={personnelCode}
+            onChange={(_, d) => setPersonnelCode(d.value)}
+            disabled={isPending}
+            style={{ fontFamily: 'monospace' }}
           />
         </FormField>
 

@@ -1,7 +1,7 @@
 /**
  * s16-parity-people.mjs
  *
- * Sprint 16 (S16-6) — Local Mapper / Pre-SP People Parity Harness.
+ * Sprint 16 (S16-6) -- Local Mapper / Pre-SP People Parity Harness.
  *
  * Validates that spPersonMapper produces output that is field-for-field
  * identical to the mock person service for all 10 mirror records, and
@@ -15,32 +15,32 @@
  *   Mock data stores dates as full ISO strings ("2026-01-10T00:00:00Z").
  *   SP DateOnly columns return similar strings which normalizeSpDate reduces
  *   to "YYYY-MM-DD". This harness normalizes mock dates to date-only before
- *   field comparison — this is an expected, documented divergence (see
- *   docs/architecture/C3People SP List Schema.md §Mapper Reference).
+ *   field comparison -- this is an expected, documented divergence (see
+ *   docs/architecture/C3People SP List Schema.md Mapper Reference).
  *
  * Run:  node scripts/s16-parity-people.mjs
  *
  * Expected exit codes:
- *   0 — all assertions pass
- *   1 — one or more assertions failed
+ *   0 -- all assertions pass
+ *   1 -- one or more assertions failed
  */
 
 // ---------------------------------------------------------------------------
 // 1. Mapper logic (inlined from packages/c3/src/utils/spPersonMapper.ts)
 //    and the shared normalizeSpDate from dateUtils.ts
-//    Translated to JS — must stay in sync with the TS source.
+//    Translated to JS -- must stay in sync with the TS source.
 // ---------------------------------------------------------------------------
 
 function normalizeSpDate(val, context, warnRef, prefix = '[C3/Credential]') {
   if (val === null || val === undefined || val === '') return undefined;
   if (typeof val !== 'string') {
-    console.warn(`${prefix} ${context}: unexpected date type ${typeof val} — treated as absent`);
+    console.warn(`${prefix} ${context}: unexpected date type ${typeof val} -- treated as absent`);
     warnRef.count++;
     return undefined;
   }
   const d = new Date(val);
   if (isNaN(d.getTime())) {
-    console.warn(`${prefix} ${context}: invalid date "${val}" — treated as absent (non-expiring)`);
+    console.warn(`${prefix} ${context}: invalid date "${val}" -- treated as absent (non-expiring)`);
     warnRef.count++;
     return undefined;
   }
@@ -52,7 +52,7 @@ function parseIsActive(val, ctx, warnRef) {
   if (val === 1 || val === '1' || val === 'Yes' || val === 'yes') return true;
   if (val === 0 || val === '0' || val === 'No'  || val === 'no')  return false;
   console.warn(
-    `[C3/People] ${ctx}.IsActive: unknown value "${val}" — defaulting to false (inactive). ` +
+    `[C3/People] ${ctx}.IsActive: unknown value "${val}" -- defaulting to false (inactive). ` +
     `Check SP column type; SP Yes/No should return boolean.`,
   );
   warnRef.count++;
@@ -63,7 +63,7 @@ function parseTotalContracts(val, ctx, warnRef) {
   if (val === null || val === undefined) return undefined;
   const n = typeof val === 'number' ? val : Number(val);
   if (!Number.isFinite(n)) {
-    console.warn(`[C3/People] ${ctx}.TotalContracts: non-numeric value "${val}" — treated as unknown.`);
+    console.warn(`[C3/People] ${ctx}.TotalContracts: non-numeric value "${val}" -- treated as unknown.`);
     warnRef.count++;
     return undefined;
   }
@@ -74,14 +74,14 @@ function mapSpItemToPerson(item, warnRef = { count: 0 }) {
   const ctx = `Item ${item.Id}`;
 
   if (!item.Title || item.Title.trim() === '') {
-    console.warn(`[C3/People] ${ctx}: missing PersonID (blank Title) — record rejected`);
+    console.warn(`[C3/People] ${ctx}: missing PersonID (blank Title) -- record rejected`);
     return null;
   }
   const personId = item.Title.trim();
 
   if (!item.FullName || item.FullName.trim() === '') {
     console.warn(
-      `[C3/People] ${ctx} (${personId}): missing FullName — record rejected. ` +
+      `[C3/People] ${ctx} (${personId}): missing FullName -- record rejected. ` +
       `FullName is a required column in C3People; check SP list for data entry errors.`,
     );
     return null;
@@ -130,7 +130,7 @@ function mapSpItemsToPeople(items) {
 
 // ---------------------------------------------------------------------------
 // 2. Mock person data (matches mockData.ts mockPeople exactly)
-//    Ordered by SP insertion order (Id 1–10) per schema doc.
+//    Ordered by SP insertion order (Id 1-10) per schema doc.
 // ---------------------------------------------------------------------------
 
 const mockPeople = [
@@ -207,8 +207,8 @@ const mockPeople = [
 ];
 
 // ---------------------------------------------------------------------------
-// 3. SP test dataset — 10 mirror records + 3 stress records
-//    (matches docs/architecture/C3People SP List Schema.md §Minimum Test Dataset)
+// 3. SP test dataset -- 10 mirror records + 3 stress records
+//    (matches docs/architecture/C3People SP List Schema.md Minimum Test Dataset)
 //
 //    SP DateOnly columns return ISO-like strings with T00:00:00Z suffix.
 //    All other fields match list schema internal names exactly.
@@ -290,56 +290,56 @@ const SP_MIRROR_RECORDS = [
 ];
 
 const SP_STRESS_RECORDS = [
-  // Item 11: blank Title → hard reject (missing PersonID)
+  // Item 11: blank Title -> hard reject (missing PersonID)
   {
     Id: 11, Title: '',         FullName: 'Missing PersonID', IGN: null,
     Nationality: null, PrimaryRole: null, PersonnelCode: null,
     CurrentTeam: null, CurrentGameTitle: null, PrimaryDepartment: null,
     IsActive: true, FirstContractDate: null, LatestContractDate: null,
-    TotalContracts: null, Notes: 'stress: hard reject — missing PersonID',
+    TotalContracts: null, Notes: 'stress: hard reject -- missing PersonID',
   },
-  // Item 12: inactive person (IsActive = string 'No') → mapper does NOT reject.
+  // Item 12: inactive person (IsActive = string 'No') -> mapper does NOT reject.
   // Service layer filters via $filter=IsActive eq 1 at SP query level.
-  // normalizeIsActive handles 'No' silently (no warn — it is a known string alias).
+  // normalizeIsActive handles 'No' silently (no warn -- it is a known string alias).
   {
     Id: 12, Title: 'PER-9999', FullName: 'Inactive Test Person', IGN: null,
     Nationality: null, PrimaryRole: null, PersonnelCode: null,
     CurrentTeam: null, CurrentGameTitle: null, PrimaryDepartment: null,
     IsActive: 'No', FirstContractDate: null, LatestContractDate: null,
-    TotalContracts: null, Notes: 'stress: inactive — mapper passes through, service filters',
+    TotalContracts: null, Notes: 'stress: inactive -- mapper passes through, service filters',
   },
-  // Item 13: blank FullName → hard reject
+  // Item 13: blank FullName -> hard reject
   {
     Id: 13, Title: 'PER-INVALID', FullName: '',   IGN: null,
     Nationality: null, PrimaryRole: null, PersonnelCode: null,
     CurrentTeam: null, CurrentGameTitle: null, PrimaryDepartment: null,
     IsActive: true, FirstContractDate: null, LatestContractDate: null,
-    TotalContracts: null, Notes: 'stress: hard reject — missing FullName',
+    TotalContracts: null, Notes: 'stress: hard reject -- missing FullName',
   },
-  // Item 14: invalid date string → soft warn on FirstContractDate; date mapped to undefined.
-  // LatestContractDate is null (absent) → undefined silently.
+  // Item 14: invalid date string -> soft warn on FirstContractDate; date mapped to undefined.
+  // LatestContractDate is null (absent) -> undefined silently.
   {
     Id: 14, Title: 'PER-S14', FullName: 'Bad Date Person', IGN: null,
     Nationality: null, PrimaryRole: null, PersonnelCode: null,
     CurrentTeam: null, CurrentGameTitle: null, PrimaryDepartment: null,
     IsActive: true, FirstContractDate: 'not-a-date', LatestContractDate: null,
-    TotalContracts: 1, Notes: 'stress: invalid date → soft warn + undefined',
+    TotalContracts: 1, Notes: 'stress: invalid date -> soft warn + undefined',
   },
-  // Item 15: non-numeric TotalContracts → soft warn; value mapped to undefined.
+  // Item 15: non-numeric TotalContracts -> soft warn; value mapped to undefined.
   {
     Id: 15, Title: 'PER-S15', FullName: 'Bad Count Person', IGN: null,
     Nationality: null, PrimaryRole: null, PersonnelCode: null,
     CurrentTeam: null, CurrentGameTitle: null, PrimaryDepartment: null,
     IsActive: true, FirstContractDate: null, LatestContractDate: null,
-    TotalContracts: 'corrupt-NaN', Notes: 'stress: non-numeric TotalContracts → soft warn + undefined',
+    TotalContracts: 'corrupt-NaN', Notes: 'stress: non-numeric TotalContracts -> soft warn + undefined',
   },
-  // Item 16: unknown IsActive value → soft warn; falls back to false (inactive safe default).
+  // Item 16: unknown IsActive value -> soft warn; falls back to false (inactive safe default).
   {
     Id: 16, Title: 'PER-S16', FullName: 'Unknown Active Person', IGN: null,
     Nationality: null, PrimaryRole: null, PersonnelCode: null,
     CurrentTeam: null, CurrentGameTitle: null, PrimaryDepartment: null,
     IsActive: 'maybe', FirstContractDate: null, LatestContractDate: null,
-    TotalContracts: null, Notes: 'stress: unknown IsActive → soft warn + IsActive=false',
+    TotalContracts: null, Notes: 'stress: unknown IsActive -> soft warn + IsActive=false',
   },
 ];
 
@@ -357,7 +357,7 @@ function assert(condition, label, detail = '') {
     console.log(`  ✓ ${label}`);
     passed++;
   } else {
-    console.error(`  ✗ FAIL: ${label}${detail ? ' — ' + detail : ''}`);
+    console.error(`  ✗ FAIL: ${label}${detail ? ' -- ' + detail : ''}`);
     failed++;
   }
 }
@@ -369,19 +369,19 @@ function assert(condition, label, detail = '') {
  */
 function normDate(val) {
   if (!val) return undefined;
-  return String(val).split('T')[0]; // "2026-01-10T00:00:00Z" → "2026-01-10"
+  return String(val).split('T')[0]; // "2026-01-10T00:00:00Z" -> "2026-01-10"
 }
 
 // Fields requiring date normalization before comparison
 const DATE_FIELDS = new Set(['FirstContractDate', 'LatestContractDate']);
 
 // ---------------------------------------------------------------------------
-// 5. Phase A — Mirror record parity
-//    SP mirror records → mapper → compare field-by-field with mock
+// 5. Phase A -- Mirror record parity
+//    SP mirror records -> mapper -> compare field-by-field with mock
 // ---------------------------------------------------------------------------
 
 console.log('\n════════════════════════════════════════════════════════════');
-console.log(' S16-6 — Local Mapper / Pre-SP People Parity Harness');
+console.log(' S16-6 -- Local Mapper / Pre-SP People Parity Harness');
 console.log('════════════════════════════════════════════════════════════\n');
 
 console.log('Scope: validates mapper logic, mock-vs-SP-shaped data parity,');
@@ -389,17 +389,17 @@ console.log('        count/field comparison, and stress guards.');
 console.log('NOT validated here: real SP fetch, REST response shape, SP query filters.');
 console.log('The real S16-7 runs after C3People list is provisioned.\n');
 
-console.log('── A1: Mirror records (10) through mapper (simulated SP REST response) ──\n');
+console.log('-- A1: Mirror records (10) through mapper (simulated SP REST response) --\n');
 
 const { people: spMirrorPeople, rejectedCount: mirrorRejected, warnCount: mirrorWarns }
   = mapSpItemsToPeople(SP_MIRROR_RECORDS);
 
-console.log('\n── A2: Record count assertions ──\n');
+console.log('\n-- A2: Record count assertions --\n');
 assert(spMirrorPeople.length === 10, 'Mirror: 10 persons mapped from 10 SP items');
 assert(mirrorRejected === 0,         'Mirror: 0 records rejected');
 assert(mirrorWarns === 0,            'Mirror: 0 warnings');
 
-console.log('\n── A3: Field-level parity (SP-mapped vs mock) ──\n');
+console.log('\n-- A3: Field-level parity (SP-mapped vs mock) --\n');
 
 const COMPARE_FIELDS = [
   'Id', 'PersonID', 'FullName', 'IGN',
@@ -430,54 +430,53 @@ for (const mock of mockPeople) {
 }
 
 // ---------------------------------------------------------------------------
-// 6. Phase C — Stress records
+// 6. Phase C -- Stress records
 // ---------------------------------------------------------------------------
 
-console.log('\n── C1: Full dataset (16 records) through mapper ──\n');
+console.log('\n-- C1: Full dataset (16 records) through mapper --\n');
 
 const { people: allPeople, rejectedCount: allRejected, warnCount: allWarns }
   = mapSpItemsToPeople(ALL_SP_RECORDS);
 
-console.log('\n── C2: Stress record assertions (hard rejects + pass-throughs) ──\n');
+console.log('\n-- C2: Stress record assertions (hard rejects + pass-throughs) --\n');
 
 // Expected:
 //   10 mirror + 4 stress pass-throughs (Items 12, 14, 15, 16) = 14 mapped
-//   2 hard rejects (Items 11 — blank Title, 13 — blank FullName)
-//   3 soft warns (Item 14 — invalid date, Item 15 — bad TotalContracts, Item 16 — unknown IsActive)
+//   2 hard rejects (Items 11 -- blank Title, 13 -- blank FullName)
+//   3 soft warns (Item 14 -- invalid date, Item 15 -- bad TotalContracts, Item 16 -- unknown IsActive)
 assert(allPeople.length === 14,  'Full dataset: 14 persons mapped (10 mirror + 4 stress pass-throughs)');
-assert(allRejected === 2,        'Full dataset: 2 records rejected (Item 11 — missing PersonID, Item 13 — missing FullName)');
+assert(allRejected === 2,        'Full dataset: 2 records rejected (Item 11 -- missing PersonID, Item 13 -- missing FullName)');
 assert(allWarns === 3,           'Full dataset: 3 warnings (Item 14 invalid date, Item 15 bad TotalContracts, Item 16 unknown IsActive)');
 
-// Item 11: missing PersonID → not in output
+// Item 11: missing PersonID -> not in output
 assert(
   !allPeople.find(p => p.Id === 11),
-  'Item 11: absent from mapped output (correctly rejected — blank Title)',
+  'Item 11: absent from mapped output (correctly rejected -- blank Title)',
 );
 
-// Item 12: inactive (IsActive='No') → present in output with IsActive=false, no warn
-// ('No' is a known alias in parseIsActive — handled silently without incrementing warnRef)
+// Item 12: inactive (IsActive='No') -> present in output with IsActive=false, no warn
 const item12 = allPeople.find(p => p.PersonID === 'PER-9999');
 assert(!!item12,                   'Item 12: present in mapped output (inactive records not rejected by mapper)');
-assert(item12?.IsActive === false,  'Item 12: IsActive mapped to false (string "No" → boolean false, no warn)');
+assert(item12?.IsActive === false,  'Item 12: IsActive mapped to false (string "No" -> boolean false, no warn)');
 
-// Item 13: blank FullName → not in output
+// Item 13: blank FullName -> not in output
 assert(
   !allPeople.find(p => p.Id === 13),
-  'Item 13: absent from mapped output (correctly rejected — blank FullName)',
+  'Item 13: absent from mapped output (correctly rejected -- blank FullName)',
 );
 
-console.log('\n── C3: Soft-error stress record assertions ──\n');
+console.log('\n-- C3: Soft-error stress record assertions --\n');
 
-// Item 14: invalid date → mapped (not rejected); FirstContractDate = undefined; 1 warn
+// Item 14: invalid date -> mapped (not rejected); FirstContractDate = undefined; 1 warn
 const item14 = allPeople.find(p => p.PersonID === 'PER-S14');
-assert(!!item14,                              'Item 14: present in mapped output (invalid date is soft error — not a rejection)');
-assert(item14?.FirstContractDate === undefined, 'Item 14: FirstContractDate is undefined (invalid date "not-a-date" → non-expiring)');
-assert(item14?.LatestContractDate === undefined, 'Item 14: LatestContractDate is undefined (null input → absent field)');
+assert(!!item14,                              'Item 14: present in mapped output (invalid date is soft error -- not a rejection)');
+assert(item14?.FirstContractDate === undefined, 'Item 14: FirstContractDate is undefined (invalid date "not-a-date" -> non-expiring)');
+assert(item14?.LatestContractDate === undefined, 'Item 14: LatestContractDate is undefined (null input -> absent field)');
 assert(item14?.TotalContracts === 1,            'Item 14: TotalContracts=1 mapped correctly (only date was invalid)');
 
-// Item 15: non-numeric TotalContracts → mapped (not rejected); TotalContracts = undefined; 1 warn
+// Item 15: non-numeric TotalContracts -> mapped (not rejected); TotalContracts = undefined; 1 warn
 const item15 = allPeople.find(p => p.PersonID === 'PER-S15');
-assert(!!item15,                               'Item 15: present in mapped output (bad TotalContracts is soft error — not a rejection)');
+assert(!!item15,                               'Item 15: present in mapped output (bad TotalContracts is soft error -- not a rejection)');
 assert(item15?.TotalContracts === undefined,    'Item 15: TotalContracts is undefined (non-numeric corrupt-NaN value treated as unknown)');
 assert(item15?.FirstContractDate === undefined, 'Item 15: FirstContractDate is undefined (null input, absent field)');
 
