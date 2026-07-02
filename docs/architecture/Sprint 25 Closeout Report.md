@@ -83,7 +83,7 @@ Implement the governed `AddPerson` operation: a UI-initiated request to create a
 
 ### Phase 5 — Parity and runtime
 
-- `scripts/s18-parity-approvals.mjs` — APR-0004 seed record added (AddPerson, empty TargetPersonID, full payload); 10 new assertions added for AddPerson mapping and payload round-trip; count: 27 → 37
+- `scripts/s18-parity-approvals.mjs` — APR-0004 seed record added (AddPerson, `TargetPersonID: 'PENDING-ADDPERSON'`, full payload); 10 new assertions added for AddPerson mapping and payload round-trip; count: 27 → 37
 - Runtime rebuilt via `npm run beta:runtime`: 2395 modules, 1,812.35 kB (gzip: 402.43 kB)
 - Runtime verified via `npm run verify:runtime`: SHA-256 hashes match
 
@@ -94,9 +94,17 @@ Implement the governed `AddPerson` operation: a UI-initiated request to create a
 | Hash | Phase | Type | Description |
 |------|-------|------|-------------|
 | `d8763ea` | All | feat | Add governed AddPerson foundation |
+| `2020180` | Docs | docs | Close governed AddPerson sprint |
+| `1159290` | Polish | fix | Populate AddPerson approval target placeholder |
 
-HEAD at closeout: `d8763ea`
+HEAD at closeout: `1159290`
 Preceding sprint HEAD: `cc88e92` (fix(s24-p1): Hide Intelligence in SP DSM)
+
+### Polish fix: PENDING-ADDPERSON placeholder (commit `1159290`)
+
+`C3Approvals.TargetPersonID` is a required field. At AddPerson submission time the person does not yet exist, so no `PER-XXXX` is available. The initial implementation used an empty string which SharePoint rejects with a choice validation error.
+
+Fix: `useSubmitAddPersonApproval` now passes `targetPersonId: 'PENDING-ADDPERSON'`. After execution, `useExecuteApproval` calls `stampExecution` with the real `PER-XXXX`, and `SharePointApprovalsService.stampExecution` backfills `TargetPersonID` in the same MERGE. `IApprovalsService.StampExecutionRequest.Executed` gained an optional `targetPersonId?` field for this path. `MockApprovalsService` mirrors the backfill for test parity. Parity seed APR-0004 updated to use `PENDING-ADDPERSON`.
 
 ---
 
@@ -191,29 +199,4 @@ The following were not touched at any point during Sprint 25:
 | Email field absent from C3People SP list (TD-24) | Operators cannot store or view email addresses in C3 |
 | `C3Contracts` not yet provisioned in SP DSM | Contracts and Intelligence remain hidden in SP DSM (unchanged from S24) |
 | Intelligence cold-load crash in SP DSM (TD-23) | Intelligence hidden in SP DSM; fully functional in Mock DSM (unchanged from S24) |
-| Legacy `C3_Contracts` data not migrated (TD-22) | Historical contracts not visible in C3 (unchanged from S24) |
-| No contract writes (AddContract) | Operators must enter contracts directly in SP; C3 reads only |
-| No CI/CD (TD-14) | Validation is manual throughout |
-
----
-
-## Recommended Sprint 26 focus
-
-### Priority 1 — IT: Add AddPerson to C3Approvals.OperationType choice set
-
-Required before any AddPerson approval can be submitted in hosted SP DSM. Without this, the POST to C3Approvals will fail with a choice validation error.
-
-### Priority 2 — IT: Provision C3Contracts and smoke test (carried over from S24)
-
-Provision `C3Contracts` per schema doc → hosted hard-refresh smoke test → remove Contracts and Intelligence NavRail guards.
-
-### Priority 3 — Mission / Event Foundation (Track 6)
-
-Provision `C3Missions` SP list and implement `SharePointMissionService` using native-fetch pattern. Mission foundation is the dependency blocker for Mission Participants, Logistics, and Budgeting tracks.
-
-### Non-priority (defer)
-
-- TD-24 Email field (additive SP schema change — low urgency for beta)
-- AddContract governed write path
-- Legacy `C3_Contracts` migration tooling (TD-22)
-- CI/CD (TD-14)
+| Legacy `C3_Contracts` data not migrated (TD-22) |

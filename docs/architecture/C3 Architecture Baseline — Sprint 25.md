@@ -64,13 +64,15 @@ Mock DSM:
 SP DSM:
   approvalsService.createApproval({
     operationType: 'AddPerson',
-    targetPersonId: '',   // person does not exist yet
+    targetPersonId: 'PENDING-ADDPERSON',  // placeholder -- PER-XXXX does not exist at submission time
     reason: 'Create new person: ${input.FullName}',
     payload: JSON.stringify(AddPersonApprovalPayload),
   })
   → returns { mode: 'approval', approvalTitle, approvalId }
   → NO C3People row created at submission time
 ```
+
+`C3Approvals.TargetPersonID` requires a non-empty value; an empty string triggers a SharePoint choice validation error. `'PENDING-ADDPERSON'` is the canonical placeholder for AddPerson approvals. After `createPerson` succeeds and the real `PER-XXXX` is known, `stampExecution` is called with `targetPersonId: createdPersonId`, which causes `SharePointApprovalsService.stampExecution` to backfill `TargetPersonID` on the C3Approvals row in the same MERGE. `IApprovalsService.StampExecutionRequest.Executed` has an optional `targetPersonId?` field for this path. Other operation types (InitiateJourney, AddCredential, DeactivateCredential) do not use this field.
 
 **3. SharePointPersonService.createPerson — POST-then-MERGE**
 
@@ -99,7 +101,8 @@ SP atomic item ID is the sequence source. No sequence collision risk. No pre-der
 operationType === 'AddPerson':
   1. Parse AddPersonApprovalPayload from approval.payload
   2. personService.createPerson(payload) → new Person with PER-XXXX
-  3. approvalsService.stampExecution(approvalId) → Executed
+  3. approvalsService.stampExecution(approvalId, { targetPersonId: createdPerson.PersonID }) → Executed
+     (backfills TargetPersonID from PENDING-ADDPERSON to PER-XXXX in the same MERGE)
   On step-2 success + step-3 failure: throw PartialAddPersonExecutionError
 ```
 
@@ -227,30 +230,4 @@ Unchanged from Sprint 24.
 
 ---
 
-## Section 5 — Tech debt register state after Sprint 25
-
-| ID | Item | Status |
-|----|------|--------|
-| TD-07 | No server-side TargetPersonID filter | Open |
-| TD-13 | Credential write path | 🔵 Partial — AddCredential + DeactivateCredential live; reactivate pending |
-| TD-14 | No CI/CD pipeline | Open |
-| TD-15 | Runtime bundle committed to git | 🔵 Partial mitigation S21-P4 |
-| TD-16 | ToasterGuard workaround | Open |
-| TD-17 | No license file | Open |
-| TD-19 | Approval list $top=500 truncation | Open |
-| TD-21 | No journey audit timestamp columns | Open |
-| TD-22 | Legacy C3_Contracts not migrated | Open / Deferred |
-| TD-23 | Intelligence SP DSM cold-load crash | Open / Deferred (contained) |
-| TD-24 | Email field missing from C3People SP list | Open / Deferred |
-
----
-
-## Section 6 — Runtime bundle state
-
-| Attribute | Value |
-|-----------|-------|
-| Bundle SHA-256 | `ab6a19a66049c9d9c8a9134b6e031ec32ca5a77f05248f8e2981782fdf1c9976` |
-| Bundle size | 1,812.35 kB (gzip: 402.43 kB) |
-| Module count | 2395 |
-| Verified with | `npm run verify:runtime` |
-| Built at HEAD | `d8763ea` |
+## Section 5 — Tech debt register state
