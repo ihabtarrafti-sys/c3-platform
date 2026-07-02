@@ -2,8 +2,8 @@
 **C3 Contract Control Center**
 **Created:** 2026-07-01
 **Status:** Living document — planning only. No implementation authorised from this document alone.
-**Baseline:** Sprint 21 CLOSED (HEAD: `998aa6f`)
-**See also:** C3 Architecture Baseline — Sprint 21.md, Sprint 21 Closeout Report.md, C3 Tech Debt Register.md, C3 Product Roadmap and Backlog Expansion Addendum.md (Sprint 15 era, historical)
+**Baseline:** Sprint 25 CLOSED (HEAD: `d8763ea`)
+**See also:** C3 Architecture Baseline — Sprint 25.md, Sprint 25 Closeout Report.md, C3 Tech Debt Register.md, C3 Product Roadmap and Backlog Expansion Addendum.md (Sprint 15 era, historical)
 
 > **Purpose:** Single-source register of planned C3 capability tracks beyond the current beta sprint sequence. Each entry records what the capability is, what it depends on, and when it is expected relative to the current sprint cadence. This document is a backlog and planning reference only — individual sprint scopes are authorised separately. Nothing in this document implies implementation is authorised or imminent.
 
@@ -41,11 +41,12 @@
 Sprint 22  — Beta Operational Readiness + Error Library basics
 Sprint 23  — Credential Lifecycle Hardening (DeactivateCredential, recovery) ✅ CLOSED
 Sprint 24  — Contracts / SP-02 Foundation (read path, PersonID FK) ✅ CLOSED
-Sprint 25  — Mission / Event Foundation
-Sprint 26  — Mission Participants + Jersey / Logistics Tracking
-Sprint 27  — Mission Budgeting + Budget Sheet Approval Workflow
-Sprint 28  — Operational Gaps + Readiness Recommendations
-Sprint 29  — Induction
+Sprint 25  — Governed AddPerson Foundation (ADR-013 approval path for C3People writes) ✅ CLOSED
+Sprint 26  — Mission / Event Foundation (shifted from S25)
+Sprint 27  — Mission Participants + Jersey / Logistics Tracking
+Sprint 28  — Mission Budgeting + Budget Sheet Approval Workflow
+Sprint 29  — Operational Gaps + Readiness Recommendations
+Sprint 30  — Induction
 
 Later      — SharePoint Import/Export
            — AI Recommendations expansion
@@ -235,7 +236,7 @@ SharePoint-backed contract records for people managed in C3. Currently `SharePoi
 ### 6 — Mission / Event Foundation
 
 **Track:** Core platform
-**Timing:** After Contracts / SP-02 write path; Sprint 25 target
+**Timing:** After Contracts / SP-02 write path; Sprint 26 target (shifted from S25 — S25 delivered Governed AddPerson Foundation)
 **Type:** Feature — data foundation
 
 #### Description
@@ -261,7 +262,7 @@ SharePoint-backed records for tournaments, events, and operational missions. Cur
 ### 7 — Mission Participants
 
 **Track:** Core platform
-**Timing:** After Mission / Event Foundation; Sprint 25 target
+**Timing:** After Mission / Event Foundation; Sprint 27 target
 **Type:** Feature
 
 #### Description
@@ -287,7 +288,7 @@ Link people to missions/events. Track who is assigned to each mission, their ass
 ### 8 — Jersey / Logistics Tracking
 
 **Track:** Operations
-**Timing:** After Mission Participants; Sprint 25 target (alongside Track 7 or Sprint 26)
+**Timing:** After Mission Participants; Sprint 27 target (alongside Track 7 or Sprint 28)
 **Type:** Feature
 
 #### Description
@@ -633,21 +634,4 @@ After C3 is finalised, launched internally, and tested for several months in rea
 | Tenant/company model | Required for multi-org distribution |
 | Security and permissions model | Must not depend on SP security groups |
 | Data storage model | Must not depend on SharePoint lists |
-| Licensing/commercial model | Before App Store / SaaS distribution |
-| Support/update process | Before public distribution |
-| Mobile/desktop UX assessment | Current UX is designed for desktop SP workbench |
-
-#### Timing
-
-Not before the Standalone SaaS Path (Track 17) and SaaS Admin Console (Track 18) are in place. This track represents the outer horizon of C3's distribution strategy and should be revisited once the internal product model is proven at scale.
-
----
-
-## Document maintenance
-
-This document should be updated:
-- At each sprint closeout where a capability track changes status
-- When new capability requirements are identified
-- When the sequencing is revised based on sprint outcomes or new information
-
-Each sprint closeout report references which tracks progressed, were unblocked, or were deprioritised.
+| L

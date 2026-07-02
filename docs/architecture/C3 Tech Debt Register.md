@@ -1,6 +1,6 @@
 # C3 Tech Debt Register
 
-**Last updated:** 2026-07-01 (Sprint 22)
+**Last updated:** 2026-07-02 (Sprint 25)
 **Maintained by:** Engineering (C3 Platform)
 **Purpose:** Single-source list of known technical debts, design gaps, and deferred decisions.
 Each item carries a severity, sprint attribution, and a clear resolution path.
@@ -482,14 +482,12 @@ all other screens are unaffected.
 3. Investigate Fluent UI Card/Griffel style-cache teardown behavior if crash recurs after `isPending` fix
 4. Remove `visibleWhen` guard from NavRail Intelligence item
 
-## Resolved Items (Sprint Archive)
+### TD-24 — Email field missing from C3People SP list
 
-| ID | Item | Resolution | Sprint |
-|----|------|-----------|--------|
-| ✅ TD-04 | SharePointContractService used PnP.js (bundle overhead, inconsistent auth model) | Rewritten with native fetch targeting C3Contracts; PnP.js removed | S24 Phase 1 |
-| ✅ | Derive-then-POST sequence number collision risk | Replaced with POST-then-MERGE (SP auto-ID) | S19 Phase 3 |
-| ✅ | PersonProfile cancel confirm button invisible in dark/SP context | `var(--c3-critical, #DC2626)` inline fallback | S19 Phase 2 |
-| ✅ TD-20 | `deactivateCredential` not implemented (functional gap) | Full governed path: MERGE + ADR-013 approval + recovery | S23 Phase 1 |
-| ✅ | PersonProfile "Cancel" dismiss button confusing label | `'Go Back'` when action is cancel | S19 Phase 2 |
-| ✅ | No SP role resolver (hardcoded mock roles in SP DSM) | `spRoleResolver.ts` queries SP groups | S19 Phase 1 |
-| ✅ | Journey lifecycle transitions not guarded against invalid states | `InvalidTransitionError` + lifecycle hooks added | S19 Phase 2 |
+**Severity:** 🟡 Quality gap
+**Sprint attributed:** S25 (identified at AddPerson implementation time)
+**File:** `docs/architecture/C3People SP List Schema.md`, `packages/c3/src/types/people.ts`, `packages/c3/src/components/shared/AddPersonPanel.tsx`
+
+The `C3People` SP list — provisioned in Sprint 16 — has no `Email` column in its schema. The
+`Person` TypeScript type and `CreatePersonInput` therefore omit an email field. `AddPersonPanel`
+deliberately omits an Email input for this reason (noted in
