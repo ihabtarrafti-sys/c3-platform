@@ -25,6 +25,7 @@ import {
 import { DaysPill } from '@c3/components/shared/DaysPill';
 import { DispositionBadge } from '@c3/components/shared/DispositionBadge';
 import { AddCredentialPanel } from '@c3/components/shared/AddCredentialPanel';
+import { ApparelProfilePanel } from '@c3/components/shared/ApparelProfilePanel';
 import { PersonApprovalHistoryCard } from '@c3/components/shared/PersonApprovalHistoryCard';
 import { ReadinessPanel } from '@c3/components/shared/ReadinessPanel';
 import { StageBadge } from '@c3/components/shared/StageBadge';
@@ -177,6 +178,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   const [activeTab,            setActiveTab]            = useState<ProfileTab>(initialTab ?? 'profile');
   const [journeyPanelOpen,     setJourneyPanelOpen]     = useState(false);
   const [credentialPanelOpen,  setCredentialPanelOpen]  = useState(false);
+  const [apparelPanelOpen,     setApparelPanelOpen]     = useState(false);
   const [resolveCapability,    setResolveCapability]     = useState<CredentialCapability | undefined>(undefined);
 
   // Deactivation confirm dialog state (Sprint 23 Phase 1)
@@ -255,6 +257,14 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
 
   const canManageJourneyLifecycle =
     currentUser.c3Role === 'owner' || currentUser.c3Role === 'operations';
+
+  // S29A (ADR-013 Addendum): apparel is a role-gated master-data update.
+  // Explicit role check is the authoritative UI gate (HR included by design);
+  // SharePoint list permissions are the security boundary.
+  const canEditApparel =
+    currentUser.c3Role === 'owner' ||
+    currentUser.c3Role === 'operations' ||
+    currentUser.c3Role === 'hr';
 
   const completeJourneyMutation = useCompleteJourney();
   const suspendJourneyMutation  = useSuspendJourney();
@@ -524,10 +534,19 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
             </FieldGrid>
           </SectionCard>
 
-          {/* ── Apparel Profile (S28-5) — read-only stable attributes ──────────
+          {/* ── Apparel Profile (S28-5 read; S29A role-gated edit) ─────────────
                null = no profile on file (a NORMAL state, never an error or a
                readiness claim); undefined = still loading (tiles render blank). */}
-          <SectionCard title="Apparel Profile">
+          <SectionCard
+            title="Apparel Profile"
+            action={
+              canEditApparel && apparelProfile !== undefined ? (
+                <Button appearance="subtle" size="small" onClick={() => setApparelPanelOpen(true)}>
+                  {apparelProfile === null ? 'Add profile' : 'Edit'}
+                </Button>
+              ) : undefined
+            }
+          >
             {apparelProfile === null ? (
               <EmptyState
                 compact
@@ -703,6 +722,15 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
           </SectionCard>
         </>
       )}
+
+      {/* ── Apparel profile panel (S29A) — mounted outside the tab tree ───── */}
+      <ApparelProfilePanel
+        personId={person.PersonID}
+        personName={person.FullName}
+        existing={apparelProfile ?? null}
+        open={apparelPanelOpen}
+        onDismiss={() => setApparelPanelOpen(false)}
+      />
 
       {/* ── Journey panel ────────────────────────────────────────────────────
            Mounted outside the tab tree so the drawer renders regardless of

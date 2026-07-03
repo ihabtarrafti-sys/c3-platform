@@ -32,7 +32,24 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Badge, Text } from '@fluentui/react-components';
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogBody,
+  DialogContent,
+  DialogSurface,
+  DialogTitle,
+  Menu,
+  MenuButton,
+  MenuItem,
+  MenuList,
+  MenuPopover,
+  MenuTrigger,
+  Text,
+  Textarea,
+} from '@fluentui/react-components';
 
 import {
   EmptyState,
@@ -41,13 +58,18 @@ import {
   SkeletonMetricStrip,
   SkeletonRows,
 } from '@c3/components/ui';
+import { AddKitPanel } from '@c3/components/shared/AddKitPanel';
 import { useAllKitAssignments } from '@c3/hooks/useAllKitAssignments';
 import { useAllMissionParticipants } from '@c3/hooks/useAllMissionParticipants';
 import { useApp } from '@c3/hooks/useApp';
+import { useDeactivateKitAssignment } from '@c3/hooks/useDeactivateKitAssignment';
 import { useMissions } from '@c3/hooks/useMissions';
 import { usePeople } from '@c3/hooks/usePeople';
+import { useToast } from '@c3/hooks/useToast';
+import { useTransitionKitStatus } from '@c3/hooks/useTransitionKitStatus';
 import type { KitAssignment, KitStatus, Mission, MissionParticipant, MissionStatus, Person } from '@c3/types';
 import { FULFILLED_KIT_STATUSES, MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
+import { kitTransitionRequiresReason, validKitTransitions } from '@c3/utils/kitLifecycle';
 
 // ---------------------------------------------------------------------------
 // MissionStatusBadge — screen-local status badge (same pattern as the
@@ -153,7 +175,18 @@ const KIT_STATUS_COLOR: Record<
 // fulfilled summary only appears when >= 1 assignment exists.
 // ---------------------------------------------------------------------------
 
-const ParticipantKit = ({ items }: { items: KitAssignment[] }) => {
+const ParticipantKit = ({
+  items,
+  canManage,
+  onTransition,
+  onDeactivate,
+}: {
+  items: KitAssignment[];
+  /** S29A: owner/operations may act. UI affordance only — service is authority. */
+  canManage: boolean;
+  onTransition: (item: KitAssignment, toStatus: KitStatus) => void;
+  onDeactivate: (item: KitAssignment) => void;
+}) => {
   if (items.length === 0) {
     return (
       <Text size={200} style={{ color: 'var(--c3-gray-500)', display: 'block' }}>
@@ -169,24 +202,48 @@ const ParticipantKit = ({ items }: { items: KitAssignment[] }) => {
       <Text size={200} weight="semibold" style={{ color: 'var(--c3-gray-600)' }}>
         Kit: {items.length} item{items.length !== 1 ? 's' : ''} · {fulfilled} fulfilled
       </Text>
-      {items.map(k => (
-        <div
-          key={`${k.ItemCategory}|${k.AssignmentKey}`}
-          style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--c3-space-2)', flexWrap: 'wrap' }}
-        >
-          <Badge appearance="outline" size="small">{k.ItemCategory}</Badge>
-          <Text size={200} style={{ color: 'var(--c3-gray-700)' }}>
-            {k.ItemDescription ?? k.AssignmentKey}
-            {k.JerseyNumber ? ` · #${k.JerseyNumber}` : ''}
-          </Text>
-          <Badge color={KIT_STATUS_COLOR[k.Status]} size="small">{k.Status}</Badge>
-          {k.OwnerEmail && (
-            <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
-              {k.OwnerEmail}
+      {items.map(k => {
+        // S29A: menu shows ONLY currently valid target states — no arbitrary
+        // status dropdown. The service re-validates authoritatively.
+        const targets = validKitTransitions(k.Status);
+        return (
+          <div
+            key={`${k.ItemCategory}|${k.AssignmentKey}`}
+            style={{ display: 'flex', alignItems: 'center', gap: 'var(--c3-space-2)', flexWrap: 'wrap' }}
+          >
+            <Badge appearance="outline" size="small">{k.ItemCategory}</Badge>
+            <Text size={200} style={{ color: 'var(--c3-gray-700)' }}>
+              {k.ItemDescription ?? k.AssignmentKey}
+              {k.JerseyNumber ? ` · #${k.JerseyNumber}` : ''}
             </Text>
-          )}
-        </div>
-      ))}
+            <Badge color={KIT_STATUS_COLOR[k.Status]} size="small">{k.Status}</Badge>
+            {k.OwnerEmail && (
+              <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+                {k.OwnerEmail}
+              </Text>
+            )}
+            {canManage && (
+              <Menu>
+                <MenuTrigger disableButtonEnhancement>
+                  <MenuButton appearance="subtle" size="small" aria-label={`Update ${k.ItemCategory} ${k.AssignmentKey}`}>
+                    Update
+                  </MenuButton>
+                </MenuTrigger>
+                <MenuPopover>
+                  <MenuList>
+                    {targets.map(to => (
+                      <MenuItem key={to} onClick={() => onTransition(k, to)}>
+                        Mark {to}{kitTransitionRequiresReason(to) ? '…' : ''}
+                      </MenuItem>
+                    ))}
+                    <MenuItem onClick={() => onDeactivate(k)}>Deactivate…</MenuItem>
+                  </MenuList>
+                </MenuPopover>
+              </Menu>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -205,6 +262,10 @@ const ParticipantList = ({
   currency,
   kitByPerson,
   onNavigateToPerson,
+  canManageKit,
+  onAddKit,
+  onTransition,
+  onDeactivate,
 }: {
   participants: MissionParticipant[];
   peopleById: Map<string, Person>;
@@ -212,6 +273,11 @@ const ParticipantList = ({
   /** Kit assignments grouped by PersonID for THIS mission (S28-6). */
   kitByPerson: Map<string, KitAssignment[]>;
   onNavigateToPerson: (personId: string) => void;
+  /** S29A kit actions (owner/operations affordance). */
+  canManageKit: boolean;
+  onAddKit: (participant: MissionParticipant) => void;
+  onTransition: (item: KitAssignment, toStatus: KitStatus) => void;
+  onDeactivate: (item: KitAssignment) => void;
 }) => (
   <div
     style={{
@@ -283,8 +349,23 @@ const ParticipantList = ({
           </div>
         </div>
 
-        {/* Kit assignments for this participant (S28-6) */}
-        <ParticipantKit items={kitByPerson.get(p.PersonID) ?? []} />
+        {/* Kit assignments for this participant (S28-6 read, S29A actions) */}
+        <ParticipantKit
+          items={kitByPerson.get(p.PersonID) ?? []}
+          canManage={canManageKit}
+          onTransition={onTransition}
+          onDeactivate={onDeactivate}
+        />
+        {canManageKit && (
+          <Button
+            appearance="subtle"
+            size="small"
+            style={{ alignSelf: 'flex-start' }}
+            onClick={() => onAddKit(p)}
+          >
+            + Add kit item
+          </Button>
+        )}
       </div>
     ))}
   </div>
@@ -298,6 +379,10 @@ const MissionCard = ({
   expanded,
   onToggle,
   onNavigateToPerson,
+  canManageKit,
+  onAddKit,
+  onTransition,
+  onDeactivate,
 }: {
   mission: Mission;
   participants: MissionParticipant[];
@@ -306,6 +391,10 @@ const MissionCard = ({
   expanded: boolean;
   onToggle: () => void;
   onNavigateToPerson: (personId: string) => void;
+  canManageKit: boolean;
+  onAddKit: (participant: MissionParticipant) => void;
+  onTransition: (item: KitAssignment, toStatus: KitStatus) => void;
+  onDeactivate: (item: KitAssignment) => void;
 }) => (
   <div
     style={{
@@ -423,6 +512,10 @@ const MissionCard = ({
         currency={mission.OperatingCurrency}
         kitByPerson={kitByPerson}
         onNavigateToPerson={onNavigateToPerson}
+        canManageKit={canManageKit}
+        onAddKit={onAddKit}
+        onTransition={onTransition}
+        onDeactivate={onDeactivate}
       />
     )}
   </div>
@@ -433,8 +526,27 @@ const MissionCard = ({
 // ---------------------------------------------------------------------------
 
 export const MissionWorkspace = () => {
-  const { navigate } = useApp();
+  const { navigate, currentUser } = useApp();
+  const toast = useToast();
   const { data: missions = [], isLoading: missionsLoading, error } = useMissions();
+
+  // S29A: kit actions are role-gated (owner/operations). UI affordance only —
+  // the service validates authoritatively; SharePoint ACLs are the security boundary.
+  const canManageKit = currentUser.c3Role === 'owner' || currentUser.c3Role === 'operations';
+
+  const transitionKit = useTransitionKitStatus();
+  const deactivateKit = useDeactivateKitAssignment();
+
+  // Add-kit drawer target (participant context)
+  const [addKitTarget, setAddKitTarget] = useState<{ missionId: string; personId: string; personName: string } | null>(null);
+
+  // Reason dialog for reason-required transitions and deactivations
+  const [reasonDialog, setReasonDialog] = useState<
+    | { kind: 'transition'; item: KitAssignment; toStatus: KitStatus }
+    | { kind: 'deactivate'; item: KitAssignment }
+    | null
+  >(null);
+  const [reasonText, setReasonText] = useState('');
 
   // S27-4: single batch participants query grouped locally — never per-card.
   const { allParticipants, isLoading: participantsLoading } = useAllMissionParticipants();
@@ -493,6 +605,69 @@ export const MissionWorkspace = () => {
   };
 
   const isLoading = missionsLoading || participantsLoading || peopleLoading || kitLoading;
+
+  // ── S29A kit action handlers — every outcome surfaces via toast ───────────
+
+  const kitLabel = (item: KitAssignment) =>
+    `${item.ItemCategory} ${item.AssignmentKey} (${item.PersonID})`;
+
+  const runTransition = async (item: KitAssignment, toStatus: KitStatus, reason?: string) => {
+    try {
+      await transitionKit.mutateAsync({
+        MissionID: item.MissionID,
+        PersonID: item.PersonID,
+        ItemCategory: item.ItemCategory,
+        AssignmentKey: item.AssignmentKey,
+        toStatus,
+        reason,
+      });
+      toast.success('Kit status updated', `${kitLabel(item)}: ${item.Status} → ${toStatus}`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Kit status update failed', msg.slice(0, 240));
+    }
+  };
+
+  const handleTransition = (item: KitAssignment, toStatus: KitStatus) => {
+    if (kitTransitionRequiresReason(toStatus)) {
+      setReasonText('');
+      setReasonDialog({ kind: 'transition', item, toStatus });
+    } else {
+      void runTransition(item, toStatus);
+    }
+  };
+
+  const handleDeactivate = (item: KitAssignment) => {
+    setReasonText('');
+    setReasonDialog({ kind: 'deactivate', item });
+  };
+
+  const confirmReasonDialog = async () => {
+    if (!reasonDialog) return;
+    const reason = reasonText.trim();
+    if (reason === '') return; // button is disabled; double guard
+
+    const dialog = reasonDialog;
+    setReasonDialog(null);
+
+    if (dialog.kind === 'transition') {
+      await runTransition(dialog.item, dialog.toStatus, reason);
+    } else {
+      try {
+        await deactivateKit.mutateAsync({
+          MissionID: dialog.item.MissionID,
+          PersonID: dialog.item.PersonID,
+          ItemCategory: dialog.item.ItemCategory,
+          AssignmentKey: dialog.item.AssignmentKey,
+          reason,
+        });
+        toast.success('Kit item deactivated', `${kitLabel(dialog.item)} — row retained for history.`);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        toast.error('Kit deactivation failed', msg.slice(0, 240));
+      }
+    }
+  };
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -616,10 +791,70 @@ export const MissionWorkspace = () => {
               expanded={expandedMissions.has(mission.MissionID)}
               onToggle={() => toggleExpanded(mission.MissionID)}
               onNavigateToPerson={personId => navigate({ id: 'person-profile', personId })}
+              canManageKit={canManageKit}
+              onAddKit={p =>
+                setAddKitTarget({
+                  missionId: p.MissionID,
+                  personId: p.PersonID,
+                  personName: resolvePersonName(p.PersonID, peopleById),
+                })
+              }
+              onTransition={handleTransition}
+              onDeactivate={handleDeactivate}
             />
           ))}
         </div>
       )}
+
+      {/* ── S29A: add-kit drawer (mounted outside the card tree) ───────────── */}
+      <AddKitPanel
+        missionId={addKitTarget?.missionId ?? ''}
+        personId={addKitTarget?.personId ?? ''}
+        personName={addKitTarget?.personName ?? ''}
+        open={addKitTarget !== null}
+        onDismiss={() => setAddKitTarget(null)}
+      />
+
+      {/* ── S29A: reason dialog (Returned/Missing/Replaced + deactivation) ─── */}
+      <Dialog open={reasonDialog !== null} onOpenChange={(_, data) => { if (!data.open) setReasonDialog(null); }}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>
+              {reasonDialog?.kind === 'deactivate'
+                ? `Deactivate ${reasonDialog ? kitLabel(reasonDialog.item) : ''}?`
+                : reasonDialog
+                  ? `Mark ${kitLabel(reasonDialog.item)} as ${reasonDialog.toStatus}?`
+                  : ''}
+            </DialogTitle>
+            <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-3)' }}>
+              <Text size={300}>
+                {reasonDialog?.kind === 'deactivate'
+                  ? 'The item is removed from active views but the row is retained for history. A reason is required.'
+                  : 'A reason is required for this status. It is appended to the item’s audit trail.'}
+              </Text>
+              <Textarea
+                value={reasonText}
+                onChange={(_, d) => setReasonText(d.value)}
+                placeholder="Reason (required)"
+                rows={3}
+                maxLength={500}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button
+                appearance="primary"
+                disabled={reasonText.trim() === '' || transitionKit.isPending || deactivateKit.isPending}
+                onClick={() => { void confirmReasonDialog(); }}
+              >
+                Confirm
+              </Button>
+              <Button appearance="secondary" onClick={() => setReasonDialog(null)}>
+                Cancel
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
 
     </div>
   );
