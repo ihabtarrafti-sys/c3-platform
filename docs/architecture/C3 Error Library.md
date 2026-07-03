@@ -41,6 +41,12 @@
 | ERR-027 | WritePermissionError | Active Runtime (S29A) | "SharePoint denied the write… contact the platform owner" |
 | ERR-028 | ParticipantNotActiveError | Active Runtime (S29A) | "…not an active participant of…" |
 | ERR-029 | InvalidKitTransitionError | Active Runtime (S29A) | "Cannot move … from 'X' to 'Y'. Valid transitions…" |
+| ERR-030 | ParticipantConflictError | Active Runtime (S29B) | "…exists with DIFFERENT fields… No write performed." |
+| ERR-031 | DuplicateParticipantError | Active Runtime (S29B) | "…already an active participant of…" |
+| ERR-032 | ActiveKitDependencyError | Active Runtime (S29B) | "Cannot remove… active kit assignments exist. Deactivate first." |
+| ERR-033 | DuplicatePendingRequestError | Active Runtime (S29B) | "…request… already pending (APR-XXXX)…" |
+| ERR-034 | PartialParticipantAddExecutionError | Active Runtime (S29B) | "Partial — re-execute to repair" (idempotent) |
+| ERR-035 | PartialParticipantRemovalExecutionError | Active Runtime (S29B) | "Partial — re-execute to repair" (idempotent) |
 
 ---
 
@@ -73,6 +79,27 @@ surfaced via toast — no silent mutation failures.
   participant first (governed, S29B).
 - **ERR-029 InvalidKitTransitionError** — transition outside the approved matrix. The UI
   offers valid targets only; seeing this implies a stale view — refresh.
+
+---
+
+### ERR-030 … ERR-035 — S29B governed participant membership errors
+
+Defined in `services/errors.ts` and `hooks/useExecuteApproval.ts`; surfaced via toast.
+
+- **ERR-030 ParticipantConflictError** — an active row exists with different fields than
+  the approved payload. Execution stamps ExecutionFailed. Recovery: reconcile the existing
+  row or submit a matching request.
+- **ERR-031 DuplicateParticipantError** — the person is already an active participant
+  (submission-time guard).
+- **ERR-032 ActiveKitDependencyError** — removal blocked (submission AND execution) while
+  active kit assignments exist. Recovery: deactivate the kit items (S29A action) first.
+- **ERR-033 DuplicatePendingRequestError** — one in-flight request per
+  operationType+MissionID+PersonID across Submitted/InReview/Approved. Recovery: wait for
+  the referenced APR to be executed or rejected.
+- **ERR-034/035 PartialParticipant(Add|Removal)ExecutionError** — the participant write
+  applied but the approval stamp failed. **Recovery: execute the approval again** — the
+  idempotent already-applied/already-inactive detection repairs only the stamp; no
+  duplicate rows are possible.
 
 ---
 

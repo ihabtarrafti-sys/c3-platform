@@ -1,7 +1,12 @@
 # C3 Governance List Permissions — Sprint 29B
 
 **Date:** 2026-07-03
-**Status:** Designed — applied and REST-verified during S29B provisioning (evidence appended at execution)
+**Status:** ✅ **APPLIED, REST-verified, and HOSTED-VERIFIED (2026-07-03)** — all practical
+security checks passed on the deployed final runtime: Operations single-POST submission with
+correct APR display; requester MERGE of Payload/ApprovalStatus/TargetPersonID/Title → 403;
+requester DELETE → 403; direct participant-row edit denied; other-user approval edit denied;
+owner approve/reject/execute/recover green; AddCredential regression green with no hidden
+Title-backfill 403; legacy APR identifiers stable.
 **Scope:** `C3MissionParticipants` + `C3Approvals` only. No site-wide rewrite.
 **Relates to:** C3 Logistics List Permissions — Sprint 29A (method precedent) · C3Approvals SP List Schema §3.2
 

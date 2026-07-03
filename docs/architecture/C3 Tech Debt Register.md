@@ -580,12 +580,16 @@ demo mode) can be considered in the same design pass.
 
 **Severity:** 🟡 Planned work, not a defect
 **Sprint attributed:** S27/S28 (read foundations shipped write-free by design)
-**Status:** 🟠 **PARTIALLY RESOLVED (S29A, 2026-07-03):** kit writes (create / lifecycle /
-deactivate) and apparel upsert are live and hosted-validated under the ADR-013 Addendum —
-Mission Kit Logistics Exemption, with ETag concurrency and list-ACL hardening.
-**Remaining:** participant membership writes (Add/RemoveMissionParticipant — full ADR-013
-governed, locked) → **Sprint 29B (in flight)**, incl. participants/approvals ACL hardening
-and the OperationType schema delta.
+**Status:** ✅ **RESOLVED (S29B, 2026-07-03).** Kit writes (S29A), apparel writes (S29A),
+and participant add/remove (S29B — full ADR-013 governed incl. reactivation, kit-dependency
+blocking, and immutable Add-only approval submission) are all complete and hosted-validated.
+Remaining adjacent items tracked separately: UpdateMissionParticipant, generic reactivation
+UI, and kit metadata edits are **deferred** (workarounds documented); TD-26 (mission
+confirmation) unchanged.
+**Gate note (mandatory):** the strict build TypeScript path (`tsc -b` via `beta:runtime`)
+is a required part of the validation gate — plain `tsc --noEmit` missed real build failures
+twice during S29 (unused import; un-destructured props). Tooling improvement (folding the
+strict path into a single gate command) remains an open item.
 **S29B hardening patch:** approval submissions are now a single Add-only POST (no Title
 MERGE); the ApprovalID derives from the SP item Id; the `C3 Approval Submitter` level
 excludes EditListItems entirely — **submitted approval rows are immutable to their

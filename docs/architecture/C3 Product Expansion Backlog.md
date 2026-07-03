@@ -278,9 +278,10 @@ Link people to missions/events. Track who is assigned to each mission, their ass
 - ✅ Mission Workspace: participant counts + read-only expandable assignment detail; names resolved live from C3People
 - ✅ Situation Room: participant count now live in SP DSM; truthful zero-participant copy (S27-1)
 - ✅ Parity harness `s27-parity-participants.mjs` (compiles the real mapper via esbuild — no inline translation drift)
-- ⬜ **PersonProfile "Missions" section — deferred to Sprint 28** (decision at S27 Phase 0: PersonProfile is the most regression-sensitive validated screen, and the S28 jersey/logistics work touches the same section — do it once there)
-- ⬜ Add/remove participant writes (governed vs role-gated TBD) — deferred; no participant writes exist
-- ⬜ Participant readiness indicators in mission view — deferred (gap computation already consumes real participants; surfacing per-participant readiness chips is future UI work)
+- ✅ PersonProfile "Missions" section — delivered in Sprint 28
+- ✅ **Add/remove participant writes — COMPLETED and hosted-validated (Sprint 29B, 2026-07-03):** full ADR-013 governed AddMissionParticipant (incl. governed reactivation of retained inactive rows) + RemoveMissionParticipant (IsActive=false, mandatory reason, active-kit dependency blocking), pending-request UX, idempotent recovery, participants ACL owners-only-edit, immutable Add-only approval submission
+- ⬜ Participant readiness indicators in mission view — natural **Sprint 30 cockpit** facet
+- ⬜ UpdateMissionParticipant (role/code/per-diem edits) + generic reactivation UI — deferred
 
 #### Dependencies
 
