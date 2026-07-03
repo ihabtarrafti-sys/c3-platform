@@ -264,7 +264,7 @@ Mission/Finance tracks can be built until Mission foundation is live.
 ### 7 — Mission Participants
 
 **Track:** Core platform
-**Timing:** Sprint 27 — **read foundation delivered**; writes and PersonProfile section deferred
+**Timing:** Sprint 27 — **read foundation COMPLETED and hosted-validated (2026-07-03)**; writes and PersonProfile section deferred
 **Type:** Feature
 
 #### Description
@@ -273,7 +273,7 @@ Link people to missions/events. Track who is assigned to each mission, their ass
 
 #### Scope / Status (updated S27)
 
-- ✅ `C3MissionParticipants` SP list schema defined (dedicated join list — the `ObligationAssignmentsJSON` junction option was rejected; participants are cross-domain operational truth, not journey payload). Provisioning pending
+- ✅ `C3MissionParticipants` SP list schema defined (dedicated join list — the `ObligationAssignmentsJSON` junction option was rejected; participants are cross-domain operational truth, not journey payload). **Provisioned and live (S27-7): clean internal names, REST-verified, 3 seed rows, hosted green**
 - ✅ SP participant read path (`listMissionParticipants` / `listAllMissionParticipants`) — native fetch, 404-safe, `spMissionParticipantMapper`, IsActive-false rows excluded
 - ✅ Mission Workspace: participant counts + read-only expandable assignment detail; names resolved live from C3People
 - ✅ Situation Room: participant count now live in SP DSM; truthful zero-participant copy (S27-1)

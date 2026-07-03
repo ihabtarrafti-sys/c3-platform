@@ -564,6 +564,8 @@ with silent failure. No data was ever written (the throw precedes any network ca
 `config.dataSourceMode !== 'sharepoint'` guard at the `onApprove` site. Mock DSM confirmation
 behaviour is unchanged (demo/regression flow). The zero-gap empty-state copy was also corrected
 so that zero participants no longer implies "all participants hold required credentials".
+**Containment hosted-verified 2026-07-03** (S27 hosted validation: no confirm action in SP DSM,
+Mock DSM flow intact).
 
 **Resolution:** a future sprint must design the SP mission confirmation write explicitly —
 either an ADR-013 governed operation (ConfirmMission approval type) or a documented role-gated
