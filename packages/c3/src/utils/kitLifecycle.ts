@@ -20,7 +20,7 @@
  * No React, no hooks, no service dependencies. Pure functions only.
  */
 
-import type { ItemCategory, JerseySize, KitStatus } from '@c3/types';
+import type { ItemCategory, KitStatus } from '@c3/types';
 import { ITEM_CATEGORIES, JERSEY_SIZES } from '@c3/types';
 
 // ---------------------------------------------------------------------------
