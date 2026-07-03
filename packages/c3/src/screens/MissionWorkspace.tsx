@@ -270,6 +270,8 @@ const ParticipantList = ({
   onAddKit,
   onTransition,
   onDeactivate,
+  onRemoveParticipant,
+  pendingRequests,
 }: {
   participants: MissionParticipant[];
   peopleById: Map<string, Person>;
@@ -401,6 +403,9 @@ const MissionCard = ({
   onAddKit,
   onTransition,
   onDeactivate,
+  onAddParticipant,
+  onRemoveParticipant,
+  pendingRequests,
 }: {
   mission: Mission;
   participants: MissionParticipant[];
