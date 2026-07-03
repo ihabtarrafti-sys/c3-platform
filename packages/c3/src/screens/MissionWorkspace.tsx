@@ -41,11 +41,13 @@ import {
   SkeletonMetricStrip,
   SkeletonRows,
 } from '@c3/components/ui';
+import { useAllKitAssignments } from '@c3/hooks/useAllKitAssignments';
 import { useAllMissionParticipants } from '@c3/hooks/useAllMissionParticipants';
+import { useApp } from '@c3/hooks/useApp';
 import { useMissions } from '@c3/hooks/useMissions';
 import { usePeople } from '@c3/hooks/usePeople';
-import type { Mission, MissionParticipant, MissionStatus, Person } from '@c3/types';
-import { MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
+import type { KitAssignment, KitStatus, Mission, MissionParticipant, MissionStatus, Person } from '@c3/types';
+import { FULFILLED_KIT_STATUSES, MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
 
 // ---------------------------------------------------------------------------
 // MissionStatusBadge — screen-local status badge (same pattern as the
@@ -126,6 +128,70 @@ const FieldPair = ({ label, value }: { label: string; value: string }) => (
 );
 
 // ---------------------------------------------------------------------------
+// Kit status badge colours (S28-6)
+// ---------------------------------------------------------------------------
+
+const KIT_STATUS_COLOR: Record<
+  KitStatus,
+  'brand' | 'danger' | 'informative' | 'subtle' | 'success' | 'warning'
+> = {
+  NotOrdered: 'subtle',
+  Ordered:    'informative',
+  Shipped:    'informative',
+  Delivered:  'success',
+  Confirmed:  'success',
+  Returned:   'warning',
+  Replaced:   'warning',
+  Missing:    'danger',
+};
+
+// ---------------------------------------------------------------------------
+// ParticipantKit — read-only kit assignment lines for one participant (S28-6)
+//
+// Truthful display rule (S27 lesson): zero assignments reads "No kit
+// assignments recorded." and NEVER renders a complete/ready state. The
+// fulfilled summary only appears when >= 1 assignment exists.
+// ---------------------------------------------------------------------------
+
+const ParticipantKit = ({ items }: { items: KitAssignment[] }) => {
+  if (items.length === 0) {
+    return (
+      <Text size={200} style={{ color: 'var(--c3-gray-500)', display: 'block' }}>
+        No kit assignments recorded.
+      </Text>
+    );
+  }
+
+  const fulfilled = items.filter(k => FULFILLED_KIT_STATUSES.includes(k.Status)).length;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+      <Text size={200} weight="semibold" style={{ color: 'var(--c3-gray-600)' }}>
+        Kit: {items.length} item{items.length !== 1 ? 's' : ''} · {fulfilled} fulfilled
+      </Text>
+      {items.map(k => (
+        <div
+          key={`${k.ItemCategory}|${k.AssignmentKey}`}
+          style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--c3-space-2)', flexWrap: 'wrap' }}
+        >
+          <Badge appearance="outline" size="small">{k.ItemCategory}</Badge>
+          <Text size={200} style={{ color: 'var(--c3-gray-700)' }}>
+            {k.ItemDescription ?? k.AssignmentKey}
+            {k.JerseyNumber ? ` · #${k.JerseyNumber}` : ''}
+          </Text>
+          <Badge color={KIT_STATUS_COLOR[k.Status]} size="small">{k.Status}</Badge>
+          {k.OwnerEmail && (
+            <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+              {k.OwnerEmail}
+            </Text>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+};
+
+// ---------------------------------------------------------------------------
 // ParticipantList — read-only assignment rows inside an expanded card (S27-4)
 // ---------------------------------------------------------------------------
 
@@ -137,10 +203,15 @@ const ParticipantList = ({
   participants,
   peopleById,
   currency,
+  kitByPerson,
+  onNavigateToPerson,
 }: {
   participants: MissionParticipant[];
   peopleById: Map<string, Person>;
   currency?: string;
+  /** Kit assignments grouped by PersonID for THIS mission (S28-6). */
+  kitByPerson: Map<string, KitAssignment[]>;
+  onNavigateToPerson: (personId: string) => void;
 }) => (
   <div
     style={{
@@ -148,49 +219,72 @@ const ParticipantList = ({
       paddingTop: 'var(--c3-space-3)',
       display: 'flex',
       flexDirection: 'column',
-      gap: 'var(--c3-space-2)',
+      gap: 'var(--c3-space-3)',
     }}
   >
     {participants.map(p => (
       <div
         key={`${p.MissionID}|${p.PersonID}`}
-        style={{
-          display: 'flex',
-          alignItems: 'baseline',
-          justifyContent: 'space-between',
-          gap: 'var(--c3-space-3)',
-        }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 4 }}
       >
-        <div style={{ minWidth: 0 }}>
-          <Text
-            size={300}
-            weight="semibold"
-            style={{
-              color: 'var(--c3-gray-950)',
-              display: 'block',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            {resolvePersonName(p.PersonID, peopleById)}
-          </Text>
-          <Text
-            size={200}
-            style={{ color: 'var(--c3-gray-500)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}
-          >
-            {p.PersonID}
-            {p.ExternalCode ? ` · ${p.ExternalCode}` : ''}
-          </Text>
-        </div>
-        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 'var(--c3-space-2)' }}>
-          <Badge appearance="outline">{p.Role}</Badge>
-          {p.PerDiemRate !== undefined && (
-            <Text size={200} style={{ color: 'var(--c3-gray-600)', whiteSpace: 'nowrap' }}>
-              {p.PerDiemRate}{currency ? ` ${currency}` : ''}/day
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'baseline',
+            justifyContent: 'space-between',
+            gap: 'var(--c3-space-3)',
+          }}
+        >
+          <div style={{ minWidth: 0 }}>
+            {/* S28-6: name deep-links to PersonProfile (pure navigation). */}
+            <button
+              onClick={() => onNavigateToPerson(p.PersonID)}
+              aria-label={`Open profile for ${resolvePersonName(p.PersonID, peopleById)}`}
+              style={{
+                border: 'none',
+                background: 'transparent',
+                padding: 0,
+                cursor: 'pointer',
+                textAlign: 'left',
+                fontFamily: 'inherit',
+                display: 'block',
+                maxWidth: '100%',
+              }}
+            >
+              <Text
+                size={300}
+                weight="semibold"
+                style={{
+                  color: 'var(--c3-brand-80)',
+                  display: 'block',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {resolvePersonName(p.PersonID, peopleById)}
+              </Text>
+            </button>
+            <Text
+              size={200}
+              style={{ color: 'var(--c3-gray-500)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}
+            >
+              {p.PersonID}
+              {p.ExternalCode ? ` · ${p.ExternalCode}` : ''}
             </Text>
-          )}
+          </div>
+          <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 'var(--c3-space-2)' }}>
+            <Badge appearance="outline">{p.Role}</Badge>
+            {p.PerDiemRate !== undefined && (
+              <Text size={200} style={{ color: 'var(--c3-gray-600)', whiteSpace: 'nowrap' }}>
+                {p.PerDiemRate}{currency ? ` ${currency}` : ''}/day
+              </Text>
+            )}
+          </div>
         </div>
+
+        {/* Kit assignments for this participant (S28-6) */}
+        <ParticipantKit items={kitByPerson.get(p.PersonID) ?? []} />
       </div>
     ))}
   </div>
@@ -200,14 +294,18 @@ const MissionCard = ({
   mission,
   participants,
   peopleById,
+  kitByPerson,
   expanded,
   onToggle,
+  onNavigateToPerson,
 }: {
   mission: Mission;
   participants: MissionParticipant[];
   peopleById: Map<string, Person>;
+  kitByPerson: Map<string, KitAssignment[]>;
   expanded: boolean;
   onToggle: () => void;
+  onNavigateToPerson: (personId: string) => void;
 }) => (
   <div
     style={{
@@ -323,6 +421,8 @@ const MissionCard = ({
         participants={participants}
         peopleById={peopleById}
         currency={mission.OperatingCurrency}
+        kitByPerson={kitByPerson}
+        onNavigateToPerson={onNavigateToPerson}
       />
     )}
   </div>
@@ -333,6 +433,7 @@ const MissionCard = ({
 // ---------------------------------------------------------------------------
 
 export const MissionWorkspace = () => {
+  const { navigate } = useApp();
   const { data: missions = [], isLoading: missionsLoading, error } = useMissions();
 
   // S27-4: single batch participants query grouped locally — never per-card.
@@ -340,6 +441,9 @@ export const MissionWorkspace = () => {
 
   // S27-4: single people query for PersonID → name resolution.
   const { data: people = [], isLoading: peopleLoading } = usePeople();
+
+  // S28-6: single batch kit query grouped locally by mission and person.
+  const { data: allKit, isLoading: kitLoading } = useAllKitAssignments();
 
   // Expanded participant lists, keyed by MissionID (screen-local UI state).
   const [expandedMissions, setExpandedMissions] = useState<Set<string>>(new Set());
@@ -364,6 +468,21 @@ export const MissionWorkspace = () => {
     return map;
   }, [people]);
 
+  // Kit assignments grouped mission → person → items (S28-6).
+  const kitByMissionPerson = useMemo(() => {
+    const map = new Map<string, Map<string, KitAssignment[]>>();
+    for (const k of allKit) {
+      const perPerson = map.get(k.MissionID) ?? new Map<string, KitAssignment[]>();
+      const list = perPerson.get(k.PersonID) ?? [];
+      list.push(k);
+      perPerson.set(k.PersonID, list);
+      map.set(k.MissionID, perPerson);
+    }
+    return map;
+  }, [allKit]);
+
+  const EMPTY_KIT_MAP = useMemo(() => new Map<string, KitAssignment[]>(), []);
+
   const toggleExpanded = (missionId: string) => {
     setExpandedMissions(prev => {
       const next = new Set(prev);
@@ -373,7 +492,7 @@ export const MissionWorkspace = () => {
     });
   };
 
-  const isLoading = missionsLoading || participantsLoading || peopleLoading;
+  const isLoading = missionsLoading || participantsLoading || peopleLoading || kitLoading;
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -493,8 +612,10 @@ export const MissionWorkspace = () => {
               mission={mission}
               participants={participantsByMission.get(mission.MissionID) ?? []}
               peopleById={peopleById}
+              kitByPerson={kitByMissionPerson.get(mission.MissionID) ?? EMPTY_KIT_MAP}
               expanded={expandedMissions.has(mission.MissionID)}
               onToggle={() => toggleExpanded(mission.MissionID)}
+              onNavigateToPerson={personId => navigate({ id: 'person-profile', personId })}
             />
           ))}
         </div>

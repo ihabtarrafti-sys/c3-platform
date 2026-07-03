@@ -34,6 +34,8 @@ import { useNavigate } from '@c3/hooks/useNavigate';
 import { useCapabilities } from '@c3/hooks/useCapabilities';
 import { useToast } from '@c3/hooks/useToast';
 import { usePerson } from '@c3/hooks/usePerson';
+import { useApparelProfile } from '@c3/hooks/useApparelProfile';
+import { usePersonMissions } from '@c3/hooks/usePersonMissions';
 import { usePersonJourneys } from '@c3/hooks/usePersonJourneys';
 import { usePersonContracts } from '@c3/hooks/usePersonContracts';
 import { usePersonCredentials } from '@c3/hooks/usePersonCredentials';
@@ -47,7 +49,7 @@ import { useCancelJourney } from '@c3/hooks/useCancelJourney';
 import { canCancel, canComplete, canResume, canSuspend } from '@c3/services/interfaces/IJourneyService';
 import { InvalidTransitionError } from '@c3/services/errors';
 import { evaluateOnboardingObligations } from '@c3/protocols';
-import type { Credential, CredentialCapability, JourneyStatus, MissionNavContext } from '@c3/types';
+import type { Credential, CredentialCapability, JourneyStatus, MissionNavContext, MissionStatus } from '@c3/types';
 import { computeDaysToExpiry } from '@c3/utils/dateUtils';
 import { CREDENTIAL_TYPE_LABELS } from '@c3/utils/credentialLabels';
 
@@ -78,6 +80,24 @@ const TABS: Array<{ id: ProfileTab; label: string }> = [
   { id: 'readiness', label: 'Readiness' },
   { id: 'approvals', label: 'Approvals' },
 ];
+
+// ---------------------------------------------------------------------------
+// Mission status badge colours (S28-5) — mirrors the MissionWorkspace mapping.
+// Kept local until a shared MissionStatusBadge component is extracted.
+// ---------------------------------------------------------------------------
+
+const MISSION_STATUS_COLOR: Record<
+  MissionStatus,
+  'brand' | 'danger' | 'informative' | 'subtle' | 'success' | 'warning'
+> = {
+  Planning:       'informative',
+  FinancePending: 'warning',
+  Confirmed:      'brand',
+  Active:         'success',
+  PostMission:    'informative',
+  Settled:        'subtle',
+  Canceled:       'danger',
+};
 
 // ---------------------------------------------------------------------------
 // Journey lifecycle confirm action type
@@ -181,6 +201,12 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   const { data: contracts    = [] } = usePersonContracts(person?.PersonID ?? '');
   const { data: credentials  = [] } = usePersonCredentials(person?.PersonID ?? '');
   const { data: journeys     = [] } = usePersonJourneys(person?.PersonID ?? '');
+
+  // S28-5: apparel profile (null = none on file — a normal state) and mission
+  // assignments (composition of cached participants + missions queries).
+  // Both read-only; both hooks are frame-zero safe with defaults at boundaries.
+  const { data: apparelProfile }  = useApparelProfile(person?.PersonID ?? '');
+  const { rows: personMissions }  = usePersonMissions(person?.PersonID ?? '');
 
   // Readiness — fetches credentials internally and evaluates via the protocol.
   // Memoized on credential data; evaluation is null while credentials are loading.
@@ -498,6 +524,25 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
             </FieldGrid>
           </SectionCard>
 
+          {/* ── Apparel Profile (S28-5) — read-only stable attributes ──────────
+               null = no profile on file (a NORMAL state, never an error or a
+               readiness claim); undefined = still loading (tiles render blank). */}
+          <SectionCard title="Apparel Profile">
+            {apparelProfile === null ? (
+              <EmptyState
+                compact
+                title="No apparel profile on file."
+                description="Apparel sizing has not been recorded for this person."
+              />
+            ) : (
+              <FieldGrid columns={3}>
+                <FieldTile label="Jersey Size"    value={apparelProfile?.JerseySize} />
+                <FieldTile label="Name on Jersey" value={apparelProfile?.NameOnJersey} mono />
+                <FieldTile label="Notes"          value={apparelProfile?.Notes} />
+              </FieldGrid>
+            )}
+          </SectionCard>
+
           <SectionCard title="Contract History">
             <FieldGrid columns={3}>
               <FieldTile label="First Contract"  value={formatDate(person.FirstContractDate)} />
@@ -617,6 +662,38 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                         <StageBadge stage={contract.ContractStage1} />
                         <DispositionBadge disposition={contract.Disposition1} />
                         <DaysPill endDate={contract.EndDate} />
+                      </>
+                    }
+                  />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+
+          {/* ── Missions (S28-5) — read-only mission assignments ──────────────
+               Rows navigate to the Situation Room with the mission pre-scoped
+               (readiness context is what an operator wants from here). */}
+          <SectionCard title={`Missions (${personMissions.length})`}>
+            {personMissions.length === 0 ? (
+              <EmptyState
+                compact
+                title="Not assigned to any missions."
+                description="Mission assignments will appear here once this person is added to a mission."
+              />
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-2)' }}>
+                {personMissions.map(({ mission, role }) => (
+                  <DataRow
+                    key={mission.MissionID}
+                    title={mission.MissionID}
+                    subtitle={`${mission.Name} · ${mission.Span.StartDate} → ${mission.Span.EndDate}`}
+                    onClick={() =>
+                      navigate({ id: 'situation-room', missionId: mission.MissionID })
+                    }
+                    right={
+                      <>
+                        <Badge appearance="outline">{role}</Badge>
+                        <Badge color={MISSION_STATUS_COLOR[mission.Status]}>{mission.Status}</Badge>
                       </>
                     }
                   />
