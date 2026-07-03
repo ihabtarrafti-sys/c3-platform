@@ -1,6 +1,6 @@
 # C3 Beta Checkpoint — Sprint 29A
 
-**Status:** Prepared — hosted validation PENDING S29A runtime deployment **and ACL remediation (Part 15.0)**
+**Status:** Prepared — ACL remediation ✅ COMPLETE (Part 15.0); hosted validation PENDING S29A runtime deployment
 **Date:** 2026-07-03
 **Supersedes:** C3 Beta Checkpoint — Sprint 28
 **Head commits:** `8f80ec2` (ADR addendum + deltas) · `a06e041` (lifecycle services) · `53aae34` (action UI) · `e8b4e59` (runtime)
@@ -26,22 +26,21 @@ model:
 | **Site "Members" group** | **Edit on everything** | Review — any site Member can today bypass ADR-013 by editing operational lists directly (pre-existing exposure, applies to People/Credentials/Journeys/Approvals too) |
 | C3 Finance / Management / Visitors | Read | ✅ ok |
 
-**Owner actions (ACL changes are deliberately NOT automated):**
+**✅ REMEDIATED 2026-07-03 (controlled, user-approved; two logistics lists only).**
+Full before/after evidence, principal IDs, method, and decisions:
+`C3 Logistics List Permissions — Sprint 29A.md`.
 
-```
-[ ] Break role inheritance on C3MissionKitAssignments; grant:
-      C3 Platform Owners = Full Control · C3 Operations = Edit · all other C3 groups = Read
-[ ] Break role inheritance on C3PersonApparelProfiles; grant:
-      C3 Platform Owners = Full Control · C3 Operations = Edit · C3 HR = Edit · others = Read
-[ ] (S29B prep) Break inheritance on C3MissionParticipants; grant:
-      C3 Platform Owners = Edit/Full Control · ALL other groups = Read
-      (Operations submit approvals through C3 — no direct row editing)
-[ ] SITE-WIDE REVIEW (recommended, separate decision): C3 Legal Full Control and the
-      site Members Edit grant undermine ADR-013 on every operational list — schedule a
-      permissions hardening pass.
-[ ] Re-verify after changes:
-      {site}/_api/web/lists/getbytitle('<list>')/roleassignments?$expand=Member,RoleDefinitionBindings
-```
+- [x] `C3MissionKitAssignments`: inheritance broken (no copy); Owners groups = Full Control,
+      C3 Operations = Edit, all other groups (incl. HR/Legal/Finance/Management/site
+      Visitors+Members) = Read. `HasUniqueRoleAssignments = true` verified via direct endpoint.
+- [x] `C3PersonApparelProfiles`: identical, plus C3 HR = Edit.
+- [x] Site-level and unrelated-list permissions untouched (verified: site web still shows
+      the old Members/Legal grants — divergence proves list-level isolation).
+- [ ] Practical per-role write/deny checks — pending role sessions; folded into Part 15.4.
+- [ ] SITE-WIDE REVIEW (separate owner decision): site Members Edit + C3 Legal Full Control
+      still apply to all OTHER operational lists — ADR-013 bypass exposure remains there.
+- [ ] (S29B, apply with the governed-write implementation) C3MissionParticipants:
+      Platform Owners = Edit only; everyone else Read.
 
 ## Part 15.1 — Schema delta verification — ✅ applied via REST (2026-07-03)
 
