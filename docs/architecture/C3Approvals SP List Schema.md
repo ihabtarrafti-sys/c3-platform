@@ -83,9 +83,31 @@ SuspendJourney
 CancelJourney
 AddCredential
 DeactivateCredential
+AddPerson
+AddMissionParticipant
+RemoveMissionParticipant
 ```
 
 **Sprint 18 note:** Only `InitiateJourney` will be produced by C3 in Sprint 18. The remaining values are pre-provisioned to avoid list schema changes in Sprint 19.
+
+**Sprint 25 note:** `AddPerson` added (governed AddPerson foundation).
+
+**Sprint 29B note:** `AddMissionParticipant` and `RemoveMissionParticipant` added (governed
+participant membership). Apply via `scripts/Update-S29B-ParticipantGovernanceDelta.ps1` —
+the delta preserves existing values and adds only these two. The TypeScript unions
+(`CreateApprovalRequest.operationType`, payload union) change in the same sprint
+(choice-drift rule: TS and SP change together).
+
+**Sprint 29B — list security note:** `C3Approvals` is the governance boundary for ALL
+ADR-013 operations. Target posture (evidence + method in
+`C3 Governance List Permissions — Sprint 29B.md`): Platform Owners retain full lifecycle
+control; approved requester roles (C3 Operations) get the custom **`C3 Approval Submitter`**
+permission level (view/open/add + edit constrained to OWN items via list
+`WriteSecurity = 2`) — required because `createApproval` uses POST-then-MERGE to backfill
+the APR-XXXX Title on the just-created row; a plain "add-only" level would break every
+existing governed submission (AddPerson, AddCredential, DeactivateCredential,
+InitiateJourney). Submitters can never edit others' approval rows and can never delete any
+row (`DeleteListItems` excluded).
 
 ---
 

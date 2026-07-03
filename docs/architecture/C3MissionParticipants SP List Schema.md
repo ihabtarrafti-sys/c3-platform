@@ -101,12 +101,22 @@ active row for the same MissionID + PersonID. If a duplicate is ever created, bo
 `Title` carries the deterministic display key `<MissionID>|<PersonID>` for human readability
 in SP views. It is never parsed for identity.
 
-> **S29B preparation (schema only — no write behavior change):** `EnforceUniqueValues` on
-> `Title` may be enabled ahead of the Sprint 29B governed membership writes (audit duplicates
-> first — see `scripts/Update-S29A-LogisticsWriteDelta.ps1 -IncludeParticipantsUniqueness`).
-> Planned S29B list permissions: **Edit = C3 Platform Owners only** — Operations submit
-> Add/RemoveMissionParticipant approval requests through C3 and must not be able to bypass
-> governance by editing rows directly.
+> **S29B write model (governed — full ADR-013):** `AddMissionParticipant` and
+> `RemoveMissionParticipant` are owner-approved operations (request: owner/operations;
+> approve: owner; self-approval blocked). Execution (owner session) performs the actual row
+> write: add resolves ALL rows (incl. inactive) by `MissionID+PersonID` — 0 rows → POST;
+> 1 inactive row → **governed reactivation** (ETag MERGE: IsActive=true + ExternalCode/
+> ParticipantRole/PerDiemRate refreshed from the approved payload); 1 active exact-match →
+> already-applied (stamp recovery); 1 active mismatch → conflict error; multiple →
+> data-integrity error. Removal sets `IsActive=false` (mandatory reason; never deleted) and
+> is blocked while active kit assignments exist. `EnforceUniqueValues` on `Title`
+> (`<MissionID>|<PersonID>`) is the server-side race guard — enabled in the S29A delta;
+> Title is never parsed for identity.
+>
+> **S29B list permissions (target posture):** **Edit = C3 Platform Owners only**; all other
+> groups (incl. C3 Operations) Read — Operations submit membership requests through C3 and
+> must not be able to bypass governance by editing rows directly. Evidence + method:
+> `C3 Governance List Permissions — Sprint 29B.md`.
 
 ---
 
