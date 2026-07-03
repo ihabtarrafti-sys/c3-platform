@@ -31,25 +31,40 @@
  * semantics; the S26 read path does not filter on it (same as the S24 contract
  * read path). A future write/deactivation sprint decides the filter semantics.
  *
- * Still stubbed (out of S26 scope):
- *   - listMissionParticipants / listAllMissionParticipants — pending the
- *     C3MissionParticipants list (Sprint 27).
+ * Participant reads (Sprint 27, S27-3):
+ *   - listMissionParticipants(missionId) / listAllMissionParticipants() are
+ *     live native-fetch reads against C3MissionParticipants, mapped through
+ *     spMissionParticipantMapper. Rows with an explicit IsActive === false
+ *     are excluded from both reads (inactive rows are retained in SP for
+ *     history; there is no lifecycle UI). 404 / missing list returns [].
+ *   - $top=500 per query — acceptable at current participant volume
+ *     (participants × missions per year); documented as a scale limitation
+ *     in the schema doc §10.
+ *
+ * Still stubbed (out of scope):
  *   - confirmMission / updateMissionStatus — writes throw; they cannot safely
  *     no-op because callers expect a returned Mission and store side effects.
+ *     SP mission confirmation is hidden in the UI (TD-26); a future SP write
+ *     must be an explicitly designed governed path.
+ *   - No participant writes of any kind (S27 scope boundary).
  *
  * See: docs/architecture/C3Missions SP List Schema.md
+ * See: docs/architecture/C3MissionParticipants SP List Schema.md
  */
 
 import type { Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
 import type { IMissionService } from '../interfaces/IMissionService';
 import { mapSpItemsToMissions } from '@c3/utils/spMissionMapper';
 import type { SpMissionItem } from '@c3/utils/spMissionMapper';
+import { mapSpItemsToMissionParticipants } from '@c3/utils/spMissionParticipantMapper';
+import type { SpMissionParticipantItem } from '@c3/utils/spMissionParticipantMapper';
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const LIST_NAME = 'C3Missions';
+const PARTICIPANTS_LIST_NAME = 'C3MissionParticipants';
 const PAGE_SIZE = 500;
 
 // ---------------------------------------------------------------------------
@@ -60,12 +75,19 @@ function buildListUrl(siteUrl: string): string {
   return `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${LIST_NAME}')/items`;
 }
 
+function buildParticipantsListUrl(siteUrl: string): string {
+  return `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${PARTICIPANTS_LIST_NAME}')/items`;
+}
+
 /**
  * Escape and URL-encode a value for use inside an OData $filter string
  * literal. Single quotes are doubled (OData escaping); the result is
  * URI-encoded so TR/SATR codes containing "/" survive the query string.
+ *
+ * Exported for the s27 parity harness, which exercises this exact function
+ * (compiled from source) rather than a re-implementation.
  */
-function encodeODataLiteral(val: string): string {
+export function encodeODataLiteral(val: string): string {
   return encodeURIComponent(val.replace(/'/g, "''"));
 }
 
@@ -125,6 +147,72 @@ async function fetchMissionItems(url: string): Promise<SpMissionItem[]> {
   return json.value;
 }
 
+interface SpParticipantListResponse {
+  value: SpMissionParticipantItem[];
+}
+
+/**
+ * Fetch C3MissionParticipants list items from the given URL.
+ * Returns an empty array on any network, HTTP, or parse error (fail-safe).
+ */
+async function fetchParticipantItems(url: string): Promise<SpMissionParticipantItem[]> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json;odata=nometadata' },
+    });
+  } catch (err) {
+    console.error('[C3/MissionParticipant] Network error reaching SharePoint:', err);
+    return [];
+  }
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      console.warn(
+        '[C3/MissionParticipant] C3MissionParticipants list not found (HTTP 404). ' +
+        'The list may not be provisioned yet. ' +
+        'See docs/architecture/C3MissionParticipants SP List Schema.md for provisioning steps.',
+      );
+    } else {
+      console.error(
+        `[C3/MissionParticipant] SharePoint returned HTTP ${response.status} ${response.statusText} ` +
+        'for C3MissionParticipants query. Returning empty participant list.',
+      );
+    }
+    return [];
+  }
+
+  let json: SpParticipantListResponse;
+  try {
+    json = (await response.json()) as SpParticipantListResponse;
+  } catch (err) {
+    console.error('[C3/MissionParticipant] Failed to parse SharePoint JSON response:', err);
+    return [];
+  }
+
+  if (!Array.isArray(json.value)) {
+    console.error(
+      '[C3/MissionParticipant] SharePoint response is missing the "value" array. ' +
+      'Check C3MissionParticipants list REST endpoint and $select.',
+    );
+    return [];
+  }
+
+  return json.value;
+}
+
+/**
+ * Map raw participant items and project active MissionParticipant records.
+ * Rows with an explicit IsActive === false are persistence history — excluded
+ * from all reads (documented in the schema doc; no lifecycle UI exists).
+ */
+function toActiveParticipants(items: SpMissionParticipantItem[]): MissionParticipant[] {
+  const { records } = mapSpItemsToMissionParticipants(items);
+  return records.filter(r => r.isActive).map(r => r.participant);
+}
+
 /** Apply MissionFilter client-side — mirrors MockMissionService semantics. */
 function applyFilter(missions: Mission[], filter?: MissionFilter): Mission[] {
   let results = missions;
@@ -143,6 +231,7 @@ function applyFilter(missions: Mission[], filter?: MissionFilter): Mission[] {
 
 export const createSharePointMissionService = (siteUrl: string): IMissionService => {
   const baseUrl = buildListUrl(siteUrl);
+  const participantsBaseUrl = buildParticipantsListUrl(siteUrl);
 
   return {
     async listMissions(filter?: MissionFilter): Promise<Mission[]> {
@@ -174,20 +263,24 @@ export const createSharePointMissionService = (siteUrl: string): IMissionService
     },
 
     async listMissionParticipants(missionId: string): Promise<MissionParticipant[]> {
-      void missionId;
-      console.warn(
-        '[C3/Mission] listMissionParticipants: not implemented in S26. ' +
-        'C3MissionParticipants list schema is deferred to Sprint 27.',
-      );
-      return [];
+      const url =
+        `${participantsBaseUrl}` +
+        `?$select=*` +
+        `&$filter=MissionID eq '${encodeODataLiteral(missionId)}'` +
+        `&$top=${PAGE_SIZE}`;
+
+      const items = await fetchParticipantItems(url);
+      return toActiveParticipants(items);
     },
 
     async listAllMissionParticipants(): Promise<MissionParticipant[]> {
-      console.warn(
-        '[C3/Mission] listAllMissionParticipants: not implemented in S26. ' +
-        'C3MissionParticipants list schema is deferred to Sprint 27.',
-      );
-      return [];
+      const url =
+        `${participantsBaseUrl}` +
+        `?$select=*` +
+        `&$top=${PAGE_SIZE}`;
+
+      const items = await fetchParticipantItems(url);
+      return toActiveParticipants(items);
     },
 
     async confirmMission(missionId: string, confirmedBy: string): Promise<Mission> {

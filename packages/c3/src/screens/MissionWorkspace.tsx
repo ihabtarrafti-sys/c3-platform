@@ -2,6 +2,9 @@
  * MissionWorkspace — C3 Design System v1.0
  *
  * Sprint 26 (S26-3) — Mission/Event Read Foundation.
+ * Sprint 27 (S27-4) — Participant visibility: each card shows its participant
+ *   count and expands to a read-only assignment list (name, PersonID, role,
+ *   external code, per diem in the mission's operating currency).
  *
  * Read-only register of mission/event commitments. A Mission is Geekay's
  * commitment to deploy people and resources to a defined operational event
@@ -12,21 +15,23 @@
  * Layout:
  *   PageHeader (title + subtitle + last-updated)
  *   KPI strip (3 MetricCards — total / obligation-active / pending finance)
- *   Mission cards grid — one card per mission
+ *   Mission cards grid — one card per mission, expandable participant list
  *
  * Design constraints:
- *   - Strictly read-only: no create, edit, or confirm actions (mission writes
- *     are out of S26 scope; confirmation stays in the Situation Room flow).
- *   - Card layout rather than a dense table — mission volume is tens per
- *     year, and each record carries enough context to justify a card.
- *   - Status colours follow the ADR-002 lifecycle: pre-Confirmed statuses are
- *     visually quiet; Confirmed/Active are prominent.
+ *   - Strictly read-only: no mission writes, no participant add/remove/edit,
+ *     no lifecycle or approval controls.
+ *   - ONE participants query (useAllMissionParticipants) grouped locally by
+ *     MissionID — never a per-card query (no N+1).
+ *   - ONE people query (usePeople) builds a PersonID → Person map for name
+ *     resolution; unknown IDs render "Unknown person (PER-XXXX)".
+ *   - Stable hook order; defaults at hook boundaries; no hooks after early
+ *     returns (TD-23 lesson).
  *
  * Layer: Screen — consumes hooks, components/ui, components/shared.
  * Do NOT import services, SDK, SharePoint integration, or host-level APIs.
  */
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Badge, Text } from '@fluentui/react-components';
 
 import {
@@ -36,8 +41,10 @@ import {
   SkeletonMetricStrip,
   SkeletonRows,
 } from '@c3/components/ui';
+import { useAllMissionParticipants } from '@c3/hooks/useAllMissionParticipants';
 import { useMissions } from '@c3/hooks/useMissions';
-import type { Mission, MissionStatus } from '@c3/types';
+import { usePeople } from '@c3/hooks/usePeople';
+import type { Mission, MissionParticipant, MissionStatus, Person } from '@c3/types';
 import { MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
 
 // ---------------------------------------------------------------------------
@@ -118,7 +125,90 @@ const FieldPair = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
-const MissionCard = ({ mission }: { mission: Mission }) => (
+// ---------------------------------------------------------------------------
+// ParticipantList — read-only assignment rows inside an expanded card (S27-4)
+// ---------------------------------------------------------------------------
+
+/** Resolve a display name from the People map; safe fallback for unknown IDs. */
+const resolvePersonName = (personId: string, peopleById: Map<string, Person>): string =>
+  peopleById.get(personId)?.FullName ?? `Unknown person (${personId})`;
+
+const ParticipantList = ({
+  participants,
+  peopleById,
+  currency,
+}: {
+  participants: MissionParticipant[];
+  peopleById: Map<string, Person>;
+  currency?: string;
+}) => (
+  <div
+    style={{
+      borderTop: '1px solid var(--c3-gray-100)',
+      paddingTop: 'var(--c3-space-3)',
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 'var(--c3-space-2)',
+    }}
+  >
+    {participants.map(p => (
+      <div
+        key={`${p.MissionID}|${p.PersonID}`}
+        style={{
+          display: 'flex',
+          alignItems: 'baseline',
+          justifyContent: 'space-between',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
+          <Text
+            size={300}
+            weight="semibold"
+            style={{
+              color: 'var(--c3-gray-950)',
+              display: 'block',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {resolvePersonName(p.PersonID, peopleById)}
+          </Text>
+          <Text
+            size={200}
+            style={{ color: 'var(--c3-gray-500)', fontFamily: 'monospace', whiteSpace: 'nowrap' }}
+          >
+            {p.PersonID}
+            {p.ExternalCode ? ` · ${p.ExternalCode}` : ''}
+          </Text>
+        </div>
+        <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 'var(--c3-space-2)' }}>
+          <Badge appearance="outline">{p.Role}</Badge>
+          {p.PerDiemRate !== undefined && (
+            <Text size={200} style={{ color: 'var(--c3-gray-600)', whiteSpace: 'nowrap' }}>
+              {p.PerDiemRate}{currency ? ` ${currency}` : ''}/day
+            </Text>
+          )}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const MissionCard = ({
+  mission,
+  participants,
+  peopleById,
+  expanded,
+  onToggle,
+}: {
+  mission: Mission;
+  participants: MissionParticipant[];
+  peopleById: Map<string, Person>;
+  expanded: boolean;
+  onToggle: () => void;
+}) => (
   <div
     style={{
       backgroundColor: 'var(--c3-white)',
@@ -197,6 +287,44 @@ const MissionCard = ({ mission }: { mission: Mission }) => (
         {mission.Notes}
       </Text>
     )}
+
+    {/* ── Participants (S27-4) — read-only; count row toggles the detail list ── */}
+    <button
+      onClick={onToggle}
+      disabled={participants.length === 0}
+      aria-expanded={expanded}
+      aria-label={`${participants.length} participant${participants.length !== 1 ? 's' : ''} for ${mission.MissionID}`}
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 'var(--c3-space-2)',
+        border: 'none',
+        background: 'transparent',
+        padding: 0,
+        cursor: participants.length > 0 ? 'pointer' : 'default',
+        textAlign: 'left',
+        fontFamily: 'inherit',
+      }}
+    >
+      <Text size={200} weight="semibold" style={{ color: 'var(--c3-gray-700)' }}>
+        {participants.length === 0
+          ? 'No participants assigned'
+          : `${participants.length} participant${participants.length !== 1 ? 's' : ''}`}
+      </Text>
+      {participants.length > 0 && (
+        <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+          {expanded ? '▾ hide' : '▸ show'}
+        </Text>
+      )}
+    </button>
+
+    {expanded && participants.length > 0 && (
+      <ParticipantList
+        participants={participants}
+        peopleById={peopleById}
+        currency={mission.OperatingCurrency}
+      />
+    )}
   </div>
 );
 
@@ -205,11 +333,47 @@ const MissionCard = ({ mission }: { mission: Mission }) => (
 // ---------------------------------------------------------------------------
 
 export const MissionWorkspace = () => {
-  const { data: missions = [], isLoading, error } = useMissions();
+  const { data: missions = [], isLoading: missionsLoading, error } = useMissions();
+
+  // S27-4: single batch participants query grouped locally — never per-card.
+  const { allParticipants, isLoading: participantsLoading } = useAllMissionParticipants();
+
+  // S27-4: single people query for PersonID → name resolution.
+  const { data: people = [], isLoading: peopleLoading } = usePeople();
+
+  // Expanded participant lists, keyed by MissionID (screen-local UI state).
+  const [expandedMissions, setExpandedMissions] = useState<Set<string>>(new Set());
 
   // Data freshness timestamp — recomputes on each React Query refetch.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadedAt = useMemo(() => new Date().toISOString(), [missions]);
+
+  const participantsByMission = useMemo(() => {
+    const map = new Map<string, MissionParticipant[]>();
+    for (const p of allParticipants) {
+      const list = map.get(p.MissionID) ?? [];
+      list.push(p);
+      map.set(p.MissionID, list);
+    }
+    return map;
+  }, [allParticipants]);
+
+  const peopleById = useMemo(() => {
+    const map = new Map<string, Person>();
+    for (const person of people) map.set(person.PersonID, person);
+    return map;
+  }, [people]);
+
+  const toggleExpanded = (missionId: string) => {
+    setExpandedMissions(prev => {
+      const next = new Set(prev);
+      if (next.has(missionId)) next.delete(missionId);
+      else next.add(missionId);
+      return next;
+    });
+  };
+
+  const isLoading = missionsLoading || participantsLoading || peopleLoading;
 
   // ── KPI metrics ────────────────────────────────────────────────────────────
   const metrics = useMemo(() => {
@@ -324,7 +488,14 @@ export const MissionWorkspace = () => {
           }}
         >
           {missions.map(mission => (
-            <MissionCard key={mission.MissionID} mission={mission} />
+            <MissionCard
+              key={mission.MissionID}
+              mission={mission}
+              participants={participantsByMission.get(mission.MissionID) ?? []}
+              peopleById={peopleById}
+              expanded={expandedMissions.has(mission.MissionID)}
+              onToggle={() => toggleExpanded(mission.MissionID)}
+            />
           ))}
         </div>
       )}

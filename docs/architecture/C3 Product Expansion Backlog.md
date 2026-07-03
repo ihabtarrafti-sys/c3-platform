@@ -264,26 +264,28 @@ Mission/Finance tracks can be built until Mission foundation is live.
 ### 7 — Mission Participants
 
 **Track:** Core platform
-**Timing:** After Mission / Event Foundation; Sprint 27 target
+**Timing:** Sprint 27 — **read foundation delivered**; writes and PersonProfile section deferred
 **Type:** Feature
 
 #### Description
 
 Link people to missions/events. Track who is assigned to each mission, their assigned role within the mission, and their readiness state relative to mission requirements.
 
-#### Scope
+#### Scope / Status (updated S27)
 
-- `C3MissionParticipants` SP list (or junction in `C3Missions.ObligationAssignmentsJSON` — decision at sprint planning)
-- Add participant to mission: governed write or direct role-gated (TBD)
-- Remove participant from mission
-- Mission view: participant list with readiness indicators (credentials, journey, contract status)
-- PersonProfile: "Missions" section showing missions this person is assigned to
+- ✅ `C3MissionParticipants` SP list schema defined (dedicated join list — the `ObligationAssignmentsJSON` junction option was rejected; participants are cross-domain operational truth, not journey payload). Provisioning pending
+- ✅ SP participant read path (`listMissionParticipants` / `listAllMissionParticipants`) — native fetch, 404-safe, `spMissionParticipantMapper`, IsActive-false rows excluded
+- ✅ Mission Workspace: participant counts + read-only expandable assignment detail; names resolved live from C3People
+- ✅ Situation Room: participant count now live in SP DSM; truthful zero-participant copy (S27-1)
+- ✅ Parity harness `s27-parity-participants.mjs` (compiles the real mapper via esbuild — no inline translation drift)
+- ⬜ **PersonProfile "Missions" section — deferred to Sprint 28** (decision at S27 Phase 0: PersonProfile is the most regression-sensitive validated screen, and the S28 jersey/logistics work touches the same section — do it once there)
+- ⬜ Add/remove participant writes (governed vs role-gated TBD) — deferred; no participant writes exist
+- ⬜ Participant readiness indicators in mission view — deferred (gap computation already consumes real participants; surfacing per-participant readiness chips is future UI work)
 
 #### Dependencies
 
-- Mission / Event Foundation (Track 6)
-- PersonProfile (Sprint 20 — complete)
-- Operational readiness state per person (Credentials live S15/S20, Journey live S18)
+- ~~Mission / Event Foundation (Track 6)~~ — met (S26)
+- Operator provisioning: `C3MissionParticipants` SP list (schema doc + hardened script ready)
 
 ---
 
