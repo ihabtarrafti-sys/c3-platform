@@ -101,6 +101,13 @@ active row for the same MissionID + PersonID. If a duplicate is ever created, bo
 `Title` carries the deterministic display key `<MissionID>|<PersonID>` for human readability
 in SP views. It is never parsed for identity.
 
+> **S29B preparation (schema only — no write behavior change):** `EnforceUniqueValues` on
+> `Title` may be enabled ahead of the Sprint 29B governed membership writes (audit duplicates
+> first — see `scripts/Update-S29A-LogisticsWriteDelta.ps1 -IncludeParticipantsUniqueness`).
+> Planned S29B list permissions: **Edit = C3 Platform Owners only** — Operations submit
+> Add/RemoveMissionParticipant approval requests through C3 and must not be able to bypass
+> governance by editing rows directly.
+
 ---
 
 ## 6. Relationship Model

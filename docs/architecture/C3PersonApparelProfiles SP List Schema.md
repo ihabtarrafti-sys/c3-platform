@@ -51,7 +51,22 @@ from C3People everywhere).
 
 ## 3. SP List Settings
 
-Content types disabled · Major versioning (limit 10) · Attachments disabled · Index: `PersonID`.
+Content types disabled · **Major versioning limit 50 (raised in S29A — version history is
+the authoritative edit audit for this list)** · Attachments disabled · Indexes: `PersonID`,
+`Title` (required by uniqueness).
+
+**Title uniqueness (S29A):** `EnforceUniqueValues = TRUE` on `Title` (display key =
+PersonID) — server-side protection for concurrent create-if-absent upserts. Title is never
+parsed for identity; row resolution uses the `PersonID` column.
+
+**Write model (S29A):** `EditApparelProfile` upsert is a role-gated master-data update
+(owner, operations, **hr**) per the ADR-013 Addendum — Mission Kit Logistics Exemption.
+Create when no active profile exists; update the exact active row (ETag concurrency) when
+one exists; inactive rows retained. SP version history is the authoritative audit — the
+user-facing `Notes` field is never polluted with system audit text.
+
+**List permissions (security boundary):** Edit/Contribute: `C3 Platform Owners`,
+`C3 Operations`, `C3 HR`. Read-only: other authenticated C3 roles.
 
 ---
 

@@ -46,7 +46,8 @@ Maps to `KitAssignment` in `packages/c3/src/types/logistics.ts`.
 | `KitStatus` | Status | Choice | Yes | `Status` | **Internal name `KitStatus`, not `Status`** (SP reserved-word rename risk — same rule as `MissionStatus`). Values in §4. Default `NotOrdered`. |
 | `JerseyNumber` | Jersey Number | Single line text | No | `JerseyNumber` | Mission-specific; free text, trimmed on read. |
 | `OwnerEmail` | Owner Email | Single line text | No | `OwnerEmail` | Fulfillment owner (staff email). Single-field convention (matches `C3Journeys.AssignedTo` minimalism); `OwnerName` deferred until a display need is proven. |
-| `IsActive` | Is Active | Yes/No (default Yes) | No | *(persistence flag)* | Null/missing maps as `true`. Reads exclude explicit `false`. Inactive rows retained for history. |
+| `IsActive` | Is Active | Yes/No (default Yes) | No | *(persistence flag)* | Null/missing maps as `true`. Reads exclude explicit `false`. Inactive rows retained for history — never physically deleted. |
+| `StatusNotes` | Status Notes | Multi-line text (plain) | No | *(audit trail — S29A)* | Append-only audit lines written by the service on create/transition/deactivate: `[ISO] KITSTATUS <old>→<new> by <loginName> — <reason>`. Readable context; SP version history + `Editor` is the authoritative actor record. Never edited manually. |
 
 **Deliberately omitted:** kit-level `Notes` (ItemDescription covers identification; tracking
 numbers belong to the future freight domain), `CurrencyCode` (kit has no monetary fields),
@@ -57,8 +58,20 @@ metadata only).
 
 ## 3. SP List Settings
 
-Content types disabled · Major versioning (limit 10) · Attachments disabled ·
-Indexes: `MissionID`, `PersonID`.
+Content types disabled · **Major versioning limit 50 (raised from 10 in S29A — version
+history is part of the write audit)** · Attachments disabled · Indexes: `MissionID`,
+`PersonID`, `Title` (required by uniqueness).
+
+**Title uniqueness (S29A):** `EnforceUniqueValues = TRUE` on `Title`. The deterministic
+display key `<MissionID>|<PersonID>|<ItemCategory>|<AssignmentKey>` doubles as server-side
+race protection for concurrent creates (duplicate-check-then-POST alone is not sufficient).
+Title remains display/concurrency-enforcement only — **never parsed for identity**; all row
+resolution uses the explicit canonical columns. Duplicate Titles must be audited before
+enabling (see `scripts/Update-S29A-LogisticsWriteDelta.ps1`).
+
+**List permissions (security boundary — UI role checks are affordance only):**
+Edit/Contribute: `C3 Platform Owners`, `C3 Operations`. Read-only: all other authenticated
+C3 roles. Verify with the checklist in the S29A delta script.
 
 ---
 
@@ -114,11 +127,26 @@ row for a non-participant renders under the mission with normal name resolution.
 
 ---
 
-## 7. Out of Scope (Sprint 28)
+## 7. Write model (S29A — supersedes the S28 "no writes" scope)
 
-No writes: no AddKitAssignment, no status transitions, no returns/replacements processing,
-no per-diem/payment linkage, no travel or freight records, no Situation Room logistics gaps,
-no Command Center kit work items.
+Writes are live under **ADR-013 Addendum — Mission Kit Logistics Exemption** (role-gated:
+owner, operations):
+
+- **AddKitAssignment** — participant must be an active mission participant; compound
+  duplicate protection (pre-check + Title uniqueness); initial `KitStatus` always
+  `NotOrdered`; creation audit line in `StatusNotes`.
+- **UpdateKitStatus** — validated transition matrix (see `utils/kitLifecycle.ts` and the
+  addendum); reason mandatory into `Returned`/`Missing`/`Replaced`; audit line per
+  transition.
+- **DeactivateKitAssignment** — mandatory reason; `IsActive = false`; audit line; row
+  retained.
+
+All updates resolve the exact row by canonical columns, MERGE with the row's **actual ETag**
+(never `IF-MATCH: *`), and convert HTTP 412 to a concurrency error.
+
+Still out of scope: participant membership writes (S29B, full ADR-013), per-diem/payment
+linkage, travel/freight, Situation Room logistics gaps, Command Center kit work items,
+reactivation, arbitrary metadata editing.
 
 ---
 
