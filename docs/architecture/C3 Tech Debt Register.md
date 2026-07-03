@@ -573,3 +573,29 @@ lifecycle exemption, decided deliberately. **No direct SP lifecycle write may be
 silently**, and the NavRail/action guard pattern applies until the write path exists and is
 hosted-validated. Capability-gating the Mock DSM button (currently visible to all roles in
 demo mode) can be considered in the same design pass.
+
+---
+
+### TD-27 — Mission-operations write paths deferred (Sprint 29 scope)
+
+**Severity:** 🟡 Planned work, not a defect
+**Sprint attributed:** S27/S28 (read foundations shipped write-free by design)
+**Status:** Open — scheduled for Sprint 29
+**Files:** `SharePointMissionService.ts`, `SharePointApparelProfileService.ts`, related hooks/UI
+
+The S27/S28 read foundations deliberately shipped without writes. Until Sprint 29 delivers
+them, the following operational-truth changes happen only by direct SharePoint list edits
+(outside ADR-013 governance — the standing gap that motivates the S29 write sprint):
+
+- **Participant writes** — AddMissionParticipant / RemoveMissionParticipant
+- **Kit writes** — AddKitAssignment + KitStatus lifecycle transitions
+  (Returned/Replaced/Missing states are provisioned but have no transition path)
+- **Apparel profile writes** — create/edit/deactivate
+
+**Resolution (S29):** Phase 0 must classify each operation individually — full ADR-013
+approval / documented lifecycle exemption / role-gated profile update / owner-only transition
+— before implementation. The write design must also cover: dual-cache invalidation
+(`mission.participants(id)` + `mission.allParticipants()` + kit/apparel keys), MissionID+
+PersonID(+AssignmentKey) uniqueness enforcement at write time, NameOnJersey/AssignmentKey
+write-time validation, and the mutation error-surfacing sweep (no silent-failure mutations —
+the useApproveMission onError gap is the known anti-pattern).

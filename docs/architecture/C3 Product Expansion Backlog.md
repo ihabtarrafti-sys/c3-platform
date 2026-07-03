@@ -292,26 +292,36 @@ Link people to missions/events. Track who is assigned to each mission, their ass
 ### 8 — Jersey / Logistics Tracking
 
 **Track:** Operations
-**Timing:** After Mission Participants; Sprint 27 target (alongside Track 7 or Sprint 28)
+**Timing:** Sprint 28 — **read foundation COMPLETED and hosted-validated (2026-07-03)**; writes → Sprint 29
 **Type:** Feature
 
 #### Description
 
-Track physical logistics items (jerseys, equipment, credentials documents) per person per mission. Record sizes, shipment state, and delivery confirmation.
+Track physical logistics items (jerseys, apparel, equipment) issued per person per mission.
+Stable sizing lives per person; issuance/fulfillment state lives per mission participant.
 
-#### Scope
+#### Scope / Status (updated S28)
 
-- Jersey size per person: stored on person record or as a logistics record
-- Shipment/delivery state: enum (Not ordered / Ordered / Shipped / Delivered / Confirmed)
-- Logistics ownership: who is responsible for ordering and confirming
-- Event/person linkage: logistics record tied to a Mission Participant record
-- Logistics write path: governed write or direct operations-role write (TBD)
-- Logistics view: logistics section on Mission view, logistics column on Mission Participants list
+- ✅ `C3PersonApparelProfiles` — stable apparel attributes (JerseySize/NameOnJersey/Notes),
+  one active profile per person, **provisioned and live**; deliberately NOT C3People columns
+- ✅ `C3MissionKitAssignments` — issued kit per participant, identity
+  `MissionID + PersonID + ItemCategory + AssignmentKey`, KitStatus lifecycle enum (8 values,
+  Delivered/Confirmed = fulfilled for display), **provisioned and live**
+- ✅ SP read paths (native fetch, 404-safe, inactive rows excluded) + mappers + s28 parity
+  (compiled-from-source, 35 checks)
+- ✅ PersonProfile: Apparel Profile + Missions (n) sections; mission rows deep-link to the
+  Situation Room mission scope
+- ✅ MissionWorkspace: per-participant kit summary + per-item status; participant names
+  deep-link to PersonProfile
+- ⬜ Writes (AddKitAssignment, lifecycle transitions, apparel edits) → **Sprint 29** —
+  governance classified per operation at S29 Phase 0
+- ⬜ Situation Room logistics readiness / Command Center kit work items → S29+
+- Domain boundary: NOT inventory, travel, or freight — those are separate future domains
 
 #### Dependencies
 
-- Mission Participants (Track 7)
-- PersonProfile (Sprint 20 — complete)
+- ~~Mission Participants (Track 7)~~ — met (S27)
+- ~~PersonProfile~~ — met; PersonProfile "Missions" section (deferred from S27) **delivered in S28**
 
 ---
 
