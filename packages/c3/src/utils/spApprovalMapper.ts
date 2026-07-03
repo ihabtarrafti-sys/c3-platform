@@ -12,7 +12,8 @@
  *   - All validation and type-guarding lives here -- the service layer calls
  *     mapSpItemsToApprovals and receives typed C3Approval[] with counts.
  *   - Invalid/unknown values degrade gracefully:
- *       Missing/blank Title          -> hard reject
+ *       Title                        -> NEVER a reject (S29B): legacy APR-XXXX
+ *         passes through; blank/correlation values derive from the item ID
  *       Missing/blank ApprovalStatus -> hard reject
  *       Invalid ApprovalStatus value -> hard reject
  *       Missing/blank OperationType  -> hard reject
@@ -49,7 +50,11 @@ const PREFIX = '[C3/Approvals]';
 export interface SpApprovalItem {
   /** SP built-in integer primary key. */
   ID: number;
-  /** APR-XXXX reference identifier (Title column). Null -> hard reject. */
+  /**
+   * Display/correlation Title. Legacy rows: authoritative APR-XXXX. New rows
+   * (S29B Add-only submissions): non-authoritative correlation value; the
+   * ApprovalID derives from ID. Never parsed for operational identity.
+   */
   Title: string | null;
   /** Governed operation type, e.g. 'InitiateJourney'. Null -> hard reject. */
   OperationType: string | null;
@@ -120,6 +125,33 @@ export interface SpApprovalMapResult {
 }
 
 // ---------------------------------------------------------------------------
+// ApprovalID derivation (S29B immutable-submission hardening)
+// ---------------------------------------------------------------------------
+
+/** Legacy authoritative Title shape written by the pre-S29B MERGE flow. */
+const APR_TITLE_PATTERN = /^APR-\d{4,}$/;
+
+/**
+ * Derive the displayed ApprovalID for a C3Approvals row.
+ *
+ *   - A legacy Title matching APR-XXXX is accepted as-is (those values were
+ *     themselves derived from the SP item ID by the old POST-then-MERGE flow,
+ *     so both schemes agree for historical rows).
+ *   - Anything else (blank, TMP-*, APR-PENDING-* correlation values) derives
+ *     APR-<ID padded to 4> from the SharePoint item ID — deterministic: the
+ *     same item always maps to the same identifier.
+ *
+ * This is internal same-list persistence/display derivation ONLY. The SP
+ * numeric Id never becomes a cross-domain foreign key, and Title is never
+ * parsed for operational payload identity.
+ */
+export function deriveApprovalTitle(id: number, rawTitle: string | null | undefined): string {
+  const trimmed = rawTitle?.trim() ?? '';
+  if (APR_TITLE_PATTERN.test(trimmed)) return trimmed;
+  return `APR-${String(id).padStart(4, '0')}`;
+}
+
+// ---------------------------------------------------------------------------
 // mapSpItemToApproval
 // ---------------------------------------------------------------------------
 
@@ -128,9 +160,12 @@ export interface SpApprovalMapResult {
  *
  * Returns null (hard reject) if:
  *   - ID is null or NaN
- *   - Title (ApprovalID) is blank or null
  *   - ApprovalStatus is blank, null, or not in the 6-value lifecycle set
  *   - OperationType is blank or null
+ *
+ * Title no longer hard-rejects (S29B): the ApprovalID is derived via
+ * deriveApprovalTitle — legacy APR-XXXX Titles pass through; new Add-only
+ * submissions carry a correlation Title and derive from the item ID.
  *
  * Non-fatal anomalies increment warnRef.count and log a warning; the record
  * is still returned.
@@ -147,11 +182,9 @@ export function mapSpItemToApproval(
     return null;
   }
 
-  // Hard reject: missing ApprovalID (Title)
-  if (!item.Title || item.Title.trim() === '') {
-    console.warn(`${PREFIX} ${itemLabel}: missing Title (ApprovalID) -- record rejected`);
-    return null;
-  }
+  // ApprovalID (S29B): legacy APR-XXXX Titles pass through; correlation/blank
+  // Titles derive deterministically from the SP item ID. Never a hard reject.
+  const title = deriveApprovalTitle(item.ID, item.Title);
 
   // Hard reject: missing or invalid ApprovalStatus
   if (!item.ApprovalStatus || !APPROVAL_STATUS_VALUES.has(item.ApprovalStatus)) {
@@ -197,7 +230,7 @@ export function mapSpItemToApproval(
 
   return {
     id:              item.ID,
-    title:           item.Title.trim(),
+    title:           title,
     operationType:   item.OperationType.trim(),
     targetId:        item.TargetID?.trim() || undefined,
     targetPersonId:  item.TargetPersonID?.trim() || undefined,

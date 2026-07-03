@@ -98,16 +98,23 @@ the delta preserves existing values and adds only these two. The TypeScript unio
 (`CreateApprovalRequest.operationType`, payload union) change in the same sprint
 (choice-drift rule: TS and SP change together).
 
-**Sprint 29B — list security note:** `C3Approvals` is the governance boundary for ALL
-ADR-013 operations. Target posture (evidence + method in
+**Sprint 29B — list security note (hardening patch):** `C3Approvals` is the governance
+boundary for ALL ADR-013 operations. Posture (evidence + method in
 `C3 Governance List Permissions — Sprint 29B.md`): Platform Owners retain full lifecycle
-control; approved requester roles (C3 Operations) get the custom **`C3 Approval Submitter`**
-permission level (view/open/add + edit constrained to OWN items via list
-`WriteSecurity = 2`) — required because `createApproval` uses POST-then-MERGE to backfill
-the APR-XXXX Title on the just-created row; a plain "add-only" level would break every
-existing governed submission (AddPerson, AddCredential, DeactivateCredential,
-InitiateJourney). Submitters can never edit others' approval rows and can never delete any
-row (`DeleteListItems` excluded).
+control; approved requester roles (C3 Operations) hold the custom **`C3 Approval
+Submitter`** level — **Add-only operational access** (view/open/add; NO EditListItems, NO
+DeleteListItems, NO manage rights). **Submitted approval rows are immutable to their
+creator** at every lifecycle stage.
+
+**Approval identity (S29B write model):** `createApproval` performs **one requester POST**
+— Title carries a non-authoritative creation-time correlation value
+(`APR-PENDING-<ts>-<rnd>`), and the displayed **ApprovalID (APR-XXXX) derives
+deterministically from the SharePoint item Id** at read time. Legacy rows whose Title is
+already `APR-XXXX` (written by the retired POST-then-MERGE flow) pass through unchanged —
+identifiers agree across both schemes because the legacy flow derived from the same item
+Id. Title is never parsed for operational payload identity; owner lifecycle writes
+(approve/reject/execute/stamp) address `items(Id)` under owner permissions, unchanged.
+Historical rows are never rewritten.
 
 ---
 

@@ -44,27 +44,39 @@ The approvals list is the governance boundary for **all** ADR-013 operations. Re
   `SharePointApprovalsService.ts`). They must NOT edit other rows, change
   ApprovalStatus/SubmittedBy/stamps on others' rows, or delete anything.
 
-### Custom permission level: `C3 Approval Submitter`
+### Custom permission level: `C3 Approval Submitter` — **Add-only (S29B hardening patch)**
 
-Built-in levels cannot express this (Contribute includes delete; Read cannot add). One
-narrowly scoped custom level, combined with list-level **`WriteSecurity = 2`**
-("create items and edit items that were created by the user"):
+> **Approval submitters have Add-only operational access.**
+> **Submitted approval rows are immutable to their creator** — immediately after
+> submission, while Submitted/InReview, after owner approval, and before or after
+> execution.
+
+The original design carried `EditListItems` (constrained by `WriteSecurity=2`) because
+`createApproval` used a POST-then-MERGE Title backfill. **The hardening patch eliminated
+the MERGE**: `createApproval` now performs one requester-authorized POST with a
+non-authoritative correlation Title (`APR-PENDING-<ts>-<rnd>`, never parsed as identity),
+and the displayed APR-XXXX derives deterministically from the SharePoint item Id at read
+time (`deriveApprovalTitle` in `spApprovalMapper.ts`). Legacy rows with authoritative
+`Title = APR-XXXX` pass through unchanged — both schemes agree because the legacy MERGE
+derived from the same item Id. Historical rows are not rewritten. SP numeric Id remains
+internal same-list persistence/display derivation — never a cross-domain foreign key.
+
+Final level (bit-audited after the ACL delta):
 
 | Base permission | Included | Why |
 |---|---|---|
 | ViewListItems, ViewVersions | ✅ | read approvals + history |
-| ViewPages, ViewFormPages, Open, BrowseUserInfo (if required by forms) | ✅ | open the list/forms |
-| AddListItems | ✅ | create approval rows |
-| **EditListItems** | ✅ **but constrained to OWN items by `WriteSecurity = 2`** | **required by the POST-then-MERGE APR-XXXX Title backfill** — excluding it (as originally sketched) would break every existing governed submission. Environment-verified deviation, not a guess. |
-| DeleteListItems | ❌ | approval rows are immutable audit — never deletable by submitters |
+| OpenItems, ViewPages, ViewFormPages, Open, BrowseUserInfo, UseRemoteAPIs, UseClientIntegration | ✅ | open the list/forms; REST access |
+| AddListItems | ✅ | create approval rows — the ONLY write |
+| **EditListItems** | ❌ **removed (hardening patch)** | no requester MERGE exists anymore |
+| DeleteListItems | ❌ | approval rows are immutable audit |
 | ManageLists, OverrideListBehaviors, ManagePermissions, ApproveItems | ❌ | admin surface |
 
-**Accepted residual risk (documented):** with edit-own rights, a submitter could modify
-their *own* approval row (e.g. Payload) after submission and before owner review. Mitigations:
-the owner reviews the payload content at approval time; SP version history (versioning is
-enabled on C3Approvals) records every change with the editor identity; execution re-validates
-the payload authoritatively. Full immutability-after-submission would require an
-event-receiver/Power-Automate lock — recorded as a future hardening item, out of S29B scope.
+`WriteSecurity = 2` is retained as defense-in-depth (harmless with no edit right; a
+second fence if the level is ever widened by mistake).
+
+**The previously accepted "own-row tamper window" residual risk is CLOSED** — submitters
+hold no edit permission of any scope.
 
 | Principal | Level |
 |---|---|

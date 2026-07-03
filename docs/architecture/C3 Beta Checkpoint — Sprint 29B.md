@@ -19,20 +19,25 @@ Parts 0–15 of the S29A checkpoint carry over as regression items. Part 16 is n
       C3 Operations** (membership changes only through governed approvals); site Members
       Edit stripped; Legal FC stripped
 - [x] **`C3Approvals` ACL** (unique = true): Owners FC; **C3 Operations = custom
-      `C3 Approval Submitter`** (id 1073741926: ViewListItems/AddListItems/EditListItems/
-      OpenItems/ViewVersions/ViewFormPages/Open/ViewPages + BrowseUserInfo/UseRemoteAPIs/
-      UseClientIntegration; **NO DeleteListItems, NO ManageLists, NO ApproveItems** —
-      bit-audited); all other groups Read; **`WriteSecurity = 2`** (edit own items only —
-      constrains the submitter's EditListItems to their own rows; owners bypass via
-      ManageLists so approve/reject/execute/stamp flows are unaffected)
+      `C3 Approval Submitter`** (id 1073741926) — **Add-only after the hardening patch:
+      EditListItems REMOVED** (view/open/add + REST bits only; NO edit, NO delete, NO
+      manage/approve — bit-audited post-delta); all other groups Read; `WriteSecurity = 2`
+      retained as defense-in-depth; owner lifecycle flows unaffected (FC/ManageLists)
+- [x] **Immutable submission (hardening patch):** `createApproval` is a single requester
+      POST (correlation Title, never parsed); ApprovalID derives from the SP item Id;
+      legacy APR-XXXX Titles preserved; **submitted rows are immutable to their creator**
 - [x] Before-state exported by principal ID prior to changes; site-level untouched
 - [x] Acting operator verified `IsSiteAdmin`
 
 **Practical security checks (pending role sessions — run in 16.2):**
-- [ ] Operations: submit a participant request (POST + APR Title backfill both succeed
-      under the submitter level)
+- [ ] Operations: submit a participant request — single POST succeeds; APR identifier
+      returned/displayed correctly; **no Title MERGE attempted, no hidden 403**;
+      pending-state detection finds the approval
+- [ ] Operations: direct REST MERGE of the requester's **own** approval row (Payload /
+      ApprovalStatus / TargetPersonID / Title) → **every MERGE returns 403**
+- [ ] Operations: DELETE of own approval row → **403**
 - [ ] Operations: direct edit of a `C3MissionParticipants` row → **denied**
-- [ ] Operations: edit of ANOTHER user's `C3Approvals` row → **denied** (WriteSecurity=2)
+- [ ] Operations: edit of ANOTHER user's `C3Approvals` row → **denied**
 - [ ] Owner: approve / reject / execute / recover → all succeed
 - [ ] **Regression:** an existing governed submission (AddCredential by Operations) still
       works end-to-end — the submitter level must not break AddPerson/AddCredential/
@@ -93,6 +98,8 @@ Parts 0–15 of the S29A checkpoint carry over as regression items. Part 16 is n
 ### 16.6 Deferred (recorded)
 
 - UpdateMissionParticipant, generic reactivation UI, kit metadata edits — deferred
-- C3Approvals own-row pre-approval tamper window — accepted residual risk (owner review +
-  version history + execution re-validation); event-receiver lock = future hardening
+- ~~C3Approvals own-row pre-approval tamper window~~ — **CLOSED by the immutable-submission
+  hardening patch** (submitters are Add-only; no edit permission of any scope)
+- [ ] 16.2 addition: historical approvals still display their original APR identifiers
+      (legacy Title passthrough) alongside new derived identifiers
 - Site-wide permissions hardening — open owner decision (S29A finding)

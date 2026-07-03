@@ -25,10 +25,20 @@ function normalizeSpDateTime(val, context, warnRef) {
   return val.trim();
 }
 
+// S29B: ApprovalID derivation -- legacy APR-XXXX Titles pass through; blank/
+// correlation Titles derive deterministically from the SP item ID. MUST stay
+// in sync with deriveApprovalTitle in spApprovalMapper.ts.
+const APR_TITLE_PATTERN = /^APR-\d{4,}$/;
+function deriveApprovalTitle(id, rawTitle) {
+  const trimmed = (rawTitle || '').trim();
+  if (APR_TITLE_PATTERN.test(trimmed)) return trimmed;
+  return 'APR-' + String(id).padStart(4, '0');
+}
+
 function mapSpItemToApproval(item, warnRef) {
   const lbl = 'Item ' + item.ID;
   if (item.ID == null || isNaN(item.ID)) { console.warn(PREFIX + ' item with null ID -- record rejected'); return null; }
-  if (!item.Title || item.Title.trim() === '') { console.warn(PREFIX + ' ' + lbl + ': missing Title -- record rejected'); return null; }
+  const derivedTitle = deriveApprovalTitle(item.ID, item.Title); // S29B: Title never rejects
   if (!item.ApprovalStatus || !APPROVAL_STATUS_VALUES.has(item.ApprovalStatus)) {
     console.warn(PREFIX + ' ' + lbl + ': invalid ApprovalStatus "' + (item.ApprovalStatus || '') + '" -- record rejected'); return null;
   }
@@ -41,7 +51,7 @@ function mapSpItemToApproval(item, warnRef) {
   const reviewedAt  = normalizeSpDateTime(item.ReviewedAt,  lbl + '.ReviewedAt',  warnRef);
   const executedAt  = normalizeSpDateTime(item.ExecutedAt,  lbl + '.ExecutedAt',  warnRef);
   return {
-    id: item.ID, title: item.Title.trim(), operationType: item.OperationType.trim(),
+    id: item.ID, title: derivedTitle, operationType: item.OperationType.trim(),
     targetId: item.TargetID && item.TargetID.trim() || undefined,
     targetPersonId: item.TargetPersonID && item.TargetPersonID.trim() || undefined,
     submittedBy: item.SubmittedBy && item.SubmittedBy.trim() || '',
@@ -138,8 +148,9 @@ console.log('\n=== S18 Approvals Mapper Parity Harness ===\n');
 const { approvals, result } = mapSpItemsToApprovals(SP_ITEMS);
 
 console.log('\n--- Batch count assertions ---');
-assert('mapped count (6 clean + APR-S3 soft warn)', result.mapped, 7);
-assert('rejected count', result.rejected, 2);
+// S29B: null-Title record (ID 101) now MAPS with a derived ApprovalID.
+assert('mapped count (6 clean + APR-S3 + derived-title S1)', result.mapped, 8);
+assert('rejected count (bad status only)', result.rejected, 1);
 assert('warnings count', result.warnings, 1);
 
 console.log('\n--- APR-0001 (Submitted, clean) ---');
@@ -203,8 +214,27 @@ const a6p = (function() { try { return JSON.parse(a6 && a6.payload || '{}'); } c
 assert('APR-0006 payload.reason (mandatory)', a6p['reason'], 'Roster change');
 
 console.log('\n--- Stress record assertions ---');
-assert('APR-S1 (null Title) not mapped',     approvals.find(function(a) { return a.id === 101; }), undefined);
+// S29B immutable-submission hardening: a null/correlation Title derives its
+// ApprovalID from the SP item ID (Add-only submitters never MERGE the Title).
+const aS1 = approvals.find(function(a) { return a.id === 101; });
+assert('APR-S1 (null Title) IS mapped (S29B)',   aS1 !== undefined,   true);
+assert('APR-S1 derived ApprovalID from item ID', aS1 && aS1.title,    'APR-0101');
 assert('APR-S2 (bad status) not mapped',     approvals.find(function(a) { return a.id === 102; }), undefined);
+
+console.log('\n--- S29B ApprovalID derivation assertions ---');
+assert('legacy APR Title passes through',   deriveApprovalTitle(999, 'APR-0007'),          'APR-0007');
+assert('correlation Title derives from ID', deriveApprovalTitle(42, 'APR-PENDING-xk29a1'), 'APR-0042');
+assert('blank Title derives from ID',       deriveApprovalTitle(7, ''),                    'APR-0007');
+assert('TMP legacy placeholder derives',    deriveApprovalTitle(12, 'TMP-abc123'),         'APR-0012');
+assert('derivation is deterministic',       deriveApprovalTitle(42, 'APR-PENDING-other') === deriveApprovalTitle(42, 'APR-PENDING-xk29a1'), true);
+assert('same item always same identifier',  deriveApprovalTitle(4, null),                  'APR-0004');
+// createApproval single-write contract: mapping requires no Title backfill --
+// proven by the correlation-title record mapping without any second write.
+const corr = mapSpItemToApproval({ ID: 250, Title: 'APR-PENDING-zz9', OperationType: 'AddMissionParticipant',
+  TargetID: null, TargetPersonID: 'PER-0005', SubmittedBy: 'x', SubmittedAt: '2026-07-03T12:00:00Z',
+  ApprovalStatus: 'Submitted', ReviewedBy: null, ReviewedAt: null, ExecutedAt: null, ExecutionError: null,
+  DelegatedBy: null, DelegateTo: null, Reason: null, RejectionReason: null, Payload: '{"operationType":"AddMissionParticipant"}' }, { count: 0 });
+assert('new-row correlation record maps with derived ID', corr && corr.title, 'APR-0250');
 const aS3 = approvals.find(function(a) { return a.id === 103; });
 assert('APR-S3 (null Payload) IS mapped',    aS3 !== undefined,          true);
 assert('APR-S3 approvalStatus is Submitted', aS3 && aS3.approvalStatus, 'Submitted');

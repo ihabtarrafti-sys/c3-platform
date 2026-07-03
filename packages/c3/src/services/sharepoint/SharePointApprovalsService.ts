@@ -34,7 +34,7 @@ import type {
   PatchApprovalStatusRequest,
   StampExecutionRequest,
 } from '../interfaces/IApprovalsService';
-import { mapSpItemsToApprovals, type SpApprovalItem } from '@c3/utils/spApprovalMapper';
+import { deriveApprovalTitle, mapSpItemsToApprovals, type SpApprovalItem } from '@c3/utils/spApprovalMapper';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
 const PREFIX = '[C3/Approvals]';
@@ -82,10 +82,6 @@ async function fetchFormDigest(siteUrl: string): Promise<string> {
   return json.FormDigestValue;
 }
 
-function formatApprovalId(n: number): string {
-  return `APR-${String(n).padStart(4, '0')}`;
-}
-
 /**
  * Execute a MERGE (update) against a single list item.
  * Shared by patchApprovalStatus and stampExecution.
@@ -129,13 +125,29 @@ export const createSharePointApprovalsService = (
 ): IApprovalsService => ({
 
   async createApproval(req: CreateApprovalRequest): Promise<CreateApprovalResult> {
-    // S19-3: POST-then-MERGE pattern -- SP auto-ID is the atomic sequence source.
-    const placeholder = 'TMP-' + Date.now().toString(36);
+    // S29B immutable-submission hardening: ONE requester-authorized write.
+    //
+    // The pre-S29B flow POSTed a TMP title and MERGEd the APR-XXXX back — that
+    // second write required EditListItems for submitters, leaving their own
+    // approval rows editable after submission (an unacceptable ADR-013
+    // boundary). The MERGE is eliminated:
+    //
+    //   POST complete payload once (Title = non-authoritative correlation
+    //   value, generated pre-submission, never parsed as identity)
+    //   → receive the created item Id
+    //   → derive the displayed APR-XXXX from the Id (deriveApprovalTitle —
+    //     the SAME derivation the legacy flow used, so identifiers are
+    //     consistent across both schemes)
+    //
+    // Submitters therefore need Add-only operational access; submitted rows
+    // are immutable to their creator. Owner lifecycle writes (approve/reject/
+    // execute/stamp) are unchanged and address items(Id) under owner rights.
+    const correlation = `APR-PENDING-${Date.now().toString(36)}-${Math.floor(Math.random() * 46656).toString(36)}`;
     const digest = await fetchFormDigest(siteUrl);
 
     const body = {
       __metadata: { type: LIST_ITEM_TYPE },
-      Title:          placeholder,
+      Title:          correlation,
       OperationType:  req.operationType,
       TargetID:       req.targetId ?? null,
       TargetPersonID: req.targetPersonId,
@@ -168,22 +180,14 @@ export const createSharePointApprovalsService = (
     if (typeof created.ID !== 'number') {
       throw new Error(
         `${PREFIX} createApproval: SP did not return an item ID after POST. ` +
-        `Cannot derive APR sequence. An orphaned row with Title '${placeholder}' may exist in C3Approvals.`,
+        `A row with correlation Title '${correlation}' may exist in C3Approvals; its ApprovalID ` +
+        `derives from its item ID on next read (no orphan-identity risk).`,
       );
     }
 
-    const title = formatApprovalId(created.ID);
-    try {
-      await mergeItem(siteUrl, created.ID, { Title: title });
-    } catch (mergeErr) {
-      throw new Error(
-        `${PREFIX} createApproval: POST succeeded (SP ID ${created.ID}) but Title MERGE failed. ` +
-        `An orphaned row with Title '${placeholder}' exists in C3Approvals. ` +
-        `Original error: ${mergeErr instanceof Error ? mergeErr.message : String(mergeErr)}`,
-      );
-    }
+    const title = deriveApprovalTitle(created.ID, null);
 
-    console.info(`${PREFIX} createApproval: created ${title} (SP ID ${created.ID}) for ${req.targetPersonId}`);
+    console.info(`${PREFIX} createApproval: created ${title} (SP ID ${created.ID}) for ${req.targetPersonId} — single write, no Title MERGE`);
     return { approvalId: created.ID, title, status: 'Submitted' };
   },
 

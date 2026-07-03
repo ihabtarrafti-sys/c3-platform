@@ -586,6 +586,10 @@ Mission Kit Logistics Exemption, with ETag concurrency and list-ACL hardening.
 **Remaining:** participant membership writes (Add/RemoveMissionParticipant — full ADR-013
 governed, locked) → **Sprint 29B (in flight)**, incl. participants/approvals ACL hardening
 and the OperationType schema delta.
+**S29B hardening patch:** approval submissions are now a single Add-only POST (no Title
+MERGE); the ApprovalID derives from the SP item Id; the `C3 Approval Submitter` level
+excludes EditListItems entirely — **submitted approval rows are immutable to their
+creator** (the previously documented own-row tamper window is closed).
 **Files:** `SharePointMissionService.ts`, `SharePointApparelProfileService.ts`, related hooks/UI
 
 The S27/S28 read foundations deliberately shipped without writes. Until Sprint 29 delivers
