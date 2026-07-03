@@ -125,6 +125,52 @@ export class ParticipantNotActiveError extends Error {
   }
 }
 
+// ---------------------------------------------------------------------------
+// S29B — governed participant membership error classes
+// ---------------------------------------------------------------------------
+
+/** An ACTIVE participant row already exists and conflicts with the requested add. */
+export class ParticipantConflictError extends Error {
+  override readonly name = 'ParticipantConflictError';
+  constructor(missionId: string, personId: string) {
+    super(
+      `[C3] An active participant row for ${personId} on ${missionId} exists with DIFFERENT ` +
+      `fields than the approved request. No write performed. Reconcile the existing row ` +
+      `(or submit a matching request) before retrying.`,
+    );
+  }
+}
+
+/** An active participant row already exists (duplicate add at submission time). */
+export class DuplicateParticipantError extends Error {
+  override readonly name = 'DuplicateParticipantError';
+  constructor(missionId: string, personId: string) {
+    super(`[C3] ${personId} is already an active participant of ${missionId}.`);
+  }
+}
+
+/** Removal blocked: active kit assignments still exist for the person/mission. */
+export class ActiveKitDependencyError extends Error {
+  override readonly name = 'ActiveKitDependencyError';
+  constructor(missionId: string, personId: string, count: number) {
+    super(
+      `[C3] Cannot remove ${personId} from ${missionId}: ${count} active kit assignment` +
+      `${count !== 1 ? 's' : ''} exist${count === 1 ? 's' : ''}. Deactivate the kit items first.`,
+    );
+  }
+}
+
+/** A Submitted/InReview/Approved request for the same operation+mission+person already exists. */
+export class DuplicatePendingRequestError extends Error {
+  override readonly name = 'DuplicatePendingRequestError';
+  constructor(operation: string, missionId: string, personId: string, approvalTitle: string) {
+    super(
+      `[C3] A ${operation} request for ${personId} on ${missionId} is already pending ` +
+      `(${approvalTitle}). Wait for it to be executed or rejected before submitting another.`,
+    );
+  }
+}
+
 /** A kit status transition not permitted by the approved matrix. */
 export class InvalidKitTransitionError extends Error {
   override readonly name = 'InvalidKitTransitionError';

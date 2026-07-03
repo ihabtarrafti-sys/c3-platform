@@ -83,7 +83,14 @@ import type { CredentialType, CreateCredentialInput, CreatePersonInput } from '@
 import type {
   InitiateJourneyApprovalPayload,
   AddCredentialApprovalPayload,
+  AddMissionParticipantApprovalPayload,
+  RemoveMissionParticipantApprovalPayload,
 } from '@c3/services/interfaces/approvalPayloads';
+import { useMissionService } from './useMissionService';
+import {
+  validateAddParticipantPayload,
+  validateRemoveParticipantPayload,
+} from '@c3/utils/participantWrites';
 
 // ---------------------------------------------------------------------------
 // Error classes
@@ -217,6 +224,40 @@ export class PartialAddPersonExecutionError extends Error {
  * Parse the raw Payload JSON string to a plain object.
  * Throws PayloadValidationError (pre-write) if the JSON is invalid or not an object.
  */
+/**
+ * Thrown when the participant add write applied (created/reactivated/
+ * already-applied) but the C3Approvals stamp to Executed failed. The
+ * participant state is correct. Recovery: re-execute the approval — the
+ * idempotent contract detects the already-applied state and repairs only
+ * the stamp; no duplicate participant row is created. Sprint 29B.
+ */
+export class PartialParticipantAddExecutionError extends Error {
+  override readonly name = 'PartialParticipantAddExecutionError';
+  constructor(missionId: string, personId: string, approvalId: number, cause: unknown) {
+    super(
+      `[C3/Execution] PARTIAL: ${personId} was added to ${missionId} but approval ${approvalId} ` +
+      `could not be stamped Executed. Re-execute the approval to repair the stamp — the ` +
+      `participant write is idempotent and will not duplicate. Cause: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+  }
+}
+
+/**
+ * Thrown when the participant removal applied (IsActive=false / already
+ * inactive) but the approval stamp failed. Recovery: re-execute — the
+ * already-inactive detection repairs only the stamp. Sprint 29B.
+ */
+export class PartialParticipantRemovalExecutionError extends Error {
+  override readonly name = 'PartialParticipantRemovalExecutionError';
+  constructor(missionId: string, personId: string, approvalId: number, cause: unknown) {
+    super(
+      `[C3/Execution] PARTIAL: ${personId} was removed from ${missionId} but approval ${approvalId} ` +
+      `could not be stamped Executed. Re-execute the approval to repair the stamp — removal is ` +
+      `idempotent. Cause: ${cause instanceof Error ? cause.message : String(cause)}`,
+    );
+  }
+}
+
 function parseRawPayload(raw: string | undefined): Record<string, unknown> {
   if (!raw || !raw.trim()) {
     throw new PayloadValidationError('Payload column is empty or missing.');
@@ -234,6 +275,42 @@ function parseRawPayload(raw: string | undefined): Record<string, unknown> {
   }
 
   return parsed as Record<string, unknown>;
+}
+
+/**
+ * Validate and cast a raw payload object as AddMissionParticipantApprovalPayload.
+ * Delegates the field rules to the shared pure module (participantWrites) so
+ * submission, execution, services, and parity all enforce identical rules.
+ */
+function validateAddMissionParticipantPayload(
+  obj: Record<string, unknown>,
+): AddMissionParticipantApprovalPayload {
+  const errors = validateAddParticipantPayload({
+    missionId:    typeof obj['missionId'] === 'string' ? obj['missionId'] : '',
+    personId:     typeof obj['personId'] === 'string' ? obj['personId'] : '',
+    externalCode: typeof obj['externalCode'] === 'string' ? obj['externalCode'] : '',
+    role:         typeof obj['role'] === 'string' ? obj['role'] : '',
+    perDiemRate:  typeof obj['perDiemRate'] === 'number' ? obj['perDiemRate']
+                  : obj['perDiemRate'] === undefined || obj['perDiemRate'] === null ? undefined
+                  : Number.NaN,
+  });
+  if (errors.length > 0) throw new PayloadValidationError(errors.join(' '));
+  return obj as unknown as AddMissionParticipantApprovalPayload;
+}
+
+/**
+ * Validate and cast a raw payload object as RemoveMissionParticipantApprovalPayload.
+ */
+function validateRemoveMissionParticipantPayload(
+  obj: Record<string, unknown>,
+): RemoveMissionParticipantApprovalPayload {
+  const errors = validateRemoveParticipantPayload({
+    missionId: typeof obj['missionId'] === 'string' ? obj['missionId'] : '',
+    personId:  typeof obj['personId'] === 'string' ? obj['personId'] : '',
+    reason:    typeof obj['reason'] === 'string' ? obj['reason'] : '',
+  });
+  if (errors.length > 0) throw new PayloadValidationError(errors.join(' '));
+  return obj as unknown as RemoveMissionParticipantApprovalPayload;
 }
 
 /**
@@ -284,6 +361,7 @@ export const useExecuteApproval = () => {
   const journeyService     = useJourneyService();
   const credentialService  = useCredentialService();
   const personService      = usePersonService();
+  const missionService     = useMissionService();
   const queryClient        = useQueryClient();
 
   return useMutation({
@@ -606,10 +684,111 @@ export const useExecuteApproval = () => {
         return;
       }
 
+      // -- AddMissionParticipant branch (Sprint 29B, full ADR-013) --
+      if (opType === 'AddMissionParticipant') {
+        const payload = validateAddMissionParticipantPayload(payloadObj);
+
+        // Steps 2-4: the service implements the authoritative idempotent
+        // contract (mission/person state, duplicate/conflict, reactivation,
+        // already-applied detection). Pre-write failures (conflict,
+        // data-integrity) stamp ExecutionFailed with a clear message.
+        let outcome: string;
+        try {
+          const result = await missionService.addMissionParticipant({
+            MissionID:      payload.missionId,
+            PersonID:       payload.personId,
+            ExternalCode:   payload.externalCode,
+            Role:           payload.role,
+            PerDiemRate:    payload.perDiemRate,
+            actorLoginName: currentUser.loginName,
+          });
+          outcome = result.outcome;
+        } catch (writeErr) {
+          const errMsg = writeErr instanceof Error ? writeErr.message : String(writeErr);
+          try {
+            await approvalsService.stampExecution(approval.id, {
+              newStatus:      'ExecutionFailed',
+              executionError: errMsg.slice(0, 250),
+            });
+          } catch (stampErr) {
+            console.error('[C3/Execution] Failed to stamp ExecutionFailed after participant add error:', stampErr);
+          }
+          throw writeErr;
+        }
+
+        // Step 5: stamp Executed. 'already-applied' reaching this point IS the
+        // stamp-recovery path — re-executing after a partial failure repairs
+        // only the approval record; no duplicate participant row is created.
+        const executedAt = new Date().toISOString();
+        try {
+          await approvalsService.stampExecution(approval.id, { newStatus: 'Executed', executedAt });
+        } catch (stampErr) {
+          console.error(
+            '[C3/Execution] PARTIAL FAILURE: participant write applied but approval stamp failed.',
+            `Mission: ${payload.missionId} | Person: ${payload.personId} | ApprovalID: ${approval.id}`,
+            stampErr,
+          );
+          throw new PartialParticipantAddExecutionError(payload.missionId, payload.personId, approval.id, stampErr);
+        }
+
+        console.info(
+          `[C3/Execution] Approval ${approval.title} executed (${outcome}). ` +
+          `${payload.personId} added to ${payload.missionId} as ${payload.role}. ExecutedAt: ${executedAt}`,
+        );
+        return;
+      }
+
+      // -- RemoveMissionParticipant branch (Sprint 29B, full ADR-013) --
+      if (opType === 'RemoveMissionParticipant') {
+        const payload = validateRemoveMissionParticipantPayload(payloadObj);
+
+        let outcome: string;
+        try {
+          const result = await missionService.removeMissionParticipant({
+            MissionID:      payload.missionId,
+            PersonID:       payload.personId,
+            reason:         payload.reason,
+            actorLoginName: currentUser.loginName,
+          });
+          outcome = result.outcome;
+        } catch (writeErr) {
+          const errMsg = writeErr instanceof Error ? writeErr.message : String(writeErr);
+          try {
+            await approvalsService.stampExecution(approval.id, {
+              newStatus:      'ExecutionFailed',
+              executionError: errMsg.slice(0, 250),
+            });
+          } catch (stampErr) {
+            console.error('[C3/Execution] Failed to stamp ExecutionFailed after participant removal error:', stampErr);
+          }
+          throw writeErr;
+        }
+
+        // 'already-inactive' reaching the stamp IS the recovery path.
+        const executedAt = new Date().toISOString();
+        try {
+          await approvalsService.stampExecution(approval.id, { newStatus: 'Executed', executedAt });
+        } catch (stampErr) {
+          console.error(
+            '[C3/Execution] PARTIAL FAILURE: participant removal applied but approval stamp failed.',
+            `Mission: ${payload.missionId} | Person: ${payload.personId} | ApprovalID: ${approval.id}`,
+            stampErr,
+          );
+          throw new PartialParticipantRemovalExecutionError(payload.missionId, payload.personId, approval.id, stampErr);
+        }
+
+        console.info(
+          `[C3/Execution] Approval ${approval.title} executed (${outcome}). ` +
+          `${payload.personId} removed from ${payload.missionId}. ExecutedAt: ${executedAt}`,
+        );
+        return;
+      }
+
       // -- Unknown operationType --
       throw new PayloadValidationError(
         `Unknown operationType: '${String(opType)}'. ` +
-        `Supported: 'InitiateJourney', 'AddCredential', 'DeactivateCredential', 'AddPerson'.`,
+        `Supported: 'InitiateJourney', 'AddCredential', 'DeactivateCredential', 'AddPerson', ` +
+        `'AddMissionParticipant', 'RemoveMissionParticipant'.`,
       );
     },
 
@@ -643,6 +822,15 @@ export const useExecuteApproval = () => {
         } else if (opType === 'AddPerson') {
           // Refresh people list so PeopleWorkspace shows the newly created person.
           void queryClient.invalidateQueries({ queryKey: queryKeys.people.all() });
+        } else if (opType === 'AddMissionParticipant' || opType === 'RemoveMissionParticipant') {
+          // S29B: BOTH participant caches (per-mission + batch) — SituationRoom
+          // counts/gaps and Command Center work items consume these keys and
+          // refresh without any screen modification.
+          const missionId = typeof p['missionId'] === 'string' ? p['missionId'] : undefined;
+          if (missionId) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.mission.participants(missionId) });
+          }
+          void queryClient.invalidateQueries({ queryKey: queryKeys.mission.allParticipants() });
         }
       } catch {
         // Ignore parse failures -- approvals.all() invalidation above is sufficient
@@ -678,6 +866,13 @@ export const useExecuteApproval = () => {
         } else if (opType === 'AddPerson') {
           // Partial execution may have created the person -- refresh to show any partial state.
           void queryClient.invalidateQueries({ queryKey: queryKeys.people.all() });
+        } else if (opType === 'AddMissionParticipant' || opType === 'RemoveMissionParticipant') {
+          // Partial execution may have applied the participant write -- refresh both caches.
+          const missionId = typeof p['missionId'] === 'string' ? p['missionId'] : undefined;
+          if (missionId) {
+            void queryClient.invalidateQueries({ queryKey: queryKeys.mission.participants(missionId) });
+          }
+          void queryClient.invalidateQueries({ queryKey: queryKeys.mission.allParticipants() });
         }
       } catch {
         // ignore

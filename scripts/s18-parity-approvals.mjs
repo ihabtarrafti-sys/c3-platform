@@ -96,6 +96,18 @@ const SP_ITEMS = [
     ApprovalStatus:'Submitted', ReviewedBy:null, ReviewedAt:null, ExecutedAt:null, ExecutionError:null,
     DelegatedBy:null, DelegateTo:null, Reason:'New player signing.', RejectionReason:null,
     Payload:'{"operationType":"AddPerson","fullName":"Ahmed Al-Rashid","ign":"Phantom","primaryRole":"Player","currentTeam":"GKE Fortnite","requestedBy":"i:0#.f|membership|ops@geekaygroupmea.com"}' },
+  // S29B: governed participant membership -- TargetPersonID is the REAL canonical PersonID
+  { ID:5, Title:'APR-0005', OperationType:'AddMissionParticipant', TargetID:null, TargetPersonID:'PER-0005',
+    SubmittedBy:'i:0#.f|membership|ops@geekaygroupmea.com', SubmittedAt:'2026-07-03T10:00:00Z',
+    ApprovalStatus:'Submitted', ReviewedBy:null, ReviewedAt:null, ExecutedAt:null, ExecutionError:null,
+    DelegatedBy:null, DelegateTo:null, Reason:'Roster addition.', RejectionReason:null,
+    Payload:'{"operationType":"AddMissionParticipant","missionId":"TR/2026/006","personId":"PER-0005","externalCode":"RL/PL/030","role":"Player","perDiemRate":35}' },
+  { ID:6, Title:'APR-0006', OperationType:'RemoveMissionParticipant', TargetID:null, TargetPersonID:'PER-0004',
+    SubmittedBy:'i:0#.f|membership|ops@geekaygroupmea.com', SubmittedAt:'2026-07-03T11:00:00Z',
+    ApprovalStatus:'Approved', ReviewedBy:'i:0#.f|membership|owner@geekaygroupmea.com',
+    ReviewedAt:'2026-07-03T11:30:00Z', ExecutedAt:null, ExecutionError:null,
+    DelegatedBy:null, DelegateTo:null, Reason:'Roster change.', RejectionReason:null,
+    Payload:'{"operationType":"RemoveMissionParticipant","missionId":"SATR/2026/003","personId":"PER-0004","reason":"Roster change"}' },
   { ID:101, Title:null, OperationType:'InitiateJourney', TargetID:null, TargetPersonID:'PER-0001',
     SubmittedBy:'i:0#.f|membership|ihab@geekaygroupmea.com', SubmittedAt:'2026-06-10T09:00:00Z',
     ApprovalStatus:'Submitted', ReviewedBy:null, ReviewedAt:null, ExecutedAt:null, ExecutionError:null,
@@ -126,7 +138,7 @@ console.log('\n=== S18 Approvals Mapper Parity Harness ===\n');
 const { approvals, result } = mapSpItemsToApprovals(SP_ITEMS);
 
 console.log('\n--- Batch count assertions ---');
-assert('mapped count (4 clean + APR-S3 soft warn)', result.mapped, 5);
+assert('mapped count (6 clean + APR-S3 soft warn)', result.mapped, 7);
 assert('rejected count', result.rejected, 2);
 assert('warnings count', result.warnings, 1);
 
@@ -173,6 +185,22 @@ assert('APR-0004 payload.ign',           a4Payload['ign'],            'Phantom')
 assert('APR-0004 payload.primaryRole',   a4Payload['primaryRole'],    'Player');
 assert('APR-0004 payload.currentTeam',   a4Payload['currentTeam'],    'GKE Fortnite');
 assert('APR-0004 payload.operationType', a4Payload['operationType'],  'AddPerson');
+
+console.log('\n--- APR-0005 / APR-0006 (S29B participant operations) ---');
+const a5 = approvals.find(function(a) { return a.title === 'APR-0005'; });
+assert('APR-0005 present',            a5 !== undefined,          true);
+assert('APR-0005 operationType',      a5 && a5.operationType,    'AddMissionParticipant');
+assert('APR-0005 targetPersonId is REAL PersonID', a5 && a5.targetPersonId, 'PER-0005');
+const a5p = (function() { try { return JSON.parse(a5 && a5.payload || '{}'); } catch(e) { return {}; } })();
+assert('APR-0005 payload.missionId',  a5p['missionId'],   'TR/2026/006');
+assert('APR-0005 payload.role',       a5p['role'],        'Player');
+assert('APR-0005 payload.perDiemRate',a5p['perDiemRate'], 35);
+const a6 = approvals.find(function(a) { return a.title === 'APR-0006'; });
+assert('APR-0006 present',            a6 !== undefined,          true);
+assert('APR-0006 operationType',      a6 && a6.operationType,    'RemoveMissionParticipant');
+assert('APR-0006 approvalStatus',     a6 && a6.approvalStatus,   'Approved');
+const a6p = (function() { try { return JSON.parse(a6 && a6.payload || '{}'); } catch(e) { return {}; } })();
+assert('APR-0006 payload.reason (mandatory)', a6p['reason'], 'Roster change');
 
 console.log('\n--- Stress record assertions ---');
 assert('APR-S1 (null Title) not mapped',     approvals.find(function(a) { return a.id === 101; }), undefined);

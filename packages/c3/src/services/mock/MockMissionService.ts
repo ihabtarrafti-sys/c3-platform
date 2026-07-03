@@ -8,10 +8,18 @@ import type {
   MissionParticipant,
   MissionStatus,
 } from '@c3/types';
-import type { IMissionService } from '../interfaces/IMissionService';
+import type {
+  AddMissionParticipantRequest,
+  AddMissionParticipantResult,
+  IMissionService,
+  RemoveMissionParticipantRequest,
+  RemoveMissionParticipantResult,
+} from '../interfaces/IMissionService';
 import {
+  ActiveKitDependencyError,
   DuplicateKitAssignmentError,
   InvalidKitTransitionError,
+  ParticipantConflictError,
   ParticipantNotActiveError,
   RowNotFoundError,
 } from '../errors';
@@ -21,6 +29,12 @@ import {
   validateCreateKitAssignmentInput,
   validateKitTransitionRequest,
 } from '@c3/utils/kitLifecycle';
+import {
+  normalizeExternalCode,
+  participantMatchesPayload,
+  validateAddParticipantPayload,
+  validateRemoveParticipantPayload,
+} from '@c3/utils/participantWrites';
 
 /**
  * Mock Mission data — two missions demonstrating both sides of the ADR-002 gate.
@@ -176,6 +190,11 @@ const VALID_TRANSITIONS: Record<MissionStatus, MissionStatus[]> = {
 
 let missionStore: Mission[] = [...MOCK_MISSIONS];
 
+// Mutable participant stores (S29B) — active + inactive history so governed
+// reactivation can be demonstrated in mock. Reset on reload.
+let participantStore: MissionParticipant[] = [...MOCK_PARTICIPANTS];
+let inactiveParticipantStore: MissionParticipant[] = [];
+
 // Mutable kit store (S29A) — mock writes mutate this; resets on reload.
 let kitStore: KitAssignment[] = [...MOCK_KIT_ASSIGNMENTS];
 
@@ -226,11 +245,11 @@ export const createMockMissionService = (): IMissionService => ({
   },
 
   async listMissionParticipants(missionId: string): Promise<MissionParticipant[]> {
-    return MOCK_PARTICIPANTS.filter(p => p.MissionID === missionId);
+    return participantStore.filter(p => p.MissionID === missionId);
   },
 
   async listAllMissionParticipants(): Promise<MissionParticipant[]> {
-    return [...MOCK_PARTICIPANTS];
+    return [...participantStore];
   },
 
   async listKitAssignments(missionId: string): Promise<KitAssignment[]> {
@@ -239,6 +258,77 @@ export const createMockMissionService = (): IMissionService => ({
 
   async listAllKitAssignments(): Promise<KitAssignment[]> {
     return [...kitStore];
+  },
+
+  // ── S29B participant writes — governed contract; direct in Mock DSM ──────
+
+  async addMissionParticipant(req: AddMissionParticipantRequest): Promise<AddMissionParticipantResult> {
+    if (!req.actorLoginName?.trim()) throw new Error('[MockMissionService] Actor identity is empty — refusing to write.');
+    const errors = validateAddParticipantPayload({
+      missionId: req.MissionID, personId: req.PersonID,
+      externalCode: req.ExternalCode, role: req.Role, perDiemRate: req.PerDiemRate,
+    });
+    if (errors.length > 0) throw new Error(`[MockMissionService] ${errors.join(' ')}`);
+
+    const active = participantStore.find(p => p.MissionID === req.MissionID && p.PersonID === req.PersonID);
+    if (active) {
+      const matches = participantMatchesPayload(active, {
+        missionId: req.MissionID, personId: req.PersonID,
+        externalCode: req.ExternalCode, role: req.Role, perDiemRate: req.PerDiemRate,
+      });
+      if (matches) return { participant: active, outcome: 'already-applied' };
+      throw new ParticipantConflictError(req.MissionID, req.PersonID);
+    }
+
+    const inactiveIdx = inactiveParticipantStore.findIndex(
+      p => p.MissionID === req.MissionID && p.PersonID === req.PersonID,
+    );
+    const participant: MissionParticipant = {
+      MissionID:    req.MissionID,
+      PersonID:     req.PersonID,
+      ExternalCode: normalizeExternalCode(req.ExternalCode),
+      Role:         req.Role,
+      PerDiemRate:  req.PerDiemRate,
+    };
+
+    if (inactiveIdx !== -1) {
+      // Governed reactivation — refresh fields from the approved payload.
+      inactiveParticipantStore = inactiveParticipantStore.filter((_, i) => i !== inactiveIdx);
+      participantStore = [...participantStore, participant];
+      return { participant, outcome: 'reactivated' };
+    }
+
+    participantStore = [...participantStore, participant];
+    return { participant, outcome: 'created' };
+  },
+
+  async removeMissionParticipant(req: RemoveMissionParticipantRequest): Promise<RemoveMissionParticipantResult> {
+    if (!req.actorLoginName?.trim()) throw new Error('[MockMissionService] Actor identity is empty — refusing to write.');
+    const errors = validateRemoveParticipantPayload({
+      missionId: req.MissionID, personId: req.PersonID, reason: req.reason,
+    });
+    if (errors.length > 0) throw new Error(`[MockMissionService] ${errors.join(' ')}`);
+
+    const idx = participantStore.findIndex(p => p.MissionID === req.MissionID && p.PersonID === req.PersonID);
+    if (idx === -1) {
+      // Already-inactive recovery target
+      const wasInactive = inactiveParticipantStore.some(
+        p => p.MissionID === req.MissionID && p.PersonID === req.PersonID,
+      );
+      if (wasInactive) return { outcome: 'already-inactive' };
+      throw new RowNotFoundError('C3MissionParticipants', `${req.MissionID} | ${req.PersonID}`);
+    }
+
+    // Authoritative active-kit dependency re-check.
+    const activeKit = kitStore.filter(k => k.MissionID === req.MissionID && k.PersonID === req.PersonID);
+    if (activeKit.length > 0) {
+      throw new ActiveKitDependencyError(req.MissionID, req.PersonID, activeKit.length);
+    }
+
+    const removed = participantStore[idx];
+    participantStore = participantStore.filter((_, i) => i !== idx);
+    inactiveParticipantStore = [...inactiveParticipantStore, removed];
+    return { outcome: 'removed' };
   },
 
   // ── S29A kit writes — same guards as SP; shared pure module is authoritative ──
@@ -250,7 +340,7 @@ export const createMockMissionService = (): IMissionService => ({
     const key = normalizeAssignmentKey(input.AssignmentKey);
 
     // Active-participant guard
-    const isParticipant = MOCK_PARTICIPANTS.some(
+    const isParticipant = participantStore.some(
       p => p.MissionID === input.MissionID && p.PersonID === input.PersonID,
     );
     if (!isParticipant) throw new ParticipantNotActiveError(input.MissionID, input.PersonID);

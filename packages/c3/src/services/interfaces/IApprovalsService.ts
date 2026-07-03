@@ -61,11 +61,20 @@ export interface CreateApprovalRequest {
    * 'AddCredential'        is live from Sprint 20 Phase 3.
    * 'DeactivateCredential' is live from Sprint 23 Phase 1.
    * 'AddPerson'            is live from Sprint 25.
+   * 'AddMissionParticipant' and 'RemoveMissionParticipant' are live from
+   * Sprint 29B (governed participant membership).
    *
-   * The C3Approvals SP list OperationType choice column must have 'AddPerson'
-   * provisioned before first SP DSM use (C3Approvals SP List Schema.md §3.2).
+   * The C3Approvals SP list OperationType choice column must have every value
+   * provisioned before first SP DSM use (C3Approvals SP List Schema.md §3.2;
+   * S29B delta: scripts/Update-S29B-ParticipantGovernanceDelta.ps1).
    */
-  operationType: 'InitiateJourney' | 'AddCredential' | 'DeactivateCredential' | 'AddPerson';
+  operationType:
+    | 'InitiateJourney'
+    | 'AddCredential'
+    | 'DeactivateCredential'
+    | 'AddPerson'
+    | 'AddMissionParticipant'
+    | 'RemoveMissionParticipant';
   /** Opaque secondary target reference (optional). */
   targetId?: string;
   /**

@@ -62,16 +62,31 @@ import type {
   MissionParticipant,
   MissionStatus,
 } from '@c3/types';
-import type { IMissionService } from '../interfaces/IMissionService';
+import type {
+  AddMissionParticipantRequest,
+  AddMissionParticipantResult,
+  IMissionService,
+  RemoveMissionParticipantRequest,
+  RemoveMissionParticipantResult,
+} from '../interfaces/IMissionService';
 import {
+  ActiveKitDependencyError,
   ConcurrencyError,
   DataIntegrityError,
   DuplicateKitAssignmentError,
   InvalidKitTransitionError,
+  ParticipantConflictError,
   ParticipantNotActiveError,
   RowNotFoundError,
   WritePermissionError,
 } from '../errors';
+import {
+  buildParticipantTitle,
+  normalizeExternalCode,
+  participantMatchesPayload,
+  validateAddParticipantPayload,
+  validateRemoveParticipantPayload,
+} from '@c3/utils/participantWrites';
 import {
   appendKitAuditLine,
   buildKitAssignmentTitle,
@@ -315,6 +330,7 @@ function toActiveKitAssignments(items: SpKitAssignmentItem[]): KitAssignment[] {
 // ---------------------------------------------------------------------------
 
 const KIT_LIST_ITEM_TYPE = 'SP.Data.C3MissionKitAssignmentsListItem';
+const PARTICIPANT_LIST_ITEM_TYPE = 'SP.Data.C3MissionParticipantsListItem';
 
 async function fetchFormDigest(siteUrl: string): Promise<string> {
   const response = await fetch(`${siteUrl.replace(/\/$/, '')}/_api/contextinfo`, {
@@ -416,6 +432,91 @@ async function mergeKitRow(
   }
 }
 
+// ---------------------------------------------------------------------------
+// S29B participant write helpers — resolution INCLUDES inactive rows (the
+// governed-reactivation and already-applied/already-inactive contracts need
+// full-history visibility). Same ETag discipline as the S29A kit writes.
+// ---------------------------------------------------------------------------
+
+interface ResolvedParticipantRow {
+  id: number;
+  etag: string;
+  isActive: boolean;
+  fields: { ExternalCode: string | null; ParticipantRole: string | null; PerDiemRate: number | string | null };
+}
+
+/**
+ * Resolve ALL rows (active + inactive) for MissionID+PersonID. With the
+ * Title unique constraint at most one row should exist; >1 → DataIntegrityError.
+ * odata=minimalmetadata so items carry `odata.etag`.
+ */
+async function resolveParticipantRows(
+  participantsBaseUrl: string,
+  missionId: string,
+  personId: string,
+): Promise<ResolvedParticipantRow[]> {
+  const url =
+    `${participantsBaseUrl}` +
+    `?$select=Id,MissionID,PersonID,ExternalCode,ParticipantRole,PerDiemRate,IsActive` +
+    `&$filter=MissionID eq '${encodeODataLiteral(missionId)}'` +
+    ` and PersonID eq '${encodeODataLiteral(personId)}'` +
+    `&$top=3`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json;odata=minimalmetadata' },
+  });
+  if (!response.ok) {
+    throw new Error(`[C3/ParticipantWrite] Row resolution failed: HTTP ${response.status} for ${missionId} | ${personId}`);
+  }
+  const json = (await response.json()) as {
+    value: Array<{
+      'odata.etag': string; Id: number; IsActive: boolean | null;
+      ExternalCode: string | null; ParticipantRole: string | null; PerDiemRate: number | string | null;
+    }>;
+  };
+  return (json.value ?? []).map(v => ({
+    id: v.Id,
+    etag: v['odata.etag'],
+    isActive: v.IsActive !== false,
+    fields: { ExternalCode: v.ExternalCode, ParticipantRole: v.ParticipantRole, PerDiemRate: v.PerDiemRate },
+  }));
+}
+
+/** MERGE a participant row with actual-ETag concurrency (never IF-MATCH:*). */
+async function mergeParticipantRow(
+  siteUrl: string,
+  participantsBaseUrl: string,
+  row: ResolvedParticipantRow,
+  fields: Record<string, unknown>,
+  identity: string,
+): Promise<void> {
+  const digest = await fetchFormDigest(siteUrl);
+  const response = await fetch(`${participantsBaseUrl.replace(/\/items$/, '')}/items(${row.id})`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Accept':          'application/json;odata=nometadata',
+      'Content-Type':    'application/json;odata=verbose',
+      'X-RequestDigest': digest,
+      'X-HTTP-Method':   'MERGE',
+      'IF-MATCH':        row.etag,
+    },
+    body: JSON.stringify({ __metadata: { type: PARTICIPANT_LIST_ITEM_TYPE }, ...fields }),
+  });
+
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => '(unreadable)');
+    const kind = classifyWriteFailure(response.status, bodyText);
+    if (kind === 'concurrency') throw new ConcurrencyError(identity);
+    if (kind === 'permission') throw new WritePermissionError('C3MissionParticipants');
+    throw new Error(
+      `[C3/ParticipantWrite] MERGE failed for ${identity}: HTTP ${response.status} ${response.statusText}. Body: ${bodyText}`,
+    );
+  }
+}
+
 /** Apply MissionFilter client-side — mirrors MockMissionService semantics. */
 function applyFilter(missions: Mission[], filter?: MissionFilter): Mission[] {
   let results = missions;
@@ -506,6 +607,131 @@ export const createSharePointMissionService = (siteUrl: string): IMissionService
 
       const items = await fetchKitItems(url);
       return toActiveKitAssignments(items);
+    },
+
+    // ── S29B participant writes — full ADR-013; invoked from useExecuteApproval ──
+
+    async addMissionParticipant(req: AddMissionParticipantRequest): Promise<AddMissionParticipantResult> {
+      if (!req.actorLoginName?.trim()) throw new Error('[C3/ParticipantWrite] Actor identity is empty — refusing to write.');
+      const errors = validateAddParticipantPayload({
+        missionId: req.MissionID, personId: req.PersonID,
+        externalCode: req.ExternalCode, role: req.Role, perDiemRate: req.PerDiemRate,
+      });
+      if (errors.length > 0) throw new Error(`[C3/ParticipantWrite] ${errors.join(' ')}`);
+
+      const identity = `${req.MissionID} | ${req.PersonID}`;
+      const externalCode = normalizeExternalCode(req.ExternalCode);
+      const rows = await resolveParticipantRows(participantsBaseUrl, req.MissionID, req.PersonID);
+
+      if (rows.length > 1) throw new DataIntegrityError('C3MissionParticipants', identity, rows.length);
+
+      const participant: MissionParticipant = {
+        MissionID:    req.MissionID,
+        PersonID:     req.PersonID,
+        ExternalCode: externalCode,
+        Role:         req.Role,
+        PerDiemRate:  req.PerDiemRate,
+      };
+
+      if (rows.length === 1) {
+        const row = rows[0];
+        if (row.isActive) {
+          // Already-applied (idempotent recovery) vs conflicting active row.
+          const existing: MissionParticipant = {
+            MissionID:    req.MissionID,
+            PersonID:     req.PersonID,
+            ExternalCode: row.fields.ExternalCode?.trim() ?? '',
+            Role:         (row.fields.ParticipantRole ?? '') as MissionParticipant['Role'],
+            PerDiemRate:  typeof row.fields.PerDiemRate === 'number' ? row.fields.PerDiemRate
+                          : row.fields.PerDiemRate ? Number(row.fields.PerDiemRate) : undefined,
+          };
+          const matches = participantMatchesPayload(existing, {
+            missionId: req.MissionID, personId: req.PersonID,
+            externalCode: req.ExternalCode, role: req.Role, perDiemRate: req.PerDiemRate,
+          });
+          if (matches) return { participant, outcome: 'already-applied' };
+          throw new ParticipantConflictError(req.MissionID, req.PersonID);
+        }
+
+        // Governed reactivation — refresh fields from the approved payload,
+        // exact row, actual ETag.
+        await mergeParticipantRow(siteUrl, participantsBaseUrl, row, {
+          IsActive:        true,
+          ExternalCode:    externalCode,
+          ParticipantRole: req.Role,
+          PerDiemRate:     req.PerDiemRate ?? null,
+        }, identity);
+        console.info(`[C3/ParticipantWrite] reactivated ${identity} by ${req.actorLoginName}`);
+        return { participant, outcome: 'reactivated' };
+      }
+
+      // Zero rows → POST. Unique deterministic Title is the concurrent-create
+      // race guard; SP duplicate failures are translated below.
+      const digest = await fetchFormDigest(siteUrl);
+      const response = await fetch(participantsBaseUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept':          'application/json;odata=nometadata',
+          'Content-Type':    'application/json;odata=verbose',
+          'X-RequestDigest': digest,
+        },
+        body: JSON.stringify({
+          __metadata: { type: PARTICIPANT_LIST_ITEM_TYPE },
+          Title:           buildParticipantTitle(req.MissionID, req.PersonID),
+          MissionID:       req.MissionID,
+          PersonID:        req.PersonID,
+          ExternalCode:    externalCode,
+          ParticipantRole: req.Role,
+          PerDiemRate:     req.PerDiemRate ?? null,
+          IsActive:        true,
+        }),
+      });
+
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => '(unreadable)');
+        const kind = classifyWriteFailure(response.status, bodyText);
+        if (kind === 'duplicate') throw new ParticipantConflictError(req.MissionID, req.PersonID);
+        if (kind === 'permission') throw new WritePermissionError('C3MissionParticipants');
+        throw new Error(
+          `[C3/ParticipantWrite] POST failed for ${identity}: HTTP ${response.status} ${response.statusText}. Body: ${bodyText}`,
+        );
+      }
+
+      console.info(`[C3/ParticipantWrite] created ${identity} by ${req.actorLoginName}`);
+      return { participant, outcome: 'created' };
+    },
+
+    async removeMissionParticipant(req: RemoveMissionParticipantRequest): Promise<RemoveMissionParticipantResult> {
+      if (!req.actorLoginName?.trim()) throw new Error('[C3/ParticipantWrite] Actor identity is empty — refusing to write.');
+      const errors = validateRemoveParticipantPayload({
+        missionId: req.MissionID, personId: req.PersonID, reason: req.reason,
+      });
+      if (errors.length > 0) throw new Error(`[C3/ParticipantWrite] ${errors.join(' ')}`);
+
+      const identity = `${req.MissionID} | ${req.PersonID}`;
+      const rows = await resolveParticipantRows(participantsBaseUrl, req.MissionID, req.PersonID);
+
+      if (rows.length === 0) throw new RowNotFoundError('C3MissionParticipants', identity);
+      if (rows.length > 1) throw new DataIntegrityError('C3MissionParticipants', identity, rows.length);
+
+      const row = rows[0];
+      if (!row.isActive) {
+        // Already-inactive recovery target (write-succeeded/stamp-failed retry).
+        return { outcome: 'already-inactive' };
+      }
+
+      // Authoritative active-kit dependency re-check — state may have changed
+      // since submission.
+      const kit = await this.listKitAssignments(req.MissionID);
+      const activeKit = kit.filter(k => k.PersonID === req.PersonID);
+      if (activeKit.length > 0) {
+        throw new ActiveKitDependencyError(req.MissionID, req.PersonID, activeKit.length);
+      }
+
+      await mergeParticipantRow(siteUrl, participantsBaseUrl, row, { IsActive: false }, identity);
+      console.info(`[C3/ParticipantWrite] removed ${identity} by ${req.actorLoginName} — ${req.reason}`);
+      return { outcome: 'removed' };
     },
 
     // ── S29A kit writes — ADR-013 Addendum: Mission Kit Logistics Exemption ──

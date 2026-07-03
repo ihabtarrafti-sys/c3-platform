@@ -6,8 +6,41 @@ import type {
   Mission,
   MissionFilter,
   MissionParticipant,
+  MissionParticipantRole,
   MissionStatus,
 } from '@c3/types';
+
+// ---------------------------------------------------------------------------
+// S29B participant write requests/results (service-layer shapes — the frozen
+// MissionParticipant domain type is unchanged). actorLoginName comes from the
+// authenticated AppContext only; services fail closed on empty.
+// ---------------------------------------------------------------------------
+
+export interface AddMissionParticipantRequest {
+  MissionID: string;
+  PersonID: string;
+  ExternalCode: string;
+  Role: MissionParticipantRole;
+  PerDiemRate?: number;
+  actorLoginName: string;
+}
+
+export interface AddMissionParticipantResult {
+  participant: MissionParticipant;
+  outcome: 'created' | 'reactivated' | 'already-applied';
+}
+
+export interface RemoveMissionParticipantRequest {
+  MissionID: string;
+  PersonID: string;
+  /** Mandatory audit justification. */
+  reason: string;
+  actorLoginName: string;
+}
+
+export interface RemoveMissionParticipantResult {
+  outcome: 'removed' | 'already-inactive';
+}
 
 /**
  * IMissionService — Mission domain service interface.
@@ -66,6 +99,27 @@ export interface IMissionService {
    * (no per-card queries). Returns an empty array rather than throwing.
    */
   listAllKitAssignments(): Promise<KitAssignment[]>;
+
+  /**
+   * Executes an approved AddMissionParticipant (S29B — full ADR-013; called
+   * ONLY from useExecuteApproval after owner approval, or directly in Mock DSM).
+   *
+   * Idempotent contract (resolves ALL rows for MissionID+PersonID, incl. inactive):
+   *   0 rows       → POST → outcome 'created'
+   *   1 inactive   → governed reactivation (ETag MERGE; fields refreshed) → 'reactivated'
+   *   1 active     → exact payload match → 'already-applied' (no write);
+   *                  mismatch → throws ParticipantConflictError
+   *   multiple     → throws DataIntegrityError (no write)
+   */
+  addMissionParticipant(req: AddMissionParticipantRequest): Promise<AddMissionParticipantResult>;
+
+  /**
+   * Executes an approved RemoveMissionParticipant (S29B — full ADR-013).
+   * Sets IsActive=false on the exact active row (ETag MERGE) — never deletes.
+   * Re-checks the active-kit dependency authoritatively before writing.
+   * An already-inactive row → outcome 'already-inactive' (stamp recovery).
+   */
+  removeMissionParticipant(req: RemoveMissionParticipantRequest): Promise<RemoveMissionParticipantResult>;
 
   /**
    * Creates a kit assignment (S29A — ADR-013 Addendum: Mission Kit Logistics

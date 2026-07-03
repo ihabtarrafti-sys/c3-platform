@@ -12,7 +12,7 @@
  * See: docs/adr/ADR-013-Governance-Approval-Pattern.md
  */
 
-import type { ObligationAssignment } from '@c3/types';
+import type { MissionParticipantRole, ObligationAssignment } from '@c3/types';
 
 // ---------------------------------------------------------------------------
 // InitiateJourneyApprovalPayload
@@ -132,6 +132,53 @@ export interface AddPersonApprovalPayload {
 }
 
 // ---------------------------------------------------------------------------
+// AddMissionParticipantApprovalPayload / RemoveMissionParticipantApprovalPayload
+// ---------------------------------------------------------------------------
+
+/**
+ * Payload for OperationType = 'AddMissionParticipant' (Sprint 29B).
+ *
+ * Full ADR-013 governed operation. Execution resolves ALL C3MissionParticipants
+ * rows (including inactive) for MissionID+PersonID:
+ *   0 rows        → POST new row
+ *   1 inactive    → governed reactivation (ETag MERGE; fields refreshed from
+ *                   this payload)
+ *   1 active      → exact payload match = already-applied (stamp recovery);
+ *                   mismatch = ParticipantConflictError
+ *   multiple rows → DataIntegrityError (no write)
+ *
+ * Requester identity is NOT trusted from the payload — C3Approvals.SubmittedBy
+ * (stamped by the service from the authenticated session) is authoritative.
+ * TargetPersonID on the approval row = personId (real canonical PER-XXXX).
+ */
+export interface AddMissionParticipantApprovalPayload {
+  operationType: 'AddMissionParticipant';
+  missionId: string;
+  personId: string;
+  externalCode: string;
+  role: MissionParticipantRole;
+  perDiemRate?: number;
+  reason?: string;
+}
+
+/**
+ * Payload for OperationType = 'RemoveMissionParticipant' (Sprint 29B).
+ *
+ * Full ADR-013 governed operation. Execution sets IsActive = false on the
+ * exact active row (ETag MERGE) — rows are NEVER physically deleted. Blocked
+ * at submission AND re-checked authoritatively at execution while active kit
+ * assignments exist for the person on the mission. An already-inactive row at
+ * execution time is treated as already-applied (stamp recovery).
+ */
+export interface RemoveMissionParticipantApprovalPayload {
+  operationType: 'RemoveMissionParticipant';
+  missionId: string;
+  personId: string;
+  /** Mandatory audit justification. */
+  reason: string;
+}
+
+// ---------------------------------------------------------------------------
 // ApprovalPayload
 // ---------------------------------------------------------------------------
 
@@ -139,4 +186,6 @@ export type ApprovalPayload =
   | InitiateJourneyApprovalPayload
   | AddCredentialApprovalPayload
   | DeactivateCredentialApprovalPayload
-  | AddPersonApprovalPayload;
+  | AddPersonApprovalPayload
+  | AddMissionParticipantApprovalPayload
+  | RemoveMissionParticipantApprovalPayload;
