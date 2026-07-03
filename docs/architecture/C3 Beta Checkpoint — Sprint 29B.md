@@ -46,9 +46,12 @@ Parts 0–15 of the S29A checkpoint carry over as regression items. Part 16 is n
 
 ## Part 16.1 — Pre-flight
 
-- [ ] HEAD at or after `6d33e22`; pushed; SPPKG rebuilt/deployed
-- [ ] `verify:runtime` PASS (S29B bundle SHA-256 `2665fb070a391bf52b615abf271d6bbde7d481fafda05c025b4bae23ece92d05`)
-- [ ] All eight parity scripts pass (87/220/51/**47**/28/35/38/**34**, 0 failures)
+- [ ] HEAD at or after `1cba607` (immutable-approval hardening); pushed; SPPKG rebuilt/deployed
+- [ ] `verify:runtime` PASS (final S29B bundle SHA-256 `b29de64d1f976f4bbee090a9b98b42feb4e7078af284138fbfe9bac7c85fa6fd`)
+- [ ] All eight parity scripts pass (87/220/51/**55**/28/35/38/**34**, 0 failures)
+- [x] **Add-only submitter mask verified live** (bit audit post-delta: EditListItems/
+      DeleteListItems/ManageLists/ApproveItems/ManagePermissions all absent; reads+add intact;
+      Operations bound; owners intact) — see the governance permissions note
 
 ## Part 16.2 — SP DSM hosted smoke: Add flow
 

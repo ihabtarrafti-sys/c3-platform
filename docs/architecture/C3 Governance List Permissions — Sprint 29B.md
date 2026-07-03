@@ -78,6 +78,15 @@ second fence if the level is ever widened by mistake).
 **The previously accepted "own-row tamper window" residual risk is CLOSED** — submitters
 hold no edit permission of any scope.
 
+**Live verification (2026-07-03, post-delta bit audit):** role definition id 1073741926
+MERGEd Low `200807 → 200803`, High `112` unchanged. Verified bits:
+ViewListItems ✅ · AddListItems ✅ · **EditListItems ❌** · DeleteListItems ❌ ·
+ApproveItems ❌ · ManageLists ❌ · ManagePermissions ❌ · OpenItems/ViewVersions/
+ViewFormPages/Open/ViewPages ✅. C3 Operations remains bound to the level; Platform
+Owners/site Owners Full Control intact; no other list ACLs touched. Practical 403 tests
+(own-row MERGE of Payload/ApprovalStatus/TargetPersonID/Title; own-row DELETE) require an
+Operations session — folded into Beta Checkpoint — Sprint 29B Part 16.2.
+
 | Principal | Level |
 |---|---|
 | C3 Platform Owners (19) + site Owners (3) | Full Control |
