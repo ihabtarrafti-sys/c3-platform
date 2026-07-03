@@ -247,9 +247,9 @@ Mission/Finance tracks can be built until Mission foundation is live.
 
 #### Scope / Status (updated S26)
 
-- ✅ `C3Missions` SP list schema defined (`docs/architecture/C3Missions SP List Schema.md`) — IT provisioning pending
-- ✅ `SharePointMissionService` read path (`listMissions` / `getMission`) — native fetch, 404-safe, `spMissionMapper`
-- ✅ Mission Workspace screen — read-only register (cards + KPI strip); visible in Mock DSM, hidden in SP DSM until provisioning (TD-25)
+- ✅ `C3Missions` SP list schema defined (`docs/architecture/C3Missions SP List Schema.md`) — **provisioned and REST-verified (S26-5;** first pass remediated in place — see TD-25 resolution record**)**
+- ✅ `SharePointMissionService` read path (`listMissions` / `getMission`) — native fetch, 404-safe, `spMissionMapper`; validated against the live list (2/2 rows mapped, 0 rejects)
+- ✅ Mission Workspace screen — read-only register (cards + KPI strip); visible in Mock DSM **and SP DSM (TD-25 resolved; hosted smoke pending S26 runtime deployment)**
 - ✅ Mission record uses the existing frozen business model (`MissionID` TR/SATR code, Name, Game, Organizer, Entity, Status, Jurisdiction, Span, OperatingCurrency) — the generic fields originally sketched here (type/owner) were superseded by the existing mission model
 - ⬜ Mission write path: create mission (governed ADR-013 or direct role-gated, TBD at sprint planning) — deferred
 - ⬜ Mission linkage to people: groundwork for Mission Participants (Track 7) — Sprint 27
@@ -257,7 +257,7 @@ Mission/Finance tracks can be built until Mission foundation is live.
 #### Dependencies
 
 - ~~Contracts / SP-02 (Track 5)~~ — met (S24)
-- IT provisioning: `C3Missions` SP list (schema doc ready; still the blocker for SP DSM visibility)
+- ~~IT provisioning: `C3Missions` SP list~~ — met (S26-5; provisioned, remediated, REST-verified)
 
 ---
 

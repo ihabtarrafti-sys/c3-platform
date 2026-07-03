@@ -23,12 +23,18 @@ new for Sprint 26.
 
 ### 0.2 SharePoint list readiness — S26 additions
 
-- [ ] `C3Missions` — **not yet provisioned.** Schema doc ready:
-      `docs/architecture/C3Missions SP List Schema.md`. Until provisioned, SP DSM behaviour
-      must be: no Missions nav item, no console errors, `[C3/Mission]` 404 warning only if the
-      service is invoked (it is not reachable from nav while guarded).
-- [ ] After provisioning: internal-name verification via REST field query
-      (`MissionStatus` — not `Status`/`Status0`) before any smoke test.
+- [x] `C3Missions` — **provisioned and REST-verified (2026-07-02, S26-5).** First provisioning
+      pass was defective (grid-import `field_N` internal names, wrong choice sets, unpopulated
+      span dates); remediated in place and re-verified. See TD-25 resolution record.
+- [x] Internal-name verification via REST field query — `MissionStatus` confirmed exact
+      (not `Status`/`Status0`); all 11 domain columns carry schema internal names.
+- [x] Choice sets match TypeScript unions — `Entity` (UAE/KSA/Multi), `MissionStatus`
+      (7 lifecycle values), `OperatingCurrency` (USD/AED/SAR/EUR).
+- [x] Both service queries validated against the live list: `listMissions` URL returns 2 rows
+      ordered `StartDate asc`; `getMission` URL with URL-encoded TR code returns `TR/2026/006`.
+- [x] Real rows through the real `spMissionMapper` (compiled from source, run against the live
+      REST payload): **2 mapped, 0 rejected, 0 warnings**; span dates normalise to exact dates
+      (written as UTC midnight — site regional TZ is UTC-8, so UI-local date entry is avoided).
 
 ### 0.3 SharePoint list readiness — S25 baseline (unchanged)
 
@@ -51,9 +57,10 @@ new for Sprint 26.
 
 ## Part 2 — NavRail visibility (SP DSM)
 
-- [ ] Visible: Command Center, People, Renewals*, Inbox*, Situation Room, Approvals*,
+- [ ] Visible: Command Center, People, Renewals*, Inbox*, Situation Room,
+      **Missions (S26-5 — guard removed, TD-25 resolved)**, Approvals*,
       Settings†, Diagnostics (* non-visitor; † canManageSettings)
-- [ ] Hidden: Contracts, Amendments, Intelligence, **Missions (NEW — TD-25)**
+- [ ] Hidden: Contracts, Amendments, Intelligence (unchanged)
 
 ## Part 3 — NavRail visibility (Mock DSM)
 
@@ -89,20 +96,32 @@ Run the Sprint 25 checkpoint Parts 4–11 unchanged:
 - [ ] Navigating Missions → Situation Room → Missions retains correct rendering
       (ErrorBoundary key reset regression)
 
-### 12.2 SP DSM — pre-provisioning (current state)
+### 12.2 SP DSM — pre-provisioning ~~(current state)~~ (superseded by S26-5)
 
-- [ ] Missions item absent from NavRail
-- [ ] No `[C3/Mission]` console errors during normal navigation
-- [ ] All other screens unaffected
+Obsolete — C3Missions is provisioned and the guard is removed. Kept for the audit trail.
 
-### 12.3 SP DSM — post-provisioning (TD-25 exit criteria; future)
+### 12.3 SP DSM — post-provisioning (TD-25 exit criteria)
 
-- [ ] `C3Missions` provisioned per schema doc; internal names verified via REST
-- [ ] Test rows added (see schema doc §9)
-- [ ] NavRail guard removed in a dedicated commit
-- [ ] Hard refresh → first click into Missions renders rows, zero mapper rejection warnings
-- [ ] `getMission` deep-check: `/_api/web/lists/getbytitle('C3Missions')/items?$filter=Title eq 'TR%2F2026%2F006'`
-      returns the row (URL-encoded TR code)
+**REST-level validation completed 2026-07-02 (S26-5):**
+
+- [x] `C3Missions` provisioned per schema doc; internal names verified via REST
+      (first pass defective; remediated in place — see TD-25 resolution record)
+- [x] Test rows added (schema doc §9 sample rows, span dates as UTC midnight)
+- [x] NavRail guard removed in a dedicated commit (`fix(s26)`)
+- [x] `getMission` deep-check: `/_api/.../items?$filter=Title eq 'TR%2F2026%2F006'`
+      returns the row (URL-encoded TR code) — verified live
+- [x] Live rows through the real mapper: 2 mapped, 0 rejected, 0 warnings
+
+**Hosted (in-app) validation — pending S26 runtime deployment.** The currently deployed SPPKG
+carries the S25 runtime, whose mission service is still the stub; MissionWorkspace and live
+SituationRoom missions cannot render hosted until the S26 bundle is deployed. With the first
+S26 deployment, verify:
+
+- [ ] Hard refresh → first click into Missions renders both mission cards, zero
+      `[C3/Mission]` rejection warnings in console, no ErrorBoundary
+- [ ] KPI strip: Total = 2, Generating Obligations = 1, Finance Pending = 1
+- [ ] Situation Room loads with TR/2026/006 in the mission scope selector, zero participants,
+      zero gaps, no ErrorBoundary
 - [ ] Row with an invalid MissionStatus choice (if testable) is rejected with a console warning
       and does not render
 

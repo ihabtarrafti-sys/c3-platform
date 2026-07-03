@@ -511,22 +511,35 @@ Requires a schema change + provisioning coordination; assign to a post-beta hard
 
 **Severity:** 🟡 Beta containment (by design)
 **Sprint attributed:** S26 (Mission/Event Read Foundation)
-**Status:** Open — pending IT provisioning
+**Status:** ✅ **Resolved — S26-5 (2026-07-02).** Guard removed; Missions visible in SP DSM.
 **Files:** `packages/c3/src/components/layout/NavRail.tsx`, `packages/c3/src/services/sharepoint/SharePointMissionService.ts`, `docs/architecture/C3Missions SP List Schema.md`
 
 Sprint 26 implemented the native-fetch SP read path (`listMissions` / `getMission`) and the
-read-only Mission Workspace, but the `C3Missions` SP list does not exist yet. The Missions
-NavRail item is hidden in SP DSM via `visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint'`
-— the locked beta-containment pattern (same as Contracts S24-P1 and Amendments S20-P0-3).
-Missions remain fully visible and functional in Mock DSM.
+read-only Mission Workspace before the `C3Missions` list existed. The Missions NavRail item was
+hidden in SP DSM (locked beta-containment pattern) until provisioning and verification.
 
-The read service is 404-safe (returns `[]` when the list is missing), so lifting the guard
-early would degrade to an empty state rather than a crash — but hidden-until-provisioned is
-the established pattern and avoids presenting a screen that silently shows no data.
+**Resolution record (S26-5):**
 
-**Resolution:** Re-enable Missions in SP DSM after:
-1. IT provisions `C3Missions` per `docs/architecture/C3Missions SP List Schema.md`
-2. Internal names verified via REST field query (`MissionStatus`, not `Status`/`Status0`)
-3. At least one test row added and a hosted smoke test passes (missions render, no mapper
-   rejection warnings in console)
-4. Remove the `visibleWhen` guard from the NavRail missions item
+1. `C3Missions` provisioned — but the first provisioning pass was **defective**: the list
+   pre-existed the provisioning script (created via grid/Excel import), so 11 columns carried
+   `field_1`–`field_14` internal names, `Entity` was missing `Multi`, `OperatingCurrency` had
+   wrong choice values, and the three span-date columns (script-added, correctly named) were
+   never populated. The mapper correctly hard-rejected both rows — the exact failure mode the
+   internal-name verification step in the schema doc §8.3 exists to catch.
+2. Remediated in place (non-destructively, user-approved): malformed columns display-renamed
+   `zzOLD *`; 11 correctly-named columns created via `CreateFieldAsXml` (exact internal names,
+   correct choice sets); row data copied across; span dates written as explicit UTC midnight
+   (site regional timezone is UTC-8 — UI-local date entry risks off-by-one); Date-Only display
+   format and Required flags set; `Title` display-named "Mission ID" and required.
+3. Verified against the live list: internal names exact (`MissionStatus`, not `Status0`);
+   `Entity`/`MissionStatus`/`OperatingCurrency` choice sets match the TypeScript unions;
+   both service queries return correct data; real rows through the real `spMissionMapper`:
+   **2 mapped, 0 rejected, 0 warnings**, dates exact.
+4. NavRail guard removed (this change).
+
+**Residual items:**
+- The `zzOLD *` columns (field_1–field_14) remain on the list as deprecated duplicates —
+  delete them in the SharePoint UI at leisure (no app dependency on them).
+- Hosted MissionWorkspace / SituationRoom smoke test requires the S26 runtime to be deployed
+  (the currently deployed S25 runtime still stubs missions). Run Beta Checkpoint — Sprint 26
+  Part 12.3 with the first S26 deployment.

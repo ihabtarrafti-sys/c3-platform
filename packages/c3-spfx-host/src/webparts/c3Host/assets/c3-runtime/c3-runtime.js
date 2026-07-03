@@ -37531,11 +37531,11 @@ const nA = A.createContext(null), mV = () => /* @__PURE__ */ p.jsx("div", { styl
   { id: "amendments", label: "Amendments", icon: Z8, visibleWhen: (e, o, n) => n !== "sharepoint" },
   { id: "inbox", label: "Inbox", icon: Y8, visibleWhen: (e) => e !== "visitor" },
   { id: "situation-room", label: "Situation Room", icon: t7 },
-  // S26-4: Missions hidden in SP DSM until the C3Missions list is provisioned and a hosted
-  // smoke test passes. Track in Tech Debt (TD-25). The SP read service is 404-safe, so lifting
-  // the guard early degrades to an empty state -- but hidden-until-provisioned is the locked
-  // beta-containment pattern (same as Contracts S24-P1 and Amendments S20-P0-3).
-  { id: "missions", label: "Missions", icon: u7, visibleWhen: (e, o, n) => n !== "sharepoint" },
+  // S26-5 (TD-25 resolved): C3Missions provisioned and REST-verified 2026-07-02 -- internal
+  // names, choice sets, and both service queries validated against the live list; real rows
+  // map 2/2 with zero rejects. Guard removed. Hosted MissionWorkspace smoke test runs with
+  // the first S26 runtime deployment (see C3 Beta Checkpoint -- Sprint 26, Part 12.3).
+  { id: "missions", label: "Missions", icon: u7 },
   // Temporary S24-P1 guard: Intelligence hidden in SP DSM due to cold-load Fluent UI/React Query crash.
   // Track in Tech Debt (TD-23); re-enable after stabilization (hosted hard-refresh first-click must pass).
   { id: "intelligence", label: "Intelligence", icon: n7, visibleWhen: (e, o, n) => n !== "sharepoint" },

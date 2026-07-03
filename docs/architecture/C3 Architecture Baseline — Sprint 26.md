@@ -40,8 +40,12 @@ The mission domain model (Sprints 10–14) was exposed, not redesigned. No write
 4. **Mission Workspace screen (read-only).** Cards + KPI strip; no write affordances. Deep
    mission operations (gaps, confirmation, finance context) intentionally remain in
    SituationRoom.
-5. **NavRail containment extended.** Missions joins Contracts/Amendments/Intelligence behind an
-   SP DSM `visibleWhen` guard until `C3Missions` is provisioned and smoke-tested (TD-25).
+5. **NavRail containment extended, then lifted (S26-5).** Missions initially shipped behind an
+   SP DSM `visibleWhen` guard (TD-25). After `C3Missions` was provisioned, remediated (the
+   first provisioning pass carried grid-import `field_N` internal names and wrong choice sets —
+   see TD-25 resolution record), and REST-verified with real rows mapping 2/2 through the real
+   mapper, the guard was removed. **Mission Workspace is now visible in SP DSM.** Contracts,
+   Amendments, and Intelligence guards are unchanged.
 6. **Runtime bundle integrity on Windows.** `.gitattributes` marks `c3-runtime.js -text`;
    checkouts are byte-identical to the committed blob on every platform, keeping
    `verify:runtime` meaningful outside the original Linux build environment.
@@ -59,7 +63,7 @@ The mission domain model (Sprints 10–14) was exposed, not redesigned. No write
 | `C3Journeys` | ✅ | ✅ governed + role-gated lifecycle | unchanged |
 | `C3Approvals` | ✅ | ✅ | unchanged |
 | `C3Contracts` | ✅ (guarded) | ❌ | unchanged |
-| `C3Missions` | ✅ **NEW (S26)** — pending provisioning | ❌ | 404-safe until provisioned; nav guarded (TD-25) |
+| `C3Missions` | ✅ **NEW (S26)** — provisioned + live (S26-5) | ❌ | REST-verified; nav guard removed (TD-25 resolved); hosted smoke pending S26 runtime deployment |
 | `C3MissionParticipants` | ❌ | ❌ | Sprint 27 |
 
 ### Mission identity model (locked, now implemented)
@@ -92,7 +96,7 @@ is `MissionStatus` (SP reserved-word avoidance, same pattern as `ApprovalStatus`
 | Amendments | ❌ hidden | ✅ | S20-P0-3 — SP service stub |
 | Inbox | ✅ (non-visitor) | ✅ | role guard only |
 | Situation Room | ✅ | ✅ | — |
-| **Missions** | ❌ **hidden (TD-25)** | ✅ | **S26-4 — C3Missions provisioning pending** |
+| **Missions** | ✅ **visible (S26-5)** | ✅ | TD-25 resolved — C3Missions provisioned, REST-verified, guard removed |
 | Intelligence | ❌ hidden | ✅ | TD-23 — cold-load crash contained |
 | Approvals | ✅ (non-visitor) | ✅ | role guard only |
 | Settings | canManageSettings | canManageSettings | capability guard |
