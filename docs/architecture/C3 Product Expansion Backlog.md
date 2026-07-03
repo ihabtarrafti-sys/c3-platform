@@ -313,9 +313,11 @@ Stable sizing lives per person; issuance/fulfillment state lives per mission par
   Situation Room mission scope
 - ✅ MissionWorkspace: per-participant kit summary + per-item status; participant names
   deep-link to PersonProfile
-- ⬜ Writes (AddKitAssignment, lifecycle transitions, apparel edits) → **Sprint 29** —
-  governance classified per operation at S29 Phase 0
-- ⬜ Situation Room logistics readiness / Command Center kit work items → S29+
+- ✅ **Writes COMPLETED and hosted-validated (Sprint 29A, 2026-07-03):** AddKitAssignment,
+  UpdateKitStatus (validated transition matrix), DeactivateKitAssignment, apparel upsert —
+  role-gated per the ADR-013 Addendum (Mission Kit Logistics Exemption); ETag concurrency;
+  StatusNotes + version-history audit; list ACLs hardened (Operations/HR write per model)
+- ⬜ Situation Room logistics readiness / Command Center kit work items → S30 candidate
 - Domain boundary: NOT inventory, travel, or freight — those are separate future domains
 
 #### Dependencies

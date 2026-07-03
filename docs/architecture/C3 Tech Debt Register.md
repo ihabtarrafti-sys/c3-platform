@@ -580,7 +580,12 @@ demo mode) can be considered in the same design pass.
 
 **Severity:** 🟡 Planned work, not a defect
 **Sprint attributed:** S27/S28 (read foundations shipped write-free by design)
-**Status:** Open — scheduled for Sprint 29
+**Status:** 🟠 **PARTIALLY RESOLVED (S29A, 2026-07-03):** kit writes (create / lifecycle /
+deactivate) and apparel upsert are live and hosted-validated under the ADR-013 Addendum —
+Mission Kit Logistics Exemption, with ETag concurrency and list-ACL hardening.
+**Remaining:** participant membership writes (Add/RemoveMissionParticipant — full ADR-013
+governed, locked) → **Sprint 29B (in flight)**, incl. participants/approvals ACL hardening
+and the OperationType schema delta.
 **Files:** `SharePointMissionService.ts`, `SharePointApparelProfileService.ts`, related hooks/UI
 
 The S27/S28 read foundations deliberately shipped without writes. Until Sprint 29 delivers

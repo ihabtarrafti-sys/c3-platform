@@ -33,12 +33,46 @@
 | ERR-019 | ToasterGuard / Toaster context unavailable | Active Runtime | No toasts appear |
 | ERR-020 | CredentialAlreadyInactiveError | Active Runtime | "Execution blocked — credential already inactive…" |
 | ERR-021 | PartialDeactivationExecutionError | Active Runtime | "Partial execution — credential deactivated…" |
+| ERR-022 | Intelligence SP DSM cold-load crash | Active Runtime | ErrorBoundary on first entry (contained — TD-23) |
+| ERR-023 | RowNotFoundError | Active Runtime (S29A) | "No active row found… refresh and verify" |
+| ERR-024 | DataIntegrityError | Active Runtime (S29A) | "N active rows match… expected exactly one. No write performed." |
+| ERR-025 | ConcurrencyError | Active Runtime (S29A) | "Another operator changed… refresh and retry" |
+| ERR-026 | DuplicateKitAssignmentError | Active Runtime (S29A) | "A kit assignment already exists…" |
+| ERR-027 | WritePermissionError | Active Runtime (S29A) | "SharePoint denied the write… contact the platform owner" |
+| ERR-028 | ParticipantNotActiveError | Active Runtime (S29A) | "…not an active participant of…" |
+| ERR-029 | InvalidKitTransitionError | Active Runtime (S29A) | "Cannot move … from 'X' to 'Y'. Valid transitions…" |
 
 ---
 
 ## Category A — Active Runtime Errors
 
 These errors are observable in the current beta runtime. Each has a defined recovery path.
+
+---
+
+### ERR-023 … ERR-029 — S29A logistics write errors
+
+Thrown by `SharePointMissionService` / `SharePointApparelProfileService` (and their mocks via
+the shared pure guards in `utils/kitLifecycle.ts`); defined in `services/errors.ts`; always
+surfaced via toast — no silent mutation failures.
+
+- **ERR-023 RowNotFoundError** — compound-key resolution matched zero active rows. Recovery:
+  refresh; the record may have been deactivated/removed by another operator.
+- **ERR-024 DataIntegrityError** — multiple active rows matched a must-be-unique key.
+  **No write occurs.** Recovery: owner cleans up duplicates in SharePoint (Title uniqueness
+  prevents new occurrences).
+- **ERR-025 ConcurrencyError** — MERGE returned HTTP 412 (actual-ETag mismatch): another
+  operator changed the row between read and write. Recovery: refresh, re-check, retry.
+  Newer data is never overwritten.
+- **ERR-026 DuplicateKitAssignmentError** — active row already exists for
+  `MissionID+PersonID+ItemCategory+AssignmentKey` (pre-check, or Title unique-constraint
+  translation on a concurrent create). Recovery: different AssignmentKey or update existing.
+- **ERR-027 WritePermissionError** — SharePoint ACL denied the write (HTTP 403). Recovery:
+  verify group membership against `C3 Logistics List Permissions — Sprint 29A.md`.
+- **ERR-028 ParticipantNotActiveError** — kit targets a non-participant. Recovery: add the
+  participant first (governed, S29B).
+- **ERR-029 InvalidKitTransitionError** — transition outside the approved matrix. The UI
+  offers valid targets only; seeing this implies a stale view — refresh.
 
 ---
 

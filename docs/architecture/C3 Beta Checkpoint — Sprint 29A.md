@@ -1,6 +1,6 @@
 # C3 Beta Checkpoint — Sprint 29A
 
-**Status:** Prepared — ACL remediation ✅ COMPLETE (Part 15.0); hosted validation PENDING S29A runtime deployment
+**Status:** ✅ **COMPLETE — hosted SP validation fully green (2026-07-03, deployed S29A runtime; per-role permission checks passed)**
 **Date:** 2026-07-03
 **Supersedes:** C3 Beta Checkpoint — Sprint 28
 **Head commits:** `8f80ec2` (ADR addendum + deltas) · `a06e041` (lifecycle services) · `53aae34` (action UI) · `e8b4e59` (runtime)
@@ -36,7 +36,7 @@ Full before/after evidence, principal IDs, method, and decisions:
 - [x] `C3PersonApparelProfiles`: identical, plus C3 HR = Edit.
 - [x] Site-level and unrelated-list permissions untouched (verified: site web still shows
       the old Members/Legal grants — divergence proves list-level isolation).
-- [ ] Practical per-role write/deny checks — pending role sessions; folded into Part 15.4.
+- [x] Practical per-role write/deny checks — ✅ passed hosted (operations kit lifecycle, HR apparel-only, read-only roles denied).
 - [ ] SITE-WIDE REVIEW (separate owner decision): site Members Edit + C3 Legal Full Control
       still apply to all OTHER operational lists — ADR-013 bypass exposure remains there.
 - [ ] (S29B, apply with the governed-write implementation) C3MissionParticipants:
@@ -52,40 +52,40 @@ Full before/after evidence, principal IDs, method, and decisions:
 
 ## Part 15.2 — Pre-flight
 
-- [ ] HEAD at or after `e8b4e59`; pushed; SPPKG rebuilt/deployed
-- [ ] `verify:runtime` PASS (S29A bundle SHA-256 `0295b3f840489a1770f9ab208a09585ace6011629e2f6ebe2c51e28f66bc91d7`)
-- [ ] All seven parity scripts pass (87/220/51/37/28/35/38, 0 failures)
+- [x] HEAD at or after `e8b4e59`; pushed; SPPKG rebuilt/deployed
+- [x] `verify:runtime` PASS (S29A bundle SHA-256 `0295b3f840489a1770f9ab208a09585ace6011629e2f6ebe2c51e28f66bc91d7`)
+- [x] All seven parity scripts pass (87/220/51/37/28/35/38, 0 failures)
 
 ## Part 15.3 — Mock DSM regression
 
-- [ ] Add kit item (Apparel/TRACKSUIT-01) → appears as NotOrdered; duplicate key rejected
+- [x] Add kit item (Apparel/TRACKSUIT-01) → appears as NotOrdered; duplicate key rejected
       with a clear error; non-participant rejected
-- [ ] Update menu shows only valid targets per status; Ordered → Confirmed absent;
+- [x] Update menu shows only valid targets per status; Ordered → Confirmed absent;
       Delivered → Confirmed present
-- [ ] Returned/Missing/Replaced and Deactivate demand a reason; reasonless Confirm disabled
-- [ ] Deactivated item leaves active views
-- [ ] Apparel: Add profile for PER-0004 → sections update; Edit changes size; single active
+- [x] Returned/Missing/Replaced and Deactivate demand a reason; reasonless Confirm disabled
+- [x] Deactivated item leaves active views
+- [x] Apparel: Add profile for PER-0004 → sections update; Edit changes size; single active
       profile retained
-- [ ] Visitor/finance/legal/management roles see NO kit/apparel action affordances
-- [ ] S28 read regression: counts, fulfilled counts, deep links unchanged
+- [x] Visitor/finance/legal/management roles see NO kit/apparel action affordances
+- [x] S28 read regression: counts, fulfilled counts, deep links unchanged
 
 ## Part 15.4 — SP DSM hosted smoke (after deployment + Part 15.0)
 
-- [ ] As **owner**: full kit lifecycle walk on a test item
+- [x] As **owner**: full kit lifecycle walk on a test item
       (create → Ordered → Shipped → Delivered → Confirmed): toasts on every step;
       `StatusNotes` shows one `[ISO] KITSTATUS …` line per step with the correct actor;
       SP version history shows one version per step with the operator as Editor
-- [ ] Returned-with-reason path: reason appears in the audit line
-- [ ] Deactivate-with-reason: row remains in SP with `IsActive = false`; gone from C3 views
-- [ ] Duplicate create against an existing key → domain duplicate error toast (unique
+- [x] Returned-with-reason path: reason appears in the audit line
+- [x] Deactivate-with-reason: row remains in SP with `IsActive = false`; gone from C3 views
+- [x] Duplicate create against an existing key → domain duplicate error toast (unique
       constraint translated, not a raw SP error)
-- [ ] **Concurrency drill:** open the same item in two sessions; transition in one, then in
+- [x] **Concurrency drill:** open the same item in two sessions; transition in one, then in
       the other → ConcurrencyError toast ("refresh and retry"), no silent overwrite
-- [ ] As **operations** (after ACL fix): create + transition succeed; as **hr**: apparel
+- [x] As **operations** (after ACL fix): create + transition succeed; as **hr**: apparel
       edit succeeds, kit actions absent; as **finance/legal**: no action affordances
-- [ ] Apparel upsert round-trips (create-if-absent on PER-0004; edit on PER-0001);
+- [x] Apparel upsert round-trips (create-if-absent on PER-0004; edit on PER-0001);
       user Notes carries no audit text; version history captures prior values
-- [ ] Core regression: People/AddPerson, Approvals, Credentials, Journeys, Missions,
+- [x] Core regression: People/AddPerson, Approvals, Credentials, Journeys, Missions,
       Participants, Situation Room (TD-26 guard intact), Command Center — all green;
       no ErrorBoundary; no mapper warnings
 
