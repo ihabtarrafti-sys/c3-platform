@@ -543,3 +543,31 @@ hidden in SP DSM (locked beta-containment pattern) until provisioning and verifi
 - Hosted MissionWorkspace / SituationRoom smoke test requires the S26 runtime to be deployed
   (the currently deployed S25 runtime still stubs missions). Run Beta Checkpoint — Sprint 26
   Part 12.3 with the first S26 deployment.
+
+---
+
+### TD-26 — SP mission confirmation write path deferred
+
+**Severity:** 🟠 Beta safety risk — contained S27-1
+**Sprint attributed:** S27 Phase 0 (hosted S26 validation observation)
+**Status:** Open — write path deferred; action hidden in SP DSM
+**Files:** `packages/c3/src/screens/SituationRoom.tsx`, `packages/c3/src/services/sharepoint/SharePointMissionService.ts`, `packages/c3/src/hooks/useApproveMission.ts`
+
+The Situation Room "Approve & Confirm Mission" action bar (Sprint 13, S13-4) was gated only on
+`Mission.Status === 'FinancePending'` — no data-source or capability check. When Sprint 26
+enabled live SP mission reads, a FinancePending SP mission surfaced the button in SP DSM while
+`SharePointMissionService.confirmMission` remains a **throwing stub**: clicking showed
+"Confirming…", the stub threw, and the mutation error was never surfaced — a false affordance
+with silent failure. No data was ever written (the throw precedes any network call).
+
+**Containment (S27-1):** the action is **hidden** (not disabled) in SP DSM via a
+`config.dataSourceMode !== 'sharepoint'` guard at the `onApprove` site. Mock DSM confirmation
+behaviour is unchanged (demo/regression flow). The zero-gap empty-state copy was also corrected
+so that zero participants no longer implies "all participants hold required credentials".
+
+**Resolution:** a future sprint must design the SP mission confirmation write explicitly —
+either an ADR-013 governed operation (ConfirmMission approval type) or a documented role-gated
+lifecycle exemption, decided deliberately. **No direct SP lifecycle write may be introduced
+silently**, and the NavRail/action guard pattern applies until the write path exists and is
+hosted-validated. Capability-gating the Mock DSM button (currently visible to all roles in
+demo mode) can be considered in the same design pass.

@@ -41,6 +41,7 @@ import { EmptyState, PageHeader, SkeletonBlock } from '@c3/components/ui';
 import { OperationalGapRow } from '@c3/components/shared/OperationalGapRow';
 import { MilestoneSection } from '@c3/components/shared/MilestoneSection';
 import { FinanceSection } from '@c3/components/shared/FinanceSection';
+import { useApp } from '@c3/hooks/useApp';
 import { useOperationalGaps } from '@c3/hooks/useOperationalGaps';
 import { useMissionGaps } from '@c3/hooks/useMissionGaps';
 import { useMissions } from '@c3/hooks/useMissions';
@@ -613,9 +614,18 @@ const ALL_EMPTY_DESCRIPTIONS: Record<GapViewFilter, string> = {
   covered:  'No gaps are explicitly covered yet. Start a Journey and assign obligations to cover a gap.',
 };
 
-const missionEmptyDescription = (filter: GapViewFilter, missionName: string): string => {
+// S27-1: zero-gap copy must not claim readiness when nobody is assigned. Zero
+// participants produces zero gaps by construction (there is no one to evaluate),
+// so the "all requirements met" message is only truthful when participants exist.
+const missionEmptyDescription = (
+  filter: GapViewFilter,
+  participantCount: number,
+): string => {
   if (filter === 'all') {
-    return `No obligation gaps detected for ${missionName}. All participants hold the required credentials for this mission's dates.`;
+    if (participantCount === 0) {
+      return 'No participants are assigned to this mission yet.';
+    }
+    return 'No obligation gaps detected for this mission. All assigned participants currently meet the evaluated requirements.';
   }
   return ALL_EMPTY_DESCRIPTIONS[filter];
 };
@@ -643,6 +653,9 @@ interface SituationRoomProps {
 export const SituationRoom = ({ onNavigateToPerson, initialMissionId }: SituationRoomProps) => {
   const [selectedMissionId, setSelectedMissionId] = useState<string | null>(initialMissionId ?? null);
   const [viewFilter, setViewFilter] = useState<GapViewFilter>('all');
+
+  // Data source mode — used only for the SP DSM mission-confirmation guard (TD-26).
+  const { config } = useApp();
 
   // ── Data ─────────────────────────────────────────────────────────────────
 
@@ -774,10 +787,10 @@ export const SituationRoom = ({ onNavigateToPerson, initialMissionId }: Situatio
 
   // ── Empty state copy ──────────────────────────────────────────────────────
   const emptyAllCopy = isMissionMode && selectedMission
-    ? missionEmptyDescription('all', selectedMission.Name)
+    ? missionEmptyDescription('all', missionParticipantCount)
     : ALL_EMPTY_DESCRIPTIONS.all;
   const emptyFilterCopy = isMissionMode && selectedMission
-    ? missionEmptyDescription(viewFilter, selectedMission.Name)
+    ? missionEmptyDescription(viewFilter, missionParticipantCount)
     : ALL_EMPTY_DESCRIPTIONS[viewFilter];
 
   return (
@@ -809,7 +822,13 @@ export const SituationRoom = ({ onNavigateToPerson, initialMissionId }: Situatio
           financeSummary={financeLines.length > 0 ? financeSummary : undefined}
           financeCurrency={financeLines.length > 0 ? (selectedMission.OperatingCurrency ?? 'USD') : undefined}
           onApprove={
-            selectedMission.Status === 'FinancePending'
+            // S27-1 (TD-26): mission confirmation is hidden in SP DSM. The SharePoint
+            // confirmMission write is a throwing stub — rendering the action produced a
+            // false affordance with silent failure once S26 enabled live SP mission
+            // reads. Mock DSM keeps the demo/regression confirmation flow. A future SP
+            // confirmation must arrive as an explicitly designed governed write path —
+            // never as a silent direct lifecycle write.
+            selectedMission.Status === 'FinancePending' && config.dataSourceMode !== 'sharepoint'
               ? () => { approveMission({ missionId: selectedMission.MissionID }); }
               : undefined
           }
