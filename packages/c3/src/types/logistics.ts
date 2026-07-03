@@ -49,6 +49,9 @@
 /** Jersey sizing scale. SP choice values must match exactly. */
 export type JerseySize = 'XS' | 'S' | 'M' | 'L' | 'XL' | 'XXL' | '3XL';
 
+/** Ordered size scale — UI dropdowns and write-time validation (S29A). */
+export const JERSEY_SIZES: JerseySize[] = ['XS', 'S', 'M', 'L', 'XL', 'XXL', '3XL'];
+
 /**
  * Stable apparel attributes for a person. One active profile per person.
  *
@@ -76,6 +79,9 @@ export interface ApparelProfile {
 
 /** Category of issued item. SP choice values must match exactly. */
 export type ItemCategory = 'Jersey' | 'Apparel' | 'Equipment';
+
+/** Category list — UI dropdowns and write-time validation (S29A). */
+export const ITEM_CATEGORIES: ItemCategory[] = ['Jersey', 'Apparel', 'Equipment'];
 
 /**
  * Fulfillment lifecycle of an issued kit item. SP choice values must match
@@ -129,4 +135,63 @@ export interface KitAssignment {
   JerseyNumber?: string;
   /** Email of the staff member responsible for fulfillment. */
   OwnerEmail?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Write-operation inputs (S29A — ADR-013 Addendum: Mission Kit Logistics
+// Exemption). actorLoginName in every request comes EXCLUSIVELY from the
+// authenticated AppContext current user — never operator-entered, never form
+// state. Services fail closed on an empty actor.
+// ---------------------------------------------------------------------------
+
+/** Input for AddKitAssignment. Initial KitStatus is ALWAYS 'NotOrdered'. */
+export interface CreateKitAssignmentInput {
+  MissionID: string;
+  PersonID: string;
+  ItemCategory: ItemCategory;
+  /** Stable operator-defined key. Trimmed; must be non-empty. */
+  AssignmentKey: string;
+  ItemDescription?: string;
+  JerseyNumber?: string;
+  /** Defaults to the acting operator's email when omitted. */
+  OwnerEmail?: string;
+  /** Authenticated actor (AppContext loginName). Fail-close when empty. */
+  actorLoginName: string;
+}
+
+/** Request for UpdateKitStatus — validated against the transition matrix. */
+export interface KitStatusTransitionRequest {
+  MissionID: string;
+  PersonID: string;
+  ItemCategory: ItemCategory;
+  AssignmentKey: string;
+  toStatus: KitStatus;
+  /** Mandatory for transitions into Returned / Missing / Replaced. */
+  reason?: string;
+  /** Authenticated actor (AppContext loginName). Fail-close when empty. */
+  actorLoginName: string;
+}
+
+/** Request for DeactivateKitAssignment — reason is MANDATORY. */
+export interface DeactivateKitAssignmentRequest {
+  MissionID: string;
+  PersonID: string;
+  ItemCategory: ItemCategory;
+  AssignmentKey: string;
+  reason: string;
+  /** Authenticated actor (AppContext loginName). Fail-close when empty. */
+  actorLoginName: string;
+}
+
+/**
+ * Input for EditApparelProfile (upsert): creates the profile when no active
+ * row exists for the person, updates the exact active row otherwise.
+ */
+export interface UpsertApparelProfileInput {
+  PersonID: string;
+  JerseySize?: JerseySize;
+  NameOnJersey?: string;
+  Notes?: string;
+  /** Authenticated actor (AppContext loginName). Fail-close when empty. */
+  actorLoginName: string;
 }

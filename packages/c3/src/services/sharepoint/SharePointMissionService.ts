@@ -52,8 +52,36 @@
  * See: docs/architecture/C3MissionParticipants SP List Schema.md
  */
 
-import type { KitAssignment, Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
+import type {
+  CreateKitAssignmentInput,
+  DeactivateKitAssignmentRequest,
+  KitAssignment,
+  KitStatusTransitionRequest,
+  Mission,
+  MissionFilter,
+  MissionParticipant,
+  MissionStatus,
+} from '@c3/types';
 import type { IMissionService } from '../interfaces/IMissionService';
+import {
+  ConcurrencyError,
+  DataIntegrityError,
+  DuplicateKitAssignmentError,
+  InvalidKitTransitionError,
+  ParticipantNotActiveError,
+  RowNotFoundError,
+  WritePermissionError,
+} from '../errors';
+import {
+  appendKitAuditLine,
+  buildKitAssignmentTitle,
+  buildKitAuditLine,
+  canTransitionKitStatus,
+  classifyWriteFailure,
+  normalizeAssignmentKey,
+  validateCreateKitAssignmentInput,
+  validateKitTransitionRequest,
+} from '@c3/utils/kitLifecycle';
 import { mapSpItemsToMissions } from '@c3/utils/spMissionMapper';
 import type { SpMissionItem } from '@c3/utils/spMissionMapper';
 import { mapSpItemsToMissionParticipants } from '@c3/utils/spMissionParticipantMapper';
@@ -282,6 +310,112 @@ function toActiveKitAssignments(items: SpKitAssignmentItem[]): KitAssignment[] {
   return records.filter(r => r.isActive).map(r => r.assignment);
 }
 
+// ---------------------------------------------------------------------------
+// S29A write helpers — digest, ETag row resolution, failure translation
+// ---------------------------------------------------------------------------
+
+const KIT_LIST_ITEM_TYPE = 'SP.Data.C3MissionKitAssignmentsListItem';
+
+async function fetchFormDigest(siteUrl: string): Promise<string> {
+  const response = await fetch(`${siteUrl.replace(/\/$/, '')}/_api/contextinfo`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json;odata=nometadata' },
+  });
+  if (!response.ok) {
+    throw new Error(`[C3/KitAssignment] Failed to fetch form digest: HTTP ${response.status}`);
+  }
+  const json = (await response.json()) as { FormDigestValue: string };
+  return json.FormDigestValue;
+}
+
+interface ResolvedKitRow {
+  id: number;
+  etag: string;
+  kitStatus: string;
+  statusNotes: string | null;
+}
+
+/**
+ * Resolve exactly one active kit row by the canonical compound identity
+ * columns. Uses odata=minimalmetadata so each item carries `odata.etag`
+ * (nometadata strips annotations). Contract:
+ *   0 rows  → RowNotFoundError (no write)
+ *   2+ rows → DataIntegrityError (no write — duplicates need operator cleanup)
+ *   1 row   → { id, etag, current state }
+ * SP numeric Id and the ETag are internal persistence metadata consumed
+ * immediately by the following MERGE — never cached, never exposed.
+ */
+async function resolveKitRow(
+  kitBaseUrl: string,
+  req: { MissionID: string; PersonID: string; ItemCategory: string; AssignmentKey: string },
+): Promise<ResolvedKitRow> {
+  const identity = `${req.MissionID} | ${req.PersonID} | ${req.ItemCategory} | ${req.AssignmentKey}`;
+  const url =
+    `${kitBaseUrl}` +
+    `?$select=Id,MissionID,PersonID,ItemCategory,AssignmentKey,KitStatus,StatusNotes,IsActive` +
+    `&$filter=MissionID eq '${encodeODataLiteral(req.MissionID)}'` +
+    ` and PersonID eq '${encodeODataLiteral(req.PersonID)}'` +
+    ` and ItemCategory eq '${encodeODataLiteral(req.ItemCategory)}'` +
+    ` and AssignmentKey eq '${encodeODataLiteral(req.AssignmentKey)}'` +
+    `&$top=2`;
+
+  const response = await fetch(url, {
+    method: 'GET',
+    credentials: 'same-origin',
+    headers: { Accept: 'application/json;odata=minimalmetadata' },
+  });
+  if (!response.ok) {
+    throw new Error(`[C3/KitAssignment] Row resolution failed: HTTP ${response.status} for ${identity}`);
+  }
+  const json = (await response.json()) as {
+    value: Array<{ 'odata.etag': string; Id: number; KitStatus: string; StatusNotes: string | null; IsActive: boolean | null }>;
+  };
+  const active = (json.value ?? []).filter(v => v.IsActive !== false);
+
+  if (active.length === 0) throw new RowNotFoundError('C3MissionKitAssignments', identity);
+  if (active.length > 1) throw new DataIntegrityError('C3MissionKitAssignments', identity, active.length);
+
+  const row = active[0];
+  return { id: row.Id, etag: row['odata.etag'], kitStatus: row.KitStatus, statusNotes: row.StatusNotes };
+}
+
+/**
+ * MERGE a kit row with optimistic concurrency: IF-MATCH uses the row's ACTUAL
+ * ETag (never '*'). 412 → ConcurrencyError; 403 → WritePermissionError.
+ */
+async function mergeKitRow(
+  siteUrl: string,
+  kitBaseUrl: string,
+  row: ResolvedKitRow,
+  fields: Record<string, unknown>,
+  identity: string,
+): Promise<void> {
+  const digest = await fetchFormDigest(siteUrl);
+  const response = await fetch(`${kitBaseUrl.replace(/\/items$/, '')}/items(${row.id})`, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: {
+      'Accept':          'application/json;odata=nometadata',
+      'Content-Type':    'application/json;odata=verbose',
+      'X-RequestDigest': digest,
+      'X-HTTP-Method':   'MERGE',
+      'IF-MATCH':        row.etag,
+    },
+    body: JSON.stringify({ __metadata: { type: KIT_LIST_ITEM_TYPE }, ...fields }),
+  });
+
+  if (!response.ok) {
+    const bodyText = await response.text().catch(() => '(unreadable)');
+    const kind = classifyWriteFailure(response.status, bodyText);
+    if (kind === 'concurrency') throw new ConcurrencyError(identity);
+    if (kind === 'permission') throw new WritePermissionError('C3MissionKitAssignments');
+    throw new Error(
+      `[C3/KitAssignment] MERGE failed for ${identity}: HTTP ${response.status} ${response.statusText}. Body: ${bodyText}`,
+    );
+  }
+}
+
 /** Apply MissionFilter client-side — mirrors MockMissionService semantics. */
 function applyFilter(missions: Mission[], filter?: MissionFilter): Mission[] {
   let results = missions;
@@ -372,6 +506,136 @@ export const createSharePointMissionService = (siteUrl: string): IMissionService
 
       const items = await fetchKitItems(url);
       return toActiveKitAssignments(items);
+    },
+
+    // ── S29A kit writes — ADR-013 Addendum: Mission Kit Logistics Exemption ──
+
+    async createKitAssignment(input: CreateKitAssignmentInput): Promise<KitAssignment> {
+      const errors = validateCreateKitAssignmentInput(input);
+      if (errors.length > 0) throw new Error(`[C3/KitAssignment] ${errors.join(' ')}`);
+
+      const key = normalizeAssignmentKey(input.AssignmentKey);
+      const identity = `${input.MissionID} | ${input.PersonID} | ${input.ItemCategory} | ${key}`;
+
+      // Guard 1: person must be an ACTIVE participant of the mission.
+      const participants = await this.listMissionParticipants(input.MissionID);
+      if (!participants.some(p => p.PersonID === input.PersonID)) {
+        throw new ParticipantNotActiveError(input.MissionID, input.PersonID);
+      }
+
+      // Guard 2: compound duplicate pre-check (friendly error). The Title
+      // unique constraint is the authoritative race protection — a concurrent
+      // create that slips past this check fails at POST and is translated below.
+      const existing = await fetchKitItems(
+        `${kitBaseUrl}?$select=Id,IsActive` +
+        `&$filter=MissionID eq '${encodeODataLiteral(input.MissionID)}'` +
+        ` and PersonID eq '${encodeODataLiteral(input.PersonID)}'` +
+        ` and ItemCategory eq '${encodeODataLiteral(input.ItemCategory)}'` +
+        ` and AssignmentKey eq '${encodeODataLiteral(key)}'&$top=2`,
+      );
+      if (existing.some(e => e.IsActive !== false)) {
+        throw new DuplicateKitAssignmentError(identity);
+      }
+
+      const digest = await fetchFormDigest(siteUrl);
+      const created: KitAssignment = {
+        MissionID:       input.MissionID,
+        PersonID:        input.PersonID,
+        ItemCategory:    input.ItemCategory,
+        AssignmentKey:   key,
+        ItemDescription: input.ItemDescription?.trim() || undefined,
+        Status:          'NotOrdered',
+        JerseyNumber:    input.JerseyNumber?.trim() || undefined,
+        OwnerEmail:      input.OwnerEmail?.trim() || input.actorLoginName,
+      };
+
+      const response = await fetch(kitBaseUrl, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Accept':          'application/json;odata=nometadata',
+          'Content-Type':    'application/json;odata=verbose',
+          'X-RequestDigest': digest,
+        },
+        body: JSON.stringify({
+          __metadata: { type: KIT_LIST_ITEM_TYPE },
+          Title:           buildKitAssignmentTitle(input.MissionID, input.PersonID, input.ItemCategory, key),
+          MissionID:       created.MissionID,
+          PersonID:        created.PersonID,
+          ItemCategory:    created.ItemCategory,
+          AssignmentKey:   created.AssignmentKey,
+          ItemDescription: created.ItemDescription ?? null,
+          KitStatus:       'NotOrdered',
+          JerseyNumber:    created.JerseyNumber ?? null,
+          OwnerEmail:      created.OwnerEmail ?? null,
+          IsActive:        true,
+          StatusNotes:     buildKitAuditLine('CREATED', 'NotOrdered', input.actorLoginName),
+        }),
+      });
+
+      if (!response.ok) {
+        const bodyText = await response.text().catch(() => '(unreadable)');
+        const kind = classifyWriteFailure(response.status, bodyText);
+        if (kind === 'duplicate') throw new DuplicateKitAssignmentError(identity);
+        if (kind === 'permission') throw new WritePermissionError('C3MissionKitAssignments');
+        throw new Error(
+          `[C3/KitAssignment] POST failed for ${identity}: HTTP ${response.status} ${response.statusText}. Body: ${bodyText}`,
+        );
+      }
+
+      console.info(`[C3/KitAssignment] created ${identity} by ${input.actorLoginName}`);
+      return created;
+    },
+
+    async transitionKitStatus(req: KitStatusTransitionRequest): Promise<KitAssignment> {
+      const errors = validateKitTransitionRequest(req);
+      if (errors.length > 0) throw new Error(`[C3/KitAssignment] ${errors.join(' ')}`);
+
+      const key = normalizeAssignmentKey(req.AssignmentKey);
+      const identity = `${req.MissionID} | ${req.PersonID} | ${req.ItemCategory} | ${key}`;
+
+      // Resolve the exact row — the CURRENT SP status is authoritative for the
+      // transition guard (never the client's cached view).
+      const row = await resolveKitRow(kitBaseUrl, { ...req, AssignmentKey: key });
+      const from = row.kitStatus as KitAssignment['Status'];
+      if (!canTransitionKitStatus(from, req.toStatus)) {
+        throw new InvalidKitTransitionError(identity, from, req.toStatus);
+      }
+
+      const auditLine = buildKitAuditLine(from, req.toStatus, req.actorLoginName, req.reason);
+      await mergeKitRow(siteUrl, kitBaseUrl, row, {
+        KitStatus:   req.toStatus,
+        StatusNotes: appendKitAuditLine(row.statusNotes, auditLine),
+      }, identity);
+
+      console.info(`[C3/KitAssignment] ${identity}: ${from} -> ${req.toStatus} by ${req.actorLoginName}`);
+
+      // Return the updated assignment by re-reading through the normal path.
+      const items = await this.listKitAssignments(req.MissionID);
+      const updated = items.find(
+        k => k.PersonID === req.PersonID && k.ItemCategory === req.ItemCategory && k.AssignmentKey === key,
+      );
+      if (!updated) throw new RowNotFoundError('C3MissionKitAssignments', identity);
+      return updated;
+    },
+
+    async deactivateKitAssignment(req: DeactivateKitAssignmentRequest): Promise<void> {
+      if (!req.actorLoginName?.trim()) throw new Error('[C3/KitAssignment] Actor identity is empty — refusing to write.');
+      if (!req.reason?.trim()) throw new Error('[C3/KitAssignment] A deactivation reason is required.');
+
+      const key = normalizeAssignmentKey(req.AssignmentKey);
+      const identity = `${req.MissionID} | ${req.PersonID} | ${req.ItemCategory} | ${key}`;
+
+      const row = await resolveKitRow(kitBaseUrl, { ...req, AssignmentKey: key });
+      const auditLine = buildKitAuditLine(row.kitStatus as KitAssignment['Status'], 'DEACTIVATED', req.actorLoginName, req.reason);
+
+      // IsActive=false; the row is retained for history — never deleted.
+      await mergeKitRow(siteUrl, kitBaseUrl, row, {
+        IsActive:    false,
+        StatusNotes: appendKitAuditLine(row.statusNotes, auditLine),
+      }, identity);
+
+      console.info(`[C3/KitAssignment] deactivated ${identity} by ${req.actorLoginName}`);
     },
 
     async confirmMission(missionId: string, confirmedBy: string): Promise<Mission> {

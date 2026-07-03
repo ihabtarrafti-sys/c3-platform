@@ -1,4 +1,4 @@
-import type { ApparelProfile } from '@c3/types';
+import type { ApparelProfile, UpsertApparelProfileInput } from '@c3/types';
 
 /**
  * IApparelProfileService — Apparel profile domain service interface.
@@ -30,4 +30,13 @@ export interface IApparelProfileService {
    * Returns an empty array on missing list / failure (fail-safe).
    */
   listApparelProfiles(): Promise<ApparelProfile[]>;
+
+  /**
+   * Creates or updates a person's apparel profile (S29A — role-gated
+   * master-data update: owner/operations/hr, per the ADR-013 Addendum).
+   * Creates when no active profile exists; updates the exact active row
+   * (ETag concurrency) otherwise. Inactive rows are retained. SP version
+   * history is the authoritative audit — user Notes stays clean.
+   */
+  upsertApparelProfile(input: UpsertApparelProfileInput): Promise<ApparelProfile>;
 }

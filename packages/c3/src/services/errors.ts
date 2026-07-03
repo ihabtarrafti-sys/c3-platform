@@ -14,7 +14,8 @@
  * hook's five-step execution sequence and do not apply to the service layer.
  */
 
-import type { JourneyStatus } from '@c3/types';
+import type { JourneyStatus, KitStatus } from '@c3/types';
+import { validKitTransitions } from '@c3/utils/kitLifecycle';
 
 // ---------------------------------------------------------------------------
 // InvalidTransitionError
@@ -61,5 +62,76 @@ export class InvalidTransitionError extends Error {
       case 'Completed': return [];
       case 'Cancelled': return [];
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// S29A — logistics write error classes (ADR-013 Addendum: Mission Kit
+// Logistics Exemption). Thrown by Mock and SharePoint services; surfaced to
+// operators via toasts — no silent mutation failures.
+// ---------------------------------------------------------------------------
+
+/** The row identified by the canonical compound key does not exist (or is inactive). */
+export class RowNotFoundError extends Error {
+  override readonly name = 'RowNotFoundError';
+  constructor(list: string, identity: string) {
+    super(`[C3] No active row found in ${list} for ${identity}. Refresh and verify the record still exists.`);
+  }
+}
+
+/** More than one active row matched a compound key that must be unique. NO write occurs. */
+export class DataIntegrityError extends Error {
+  override readonly name = 'DataIntegrityError';
+  constructor(list: string, identity: string, count: number) {
+    super(
+      `[C3] Data integrity: ${count} active rows in ${list} match ${identity} — expected exactly one. ` +
+      `No write performed. Clean up the duplicates in SharePoint before retrying.`,
+    );
+  }
+}
+
+/** Another operator changed the row between read and write (HTTP 412). */
+export class ConcurrencyError extends Error {
+  override readonly name = 'ConcurrencyError';
+  constructor(identity: string) {
+    super(
+      `[C3] Another operator changed ${identity} while you were editing. ` +
+      `Refresh to load the latest state, then retry.`,
+    );
+  }
+}
+
+/** An active row with the same compound identity already exists. */
+export class DuplicateKitAssignmentError extends Error {
+  override readonly name = 'DuplicateKitAssignmentError';
+  constructor(identity: string) {
+    super(`[C3] A kit assignment already exists for ${identity}. Use a different AssignmentKey or update the existing item.`);
+  }
+}
+
+/** The SharePoint list ACL denied the write (HTTP 403). */
+export class WritePermissionError extends Error {
+  override readonly name = 'WritePermissionError';
+  constructor(list: string) {
+    super(`[C3] SharePoint denied the write to ${list}. Your account may lack Edit permission on this list — contact the platform owner.`);
+  }
+}
+
+/** The person is not an active participant of the mission (kit creation guard). */
+export class ParticipantNotActiveError extends Error {
+  override readonly name = 'ParticipantNotActiveError';
+  constructor(missionId: string, personId: string) {
+    super(`[C3] ${personId} is not an active participant of ${missionId}. Kit can only be assigned to active mission participants.`);
+  }
+}
+
+/** A kit status transition not permitted by the approved matrix. */
+export class InvalidKitTransitionError extends Error {
+  override readonly name = 'InvalidKitTransitionError';
+  constructor(identity: string, from: KitStatus, to: KitStatus) {
+    super(
+      `[C3] Cannot move ${identity} from '${from}' to '${to}'. ` +
+      `Valid transitions from '${from}': ${validKitTransitions(from).join(', ') || 'none'}.`,
+    );
   }
 }

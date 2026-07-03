@@ -1,5 +1,26 @@
-import type { KitAssignment, Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
+import type {
+  CreateKitAssignmentInput,
+  DeactivateKitAssignmentRequest,
+  KitAssignment,
+  KitStatusTransitionRequest,
+  Mission,
+  MissionFilter,
+  MissionParticipant,
+  MissionStatus,
+} from '@c3/types';
 import type { IMissionService } from '../interfaces/IMissionService';
+import {
+  DuplicateKitAssignmentError,
+  InvalidKitTransitionError,
+  ParticipantNotActiveError,
+  RowNotFoundError,
+} from '../errors';
+import {
+  canTransitionKitStatus,
+  normalizeAssignmentKey,
+  validateCreateKitAssignmentInput,
+  validateKitTransitionRequest,
+} from '@c3/utils/kitLifecycle';
 
 /**
  * Mock Mission data — two missions demonstrating both sides of the ADR-002 gate.
@@ -155,6 +176,21 @@ const VALID_TRANSITIONS: Record<MissionStatus, MissionStatus[]> = {
 
 let missionStore: Mission[] = [...MOCK_MISSIONS];
 
+// Mutable kit store (S29A) — mock writes mutate this; resets on reload.
+let kitStore: KitAssignment[] = [...MOCK_KIT_ASSIGNMENTS];
+
+const kitIdentity = (m: string, p: string, c: string, k: string) => `${m} | ${p} | ${c} | ${k}`;
+
+function findKitIndex(req: { MissionID: string; PersonID: string; ItemCategory: string; AssignmentKey: string }): number {
+  return kitStore.findIndex(
+    x =>
+      x.MissionID === req.MissionID &&
+      x.PersonID === req.PersonID &&
+      x.ItemCategory === req.ItemCategory &&
+      x.AssignmentKey === normalizeAssignmentKey(req.AssignmentKey),
+  );
+}
+
 function updateMissionInStore(missionId: string, patch: Partial<Mission>): Mission {
   const existing = missionStore.find(m => m.MissionID === missionId);
   if (!existing) {
@@ -198,11 +234,75 @@ export const createMockMissionService = (): IMissionService => ({
   },
 
   async listKitAssignments(missionId: string): Promise<KitAssignment[]> {
-    return MOCK_KIT_ASSIGNMENTS.filter(k => k.MissionID === missionId);
+    return kitStore.filter(k => k.MissionID === missionId);
   },
 
   async listAllKitAssignments(): Promise<KitAssignment[]> {
-    return [...MOCK_KIT_ASSIGNMENTS];
+    return [...kitStore];
+  },
+
+  // ── S29A kit writes — same guards as SP; shared pure module is authoritative ──
+
+  async createKitAssignment(input: CreateKitAssignmentInput): Promise<KitAssignment> {
+    const errors = validateCreateKitAssignmentInput(input);
+    if (errors.length > 0) throw new Error(`[MockMissionService] ${errors.join(' ')}`);
+
+    const key = normalizeAssignmentKey(input.AssignmentKey);
+
+    // Active-participant guard
+    const isParticipant = MOCK_PARTICIPANTS.some(
+      p => p.MissionID === input.MissionID && p.PersonID === input.PersonID,
+    );
+    if (!isParticipant) throw new ParticipantNotActiveError(input.MissionID, input.PersonID);
+
+    // Compound duplicate guard
+    if (findKitIndex({ ...input, AssignmentKey: key }) !== -1) {
+      throw new DuplicateKitAssignmentError(kitIdentity(input.MissionID, input.PersonID, input.ItemCategory, key));
+    }
+
+    const created: KitAssignment = {
+      MissionID:       input.MissionID,
+      PersonID:        input.PersonID,
+      ItemCategory:    input.ItemCategory,
+      AssignmentKey:   key,
+      ItemDescription: input.ItemDescription?.trim() || undefined,
+      Status:          'NotOrdered',
+      JerseyNumber:    input.JerseyNumber?.trim() || undefined,
+      OwnerEmail:      input.OwnerEmail?.trim() || input.actorLoginName,
+    };
+    kitStore = [...kitStore, created];
+    return created;
+  },
+
+  async transitionKitStatus(req: KitStatusTransitionRequest): Promise<KitAssignment> {
+    const errors = validateKitTransitionRequest(req);
+    if (errors.length > 0) throw new Error(`[MockMissionService] ${errors.join(' ')}`);
+
+    const idx = findKitIndex(req);
+    const identity = kitIdentity(req.MissionID, req.PersonID, req.ItemCategory, req.AssignmentKey);
+    if (idx === -1) throw new RowNotFoundError('C3MissionKitAssignments', identity);
+
+    const current = kitStore[idx];
+    if (!canTransitionKitStatus(current.Status, req.toStatus)) {
+      throw new InvalidKitTransitionError(identity, current.Status, req.toStatus);
+    }
+
+    const updated: KitAssignment = { ...current, Status: req.toStatus };
+    kitStore = kitStore.map((k, i) => (i === idx ? updated : k));
+    return updated;
+  },
+
+  async deactivateKitAssignment(req: DeactivateKitAssignmentRequest): Promise<void> {
+    if (!req.actorLoginName?.trim()) throw new Error('[MockMissionService] Actor identity is empty — refusing to write.');
+    if (!req.reason?.trim()) throw new Error('[MockMissionService] A deactivation reason is required.');
+
+    const idx = findKitIndex(req);
+    const identity = kitIdentity(req.MissionID, req.PersonID, req.ItemCategory, req.AssignmentKey);
+    if (idx === -1) throw new RowNotFoundError('C3MissionKitAssignments', identity);
+
+    // Mock has no IsActive persistence layer — deactivation removes from the
+    // active store (SP retains the row with IsActive=false).
+    kitStore = kitStore.filter((_, i) => i !== idx);
   },
 
   async confirmMission(missionId: string, confirmedBy: string): Promise<Mission> {

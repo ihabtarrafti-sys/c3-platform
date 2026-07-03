@@ -1,0 +1,30 @@
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+
+import { useApp } from '@c3/hooks/useApp';
+import { useMissionService } from '@c3/hooks/useMissionService';
+import { queryKeys } from '@c3/hooks/queryKeys';
+import type { DeactivateKitAssignmentRequest } from '@c3/types';
+
+/**
+ * Mutation: deactivate a kit assignment (S29A lifecycle exemption, role-gated
+ * owner/operations). Reason is MANDATORY; the row is retained with
+ * IsActive=false — never deleted. ETag concurrency.
+ *
+ * actorLoginName is stamped from the authenticated AppContext user.
+ * Invalidates BOTH kit caches on success. Errors throw for toast surfacing.
+ */
+export const useDeactivateKitAssignment = () => {
+  const qc = useQueryClient();
+  const missionService = useMissionService();
+  const { currentUser } = useApp();
+
+  return useMutation<void, Error, Omit<DeactivateKitAssignmentRequest, 'actorLoginName'>>({
+    mutationFn: req =>
+      missionService.deactivateKitAssignment({ ...req, actorLoginName: currentUser.loginName }),
+
+    onSuccess: (_, req) => {
+      void qc.invalidateQueries({ queryKey: queryKeys.mission.kitAssignments(req.MissionID) });
+      void qc.invalidateQueries({ queryKey: queryKeys.mission.allKitAssignments() });
+    },
+  });
+};

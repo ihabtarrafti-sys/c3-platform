@@ -1,4 +1,13 @@
-import type { KitAssignment, Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
+import type {
+  CreateKitAssignmentInput,
+  DeactivateKitAssignmentRequest,
+  KitAssignment,
+  KitStatusTransitionRequest,
+  Mission,
+  MissionFilter,
+  MissionParticipant,
+  MissionStatus,
+} from '@c3/types';
 
 /**
  * IMissionService — Mission domain service interface.
@@ -57,6 +66,29 @@ export interface IMissionService {
    * (no per-card queries). Returns an empty array rather than throwing.
    */
   listAllKitAssignments(): Promise<KitAssignment[]>;
+
+  /**
+   * Creates a kit assignment (S29A — ADR-013 Addendum: Mission Kit Logistics
+   * Exemption; role-gated owner/operations). Initial KitStatus is ALWAYS
+   * 'NotOrdered'. Guards: active-participant check, compound duplicate
+   * protection. Throws domain errors — never fails silently.
+   */
+  createKitAssignment(input: CreateKitAssignmentInput): Promise<KitAssignment>;
+
+  /**
+   * Transitions a kit assignment's KitStatus (S29A lifecycle exemption).
+   * Validated against the approved transition matrix (utils/kitLifecycle.ts);
+   * service validation is authoritative. Appends a StatusNotes audit line.
+   * Reason mandatory into Returned/Missing/Replaced. ETag concurrency.
+   */
+  transitionKitStatus(req: KitStatusTransitionRequest): Promise<KitAssignment>;
+
+  /**
+   * Deactivates a kit assignment (S29A lifecycle exemption): IsActive=false,
+   * mandatory reason, StatusNotes audit line. The row is retained for
+   * history — never physically deleted. ETag concurrency.
+   */
+  deactivateKitAssignment(req: DeactivateKitAssignmentRequest): Promise<void>;
 
   /**
    * Transitions a Mission from FinancePending to Confirmed.

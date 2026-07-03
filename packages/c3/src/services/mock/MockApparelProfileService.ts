@@ -1,5 +1,6 @@
-import type { ApparelProfile } from '@c3/types';
+import type { ApparelProfile, UpsertApparelProfileInput } from '@c3/types';
 import type { IApparelProfileService } from '../interfaces/IApparelProfileService';
+import { validateUpsertApparelProfileInput } from '@c3/utils/kitLifecycle';
 
 /**
  * Mock apparel profile data — Sprint 28 (S28-2).
@@ -26,12 +27,34 @@ const MOCK_APPAREL_PROFILES: ApparelProfile[] = [
   },
 ];
 
+// Mutable store (S29A) — mock upserts mutate this; resets on reload.
+let profileStore: ApparelProfile[] = [...MOCK_APPAREL_PROFILES];
+
 export const createMockApparelProfileService = (): IApparelProfileService => ({
   async getApparelProfile(personId: string): Promise<ApparelProfile | null> {
-    return MOCK_APPAREL_PROFILES.find(p => p.PersonID === personId) ?? null;
+    return profileStore.find(p => p.PersonID === personId) ?? null;
   },
 
   async listApparelProfiles(): Promise<ApparelProfile[]> {
-    return [...MOCK_APPAREL_PROFILES];
+    return [...profileStore];
+  },
+
+  // S29A role-gated upsert — create when absent, update the active profile otherwise.
+  async upsertApparelProfile(input: UpsertApparelProfileInput): Promise<ApparelProfile> {
+    const errors = validateUpsertApparelProfileInput(input);
+    if (errors.length > 0) throw new Error(`[MockApparelProfileService] ${errors.join(' ')}`);
+
+    const next: ApparelProfile = {
+      PersonID:     input.PersonID,
+      JerseySize:   input.JerseySize,
+      NameOnJersey: input.NameOnJersey?.trim() || undefined,
+      Notes:        input.Notes?.trim() || undefined,
+    };
+
+    const idx = profileStore.findIndex(p => p.PersonID === input.PersonID);
+    profileStore = idx === -1
+      ? [...profileStore, next]
+      : profileStore.map((p, i) => (i === idx ? next : p));
+    return next;
   },
 });
