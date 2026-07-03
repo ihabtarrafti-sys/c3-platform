@@ -98,9 +98,16 @@ import {
   PartialCredentialExecutionError,
   PartialDeactivationExecutionError,
   PartialAddPersonExecutionError,
+  PartialParticipantAddExecutionError,
+  PartialParticipantRemovalExecutionError,
   CredentialAlreadyInactiveError,
   PayloadValidationError,
 } from '@c3/hooks/useExecuteApproval';
+import {
+  ActiveKitDependencyError,
+  ParticipantConflictError,
+} from '@c3/services/errors';
+import { usePeople } from '@c3/hooks/usePeople';
 import { useGetCredential } from '@c3/hooks/useGetCredential';
 import { usePersonCredentials } from '@c3/hooks/usePersonCredentials';
 import {
@@ -325,18 +332,31 @@ const PayloadSummary = ({
   raw: string | undefined;
   operationType: string;
 }) => {
+  // Person name resolution (S29B) — cached shared query; safe ID fallback.
+  // Called unconditionally (rules of hooks) before the operation-type gate.
+  const { data: summaryPeople = [] } = usePeople();
+
   // Only render for known operation types with defined payload shapes
   if (
     operationType !== 'InitiateJourney' &&
     operationType !== 'AddCredential' &&
     operationType !== 'DeactivateCredential' &&
-    operationType !== 'AddPerson'
+    operationType !== 'AddPerson' &&
+    operationType !== 'AddMissionParticipant' &&
+    operationType !== 'RemoveMissionParticipant'
   ) return null;
 
+  const personLabel = (personId: string): string => {
+    const person = summaryPeople.find(p => p.PersonID === personId);
+    return person ? `${person.FullName} (${personId})` : personId;
+  };
+
   const sectionLabel =
-    operationType === 'AddCredential'        ? 'Credential Payload' :
-    operationType === 'DeactivateCredential' ? 'Deactivation Payload' :
-    operationType === 'AddPerson'            ? 'Person Payload' :
+    operationType === 'AddCredential'            ? 'Credential Payload' :
+    operationType === 'DeactivateCredential'     ? 'Deactivation Payload' :
+    operationType === 'AddPerson'                ? 'Person Payload' :
+    operationType === 'AddMissionParticipant'    ? 'Participant Addition' :
+    operationType === 'RemoveMissionParticipant' ? 'Participant Removal' :
     'Journey Payload';
 
   if (!raw) {
@@ -518,6 +538,60 @@ const PayloadSummary = ({
           <DetailCell label="Reference Number" value={referenceNumber} />
           {requestedBy && <DetailCell label="Requested By" value={requestedBy} />}
           {reason      && <DetailCell label="Reason"       value={reason} wide />}
+        </div>
+      </div>
+    );
+  }
+
+  // -- AddMissionParticipant / RemoveMissionParticipant payload fields (S29B) --
+  if (operationType === 'AddMissionParticipant' || operationType === 'RemoveMissionParticipant') {
+    const missionId = typeof parsed['missionId'] === 'string' ? parsed['missionId'] : '--';
+    const personId  = typeof parsed['personId']  === 'string' ? parsed['personId']  : '--';
+    const reason    = typeof parsed['reason']    === 'string' ? parsed['reason']    : null;
+
+    const isAdd        = operationType === 'AddMissionParticipant';
+    const role         = isAdd && typeof parsed['role'] === 'string' ? parsed['role'] : null;
+    const externalCode = isAdd && typeof parsed['externalCode'] === 'string' ? parsed['externalCode'] : null;
+    const perDiemRate  = isAdd && typeof parsed['perDiemRate'] === 'number' ? parsed['perDiemRate'] : null;
+
+    return (
+      <div
+        style={{
+          borderTop: '1px solid var(--c3-gray-100)',
+          paddingTop: 'var(--c3-space-3)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 'var(--c3-space-3)',
+        }}
+      >
+        <Text
+          size={100}
+          style={{ color: 'var(--c3-gray-400)', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+        >
+          {sectionLabel}
+        </Text>
+        <Text size={300} style={{ color: 'var(--c3-gray-950)' }}>
+          {isAdd
+            ? <>Add <strong>{personLabel(personId)}</strong> to <strong>{missionId}</strong>
+                {role ? ` as ${role}` : ''}
+                {externalCode ? ` · External ${externalCode}` : ''}
+                {perDiemRate !== null ? ` · Per diem ${perDiemRate}` : ''}</>
+            : <>Remove <strong>{personLabel(personId)}</strong> from <strong>{missionId}</strong>
+                {reason ? ` · Reason: ${reason}` : ''}</>}
+        </Text>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))',
+            gap: 'var(--c3-space-3)',
+          }}
+        >
+          <DetailCell label="Mission ID" value={missionId} />
+          <DetailCell label="Person ID"  value={personId} />
+          {role         && <DetailCell label="Role"          value={role} />}
+          {externalCode && <DetailCell label="External Code" value={externalCode} />}
+          {perDiemRate !== null && <DetailCell label="Per Diem" value={String(perDiemRate)} />}
+          {reason       && <DetailCell label="Reason"        value={reason} wide />}
         </div>
       </div>
     );
@@ -827,6 +901,17 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           'Approval executed',
           `${approval.title} -- Person record created for ${fullName}.`,
         );
+      } else if (opType === 'AddMissionParticipant' || opType === 'RemoveMissionParticipant') {
+        const missionId = typeof parsedPayload?.['missionId'] === 'string' ? parsedPayload['missionId'] : 'unknown';
+        const personId = typeof parsedPayload?.['personId'] === 'string'
+          ? parsedPayload['personId']
+          : approval.targetPersonId ?? 'unknown';
+        toast.success(
+          'Approval executed',
+          opType === 'AddMissionParticipant'
+            ? `${approval.title} -- ${personId} added to ${missionId}.`
+            : `${approval.title} -- ${personId} removed from ${missionId}.`,
+        );
       } else {
         // InitiateJourney or other (default)
         const personId = typeof parsedPayload?.['personId'] === 'string'
@@ -879,6 +964,27 @@ const ApprovalCard = ({ approval, isOwner }: ApprovalCardProps) => {
           'Partial execution -- manual resolution required',
           'Person record was created in C3People but the approval record could not be stamped ' +
           'Executed. Manually update C3Approvals to Executed status.',
+        );
+      } else if (
+        err instanceof PartialParticipantAddExecutionError ||
+        err instanceof PartialParticipantRemovalExecutionError
+      ) {
+        toast.error(
+          'Partial execution -- re-execute to repair',
+          'The participant change was applied but the approval stamp failed. ' +
+          'Execute this approval again: the write is idempotent and only the stamp will be repaired.',
+        );
+      } else if (err instanceof ParticipantConflictError) {
+        toast.error(
+          'Execution blocked -- conflicting participant row',
+          'An active participant row exists with different fields than the approved request. ' +
+          'Approval marked ExecutionFailed. Reconcile the existing row before resubmitting.',
+        );
+      } else if (err instanceof ActiveKitDependencyError) {
+        toast.error(
+          'Execution blocked -- active kit assignments',
+          'The participant still has active kit assignments on this mission. ' +
+          'Deactivate the kit items, then execute again.',
         );
       } else {
         const msg = err instanceof Error ? err.message : 'Unknown error.';

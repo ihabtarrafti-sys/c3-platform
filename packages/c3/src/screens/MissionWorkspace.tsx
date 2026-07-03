@@ -59,17 +59,21 @@ import {
   SkeletonRows,
 } from '@c3/components/ui';
 import { AddKitPanel } from '@c3/components/shared/AddKitPanel';
+import { AddParticipantPanel } from '@c3/components/shared/AddParticipantPanel';
 import { useAllKitAssignments } from '@c3/hooks/useAllKitAssignments';
 import { useAllMissionParticipants } from '@c3/hooks/useAllMissionParticipants';
 import { useApp } from '@c3/hooks/useApp';
 import { useDeactivateKitAssignment } from '@c3/hooks/useDeactivateKitAssignment';
+import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { useMissions } from '@c3/hooks/useMissions';
 import { usePeople } from '@c3/hooks/usePeople';
+import { useSubmitParticipantApproval } from '@c3/hooks/useSubmitParticipantApproval';
 import { useToast } from '@c3/hooks/useToast';
 import { useTransitionKitStatus } from '@c3/hooks/useTransitionKitStatus';
 import type { KitAssignment, KitStatus, Mission, MissionParticipant, MissionStatus, Person } from '@c3/types';
 import { FULFILLED_KIT_STATUSES, MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
 import { kitTransitionRequiresReason, validKitTransitions } from '@c3/utils/kitLifecycle';
+import { PENDING_APPROVAL_STATUSES, pendingRequestKey } from '@c3/utils/participantWrites';
 
 // ---------------------------------------------------------------------------
 // MissionStatusBadge — screen-local status badge (same pattern as the
@@ -278,6 +282,9 @@ const ParticipantList = ({
   onAddKit: (participant: MissionParticipant) => void;
   onTransition: (item: KitAssignment, toStatus: KitStatus) => void;
   onDeactivate: (item: KitAssignment) => void;
+  /** S29B: governed removal + pending-request map (pendingKey → APR title). */
+  onRemoveParticipant: (participant: MissionParticipant) => void;
+  pendingRequests: Map<string, string>;
 }) => (
   <div
     style={{
@@ -346,6 +353,17 @@ const ParticipantList = ({
                 {p.PerDiemRate}{currency ? ` ${currency}` : ''}/day
               </Text>
             )}
+            {pendingRequests.has(pendingRequestKey('RemoveMissionParticipant', p.MissionID, p.PersonID)) ? (
+              <Badge color="warning" size="small">Removal pending approval</Badge>
+            ) : canManageKit ? (
+              <Button
+                appearance="subtle"
+                size="small"
+                onClick={() => onRemoveParticipant(p)}
+              >
+                Remove…
+              </Button>
+            ) : null}
           </div>
         </div>
 
@@ -395,6 +413,9 @@ const MissionCard = ({
   onAddKit: (participant: MissionParticipant) => void;
   onTransition: (item: KitAssignment, toStatus: KitStatus) => void;
   onDeactivate: (item: KitAssignment) => void;
+  onAddParticipant: () => void;
+  onRemoveParticipant: (participant: MissionParticipant) => void;
+  pendingRequests: Map<string, string>;
 }) => (
   <div
     style={{
@@ -475,35 +496,48 @@ const MissionCard = ({
       </Text>
     )}
 
-    {/* ── Participants (S27-4) — read-only; count row toggles the detail list ── */}
-    <button
-      onClick={onToggle}
-      disabled={participants.length === 0}
-      aria-expanded={expanded}
-      aria-label={`${participants.length} participant${participants.length !== 1 ? 's' : ''} for ${mission.MissionID}`}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: 'var(--c3-space-2)',
-        border: 'none',
-        background: 'transparent',
-        padding: 0,
-        cursor: participants.length > 0 ? 'pointer' : 'default',
-        textAlign: 'left',
-        fontFamily: 'inherit',
-      }}
-    >
-      <Text size={200} weight="semibold" style={{ color: 'var(--c3-gray-700)' }}>
-        {participants.length === 0
-          ? 'No participants assigned'
-          : `${participants.length} participant${participants.length !== 1 ? 's' : ''}`}
-      </Text>
-      {participants.length > 0 && (
-        <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
-          {expanded ? '▾ hide' : '▸ show'}
+    {/* ── Participants (S27-4 read; S29B governed membership) ─────────────── */}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--c3-space-2)', flexWrap: 'wrap' }}>
+      <button
+        onClick={onToggle}
+        disabled={participants.length === 0}
+        aria-expanded={expanded}
+        aria-label={`${participants.length} participant${participants.length !== 1 ? 's' : ''} for ${mission.MissionID}`}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 'var(--c3-space-2)',
+          border: 'none',
+          background: 'transparent',
+          padding: 0,
+          cursor: participants.length > 0 ? 'pointer' : 'default',
+          textAlign: 'left',
+          fontFamily: 'inherit',
+        }}
+      >
+        <Text size={200} weight="semibold" style={{ color: 'var(--c3-gray-700)' }}>
+          {participants.length === 0
+            ? 'No participants assigned'
+            : `${participants.length} participant${participants.length !== 1 ? 's' : ''}`}
         </Text>
+        {participants.length > 0 && (
+          <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+            {expanded ? '▾ hide' : '▸ show'}
+          </Text>
+        )}
+      </button>
+      {/* Pending-add chip — the participant is NOT shown until execution. */}
+      {[...pendingRequests.keys()].filter(k => k.startsWith(`AddMissionParticipant|${mission.MissionID}|`)).length > 0 && (
+        <Badge color="warning" size="small">
+          {[...pendingRequests.keys()].filter(k => k.startsWith(`AddMissionParticipant|${mission.MissionID}|`)).length} addition(s) pending approval
+        </Badge>
       )}
-    </button>
+      {canManageKit && (
+        <Button appearance="subtle" size="small" onClick={onAddParticipant}>
+          + Add participant
+        </Button>
+      )}
+    </div>
 
     {expanded && participants.length > 0 && (
       <ParticipantList
@@ -516,6 +550,8 @@ const MissionCard = ({
         onAddKit={onAddKit}
         onTransition={onTransition}
         onDeactivate={onDeactivate}
+        onRemoveParticipant={onRemoveParticipant}
+        pendingRequests={pendingRequests}
       />
     )}
   </div>
@@ -536,6 +572,39 @@ export const MissionWorkspace = () => {
 
   const transitionKit = useTransitionKitStatus();
   const deactivateKit = useDeactivateKitAssignment();
+  const { submitRemove, isPending: isRemovalPending } = useSubmitParticipantApproval();
+
+  // S29B: pending participant requests (SP DSM) — one in-flight request per
+  // operationType+mission+person. Chips are affordance; the submit hook
+  // validates duplicates authoritatively.
+  const { data: pendingApprovals = [] } = useListApprovals({ status: [...PENDING_APPROVAL_STATUSES] });
+  const pendingParticipantRequests = useMemo(() => {
+    const map = new Map<string, string>(); // pendingKey -> APR title
+    for (const approval of pendingApprovals) {
+      if (approval.operationType !== 'AddMissionParticipant' && approval.operationType !== 'RemoveMissionParticipant') continue;
+      try {
+        const p = JSON.parse(approval.payload ?? '') as Record<string, unknown>;
+        if (typeof p['missionId'] === 'string' && typeof p['personId'] === 'string') {
+          map.set(
+            pendingRequestKey(
+              approval.operationType as 'AddMissionParticipant' | 'RemoveMissionParticipant',
+              p['missionId'],
+              p['personId'],
+            ),
+            approval.title,
+          );
+        }
+      } catch { /* malformed payload — ignore */ }
+    }
+    return map;
+  }, [pendingApprovals]);
+
+  // Add-participant drawer target (S29B)
+  const [addParticipantTarget, setAddParticipantTarget] = useState<Mission | null>(null);
+
+  // Remove-participant dialog (S29B — mandatory reason; blocked by active kit)
+  const [removeTarget, setRemoveTarget] = useState<MissionParticipant | null>(null);
+  const [removeReason, setRemoveReason] = useState('');
 
   // Add-kit drawer target (participant context)
   const [addKitTarget, setAddKitTarget] = useState<{ missionId: string; personId: string; personName: string } | null>(null);
@@ -640,6 +709,31 @@ export const MissionWorkspace = () => {
   const handleDeactivate = (item: KitAssignment) => {
     setReasonText('');
     setReasonDialog({ kind: 'deactivate', item });
+  };
+
+  // S29B: remove-participant submission (governed; kit dependency blocks)
+  const confirmRemoveParticipant = async () => {
+    if (!removeTarget || removeReason.trim() === '') return;
+    const target = removeTarget;
+    setRemoveTarget(null);
+    try {
+      const outcome = await submitRemove({
+        missionId: target.MissionID,
+        personId: target.PersonID,
+        reason: removeReason.trim(),
+      });
+      if (outcome.mode === 'approval') {
+        toast.success(
+          'Participant removal submitted',
+          `${outcome.approvalTitle} — awaiting owner approval. The participant remains active until execution.`,
+        );
+      } else {
+        toast.success('Participant removed', `${target.PersonID} removed from ${target.MissionID}.`);
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      toast.error('Failed to submit participant removal', msg.slice(0, 240));
+    }
   };
 
   const confirmReasonDialog = async () => {
@@ -801,10 +895,86 @@ export const MissionWorkspace = () => {
               }
               onTransition={handleTransition}
               onDeactivate={handleDeactivate}
+              onAddParticipant={() => setAddParticipantTarget(mission)}
+              onRemoveParticipant={p => { setRemoveReason(''); setRemoveTarget(p); }}
+              pendingRequests={pendingParticipantRequests}
             />
           ))}
         </div>
       )}
+
+      {/* ── S29B: add-participant drawer (governed) ─────────────────────────── */}
+      <AddParticipantPanel
+        missionId={addParticipantTarget?.MissionID ?? ''}
+        missionName={addParticipantTarget?.Name ?? ''}
+        activeParticipants={
+          addParticipantTarget
+            ? participantsByMission.get(addParticipantTarget.MissionID) ?? []
+            : []
+        }
+        open={addParticipantTarget !== null}
+        onDismiss={() => setAddParticipantTarget(null)}
+      />
+
+      {/* ── S29B: remove-participant dialog (mandatory reason; kit block) ──── */}
+      <Dialog open={removeTarget !== null} onOpenChange={(_, data) => { if (!data.open) setRemoveTarget(null); }}>
+        <DialogSurface>
+          <DialogBody>
+            <DialogTitle>
+              {removeTarget
+                ? `Remove ${resolvePersonName(removeTarget.PersonID, peopleById)} from ${removeTarget.MissionID}?`
+                : ''}
+            </DialogTitle>
+            <DialogContent style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-3)' }}>
+              {(() => {
+                const activeKitCount = removeTarget
+                  ? (kitByMissionPerson.get(removeTarget.MissionID)?.get(removeTarget.PersonID) ?? []).length
+                  : 0;
+                return (
+                  <>
+                    <Text size={300}>
+                      Removal is a governed operation: it is submitted for owner approval and the
+                      participant remains active until execution. The record is retained for history.
+                    </Text>
+                    {activeKitCount > 0 && (
+                      <Text size={300} weight="semibold" style={{ color: 'var(--c3-critical)' }}>
+                        {activeKitCount} active kit assignment{activeKitCount !== 1 ? 's' : ''} exist for this
+                        participant — kit must be deactivated before a removal can be submitted.
+                      </Text>
+                    )}
+                    <Textarea
+                      value={removeReason}
+                      onChange={(_, d) => setRemoveReason(d.value)}
+                      placeholder="Reason (required)"
+                      rows={3}
+                      maxLength={500}
+                      disabled={activeKitCount > 0}
+                    />
+                  </>
+                );
+              })()}
+            </DialogContent>
+            <DialogActions>
+              <Button
+                appearance="primary"
+                disabled={
+                  removeReason.trim() === '' ||
+                  isRemovalPending ||
+                  (removeTarget
+                    ? (kitByMissionPerson.get(removeTarget.MissionID)?.get(removeTarget.PersonID) ?? []).length > 0
+                    : true)
+                }
+                onClick={() => { void confirmRemoveParticipant(); }}
+              >
+                Submit removal
+              </Button>
+              <Button appearance="secondary" onClick={() => setRemoveTarget(null)}>
+                Cancel
+              </Button>
+            </DialogActions>
+          </DialogBody>
+        </DialogSurface>
+      </Dialog>
 
       {/* ── S29A: add-kit drawer (mounted outside the card tree) ───────────── */}
       <AddKitPanel
