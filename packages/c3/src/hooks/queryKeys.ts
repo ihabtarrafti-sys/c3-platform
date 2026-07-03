@@ -64,6 +64,16 @@ export const queryKeys = {
     participants: (missionId: string) => ['missions', missionId, 'participants'] as const,
     /** All participants across all missions — used by useAllMissionParticipants (S14-2). */
     allParticipants: () => ['missions', 'all-participants'] as const,
+    /** Kit assignments for a mission (S28-3). */
+    kitAssignments: (missionId: string) => ['missions', missionId, 'kit-assignments'] as const,
+    /** All kit assignments across all missions — batch for MissionWorkspace (S28-3). */
+    allKitAssignments: () => ['missions', 'all-kit-assignments'] as const,
+  },
+  apparel: {
+    /** Active apparel profile for a person (S28-3). */
+    byPerson: (personId: string) => ['apparel-profile', personId] as const,
+    /** All active apparel profiles (S28-3). */
+    all: () => ['apparel-profiles'] as const,
   },
   milestone: {
     /** All milestones across all missions. Used by useWorkItems (S12-3). */

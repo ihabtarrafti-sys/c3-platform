@@ -1,4 +1,4 @@
-import type { Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
+import type { KitAssignment, Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
 import type { IMissionService } from '../interfaces/IMissionService';
 
 /**
@@ -87,6 +87,54 @@ const MOCK_PARTICIPANTS: MissionParticipant[] = [
   },
 ];
 
+/**
+ * Kit assignment records — issued kit per participant per Mission (S28-4).
+ *
+ * Seeds mirror the C3MissionKitAssignments SP sample rows exactly (schema
+ * doc §9) so hosted validation compares 1:1 against mock behaviour.
+ * Coverage: multiples per person (PER-0001 Jersey + Equipment), a fulfilled
+ * pair (Delivered + Confirmed), an in-flight order (PER-0002 Ordered), and
+ * a not-started assignment (PER-0004 NotOrdered).
+ */
+const MOCK_KIT_ASSIGNMENTS: KitAssignment[] = [
+  {
+    MissionID:       'TR/2026/006',
+    PersonID:        'PER-0001',
+    ItemCategory:    'Jersey',
+    AssignmentKey:   'HOME-2026',
+    ItemDescription: 'Home jersey 2026',
+    Status:          'Delivered',
+    JerseyNumber:    '7',
+    OwnerEmail:      'ops.coordinator@geekay.gg',
+  },
+  {
+    MissionID:       'TR/2026/006',
+    PersonID:        'PER-0001',
+    ItemCategory:    'Equipment',
+    AssignmentKey:   'CONTROLLER-01',
+    ItemDescription: 'Controller',
+    Status:          'Confirmed',
+    OwnerEmail:      'ops.coordinator@geekay.gg',
+  },
+  {
+    MissionID:       'TR/2026/006',
+    PersonID:        'PER-0002',
+    ItemCategory:    'Jersey',
+    AssignmentKey:   'HOME-2026',
+    ItemDescription: 'Home jersey 2026',
+    Status:          'Ordered',
+    OwnerEmail:      'ops.coordinator@geekay.gg',
+  },
+  {
+    MissionID:       'SATR/2026/003',
+    PersonID:        'PER-0004',
+    ItemCategory:    'Jersey',
+    AssignmentKey:   'HOME-2026',
+    ItemDescription: 'Home jersey 2026',
+    Status:          'NotOrdered',
+  },
+];
+
 // ---------------------------------------------------------------------------
 // Valid status transitions
 // ---------------------------------------------------------------------------
@@ -147,6 +195,14 @@ export const createMockMissionService = (): IMissionService => ({
 
   async listAllMissionParticipants(): Promise<MissionParticipant[]> {
     return [...MOCK_PARTICIPANTS];
+  },
+
+  async listKitAssignments(missionId: string): Promise<KitAssignment[]> {
+    return MOCK_KIT_ASSIGNMENTS.filter(k => k.MissionID === missionId);
+  },
+
+  async listAllKitAssignments(): Promise<KitAssignment[]> {
+    return [...MOCK_KIT_ASSIGNMENTS];
   },
 
   async confirmMission(missionId: string, confirmedBy: string): Promise<Mission> {

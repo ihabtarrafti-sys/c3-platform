@@ -52,12 +52,14 @@
  * See: docs/architecture/C3MissionParticipants SP List Schema.md
  */
 
-import type { Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
+import type { KitAssignment, Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
 import type { IMissionService } from '../interfaces/IMissionService';
 import { mapSpItemsToMissions } from '@c3/utils/spMissionMapper';
 import type { SpMissionItem } from '@c3/utils/spMissionMapper';
 import { mapSpItemsToMissionParticipants } from '@c3/utils/spMissionParticipantMapper';
 import type { SpMissionParticipantItem } from '@c3/utils/spMissionParticipantMapper';
+import { mapSpItemsToKitAssignments } from '@c3/utils/spKitAssignmentMapper';
+import type { SpKitAssignmentItem } from '@c3/utils/spKitAssignmentMapper';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -65,6 +67,7 @@ import type { SpMissionParticipantItem } from '@c3/utils/spMissionParticipantMap
 
 const LIST_NAME = 'C3Missions';
 const PARTICIPANTS_LIST_NAME = 'C3MissionParticipants';
+const KIT_LIST_NAME = 'C3MissionKitAssignments';
 const PAGE_SIZE = 500;
 
 // ---------------------------------------------------------------------------
@@ -77,6 +80,10 @@ function buildListUrl(siteUrl: string): string {
 
 function buildParticipantsListUrl(siteUrl: string): string {
   return `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${PARTICIPANTS_LIST_NAME}')/items`;
+}
+
+function buildKitListUrl(siteUrl: string): string {
+  return `${siteUrl.replace(/\/$/, '')}/_api/web/lists/getbytitle('${KIT_LIST_NAME}')/items`;
 }
 
 /**
@@ -213,6 +220,68 @@ function toActiveParticipants(items: SpMissionParticipantItem[]): MissionPartici
   return records.filter(r => r.isActive).map(r => r.participant);
 }
 
+interface SpKitListResponse {
+  value: SpKitAssignmentItem[];
+}
+
+/**
+ * Fetch C3MissionKitAssignments list items from the given URL.
+ * Returns an empty array on any network, HTTP, or parse error (fail-safe).
+ */
+async function fetchKitItems(url: string): Promise<SpKitAssignmentItem[]> {
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: 'GET',
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json;odata=nometadata' },
+    });
+  } catch (err) {
+    console.error('[C3/KitAssignment] Network error reaching SharePoint:', err);
+    return [];
+  }
+
+  if (!response.ok) {
+    if (response.status === 404) {
+      console.warn(
+        '[C3/KitAssignment] C3MissionKitAssignments list not found (HTTP 404). ' +
+        'The list may not be provisioned yet. ' +
+        'See docs/architecture/C3MissionKitAssignments SP List Schema.md for provisioning steps.',
+      );
+    } else {
+      console.error(
+        `[C3/KitAssignment] SharePoint returned HTTP ${response.status} ${response.statusText} ` +
+        'for C3MissionKitAssignments query. Returning empty kit list.',
+      );
+    }
+    return [];
+  }
+
+  let json: SpKitListResponse;
+  try {
+    json = (await response.json()) as SpKitListResponse;
+  } catch (err) {
+    console.error('[C3/KitAssignment] Failed to parse SharePoint JSON response:', err);
+    return [];
+  }
+
+  if (!Array.isArray(json.value)) {
+    console.error(
+      '[C3/KitAssignment] SharePoint response is missing the "value" array. ' +
+      'Check C3MissionKitAssignments list REST endpoint and $select.',
+    );
+    return [];
+  }
+
+  return json.value;
+}
+
+/** Map raw kit items and project active assignments (explicit-false excluded). */
+function toActiveKitAssignments(items: SpKitAssignmentItem[]): KitAssignment[] {
+  const { records } = mapSpItemsToKitAssignments(items);
+  return records.filter(r => r.isActive).map(r => r.assignment);
+}
+
 /** Apply MissionFilter client-side — mirrors MockMissionService semantics. */
 function applyFilter(missions: Mission[], filter?: MissionFilter): Mission[] {
   let results = missions;
@@ -232,6 +301,7 @@ function applyFilter(missions: Mission[], filter?: MissionFilter): Mission[] {
 export const createSharePointMissionService = (siteUrl: string): IMissionService => {
   const baseUrl = buildListUrl(siteUrl);
   const participantsBaseUrl = buildParticipantsListUrl(siteUrl);
+  const kitBaseUrl = buildKitListUrl(siteUrl);
 
   return {
     async listMissions(filter?: MissionFilter): Promise<Mission[]> {
@@ -281,6 +351,27 @@ export const createSharePointMissionService = (siteUrl: string): IMissionService
 
       const items = await fetchParticipantItems(url);
       return toActiveParticipants(items);
+    },
+
+    async listKitAssignments(missionId: string): Promise<KitAssignment[]> {
+      const url =
+        `${kitBaseUrl}` +
+        `?$select=*` +
+        `&$filter=MissionID eq '${encodeODataLiteral(missionId)}'` +
+        `&$top=${PAGE_SIZE}`;
+
+      const items = await fetchKitItems(url);
+      return toActiveKitAssignments(items);
+    },
+
+    async listAllKitAssignments(): Promise<KitAssignment[]> {
+      const url =
+        `${kitBaseUrl}` +
+        `?$select=*` +
+        `&$top=${PAGE_SIZE}`;
+
+      const items = await fetchKitItems(url);
+      return toActiveKitAssignments(items);
     },
 
     async confirmMission(missionId: string, confirmedBy: string): Promise<Mission> {

@@ -1,4 +1,4 @@
-import type { Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
+import type { KitAssignment, Mission, MissionFilter, MissionParticipant, MissionStatus } from '@c3/types';
 
 /**
  * IMissionService — Mission domain service interface.
@@ -43,6 +43,20 @@ export interface IMissionService {
    * Returns an empty array rather than throwing on failure.
    */
   listAllMissionParticipants(): Promise<MissionParticipant[]>;
+
+  /**
+   * Returns all active kit assignments for a Mission (S28-2, read-only).
+   * Returns an empty array if the Mission has no assignments or the
+   * C3MissionKitAssignments list is not provisioned (404-safe).
+   */
+  listKitAssignments(missionId: string): Promise<KitAssignment[]>;
+
+  /**
+   * Returns all active kit assignments across all missions (S28-2).
+   * Batch call for MissionWorkspace — grouped locally by consumer
+   * (no per-card queries). Returns an empty array rather than throwing.
+   */
+  listAllKitAssignments(): Promise<KitAssignment[]>;
 
   /**
    * Transitions a Mission from FinancePending to Confirmed.
