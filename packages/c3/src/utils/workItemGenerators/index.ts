@@ -56,6 +56,7 @@ import {
   generateCredentialItems,
 } from './gapGenerators';
 import { generateMissionDeparturePressure } from './missionGenerators';
+import { generateMissionReadinessGap } from './readinessGenerators';
 import { generateMilestoneWorkItems } from './milestoneGenerators';
 
 // ---------------------------------------------------------------------------
@@ -75,7 +76,13 @@ import { generateMilestoneWorkItems } from './milestoneGenerators';
  * @param participantPersonIdsByMission Map of missionId → personId[].
  *                  Built by useAllMissionParticipants (S14-2). Replaces the
  *                  former Mission.ParticipantPersonIDs array. Defaults to an
- *                  empty Map — departure pressure items are suppressed when absent.
+ *                  empty Map — departure pressure items are suppressed when
+ *                  absent. NOTE (S30): the map is treated as the authoritative
+ *                  active-participant record — an upcoming mission with no
+ *                  entry emits a zero-roster MissionReadinessGap item. Callers
+ *                  must pass the real map (useWorkItems always does) and must
+ *                  not invoke this pipeline while the participant source is
+ *                  loading or failed (useWorkItems gates on both).
  *
  * @returns Sorted WorkItem[] (Immediate → High → Normal; MDP first within band).
  */
@@ -161,6 +168,18 @@ export const generateWorkItems = (
   // ── Step 4: MissionDeparturePressure items ────────────────────────────────
   for (const mission of upcomingMissions) {
     const item = generateMissionDeparturePressure(mission, gapsByPerson, participantPersonIdsByMission);
+    if (item) items.push(item);
+  }
+
+  // ── Step 4b: MissionReadinessGap items (Sprint 30) ────────────────────────
+  //
+  // Zero-roster blind spot: an upcoming Confirmed/Active mission with no
+  // participants produces no gaps and therefore no MDP item. Mutually
+  // exclusive with MDP for the same mission by construction (MDP needs gaps,
+  // gaps need participants). upcomingMissions already applies the window and
+  // excludes PostMission; Planning/FinancePending/Settled/Canceled never enter.
+  for (const mission of upcomingMissions) {
+    const item = generateMissionReadinessGap(mission, participantPersonIdsByMission);
     if (item) items.push(item);
   }
 

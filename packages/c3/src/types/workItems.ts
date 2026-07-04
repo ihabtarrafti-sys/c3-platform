@@ -40,9 +40,17 @@ import type { UrgencyTier } from './situation';
  * MilestoneAlert         — A planning milestone is Overdue or DueSoon for a Mission.
  *                          Action: resolve the planning gap and mark complete.
  *                          Sprint 12 (Mission Milestones).
+ * MissionReadinessGap    — A readiness facet of an upcoming mission is in a
+ *                          state that cannot resolve itself. Sprint 30 v1 emits
+ *                          it for exactly one condition: a Confirmed/Active
+ *                          mission inside the departure-pressure window with
+ *                          ZERO active participants (which generates no gaps
+ *                          and therefore no MissionDeparturePressure item —
+ *                          this closes that blind spot). Action: assign the
+ *                          roster in the Mission workspace.
  *
- * Note: MissionDeparturePressure and MilestoneAlert are cross-person categories.
- * All others are scoped to a single person.
+ * Note: MissionDeparturePressure, MilestoneAlert, and MissionReadinessGap are
+ * mission-scoped categories. All others are scoped to a single person.
  */
 export type WorkItemCategory =
   | 'CredentialRenewal'
@@ -50,7 +58,8 @@ export type WorkItemCategory =
   | 'JourneyInitiation'
   | 'ObligationRouting'
   | 'MissionDeparturePressure'
-  | 'MilestoneAlert';
+  | 'MilestoneAlert'
+  | 'MissionReadinessGap';
 
 // ---------------------------------------------------------------------------
 // Priority
@@ -130,8 +139,13 @@ export type OwnerSource =
  *                    window with unresolved participant gaps. Cross-person.
  * MilestoneGap     — Triggered by a planning milestone that is Overdue or DueSoon.
  *                    Mission-scoped. Sprint 12 (Mission Milestones).
+ * MissionReadinessGap — Triggered by a readiness facet of an upcoming mission.
+ *                    Mission-scoped. Sprint 30 v1: facet 'Participants' only
+ *                    (zero-roster condition). The facet discriminator exists so
+ *                    a future kit facet trigger extends this variant without
+ *                    renaming the work-item type or category.
  *
- * Future trigger types (not Sprint 11/12): ContractExpiry, RosterChange, ManualEntry.
+ * Future trigger types (not Sprint 11/12/30): ContractExpiry, RosterChange, ManualEntry.
  */
 export type WorkItemTrigger =
   | {
@@ -158,6 +172,17 @@ export type WorkItemTrigger =
        * Negative = overdue. Used in priority computation.
        */
       daysUntilDue: number;
+      daysUntilDeparture: number;
+    }
+  | {
+      type: 'MissionReadinessGap';
+      missionId: string;
+      /**
+       * The readiness facet in a gap state. Sprint 30 v1: 'Participants' only.
+       * A future kit trigger adds 'Kit' here — the type is designed to extend
+       * without renaming.
+       */
+      facet: 'Participants';
       daysUntilDeparture: number;
     };
 
@@ -196,6 +221,7 @@ export interface WorkItemLinks {
  *   ObligationRouting:        or-{personId}-{obligationType}
  *   MissionDeparturePressure: mdp-{missionId}
  *   MilestoneAlert:           ml-{milestoneId}
+ *   MissionReadinessGap:      mrg-{missionId}-{facetSlug} (v1: mrg-{missionId}-participants)
  *
  * The ID uniquely identifies the operational condition. Same condition → same ID.
  * When a persistence layer is introduced, WorkItems can be matched to persisted

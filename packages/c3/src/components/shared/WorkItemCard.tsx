@@ -169,6 +169,7 @@ const ACTION_LABEL: Record<WorkItemCategory, string> = {
   ObligationRouting:        'Assign Owner',
   MissionDeparturePressure: 'View Mission',
   MilestoneAlert:           'View Mission',
+  MissionReadinessGap:      'Assign Participants',
 };
 
 // ---------------------------------------------------------------------------

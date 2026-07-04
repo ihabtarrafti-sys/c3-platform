@@ -190,6 +190,10 @@ export const CommandCenter = () => {
   const handleWorkItemAction = (item: WorkItem) => {
     if (item.category === 'MissionDeparturePressure' && item.links.missionId) {
       navigate({ id: 'situation-room', missionId: item.links.missionId });
+    } else if (item.category === 'MissionReadinessGap') {
+      // S30: resolution lives in the Missions workspace ("+ Add participant"),
+      // not the Situation Room — an empty roster has no gaps to review there.
+      navigate({ id: 'missions' });
     } else if (item.links.personId) {
       navigate({ id: 'person-profile', personId: item.links.personId, tab: 'readiness' });
     }

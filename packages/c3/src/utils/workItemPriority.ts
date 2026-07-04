@@ -61,6 +61,15 @@ export const computeWorkItemPriority = (
     return trigger.daysUntilDeparture <= 7 ? 'Immediate' : 'High';
   }
 
+  // ── MissionReadinessGap ─────────────────────────────────────────────────
+  // Sprint 30: same escalation shape as MDP — the condition (zero roster on a
+  // committed mission) only exists inside the departure window, so minimum is
+  // High; an imminent departure with no roster demands action today.
+  if (category === 'MissionReadinessGap') {
+    if (trigger.type !== 'MissionReadinessGap') return 'High'; // defensive
+    return trigger.daysUntilDeparture <= 7 ? 'Immediate' : 'High';
+  }
+
   // ── MilestoneAlert ──────────────────────────────────────────────────────
   // Overdue milestones are a planning failure that has already occurred.
   // They warrant High unconditionally — the window to act without consequence
