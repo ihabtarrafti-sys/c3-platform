@@ -13,6 +13,7 @@
     "copy:c3-runtime": "node scripts/copy-c3-runtime.mjs",
     "beta:runtime": "npm run build:c3-runtime && npm run copy:c3-runtime",
     "verify:runtime": "node scripts/verify-c3-runtime.mjs",
+    "gate": "node scripts/validate-gate.mjs",
     "build:c3-runtime-pkg": "npm --workspace packages/c3-runtime run build",
     "build:embedded": "npm run build:c3 && npm run build:c3-runtime-pkg && npm run copy:c3-runtime && npm run build:spfx",
     "lint:c3": "npm --workspace packages/c3 run lint",
