@@ -15,11 +15,19 @@
  */
 
 import type {
+  ApprovalQueryOptions,
+  ApprovalReadResult,
   IApprovalsService,
   CreateApprovalRequest,
   CreateApprovalResult,
   PatchApprovalStatusRequest,
   StampExecutionRequest,
+} from '../interfaces/IApprovalsService';
+import {
+  ACTIONABLE_STATUSES,
+  DEFAULT_TERMINAL_HISTORY_LIMIT,
+  PENDING_STATUSES,
+  TERMINAL_STATUSES,
 } from '../interfaces/IApprovalsService';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
@@ -71,12 +79,51 @@ export const createMockApprovalsService = (
     return [...results];
   },
 
-  async getApproval(_id: number): Promise<null> {
-    console.warn(`${PREFIX} getApproval: not implemented -- Phase 4`);
-    throw new Error(`${PREFIX} getApproval: not implemented`);
+  // ── S31 semantic reads — identical OBSERVABLE semantics to the SP paged
+  //    core (status filtering, Id-desc ordering, windowing, null-on-missing)
+  //    with no artificial page simulation: the store is always complete, so
+  //    completeness is inherent. Paging mechanics are proven against the REAL
+  //    SP service via the injected fetch boundary in the s31 harness. ────────
+
+  async listPendingApprovals(_opts?: ApprovalQueryOptions): Promise<C3Approval[]> {
+    return approvalStore
+      .filter(a => (PENDING_STATUSES as readonly string[]).includes(a.approvalStatus))
+      .sort((a, b) => b.id - a.id);
   },
 
-  async patchApprovalStatus(id: number, req: PatchApprovalStatusRequest): Promise<void> {
+  async listActionableApprovals(_opts?: ApprovalQueryOptions): Promise<C3Approval[]> {
+    return approvalStore
+      .filter(a => (ACTIONABLE_STATUSES as readonly string[]).includes(a.approvalStatus))
+      .sort((a, b) => b.id - a.id);
+  },
+
+  async listApprovalsByPerson(personId: string, _opts?: ApprovalQueryOptions): Promise<C3Approval[]> {
+    const trimmed = personId.trim();
+    if (!trimmed) return [];
+    return approvalStore
+      .filter(a => a.targetPersonId === trimmed)
+      .sort((a, b) => b.id - a.id);
+  },
+
+  async listRecentTerminalApprovals(
+    opts?: ApprovalQueryOptions & { limit?: number },
+  ): Promise<C3Approval[]> {
+    const limit = opts?.limit ?? DEFAULT_TERMINAL_HISTORY_LIMIT;
+    return approvalStore
+      .filter(a => (TERMINAL_STATUSES as readonly string[]).includes(a.approvalStatus))
+      .sort((a, b) => b.id - a.id)
+      .slice(0, limit);
+  },
+
+  async getApproval(id: number, _opts?: ApprovalQueryOptions): Promise<ApprovalReadResult | null> {
+    const found = approvalStore.find(a => a.id === id);
+    if (!found) return null;
+    // Synthetic etag — mock has no concurrent editors; the value exists so the
+    // freshness→update contract exercises the same code path in both DSMs.
+    return { approval: { ...found }, etag: `"mock-${id}"` };
+  },
+
+  async patchApprovalStatus(id: number, req: PatchApprovalStatusRequest, _etag?: string): Promise<void> {
     const idx = approvalStore.findIndex(a => a.id === id);
     if (idx === -1) {
       throw new Error(`${PREFIX} patchApprovalStatus: record ${id} not found`);
@@ -111,7 +158,7 @@ export const createMockApprovalsService = (
     console.info(`${PREFIX} patchApprovalStatus: ${existing.title} (ID ${id}) -> ${req.newStatus}`);
   },
 
-  async stampExecution(id: number, req: StampExecutionRequest): Promise<void> {
+  async stampExecution(id: number, req: StampExecutionRequest, _etag?: string): Promise<void> {
     const idx = approvalStore.findIndex(a => a.id === id);
     if (idx === -1) {
       throw new Error(`${PREFIX} stampExecution: record ${id} not found`);

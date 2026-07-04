@@ -51,6 +51,46 @@ export const APPROVAL_STATUS_VALUES: ReadonlySet<string> = new Set<ApprovalStatu
 ]);
 
 // ---------------------------------------------------------------------------
+// Sprint 31 — approved query classes (Approval Query Integrity — Sprint 31.md)
+// ---------------------------------------------------------------------------
+
+/** Pending band: blocks duplicate membership requests; shown as pending chips. */
+export const PENDING_STATUSES: readonly ApprovalStatusValue[] =
+  ['Submitted', 'InReview', 'Approved'];
+
+/**
+ * Actionable set: pending band + ExecutionFailed. ExecutionFailed is actionable
+ * recovery state and must NEVER be confined to a limited history window.
+ */
+export const ACTIONABLE_STATUSES: readonly ApprovalStatusValue[] =
+  ['Submitted', 'InReview', 'Approved', 'ExecutionFailed'];
+
+/** Terminal states eligible for the deliberate recent-history window. */
+export const TERMINAL_STATUSES: readonly ApprovalStatusValue[] =
+  ['Executed', 'Rejected'];
+
+/** Default size of the terminal recent-history window (Executed + Rejected). */
+export const DEFAULT_TERMINAL_HISTORY_LIMIT = 200;
+
+/** Options accepted by the Sprint 31 read methods. */
+export interface ApprovalQueryOptions {
+  /** Propagated through EVERY page request. Aborts reject with AbortError —
+   *  cancellation is distinguishable from failure and never resolves empty. */
+  signal?: AbortSignal;
+}
+
+/**
+ * Result of a fresh single-row read (getApproval).
+ * etag is the row's CURRENT SharePoint ETag — callers performing a subsequent
+ * status update MUST pass it as the IF-MATCH precondition (never the cached
+ * card, never '*'). Mock DSM returns a synthetic etag.
+ */
+export interface ApprovalReadResult {
+  approval: C3Approval;
+  etag: string | null;
+}
+
+// ---------------------------------------------------------------------------
 // CreateApprovalRequest
 // ---------------------------------------------------------------------------
 
@@ -180,18 +220,50 @@ export interface IApprovalsService {
   createApproval(req: CreateApprovalRequest): Promise<CreateApprovalResult>;
 
   /**
-   * Returns active approvals (Submitted + InReview by default).
-   * Live in Phase 3B.
-   *
-   * filter.status: string[] -- override the default status filter.
+   * LEGACY (pre-S31) read: single request, $top=500, SubmittedAt-desc order.
+   * Contract unchanged for compatibility; production consumers migrated to the
+   * S31 semantic methods below. Do not add new consumers.
    */
   listApprovals(filter?: { status?: string[] }): Promise<C3Approval[]>;
 
   /**
-   * Returns a single approval by SP item ID.
-   * Phase 4+ stub -- throws '[C3/Approvals] getApproval: not implemented'.
+   * COMPLETE pending band (Submitted, InReview, Approved) — exhaustively paged,
+   * single-status indexed queries, merged/deduped by Id, sorted Id desc.
+   * Fail-closed: any page or mapper failure rejects; never a partial success.
+   * Powers the duplicate-pending guard — completeness is correctness-critical.
    */
-  getApproval(id: number): Promise<null>;
+  listPendingApprovals(opts?: ApprovalQueryOptions): Promise<C3Approval[]>;
+
+  /**
+   * COMPLETE actionable set (pending band + ExecutionFailed) — same paging,
+   * ordering, and fail-closed contract as listPendingApprovals.
+   */
+  listActionableApprovals(opts?: ApprovalQueryOptions): Promise<C3Approval[]>;
+
+  /**
+   * COMPLETE person history — all 6 statuses, server-filtered on the indexed
+   * TargetPersonID column (OData-literal-escaped), exhaustively paged,
+   * sorted Id desc, fail-closed.
+   */
+  listApprovalsByPerson(personId: string, opts?: ApprovalQueryOptions): Promise<C3Approval[]>;
+
+  /**
+   * WINDOWED terminal history (Executed, Rejected): the newest `limit` rows by
+   * Id across both statuses. Deliberately incomplete — consumers MUST label the
+   * result as "showing latest N" and never present loaded counts as totals.
+   */
+  listRecentTerminalApprovals(
+    opts?: ApprovalQueryOptions & { limit?: number },
+  ): Promise<C3Approval[]>;
+
+  /**
+   * Fresh single-row read by the retained SP numeric item Id (never derived by
+   * parsing an APR Title). Returns null when the row does not exist. A row that
+   * exists but fails mapping raises ApprovalQueryIntegrityError (truthful
+   * corruption signal — never null, never a silent skip). Live since S31
+   * (retires the TD-06 throwing stub).
+   */
+  getApproval(id: number, opts?: ApprovalQueryOptions): Promise<ApprovalReadResult | null>;
 
   /**
    * Patches the ApprovalStatus of an existing record.
@@ -206,8 +278,13 @@ export interface IApprovalsService {
    *
    * Does NOT set ExecutedAt, ExecutionError, or create any operational rows.
    * ADR-013: execution is a separate phase (Phase 4).
+   *
+   * S31: when `etag` is supplied (from the immediately-preceding getApproval
+   * freshness read) it becomes the IF-MATCH precondition — a concurrent change
+   * surfaces as a truthful concurrency failure. Absent etag preserves the
+   * legacy behaviour for unmigrated callers only; new paths MUST pass it.
    */
-  patchApprovalStatus(id: number, req: PatchApprovalStatusRequest): Promise<void>;
+  patchApprovalStatus(id: number, req: PatchApprovalStatusRequest, etag?: string): Promise<void>;
 
   /**
    * Stamps C3Approvals as Executed or ExecutionFailed after an execution attempt.
@@ -219,6 +296,10 @@ export interface IApprovalsService {
    *
    * Called by useExecuteApproval ONLY. Never called by patchApprovalStatus.
    * Only valid when the current ApprovalStatus is Approved -- callers must enforce this.
+   *
+   * S31: `etag` semantics identical to patchApprovalStatus — pass the ETag from
+   * the freshness read; a mid-execution change 412s into the existing
+   * partial-execution recovery path.
    */
-  stampExecution(id: number, req: StampExecutionRequest): Promise<void>;
+  stampExecution(id: number, req: StampExecutionRequest, etag?: string): Promise<void>;
 }

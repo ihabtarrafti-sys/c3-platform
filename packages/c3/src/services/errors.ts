@@ -181,3 +181,22 @@ export class InvalidKitTransitionError extends Error {
     );
   }
 }
+
+/**
+ * S31 — a query contracted as COMPLETE returned one or more SharePoint rows the
+ * mapper rejected. A rejection must never produce a silent partial success: the
+ * whole read fails truthfully, carrying the rejected item IDs as diagnostic
+ * evidence. (Approval Query Integrity — Sprint 31.md §3.6)
+ */
+export class ApprovalQueryIntegrityError extends Error {
+  override readonly name = 'ApprovalQueryIntegrityError';
+  readonly rejectedItemIds: number[];
+  constructor(queryLabel: string, rejectedItemIds: number[], fetched: number) {
+    super(
+      `[C3/Approvals] Query integrity failure in ${queryLabel}: ${rejectedItemIds.length} of ` +
+      `${fetched} fetched C3Approvals rows failed mapping (item IDs: ${rejectedItemIds.join(', ') || 'unknown'}). ` +
+      `Refusing to return a partial result — inspect the listed rows for schema corruption.`,
+    );
+    this.rejectedItemIds = rejectedItemIds;
+  }
+}
