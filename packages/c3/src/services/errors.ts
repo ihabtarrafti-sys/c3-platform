@@ -183,6 +183,40 @@ export class InvalidKitTransitionError extends Error {
 }
 
 /**
+ * S32 — the C3Contracts list does not exist (HTTP 404). Distinguished from a
+ * successful empty list: unprovisioned is an UNAVAILABLE state, never an empty
+ * success. (Canonical Contracts Reset — Sprint 32.md §7)
+ */
+export class ContractsListUnprovisionedError extends Error {
+  override readonly name = 'ContractsListUnprovisionedError';
+  constructor() {
+    super(
+      '[C3/Contracts] The C3Contracts list was not found (HTTP 404) — it is not provisioned. ' +
+      'This is NOT an empty contract register. See C3Contracts SP List Schema.md for provisioning.',
+    );
+  }
+}
+
+/**
+ * S32 — a C3Contracts read returned one or more rows that failed canonical
+ * validation (missing required canonical fields, or lookup-object values where
+ * flat plain-text is required). The read fails truthfully with the item IDs —
+ * never a coerced or partial result.
+ */
+export class ContractReadIntegrityError extends Error {
+  override readonly name = 'ContractReadIntegrityError';
+  readonly rejectedItemIds: number[];
+  constructor(rejectedItemIds: number[], fetched: number, detail: string) {
+    super(
+      `[C3/Contracts] Read integrity failure: ${rejectedItemIds.length} of ${fetched} fetched ` +
+      `C3Contracts rows failed canonical validation (item IDs: ${rejectedItemIds.join(', ') || 'unknown'}). ` +
+      `${detail} Refusing to return a partial or coerced result.`,
+    );
+    this.rejectedItemIds = rejectedItemIds;
+  }
+}
+
+/**
  * S31 — a query contracted as COMPLETE returned one or more SharePoint rows the
  * mapper rejected. A rejection must never produce a silent partial success: the
  * whole read fails truthfully, carrying the rejected item IDs as diagnostic

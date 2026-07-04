@@ -47,6 +47,43 @@ export interface SPContractItem {
 }
 
 // ---------------------------------------------------------------------------
+// Canonical row validation (Sprint 32 — read integrity)
+//
+// Pure, parity-testable guard used by SharePointContractService BEFORE
+// mapContract. Rejects (never coerces):
+//   - missing/invalid SP Id;
+//   - missing required canonical fields (Title/ContractID, PersonID, FullName,
+//     ContractTypeName, ContractStage1, EndDate — the documented required set);
+//   - lookup-object values where the canonical schema requires flat plain
+//     text (the pre-canonical mock list returned expanded lookup objects for
+//     person/team/game — those are architecture violations, not data).
+// mapContract itself is unchanged (s15 parity surface preserved).
+// ---------------------------------------------------------------------------
+
+const REQUIRED_TEXT_FIELDS = ['Title', 'PersonID', 'FullName', 'ContractTypeName', 'ContractStage1', 'EndDate'] as const;
+const FLAT_ONLY_FIELDS = [
+  'Title', 'PersonID', 'FullName', 'DisplayName', 'ContractTypeName', 'AgreementCategory',
+  'ContractStage1', 'Disposition1', 'CurrencyCode', 'ContractOwnerName', 'ContractOwnerEmail',
+] as const;
+
+/** Returns error messages; empty array = the row is canonically valid. */
+export function validateSpContractItem(item: Partial<SPContractItem> & Record<string, unknown>): string[] {
+  const errors: string[] = [];
+  if (typeof item.Id !== 'number' || !isFinite(item.Id)) errors.push('Id is missing or not a number.');
+  for (const f of FLAT_ONLY_FIELDS) {
+    const v = item[f];
+    if (v !== null && v !== undefined && typeof v === 'object') {
+      errors.push(`${f} is a lookup/object value — the canonical schema requires flat plain text (rejected, not coerced).`);
+    }
+  }
+  for (const f of REQUIRED_TEXT_FIELDS) {
+    const v = item[f];
+    if (typeof v !== 'string' || v.trim() === '') errors.push(`Required canonical field ${f} is missing or blank.`);
+  }
+  return errors;
+}
+
+// ---------------------------------------------------------------------------
 // OpsStatus derivation
 // ---------------------------------------------------------------------------
 
