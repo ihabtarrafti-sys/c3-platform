@@ -34,7 +34,6 @@ import type {
 } from '@c3/services/interfaces/approvalPayloads';
 import type { MissionParticipantRole } from '@c3/types';
 import {
-  PENDING_APPROVAL_STATUSES,
   normalizeExternalCode,
   validateAddParticipantPayload,
   validateRemoveParticipantPayload,
@@ -81,15 +80,17 @@ export const useSubmitParticipantApproval = () => {
 
   const [isPending, setIsPending] = useState(false);
 
-  /** Throws DuplicatePendingRequestError when an in-flight request exists. */
+  /**
+   * Throws DuplicatePendingRequestError when an in-flight request exists.
+   * S31: reads the COMPLETE pending band (exhaustively paged, fail-closed) —
+   * the guard can no longer fail OPEN once C3Approvals outgrows one page.
+   */
   const assertNoPendingDuplicate = async (
     operationType: PendingOp,
     missionId: string,
     personId: string,
   ): Promise<void> => {
-    const pending = await approvalsService.listApprovals({
-      status: [...PENDING_APPROVAL_STATUSES],
-    });
+    const pending = await approvalsService.listPendingApprovals();
     for (const approval of pending) {
       if (approval.operationType !== operationType) continue;
       try {

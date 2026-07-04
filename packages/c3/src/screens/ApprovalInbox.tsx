@@ -87,9 +87,10 @@ import {
 } from '@fluentui/react-icons';
 
 import { EmptyState } from '@c3/components/ui';
+import { useActionableApprovals } from '@c3/hooks/useActionableApprovals';
 import { useActiveJourney } from '@c3/hooks/useActiveJourney';
 import { useApp } from '@c3/hooks/useApp';
-import { useListApprovals } from '@c3/hooks/useListApprovals';
+import { useTerminalApprovals, DEFAULT_TERMINAL_HISTORY_LIMIT } from '@c3/hooks/useTerminalApprovals';
 import { usePatchApprovalStatus, SelfApprovalError } from '@c3/hooks/usePatchApprovalStatus';
 import {
   useExecuteApproval,
@@ -131,7 +132,15 @@ import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
 type InboxTab = 'pending' | 'approved' | 'executed' | 'rejected' | 'failed' | 'all';
 
-/** All 6 lifecycle statuses -- fetched in one request, filtered client-side. */
+/**
+ * S31 data model (Approval Query Integrity):
+ *   - actionable query (COMPLETE, exhaustively paged): Submitted, InReview,
+ *     Approved, ExecutionFailed — every actionable approval is ALWAYS visible,
+ *     regardless of age; ExecutionFailed recovery affordances never age out.
+ *   - terminal query (WINDOWED): the latest N Executed/Rejected rows by Id.
+ *     Tab labels and copy present the window truthfully — loaded counts are
+ *     never shown as authoritative totals once the window saturates.
+ */
 const ALL_STATUSES = [
   'Submitted',
   'InReview',
@@ -1338,31 +1347,49 @@ export const ApprovalInbox = () => {
 
   const [activeTab, setActiveTab] = useState<InboxTab>('pending');
 
-  const {
-    data: allApprovals = [],
-    isLoading,
-    isError,
-    error,
-  } = useListApprovals({
-    status:          [...ALL_STATUSES],
-    refetchInterval: 30_000,
-  });
+  // S31: complete actionable set + windowed terminal history (two queries).
+  const actionableQuery = useActionableApprovals();
+  const terminalQuery   = useTerminalApprovals();
+
+  const actionable = useMemo(() => actionableQuery.data ?? [], [actionableQuery.data]);
+  const terminal   = useMemo(() => terminalQuery.data ?? [], [terminalQuery.data]);
+
+  const isLoading = actionableQuery.isLoading || terminalQuery.isLoading;
+  const isError   = actionableQuery.isError || terminalQuery.isError;
+  const error     = actionableQuery.error ?? terminalQuery.error;
+
+  /** True once the terminal window is saturated — counts are no longer totals. */
+  const terminalWindowed = terminal.length >= DEFAULT_TERMINAL_HISTORY_LIMIT;
+
+  // All tab: actionable (complete) + recent terminal window. Statuses are
+  // disjoint; dedupe by Id defensively (a row transitioning between the two
+  // fetches), the actionable copy wins; sort Id desc (authoritative order).
+  const merged = useMemo(() => {
+    const byId = new Map<number, C3Approval>();
+    for (const a of terminal) byId.set(a.id, a);
+    for (const a of actionable) byId.set(a.id, a);
+    return [...byId.values()].sort((a, b) => b.id - a.id);
+  }, [actionable, terminal]);
 
   // -- Per-tab counts for tab labels --
+  // Actionable counts are authoritative totals; executed/rejected counts are
+  // WINDOW counts and are labelled with '+' once the window saturates.
   const counts = useMemo(() => ({
-    pending:  allApprovals.filter(a => TAB_STATUSES.pending.includes(a.approvalStatus)).length,
-    approved: allApprovals.filter(a => TAB_STATUSES.approved.includes(a.approvalStatus)).length,
-    executed: allApprovals.filter(a => TAB_STATUSES.executed.includes(a.approvalStatus)).length,
-    rejected: allApprovals.filter(a => TAB_STATUSES.rejected.includes(a.approvalStatus)).length,
-    failed:   allApprovals.filter(a => TAB_STATUSES.failed.includes(a.approvalStatus)).length,
-    all:      allApprovals.length,
-  }), [allApprovals]);
+    pending:  actionable.filter(a => TAB_STATUSES.pending.includes(a.approvalStatus)).length,
+    approved: actionable.filter(a => TAB_STATUSES.approved.includes(a.approvalStatus)).length,
+    executed: terminal.filter(a => a.approvalStatus === 'Executed').length,
+    rejected: terminal.filter(a => a.approvalStatus === 'Rejected').length,
+    failed:   actionable.filter(a => TAB_STATUSES.failed.includes(a.approvalStatus)).length,
+    all:      merged.length,
+  }), [actionable, terminal, merged]);
 
   // -- Visible items for the active tab --
-  const visibleApprovals = useMemo(
-    () => allApprovals.filter(a => TAB_STATUSES[activeTab].includes(a.approvalStatus)),
-    [allApprovals, activeTab],
-  );
+  const visibleApprovals = useMemo(() => {
+    if (activeTab === 'all') return merged;
+    const source =
+      activeTab === 'executed' || activeTab === 'rejected' ? terminal : actionable;
+    return source.filter(a => TAB_STATUSES[activeTab].includes(a.approvalStatus));
+  }, [merged, actionable, terminal, activeTab]);
 
   // -- Loading --
   if (isLoading) {
@@ -1454,14 +1481,34 @@ export const ApprovalInbox = () => {
           {TAB_ORDER.map(tab => {
             const count = counts[tab];
             const label = TAB_LABELS[tab];
+            // Windowed tabs: once the terminal window saturates, the loaded
+            // count is NOT the total — the '+' suffix keeps the label truthful.
+            const windowedTab =
+              terminalWindowed && (tab === 'executed' || tab === 'rejected' || tab === 'all');
+            const countLabel = windowedTab ? `${count}+` : `${count}`;
             return (
               <Tab key={tab} value={tab}>
-                {count > 0 ? `${label} (${count})` : label}
+                {count > 0 ? `${label} (${countLabel})` : label}
               </Tab>
             );
           })}
         </TabList>
       </div>
+
+      {/* -- Truthful-window disclosures (S31) -- */}
+      {(activeTab === 'executed' || activeTab === 'rejected') && terminalWindowed && (
+        <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+          Showing the latest {DEFAULT_TERMINAL_HISTORY_LIMIT} Executed and Rejected approvals
+          (most recent first). Older terminal history remains in the C3Approvals list.
+        </Text>
+      )}
+      {activeTab === 'all' && (
+        <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
+          This view contains ALL actionable approvals (Pending, Approved, Failed)
+          plus recent Executed/Rejected history
+          {terminalWindowed ? ` (latest ${DEFAULT_TERMINAL_HISTORY_LIMIT})` : ''}.
+        </Text>
+      )}
 
       {/* -- Tab content -- */}
       {visibleApprovals.length === 0 ? (

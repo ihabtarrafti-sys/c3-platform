@@ -130,6 +130,9 @@ export const useSubmitAddPersonApproval = () => {
         payload:        JSON.stringify(payload),
       });
 
+      // S31: refresh every approval surface immediately — no 30s poll wait.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.approvals.all() });
+
       return {
         mode:          'approval',
         approvalTitle: result.title,

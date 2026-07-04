@@ -2,40 +2,27 @@
  * usePersonApprovals.ts
  *
  * Sprint 21 Phase 2 -- Person-scoped approval history.
+ * Sprint 31 -- rewritten for Approval Query Integrity: the pre-S31
+ * implementation fetched ALL statuses through the legacy $top=500 read and
+ * filtered client-side, silently truncating any person's history once
+ * C3Approvals exceeded 500 rows (TD-19). It now uses the COMPLETE,
+ * exhaustively paged, server-filtered read on the indexed TargetPersonID
+ * column — behaviourally identical filtering (exact match on the same
+ * column), with no omission at any list size.
  *
- * Returns all C3Approvals where TargetPersonID matches the supplied personId,
- * across all 6 lifecycle statuses. Filtering is client-side -- the full
- * all-statuses list is fetched once and cached by TanStack Query. When
- * ApprovalInbox is also mounted, both components share the same cache entry
- * (identical queryKey) and no extra fetch fires.
+ * refetchInterval remains disabled: PersonProfile renders a historical audit
+ * view, not a live action queue. Any approval mutation invalidates the
+ * approvals root key, which reaches this key by prefix.
  *
- * refetchInterval is disabled (false) because PersonProfile renders a
- * historical audit view, not a live action queue. Manual navigation or
- * window-focus refetch is sufficient for this surface.
- *
- * Boundaries:
- *   - No service-level changes. Reuses IApprovalsService.listApprovals.
- *   - No schema changes.
- *   - No mutations. Read-only.
- *
- * See: packages/c3/src/hooks/useListApprovals.ts
- * See: packages/c3/src/components/shared/PersonApprovalHistoryCard.tsx
+ * Boundaries: read-only; no schema changes; result shape unchanged for the
+ * PersonProfile consumer.
  */
 
-import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
-import { useListApprovals } from '@c3/hooks/useListApprovals';
+import { queryKeys } from '@c3/hooks/queryKeys';
+import { useApprovalsService } from '@c3/hooks/useApprovalsService';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
-
-// All 6 lifecycle statuses -- we fetch everything and filter client-side.
-const ALL_APPROVAL_STATUSES = [
-  'Submitted',
-  'InReview',
-  'Approved',
-  'Rejected',
-  'Executed',
-  'ExecutionFailed',
-] as const;
 
 export interface UsePersonApprovalsResult {
   data: C3Approval[];
@@ -45,28 +32,17 @@ export interface UsePersonApprovalsResult {
 }
 
 /**
- * Returns approvals scoped to a single person (by canonical PersonID).
- *
- * When personId is empty string the filter returns [] without suppressing the
- * underlying query -- the list fetch still fires but results are filtered to
- * nothing. In practice PersonProfile guards on person load before rendering
- * components that call this hook, so personId is always non-empty here.
+ * Returns the complete approval history for a person (canonical PersonID),
+ * newest first (Id desc). Empty personId suppresses the fetch entirely.
  */
 export const usePersonApprovals = (personId: string): UsePersonApprovalsResult => {
-  const {
-    data: allApprovals = [],
-    isLoading,
-    isError,
-    error,
-  } = useListApprovals({
-    status:          [...ALL_APPROVAL_STATUSES],
-    refetchInterval: false,   // history surface -- no live polling
+  const service = useApprovalsService();
+
+  const { data = [], isLoading, isError, error } = useQuery<C3Approval[]>({
+    queryKey: queryKeys.approvals.byPerson(personId),
+    queryFn:  ({ signal }) => service.listApprovalsByPerson(personId, { signal }),
+    enabled:  personId.trim().length > 0,
   });
 
-  const data = useMemo(
-    () => allApprovals.filter(a => a.targetPersonId === personId),
-    [allApprovals, personId],
-  );
-
-  return { data, isLoading, isError, error: error ?? null };
+  return { data, isLoading, isError, error: (error ?? null) as Error | null };
 };

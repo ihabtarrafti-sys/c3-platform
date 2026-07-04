@@ -65,8 +65,8 @@ import { useAllKitAssignments } from '@c3/hooks/useAllKitAssignments';
 import { useAllMissionParticipants } from '@c3/hooks/useAllMissionParticipants';
 import { useApp } from '@c3/hooks/useApp';
 import { useDeactivateKitAssignment } from '@c3/hooks/useDeactivateKitAssignment';
-import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { useMissionReadiness } from '@c3/hooks/useMissionReadiness';
+import { usePendingApprovals } from '@c3/hooks/usePendingApprovals';
 import { useMissions } from '@c3/hooks/useMissions';
 import { usePeople } from '@c3/hooks/usePeople';
 import { useSubmitParticipantApproval } from '@c3/hooks/useSubmitParticipantApproval';
@@ -75,7 +75,7 @@ import { useTransitionKitStatus } from '@c3/hooks/useTransitionKitStatus';
 import type { KitAssignment, KitStatus, Mission, MissionParticipant, MissionReadiness, MissionStatus, Person } from '@c3/types';
 import { FULFILLED_KIT_STATUSES, MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
 import { kitTransitionRequiresReason, validKitTransitions } from '@c3/utils/kitLifecycle';
-import { PENDING_APPROVAL_STATUSES, pendingRequestKey } from '@c3/utils/participantWrites';
+import { pendingRequestKey } from '@c3/utils/participantWrites';
 
 // ---------------------------------------------------------------------------
 // MissionStatusBadge — screen-local status badge (same pattern as the
@@ -597,8 +597,9 @@ export const MissionWorkspace = () => {
 
   // S29B: pending participant requests (SP DSM) — one in-flight request per
   // operationType+mission+person. Chips are affordance; the submit hook
-  // validates duplicates authoritatively.
-  const { data: pendingApprovals = [] } = useListApprovals({ status: [...PENDING_APPROVAL_STATUSES] });
+  // validates duplicates authoritatively. S31: sourced from the COMPLETE
+  // exhaustively-paged pending read — chips can no longer understate past 500.
+  const { data: pendingApprovals = [] } = usePendingApprovals();
   const pendingParticipantRequests = useMemo(() => {
     const map = new Map<string, string>(); // pendingKey -> APR title
     for (const approval of pendingApprovals) {

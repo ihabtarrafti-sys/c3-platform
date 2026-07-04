@@ -90,9 +90,21 @@ export const queryKeys = {
     forMission: (missionId: string) => ['finance', missionId] as const,
   },
   approvals: {
-    /** Root key — invalidate to refetch all approval queries. */
+    /**
+     * Root key — invalidate to refetch all approval queries. Every semantic
+     * key below shares this root prefix, so root invalidation reaches all of
+     * them (the S31 review confirmed no approval key lives outside the root).
+     */
     all: () => ['approvals'] as const,
-    /** Filtered list — default Submitted/InReview unless caller overrides. */
+    /** LEGACY filtered list — S31: no production consumer; retained for contract stability. */
     list: (filter?: { status?: string[] }) => ['approvals', 'list', filter] as const,
+    /** S31 — complete pending band (Submitted/InReview/Approved). No parameters: equivalent status sets cannot fork keys. */
+    pending: () => ['approvals', 'pending'] as const,
+    /** S31 — complete actionable set (pending band + ExecutionFailed). */
+    actionable: () => ['approvals', 'actionable'] as const,
+    /** S31 — complete person history, server-filtered by TargetPersonID. */
+    byPerson: (personId: string) => ['approvals', 'person', personId] as const,
+    /** S31 — windowed terminal history (Executed/Rejected, newest `limit`). */
+    terminalRecent: (limit: number) => ['approvals', 'terminal', limit] as const,
   },
 } as const;

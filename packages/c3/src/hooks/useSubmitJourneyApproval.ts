@@ -23,10 +23,12 @@
  */
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useApp } from '@c3/hooks/useApp';
 import { useApprovalsService } from '@c3/hooks/useApprovalsService';
 import { useInitiateJourney } from '@c3/hooks/useInitiateJourney';
+import { queryKeys } from '@c3/hooks/queryKeys';
 import type { InitiateJourneyApprovalPayload } from '@c3/services/interfaces/approvalPayloads';
 import type { Journey, ObligationAssignment } from '@c3/types';
 
@@ -63,6 +65,7 @@ export const useSubmitJourneyApproval = () => {
   const { config, currentUser } = useApp();
   const initiateJourney = useInitiateJourney();
   const approvalsService = useApprovalsService();
+  const queryClient = useQueryClient();
 
   const [isPending, setIsPending] = useState(false);
 
@@ -109,6 +112,10 @@ export const useSubmitJourneyApproval = () => {
         reason:         input.initiationReason,
         payload:        JSON.stringify(payload),
       });
+
+      // S31: refresh every approval surface (inbox, pending chips, person
+      // history) immediately — the new row must not wait for the 30s poll.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.approvals.all() });
 
       return {
         mode:          'approval',

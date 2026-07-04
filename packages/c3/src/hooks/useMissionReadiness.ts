@@ -5,10 +5,9 @@ import { evaluateOnboardingObligations } from '@c3/protocols';
 import { queryKeys } from '@c3/hooks/queryKeys';
 import { useCredentialService } from '@c3/hooks/useCredentialService';
 import { useJourneyService } from '@c3/hooks/useJourneyService';
-import { useListApprovals } from '@c3/hooks/useListApprovals';
 import { useMissionService } from '@c3/hooks/useMissionService';
+import { usePendingApprovals } from '@c3/hooks/usePendingApprovals';
 import { computeMissionReadiness } from '@c3/utils/missionReadiness';
-import { PENDING_APPROVAL_STATUSES } from '@c3/utils/participantWrites';
 import type {
   Credential,
   Journey,
@@ -77,8 +76,9 @@ export const useMissionReadiness = (
     queryFn: () => journeyService.listAllActiveJourneys('Onboarding'),
   });
 
-  // Pending membership requests — same query MissionWorkspace already runs.
-  const approvalsQuery = useListApprovals({ status: [...PENDING_APPROVAL_STATUSES] });
+  // Pending membership requests — same COMPLETE pending query MissionWorkspace
+  // runs (S31: exhaustively paged; the indicator cannot understate past 500).
+  const approvalsQuery = usePendingApprovals();
 
   const isPending =
     participantsQuery.isPending ||

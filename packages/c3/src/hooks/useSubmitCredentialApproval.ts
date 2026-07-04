@@ -26,10 +26,12 @@
  */
 
 import { useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { useApp } from '@c3/hooks/useApp';
 import { useApprovalsService } from '@c3/hooks/useApprovalsService';
 import { useAddCredential } from '@c3/hooks/useAddCredential';
+import { queryKeys } from '@c3/hooks/queryKeys';
 import type { AddCredentialApprovalPayload } from '@c3/services/interfaces/approvalPayloads';
 import type { Credential, CreateCredentialInput } from '@c3/types';
 
@@ -61,6 +63,7 @@ export const useSubmitCredentialApproval = () => {
   const { config }       = useApp();
   const addCredential    = useAddCredential();          // always called (rules of hooks)
   const approvalsService = useApprovalsService();       // always called
+  const queryClient      = useQueryClient();
 
   const [isPending, setIsPending] = useState(false);
 
@@ -111,6 +114,9 @@ export const useSubmitCredentialApproval = () => {
         reason: `Add ${input.Type} credential for ${input.HolderPersonID}`,
         payload: JSON.stringify(payload),
       });
+
+      // S31: refresh every approval surface immediately — no 30s poll wait.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.approvals.all() });
 
       return {
         mode:          'approval',
