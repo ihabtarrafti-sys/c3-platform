@@ -2,7 +2,7 @@
 **C3 Contract Control Center**
 **Created:** 2026-07-01
 **Status:** Living document — planning only. No implementation authorised from this document alone.
-**Baseline:** Sprint 25 CLOSED (HEAD: `d8763ea`)
+**Baseline:** Sprint 30 CLOSED (2026-07-04; Mission Readiness Cockpit v1 + core-list ACL hardening; runtime `2a4a162d…`)
 **See also:** C3 Architecture Baseline — Sprint 25.md, Sprint 25 Closeout Report.md, C3 Tech Debt Register.md, C3 Product Roadmap and Backlog Expansion Addendum.md (Sprint 15 era, historical)
 
 > **Purpose:** Single-source register of planned C3 capability tracks beyond the current beta sprint sequence. Each entry records what the capability is, what it depends on, and when it is expected relative to the current sprint cadence. This document is a backlog and planning reference only — individual sprint scopes are authorised separately. Nothing in this document implies implementation is authorised or imminent.
@@ -42,13 +42,19 @@ Sprint 22  — Beta Operational Readiness + Error Library basics
 Sprint 23  — Credential Lifecycle Hardening (DeactivateCredential, recovery) ✅ CLOSED
 Sprint 24  — Contracts / SP-02 Foundation (read path, PersonID FK) ✅ CLOSED
 Sprint 25  — Governed AddPerson Foundation (ADR-013 approval path for C3People writes) ✅ CLOSED
-Sprint 26  — Mission / Event Foundation (shifted from S25)
-Sprint 27  — Mission Participants + Jersey / Logistics Tracking
-Sprint 28  — Mission Budgeting + Budget Sheet Approval Workflow
-Sprint 29  — Operational Gaps + Readiness Recommendations
-Sprint 30  — Induction
+Sprint 26  — Mission / Event Foundation (read) ✅ CLOSED
+Sprint 27  — Mission Participants (read) ✅ CLOSED
+Sprint 28  — Apparel + Kit Logistics (read) ✅ CLOSED
+Sprint 29A — Kit & Apparel Lifecycle Writes ✅ CLOSED
+Sprint 29B — Governed Participant Membership + immutable approvals ✅ CLOSED
+Sprint 30  — Mission Readiness Cockpit v1 + core-list ACL hardening ✅ CLOSED
+Sprint 31  — candidates (owner decision at Phase 0): Approvals scale hardening
+             (TD-19/TD-07 + pagination) + Readiness v1.1 (apparel facet + batch
+             read, kit work-item facet) | C3Contracts activation (+ ACL posture,
+             TD-22 migration) | TD-26 mission-confirmation governed write design
 
-Later      — SharePoint Import/Export
+Later      — Mission Budgeting / Finance (Tracks 9–11); Induction (Track 15)
+           — SharePoint Import/Export
            — AI Recommendations expansion
            — Standalone SaaS Path
            — C3 SaaS Admin Console
@@ -280,7 +286,10 @@ Link people to missions/events. Track who is assigned to each mission, their ass
 - ✅ Parity harness `s27-parity-participants.mjs` (compiles the real mapper via esbuild — no inline translation drift)
 - ✅ PersonProfile "Missions" section — delivered in Sprint 28
 - ✅ **Add/remove participant writes — COMPLETED and hosted-validated (Sprint 29B, 2026-07-03):** full ADR-013 governed AddMissionParticipant (incl. governed reactivation of retained inactive rows) + RemoveMissionParticipant (IsActive=false, mandatory reason, active-kit dependency blocking), pending-request UX, idempotent recovery, participants ACL owners-only-edit, immutable Add-only approval submission
-- ⬜ Participant readiness indicators in mission view — natural **Sprint 30 cockpit** facet
+- ✅ **Mission-level readiness indicators — delivered in Sprint 30** (Mission Readiness
+  Cockpit v1: participants/compliance/kit facet strip on MissionWorkspace cards;
+  two-axis truthful model; zero-roster work item). Per-participant readiness chips
+  remain deferred (Readiness v1.1 candidate).
 - ⬜ UpdateMissionParticipant (role/code/per-diem edits) + generic reactivation UI — deferred
 
 #### Dependencies
@@ -318,7 +327,11 @@ Stable sizing lives per person; issuance/fulfillment state lives per mission par
   UpdateKitStatus (validated transition matrix), DeactivateKitAssignment, apparel upsert —
   role-gated per the ADR-013 Addendum (Mission Kit Logistics Exemption); ETag concurrency;
   StatusNotes + version-history audit; list ACLs hardened (Operations/HR write per model)
-- ⬜ Situation Room logistics readiness / Command Center kit work items → S30 candidate
+- ✅ **Mission kit readiness — delivered in Sprint 30** (participant-aware kit facet on
+  the cockpit: coverage denominator, Delivered/Confirmed fulfillment, Missing exception).
+  Kit-generated Command Center work items and the apparel facet (+ batch read) were
+  **intentionally deferred by the primary lead architect** at S30 v1 authorization —
+  Readiness v1.1 candidates; the MissionReadinessGap facet union already extends to 'Kit'.
 - Domain boundary: NOT inventory, travel, or freight — those are separate future domains
 
 #### Dependencies

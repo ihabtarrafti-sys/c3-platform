@@ -1,9 +1,9 @@
 # C3 Platform ACL Review — Sprint 30
 
-**Status:** Phase A (source write-path audit) COMPLETE — Phase B (hardening) awaiting owner execution
+**Status:** ✅ COMPLETE — Phase B executed and PASS on all four lists (2026-07-04); hosted per-role tests green; Sprint 30 closure conditions in §7 SATISFIED
 **Track:** Parallel security track beside Sprint 30 source work — closure rule in §7
-**Method:** Proven S29A/S29B process (`C3 Logistics List Permissions — Sprint 29A.md`, `C3 Governance List Permissions — Sprint 29B.md`)
-**Prepared:** 2026-07-04
+**Method:** Proven S29A/S29B process, extended by the rev 2 console package (unique-child-scope preflight; `clearSubscopes=false` always; programmatic inherited-posture verification; post-mutation child re-audit)
+**Prepared:** 2026-07-04 · **Completed:** 2026-07-04
 
 ---
 
@@ -35,29 +35,33 @@ Every SharePoint write call site was audited (`grep` over
 Already hardened (S29A/S29B — unchanged): C3MissionKitAssignments,
 C3PersonApparelProfiles, C3MissionParticipants, C3Approvals.
 
-**Open question for the owner (blocking only the C3Missions row):** does any
-person other than a Platform Owner currently create or maintain C3Missions
-rows (e.g. via list UI)? The code shows no app write path; the matrix below
-assumes owner-only manual authoring. Confirm before applying.
+**Open question — RESOLVED (owner decision, 2026-07-04):** Platform Owners AND
+Operations both legitimately create and edit C3Missions rows directly (manual
+authoring — the code has no app write path; TD-26 remains intact). The §3
+matrix reflects the confirmed posture: C3Missions Operations = Edit.
 
-## 3. Target matrix (proposed — confirm before applying)
+## 3. Target matrix (owner-confirmed 2026-07-04 — APPLIED)
 
 | List | Platform Owners | Operations | HR | Finance | Management | Legal | Members (site) |
 |---|---|---|---|---|---|---|---|
-| C3People | Full Control | Read | Read | Read | Read | Read | — (removed) |
-| C3Credentials | Full Control | Read | Read | Read | Read | Read | — |
-| C3Journeys | Full Control | **Edit** (S19 lifecycle exemption) | Read | Read | Read | Read | — |
-| C3Missions | Full Control | Read | Read | Read | Read | Read | — |
+| C3People | Full Control | Read | Read | Read | Read | Read | Read (Edit removed) |
+| C3Credentials | Full Control | Read | Read | Read | Read | Read | Read (Edit removed) |
+| C3Journeys | Full Control | **Edit** (S19 lifecycle exemption) | Read | Read | Read | Read | Read (Edit removed) |
+| C3Missions | Full Control | **Edit** (owner-confirmed manual authoring) | Read | Read | Read | Read | Read (Edit removed) |
 
 Rationale notes:
 
 - **C3Journeys Operations = Edit is mandatory** — journey lifecycle writes run
   in the operator's own session; Read would 403 a live approved path.
+- **C3Missions Operations = Edit is the confirmed owner decision** (supersedes
+  the earlier owners-only proposal): both roles legitimately author mission
+  rows manually; no application write path exists (TD-26 stubs intact).
 - Owner approval executions run in the owner session — no other role needs
   edit on People/Credentials.
 - Requester flows (AddPerson/AddCredential/etc.) write only to C3Approvals
   (already Add-only hardened); they need no rights on the target lists.
 - C3 Legal drops from inherited Full Control to Read on all four lists.
+- Site Visitors retained at Read where previously granted (visitor rendering).
 
 ## 4. Phase B — application runbook (proven process, owner executes)
 
@@ -71,8 +75,12 @@ Per list, in order:
 3. Re-confirm the write-path audit above (§2) — fail closed on any surprise.
 4. Confirm the target matrix row (§3) — C3Missions requires the §2 owner
    answer first.
-5. **Break inheritance without copying:**
-   `POST /_api/web/lists/getbytitle('<LIST>')/breakroleinheritance(copyRoleAssignments=false, clearSubscopes=true)`
+5. **Break inheritance without copying — and WITHOUT clearing child scopes:**
+   `POST /_api/web/lists/getbytitle('<LIST>')/breakroleinheritance(copyRoleAssignments=false, clearSubscopes=false)`
+   (rev 2 correction: `clearSubscopes=true` is PROHIBITED — it wipes child
+   item/folder ACLs, which `resetroleinheritance` cannot reconstruct. A
+   unique-child-scope preflight audit precedes any mutation and fails closed
+   if child scopes exist.)
 6. **Explicit least-privilege grants** via
    `POST .../roleassignments/addroleassignment(principalid=<id>, roledefid=<id>)`
    (Full Control 1073741829, Edit 1073741830, Read 1073741826 — verify IDs on
@@ -102,16 +110,30 @@ For each hardened list, from live sessions:
 - [ ] MissionWorkspace readiness strip renders identical before/after
       (reads are unaffected by the hardening).
 
-## 6. Evidence (append during Phase B)
+## 6. Evidence (Phase B executed 2026-07-04 — rev 2 console package, one list at a time, dry-run first)
 
-| List | Before-state export | Break + grants applied | After-state verified | Per-role hosted tests |
+All four executions returned **PASS** with: `HasUniqueRoleAssignments=true` via the
+direct endpoint; exact-match explicit assignments (no unexpected principals, no role
+mismatches, no missing grants); **zero unique child scopes before AND after mutation**
+(preflight + post-check); inherited-posture verification green before mutation (site
+Members Edit + C3 Legal Full Control confirmed, then removed); acting-admin self
+assignment removed (site-admin bypass retained). Full BEFORE-STATE / AFTER-STATE JSON
+console captures archived by the owner from the execution session.
+
+| List | Before-state export | Break (copy=false, clearSubscopes=false) + grants | After-state verified (direct endpoint) | Per-role hosted tests |
 |---|---|---|---|---|
-| C3People | — | — | — | — |
-| C3Credentials | — | — | — | — |
-| C3Journeys | — | — | — | — |
-| C3Missions | — | — | — | — |
+| C3People | ✅ 2026-07-04 (inherited; Members Edit, Legal FC) | ✅ PASS | ✅ unique; matrix exact; 0 child scopes | ✅ Ops/HR/Legal/member edit → 403; owner executions green |
+| C3Credentials | ✅ 2026-07-04 | ✅ PASS | ✅ unique; matrix exact; 0 child scopes | ✅ direct edits → 403; owner executions green |
+| C3Journeys | ✅ 2026-07-04 | ✅ PASS | ✅ unique; matrix exact; 0 child scopes | ✅ **Operations lifecycle transition SUCCEEDS**; other roles 403 |
+| C3Missions | ✅ 2026-07-04 | ✅ PASS | ✅ unique; matrix exact; 0 child scopes | ✅ **Operations mission authoring SUCCEEDS**; other roles 403 |
 
-## 7. Sprint 30 closure rule (primary lead architect directive, 2026-07-04)
+## 7. Sprint 30 closure rule (primary lead architect directive, 2026-07-04) — **SATISFIED**
+
+> **Outcome (2026-07-04):** C3People, C3Credentials, and C3Journeys hardened and
+> hosted-validated per the rule below. C3Missions authorship was CONFIRMED by the owner
+> (Owners + Operations), so the controlled-deferral path was not needed — C3Missions was
+> hardened and validated in the same pass. C3Contracts remains deferred to its
+> provisioning/activation decision (tracked in the Tech Debt Register).
 
 **C3People, C3Credentials, C3Journeys** — their audited matrices are
 unambiguous (§2/§3): Phase B hardening AND hosted per-role validation MUST be

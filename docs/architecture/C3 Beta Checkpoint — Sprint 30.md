@@ -1,13 +1,19 @@
 # C3 Beta Checkpoint — Sprint 30
 
 **Sprint:** 30 — Mission Readiness Cockpit (v1)
-**Status:** Source complete · validation gate green · AWAITING deploy + hosted Part 17 + ACL track hosted-green
-**Prepared:** 2026-07-04
+**Status:** ✅ FINAL — hosted Part 17 fully green (2026-07-04) · ACL Phase B PASS on all four lists · Sprint 30 CLOSED
+**Prepared:** 2026-07-04 · **Finalized:** 2026-07-04
 **Semantics:** `Mission Readiness Semantics — Sprint 30.md` (approved)
-**Security track:** `C3 Platform ACL Review — Sprint 30.md` (Phase A complete; Phase B owner-executed)
+**Security track:** `C3 Platform ACL Review — Sprint 30.md` (COMPLETE — four-list evidence recorded)
+**Deployed runtime SHA-256 (verified hosted):** `2a4a162dbfeda9411ccf9e9b12382a77f5c1d66c4291d99ff74eefcddfcf9be8`
 
-Sprint 30 is NOT closed until hosted validation (Part 17) and the ACL track
-are both green.
+All Part 17 sections below were executed and returned green on 2026-07-04:
+readiness lifecycle states truthful in SP DSM; participant-aware kit coverage correct
+against live rows; compliance severity consistent with the Situation Room mission scope;
+zero-roster work item appears/disappears correctly with no duplicate alongside
+MissionDeparturePressure; the cockpit performed no writes; SituationRoom regression green;
+per-role ACL tests green (Operations journey lifecycle and mission authoring preserved;
+Members/Legal edit bypasses removed). Checklist retained below for audit.
 
 ---
 

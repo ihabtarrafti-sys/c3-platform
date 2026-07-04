@@ -1,6 +1,6 @@
 # C3 Tech Debt Register
 
-**Last updated:** 2026-07-02 (Sprint 25)
+**Last updated:** 2026-07-04 (Sprint 30)
 **Maintained by:** Engineering (C3 Platform)
 **Purpose:** Single-source list of known technical debts, design gaps, and deferred decisions.
 Each item carries a severity, sprint attribution, and a clear resolution path.
@@ -612,3 +612,28 @@ approval / documented lifecycle exemption / role-gated profile update / owner-on
 PersonID(+AssignmentKey) uniqueness enforcement at write time, NameOnJersey/AssignmentKey
 write-time validation, and the mutation error-surfacing sweep (no silent-failure mutations —
 the useApproveMission onError gap is the known anti-pattern).
+
+---
+
+### TD-28 — Inherited site ACLs on core operational lists (ADR-013 governance bypass)
+
+**Severity:** 🔴 → ✅ **Resolved in Sprint 30 (C3Contracts residual deferred)**
+**Sprint attributed:** S29A (finding), S29B (partial — governance lists), S30 (resolved)
+**Evidence:** `C3 Platform ACL Review — Sprint 30.md`
+
+C3People, C3Credentials, C3Journeys, and C3Missions inherited site permissions: site
+Members held Edit and C3 Legal held Full Control on operational-truth rows — a standing
+bypass of every ADR-013 governed write path, and (from S30) a direct integrity risk to
+the Mission Readiness Cockpit's computed verdicts.
+
+**Resolved (S30, 2026-07-04):** all four lists hardened to verified unique
+least-privilege ACLs via the rev 2 browser-console package (source write-path audit →
+owner-confirmed matrices → unique-child-scope preflight →
+`breakroleinheritance(copyRoleAssignments=false, clearSubscopes=false)` → explicit grants
+→ direct-endpoint verification → per-role hosted tests). Operations retain Edit on
+C3Journeys (S19 lifecycle exemption) and C3Missions (owner-confirmed manual authoring);
+all other non-owner roles and site Members are Read. Zero child ACL scopes disturbed.
+
+**Residual (open):** C3Contracts still inherits site permissions — its ACL posture is
+deliberately deferred to the C3Contracts provisioning/activation decision (see TD-22 and
+Backlog Track 5). The rev 2 hardening package applies unchanged when that decision lands.
