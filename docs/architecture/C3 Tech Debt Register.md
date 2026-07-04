@@ -637,3 +637,32 @@ all other non-owner roles and site Members are Read. Zero child ACL scopes distu
 **Residual (open):** C3Contracts still inherits site permissions — its ACL posture is
 deliberately deferred to the C3Contracts provisioning/activation decision (see TD-22 and
 Backlog Track 5). The rev 2 hardening package applies unchanged when that decision lands.
+
+---
+
+### TD-29 — Residual simultaneous-execution race on approvals
+
+**Severity:** 🟡 Quality gap (bounded by S31 freshness + ETag stamps)
+**Sprint attributed:** S31 (recorded at implementation of the freshness/ETag model)
+**Files:** `hooks/useExecuteApproval.ts`, `hooks/usePatchApprovalStatus.ts`, recovery hooks,
+`SharePointApprovalsService.ts`
+
+Sprint 31 added a fresh single-row `getApproval` read before execution, review, and
+stamp-recovery actions: the FRESH row drives the status precondition and its ETag
+preconditions the subsequent MERGE (no new `IF-MATCH: *`). This eliminates STALE
+SEQUENTIAL actions — a tab acting on a row whose live status changed gets a truthful
+refusal or a 412, never a silent write.
+
+It is deliberately NOT an atomic execution lock. Two sessions that both pass the
+freshness read within the same window can both perform the OPERATIONAL write before
+either stamps; the second stamp then 412s into the existing partial-execution recovery
+path, but the duplicate operational effect may already exist (AddCredential has no
+duplicate guard by design; participants/journeys are protected by their own idempotency
+and duplicate checks). Source inspection (S31 Phase 0) confirmed no existing atomic
+safeguard.
+
+**Mitigation in place:** single-owner execution in practice; freshness refusal window;
+ETag-412 surfacing; operation-level idempotency where it exists.
+**Resolution path:** an explicit execution-claim design (e.g. a claimed-by MERGE with
+ETag as an atomic take) — a deliberate future owner decision, NOT to be introduced
+silently (excluded from S31 scope by mandate).
