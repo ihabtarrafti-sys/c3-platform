@@ -1,12 +1,14 @@
 /**
  * Mission readiness types — Sprint 30 (Mission Readiness Cockpit).
  *
- * Mission-specific by design. These types are deliberately NOT shared with the
- * person-level readiness path (usePersonReadiness → ObligationEvaluation):
- * that model describes one person's protocol evaluation; this model describes
- * a mission's aggregate operational readiness across facets. Phase 0 source
- * inspection confirmed the two shapes have no compatible axis — no generic
- * readiness abstraction is introduced (approved Sprint 30 decision).
+ * Mission-specific by design — hence the file name types/missionReadiness.ts
+ * (renamed from readiness.ts at Sprint 30 review: direct inspection confirmed
+ * every type here is a mission-readiness concept and NONE is consumed by the
+ * person-level readiness path). usePersonReadiness → ObligationEvaluation
+ * describes one person's protocol evaluation; this model describes a
+ * mission's aggregate operational readiness across facets. The two shapes
+ * have no compatible axis — no generic readiness abstraction exists or is
+ * introduced (approved Sprint 30 decision).
  *
  * Two-axis model (locked at Sprint 30 approval):
  *
