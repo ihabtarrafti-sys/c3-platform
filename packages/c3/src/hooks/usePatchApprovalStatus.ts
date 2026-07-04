@@ -65,12 +65,36 @@ export const usePatchApprovalStatus = () => {
 
   return useMutation({
     mutationFn: async ({
-      approval,
+      approval: card,
       newStatus,
       rejectionReason,
     }: PatchApprovalStatusVariables): Promise<void> => {
 
-      // Self-approval enforcement (ADR-013)
+      // -- S31 freshness read (Approval Query Integrity) --
+      // The cached card is a UI snapshot; the review precondition must be
+      // driven by the CURRENT row, and the fresh ETag preconditions the MERGE
+      // so a concurrent change surfaces as a truthful concurrency failure.
+      const fresh = await service.getApproval(card.id);
+      if (!fresh) {
+        throw new Error(
+          `[C3/Approvals] Approval ${card.title} (ID ${card.id}) was not found in C3Approvals. ` +
+          `It may have been removed — refresh the inbox before retrying.`,
+        );
+      }
+      const approval = fresh.approval;
+
+      // Review actions are valid only from the pending review states — the
+      // same states the UI renders the buttons for. A stale tab acting on a
+      // row that has since moved on gets a truthful refusal, not a write.
+      if (approval.approvalStatus !== 'Submitted' && approval.approvalStatus !== 'InReview') {
+        throw new Error(
+          `[C3/Approvals] Cannot ${newStatus === 'Approved' ? 'approve' : 'reject'} ${approval.title}: ` +
+          `its live status is '${approval.approvalStatus}' — it changed after this view loaded. ` +
+          `Refresh the inbox.`,
+        );
+      }
+
+      // Self-approval enforcement (ADR-013) — against the FRESH row.
       if (
         currentUser.loginName &&
         currentUser.loginName === approval.submittedBy
@@ -83,7 +107,7 @@ export const usePatchApprovalStatus = () => {
         ...(newStatus === 'Rejected' ? { rejectionReason: rejectionReason ?? '' } : {}),
       };
 
-      await service.patchApprovalStatus(approval.id, req);
+      await service.patchApprovalStatus(approval.id, req, fresh.etag ?? undefined);
     },
 
     onSuccess: () => {

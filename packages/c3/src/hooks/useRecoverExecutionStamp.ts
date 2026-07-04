@@ -109,12 +109,22 @@ export const useRecoverExecutionStamp = () => {
   const queryClient      = useQueryClient();
 
   return useMutation({
-    mutationFn: async (approval: C3Approval): Promise<{ personId: string }> => {
+    mutationFn: async (card: C3Approval): Promise<{ personId: string }> => {
 
-      // -- Precondition 1: must be Approved --
+      // -- S31 freshness read: the CURRENT row drives every precondition and
+      //    its ETag preconditions the stamp (stale recovery attempts refuse). --
+      const fresh = await approvalsService.getApproval(card.id);
+      if (!fresh) {
+        throw new RecoveryPreConditionError(
+          `approval row ${card.id} (${card.title}) was not found in C3Approvals.`,
+        );
+      }
+      const approval = fresh.approval;
+
+      // -- Precondition 1: must be Approved (fresh row) --
       if (approval.approvalStatus !== 'Approved') {
         throw new RecoveryPreConditionError(
-          `approvalStatus must be 'Approved', got '${approval.approvalStatus}'.`,
+          `approvalStatus must be 'Approved', got '${approval.approvalStatus}' (live value — it changed after this view loaded).`,
         );
       }
 
@@ -152,7 +162,7 @@ export const useRecoverExecutionStamp = () => {
       await approvalsService.stampExecution(approval.id, {
         newStatus: 'Executed',
         executedAt,
-      });
+      }, fresh.etag ?? undefined);
 
       console.info(
         `[C3/Recovery] Stamped ${approval.title} (ID ${approval.id}) as Executed. ` +

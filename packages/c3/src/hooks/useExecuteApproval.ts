@@ -365,9 +365,28 @@ export const useExecuteApproval = () => {
   const queryClient        = useQueryClient();
 
   return useMutation({
-    mutationFn: async (approval: C3Approval): Promise<void> => {
+    mutationFn: async (card: C3Approval): Promise<void> => {
 
-      // -- Step 1: Approved guard --
+      // -- Step 0: Freshness read (S31 — Approval Query Integrity) --
+      // The cached card is a UI snapshot; execution safety depends on CURRENT
+      // status. Read the row fresh by its retained SP numeric Id; the fresh
+      // row drives the guard, and its ETag preconditions every stamp below
+      // (a mid-execution change 412s into the partial-execution recovery
+      // path). This prevents stale sequential actions; it is NOT an atomic
+      // execution lock (residual two-session race recorded as TD-29).
+      const fresh = await approvalsService.getApproval(card.id);
+      if (!fresh) {
+        throw new Error(
+          `[C3/Execution] Approval ${card.title} (ID ${card.id}) was not found in C3Approvals. ` +
+          `It may have been removed — refresh the inbox before retrying.`,
+        );
+      }
+      const approval = fresh.approval;
+      const freshEtag = fresh.etag ?? undefined;
+      const stamp = (req: Parameters<typeof approvalsService.stampExecution>[1]) =>
+        approvalsService.stampExecution(approval.id, req, freshEtag);
+
+      // -- Step 1: Approved guard (against the FRESH row, never the card) --
       // Must be first -- before payload parsing, duplicate check, and any write.
       if (approval.approvalStatus !== 'Approved') {
         throw new Error(
@@ -391,7 +410,7 @@ export const useExecuteApproval = () => {
           const duplicateMsg =
             `Duplicate: an active Onboarding journey (${existingJourney.JourneyID}) ` +
             `already exists for ${personId}. Execution blocked.`;
-          await approvalsService.stampExecution(approval.id, {
+          await stamp({
             newStatus:      'ExecutionFailed',
             executionError: duplicateMsg.slice(0, 250),
           });
@@ -418,7 +437,7 @@ export const useExecuteApproval = () => {
         } catch (journeyErr) {
           const errMsg = journeyErr instanceof Error ? journeyErr.message : String(journeyErr);
           try {
-            await approvalsService.stampExecution(approval.id, {
+            await stamp({
               newStatus:      'ExecutionFailed',
               executionError: errMsg.slice(0, 250),
             });
@@ -434,7 +453,7 @@ export const useExecuteApproval = () => {
         // Step 5: Stamp approval as Executed
         const executedAt = new Date().toISOString();
         try {
-          await approvalsService.stampExecution(approval.id, {
+          await stamp({
             newStatus: 'Executed',
             executedAt,
           });
@@ -483,7 +502,7 @@ export const useExecuteApproval = () => {
         } catch (credErr) {
           const errMsg = credErr instanceof Error ? credErr.message : String(credErr);
           try {
-            await approvalsService.stampExecution(approval.id, {
+            await stamp({
               newStatus:      'ExecutionFailed',
               executionError: errMsg.slice(0, 250),
             });
@@ -499,7 +518,7 @@ export const useExecuteApproval = () => {
         // Step 5: Stamp approval as Executed
         const executedAt = new Date().toISOString();
         try {
-          await approvalsService.stampExecution(approval.id, {
+          await stamp({
             newStatus: 'Executed',
             executedAt,
           });
@@ -558,7 +577,7 @@ export const useExecuteApproval = () => {
         } catch (deactivateErr) {
           const errMsg = deactivateErr instanceof Error ? deactivateErr.message : String(deactivateErr);
           try {
-            await approvalsService.stampExecution(approval.id, {
+            await stamp({
               newStatus:      'ExecutionFailed',
               executionError: errMsg.slice(0, 250),
             });
@@ -574,7 +593,7 @@ export const useExecuteApproval = () => {
         // Step 5: Stamp approval Executed.
         const executedAt = new Date().toISOString();
         try {
-          await approvalsService.stampExecution(approval.id, {
+          await stamp({
             newStatus: 'Executed',
             executedAt,
           });
@@ -617,7 +636,7 @@ export const useExecuteApproval = () => {
           const dupMsg =
             `A person with the same full name already exists: "${duplicate.FullName}" ` +
             `(${duplicate.PersonID}). Execution blocked to prevent duplicate person records.`;
-          await approvalsService.stampExecution(approval.id, {
+          await stamp({
             newStatus:      'ExecutionFailed',
             executionError: dupMsg.slice(0, 250),
           });
@@ -644,7 +663,7 @@ export const useExecuteApproval = () => {
         } catch (createErr) {
           const errMsg = createErr instanceof Error ? createErr.message : String(createErr);
           try {
-            await approvalsService.stampExecution(approval.id, {
+            await stamp({
               newStatus:      'ExecutionFailed',
               executionError: errMsg.slice(0, 250),
             });
@@ -663,7 +682,7 @@ export const useExecuteApproval = () => {
         // submission time. The same MERGE updates it to the created PersonID.
         const executedAt = new Date().toISOString();
         try {
-          await approvalsService.stampExecution(approval.id, {
+          await stamp({
             newStatus:      'Executed',
             executedAt,
             targetPersonId: createdPersonId,  // backfill PENDING-ADDPERSON -> PER-XXXX
@@ -706,7 +725,7 @@ export const useExecuteApproval = () => {
         } catch (writeErr) {
           const errMsg = writeErr instanceof Error ? writeErr.message : String(writeErr);
           try {
-            await approvalsService.stampExecution(approval.id, {
+            await stamp({
               newStatus:      'ExecutionFailed',
               executionError: errMsg.slice(0, 250),
             });
@@ -721,7 +740,7 @@ export const useExecuteApproval = () => {
         // only the approval record; no duplicate participant row is created.
         const executedAt = new Date().toISOString();
         try {
-          await approvalsService.stampExecution(approval.id, { newStatus: 'Executed', executedAt });
+          await stamp({ newStatus: 'Executed', executedAt });
         } catch (stampErr) {
           console.error(
             '[C3/Execution] PARTIAL FAILURE: participant write applied but approval stamp failed.',
@@ -754,7 +773,7 @@ export const useExecuteApproval = () => {
         } catch (writeErr) {
           const errMsg = writeErr instanceof Error ? writeErr.message : String(writeErr);
           try {
-            await approvalsService.stampExecution(approval.id, {
+            await stamp({
               newStatus:      'ExecutionFailed',
               executionError: errMsg.slice(0, 250),
             });
@@ -767,7 +786,7 @@ export const useExecuteApproval = () => {
         // 'already-inactive' reaching the stamp IS the recovery path.
         const executedAt = new Date().toISOString();
         try {
-          await approvalsService.stampExecution(approval.id, { newStatus: 'Executed', executedAt });
+          await stamp({ newStatus: 'Executed', executedAt });
         } catch (stampErr) {
           console.error(
             '[C3/Execution] PARTIAL FAILURE: participant removal applied but approval stamp failed.',
