@@ -71,12 +71,17 @@ are both green.
       DSM; TD-26 confirmation still hidden).
 - [ ] No milestone or finance facet appears anywhere in the cockpit.
 
-### 17.6 ACL track (separate evidence doc)
+### 17.6 ACL track (closure rule — `C3 Platform ACL Review — Sprint 30.md` §7)
 
-- [ ] Phase B applied and per-role hosted tests green for C3People,
-      C3Credentials, C3Journeys, C3Missions — recorded in
-      `C3 Platform ACL Review — Sprint 30.md` §6.
+- [ ] **C3People, C3Credentials, C3Journeys:** Phase B applied and per-role
+      hosted tests green — REQUIRED before Sprint 30 closure (matrices are
+      unambiguous per the Phase A audit).
 - [ ] Operations journey-lifecycle transition verified green AFTER hardening.
+- [ ] **C3Missions:** EITHER (a) manual authoring role confirmed → Phase B
+      applied + validated, OR (b) authorship unresolved → controlled deferral
+      recorded per ACL doc §7 (owner-approved deferral + risk re-entered in
+      Tech Debt Register/backlog + permissions untouched + required evidence
+      documented). No partial hardening; no silent open item.
 
 ---
 
@@ -94,6 +99,9 @@ are both green.
 
 ## Deferred v1.1 items
 
-See `Mission Readiness Semantics — Sprint 30.md` §8: apparel facet (+ batch
-read), kit work-item facet trigger, kit-not-applicable marker,
-milestones/finance facets, overall percentage, per-participant chips.
+See `Mission Readiness Semantics — Sprint 30.md` §8. The apparel facet
+(+ batch read) and kit-generated MissionReadinessGap work items were
+**intentionally deferred by the primary lead architect** at Sprint 30 v1
+authorization and must not be restored to v1. Also deferred:
+kit-not-applicable marker, milestones/finance facets, overall percentage,
+per-participant chips.

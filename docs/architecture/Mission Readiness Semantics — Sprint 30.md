@@ -135,9 +135,11 @@ missions (`overall` is null; `facets` are null for NotEvaluated/NotApplicable).
 - **Pure module:** `utils/missionReadiness.ts` — one batch pass over all
   missions; no React, no fetch; protocols injected
   (`[evaluateOnboardingObligations]` from the composition hook).
-- **Mission-specific types:** `types/readiness.ts`. Deliberately not shared
-  with `usePersonReadiness`/`ObligationEvaluation` — Phase 0 inspection found
-  no compatible axis; no generic readiness abstraction is introduced.
+- **Mission-specific types:** `types/missionReadiness.ts` (renamed from
+  `readiness.ts` at Sprint 30 review — inspection confirmed no type in the
+  module is consumed by `usePersonReadiness`/`ObligationEvaluation`; the two
+  models share no compatible axis; no generic readiness abstraction is
+  introduced).
 - **Composition hook:** `hooks/useMissionReadiness.ts` — reuses ONLY existing
   query keys (all-participants, all-kit, credentials-all, journeys-all-active,
   pending approvals). Zero new network surface; every existing mutation's
@@ -173,10 +175,18 @@ previously generated no work item anywhere.
 
 ## 8. Deferred to v1.1+ (owner decisions)
 
-- Apparel facet (requires a batch `listAllApparelProfiles` service read —
-  none exists today; informational-only per the locked S28 rule that a missing
-  profile is never a readiness failure).
-- Kit facet work-item trigger (type already extends).
+**Intentionally deferred by the primary lead architect at Sprint 30 v1
+authorization (2026-07-04) — do NOT restore to Sprint 30 v1:**
+
+- **Apparel facet and the apparel batch read** (`listAllApparelProfiles` —
+  no batch service read exists today; when built, the facet is
+  informational-only per the locked S28 rule that a missing profile is never
+  a readiness failure).
+- **Kit-generated MissionReadinessGap work items** (the trigger's facet union
+  already extends to `'Kit'` without renaming — deliberately unused in v1).
+
+Also deferred:
+
 - Explicit kit-not-applicable marker (schema change).
 - Milestones/finance facets (mock-only domains; SP services are graceful
   stubs).

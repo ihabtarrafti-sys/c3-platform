@@ -1,7 +1,7 @@
 # C3 Platform ACL Review — Sprint 30
 
 **Status:** Phase A (source write-path audit) COMPLETE — Phase B (hardening) awaiting owner execution
-**Track:** Parallel security track beside Sprint 30 source work; must be hosted-green before Sprint 30 closes
+**Track:** Parallel security track beside Sprint 30 source work — closure rule in §7
 **Method:** Proven S29A/S29B process (`C3 Logistics List Permissions — Sprint 29A.md`, `C3 Governance List Permissions — Sprint 29B.md`)
 **Prepared:** 2026-07-04
 
@@ -110,3 +110,27 @@ For each hardened list, from live sessions:
 | C3Credentials | — | — | — | — |
 | C3Journeys | — | — | — | — |
 | C3Missions | — | — | — | — |
+
+## 7. Sprint 30 closure rule (primary lead architect directive, 2026-07-04)
+
+**C3People, C3Credentials, C3Journeys** — their audited matrices are
+unambiguous (§2/§3): Phase B hardening AND hosted per-role validation MUST be
+complete and green **before Sprint 30 closes**. Should any of these matrices
+become ambiguous during Phase B, stop and escalate — do not harden on an
+unresolved matrix.
+
+**C3Missions** — do NOT change live permissions until the legitimate manual
+authoring role is confirmed (§2 open question). If authorship remains
+unresolved at closeout, Sprint 30 may close ONLY as a **controlled deferral**
+with ALL of the following recorded:
+
+1. an explicit owner-approved deferral of the C3Missions hardening;
+2. the inherited-permission risk (site Members Edit / Legal Full Control on
+   C3Missions) re-entered as an open item in the Tech Debt Register and
+   backlog;
+3. current C3Missions permissions left unchanged — no partial hardening;
+4. the exact evidence still required documented here: the confirmed list of
+   principals who legitimately create/maintain C3Missions rows, after which
+   §4 applies to the C3Missions row of §3 unchanged.
+
+This is a controlled deferral, not an ambiguous unfinished checklist item.
