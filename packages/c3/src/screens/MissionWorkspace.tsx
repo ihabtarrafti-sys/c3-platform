@@ -60,17 +60,19 @@ import {
 } from '@c3/components/ui';
 import { AddKitPanel } from '@c3/components/shared/AddKitPanel';
 import { AddParticipantPanel } from '@c3/components/shared/AddParticipantPanel';
+import { ReadinessFacetStrip } from '@c3/components/shared/ReadinessFacetStrip';
 import { useAllKitAssignments } from '@c3/hooks/useAllKitAssignments';
 import { useAllMissionParticipants } from '@c3/hooks/useAllMissionParticipants';
 import { useApp } from '@c3/hooks/useApp';
 import { useDeactivateKitAssignment } from '@c3/hooks/useDeactivateKitAssignment';
 import { useListApprovals } from '@c3/hooks/useListApprovals';
+import { useMissionReadiness } from '@c3/hooks/useMissionReadiness';
 import { useMissions } from '@c3/hooks/useMissions';
 import { usePeople } from '@c3/hooks/usePeople';
 import { useSubmitParticipantApproval } from '@c3/hooks/useSubmitParticipantApproval';
 import { useToast } from '@c3/hooks/useToast';
 import { useTransitionKitStatus } from '@c3/hooks/useTransitionKitStatus';
-import type { KitAssignment, KitStatus, Mission, MissionParticipant, MissionStatus, Person } from '@c3/types';
+import type { KitAssignment, KitStatus, Mission, MissionParticipant, MissionReadiness, MissionStatus, Person } from '@c3/types';
 import { FULFILLED_KIT_STATUSES, MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
 import { kitTransitionRequiresReason, validKitTransitions } from '@c3/utils/kitLifecycle';
 import { PENDING_APPROVAL_STATUSES, pendingRequestKey } from '@c3/utils/participantWrites';
@@ -406,6 +408,8 @@ const MissionCard = ({
   onAddParticipant,
   onRemoveParticipant,
   pendingRequests,
+  readiness,
+  readinessLoading,
 }: {
   mission: Mission;
   participants: MissionParticipant[];
@@ -421,6 +425,9 @@ const MissionCard = ({
   onAddParticipant: () => void;
   onRemoveParticipant: (participant: MissionParticipant) => void;
   pendingRequests: Map<string, string>;
+  /** S30: computed readiness for the facet strip. */
+  readiness: MissionReadiness | undefined;
+  readinessLoading: boolean;
 }) => (
   <div
     style={{
@@ -467,6 +474,15 @@ const MissionCard = ({
         <MissionStatusBadge status={mission.Status} />
       </div>
     </div>
+
+    {/* ── S30: readiness facet strip (read-only, computed from live data). ───
+        showPendingChanges=false — the S29B card-level pending badges below
+        already display the same approvals. */}
+    <ReadinessFacetStrip
+      readiness={readiness}
+      isLoading={readinessLoading}
+      showPendingChanges={false}
+    />
 
     {/* Detail grid */}
     <div
@@ -630,6 +646,12 @@ export const MissionWorkspace = () => {
 
   // S28-6: single batch kit query grouped locally by mission and person.
   const { data: allKit, isLoading: kitLoading } = useAllKitAssignments();
+
+  // S30: mission readiness — one batch computation over shared query caches.
+  // Deliberately NOT part of the screen's blocking isLoading: the strip
+  // carries its own loading affordance, so the card grid renders as soon as
+  // the S26–S28 sources are ready (frame-zero behaviour unchanged).
+  const { readinessByMission, isPending: readinessLoading } = useMissionReadiness(missions);
 
   // Expanded participant lists, keyed by MissionID (screen-local UI state).
   const [expandedMissions, setExpandedMissions] = useState<Set<string>>(new Set());
@@ -903,6 +925,8 @@ export const MissionWorkspace = () => {
               onAddParticipant={() => setAddParticipantTarget(mission)}
               onRemoveParticipant={p => { setRemoveReason(''); setRemoveTarget(p); }}
               pendingRequests={pendingParticipantRequests}
+              readiness={readinessByMission.get(mission.MissionID)}
+              readinessLoading={readinessLoading}
             />
           ))}
         </div>
