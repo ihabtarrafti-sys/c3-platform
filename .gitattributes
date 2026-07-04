@@ -1,4 +1,8 @@
 # Runtime bundles are build artifacts verified by SHA-256 (scripts/verify-c3-runtime.mjs).
 # They must remain byte-identical to the committed blob on every platform —
 # never apply CRLF/LF normalization on checkout or commit.
+# The bare filename pattern intentionally covers EVERY bundle copy:
+#   packages/c3-spfx-host/src/webparts/c3Host/assets/c3-runtime/c3-runtime.js (deployed asset)
+#   packages/c3-runtime/dist/c3-runtime.js (legacy tracked dist — S30 hygiene note:
+#   a stale CRLF working copy predating this rule was restored 2026-07-04)
 c3-runtime.js -text
