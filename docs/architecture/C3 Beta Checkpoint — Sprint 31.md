@@ -1,12 +1,24 @@
 # C3 Beta Checkpoint — Sprint 31
 
 **Sprint:** 31 — Approval Scale and Query Integrity
-**Status:** Source complete · validation gate green · AWAITING index gate + deploy + hosted Part 18
-**Prepared:** 2026-07-04
-**Semantics:** `Approval Query Integrity — Sprint 31.md` (approved)
+**Status:** ✅ FINAL — hosted Part 18 fully green (owner-confirmed 2026-07-05) · Sprint 31 CLOSED
+**Prepared:** 2026-07-04 · **Finalized:** 2026-07-05
+**Semantics:** `Approval Query Integrity — Sprint 31.md` (delivered)
+**Deployed runtime SHA-256 (verified hosted):** `80df03b12c84214fbecce51754a1a1faffab3aa06896d8c9f8dfcc679f4a8032`
 
-Sprint 31 is NOT closed until the index gate evidence is recorded and hosted
-validation (Part 18) is fully green.
+All Part 18 sections below were executed and OWNER-CONFIRMED green on 2026-07-05:
+index gate remediated and verified (four indexes live; evidence below); ApprovalInbox
+completeness and Id-desc ordering against direct SharePoint filters; ExecutionFailed
+actionable visibility regardless of age; truthful terminal windowing; complete person
+history; immediate visibility for all four legacy submissions; participant pending
+indicators; duplicate-pending fail-closed; stale review AND stale execution protection;
+all Part 18.5 consumer failure-state drills; S29B participant, Sprint 30 readiness, and
+Situation Room regressions green.
+
+**Part 18.0 live evidence (owner-captured):** ItemCount 35 · highest numeric Id 52 ·
+Title/ApprovalStatus/TargetPersonID/OperationType all `Indexed: true` (remediated from
+all-false via the fail-closed console script; before/after tables archived).
+Checklist retained below for audit.
 
 ---
 

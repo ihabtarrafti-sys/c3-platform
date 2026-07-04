@@ -2,7 +2,7 @@
 **C3 Contract Control Center**
 **Created:** 2026-07-01
 **Status:** Living document — planning only. No implementation authorised from this document alone.
-**Baseline:** Sprint 30 CLOSED (2026-07-04; Mission Readiness Cockpit v1 + core-list ACL hardening; runtime `2a4a162d…`)
+**Baseline:** Sprint 31 CLOSED (2026-07-05; Approval Scale & Query Integrity; runtime `80df03b1…`)
 **See also:** C3 Architecture Baseline — Sprint 25.md, Sprint 25 Closeout Report.md, C3 Tech Debt Register.md, C3 Product Roadmap and Backlog Expansion Addendum.md (Sprint 15 era, historical)
 
 > **Purpose:** Single-source register of planned C3 capability tracks beyond the current beta sprint sequence. Each entry records what the capability is, what it depends on, and when it is expected relative to the current sprint cadence. This document is a backlog and planning reference only — individual sprint scopes are authorised separately. Nothing in this document implies implementation is authorised or imminent.
@@ -48,10 +48,16 @@ Sprint 28  — Apparel + Kit Logistics (read) ✅ CLOSED
 Sprint 29A — Kit & Apparel Lifecycle Writes ✅ CLOSED
 Sprint 29B — Governed Participant Membership + immutable approvals ✅ CLOSED
 Sprint 30  — Mission Readiness Cockpit v1 + core-list ACL hardening ✅ CLOSED
-Sprint 31  — candidates (owner decision at Phase 0): Approvals scale hardening
-             (TD-19/TD-07 + pagination) + Readiness v1.1 (apparel facet + batch
-             read, kit work-item facet) | C3Contracts activation (+ ACL posture,
-             TD-22 migration) | TD-26 mission-confirmation governed write design
+Sprint 31  — Approval Scale & Query Integrity (complete fail-closed reads,
+             Id-desc ordering, freshness+ETag actions, live indexes;
+             TD-06/07/19 resolved) ✅ CLOSED
+Sprint 32  — candidates (owner decision at Phase 0), in priority order:
+             1. Readiness v1.1 (apparel facet + listAllApparelProfiles batch
+                read; kit MissionReadinessGap facet) + TD-30 canonical
+                fail-fast gate command
+             2. C3Contracts activation (+ ACL posture, TD-22 migration)
+             3. TD-26 mission-confirmation governed write design
+             4. TD-29 execution-claim / idempotency design
 
 Later      — Mission Budgeting / Finance (Tracks 9–11); Induction (Track 15)
            — SharePoint Import/Export

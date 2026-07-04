@@ -491,33 +491,32 @@ These are known issues that do not cause observable failures in the current beta
 
 ---
 
-### ERR-009 — getApproval Not Implemented
+### ERR-009 — getApproval Not Implemented ✅ RESOLVED (Sprint 31)
 
-**Type:** Latent
-**Symptom:** Any code path calling `approvalsService.getApproval(id)` throws immediately with "not implemented". No SP call is made.
-**Cause:** Both `MockApprovalsService.getApproval` and `SharePointApprovalsService.getApproval` throw "not implemented". No current screen or hook calls this method. See TD-06.
-**Detection:** Console: "not implemented". Only observable if new code calls `getApproval`.
-
-**User Impact:** Zero in current beta. Any future screen requiring single-approval fetch by ID will crash on first use.
-
-**Recovery (when triggered):** Implement `getApproval` in both service classes before building any consumer. See TD-06.
+**Type:** Latent → ✅ Resolved
+**Was:** Both `MockApprovalsService.getApproval` and `SharePointApprovalsService.getApproval` threw "not implemented" (TD-06); any consumer would have crashed on first use.
+**Resolution (S31):** `getApproval(id)` is live in both services — a fresh single-row read
+by the retained SP numeric item Id returning `{ approval, etag }` (null strictly means
+not-found; an existing-but-corrupt row raises ERR-036). It now powers the execution,
+review, and recovery freshness preconditions and their ETag-bound updates.
+Hosted-verified 2026-07-05 (stale review/execution protection drills, Part 18.3).
 
 **Related files:** `MockApprovalsService.ts`, `SharePointApprovalsService.ts`, `IApprovalsService.ts`
 
 ---
 
-### ERR-017 — $top=500 Approval History Truncation
+### ERR-017 — $top=500 Approval History Truncation ✅ RESOLVED (Sprint 31)
 
-**Type:** Latent
-**Symptom:** PersonProfile Approvals tab shows incomplete approval history for a person even though more records exist in SP. No error; data is silently truncated.
-**Cause:** `listApprovals` SP query uses `$top=500`. `usePersonApprovals` (S21-P2) filters client-side by `targetPersonId`. If `C3Approvals` total record count exceeds 500, earlier records fall outside the fetch window and are invisible to person-scoped filtering.
-**Detection:** Cross-reference PersonProfile Approvals tab count against a direct SP query filtered by `TargetPersonID`. Discrepancy indicates truncation. See TD-19.
-
-**User Impact (when triggered):** Approval history for high-volume persons may appear incomplete. Display-only gap; no action-blocking.
-
-**Risk level:** Not a concern in beta. Becomes relevant at ~400–500 total `C3Approvals` records.
-
-**Mitigation (future):** Implement OData `$filter=TargetPersonID eq '...'` in SP service (TD-07), or add pagination support to `listApprovals`. See TD-19.
+**Type:** Latent → ✅ Resolved
+**Was:** `listApprovals` capped at `$top=500` with client-side person filtering — person
+history silently truncated past 500 total rows (TD-19), the pending duplicate guard could
+fail open, and stuck actionable rows could age out of the inbox.
+**Resolution (S31):** person history uses the complete, exhaustively paged, server-filtered
+`listApprovalsByPerson` (indexed `TargetPersonID`); pending/actionable reads are complete
+paged queries ordered by numeric Id desc; failures are fail-closed (ERR-036) — silent
+truncation no longer exists on the approval surface. The legacy `listApprovals` method is
+contract-frozen with no production consumer. Hosted-verified 2026-07-05 (Part 18.1
+completeness checks against direct SharePoint filters).
 
 **Related files:** `SharePointApprovalsService.ts`, `usePersonApprovals.ts`
 

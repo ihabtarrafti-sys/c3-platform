@@ -44,6 +44,19 @@ The list serves three functions simultaneously:
 
 ## Section 3 — Column definitions
 
+> **Index status note (Sprint 31, 2026-07-05):** the "Indexed: Yes" rows below were
+> DESIGN INTENT and were never applied at original provisioning — Sprint 31 Part 18.0
+> live verification found all four false (Title, ApprovalStatus, TargetPersonID,
+> OperationType) at ItemCount 35 / highest Id 52. Remediated the same day via the
+> owner-executed, verification-first console script (fail-closed; field property only;
+> no rows/views/permissions/content types/field types touched): all four now verify
+> **Indexed: true** live. These four indexes are REQUIRED by the S31 approval read
+> architecture (single-status Id-desc queries + server-side TargetPersonID filter) —
+> any re-provisioning of this list must apply them and verify via
+> `fields?$select=InternalName,Indexed`. SubmittedAt is deliberately NOT indexed
+> (authoritative ordering is the numeric Id; SubmittedAt is client-clock display data).
+> Evidence: C3 Beta Checkpoint — Sprint 31 Part 18.0; Approval Query Integrity — Sprint 31 §7.
+
 ### 3.1 Title (ApprovalID)
 
 The built-in `Title` column is repurposed to store the approval identifier.

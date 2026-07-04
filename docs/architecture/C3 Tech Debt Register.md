@@ -104,36 +104,36 @@ schema change point.
 ---
 
 ### TD-06 — `getApproval` not implemented (throws in both services)
-**Severity:** 🟡 Quality gap
-**Sprint attributed:** S18 (stub placeholder)
-**File:** `MockApprovalsService.ts`, `SharePointApprovalsService.ts`
+**Severity:** 🟡 → ✅ **Resolved in Sprint 31**
+**Sprint attributed:** S18 (stub placeholder), S31 (resolved)
+**File:** `MockApprovalsService.ts`, `SharePointApprovalsService.ts`, `IApprovalsService.ts`
 
-Both `getApproval` implementations throw "not implemented". No screen or hook currently
-calls this method, so there is no user-visible impact. If a future screen calls it, it will
-crash.
+~~Both `getApproval` implementations throw "not implemented".~~
 
-**Resolution:** Implement when a consumer requires single-approval fetch (e.g., deep-link
-to an approval by ID). Not in S20 scope.
+**Resolved (S31):** `getApproval(id)` is live in both services as a fresh single-row read
+by the retained SP numeric item Id (never a parsed APR Title), returning the mapped row
+plus its current ETag. null strictly means not-found; an existing-but-corrupt row raises
+`ApprovalQueryIntegrityError` (ERR-036). Consumers: the S31 freshness preconditions for
+execution, review (approve/reject), and all three stamp-recovery hooks, whose subsequent
+MERGEs are ETag-bound. Hosted-verified 2026-07-05 (stale review/execution drills).
 
 ---
 
 ### TD-07 — `listApprovals` missing `targetPersonId` filter
-**Severity:** 🟠 Latent risk
-**Sprint attributed:** S18 (interface as-built), S20 Phase 1 (planned resolution)
-**File:** `IApprovalsService.ts`, `SharePointApprovalsService.ts`, `MockApprovalsService.ts`
+**Severity:** 🟠 → ✅ **Resolved in Sprint 31**
+**Sprint attributed:** S18 (interface as-built), S31 (resolved)
+**File:** `IApprovalsService.ts`, `SharePointApprovalsService.ts`, `MockApprovalsService.ts`, `usePersonApprovals.ts`
 
-`listApprovals(filter?: { status?: string[] })` has no `targetPersonId` parameter.
-`PersonProfile` History tab (S20 Phase 1) needs to show approvals scoped to a single person.
-Without this filter, either all approvals are fetched and client-filtered (inefficient) or
-the history tab cannot be built.
+~~`listApprovals(filter?: { status?: string[] })` has no `targetPersonId` parameter;
+`usePersonApprovals` fetched all statuses and filtered client-side (see TD-19).~~
 
-**Resolution:** Add `targetPersonId?: string` to the filter type and implement OData
-`$filter=TargetPersonID eq '${targetPersonId}'` in the SP service. Planned for S20 Phase 1.
-
-**S21-P2 note:** `usePersonApprovals` (PersonProfile Approvals tab) works around the missing
-server-side filter by fetching all 6 statuses and filtering client-side by `targetPersonId`.
-This is a known workaround — see TD-19 for the truncation risk consequence. TD-07 remains open;
-the OData filter is not yet implemented in the SP service.
+**Resolved (S31):** the dedicated `listApprovalsByPerson(personId)` method performs a
+complete, exhaustively paged, server-side OData filter on the (now live-indexed)
+`TargetPersonID` column with OData literal escaping, ordered by numeric Id desc.
+`usePersonApprovals` was rewritten onto it — the client-side workaround is gone. The
+legacy `listApprovals` remains contract-frozen with no production consumer; the person
+filter was deliberately delivered as a semantic method rather than a filter widening.
+Hosted-verified 2026-07-05 (person-history completeness vs direct SP filter).
 
 ---
 
@@ -361,25 +361,25 @@ No changes required. Documented here for completeness.
 ---
 
 ### TD-19 — Approval list top-500 truncation risk in person-scoped history
-**Severity:** 🟠 Latent risk
-**Sprint attributed:** S21 Phase 2 (identified at build time)
-**File:** `packages/c3/src/services/sharepoint/SharePointApprovalsService.ts`, `packages/c3/src/hooks/usePersonApprovals.ts`
+**Severity:** 🟠 → ✅ **Resolved in Sprint 31 (approval surface only)**
+**Sprint attributed:** S21 Phase 2 (identified), S31 Phase 0 (full consequence set found), S31 (resolved)
+**File:** `SharePointApprovalsService.ts`, `usePersonApprovals.ts`, `useSubmitParticipantApproval.ts`, `ApprovalInbox.tsx`
 
-`listApprovals` SP query uses `$top=500`. `usePersonApprovals` (S21-P2) filters
-client-side by `targetPersonId`. If C3Approvals exceeds 500 total records, the
-PersonProfile Approvals tab will silently truncate results for any person whose
-approvals fall outside the top 500 by submitted date.
+~~`listApprovals` capped at `$top=500` with client-side person filtering.~~ S31 Phase 0
+established the full consequence set: silent person-history truncation, inbox recovery
+invisibility for actionable rows older than the newest 500 (incl. ExecutionFailed), and a
+duplicate-pending guard that would FAIL OPEN past 500 pending-band rows.
 
-**Risk level:** Not a concern in beta; becomes relevant at operational scale (~500+ total approval records).
+**Resolved (S31):** all approval reads moved to complete, exhaustively paged, fail-closed
+queries ordered by numeric Id desc (indexed): pending and actionable sets are complete at
+any list size; person history is complete and server-filtered; terminal history is a
+DELIBERATE, truthfully-labelled window; the duplicate guard fails closed. Live indexes
+applied and verified 2026-07-05 (ItemCount 35, highest Id 52 at verification).
+Hosted-verified via Part 18.1/18.2 completeness and ordering checks.
 
-**Recommended mitigation:**
-- Add `targetPersonId?: string` to the `listApprovals` filter and implement
-  OData `$filter=TargetPersonID eq '...'` in SP service (related to TD-07), or
-- Add pagination support to `listApprovals`.
-
-**Note:** TD-07 already tracks the missing `targetPersonId` filter on `listApprovals`
-as a general latent risk. TD-19 specifically records the person-history truncation
-consequence introduced by S21-P2's client-side filtering approach.
+**Scope note:** this resolution covers exactly the implemented APPROVAL read surface.
+Top-N patterns elsewhere (people/credentials $top=2000, missions/participants/kit
+$top=500) remain tracked under "top-N cap inconsistencies" — NOT resolved here.
 
 ---
 
@@ -664,5 +664,33 @@ safeguard.
 **Mitigation in place:** single-owner execution in practice; freshness refusal window;
 ETag-412 surfacing; operation-level idempotency where it exists.
 **Resolution path:** an explicit execution-claim design (e.g. a claimed-by MERGE with
-ETag as an atomic take) — a deliberate future owner decision, NOT to be introduced
-silently (excluded from S31 scope by mandate).
+ETag as an atomic take) or operation-level idempotency for the remaining unguarded
+operations — a deliberate future owner decision, NOT to be introduced silently
+(excluded from S31 scope by mandate). **Status at S31 closeout: OPEN by design.**
+
+---
+
+### TD-30 — Validation gate can mask a strict-build failure (piped exit codes)
+
+**Severity:** 🟠 Process risk (occurred once during S31; caught before deployment)
+**Sprint attributed:** S31 (consumer failure-state pass, 2026-07-05)
+**Surface:** validation workflow (no product source involved)
+
+During the S31 consumer pass, `npm run beta:runtime 2>&1 | tail -2` masked a nonzero
+strict-build exit (the pipeline's exit code is `tail`'s), and `verify:runtime` then
+PASSED against two matching but STALE bundles — producing an unchanged runtime SHA
+after source changes. The failure (an unused local only the strict `tsc -b` path
+catches — the project's third such catch) was detected only because an unchanged SHA
+after source edits was treated as a warning signal.
+
+**Operational rules (effective immediately):**
+1. Never pipe `beta:runtime` (or any gate step) in a way that discards its exit code —
+   run it unpiped or under `set -o pipefail` with the code checked.
+2. An unchanged runtime SHA after source changes is a red flag: investigate before
+   trusting `verify:runtime` (it proves dist/asset CONSISTENCY, not freshness).
+
+**Resolution:** one canonical fail-fast validation command (script) that preserves every
+exit code and runs, in order: all parity gates, both TypeScript checks, the strict
+build, runtime verification, and the NUL audit. Owned as a process-hardening backlog
+item (candidate to pair with the next sprint); NOT implemented during S31 closeout.
+Related: TD-27 gate note (strict-build path mandatory).

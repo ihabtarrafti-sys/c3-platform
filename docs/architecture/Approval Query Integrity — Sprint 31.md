@@ -1,8 +1,9 @@
 # Approval Query Integrity — Sprint 31
 
-**Status:** Approved (owner decision, 2026-07-04) — implemented in Sprint 31
+**Status:** ✅ DELIVERED — Sprint 31 CLOSED hosted-green (2026-07-05); index gate evidence in §7
 **Scope:** Approval Scale and Query Integrity — no approval lifecycle redesign
-**Harness:** `scripts/s31-parity-approval-queries.mjs` (compiled-from-source)
+**Harness:** `scripts/s31-parity-approval-queries.mjs` (compiled-from-source, 55/55)
+**Deployed runtime:** `80df03b12c84214fbecce51754a1a1faffab3aa06896d8c9f8dfcc679f4a8032`
 
 ---
 
@@ -106,8 +107,23 @@ await fetch(`${web}/_api/web/lists/getbytitle('C3Approvals')/fields/getbyinterna
 // then re-run the read-only verification and record before/after here.
 ```
 
-Evidence to record here after execution: index verification output · ItemCount ·
-highest Id · date · executing account.
+**Evidence (owner-executed, 2026-07-05):**
+
+| Check | Before | After |
+|---|---|---|
+| Title Indexed | false | **true** |
+| ApprovalStatus Indexed | false | **true** |
+| TargetPersonID Indexed | false | **true** |
+| OperationType Indexed | false | **true** |
+| ItemCount | 35 | 35 (unchanged — field property only) |
+| Highest numeric Id | 52 | 52 |
+
+The four "Indexed: Yes" rows in the schema doc were design intent never applied at
+provisioning — a Phase-0-class discrepancy now closed. Remediation ran the
+verification-first fail-closed console script (re-read → type/InternalName/Hidden/
+ReadOnly validation → sequential MERGE Indexed=true → re-read → PASS); the runbook
+above is superseded by that stronger script shape for any future list. Full console
+capture archived by the owner with the Part 18.0 evidence.
 
 ## 8. Out of scope (locked)
 
