@@ -19,8 +19,8 @@ validation (Part 18) is fully green.
       exactly the missing field(s), re-verify, record before/after. Alter nothing else.
 - [ ] Capture live `ItemCount` and highest numeric Id (operational evidence).
 - [ ] `git push origin master`; rebuild SPPKG; deploy; hard refresh; verify deployed
-      runtime SHA-256:
-      `8a7115a0c83fe86a366adce645bf140e3d6bc97fb346ee89c2f24a7caac313a0`
+      runtime SHA-256 (final, post consumer-failure-state pass):
+      `80df03b12c84214fbecce51754a1a1faffab3aa06896d8c9f8dfcc679f4a8032`
 
 ## Part 18.1 — Completeness (no omissions)
 
@@ -63,13 +63,37 @@ validation (Part 18) is fully green.
 - [ ] Situation Room unchanged.
 - [ ] NavRail guards and TD-26 confirmation guard unchanged.
 
+## Part 18.5 — Consumer failure states (simulate via DevTools request blocking)
+
+Block the C3Approvals `items` endpoint (DevTools → Network → block request URL
+pattern) and hard-refresh the relevant screen; then unblock and verify recovery.
+
+- [ ] **ApprovalInbox, actionable blocked:** explicit "Actionable approvals
+      unavailable" error state; NO tab counts, NO empty-success ("no approvals") copy.
+- [ ] **ApprovalInbox, terminal only blocked** (block after actionable loads, then
+      switch tabs): Pending/Approved/Failed tabs keep their loaded rows and counts;
+      Executed/Rejected tabs show "Terminal history unavailable" with `(—)` labels —
+      never "No executed approvals"; the All tab lists actionable rows with the
+      unavailability notice.
+- [ ] **PersonProfile Approvals tab blocked:** error state renders — never
+      "no approval history".
+- [ ] **MissionWorkspace pending blocked:** cards show "Pending changes unavailable" —
+      never an absent/no-pending signal; executed participant lists unaffected.
+- [ ] **Readiness strip during pending failure:** overall/facets keep their trusted
+      evidence-based states (locked S30 rule); no facet flips to Unknown from a
+      pending-only failure.
+- [ ] **Duplicate guard fail-closed:** with pending blocked, submitting a participant
+      request is refused with the "submission blocked (fail-closed)" message —
+      never accepted.
+- [ ] ERR-036 documented behavior matches what renders (see C3 Error Library).
+
 ## Validation gate at source completion (2026-07-04)
 
 | Check | Result |
 |---|---|
 | s15 / s16 / s17 / s18 | 87/87 · 220/220 · 51/51 · 55/55 |
 | s27 / s28 / s29 / s29b / s30 | 28/28 · 35/35 · 38/38 · 34/34 · 59/59 |
-| **s31 (new)** | **40/40** |
+| **s31 (new)** | **55/55** (40 core + 15 consumer failure-state checks) |
 | tsc no-emit ×2 · strict build · verify:runtime · NUL audit | recorded at the build commit |
 
 ## Residual risk recorded

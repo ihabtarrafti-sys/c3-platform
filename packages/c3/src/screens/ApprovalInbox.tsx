@@ -123,6 +123,10 @@ import {
 import { useRecoverExecutionStamp, RecoveryTargetMissingError } from '@c3/hooks/useRecoverExecutionStamp';
 import { useToast } from '@c3/hooks/useToast';
 import type { CredentialType } from '@c3/types';
+import {
+  buildApprovalInboxView,
+  visibleApprovalsForTab,
+} from '@c3/utils/approvalInboxView';
 import { CREDENTIAL_TYPE_LABELS } from '@c3/utils/credentialLabels';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 
@@ -140,25 +144,13 @@ type InboxTab = 'pending' | 'approved' | 'executed' | 'rejected' | 'failed' | 'a
  *   - terminal query (WINDOWED): the latest N Executed/Rejected rows by Id.
  *     Tab labels and copy present the window truthfully — loaded counts are
  *     never shown as authoritative totals once the window saturates.
+ *
+ * Failure semantics AND tab status sets live in the PURE module
+ * utils/approvalInboxView.ts (parity-tested): actionable failure ⇒ explicit
+ * error state, never an empty success; terminal failure alone ⇒ actionable
+ * data stays fully visible and terminal tabs render as UNAVAILABLE (null),
+ * never as zero history.
  */
-const ALL_STATUSES = [
-  'Submitted',
-  'InReview',
-  'Approved',
-  'Rejected',
-  'Executed',
-  'ExecutionFailed',
-] as const;
-
-/** Statuses that belong to each tab. */
-const TAB_STATUSES: Record<InboxTab, readonly string[]> = {
-  pending:  ['Submitted', 'InReview'],
-  approved: ['Approved'],
-  executed: ['Executed'],
-  rejected: ['Rejected'],
-  failed:   ['ExecutionFailed'],
-  all:      ALL_STATUSES,
-};
 
 /** Tab display labels. */
 const TAB_LABELS: Record<InboxTab, string> = {
@@ -1351,45 +1343,28 @@ export const ApprovalInbox = () => {
   const actionableQuery = useActionableApprovals();
   const terminalQuery   = useTerminalApprovals();
 
-  const actionable = useMemo(() => actionableQuery.data ?? [], [actionableQuery.data]);
-  const terminal   = useMemo(() => terminalQuery.data ?? [], [terminalQuery.data]);
-
   const isLoading = actionableQuery.isLoading || terminalQuery.isLoading;
-  const isError   = actionableQuery.isError || terminalQuery.isError;
-  const error     = actionableQuery.error ?? terminalQuery.error;
 
-  /** True once the terminal window is saturated — counts are no longer totals. */
-  const terminalWindowed = terminal.length >= DEFAULT_TERMINAL_HISTORY_LIMIT;
+  // Pure, parity-tested view assembly (utils/approvalInboxView.ts):
+  // actionable failure ⇒ mode 'error'; terminal failure alone keeps actionable
+  // data fully visible with terminal tabs UNAVAILABLE (null counts, never 0).
+  const view = useMemo(
+    () => buildApprovalInboxView({
+      actionable:      actionableQuery.data,
+      actionableError: actionableQuery.isError,
+      terminal:        terminalQuery.data,
+      terminalError:   terminalQuery.isError,
+      terminalLimit:   DEFAULT_TERMINAL_HISTORY_LIMIT,
+    }),
+    [actionableQuery.data, actionableQuery.isError, terminalQuery.data, terminalQuery.isError],
+  );
+  const { counts, terminalUnavailable, terminalWindowed } = view;
 
-  // All tab: actionable (complete) + recent terminal window. Statuses are
-  // disjoint; dedupe by Id defensively (a row transitioning between the two
-  // fetches), the actionable copy wins; sort Id desc (authoritative order).
-  const merged = useMemo(() => {
-    const byId = new Map<number, C3Approval>();
-    for (const a of terminal) byId.set(a.id, a);
-    for (const a of actionable) byId.set(a.id, a);
-    return [...byId.values()].sort((a, b) => b.id - a.id);
-  }, [actionable, terminal]);
-
-  // -- Per-tab counts for tab labels --
-  // Actionable counts are authoritative totals; executed/rejected counts are
-  // WINDOW counts and are labelled with '+' once the window saturates.
-  const counts = useMemo(() => ({
-    pending:  actionable.filter(a => TAB_STATUSES.pending.includes(a.approvalStatus)).length,
-    approved: actionable.filter(a => TAB_STATUSES.approved.includes(a.approvalStatus)).length,
-    executed: terminal.filter(a => a.approvalStatus === 'Executed').length,
-    rejected: terminal.filter(a => a.approvalStatus === 'Rejected').length,
-    failed:   actionable.filter(a => TAB_STATUSES.failed.includes(a.approvalStatus)).length,
-    all:      merged.length,
-  }), [actionable, terminal, merged]);
-
-  // -- Visible items for the active tab --
-  const visibleApprovals = useMemo(() => {
-    if (activeTab === 'all') return merged;
-    const source =
-      activeTab === 'executed' || activeTab === 'rejected' ? terminal : actionable;
-    return source.filter(a => TAB_STATUSES[activeTab].includes(a.approvalStatus));
-  }, [merged, actionable, terminal, activeTab]);
+  // -- Visible items for the active tab (null = tab content unavailable) --
+  const visibleApprovals = useMemo(
+    () => visibleApprovalsForTab(view, activeTab),
+    [view, activeTab],
+  );
 
   // -- Loading --
   if (isLoading) {
@@ -1408,21 +1383,25 @@ export const ApprovalInbox = () => {
     );
   }
 
-  // -- Error --
-  if (isError) {
+  // -- Actionable data unavailable: explicit error state, never empty success --
+  if (view.mode === 'error') {
+    const err = actionableQuery.error;
     return (
       <div style={{ padding: 'var(--c3-space-8)' }}>
         <EmptyState
           variant="error"
-          title="Failed to load approvals"
-          description={error instanceof Error ? error.message : 'An unexpected error occurred.'}
+          title="Actionable approvals unavailable"
+          description={
+            (err instanceof Error ? err.message : 'An unexpected error occurred.') +
+            ' No approval counts or lists are shown — the data could not be loaded.'
+          }
         />
       </div>
     );
   }
 
   // -- Main render --
-  const pendingCount = counts.pending;
+  const pendingCount = counts.pending ?? 0;
 
   return (
     <div
@@ -1481,6 +1460,14 @@ export const ApprovalInbox = () => {
           {TAB_ORDER.map(tab => {
             const count = counts[tab];
             const label = TAB_LABELS[tab];
+            // null = count UNAVAILABLE (query failed) — shown as (—), never 0.
+            if (count === null) {
+              return (
+                <Tab key={tab} value={tab}>
+                  {`${label} (—)`}
+                </Tab>
+              );
+            }
             // Windowed tabs: once the terminal window saturates, the loaded
             // count is NOT the total — the '+' suffix keeps the label truthful.
             const windowedTab =
@@ -1495,23 +1482,40 @@ export const ApprovalInbox = () => {
         </TabList>
       </div>
 
-      {/* -- Truthful-window disclosures (S31) -- */}
+      {/* -- Truthful-window / unavailability disclosures (S31) -- */}
       {(activeTab === 'executed' || activeTab === 'rejected') && terminalWindowed && (
         <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
           Showing the latest {DEFAULT_TERMINAL_HISTORY_LIMIT} Executed and Rejected approvals
           (most recent first). Older terminal history remains in the C3Approvals list.
         </Text>
       )}
-      {activeTab === 'all' && (
+      {activeTab === 'all' && !terminalUnavailable && (
         <Text size={200} style={{ color: 'var(--c3-gray-500)' }}>
           This view contains ALL actionable approvals (Pending, Approved, Failed)
           plus recent Executed/Rejected history
           {terminalWindowed ? ` (latest ${DEFAULT_TERMINAL_HISTORY_LIMIT})` : ''}.
         </Text>
       )}
+      {activeTab === 'all' && terminalUnavailable && (
+        <Text size={200} style={{ color: 'var(--c3-critical)' }}>
+          Recent Executed/Rejected history is UNAVAILABLE (its query failed) —
+          this view currently shows actionable approvals only.
+        </Text>
+      )}
 
-      {/* -- Tab content -- */}
-      {visibleApprovals.length === 0 ? (
+      {/* -- Tab content (null = unavailable — an error notice, never empty success) -- */}
+      {visibleApprovals === null ? (
+        <EmptyState
+          variant="error"
+          title="Terminal history unavailable"
+          description={
+            (terminalQuery.error instanceof Error
+              ? terminalQuery.error.message
+              : 'The Executed/Rejected history query failed.') +
+            ' Loaded actionable approvals remain available in the other tabs.'
+          }
+        />
+      ) : visibleApprovals.length === 0 ? (
         <EmptyState
           variant="empty"
           title={EMPTY_MESSAGES[activeTab].title}

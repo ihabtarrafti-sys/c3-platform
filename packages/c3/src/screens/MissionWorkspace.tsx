@@ -408,6 +408,7 @@ const MissionCard = ({
   onAddParticipant,
   onRemoveParticipant,
   pendingRequests,
+  pendingUnavailable,
   readiness,
   readinessLoading,
 }: {
@@ -425,6 +426,8 @@ const MissionCard = ({
   onAddParticipant: () => void;
   onRemoveParticipant: (participant: MissionParticipant) => void;
   pendingRequests: Map<string, string>;
+  /** S31: the pending query failed — the pending signal is UNKNOWN, not empty. */
+  pendingUnavailable: boolean;
   /** S30: computed readiness for the facet strip. */
   readiness: MissionReadiness | undefined;
   readinessLoading: boolean;
@@ -548,7 +551,13 @@ const MissionCard = ({
         )}
       </button>
       {/* Pending-add chip — the participant is NOT shown until execution. */}
-      {[...pendingRequests.keys()].filter(k => k.startsWith(`AddMissionParticipant|${mission.MissionID}|`)).length > 0 && (
+      {/* S31: a failed pending query is UNKNOWN — never rendered as "no
+          pending changes". Executed membership above is a separate query. */}
+      {pendingUnavailable ? (
+        <Badge appearance="outline" color="warning" size="small">
+          Pending changes unavailable
+        </Badge>
+      ) : [...pendingRequests.keys()].filter(k => k.startsWith(`AddMissionParticipant|${mission.MissionID}|`)).length > 0 && (
         <Badge color="warning" size="small">
           {[...pendingRequests.keys()].filter(k => k.startsWith(`AddMissionParticipant|${mission.MissionID}|`)).length} addition(s) pending approval
         </Badge>
@@ -597,9 +606,12 @@ export const MissionWorkspace = () => {
 
   // S29B: pending participant requests (SP DSM) — one in-flight request per
   // operationType+mission+person. Chips are affordance; the submit hook
-  // validates duplicates authoritatively. S31: sourced from the COMPLETE
-  // exhaustively-paged pending read — chips can no longer understate past 500.
-  const { data: pendingApprovals = [] } = usePendingApprovals();
+  // validates duplicates authoritatively (fail-closed). S31: sourced from the
+  // COMPLETE exhaustively-paged pending read — chips can no longer understate
+  // past 500. A FAILED pending query renders as "unavailable" on every card —
+  // never as "no pending changes". Active executed membership is a separate
+  // trusted query and is unaffected.
+  const { data: pendingApprovals = [], isError: pendingUnavailable } = usePendingApprovals();
   const pendingParticipantRequests = useMemo(() => {
     const map = new Map<string, string>(); // pendingKey -> APR title
     for (const approval of pendingApprovals) {
@@ -926,6 +938,7 @@ export const MissionWorkspace = () => {
               onAddParticipant={() => setAddParticipantTarget(mission)}
               onRemoveParticipant={p => { setRemoveReason(''); setRemoveTarget(p); }}
               pendingRequests={pendingParticipantRequests}
+              pendingUnavailable={pendingUnavailable}
               readiness={readinessByMission.get(mission.MissionID)}
               readinessLoading={readinessLoading}
             />

@@ -534,3 +534,41 @@ These are known issues that do not cause observable failures in the current beta
 **Resolution path:** See TD-23. Re-enable after hosted hard-refresh first-click passes cleanly. If crash recurs after `isPending` fix, investigate Fluent UI Card/Griffel `stylesInsertion` cache teardown at unmount time.
 
 **Related files:** `packages/c3/src/intelligence/useIntelligence.ts`, `packages/c3/src/components/layout/NavRail.tsx`, `packages/c3/src/components/intelligence/OperationalInsightsPanel.tsx`
+
+---
+
+### ERR-036 — ApprovalQueryIntegrityError (complete approval query met a rejected row)
+
+**Type:** Runtime / Data integrity (Sprint 31)
+**Trigger conditions:** A query contracted as COMPLETE (`listPendingApprovals`,
+`listActionableApprovals`, `listApprovalsByPerson`; also the windowed
+`listRecentTerminalApprovals` and a `getApproval` hit on an existing row) received one or
+more C3Approvals rows that the mapper hard-rejected — null/NaN ID, missing or invalid
+ApprovalStatus, or missing OperationType. The read REFUSES to return a partial result.
+**Diagnostic data:** `rejectedItemIds` (SharePoint numeric item IDs of the failing rows;
+`-1` for null-ID rows) plus the fetched-row count, in both the error message and on the
+error object. These numeric IDs are DIAGNOSTIC persistence identifiers for locating the
+corrupt rows in the SharePoint list — they are not business approval identity and must
+not be presented as APR identifiers in normal user-facing copy.
+**Affected operations:** ApprovalInbox actionable/terminal loads; PersonProfile approval
+history; MissionWorkspace pending indicators; mission-readiness pending inputs; the
+participant duplicate-pending submission guard (submission BLOCKS — fail-closed);
+execution/review/recovery freshness reads.
+**User-visible behavior:** an explicit unavailable/error state on the affected surface —
+NEVER an empty list, zero count, or "no pending changes". An actionable-query failure
+shows the inbox error state; a terminal-history failure leaves loaded actionable
+approvals visible and marks only the terminal tabs unavailable; the pending indicator
+shows "Pending changes unavailable"; participant submission is refused with the
+fail-closed message.
+**Distinction from a successful empty query:** a successful empty query returns a real
+empty array / zero count. This error is a refusal — no result exists. Consumers render
+null/unavailable states, and the s31 parity harness proves the two are never conflated.
+**Recovery steps:** open C3Approvals in SharePoint, locate the listed item IDs, inspect
+ApprovalStatus / OperationType / ID for corruption (manual edits, interrupted writes),
+repair or (owner decision) remove the corrupt rows, then reload the screen. There is NO
+retry path that silently returns partial data — by design.
+**Related files:** `packages/c3/src/services/errors.ts`,
+`packages/c3/src/services/sharepoint/SharePointApprovalsService.ts`,
+`packages/c3/src/utils/approvalInboxView.ts`, `packages/c3/src/hooks/usePersonApprovals.ts`,
+`packages/c3/src/hooks/usePendingApprovals.ts`,
+`packages/c3/src/hooks/useSubmitParticipantApproval.ts`

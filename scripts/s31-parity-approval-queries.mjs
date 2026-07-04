@@ -356,6 +356,102 @@ try {
     check('13c. TERMINAL_STATUSES', JSON.stringify(ifc.TERMINAL_STATUSES) === JSON.stringify(['Executed', 'Rejected']));
   }
 
+  // ── 14. Consumer failure semantics (pure inbox view — S31 consumer pass) ──
+  {
+    const view = compile('utils/approvalInboxView.ts', 'inboxView.cjs');
+    const A = (id, status) => ({ id, title: `APR-${String(id).padStart(4, '0')}`, approvalStatus: status, operationType: 'AddCredential', submittedBy: 'x' });
+
+    // Actionable failure ⇒ explicit error mode, never an empty success.
+    const errView = view.buildApprovalInboxView({
+      actionable: undefined, actionableError: true,
+      terminal: [A(1, 'Executed')], terminalError: false, terminalLimit: 200,
+    });
+    check('14. actionable failure -> mode error', errView.mode === 'error');
+    check('14b. actionable failure -> ALL counts null (never zero)',
+      Object.values(errView.counts).every(c => c === null));
+    check('14c. actionable failure -> no tab returns rows',
+      view.visibleApprovalsForTab(errView, 'pending') === null &&
+      view.visibleApprovalsForTab(errView, 'all') === null);
+
+    // Terminal failure alone ⇒ actionable stays fully visible; terminal tabs unavailable.
+    const tFail = view.buildApprovalInboxView({
+      actionable: [A(5, 'Submitted'), A(4, 'Approved'), A(3, 'ExecutionFailed')],
+      actionableError: false,
+      terminal: undefined, terminalError: true, terminalLimit: 200,
+    });
+    check('15. terminal failure -> mode stays ready + terminalUnavailable', tFail.mode === 'ready' && tFail.terminalUnavailable === true);
+    check('15b. terminal failure does NOT hide actionable rows',
+      view.visibleApprovalsForTab(tFail, 'pending')?.length === 1 &&
+      view.visibleApprovalsForTab(tFail, 'approved')?.length === 1 &&
+      view.visibleApprovalsForTab(tFail, 'failed')?.length === 1);
+    check('15c. terminal tabs unavailable (null), never zero-history',
+      view.visibleApprovalsForTab(tFail, 'executed') === null &&
+      view.visibleApprovalsForTab(tFail, 'rejected') === null &&
+      tFail.counts.executed === null && tFail.counts.rejected === null);
+    check('15d. All tab keeps actionable rows + unavailable count',
+      view.visibleApprovalsForTab(tFail, 'all')?.length === 3 && tFail.counts.all === null);
+    check('15e. actionable counts remain authoritative numbers',
+      tFail.counts.pending === 1 && tFail.counts.approved === 1 && tFail.counts.failed === 1);
+
+    // Successful empty is a REAL zero — distinguishable from unavailable.
+    const empty = view.buildApprovalInboxView({
+      actionable: [], actionableError: false,
+      terminal: [], terminalError: false, terminalLimit: 200,
+    });
+    check('16. successful empty -> ready with real zeros (not null)',
+      empty.mode === 'ready' &&
+      Object.values(empty.counts).every(c => c === 0) &&
+      view.visibleApprovalsForTab(empty, 'pending')?.length === 0);
+    check('16b. window flag never set on failure or unsaturated results',
+      tFail.terminalWindowed === false && empty.terminalWindowed === false);
+    const saturated = view.buildApprovalInboxView({
+      actionable: [], actionableError: false,
+      terminal: [A(2, 'Executed'), A(1, 'Rejected')], terminalError: false, terminalLimit: 2,
+    });
+    check('16c. window flag set only at saturation', saturated.terminalWindowed === true);
+  }
+
+  // ── 17. Person-history failure propagates (never empty success) ───────────
+  {
+    const { service } = svc(() => ({ status: 503, statusText: 'Service Unavailable', body: {} }));
+    await rejects('17. person query failure rejects (consumer renders error state, not empty history)',
+      service.listApprovalsByPerson('PER-0001'),
+      (_, msg) => msg.includes('failing closed'));
+  }
+
+  // ── 18. Readiness: pending query is INFORMATIONAL only (locked S30 rule) ──
+  {
+    const mr = compile('utils/missionReadiness.ts', 'missionReadiness.cjs');
+    const protocols = compile('protocols/index.ts', 'protocols31.cjs');
+    const addDays31 = (n) => { const d = new Date(new Date().toISOString().split('T')[0] + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().split('T')[0]; };
+    const mission = {
+      MissionID: 'TR/2026/900', Name: 'M', Game: 'RL', Organizer: 'O', Entity: 'UAE',
+      Status: 'Confirmed', Jurisdiction: 'Dubai',
+      Span: { StartDate: addDays31(10), EndDate: addDays31(15), SettlementDate: addDays31(75) },
+      CreatedAt: new Date().toISOString(), CreatedBy: 'T',
+    };
+    const readiness = mr.computeMissionReadiness([mission], {
+      participants: { data: [{ MissionID: 'TR/2026/900', PersonID: 'PER-0001', ExternalCode: 'RL/PL/001', Role: 'Player' }], trusted: true },
+      credentials: { data: [
+        { CredentialID: 'C1', HolderPersonID: 'PER-0001', Type: 'EmiratesID', IsActive: true },
+        { CredentialID: 'C2', HolderPersonID: 'PER-0001', Type: 'Visa', IsActive: true },
+      ], trusted: true },
+      journeys: { data: [], trusted: true },
+      kit: { data: [{ MissionID: 'TR/2026/900', PersonID: 'PER-0001', ItemCategory: 'Jersey', AssignmentKey: 'HOME', Status: 'Confirmed' }], trusted: true },
+      pendingChanges: { data: [], trusted: false }, // ← ONLY the pending query failed
+    }, [protocols.evaluateOnboardingObligations]).get('TR/2026/900');
+    check('18. pending failure does NOT convert evaluation to Unknown',
+      readiness.evaluation === 'Evaluated' && readiness.overall !== null);
+    check('18b. trusted blocking facets keep their evidence-based states',
+      readiness.facets.participants.status === 'Present' &&
+      readiness.facets.compliance.status === 'Clear' &&
+      readiness.facets.kit.status === 'Fulfilled' &&
+      readiness.overall === 'Ready');
+    check('18c. pending indicators are null (unknown) — never an invented empty set',
+      readiness.facets.participants.pendingAdds === null &&
+      readiness.facets.participants.pendingRemovals === null);
+  }
+
   console.warn = realWarn; console.info = realInfo;
 } finally {
   rmSync(tmp, { recursive: true, force: true });

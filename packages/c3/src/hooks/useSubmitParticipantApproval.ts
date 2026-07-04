@@ -90,7 +90,15 @@ export const useSubmitParticipantApproval = () => {
     missionId: string,
     personId: string,
   ): Promise<void> => {
-    const pending = await approvalsService.listPendingApprovals();
+    // FAIL CLOSED: if the complete pending set cannot be obtained, the
+    // submission is BLOCKED with a truthful error — the guard never falls
+    // open and permits a possibly-duplicate request.
+    const pending = await approvalsService.listPendingApprovals().catch((err: unknown) => {
+      throw new Error(
+        `[C3] Could not verify pending membership requests — submission blocked (fail-closed). ` +
+        `Underlying error: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
     for (const approval of pending) {
       if (approval.operationType !== operationType) continue;
       try {
