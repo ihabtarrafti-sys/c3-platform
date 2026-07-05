@@ -1,0 +1,17 @@
+/**
+ * @c3web/domain — pure, framework-free business core for the C3 Web V0 stack.
+ *
+ * No SharePoint, no SPFx, no browser, no database, no HTTP. Depends only on
+ * `zod` for value validation. This is the stable contract every other package
+ * builds on.
+ */
+
+export * from './actor';
+export * from './approval';
+export * from './audit';
+export * from './businessIds';
+export * from './errors';
+export * from './identity';
+export * from './lifecycle';
+export * from './person';
+export * from './roles';

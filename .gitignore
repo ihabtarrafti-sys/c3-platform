@@ -48,3 +48,12 @@ pnpm-debug.log*
 
 # coverage
 coverage/
+
+# C3 Web V0 (Sprint 34) — local DB data + generated/runtime artefacts
+.pgdata/
+**/.pgdata/
+apps/web/dist/
+apps/api/dist/
+playwright-report/
+test-results/
+.turbo/

@@ -1,0 +1,33 @@
+# C3 Web V0 — local development PostgreSQL.
+#
+# This is the STANDARD documented local dev path (owner machines with Docker).
+# The automated test suite does NOT require Docker: packages/test-support
+# provisions an ephemeral real-PostgreSQL instance via `embedded-postgres`
+# when DATABASE_URL is unset, so CI and machines without Docker still exercise
+# the full DB / RLS / pool-isolation evidence.
+#
+# Usage:
+#   docker compose -f infra/docker-compose.yml up -d
+#   DATABASE_URL / C3_DB_* then point at localhost:5432 (see .env.example)
+services:
+  postgres:
+    image: postgres:18
+    container_name: c3web-postgres
+    restart: unless-stopped
+    environment:
+      # Bootstrap superuser — used ONLY for migrations/admin, never by the API.
+      POSTGRES_USER: c3_admin
+      POSTGRES_PASSWORD: c3_admin_dev_pw
+      POSTGRES_DB: c3web
+    ports:
+      - "5432:5432"
+    volumes:
+      - c3web_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U c3_admin -d c3web"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  c3web_pgdata:
