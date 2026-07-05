@@ -132,6 +132,56 @@ missing optionals stay missing · zero/missing never implies readiness.
 | 19.4 Real record | ⏳ PENDING owner |
 | **Internal V1.0** | **NOT DECLARED** — BLOCKED by TD-33 (People cold-load crash) + 19.2/19.4 |
 
+## Part 19.4 — genuine-row Contract Profile identity fix (IMPLEMENTED + DEPLOYED; hosted click-through PENDING render propagation, 2026-07-05)
+
+**Genuine row (owner-authored):** `Title=GKE-PL-2026-001`, SharePoint `Id=49`,
+`PersonID=PER-0001` (Abdulaziz Alabdullatif), Esports Agreement, Active,
+End 2027-07-01, $500 USD.
+
+**Root cause (app-owned):** every contract-profile navigation passed
+`contractId: String(contract.Id)` — the numeric SharePoint `Id` (e.g. "49") —
+but `SharePointContractService.getContract` filters `Title eq '<id>'` (Title = the
+canonical business Contract ID). So the hosted lookup became `Title eq '49'` →
+0 rows → "Contract not found". `MockContractService.getContract` matched the
+numeric `Id`, so mock DSM passed and masked the defect. Both click origins failed
+identically because they shared the same numeric-Id payload.
+
+**Fix (identity rule: plain-text business Contract ID is the cross-domain
+identity; numeric Id is persistence metadata only):** all 8 register/People/Inbox/
+Renewals navigations now carry `contract.ContractID`; `MockContractService`
+looks up by `ContractID` to mirror the SP service. `AmendmentProfile` already
+used the plain-text `ParentContractID` and is unchanged. No schema/lookup/ACL/
+write/routing change. `useContract` keeps `enabled: id.trim().length > 0` so an
+empty/undefined payload still fails truthfully. Parity 52/52 (adds Part 19.4
+identity regression checks); full gate PASS.
+
+**Deployment:** runtime `bb2ffba3ce04b57fc7aae30dfa74997ca978c7b8a349b1b5b436ea9a29b0492b`,
+chunk `chunk.c3-runtime_c595c83d…` = `dc718d6c045690ff58261f136384b4ab3605467e20681acb1faed5598ad7d1a0`.
+Catalog Add/Deploy 200/200. **Deployment integrity verified:** the deployed chunk
+was fetched from the CDN and confirmed to contain the fix (`.ContractID`
+navigation, `Title eq '` filter, mock ContractID match). The SP ground-truth query
+`Title eq 'GKE-PL-2026-001'` returns the genuine row — so the corrected lookup
+resolves it.
+
+**BLOCKER — hosted click-through UNVERIFIED (SharePoint render propagation):**
+after ~8 rapid Add(overwrite)+Deploy cycles this session, the C3 webpart stopped
+rendering on **fresh** page loads (empty canvas, **no console errors**), while a
+**warm** tab keeps working and the webpart is confirmed still present on the page
+canvas. The deployed bytes are correct and the mount code is byte-equivalent to
+the previously-rendering `982bd2e6` build (the fix only changed navigation
+payloads — zero mount-path impact), so this is a transient SPFx CDN/app-catalog
+propagation state, not a package or code fault. It was NOT restored to an older
+package because (a) `982bd2e6` reintroduces the "Contract not found" bug and
+(b) redeploying it would trigger the same propagation churn.
+
+**Remaining owner action:** after CDN propagation (typically minutes–tens of
+minutes), or immediately via a hard cache-clear refresh (Ctrl+F5), confirm both
+click paths (Contracts register → Contract Profile, and People profile → Contract
+Profile) resolve `GKE-PL-2026-001` and show fields matching SharePoint. If
+fresh-load rendering does not recover after propagation, retract+redeploy the
+solution cleanly (hosting operation, no code change). Part 19.4 goes green — and
+Internal V1.0 can be declared — once both paths are confirmed.
+
 ## Part 19.5 — TD-33 cold-start modal remediation (RESOLVED, hosted-green 2026-07-05)
 
 **Root cause (app-owned call path):** every "Add/Create" panel rendered its
