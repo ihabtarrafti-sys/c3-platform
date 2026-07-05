@@ -32,6 +32,7 @@ const rawSchema = z.object({
   ENTRA_ISSUER: z.string().optional(),
   ENTRA_JWKS_URI: z.string().optional(),
   ENTRA_AUDIENCE: z.string().optional(),
+  ENTRA_SCOPE: z.string().default('C3.Access'),
 });
 
 export type Env = {
@@ -45,7 +46,9 @@ export type Env = {
   databaseAuthUrl: string | undefined;
   authProvider: 'dev' | 'entra';
   devAuthSecret: string | undefined;
-  entra: { issuer: string; audience: string; jwksUri: string; tenantId?: string; clientId?: string } | undefined;
+  entra:
+    | { issuer: string; audience: string; jwksUri: string; tenantId: string; scope: string; clientId?: string }
+    | undefined;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -91,11 +94,24 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     if (!e.ENTRA_ISSUER || !e.ENTRA_AUDIENCE || !e.ENTRA_JWKS_URI) {
       throw new Error('AUTH_PROVIDER=entra requires ENTRA_ISSUER, ENTRA_AUDIENCE and ENTRA_JWKS_URI.');
     }
+    if (!e.ENTRA_TENANT_ID) {
+      throw new Error('AUTH_PROVIDER=entra requires ENTRA_TENANT_ID (tokens are pinned to one tenant).');
+    }
+    // Tenant-specific v2 issuer ONLY: no common/organizations/consumers and no
+    // multi-tenant resolution in this staging phase.
+    const issuer = e.ENTRA_ISSUER;
+    if (/\/(common|organizations|consumers)\//i.test(issuer)) {
+      throw new Error('ENTRA_ISSUER must be the tenant-specific v2 issuer, not common/organizations/consumers.');
+    }
+    if (!issuer.includes(e.ENTRA_TENANT_ID) || !/\/v2\.0\/?$/.test(issuer)) {
+      throw new Error('ENTRA_ISSUER must be https://login.microsoftonline.com/<ENTRA_TENANT_ID>/v2.0');
+    }
     entra = {
-      issuer: e.ENTRA_ISSUER,
+      issuer,
       audience: e.ENTRA_AUDIENCE,
       jwksUri: e.ENTRA_JWKS_URI,
       tenantId: e.ENTRA_TENANT_ID,
+      scope: e.ENTRA_SCOPE,
       clientId: e.ENTRA_CLIENT_ID,
     };
     // Entra membership resolution uses the SELECT-only auth role. (In non-prod

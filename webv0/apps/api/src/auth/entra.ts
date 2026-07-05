@@ -1,36 +1,61 @@
 /**
- * entra.ts — the Entra ID (OIDC) adapter boundary.
+ * entra.ts — the Entra ID (OIDC) adapter boundary (Phase 2B hardened).
  *
- * Token validation contract: verify the RS256 signature against the tenant
- * JWKS, and enforce issuer + audience. Provider-specific claims are then
- * TRANSLATED to the neutral principal: identity from preferred_username / upn /
- * email; tenant + role resolved from the directory membership (Entra tokens
- * carry AAD identity, not C3 tenant/role). No real Entra credentials are needed
- * to unit-test translateEntraIdentity / the JWKS validation (a local keypair +
- * JWKS is injected in tests).
+ * Token validation contract (ALL enforced):
+ *   - RS256 signature against the tenant JWKS (explicit algorithm allow-list);
+ *   - expected tenant-specific v2 issuer (never common/organizations/consumers);
+ *   - expected audience;
+ *   - expiry / not-before (jose enforces exp+nbf);
+ *   - `tid` present AND equal to the configured tenant;
+ *   - `oid` present (the immutable subject);
+ *   - `scp` present and containing the configured C3 scope (delegated token —
+ *     application-only tokens, which carry no scp / idtyp=app, are REJECTED).
+ *
+ * Identity model: the membership key is the immutable (tid, oid) pair resolved
+ * against the C3 directory. Token role/group/wids claims are NEVER read —
+ * a forged or added claim cannot grant C3 authority. The principal's identity
+ * string comes from the DIRECTORY's stored profile email (admin-controlled),
+ * so a mutated preferred_username/email claim changes nothing.
+ *
+ * Unknown or inactive identity => AccessNotProvisionedError (truthful 403).
+ * Membership is NEVER auto-created from a valid token.
  */
 import { jwtVerify, createRemoteJWKSet, type JWTVerifyGetKey, type KeyLike } from 'jose';
-import { canonicalizeIdentity } from '@c3web/domain';
-import { type AuthAdapter, type AuthenticatedPrincipal, AuthError } from './types';
+import { isC3Role } from '@c3web/domain';
+import { type AuthAdapter, type AuthenticatedPrincipal, AuthError, AccessNotProvisionedError } from './types';
 import type { AdminDirectory } from './directory';
 
 export interface EntraConfig {
   readonly issuer: string;
   readonly audience: string;
   readonly jwksUri: string;
+  /** The Entra tenant GUID; tokens with any other tid are rejected. */
+  readonly tenantId: string;
+  /** Required delegated scope name (default C3.Access). */
+  readonly scope: string;
 }
 
-/** Translate verified Entra claims to a canonical identity + display name. */
-export function translateEntraIdentity(payload: Record<string, unknown>): { identity: string; displayName: string } {
-  const candidate =
-    (typeof payload.preferred_username === 'string' && payload.preferred_username) ||
-    (typeof payload.upn === 'string' && payload.upn) ||
-    (typeof payload.email === 'string' && payload.email) ||
-    null;
-  const identity = canonicalizeIdentity(candidate);
-  if (!identity) throw new AuthError('Entra token has no usable identity claim (preferred_username/upn/email).');
-  const displayName = typeof payload.name === 'string' ? payload.name : identity;
-  return { identity, displayName };
+/** Extract and validate the Entra-specific claims after signature verification. */
+export function validateEntraClaims(
+  payload: Record<string, unknown>,
+  config: Pick<EntraConfig, 'tenantId' | 'scope'>,
+): { tid: string; oid: string } {
+  const tid = payload.tid;
+  if (typeof tid !== 'string' || !tid) throw new AuthError('Token rejected: missing tid claim.');
+  if (tid !== config.tenantId) throw new AuthError('Token rejected: issued for a different tenant.');
+
+  const oid = payload.oid;
+  if (typeof oid !== 'string' || !oid) throw new AuthError('Token rejected: missing oid claim.');
+
+  // Application-only tokens carry idtyp=app and/or no scp. Delegated user
+  // tokens are required for this phase.
+  if (payload.idtyp === 'app') throw new AuthError('Token rejected: application-only tokens are not accepted.');
+  const scp = payload.scp;
+  if (typeof scp !== 'string' || !scp.split(' ').includes(config.scope)) {
+    throw new AuthError(`Token rejected: required scope '${config.scope}' is not present.`);
+  }
+
+  return { tid, oid };
 }
 
 /**
@@ -58,13 +83,20 @@ export function createEntraAuthAdapter(
       } catch (err) {
         throw new AuthError(`Invalid Entra token: ${(err as Error).message}`);
       }
-      const { identity, displayName } = translateEntraIdentity(payload);
-      const membership = await directory.resolveMembership(identity);
-      if (!membership) throw new AuthError(`No C3 tenant membership for ${identity}.`);
+
+      const { tid, oid } = validateEntraClaims(payload, config);
+
+      // Membership by the IMMUTABLE key only. Token roles/groups/wids/email
+      // claims are never consulted; nothing is auto-provisioned.
+      const membership = await directory.resolveMembership({ provider: 'entra', issuerTenantId: tid, subject: oid });
+      if (!membership) throw new AccessNotProvisionedError();
+      if (!isC3Role(membership.role)) throw new AccessNotProvisionedError();
+
       return {
-        identity,
-        displayName,
-        role: membership.role as AuthenticatedPrincipal['role'],
+        // Stable, admin-controlled profile email from the DIRECTORY (not the token).
+        identity: membership.email,
+        displayName: membership.displayName,
+        role: membership.role,
         tenantId: membership.tenantId,
         tenantSlug: membership.tenantSlug,
       };

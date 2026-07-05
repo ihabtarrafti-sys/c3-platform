@@ -21,8 +21,21 @@ export interface AuthAdapter {
 }
 
 export class AuthError extends Error {
-  override readonly name = 'AuthError';
+  override readonly name: string = 'AuthError';
   constructor(message: string) {
     super(message);
+  }
+}
+
+/**
+ * The token is VALID but the identity has no active C3 membership. Truthful
+ * "access not provisioned" — surfaced as 403 (authenticated, not authorized),
+ * never as a generic authentication failure. Entra sign-in NEVER auto-creates
+ * a membership.
+ */
+export class AccessNotProvisionedError extends AuthError {
+  override readonly name = 'AccessNotProvisionedError';
+  constructor() {
+    super('Your identity is authenticated but not provisioned for C3 access. Contact the platform owner.');
   }
 }

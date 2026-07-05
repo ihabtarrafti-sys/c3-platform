@@ -43,7 +43,7 @@ export interface TestDatabase {
   seedTenant(spec: {
     slug: string;
     name?: string;
-    users?: Array<{ key: string; email: string; displayName: string; role: string }>;
+    users?: Array<{ key: string; email: string; displayName: string; role: string; entra?: { tid: string; oid: string } }>;
   }): Promise<SeededTenant>;
   /** Remove all tenant data (keeps schema). */
   truncateAll(): Promise<void>;
@@ -144,6 +144,14 @@ export async function startTestDatabase(): Promise<TestDatabase> {
           'INSERT INTO role_assignment (tenant_id, user_id, role) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
           [tenantId, userId, u.role],
         );
+        if (u.entra) {
+          await adminQuery(
+            `INSERT INTO external_identity (provider, issuer_tenant_id, subject, user_id)
+             VALUES ('entra', $1, $2, $3)
+             ON CONFLICT (provider, issuer_tenant_id, subject) DO NOTHING`,
+            [u.entra.tid, u.entra.oid, userId],
+          );
+        }
         users[u.key] = { userId, email: u.email, displayName: u.displayName, role: u.role };
       }
       return { tenantId, slug: spec.slug, users };
@@ -152,7 +160,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     async truncateAll(): Promise<void> {
       await adminQuery(`TRUNCATE
         audit_event, approval_event, person, approval, business_id_counter,
-        role_assignment, tenant_membership, app_user, tenant RESTART IDENTITY CASCADE`);
+        role_assignment, tenant_membership, external_identity, app_user, tenant RESTART IDENTITY CASCADE`);
     },
 
     async stop(): Promise<void> {

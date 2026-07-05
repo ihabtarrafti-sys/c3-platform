@@ -9,9 +9,10 @@ const base = {
 };
 const entraVars = {
   AUTH_PROVIDER: 'entra',
-  ENTRA_ISSUER: 'https://login.microsoftonline.com/t/v2.0',
+  ENTRA_TENANT_ID: '11111111-2222-3333-4444-555555555555',
+  ENTRA_ISSUER: 'https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/v2.0',
   ENTRA_AUDIENCE: 'api://c3web',
-  ENTRA_JWKS_URI: 'https://login.microsoftonline.com/t/discovery/v2.0/keys',
+  ENTRA_JWKS_URI: 'https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/discovery/v2.0/keys',
   DATABASE_AUTH_URL: 'postgres://c3_auth:pw@db:5432/c3web',
 };
 
@@ -62,6 +63,26 @@ describe('production fail-closed guarantees', () => {
 });
 
 describe('provider configuration guards', () => {
+  it('entra refuses common/organizations/consumers issuers (tenant-specific v2 only)', () => {
+    const base2 = { ...base, ...entraVars, NODE_ENV: 'production', CORS_ORIGIN: 'https://x' };
+    for (const bad of ['common', 'organizations', 'consumers']) {
+      expect(() =>
+        loadEnv({ ...base2, ENTRA_ISSUER: 'https://login.microsoftonline.com/' + bad + '/v2.0' } as NodeJS.ProcessEnv),
+      ).toThrow(/tenant-specific/);
+    }
+  });
+
+  it('entra requires the issuer to embed ENTRA_TENANT_ID and end with /v2.0', () => {
+    const base2 = { ...base, ...entraVars, NODE_ENV: 'production', CORS_ORIGIN: 'https://x' };
+    expect(() => loadEnv({ ...base2, ENTRA_ISSUER: 'https://login.microsoftonline.com/other-tenant/v2.0' } as NodeJS.ProcessEnv)).toThrow(/ENTRA_TENANT_ID/);
+    expect(() => loadEnv({ ...base2, ENTRA_ISSUER: 'https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/' } as NodeJS.ProcessEnv)).toThrow(/v2/);
+  });
+
+  it('entra requires ENTRA_TENANT_ID', () => {
+    const { ENTRA_TENANT_ID: _omit, ...noTid } = entraVars;
+    expect(() => loadEnv({ ...base, ...noTid, NODE_ENV: 'production', CORS_ORIGIN: 'https://x' } as NodeJS.ProcessEnv)).toThrow(/ENTRA_TENANT_ID/);
+  });
+
   it('entra requires issuer/audience/jwks', () => {
     expect(() => loadEnv({ ...base, AUTH_PROVIDER: 'entra' } as NodeJS.ProcessEnv)).toThrow(/ENTRA_ISSUER/);
   });

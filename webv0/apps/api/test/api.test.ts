@@ -191,6 +191,7 @@ describe('security guarantees (Phase 2A)', () => {
     const entraEnv = loadEnv({
       NODE_ENV: 'test',
       AUTH_PROVIDER: 'entra',
+      ENTRA_TENANT_ID: 't',
       ENTRA_ISSUER: 'https://login.microsoftonline.com/t/v2.0',
       ENTRA_AUDIENCE: 'api://c3web',
       ENTRA_JWKS_URI: 'https://login.microsoftonline.com/t/discovery/v2.0/keys',

@@ -50,7 +50,7 @@ import {
 import type { Deps } from './deps';
 import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
-import { AuthError } from './auth/types';
+import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
 import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toPersonDto } from './dto';
 
@@ -116,6 +116,11 @@ export function buildApp(deps: Deps): FastifyInstance {
       req.principal = principal;
       req.actor = { identity: principal.identity, displayName: principal.displayName, role: principal.role, tenantId: principal.tenantId };
     } catch (err) {
+      // Authenticated-but-unprovisioned is an AUTHORIZATION state (truthful 403),
+      // distinct from an authentication failure (401).
+      if (err instanceof AccessNotProvisionedError) {
+        return sendError(req, reply, 403, 'ACCESS_NOT_PROVISIONED', err.message);
+      }
       return sendError(req, reply, 401, 'UNAUTHENTICATED', err instanceof AuthError ? err.message : 'Authentication failed.');
     }
   });
@@ -180,7 +185,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const tenant = await directory.resolveTenantBySlug(tenantSlug);
         if (!tenant) return sendError(req, reply, 404, 'NOT_FOUND', `Unknown tenant '${tenantSlug}'.`);
         const name = displayName ?? email;
-        await directory.upsertMembership(tenant.tenantId, email, name, role);
+        await directory.upsertDevMembership(tenant.tenantId, email, name, role);
         const token = await signDevToken(devSecret, {
           identity: email,
           displayName: name,
