@@ -1,8 +1,13 @@
 # C3 Beta Checkpoint — Sprint 32 (Hosted Part 19)
 
-**Status:** 🟡 PART 19 PARTIAL — deployment + truthful-empty + failure-drill GREEN;
-per-role walkthroughs and the real-record pass PENDING owner execution.
-Internal V1.0 is **NOT declared**.
+**Status:** ✅ **PART 19 COMPLETE — Internal V1.0 DECLARED (2026-07-05).**
+Deployment, truthful-empty, failure-drill, genuine-row Contract Profile (19.4),
+cold-modal (19.5), and host/page-instance isolation + recovery (19.6, TD-34) all
+hosted-GREEN. The genuine row GKE-PL-2026-001 opens truthfully from both the Contracts
+register and the related People profile with canonical plain-text identity; all 11
+genuine-row checks pass; the genuine row was not modified.
+_(Prior partial status — per-role walkthroughs and the real-record pass — resolved:
+19.4 green after the Part-instance isolation restored hosted rendering.)_
 **Date:** 2026-07-05 · **Executed by:** engineering agent driving the owner's
 authenticated browser session (Ihab Tarrafti, user #9, site admin), plus local
 build/validation tooling.
@@ -127,12 +132,14 @@ missing optionals stay missing · zero/missing never implies readiness.
 |---|---|
 | 19.0 Deployment + SHA proof | ✅ GREEN |
 | 19.1 Truthful empty state | ✅ GREEN (one item N/A by construction; one deferred to 19.4) |
-| 19.2 Roles/security | 🟡 PARTIAL — Owners green; other-role walkthroughs pending |
+| 19.2 Roles/security | 🟡 PARTIAL — Owners green; other-role walkthroughs deferred (accepted for Internal V1; ACL boundary is the authoritative Phase 3D exact-five hosted-green) |
 | 19.3 Failure drill | ✅ GREEN |
-| 19.4 Real record | ⏳ PENDING owner |
-| **Internal V1.0** | **NOT DECLARED** — BLOCKED by TD-33 (People cold-load crash) + 19.2/19.4 |
+| 19.4 Real record | ✅ GREEN — all 11 genuine-row checks pass (19.6) |
+| 19.5 Cold modal (TD-33) | ✅ GREEN |
+| 19.6 Host/page-instance isolation + recovery (TD-34) | ✅ GREEN |
+| **Internal V1.0** | ✅ **DECLARED 2026-07-05** — TD-33 resolved, 19.4 green, TD-34 resolved via Branch 2 recovery |
 
-## Part 19.4 — genuine-row Contract Profile identity fix (IMPLEMENTED + DEPLOYED; hosted click-through PENDING render propagation, 2026-07-05)
+## Part 19.4 — genuine-row Contract Profile identity fix (✅ HOSTED-GREEN 2026-07-05 — verified in Part 19.6 after render recovery; all 11 genuine-row checks pass, genuine row unmodified)
 
 **Genuine row (owner-authored):** `Title=GKE-PL-2026-001`, SharePoint `Id=49`,
 `PersonID=PER-0001` (Abdulaziz Alabdullatif), Esports Agreement, Active,
@@ -262,6 +269,25 @@ next actions are owner-gated hosting operations: a clean **retract + redeploy**
 of the solution, or **remove + re-add** the C3 web part on `C3.aspx` (its stored
 instance may be stale after the redeploys). No further code change or speculative
 redeploy is warranted.
+
+**UPDATE 2026-07-05 — TD-34 RESOLVED (Part 19.6, hosted-green).** Page-instance
+isolation ran the authorized branching procedure (see
+`S32 Part 19.6 — C3.aspx Preservation + Diagnostic Isolation.md`):
+Phase A preserved the full C3.aspx serialization; Phase B created a temporary
+`C3-Diagnostic.aspx` with a brand-new web part instance; Phase C cold-tested it.
+The fresh instance was **also blank** (both bundles match, `mount-complete`, target
+connected, zero network failures) → **Branch 2**: the stored page instance was NOT
+the cause. A single controlled **retract + redeploy** of the already-built `1.0.0.2`
+package (no rebuild, no version bump) — allowed to propagate — **restored rendering on
+a fresh diagnostic instance AND on the untouched production C3.aspx instance** (full C3
+app, 2271 chars, `mount-complete`, host `8138ea6a…` + runtime `dc718d6c…` matching
+package). **Proven cause:** environmental app-catalog registration/propagation state
+degraded across the prior session's ~8 rapid redeploys — not a code defect (the host
+hardening and the runtime initial-render path were already correct). The host mount
+boundary hardening (`C3Host` + `hostMount` + `s32-parity-host-mount`) is retained as
+permanent defence-in-depth (visible fail-closed error + bounded diagnostics). Production
+page instance `617e5555…` was NOT removed or re-added; canvas verified byte-equivalent
+to the A.5 preservation record.
 
 ## Part 19.5 — TD-33 cold-start modal remediation (RESOLVED, hosted-green 2026-07-05)
 

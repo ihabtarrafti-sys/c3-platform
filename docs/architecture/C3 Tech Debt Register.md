@@ -1,6 +1,6 @@
 # C3 Tech Debt Register
 
-**Last updated:** 2026-07-04 (Sprint 30)
+**Last updated:** 2026-07-05 (Sprint 32 closeout — Internal V1.0 declared; TD-22/31/32/33/34 resolved, TD-29 retained, TD-30 resolved)
 **Maintained by:** Engineering (C3 Platform)
 **Purpose:** Single-source list of known technical debts, design gaps, and deferred decisions.
 Each item carries a severity, sprint attribution, and a clear resolution path.
@@ -715,38 +715,56 @@ the window; the practical exposure (two owners executing the same approval withi
 the same seconds) is operationally negligible for the current single-owner
 execution model. Revisit if a second executing owner is onboarded.
 
-### TD-22 — hosted progress (S32; resolution pending Part 19.4)
+### TD-22 — ✅ RESOLVED for Internal V1 (S32, Part 19.4/19.6, 2026-07-05)
 
 Canonical C3Contracts provisioned + hosted-verified (Phase 3C, fingerprint
 `3a13b28f…`); mock rows recycled and legacy schema remediated in place; read-only
 contract service compatible and fail-closed; exact five-principal ACL hosted-green
-(Phase 3D); hosted Contracts + Renewals truthful (Part 19.1/19.3). REMAINING for
-resolution: hosted Contract Profile truthfulness against one real owner-authored
-row (Part 19.4).
+(Phase 3D); hosted Contracts + Renewals truthful (Part 19.1/19.3).
+
+**Resolved:** hosted Contract Profile truthfulness verified against the real
+owner-authored row GKE-PL-2026-001 (Part 19.4, all 11 genuine-row checks green in
+Part 19.6). The application read path targets the canonical `C3Contracts` list with
+plain-text business identity (`ContractID := Title`), and the genuine row opens
+truthfully from both the Contracts register and the related People profile with all
+displayed values matching SharePoint.
+
+**Scope note:** this resolves the C3Contracts canonical read/identity/ACL objective for
+Internal V1. The *legacy `C3_Contracts` → `C3Contracts` data migration tool* (import/
+export of historical rows) remains a separate post-V1 backlog item (Track 16) — it was
+never in the Internal V1 read-only scope. That migration-tooling remnant is retained
+below as the only open portion of the original TD-22.
+
+**Open remnant (post-V1):** build the `C3_Contracts` → `C3Contracts` migration script
+mapping SP lookup columns to plain-text `PersonID`. Not a V1 blocker.
 
 ### TD-31 — Inert "New Contract" button on ContractsList
 
-**Severity:** 🟢 Cosmetic/UX debt
+**Severity:** 🟢 → ✅ **RESOLVED (S32, hosted-green Part 19.6, 2026-07-05)**
 **Sprint attributed:** S24 (mock-era header action), surfaced by S32 Part 19
-**Files:** `packages/c3/src/screens/ContractsList.tsx` (~line 396)
+**Files:** `packages/c3/src/screens/ContractsList.tsx`
 
-The header action `<Button appearance="primary">New Contract</Button>` has no
-onClick handler — hosted click produces no dialog, navigation, or network request
-(Part 19 evidence). Not a write path (the contract service is read-only and s32
-parity forbids mutation surfaces), but a dead primary button implies a capability
-that does not exist. Remove or gate behind a real governed flow post-V1.
+~~The header action `<Button appearance="primary">New Contract</Button>` has no
+onClick handler.~~ **Resolved:** the inert New Contract control was removed. Hosted
+verification (Part 19.6, cold production C3.aspx): **0 "New Contract" controls** on the
+Contracts register; the register and Contract Profile expose only read-only surfaces
+(no Save/Edit/Delete/New/Submit) — consistent with Contracts Internal V1 being
+application read-only. Parity-guarded by `s32-parity-*`.
 
 ### TD-32 — Stale denormalized TotalContracts on the People register
 
-**Severity:** 🟡 Truthfulness gap (non-Contracts surface)
+**Severity:** 🟡 → ✅ **RESOLVED for Internal V1 (S32, hosted-green Part 19.6, 2026-07-05)**
 **Sprint attributed:** S16 (people register column), surfaced by S32 Part 19
-**Files:** `packages/c3/src/screens/PeopleWorkspace.tsx` (~line 230); C3_People list
+**Files:** `packages/c3/src/screens/PeopleWorkspace.tsx`, `PersonProfile.tsx`
 
-The People register "Contracts" column renders the stored `TotalContracts` field
-from C3_People — a mock-era denormalized count that now reads 2/1 while the
-canonical C3Contracts list is empty. Replace with a live derivation from the
-canonical list (or drop the column) so zero/missing canonical data is never
-contradicted by a stale rollup.
+~~The People register "Contracts" column renders the stored `TotalContracts` field
+from C3_People — a mock-era denormalized count.~~ **Resolved:** the People register no
+longer displays stored `Person.TotalContracts`; its columns are Person ID / Full Name /
+IGN / Role / Nationality / Status (no Contracts/TotalContracts column). Person Profile
+derives the count from the canonical `C3Contracts` list via exact plain-text `PersonID`.
+Hosted verification (Part 19.6, cold production): People register shows **no
+TotalContracts column**; PER-0001's Person Profile shows the **canonical count 1**
+(one contract row, GKE-PL-2026-001) — NOT the stale mock `2`.
 
 ### TD-33 — People screen cold-load crash (Fluent v9 tabster) 🔴 V1 BLOCKER
 
@@ -776,3 +794,44 @@ provider replacement. Cold regression green across People (render+modal open/
 reopen), Missions, PersonProfile, Contracts, Renewals. Runtime 982bd2e6..., chunk
 c9536c3d... deployed and hosted-verified. Deferred mounting retained as defence
 in depth.
+
+### TD-34 — SPFx host mount hardening + hosted blank-render recovery
+
+**Severity:** 🔴 (V1 blocker) → ✅ **RESOLVED (S32, hosted-green Part 19.6, 2026-07-05)**
+**Discovered:** S32 Part 19 hosted (2026-07-05), after ~8 rapid same-session redeploys
+**Files:** `packages/c3-spfx-host/src/webparts/c3Host/components/C3Host.tsx`,
+`.../components/hostMount.ts`, `scripts/s32-parity-host-mount.mjs`
+
+After a burst of rapid same-session catalog redeploys, the deployed C3 web part rendered a
+persistent **blank** (empty React tree) on cold loads even though the runtime import
+resolved and `mount()` completed. Two independent contributors, addressed in order:
+
+1. **Host mount boundary (code — hardened, permanent).** `C3Host.componentDidMount` was an
+   unguarded async import+mount that could leave a silent empty `<div>` if the container
+   detached, the export was missing, or `mount()` threw asynchronously. Hardened with an
+   explicit awaited import inside try/catch, `validateRuntimeModule` (export/mount/unmount
+   validation), `decideMount` (disposed/duplicate/detached guards after the await),
+   cleanup-once on unmount, a **visible fail-closed error** instead of a blank div, and a
+   bounded non-sensitive `window.__C3_HOST_DIAGNOSTICS` (no tokens/digests/PII). Pure helpers
+   unit-tested; `s32-parity-host-mount` (28 checks) added to the gate. This made the host
+   lifecycle observably reach `mount-complete`.
+
+2. **Root cause of the residual blank (environmental — recovered via hosting op).** With the
+   host proven healthy, the render was still blank. Page-instance isolation (Part 19.6)
+   proved it was **not** the stored page instance (a brand-new diagnostic web part instance
+   was equally blank while both bundle hashes matched the package and diagnostics reached
+   `mount-complete`) → **Branch 2**. A single controlled **retract + redeploy** of the
+   already-built `1.0.0.2` package (no rebuild, no version bump, no repeated redeploy),
+   allowed to propagate, **restored rendering on a fresh diagnostic instance and on the
+   untouched production C3.aspx**. Proven cause: **app-catalog registration/propagation state
+   degraded across the rapid redeploys** — not a code defect (the runtime initial-render path
+   was byte-identical to a build that rendered). Remedy = one clean retract/redeploy with
+   propagation time.
+
+**Prevention/guidance:** avoid rapid successive tenant redeploys; allow catalog/CDN
+propagation between deploys. The hardened host boundary is retained as permanent
+defence-in-depth: any future genuine mount failure now surfaces a visible fail-closed
+error with bounded diagnostics instead of a silent blank. Production page instance
+`617e5555…` was **not** removed or re-added; canvas verified byte-equivalent to the
+preserved A.5 record. Evidence:
+`S32 Part 19.6 — C3.aspx Preservation + Diagnostic Isolation.md`.
