@@ -41561,10 +41561,12 @@ const _N = A.createContext(null), zY = () => /* @__PURE__ */ p.jsx("div", { styl
   return FY[e.c3Role];
 }, LY = [
   { id: "command-center", label: "Command Center", icon: cq },
-  // S24-P1: Temporarily hidden in SP DSM until C3Contracts list is provisioned and validated.
-  // Remove this guard (or change to `true`) once IT confirms the list is live and a smoke test passes.
-  // PersonProfile contract section is unaffected -- it queries C3Contracts regardless of nav visibility.
-  { id: "contracts", label: "Contracts", icon: G9, visibleWhen: (e, t, r) => r !== "sharepoint" },
+  // S32 (2026-07-05): Contracts ACTIVATED in all data source modes. The S24-P1
+  // SP-DSM guard is removed: C3Contracts carries the canonical Phase 3C schema and
+  // the exact five-principal Phase 3D ACL (both hosted-green), and contract reads
+  // are fail-closed (S32 P2). ACLs are the security boundary -- a user without
+  // list access gets a truthful unavailable state, never fabricated data.
+  { id: "contracts", label: "Contracts", icon: G9 },
   { id: "people", label: "People", icon: sq },
   { id: "renewals", label: "Renewals", icon: Z9, visibleWhen: (e) => e !== "visitor" },
   // S20-P0-3: SharePointAmendmentService is a stub -- hide in SP DSM to prevent
@@ -41616,7 +41618,7 @@ const _N = A.createContext(null), zY = () => /* @__PURE__ */ p.jsx("div", { styl
     case "settings":
       return { id: "settings" };
     case "contract-profile":
-      return { id: "command-center" };
+      return { id: "contracts" };
     case "amendment-profile":
       return { id: "amendments" };
     case "person-profile":
