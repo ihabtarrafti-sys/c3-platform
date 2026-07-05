@@ -5,15 +5,7 @@
     "packages/runtime-sdk",
     "packages/c3",
     "packages/c3-runtime",
-    "packages/c3-spfx-host",
-    "packages/domain",
-    "packages/authz",
-    "packages/api-contracts",
-    "packages/persistence",
-    "packages/application",
-    "packages/test-support",
-    "apps/api",
-    "apps/web"
+    "packages/c3-spfx-host"
   ],
   "scripts": {
     "build:c3": "npm --workspace packages/c3 run build",
@@ -26,24 +18,6 @@
     "build:embedded": "npm run build:c3 && npm run build:c3-runtime-pkg && npm run copy:c3-runtime && npm run build:spfx",
     "lint:c3": "npm --workspace packages/c3 run lint",
     "build:spfx": "npm --workspace packages/c3-spfx-host run build",
-    "start:spfx": "npm --workspace packages/c3-spfx-host run start",
-
-    "webv0:typecheck": "tsx scripts/webv0-typecheck.mts",
-    "webv0:test:unit": "vitest run --project domain --project authz --project application --project api-contracts",
-    "webv0:test:db": "vitest run --project persistence",
-    "webv0:test:api": "vitest run --project api",
-    "webv0:test": "vitest run",
-    "webv0:openapi": "tsx apps/api/scripts/generate-openapi.ts",
-    "webv0:db:migrate": "tsx packages/persistence/scripts/migrate.ts",
-    "webv0:api:dev": "tsx watch apps/api/src/server.ts",
-    "webv0:web:dev": "npm --workspace apps/web run dev",
-    "webv0:e2e": "npm --workspace apps/web run e2e",
-    "webv0:gate": "tsx scripts/webv0-gate.mts"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.9.0",
-    "vitest": "^2.1.8"
+    "start:spfx": "npm --workspace packages/c3-spfx-host run start"
   }
 }

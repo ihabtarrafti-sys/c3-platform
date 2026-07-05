@@ -8,8 +8,10 @@
  */
 import { describe, it, expect } from 'vitest';
 import { canonicalizeIdentity as domainCanon, checkSelfReview } from '../src/identity';
-// Import the FROZEN reference directly (dependency-free module).
-import { canonicalizeIdentity as frozenCanon } from '../../c3/src/utils/identity';
+// The frozen reference as an in-tree STATIC FIXTURE (verbatim copy of
+// packages/c3/src/utils/identity.ts @ 0558a6c) so the webv0 npm root has no
+// imports outside webv0/. See the fixture header for provenance.
+import { canonicalizeIdentity as frozenCanon } from './fixtures/frozenIdentity.ref';
 
 const PROVIDER_NEUTRAL = [
   'user@tenant.com',

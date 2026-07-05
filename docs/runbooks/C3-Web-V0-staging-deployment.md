@@ -18,7 +18,7 @@ Approved staging direction:
 | Setting | Value |
 | --- | --- |
 | Service type | Dockerfile deploy from the GitHub repo |
-| Dockerfile path | `apps/api/Dockerfile` (build context = repo root) |
+| Dockerfile path | `webv0/apps/api/Dockerfile` (build context = repo root) |
 | Exposed port | `4000` |
 | Health check path | `/health` (liveness; `/ready` = DB readiness, 200/503) |
 | Health check timeout | 30 s, start period ≥ 20 s |
@@ -83,13 +83,13 @@ retention is the vendor default; no sensitive material should appear.
 
 | Setting | Value |
 | --- | --- |
-| Project root | repository root (monorepo) |
-| Build command | `npm ci --no-audit --no-fund && npm --workspace apps/web run build` |
+| Project root | `webv0/` (standalone npm root) |
+| Build command | `npm ci --no-audit --no-fund && npm --workspace apps/web run build   # from webv0/` |
 | Output directory | `apps/web/dist` |
 | Node version | `22.14.0` (env `NODE_VERSION=22.14.0`) |
 | Custom domain | `staging.c3hq.org` |
-| SPA fallback | `apps/web/public/_redirects` (committed) |
-| Security headers | `apps/web/public/_headers` (committed) |
+| SPA fallback | `webv0/apps/web/public/_redirects` (committed) |
+| Security headers | `webv0/apps/web/public/_headers` (committed) |
 
 Build environment variables:
 

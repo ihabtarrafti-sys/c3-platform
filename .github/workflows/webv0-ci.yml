@@ -1,9 +1,9 @@
-# C3 Web V0 CI gate (Sprint 34 Phase 2A).
+# C3 Web V0 CI gate (Sprint 34 Phase 2B — standalone webv0/ npm root).
 #
-# Scope: ONLY the Web V0 stack (apps/* + packages/{domain,authz,api-contracts,
-# application,persistence,test-support}). The frozen SharePoint packages are
-# NEVER built, packaged, or deployed by this workflow. No deployment secrets
-# are configured — deployment is a separate, owner-gated step.
+# Scope: ONLY the Web V0 stack under webv0/. The frozen SharePoint packages
+# live in a SEPARATE npm root at the repository root and are NEVER installed,
+# built, packaged, or deployed by this workflow. No deployment secrets are
+# configured — deployment is a separate, owner-gated step.
 name: webv0-ci
 
 on:
@@ -16,9 +16,11 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Node pinned inside the frozen SPFx engine range (>=22.14 <23) so a single
-  # toolchain serves the whole workspace install.
   NODE_VERSION: 22.14.0
+
+defaults:
+  run:
+    working-directory: webv0
 
 jobs:
   gate:
@@ -32,26 +34,25 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: webv0/package-lock.json
 
-      - name: Clean install from committed lockfile
+      - name: Clean install from committed lockfile (webv0 root)
         run: npm ci --no-audit --no-fund
 
       - name: NUL / truncation audit
-        run: npx tsx scripts/webv0-nul-audit.mts
+        run: npx tsx scripts/nul-audit.mts
 
       - name: Typecheck (all 8 Web V0 workspaces)
-        run: npm run webv0:typecheck
+        run: npm run typecheck
 
       - name: Vitest (unit + PostgreSQL integration + API integration)
-        # persistence/api projects provision a REAL PostgreSQL via
-        # embedded-postgres — migrations, RLS, roles and grants all run for real.
-        run: npm run webv0:test
+        run: npm test
 
       - name: OpenAPI drift check (contract == committed artifact)
         run: |
-          npm run webv0:openapi
+          npm run openapi
           git diff --exit-code -- apps/api/openapi.json apps/api/openapi.yaml \
-            || (echo "::error::OpenAPI artifact drift — run 'npm run webv0:openapi' and commit." && exit 1)
+            || (echo "::error::OpenAPI artifact drift — run 'npm run openapi' in webv0/ and commit." && exit 1)
 
       - name: Web production build
         run: npm --workspace apps/web run build
@@ -63,11 +64,11 @@ jobs:
           npm audit --omit=dev --audit-level=high
           npm audit --audit-level=high || echo "::warning::dev-graph findings above are non-blocking; review them."
 
-      - name: Frozen SharePoint source guard
-        # The Web V0 pipeline must never modify frozen SPFx sources.
+      - name: Frozen SharePoint guard (source + root manifests untouched)
+        working-directory: .
         run: |
-          git diff --exit-code HEAD -- packages/c3 packages/c3-runtime packages/c3-spfx-host packages/runtime-sdk \
-            || (echo "::error::Frozen SharePoint sources were modified by the build." && exit 1)
+          git diff --exit-code HEAD -- packages/c3 packages/c3-runtime packages/c3-spfx-host packages/runtime-sdk package.json package-lock.json \
+            || (echo "::error::Frozen SharePoint root was modified by the build." && exit 1)
 
   images:
     name: production container builds
@@ -79,20 +80,27 @@ jobs:
       - name: Build API image (hardened, prod-graph only)
         run: docker build -f apps/api/Dockerfile -t c3web-api:ci .
 
-      - name: Build web image (nginx-unprivileged)
-        run: docker build -f apps/web/Dockerfile --build-arg VITE_API_BASE_URL=https://api.staging.c3hq.org -t c3web-web:ci .
+      - name: Build web image (nginx-unprivileged, entra bundle)
+        run: docker build -f apps/web/Dockerfile --build-arg VITE_API_BASE_URL=https://api.staging.c3hq.org --build-arg VITE_AUTH_PROVIDER=entra -t c3web-web:ci .
 
       - name: API image production boot smoke (fail-closed env honoured)
         run: |
-          # Guarantee: production refuses dev-auth material at startup.
           set +e
           docker run --rm -e NODE_ENV=production -e AUTH_PROVIDER=dev \
             -e DEV_AUTH_SECRET=should-not-be-allowed-here \
             -e DATABASE_URL=postgres://c3_app:x@db:5432/x c3web-api:ci 2>&1 | tee boot.log
           grep -q "forbidden" boot.log || (echo "::error::production dev-auth was not refused" && exit 1)
 
+      - name: Web entra bundle excludes dev-login controls
+        run: |
+          docker create --name webbundle c3web-web:ci
+          docker cp webbundle:/usr/share/nginx/html ./bundle
+          docker rm webbundle
+          ! grep -rl "dev/login" ./bundle/assets || (echo "::error::dev-login reference found in production bundle" && exit 1)
+          echo "production bundle clean of dev-login"
+
   e2e:
-    name: Playwright E2E (AddPerson workflow)
+    name: Playwright E2E (dev-auth AddPerson workflow)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -102,20 +110,21 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: webv0/package-lock.json
 
-      - name: Clean install from committed lockfile
+      - name: Clean install from committed lockfile (webv0 root)
         run: npm ci --no-audit --no-fund
 
       - name: Install Playwright chromium
         run: npx playwright install --with-deps chromium
 
       - name: Run E2E (embedded-PostgreSQL API + Vite)
-        run: npm run webv0:e2e
+        run: npm run e2e
 
       - name: Upload trace on failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-traces
-          path: apps/web/test-results/
+          path: webv0/apps/web/test-results/
           retention-days: 7

@@ -13,18 +13,18 @@ The automated suite provisions its own ephemeral PostgreSQL via
 
 ```
 npm install
-npm run webv0:gate          # typecheck + unit + DB + API tests
-npm run webv0:e2e           # Playwright E2E (starts an embedded-DB API + Vite)
-npm run webv0:openapi       # regenerate apps/api/openapi.{json,yaml}
+cd webv0 && npm run gate          # typecheck + unit + DB + API tests
+cd webv0 && npm run e2e           # Playwright E2E (starts an embedded-DB API + Vite)
+cd webv0 && npm run openapi       # regenerate apps/api/openapi.{json,yaml}
 ```
 
 To run the servers against a real Postgres:
 ```
-docker compose -f infra/docker-compose.yml up -d      # Postgres on :5432
+docker compose -f webv0/infra/docker-compose.yml up -d      # Postgres on :5432
 cp .env.example .env                                   # then edit as needed
-npm run webv0:db:migrate                               # creates c3_app + schema
-npm run webv0:api:dev                                  # API on :4000
-npm run webv0:web:dev                                  # Web on :5173
+cd webv0 && npm run db:migrate                               # creates c3_app + schema
+cd webv0 && npm run api:dev                                  # API on :4000
+cd webv0 && npm run web:dev                                  # Web on :5173
 ```
 
 ## Staging stack (containerised)
@@ -32,7 +32,7 @@ npm run webv0:web:dev                                  # Web on :5173
 export DB_ADMIN_PASSWORD=... DB_APP_PASSWORD=...
 export AUTH_PROVIDER=entra ENTRA_ISSUER=... ENTRA_AUDIENCE=... ENTRA_JWKS_URI=...
 export WEB_ORIGIN=http://localhost:8080 API_ORIGIN=http://localhost:4000
-docker compose -f infra/docker-compose.staging.yml up --build
+docker compose -f webv0/infra/docker-compose.staging.yml up --build
 ```
 Order of operations (enforced by compose):
 1. `postgres` becomes healthy.

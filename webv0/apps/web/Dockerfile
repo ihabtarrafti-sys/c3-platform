@@ -1,4 +1,4 @@
-# C3 Web V0 web image (hardened). Build context = repository root:
+# C3 Web V0 web image (hardened). Build context = the webv0/ npm root:
 #   docker build -f apps/web/Dockerfile --build-arg VITE_API_BASE_URL=https://api.staging.c3hq.org -t c3web-web .
 #
 # Properties:
@@ -10,12 +10,16 @@
 FROM node:22.14.0-slim AS build
 WORKDIR /app
 ARG VITE_API_BASE_URL=http://localhost:4000
-ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
+ARG VITE_AUTH_PROVIDER=entra
+ARG VITE_ENTRA_CLIENT_ID=
+ARG VITE_ENTRA_TENANT_ID=
+ARG VITE_ENTRA_API_SCOPE=
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL} \
+    VITE_AUTH_PROVIDER=${VITE_AUTH_PROVIDER} \
+    VITE_ENTRA_CLIENT_ID=${VITE_ENTRA_CLIENT_ID} \
+    VITE_ENTRA_TENANT_ID=${VITE_ENTRA_TENANT_ID} \
+    VITE_ENTRA_API_SCOPE=${VITE_ENTRA_API_SCOPE}
 COPY package.json package-lock.json tsconfig.base.json ./
-COPY packages/c3/package.json           ./packages/c3/
-COPY packages/c3-runtime/package.json   ./packages/c3-runtime/
-COPY packages/c3-spfx-host/package.json ./packages/c3-spfx-host/
-COPY packages/runtime-sdk/package.json  ./packages/runtime-sdk/
 COPY packages/test-support/package.json ./packages/test-support/
 COPY packages/persistence/package.json  ./packages/persistence/
 COPY packages/application/package.json  ./packages/application/

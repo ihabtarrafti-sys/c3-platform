@@ -1,0 +1,35 @@
+{
+  "name": "c3-webv0",
+  "private": true,
+  "description": "C3 Web V0 SaaS stack — standalone npm root, isolated from the frozen SharePoint workspace graph.",
+  "workspaces": [
+    "packages/domain",
+    "packages/authz",
+    "packages/api-contracts",
+    "packages/application",
+    "packages/persistence",
+    "packages/test-support",
+    "apps/api",
+    "apps/web"
+  ],
+  "scripts": {
+    "typecheck": "tsx scripts/typecheck.mts",
+    "test": "vitest run",
+    "test:unit": "vitest run --project domain --project authz --project application --project api-contracts --project web",
+    "test:db": "vitest run --project persistence",
+    "test:api": "vitest run --project api",
+    "openapi": "tsx apps/api/scripts/generate-openapi.ts",
+    "db:migrate": "tsx packages/persistence/scripts/migrate.ts",
+    "seed:staging": "tsx packages/persistence/scripts/seed-staging.ts",
+    "api:dev": "tsx watch apps/api/src/server.ts",
+    "web:dev": "npm --workspace apps/web run dev",
+    "e2e": "npm --workspace apps/web run e2e",
+    "gate": "tsx scripts/gate.mts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.9.0",
+    "vitest": "^2.1.8"
+  }
+}

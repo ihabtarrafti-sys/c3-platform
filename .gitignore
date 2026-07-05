@@ -49,11 +49,11 @@ pnpm-debug.log*
 # coverage
 coverage/
 
-# C3 Web V0 (Sprint 34) — local DB data + generated/runtime artefacts
+# C3 Web V0 (Sprint 34) — standalone npm root under webv0/
 .pgdata/
 **/.pgdata/
-apps/web/dist/
-apps/api/dist/
+webv0/apps/web/dist/
+webv0/apps/api/dist/
 playwright-report/
 test-results/
 .turbo/
