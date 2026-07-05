@@ -130,8 +130,8 @@ export function buildApp(deps: Deps): FastifyInstance {
     // Fastify framework errors (body too large, malformed JSON, …) carry a 4xx
     // statusCode — surface them truthfully instead of a generic 500.
     if (typeof anyErr.statusCode === 'number' && anyErr.statusCode >= 400 && anyErr.statusCode < 500) {
-      const code = (error as { code?: string }).code ?? 'BAD_REQUEST';
-      return sendError(req, reply, anyErr.statusCode, code, error.message);
+      const fwErr = error as { code?: string; message?: string };
+      return sendError(req, reply, anyErr.statusCode, fwErr.code ?? 'BAD_REQUEST', fwErr.message ?? 'Request refused.');
     }
     const mapped = mapError(error);
     if (mapped.status >= 500) req.log.error({ err: error }, 'unhandled error');
