@@ -36,10 +36,12 @@ type NavItem = {
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'command-center', label: 'Command Center',  icon: GridRegular },
-  // S24-P1: Temporarily hidden in SP DSM until C3Contracts list is provisioned and validated.
-  // Remove this guard (or change to `true`) once IT confirms the list is live and a smoke test passes.
-  // PersonProfile contract section is unaffected -- it queries C3Contracts regardless of nav visibility.
-  { id: 'contracts',      label: 'Contracts',       icon: DocumentRegular, visibleWhen: (_role, _caps, mode) => mode !== 'sharepoint' },
+  // S32 (2026-07-05): Contracts ACTIVATED in all data source modes. The S24-P1
+  // SP-DSM guard is removed: C3Contracts carries the canonical Phase 3C schema and
+  // the exact five-principal Phase 3D ACL (both hosted-green), and contract reads
+  // are fail-closed (S32 P2). ACLs are the security boundary -- a user without
+  // list access gets a truthful unavailable state, never fabricated data.
+  { id: 'contracts',      label: 'Contracts',       icon: DocumentRegular },
   { id: 'people',         label: 'People',          icon: PeopleRegular },
   { id: 'renewals',       label: 'Renewals',        icon: ArrowClockwiseRegular, visibleWhen: role => role !== 'visitor' },
   // S20-P0-3: SharePointAmendmentService is a stub -- hide in SP DSM to prevent
@@ -87,7 +89,8 @@ const toScreen = (id: C3Screen['id']): C3Screen => {
     case 'intelligence':          return { id: 'intelligence' };
     case 'approvals':             return { id: 'approvals' };
     case 'settings':              return { id: 'settings' };
-    case 'contract-profile':      return { id: 'command-center' };
+    // S32: contract-profile roots to the (now active) Contracts workspace.
+    case 'contract-profile':      return { id: 'contracts' };
     case 'amendment-profile':     return { id: 'amendments' };
     case 'person-profile':        return { id: 'command-center' };
     case 'developer-diagnostics': return { id: 'developer-diagnostics' };
