@@ -1,13 +1,14 @@
 # C3 Contracts ACL — Sprint 32 Phase 3D
 
-**Status:** 🟡 rev 3 TOOLING COMPLETE — fresh 3D-0 rev 3 probe + rebound dry run
-PENDING owner execution; the first armed run STOPPED FAIL-CLOSED with zero
-mutations (stale field-inventory binding — see §9). Phase 3D is NOT complete
-and NOT hosted-green.
+**Status:** ✅ HOSTED-GREEN — CLOSED 2026-07-05. The armed 3D-1 rev 3 run
+completed with the terminal verification banner (§8); C3Contracts now has
+unique permissions with exactly the five target principals and no Limited
+Access. NavRail activation, deployment, and Part 19 are SEPARATE later phases.
 **Scope:** Exact ACL configuration of the canonical `C3Contracts` list only.
 **Prepared:** 2026-07-05 · **rev 2:** 2026-07-05 (after reviewed 3D-0 hosted
 evidence) · **rev 3:** 2026-07-05 (gate-order correction + field-inventory
-drift classification, under delegated engineering authority)
+drift classification, under delegated engineering authority) · **Closed:**
+2026-07-05
 
 ---
 
@@ -184,9 +185,36 @@ Control, multi-binding Platform Owners, the site-shell groups, HR, and the
 executing user. This evidence drove the rev 2 target matrix and the uncopied
 inheritance strategy.
 
-- 3D-0 rev 2 probe evidence: _pending owner execution_
-- 3D-1 rev 2 dry-run evidence: _pending owner execution_
-- 3D-1 armed execution + final ACL fingerprint: _pending separate authorization_
+**3D-0 rev 3 probe (executed + approved 2026-07-05):** blockers `[]`; drift vs
+the rev 2 inventory classified **sharepoint-managed-metadata** (reduced schema
+fingerprint intact, all 19 canonical fields exact, managed comment fields
+intact); fresh field-inventory fingerprint bound:
+`67a8d38477e5d9dc502b3ba09de8735a97c13f72c829723a8855c759c4f1e43d`. All other
+bindings unchanged (ACL fp `87f278b2…`, ETag `"255"`, executing user #9).
+
+**3D-1 rev 3 dry run (2026-07-05):** owner-reported terminal —
+"3D-1 DRY RUN (normal) — preflights AND ALL evidence bindings PASSED; zero
+mutations." (rev 3 semantics: every binding validated against live state
+before the success return.)
+
+**3D-1 rev 3 ARMED run (2026-07-05): COMPLETE — Phase 3D hosted-green.**
+Owner-reported terminal banner (reachable ONLY after the script's final
+verification — exact five principals, no Limited Access,
+`HasUniqueRoleAssignments=true`, zero non-ACL drift — passed):
+
+> ═══ 3D-1 COMPLETE: C3Contracts ACL = exactly five principals (C3 Platform
+> Owners FC; Operations/Legal/Finance/Management Read) · no Limited Access ·
+> every mutation individually witnessed + reconciled · schema/settings/
+> contents/GUID/URL/inbound/scopes unchanged. STOP — NavRail activation,
+> deployment, and Part 19 are SEPARATE later phases. ═══
+
+Final direct ACL: C3 Platform Owners #19 = Full Control; C3 Operations #12,
+C3 Legal #18, C3 Finance #15, C3 Management #17 = Read. Site-shell groups,
+HR, and the acting administrator hold no direct list assignments.
+
+_Evidence appendix (to append from the owner's preserved console output):_
+_the seven per-action ✔ lines (or the acting-user ○ no-op), the final
+normalized role-assignment inventory, and the final ACL fingerprint._
 
 **Armed 3D-1 rev 2 run (2026-07-05): STOPPED FAIL-CLOSED, ZERO mutations.**
 The `EXPECTED_PRE_FIELD_INVENTORY_FP` binding (`b3e726b0…`) no longer matched

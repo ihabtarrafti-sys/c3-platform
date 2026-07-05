@@ -181,5 +181,12 @@ boundary (UI role checks are UX only).
 Tooling, method (proven rev-2 uncopied break `copyRoleAssignments=false,
 clearSubscopes=false` → five grants → conditional acting-user removal),
 concurrency semantics, tests, and the owner runbook: see
-`C3 Contracts ACL — Sprint 32 Phase 3D.md`. **Phase 3D hosted mutation remains
-PENDING owner execution — not complete, not hosted-green.**
+`C3 Contracts ACL — Sprint 32 Phase 3D.md`.
+
+**Phase 3D CLOSED HOSTED-GREEN (2026-07-05).** The armed 3D-1 rev 3 run
+completed its terminal verification: C3Contracts has unique permissions with
+exactly the five target principals (Platform Owners FC; Operations/Legal/
+Finance/Management Read), no Limited Access, and unchanged schema/settings/
+contents/identity/dependencies/scopes. Remaining Sprint 32 phases (separate
+authorizations): NavRail Contracts activation → deploy runtime `1286a3ec…` →
+hosted Part 19 → closeout + TD-22 resolution + Internal V1.0 marker.
