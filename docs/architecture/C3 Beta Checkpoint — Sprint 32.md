@@ -132,7 +132,69 @@ missing optionals stay missing · zero/missing never implies readiness.
 | 19.4 Real record | ⏳ PENDING owner |
 | **Internal V1.0** | **NOT DECLARED** — BLOCKED by TD-33 (People cold-load crash) + 19.2/19.4 |
 
-## BLOCKER — TD-33: People screen cold-load crash (Fluent v9 tabster) — discovered 2026-07-05
+## Part 19.5 — TD-33 cold-start modal remediation (RESOLVED, hosted-green 2026-07-05)
+
+**Root cause (app-owned call path):** every "Add/Create" panel rendered its
+Fluent `OverlayDrawer` always-mounted (`<OverlayDrawer open={state}>`), and two
+Mission `Dialog`s were always-mounted too. On mount, Fluent runs
+`getModalizer(tabster)` → `tabster.core.attrHandlers.set("modalizer", …)`. On a
+COLD session where a modal is the first Tabster consumer, that registration runs
+before the modalizer machinery is initialized and throws
+`Cannot read properties of undefined (reading 'set')`. Warm sessions initialize
+it via earlier components, so the crash was invisible to every prior (warm)
+validation.
+
+**Options considered:**
+1. *Lifecycle deferral* — mount overlays only when first opened
+   (`useDeferredMount`). Applied to all 7 shared `OverlayDrawer` panels; the two
+   always-mounted Mission dialogs gated (`{state !== null && <Dialog…>}`);
+   PersonProfile dialogs were already conditional. This fixed the cold *initial
+   render* but not modal *open* — proven insufficient hosted (opening Add Person
+   on a cold tab still crashed), because the core modalizer is still uninitialized
+   at first open.
+2. *Provider-level core init via `useFocusFinders`* — created the Tabster core
+   but not the modalizer; modal open still crashed. Insufficient.
+3. *Provider-level modalizer pre-init via `useModalAttributes`* (SELECTED) — a
+   root `TabsterInitializer` calls the public `useModalAttributes({trapFocus:true})`
+   (the exact hook modals use), which runs `initTabsterModules` (`getModalizer` +
+   `getRestorer`) once at app init. `getModalizer` is idempotent, so every real
+   modal open thereafter skips the failing registration.
+
+**Why Option 3 was needed and is supported:** lifecycle deferral alone leaves the
+modalizer uninitialized until first open (proven hosted). `useModalAttributes` is
+a public `@fluentui/react-components` export; no private/unsupported Tabster API,
+no `node_modules`/bundled-Fluent patch, no provider replacement, single tabster
+copy confirmed (react-tabster 9.26.15 / tabster 8.8.0). Deferred mounting is
+retained as defence in depth.
+
+**Files:** `packages/c3/src/hooks/useDeferredMount.ts` (new); the 7 shared panels;
+`packages/c3/src/screens/MissionWorkspace.tsx` (2 dialogs gated);
+`packages/c3/src/App.tsx` (`TabsterInitializer`); parity harness. Runtime SHA
+`982bd2e66cb8dd68efe8533b4cdd8136c6e2c71ee24174da4c56df0c7d60af4c`; deployed chunk
+`chunk.c3-runtime_1551ca99…` / `c9536c3d3ca687f74709712b2de7bf2e6b5f494f20eafaa29b0413ab9f78403d`
+(verified byte-identical in-page on the hosted page). Parity 41/41; full gate PASS.
+
+**Cold regression matrix (fresh tabs, first navigation, verified this build):**
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Hard load → People as FIRST navigation | ✅ 14 rows, no error boundary |
+| 2 | Command Center settles → People | ✅ no crash |
+| 3 | Open Add Person (cold) | ✅ drawer opens, 10 fields, no crash (screenshot) |
+| 4 | Close / reopen Add Person | ✅ reopens cleanly |
+| 5 | People register truthful; no Contracts column (TD-32) | ✅ |
+| 6 | Contracts truthful-empty; New Contract absent (TD-31) | ✅ |
+| 7 | Renewals truthful-empty | ✅ |
+| 8 | Missions (gated dialogs + AddKit/AddParticipant panels) | ✅ no crash |
+| 9 | PersonProfile (StartJourney/AddCredential/Apparel panels + 2 dialogs) | ✅ no crash; Add Credential opens/closes; Total Contracts tile canonical "0" |
+| 10 | Failure drill (cold cache) | ✅ fail-closed proven earlier; warm-cache SWR serves truthful cached empty; restore truthful |
+| 11 | Warm navigation | ✅ unchanged |
+
+TD-33 is **RESOLVED and hosted-green**. The runtime `982bd2e6…` is deployed.
+
+---
+
+## (Historical) BLOCKER — TD-33: People screen cold-load crash (Fluent v9 tabster) — discovered 2026-07-05
 
 **Severity:** 🔴 V1 blocker (core screen crashes on a real user's first visit).
 **Not a regression from this workstream** — see isolation proof below.

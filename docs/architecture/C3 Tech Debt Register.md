@@ -764,3 +764,15 @@ PeopleWorkspace; independent of the S32 NavRail activation and TD-31/TD-32 work.
 modalizer registers only on open (tabster warm by then), and/or force tabster core
 init at FluentProvider mount; apply as a shared pattern across all modal-panel
 screens and cold-validate each. Blocks Internal V1.0 until fixed + cold-regressed.
+
+**UPDATE 2026-07-05 — TD-33 RESOLVED (hosted-green, Part 19.5).** Root cause was
+app-owned: always-mounted Fluent OverlayDrawer/Dialog panels ran getModalizer on
+a cold session before the modalizer was initialized. Fix: (1) useDeferredMount
+defers the 7 shared overlay panels until first open; (2) the 2 always-mounted
+Mission dialogs gated conditionally; (3) a root TabsterInitializer calls the
+public useModalAttributes({trapFocus:true}) once to pre-register the modalizer
+(getModalizer is idempotent). Public API only; no node_modules/Fluent patch, no
+provider replacement. Cold regression green across People (render+modal open/
+reopen), Missions, PersonProfile, Contracts, Renewals. Runtime 982bd2e6..., chunk
+c9536c3d... deployed and hosted-verified. Deferred mounting retained as defence
+in depth.
