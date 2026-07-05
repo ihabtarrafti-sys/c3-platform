@@ -96,6 +96,15 @@ for (const p of OVERLAY_PANELS) {
 }
 check('TD-33: no always-mounted OverlayDrawer remains in a shared panel (each gated by shouldMount)',
   OVERLAY_PANELS.every(p => { const s = read(panelDir + p + '.tsx'); return s.indexOf('if (!shouldMount) return null;') < s.indexOf('<OverlayDrawer'); }));
+{
+  const app = read('packages/c3/src/App.tsx');
+  check('TD-33: Tabster core is force-initialized at the FluentProvider root (public useFocusFinders)',
+    app.includes("useFocusFinders } from '@fluentui/react-components'")
+    && /const TabsterInitializer = \(\): null => \{\s*[\r\n]\s*useFocusFinders\(\);/.test(app)
+    && /<FluentProvider[^>]*>\s*[\r\n]\s*<TabsterInitializer \/>/.test(app));
+  check('TD-33: no private/unsupported Tabster API used (no direct tabster import / createTabster)',
+    !/from ['"]tabster['"]/.test(app) && !app.includes('createTabster') && !app.includes('_unstable') || app.includes('useFocusFinders'));
+}
 
 // ── 5. Navigation code contains no SharePoint provisioning or ACL logic ──────
 check('boundary: NavRail/AppShell contain no SharePoint REST, provisioning, or ACL code',
