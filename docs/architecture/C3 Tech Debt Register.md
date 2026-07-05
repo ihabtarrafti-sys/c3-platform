@@ -694,3 +694,56 @@ exit code and runs, in order: all parity gates, both TypeScript checks, the stri
 build, runtime verification, and the NUL audit. Owned as a process-hardening backlog
 item (candidate to pair with the next sprint); NOT implemented during S31 closeout.
 Related: TD-27 gate note (strict-build path mandatory).
+
+---
+
+## Sprint 32 review (2026-07-05)
+
+### TD-30 — RESOLVED (S32 P1)
+
+The canonical fail-fast gate exists: `scripts/validate-gate.mjs` (`npm run gate`) —
+explicit ordered parity list (13 harnesses), both tsc checks, unpiped strict build,
+runtime verification, NUL audit; shell-free spawns with full error/status/signal
+inspection and a documented `--self-test-failure` proof. In mandatory use since
+S32 P1; unchanged-SHA warning implemented as an investigation trigger.
+
+### TD-29 — REVIEWED and RETAINED (explicit decision, S32 closeout review)
+
+The residual two-session simultaneous-execution race on approvals stands as
+accepted debt for Internal V1.0: freshness reads + actual-ETag preconditions bound
+the window; the practical exposure (two owners executing the same approval within
+the same seconds) is operationally negligible for the current single-owner
+execution model. Revisit if a second executing owner is onboarded.
+
+### TD-22 — hosted progress (S32; resolution pending Part 19.4)
+
+Canonical C3Contracts provisioned + hosted-verified (Phase 3C, fingerprint
+`3a13b28f…`); mock rows recycled and legacy schema remediated in place; read-only
+contract service compatible and fail-closed; exact five-principal ACL hosted-green
+(Phase 3D); hosted Contracts + Renewals truthful (Part 19.1/19.3). REMAINING for
+resolution: hosted Contract Profile truthfulness against one real owner-authored
+row (Part 19.4).
+
+### TD-31 — Inert "New Contract" button on ContractsList
+
+**Severity:** 🟢 Cosmetic/UX debt
+**Sprint attributed:** S24 (mock-era header action), surfaced by S32 Part 19
+**Files:** `packages/c3/src/screens/ContractsList.tsx` (~line 396)
+
+The header action `<Button appearance="primary">New Contract</Button>` has no
+onClick handler — hosted click produces no dialog, navigation, or network request
+(Part 19 evidence). Not a write path (the contract service is read-only and s32
+parity forbids mutation surfaces), but a dead primary button implies a capability
+that does not exist. Remove or gate behind a real governed flow post-V1.
+
+### TD-32 — Stale denormalized TotalContracts on the People register
+
+**Severity:** 🟡 Truthfulness gap (non-Contracts surface)
+**Sprint attributed:** S16 (people register column), surfaced by S32 Part 19
+**Files:** `packages/c3/src/screens/PeopleWorkspace.tsx` (~line 230); C3_People list
+
+The People register "Contracts" column renders the stored `TotalContracts` field
+from C3_People — a mock-era denormalized count that now reads 2/1 while the
+canonical C3Contracts list is empty. Replace with a live derivation from the
+canonical list (or drop the column) so zero/missing canonical data is never
+contradicted by a stale rollup.

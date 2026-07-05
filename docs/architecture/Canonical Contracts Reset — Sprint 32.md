@@ -212,6 +212,17 @@ Renewals/PersonProfile/Inbox. Changes (smallest coherent activation):
 `1286a3ecf22147c49971f7b503a53b8b74e75c0e857bad0582aa52e9e8dcbd29` superseded by
 `e8382ae15d1849dcab4a27b5860a177898aa9529243d3033916f310b1d5edf02` — the only
 runtime-affecting source change in the diff is `NavRail.tsx` (activation), so
-the SHA delta is attributable solely to the approved activation. **The runtime
-remains UNDEPLOYED. Deployment and hosted Part 19 validation are separate
-owner-authorized gates.**
+the SHA delta is attributable solely to the approved activation.
+
+## 12. Deployment + Hosted Part 19 (2026-07-05) — DEPLOYED; Part 19 PARTIAL
+
+Runtime `e8382ae1…` is **DEPLOYED** (catalog Add+Deploy, HTTP 200/200; live page
+loads chunk `4b61b26e…` byte-identical to the clean-tree build — full proof
+chain and all hosted evidence in `C3 Beta Checkpoint — Sprint 32.md`). Hosted
+Part 19: deployment/SHA proof, truthful empty states (Contracts + Renewals),
+and the non-destructive failure drill are GREEN; per-role walkthroughs
+(Operations/Legal/Finance/Management/HR/visitor) and the single real
+owner-authored contract row (Part 19.4) remain PENDING owner execution.
+TD-30 RESOLVED · TD-29 reviewed and retained · TD-22 pending only Part 19.4 ·
+TD-31/TD-32 recorded (inert New Contract button; stale People TotalContracts).
+**Internal V1.0 is NOT declared** until Part 19 is fully green.
