@@ -173,6 +173,17 @@ code defect (host mount lifecycle already hardened and healthy; runtime initial-
 byte-identical to a build that rendered). The correct remedy was a single clean
 retract + redeploy allowed to propagate — exactly the authorized Branch 2 recovery.
 
+**Owner-confirmed characterization (2026-07-05):** the failure is specifically a
+**first-mount failure in VIEW mode**, and any **re-mount** clears it. The owner's reliable
+one-click workaround is **click Edit → Cancel edits**: SharePoint re-instantiates the web
+part in authoring context and returns to view mode re-mounted, which runs
+`C3Host.componentDidMount` again and renders — with **no redeploy**. This confirms the
+blank is transient client-side mount state (not corrupted assets); the clean retract +
+redeploy worked because the fresh post-propagation loads were themselves re-mounts. Fastest
+recovery order for future incidents: (1) Edit → Cancel (no deploy); (2) hard reload after
+propagation; (3) only if a fresh instance stays blank with matching hashes + `mount-complete`,
+one clean retract + redeploy.
+
 ### Production page integrity after recovery
 
 C3.aspx: **Published (Level 1), checked in (CheckOutType None)**, PromotedState 0, instance

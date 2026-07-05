@@ -53,10 +53,22 @@ Sprint 32 closeout commit and this marker.
 ## Operational note — hosting
 
 TD-34 established that **rapid successive tenant redeploys can degrade app-catalog
-registration/propagation** and produce a blank render. Guidance: deploy once and allow
-catalog/CDN propagation before re-testing; if a blank render recurs with matching bundle
-hashes and `mount-complete`, the remedy is a single clean retract + redeploy with propagation
-time — not repeated redeploys, and not removing/re-adding the page instance.
+registration/propagation** and produce a blank render. The failure is a **first-mount
+failure in view mode** (assets are intact — bundle hashes match — and diagnostics reach
+`mount-complete`); it is transient and cleared by any **re-mount** of the web part.
+
+Recovery, fastest first:
+
+1. **Owner one-click workaround (no redeploy):** on the blank page, click **Edit** then
+   **Cancel** — SharePoint re-instantiates the web part and returns to view mode
+   re-mounted, and C3 renders. This is the owner's reliable fix and needs no deploy.
+2. **Hard reload / fresh load** after catalog/CDN propagation also re-mounts and renders.
+3. **Only if a fresh instance stays blank** with matching bundle hashes and `mount-complete`:
+   a single clean **retract + redeploy** with propagation time — not repeated redeploys,
+   and not removing/re-adding the page instance.
+
+Guidance: deploy once and allow propagation before re-testing; avoid rapid successive
+redeploys.
 
 ## Reference documents
 

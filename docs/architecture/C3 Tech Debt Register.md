@@ -829,9 +829,13 @@ resolved and `mount()` completed. Two independent contributors, addressed in ord
    propagation time.
 
 **Prevention/guidance:** avoid rapid successive tenant redeploys; allow catalog/CDN
-propagation between deploys. The hardened host boundary is retained as permanent
-defence-in-depth: any future genuine mount failure now surfaces a visible fail-closed
-error with bounded diagnostics instead of a silent blank. Production page instance
+propagation between deploys. The failure is a **first-mount failure in view mode** cleared
+by any **re-mount** — owner-confirmed fastest workaround (no redeploy): **click Edit →
+Cancel edits** on the blank page (SharePoint re-instantiates + re-mounts the web part →
+renders). Fallbacks: hard reload after propagation; only if a fresh instance stays blank
+with matching bundle hashes + `mount-complete`, one clean retract + redeploy. The hardened
+host boundary is retained as permanent defence-in-depth: any future genuine mount failure
+now surfaces a visible fail-closed error with bounded diagnostics instead of a silent blank. Production page instance
 `617e5555…` was **not** removed or re-added; canvas verified byte-equivalent to the
 preserved A.5 record. Evidence:
 `S32 Part 19.6 — C3.aspx Preservation + Diagnostic Isolation.md`.
