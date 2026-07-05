@@ -1,5 +1,10 @@
 # C3 Platform Status
 
+> **⚠ HISTORICAL (Sprint-14 era) — do not use for continuity.**
+> Current truth: `docs/continuity/C3-AUTHORITATIVE-CONTINUITY-INDEX.md`
+> (Internal V1.0 declared; active workstream: Sprint 33 — Full Functional
+> Certification and Controlled Internal Beta).
+
 ## Version
 
 v0.14.0-hardening
