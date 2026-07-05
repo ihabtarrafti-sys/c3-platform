@@ -9,6 +9,7 @@ import { ToasterGuard } from './components/ToasterGuard';
 import { c3CSSVars, c3Theme } from './tokens/c3Tokens';
 import { queryClient } from './queryClient';
 import { C3_TOASTER_ID } from './hooks/useToast';
+import { createTabsterSandbox } from './utils/tabsterSandbox';
 
 /**
  * TabsterInitializer — TD-33 (Sprint 32).
@@ -77,8 +78,36 @@ class TabsterInitializerBoundary extends React.Component<
 }
 
 export const C3App = ({ config }: { config: AppConfig }) => {
+  // S33 Correction Set B (TD-33): hand FluentProvider a targetDocument facade
+  // whose defaultView virtualizes ONLY the tabster global slots. Fluent then
+  // creates a PRIVATE, version-compatible tabster core for C3 instead of
+  // blindly adopting SharePoint's older page-global instance (the proven
+  // cause of the first-modal-open crash AND of silently non-functional focus
+  // containment after a retry). SharePoint's instance is never read, adopted,
+  // or mutated. Falls back to the real document if the facade cannot be
+  // built — TabsterInitializerBoundary stays as the bounded fail-safe.
+  const tabsterSandbox = React.useMemo(
+    () => (typeof document !== 'undefined' ? createTabsterSandbox(document) : null),
+    [],
+  );
+  React.useEffect(() => {
+    // Bounded, non-sensitive diagnostic for hosted verification.
+    try {
+      (window as unknown as Record<string, unknown>).__C3_TABSTER_SANDBOX = {
+        active: !!tabsterSandbox?.active,
+        at: new Date().toISOString(),
+      };
+    } catch {
+      /* diagnostics must never affect rendering */
+    }
+  }, [tabsterSandbox]);
+
   return (
-    <FluentProvider theme={c3Theme} style={c3CSSVars}>
+    <FluentProvider
+      theme={c3Theme}
+      style={c3CSSVars}
+      targetDocument={tabsterSandbox?.document ?? undefined}
+    >
       <TabsterInitializerBoundary>
         <TabsterInitializer />
       </TabsterInitializerBoundary>

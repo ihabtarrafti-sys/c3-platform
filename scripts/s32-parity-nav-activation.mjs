@@ -105,8 +105,11 @@ check('TD-33: no always-mounted OverlayDrawer remains in a shared panel (each ga
     app.includes("useModalAttributes } from '@fluentui/react-components'")
     && /const TabsterInitializer = \(\): null => \{[\s\S]{0,180}useModalAttributes\(\{ trapFocus: true \}\);/.test(app)
     && /<FluentProvider[^>]*>\s*[\r\n]\s*<TabsterInitializerBoundary>\s*[\r\n]\s*<TabsterInitializer \/>/.test(app));
+  // S33 Set B: App.tsx now imports the C3-owned createTabsterSandbox module —
+  // the check still forbids direct tabster-library imports and bare
+  // createTabster usage (the sandbox never imports tabster either).
   check('TD-33: no private/unsupported Tabster API used (no direct tabster import / createTabster / _unstable)',
-    !/from ['"]tabster['"]/.test(app) && !app.includes('createTabster') && !app.includes('_unstable'));
+    !/from ['"]tabster['"]/.test(app) && !/\bcreateTabster\b(?!Sandbox)/.test(app) && !app.includes('_unstable'));
 }
 
 // ── 4d. Part 19.4 — contract-profile identity: canonical business ContractID ──

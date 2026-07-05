@@ -116,6 +116,7 @@ const PARITY = [
   's32-parity-contract-integrity', 's32-parity-acl-phase3d', 's32-parity-nav-activation',
   's32-parity-host-mount', 's33-parity-hosted-feedback',
   's33-parity-cold-load-recovery', 's33-parity-identity-hardening',
+  's33-parity-modal-interop',
 ];
 
 if (process.argv.includes('--self-test-failure')) {

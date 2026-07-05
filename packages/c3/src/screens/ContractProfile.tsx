@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Button, Link, Tab, TabList, Text } from '@fluentui/react-components';
+import { Button, Link, Tab, TabList, Text, useRestoreFocusTarget } from '@fluentui/react-components';
 
 import {
   ActivityTimeline,
@@ -71,6 +71,8 @@ export const ContractProfile = ({
   } = useContractActivities(contractId);
   const [activeTab, setActiveTab] = useState<ContractTab>(tab);
   const [amendmentPanelOpen, setAmendmentPanelOpen] = useState(false);
+  // S33 Set B: modal trigger becomes a tabster restore target.
+  const restoreFocusTarget = useRestoreFocusTarget();
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadedAt = useMemo(() => new Date().toISOString(), [contract]);
@@ -158,6 +160,7 @@ export const ContractProfile = ({
               <Button
                 appearance="primary"
                 onClick={() => setAmendmentPanelOpen(true)}
+                {...restoreFocusTarget}
               >
                 Add Amendment
               </Button>

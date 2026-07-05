@@ -12,6 +12,7 @@ import {
   Spinner,
   Text,
   Textarea,
+  useRestoreFocusTarget,
 } from '@fluentui/react-components';
 import {
   DataRow,
@@ -176,6 +177,9 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   const toast            = useToast();
 
   const [activeTab,            setActiveTab]            = useState<ProfileTab>(initialTab ?? 'profile');
+  // S33 Set B: modal triggers become tabster restore targets — focus returns
+  // to the initiating control after the overlay/dialog closes.
+  const restoreFocusTarget = useRestoreFocusTarget();
   const [journeyPanelOpen,     setJourneyPanelOpen]     = useState(false);
   const [credentialPanelOpen,  setCredentialPanelOpen]  = useState(false);
   const [apparelPanelOpen,     setApparelPanelOpen]     = useState(false);
@@ -544,7 +548,12 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
             title="Apparel Profile"
             action={
               canEditApparel && apparelProfile !== undefined ? (
-                <Button appearance="subtle" size="small" onClick={() => setApparelPanelOpen(true)}>
+                <Button
+                  appearance="subtle"
+                  size="small"
+                  onClick={() => setApparelPanelOpen(true)}
+                  {...restoreFocusTarget}
+                >
                   {apparelProfile === null ? 'Add profile' : 'Edit'}
                 </Button>
               ) : undefined
@@ -591,6 +600,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                     setResolveCapability(undefined);
                     setCredentialPanelOpen(true);
                   }}
+                  {...restoreFocusTarget}
                 >
                   Add Credential
                 </Button>
@@ -611,6 +621,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                         setResolveCapability(undefined);
                         setCredentialPanelOpen(true);
                       }}
+                      {...restoreFocusTarget}
                     >
                       Add Credential
                     </Button>
@@ -651,6 +662,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                             setDeactivateTarget(credential);
                             setDeactivateReason('');
                           }}
+                          {...restoreFocusTarget}
                         >
                           Deactivate
                         </Button>
@@ -897,6 +909,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                     <Button
                       appearance="primary"
                       onClick={() => setJourneyPanelOpen(true)}
+                      {...restoreFocusTarget}
                     >
                       Start Onboarding Journey
                     </Button>

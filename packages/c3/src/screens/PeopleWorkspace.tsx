@@ -1,5 +1,5 @@
 import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
-import { Button, Text } from '@fluentui/react-components';
+import { Button, Text, useRestoreFocusTarget } from '@fluentui/react-components';
 import { PersonAdd20Regular } from '@fluentui/react-icons';
 
 import { AddPersonPanel } from '@c3/components/shared/AddPersonPanel';
@@ -241,6 +241,9 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
   const { data: people = [], isLoading, error } = usePeople();
   const capabilities = useCapabilities();
   const [addPersonOpen, setAddPersonOpen] = useState(false);
+  // S33 Set B: mark modal triggers as tabster restore targets so focus
+  // returns to the initiating control after the overlay closes.
+  const restoreFocusTarget = useRestoreFocusTarget();
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const loadedAt = useMemo(() => new Date().toISOString(), [people]);
@@ -303,6 +306,7 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
             appearance="primary"
             icon={<PersonAdd20Regular />}
             onClick={() => setAddPersonOpen(true)}
+            {...restoreFocusTarget}
           >
             Add Person
           </Button>

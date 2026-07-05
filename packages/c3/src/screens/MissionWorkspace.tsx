@@ -49,6 +49,7 @@ import {
   MenuTrigger,
   Text,
   Textarea,
+  useRestoreFocusTarget,
 } from '@fluentui/react-components';
 
 import {
@@ -274,6 +275,7 @@ const ParticipantList = ({
   onDeactivate,
   onRemoveParticipant,
   pendingRequests,
+  restoreFocusTarget,
 }: {
   participants: MissionParticipant[];
   peopleById: Map<string, Person>;
@@ -289,6 +291,8 @@ const ParticipantList = ({
   /** S29B: governed removal + pending-request map (pendingKey → APR title). */
   onRemoveParticipant: (participant: MissionParticipant) => void;
   pendingRequests: Map<string, string>;
+  /** S33 Set B: spread on modal triggers so focus restores to them on close. */
+  restoreFocusTarget: ReturnType<typeof useRestoreFocusTarget>;
 }) => (
   <div
     style={{
@@ -364,6 +368,7 @@ const ParticipantList = ({
                 appearance="subtle"
                 size="small"
                 onClick={() => onRemoveParticipant(p)}
+                {...restoreFocusTarget}
               >
                 Remove…
               </Button>
@@ -384,6 +389,7 @@ const ParticipantList = ({
             size="small"
             style={{ alignSelf: 'flex-start' }}
             onClick={() => onAddKit(p)}
+            {...restoreFocusTarget}
           >
             + Add kit item
           </Button>
@@ -411,6 +417,7 @@ const MissionCard = ({
   pendingUnavailable,
   readiness,
   readinessLoading,
+  restoreFocusTarget,
 }: {
   mission: Mission;
   participants: MissionParticipant[];
@@ -431,6 +438,8 @@ const MissionCard = ({
   /** S30: computed readiness for the facet strip. */
   readiness: MissionReadiness | undefined;
   readinessLoading: boolean;
+  /** S33 Set B: spread on modal triggers so focus restores to them on close. */
+  restoreFocusTarget: ReturnType<typeof useRestoreFocusTarget>;
 }) => (
   <div
     style={{
@@ -563,7 +572,7 @@ const MissionCard = ({
         </Badge>
       )}
       {canManageKit && (
-        <Button appearance="subtle" size="small" onClick={onAddParticipant}>
+        <Button appearance="subtle" size="small" onClick={onAddParticipant} {...restoreFocusTarget}>
           + Add participant
         </Button>
       )}
@@ -582,6 +591,7 @@ const MissionCard = ({
         onDeactivate={onDeactivate}
         onRemoveParticipant={onRemoveParticipant}
         pendingRequests={pendingRequests}
+        restoreFocusTarget={restoreFocusTarget}
       />
     )}
   </div>
@@ -594,6 +604,9 @@ const MissionCard = ({
 export const MissionWorkspace = () => {
   const { navigate, currentUser } = useApp();
   const toast = useToast();
+  // S33 Set B: modal triggers become tabster restore targets (threaded down
+  // to MissionCard/ParticipantList buttons).
+  const restoreFocusTarget = useRestoreFocusTarget();
   const { data: missions = [], isLoading: missionsLoading, error } = useMissions();
 
   // S29A: kit actions are role-gated (owner/operations). UI affordance only —
@@ -939,6 +952,7 @@ export const MissionWorkspace = () => {
               onRemoveParticipant={p => { setRemoveReason(''); setRemoveTarget(p); }}
               pendingRequests={pendingParticipantRequests}
               pendingUnavailable={pendingUnavailable}
+              restoreFocusTarget={restoreFocusTarget}
               readiness={readinessByMission.get(mission.MissionID)}
               readinessLoading={readinessLoading}
             />
