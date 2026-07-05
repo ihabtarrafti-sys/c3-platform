@@ -46979,7 +46979,7 @@ const See = () => {
     );
   },
   getContract(e) {
-    const t = Ly.find((r) => String(r.Id) === e);
+    const t = Ly.find((r) => r.ContractID === e);
     return t ? Promise.resolve(t) : Promise.reject(new Error(`Contract not found: ${e}`));
   },
   listContractActivities(e) {
@@ -50222,7 +50222,7 @@ const Cte = () => ({
                     contract: k,
                     onClick: () => t({
                       id: "contract-profile",
-                      contractId: String(k.Id)
+                      contractId: k.ContractID
                     })
                   },
                   k.Id
@@ -53200,7 +53200,7 @@ const Kne = ({ evaluation: e, onResolveObligation: t }) => {
               title: We.ContractID,
               subtitle: We.ContractTypeName,
               variant: fre(Ur(We.EndDate)),
-              onClick: () => i({ id: "contract-profile", contractId: String(We.Id) }),
+              onClick: () => i({ id: "contract-profile", contractId: We.ContractID }),
               right: /* @__PURE__ */ p.jsxs(p.Fragment, { children: [
                 /* @__PURE__ */ p.jsx(vm, { stage: We.ContractStage1 }),
                 /* @__PURE__ */ p.jsx(r0, { disposition: We.Disposition1 }),
@@ -53779,7 +53779,7 @@ const Kne = ({ evaluation: e, onResolveObligation: t }) => {
             subtitle: `${h.ContractID} · ${h.ContractTypeName}`,
             variant: qE(g),
             mono: !1,
-            onClick: () => t({ id: "contract-profile", contractId: String(h.Id) }),
+            onClick: () => t({ id: "contract-profile", contractId: h.ContractID }),
             right: /* @__PURE__ */ p.jsxs(
               "div",
               {
@@ -53820,7 +53820,7 @@ const Kne = ({ evaluation: e, onResolveObligation: t }) => {
             subtitle: `${h.ContractID} · ${h.ContractTypeName}`,
             variant: qE(g),
             mono: !1,
-            onClick: () => t({ id: "contract-profile", contractId: String(h.Id) }),
+            onClick: () => t({ id: "contract-profile", contractId: h.ContractID }),
             right: /* @__PURE__ */ p.jsx(lu, { endDate: h.EndDate })
           },
           h.Id
@@ -53855,7 +53855,7 @@ const Kne = ({ evaluation: e, onResolveObligation: t }) => {
                 subtitle: `${g.ContractID} · ${g.ContractTypeName}`,
                 variant: qE(y),
                 mono: !1,
-                onClick: () => t({ id: "contract-profile", contractId: String(g.Id) }),
+                onClick: () => t({ id: "contract-profile", contractId: g.ContractID }),
                 right: /* @__PURE__ */ p.jsx(lu, { endDate: g.EndDate })
               },
               g.Id
@@ -54011,7 +54011,7 @@ const Kne = ({ evaluation: e, onResolveObligation: t }) => {
                 title: h.ContractID,
                 subtitle: `${h.FullName} · ${h.ContractTypeName}`,
                 variant: VE(g),
-                onClick: () => e({ id: "contract-profile", contractId: String(h.Id) }),
+                onClick: () => e({ id: "contract-profile", contractId: h.ContractID }),
                 right: /* @__PURE__ */ p.jsxs(p.Fragment, { children: [
                   /* @__PURE__ */ p.jsx(vm, { stage: h.ContractStage1 }),
                   /* @__PURE__ */ p.jsx(ow, { status: h.OpsStatus }),
@@ -54040,7 +54040,7 @@ const Kne = ({ evaluation: e, onResolveObligation: t }) => {
                 title: h.ContractID,
                 subtitle: `${h.FullName} · ${h.ContractTypeName}`,
                 variant: VE(g),
-                onClick: () => e({ id: "contract-profile", contractId: String(h.Id) }),
+                onClick: () => e({ id: "contract-profile", contractId: h.ContractID }),
                 right: /* @__PURE__ */ p.jsxs(p.Fragment, { children: [
                   /* @__PURE__ */ p.jsx(r0, { disposition: h.Disposition1 }),
                   /* @__PURE__ */ p.jsx(lu, { endDate: h.EndDate })
@@ -54068,7 +54068,7 @@ const Kne = ({ evaluation: e, onResolveObligation: t }) => {
                 title: h.ContractID,
                 subtitle: `${h.FullName} · ${h.ContractTypeName}`,
                 variant: VE(g),
-                onClick: () => e({ id: "contract-profile", contractId: String(h.Id) }),
+                onClick: () => e({ id: "contract-profile", contractId: h.ContractID }),
                 right: /* @__PURE__ */ p.jsxs(p.Fragment, { children: [
                   /* @__PURE__ */ p.jsx(vm, { stage: h.ContractStage1 }),
                   /* @__PURE__ */ p.jsx(ow, { status: h.OpsStatus }),
