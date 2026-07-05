@@ -26,9 +26,25 @@ export interface PlatformHost {
   context: PlatformContext;
 }
 
+export interface PlatformMountOptions {
+  context: PlatformContext;
+  /**
+   * TD-34 (Sprint 33): called exactly once after the runtime's FIRST React
+   * commit. mount() returning only proves the render was SCHEDULED; this
+   * signal is the host's proof that application DOM actually committed.
+   */
+  onFirstCommit?: () => void;
+  /**
+   * TD-34 (Sprint 33): called when the runtime root error boundary catches a
+   * render-phase error (visible fallback already rendered by the runtime).
+   * Sanitized name/message only.
+   */
+  onRuntimeError?: (errorName: string, errorMessage: string) => void;
+}
+
 export interface PlatformApplication {
   /** Mount the C3 application into the given container element. */
-  mount(container: HTMLElement, options: { context: PlatformContext }): void;
+  mount(container: HTMLElement, options: PlatformMountOptions): void;
   /** Unmount and clean up the C3 application from the given container element. */
   unmount(container: HTMLElement): void;
 }

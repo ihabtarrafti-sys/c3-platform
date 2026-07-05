@@ -21,6 +21,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from './queryKeys';
 import { useApp } from './useApp';
 import { useApprovalsService } from './useApprovalsService';
+import { checkSelfReview } from '@c3/utils/identity';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
 import type { PatchApprovalStatusRequest } from '@c3/services/interfaces/IApprovalsService';
 
@@ -30,17 +31,22 @@ import type { PatchApprovalStatusRequest } from '@c3/services/interfaces/IApprov
 
 /**
  * Thrown when the current user attempts to approve or reject an approval
- * they themselves submitted.
+ * they themselves submitted — or when either identity cannot be normalized
+ * reliably (fail closed; Sprint 33 Defect B).
  *
  * ADR-013: ReviewedBy must differ from SubmittedBy.
  */
 export class SelfApprovalError extends Error {
   override readonly name = 'SelfApprovalError';
 
-  constructor(loginName: string) {
+  constructor(loginName: string, indeterminate = false) {
     super(
-      `[C3/Approvals] Self-approval not permitted (ADR-013). ` +
-      `User "${loginName}" cannot review their own submission.`,
+      indeterminate
+        ? `[C3/Approvals] Review blocked (ADR-013): the reviewer or submitter ` +
+          `identity could not be verified reliably. Reviews fail closed on ` +
+          `indeterminate identity.`
+        : `[C3/Approvals] Self-approval not permitted (ADR-013). ` +
+          `User "${loginName}" cannot review their own submission.`,
     );
   }
 }
@@ -95,11 +101,18 @@ export const usePatchApprovalStatus = () => {
       }
 
       // Self-approval enforcement (ADR-013) — against the FRESH row.
-      if (
-        currentUser.loginName &&
-        currentUser.loginName === approval.submittedBy
-      ) {
-        throw new SelfApprovalError(currentUser.loginName);
+      // Sprint 33 Defect B: identities are compared CANONICALLY (claims
+      // prefix stripped, trimmed, case-normalized) so a claims-format session
+      // identity matches a bare-email historical SubmittedBy. FAIL CLOSED:
+      // an identity that cannot be normalized blocks the review — the prior
+      // raw `===` guard silently failed OPEN on format mismatches and on an
+      // empty current loginName.
+      const selfCheck = checkSelfReview(currentUser.loginName, approval.submittedBy);
+      if (selfCheck.blocked) {
+        throw new SelfApprovalError(
+          currentUser.loginName,
+          selfCheck.reason !== 'self',
+        );
       }
 
       const req: PatchApprovalStatusRequest = {

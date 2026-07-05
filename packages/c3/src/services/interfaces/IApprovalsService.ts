@@ -272,8 +272,10 @@ export interface IApprovalsService {
    * The service stamps ReviewedBy from its factory-captured currentUserLoginName
    * and ReviewedAt from the current datetime.
    *
-   * Self-approval enforcement (ReviewedBy === SubmittedBy) is applied at the
-   * hook layer (usePatchApprovalStatus) and also in MockApprovalsService.
+   * Self-approval enforcement (canonical-identity comparison via
+   * utils/identity.checkSelfReview — S33 Defect B; fails closed on
+   * indeterminate identity) is applied at the hook layer
+   * (usePatchApprovalStatus) and also in MockApprovalsService.
    * SharePointApprovalsService trusts the hook layer check.
    *
    * Does NOT set ExecutedAt, ExecutionError, or create any operational rows.

@@ -480,13 +480,17 @@ export const ContractProfile = ({
               />
             )}
 
+            {/* S33 certified truthfulness: the activity backend/schema is
+                DEFERRED (both DSMs return [] unconditionally), so an empty
+                timeline must not claim "No activity yet" as if the feature
+                were live. Mirrors the honest Documents tab pattern. */}
             {!activitiesLoading &&
               !activitiesError &&
               timelineEntries.length === 0 && (
                 <EmptyState
                   compact
-                  title="No activity yet"
-                  description="Contract lifecycle events and audit history will appear here."
+                  title="Activity not yet available"
+                  description="Contract activity history is not yet supported. Lifecycle events and audit history will appear here once the activity backend is available."
                 />
               )}
 

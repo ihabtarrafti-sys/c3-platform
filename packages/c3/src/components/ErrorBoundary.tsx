@@ -29,6 +29,14 @@ import React from 'react';
 
 interface ErrorBoundaryProps {
   children: React.ReactNode;
+  /**
+   * Optional error sink (TD-34, Sprint 33). The runtime ROOT boundary in
+   * mountC3 uses this to surface render-phase failures to SPFx host
+   * diagnostics — without it a first-render throw above the screen-level
+   * boundary unmounts the whole React 18 tree and leaves a silent blank
+   * container. The visible fallback is always rendered regardless.
+   */
+  onError?: (error: Error) => void;
 }
 
 interface ErrorBoundaryState {
@@ -54,6 +62,13 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
     // Log full details for beta triage. Do not swallow.
     console.error('[C3/ErrorBoundary] Uncaught render error:', error);
     console.error('[C3/ErrorBoundary] Component stack:', info.componentStack);
+    // TD-34: report to the optional sink (host diagnostics). The sink must
+    // never be able to break the boundary itself.
+    try {
+      this.props.onError?.(error);
+    } catch {
+      /* diagnostics sink failed — fallback UI still renders */
+    }
   }
 
   render(): React.ReactNode {

@@ -7,12 +7,49 @@ import {
   defaultHostContext,
   HostContextProvider,
 } from '../hosts/HostContext';
+import { ErrorBoundary } from '../components/ErrorBoundary';
 
 import type { HostRuntime } from './HostRuntime';
 
 import type { C3Runtime } from './C3Runtime';
 
+// ---------------------------------------------------------------------------
+// TD-34 (Sprint 33) — first-render truthfulness at the mount root.
+//
+// Two silent blank-container classes existed here:
+//   1. A render-phase throw ABOVE the screen-level ErrorBoundary in AppShell
+//      (FluentProvider / TabsterInitializer / providers) made React 18 unmount
+//      the ENTIRE tree: root stays attached, zero committed DOM, error only
+//      rethrown asynchronously where nobody records it. The ROOT ErrorBoundary
+//      below converts that into a VISIBLE fail-closed fallback and reports it
+//      to host diagnostics via onRuntimeError.
+//   2. mount() returns after root.render() merely SCHEDULES the concurrent
+//      commit. FirstCommitSignal's layout effect can only run after the root's
+//      first commit, so its callback is the host's proof that application DOM
+//      actually committed (onFirstCommit). No signal ⇒ scheduled-but-never-
+//      committed ⇒ the host may run its bounded one-shot recovery.
+//
+// The normal successful path remains a SINGLE mount; the signal fires once.
+// ---------------------------------------------------------------------------
+
 const roots = new WeakMap<HTMLElement, Root>();
+
+/** Fires `onFirstCommit` exactly once, after the root's first commit.
+ *  Layout effects run only post-commit, so this cannot fire for a render
+ *  that never committed. Idempotent under StrictMode double-invocation. */
+const FirstCommitSignal = ({
+  onFirstCommit,
+}: {
+  onFirstCommit?: () => void;
+}): null => {
+  const fired = React.useRef(false);
+  React.useLayoutEffect(() => {
+    if (fired.current) return;
+    fired.current = true;
+    onFirstCommit?.();
+  }, [onFirstCommit]);
+  return null;
+};
 
 export const mountC3 = (
   container: HTMLElement,
@@ -34,11 +71,18 @@ export const mountC3 = (
 
   root.render(
     <React.StrictMode>
-      <HostContextProvider value={hostContext}>
-        {hostContext.dataSourceMode === 'sharepoint'
-          ? <SharePointHost />
-          : <LocalHost />}
-      </HostContextProvider>
+      <ErrorBoundary
+        onError={(error) =>
+          runtime?.onRuntimeError?.(error.name, error.message)
+        }
+      >
+        <HostContextProvider value={hostContext}>
+          {hostContext.dataSourceMode === 'sharepoint'
+            ? <SharePointHost />
+            : <LocalHost />}
+        </HostContextProvider>
+      </ErrorBoundary>
+      <FirstCommitSignal onFirstCommit={runtime?.onFirstCommit} />
     </React.StrictMode>,
   );
 };

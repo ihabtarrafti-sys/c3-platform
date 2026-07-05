@@ -1,8 +1,8 @@
 import * as React from 'react';
 
 import type { IC3HostProps } from './IC3HostProps';
-import type { PlatformApplication } from '../runtime/C3RuntimeLoader';
-import { decideMount, validateRuntimeModule } from './hostMount';
+import type { PlatformApplication, PlatformContext } from '../runtime/C3RuntimeLoader';
+import { decideMount, decideRecovery, validateRuntimeModule } from './hostMount';
 
 // ---------------------------------------------------------------------------
 // TD-34 — hardened SPFx host mount boundary.
@@ -17,6 +17,17 @@ import { decideMount, validateRuntimeModule } from './hostMount';
 // late/duplicate mounts and detached targets, catches sync+async failures,
 // renders a VISIBLE fail-closed error instead of a blank div, and publishes a
 // bounded, non-sensitive diagnostics object for hosted verification.
+//
+// Sprint 33 hotfix — normal-use cold-load blank (TD-34 reopened):
+// mount() returning proves only that React 18 SCHEDULED the first commit.
+// The runtime now reports its FIRST actual commit (onFirstCommit) and any
+// root render-phase error (onRuntimeError — visible fallback rendered by the
+// runtime's root boundary). If neither arrives by ONE bounded deadline, the
+// host performs a single deterministic recovery: cleanly unmount the first
+// root, remount ONCE, and fail closed visibly if that also does not commit.
+// No unbounded timers, no polling, no reloads: at most two one-shot
+// deadlines, both cleared on commit or disposal. The normal successful path
+// remains a single mount with zero recovery involvement.
 // ---------------------------------------------------------------------------
 
 type HostStage =
@@ -27,6 +38,11 @@ type HostStage =
   | 'validating'
   | 'mounting'
   | 'mount-complete'
+  | 'runtime-committed'
+  | 'runtime-error'
+  | 'recovering'
+  | 'recovered'
+  | 'recovery-failed'
   | 'skipped-disposed'
   | 'skipped-duplicate'
   | 'skipped-detached'
@@ -43,6 +59,17 @@ interface C3HostDiagnostics {
   mountTargetConnected?: boolean;
   mountInvoked: boolean;
   mountCompleted: boolean;
+  /** TD-34: the runtime's first commit signal arrived — application DOM exists. */
+  committedFirstMount?: boolean;
+  /** TD-34: the single bounded recovery remount was performed. */
+  recoveryUsed?: boolean;
+  /** TD-34: the recovery remount produced a committed tree. */
+  commitAfterRecovery?: boolean;
+  /** TD-34: ms from mount() invocation to the first commit signal. */
+  timeToCommitMs?: number;
+  /** TD-34: sanitized identity of a root render-phase error, if one occurred. */
+  runtimeErrorName?: string;
+  runtimeErrorMessage?: string;
   errorName?: string;
   errorMessage?: string;
   at: string;
@@ -53,10 +80,20 @@ interface C3HostState {
 }
 
 export default class C3Host extends React.Component<IC3HostProps, C3HostState> {
+  /** Single bounded deadline for the runtime's first commit signal (TD-34).
+   *  One-shot per mount attempt (initial + at most one recovery). */
+  private static readonly COMMIT_DEADLINE_MS = 4000;
+
   private readonly containerRef = React.createRef<HTMLDivElement>();
   private application?: PlatformApplication;
   private disposed = false;
   private mountedRuntime = false;
+  /** TD-34: first-commit signal received from the runtime. */
+  private committed = false;
+  /** TD-34: the single recovery remount has been used. */
+  private recoveryUsed = false;
+  private commitDeadline?: number;
+  private mountStartedAt = 0;
   public state: C3HostState = {};
 
   private diag(patch: Partial<C3HostDiagnostics>): void {
@@ -147,18 +184,12 @@ export default class C3Host extends React.Component<IC3HostProps, C3HostState> {
       this.diag({ stage: 'mounting', mountInvoked: true });
       this.application = validation.app;
       this.mountedRuntime = true;
-      validation.app.mount(target as HTMLDivElement, {
-        context: {
-          environment: 'dev',
-          dataSourceMode: this.props.dataSourceMode,
-          spSiteUrl: this.props.spSiteUrl,
-          userLoginName: this.props.userLoginName,
-          // Fluent UI v9 Toaster registration fails in the SPFx-hosted workbench.
-          disableToasts: true,
-          services: {},
-        },
-      });
+      this.mountRuntimeOnce(validation.app, target as HTMLDivElement, 'initial');
+      // mount() returned — the first commit is SCHEDULED, not proven. The
+      // runtime's onFirstCommit signal is the proof; arm the single bounded
+      // deadline that owns the no-commit case (TD-34).
       this.diag({ stage: 'mount-complete', mountCompleted: true });
+      this.armCommitDeadline(target as HTMLDivElement);
     } catch (err) {
       const e = err instanceof Error ? err : new Error(String(err));
       this.mountedRuntime = false;
@@ -166,8 +197,132 @@ export default class C3Host extends React.Component<IC3HostProps, C3HostState> {
     }
   }
 
+  private buildContext(): PlatformContext {
+    return {
+      environment: 'dev',
+      dataSourceMode: this.props.dataSourceMode,
+      spSiteUrl: this.props.spSiteUrl,
+      userLoginName: this.props.userLoginName,
+      // Fluent UI v9 Toaster registration fails in the SPFx-hosted workbench.
+      disableToasts: true,
+      services: {},
+    };
+  }
+
+  /** Invoke runtime mount for the initial attempt or the single recovery.
+   *  Both paths use identical context; only diagnostics differ. */
+  private mountRuntimeOnce(
+    app: PlatformApplication,
+    target: HTMLDivElement,
+    phase: 'initial' | 'recovery',
+  ): void {
+    this.mountStartedAt = Date.now();
+    app.mount(target, {
+      context: this.buildContext(),
+      onFirstCommit: () => this.handleFirstCommit(phase),
+      onRuntimeError: (errorName, errorMessage) =>
+        this.handleRuntimeError(errorName, errorMessage),
+    });
+  }
+
+  private handleFirstCommit(phase: 'initial' | 'recovery'): void {
+    if (this.committed) return;
+    this.committed = true;
+    this.clearCommitDeadline();
+    const timeToCommitMs = Date.now() - this.mountStartedAt;
+    if (phase === 'initial') {
+      this.diag({ stage: 'runtime-committed', committedFirstMount: true, timeToCommitMs });
+    } else {
+      this.diag({ stage: 'recovered', commitAfterRecovery: true, timeToCommitMs });
+    }
+  }
+
+  private handleRuntimeError(errorName: string, errorMessage: string): void {
+    // The runtime's ROOT boundary already rendered a VISIBLE fail-closed
+    // fallback — record it; the commit signal (fallback UI) clears the
+    // deadline, so no recovery remount runs for a render-phase error.
+    this.diag({ stage: 'runtime-error', runtimeErrorName: errorName, runtimeErrorMessage: errorMessage });
+    // Sanitized message only.
+    // eslint-disable-next-line no-console
+    console.error(`[C3Host] Runtime render error (visible fallback shown): ${errorName}: ${errorMessage}`);
+  }
+
+  private armCommitDeadline(target: HTMLDivElement): void {
+    this.clearCommitDeadline();
+    this.commitDeadline = window.setTimeout(
+      () => this.onCommitDeadline(target),
+      C3Host.COMMIT_DEADLINE_MS,
+    );
+  }
+
+  private clearCommitDeadline(): void {
+    if (this.commitDeadline !== undefined) {
+      window.clearTimeout(this.commitDeadline);
+      this.commitDeadline = undefined;
+    }
+  }
+
+  /** The single bounded deadline fired without a commit signal (TD-34). */
+  private onCommitDeadline(target: HTMLDivElement): void {
+    this.commitDeadline = undefined;
+    const decision = decideRecovery({
+      mountCompleted: this.mountedRuntime,
+      committed: this.committed,
+      disposed: this.disposed,
+      targetConnected: target.isConnected,
+      recoveryUsed: this.recoveryUsed,
+    });
+
+    if (!decision.recover) {
+      if (decision.reason === 'already-recovered') {
+        // The one permitted recovery also failed to commit — fail closed.
+        this.diag({ stage: 'recovery-failed' });
+        try {
+          this.application?.unmount(target);
+        } catch {
+          /* best-effort cleanup before the visible error replaces the container */
+        }
+        this.failClosed(
+          'C3 loaded but did not render, and one bounded recovery attempt also did not render.',
+        );
+      } else if (decision.reason === 'detached') {
+        this.diag({ stage: 'skipped-detached' });
+        this.failClosed('C3 host container was detached before the runtime rendered.');
+      }
+      // 'committed' → normal path; 'disposed' → host is gone, stay silent;
+      // 'not-mounted' → unreachable (deadline is armed only after mount-complete).
+      return;
+    }
+
+    // Bounded ONE-SHOT recovery: clean the first root, remount exactly once.
+    this.recoveryUsed = true;
+    this.diag({ stage: 'recovering', recoveryUsed: true });
+    const app = this.application;
+    if (!app) {
+      this.failClosed('C3 recovery could not run: runtime handle missing.');
+      return;
+    }
+    try {
+      // Cleanly unmount the first (uncommitted) root before the remount —
+      // the runtime keys roots by container, so this guarantees no duplicate
+      // root or duplicate application instance can exist.
+      app.unmount(target);
+    } catch {
+      /* the first root may have nothing to clean — recovery proceeds */
+    }
+    try {
+      this.mountRuntimeOnce(app, target, 'recovery');
+      this.armCommitDeadline(target); // second (final) bounded deadline
+    } catch (err) {
+      const e = err instanceof Error ? err : new Error(String(err));
+      this.diag({ stage: 'recovery-failed' });
+      this.failClosed(`C3 recovery remount failed: ${e.message}`, e);
+    }
+  }
+
   public componentWillUnmount(): void {
     this.disposed = true;
+    this.clearCommitDeadline();
     this.diag({ stage: 'disposed' });
     if (this.mountedRuntime && this.application && this.containerRef.current) {
       try {

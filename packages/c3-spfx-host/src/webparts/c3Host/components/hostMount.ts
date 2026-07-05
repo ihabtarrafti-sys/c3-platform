@@ -58,3 +58,49 @@ export function decideMount(input: MountDecisionInput): MountDecision {
   if (!input.targetConnected) return { mount: false, reason: 'detached' };
   return { mount: true };
 }
+
+// ---------------------------------------------------------------------------
+// TD-34 (Sprint 33) — bounded one-shot cold-load recovery decision.
+//
+// mount() returning proves only that React 18 SCHEDULED the first commit.
+// When the runtime's first-commit signal has not arrived by the host's single
+// bounded deadline, this pure function decides whether ONE recovery remount
+// is permitted. It can never approve a second recovery, a recovery into a
+// detached container, or a recovery on a disposed host.
+// ---------------------------------------------------------------------------
+
+export interface RecoveryDecisionInput {
+  /** mount() returned without throwing (host reached mount-complete). */
+  mountCompleted: boolean;
+  /** The runtime's first-commit signal was received — application DOM exists. */
+  committed: boolean;
+  /** The host component was disposed (componentWillUnmount ran). */
+  disposed: boolean;
+  /** The mount target is present AND still connected to the document. */
+  targetConnected: boolean;
+  /** A recovery remount has already been performed once. */
+  recoveryUsed: boolean;
+}
+
+export type RecoveryDecision =
+  | { recover: true }
+  | {
+      recover: false;
+      reason: 'not-mounted' | 'committed' | 'disposed' | 'already-recovered' | 'detached';
+    };
+
+/**
+ * Decide whether the single bounded recovery remount may run. Order matters:
+ * an uncommitted-but-never-mounted state is not recoverable (the normal
+ * fail-closed import/mount error paths own it); a committed tree needs no
+ * recovery; a disposed host must stay silent; a spent recovery must fail
+ * closed instead of retrying; a detached target must never be mounted into.
+ */
+export function decideRecovery(input: RecoveryDecisionInput): RecoveryDecision {
+  if (!input.mountCompleted) return { recover: false, reason: 'not-mounted' };
+  if (input.committed) return { recover: false, reason: 'committed' };
+  if (input.disposed) return { recover: false, reason: 'disposed' };
+  if (input.recoveryUsed) return { recover: false, reason: 'already-recovered' };
+  if (!input.targetConnected) return { recover: false, reason: 'detached' };
+  return { recover: true };
+}

@@ -8,7 +8,9 @@
  * Sprint 18 Phase 4A: stampExecution live.
  *
  * Gate-free creation: mock submissions are always accepted (ADR-013 constraint #9).
- * Self-approval: enforced in patchApprovalStatus -- throws if ReviewedBy === SubmittedBy.
+ * Self-approval: enforced in patchApprovalStatus -- throws when the reviewer
+ * and submitter are the same CANONICAL identity (claims prefix stripped,
+ * trimmed, case-normalized; fails closed on indeterminate identity — S33).
  *
  * SubmittedBy / ReviewedBy are stamped from currentUserLoginName supplied at
  * factory creation -- callers do not supply identity fields.
@@ -30,6 +32,7 @@ import {
   TERMINAL_STATUSES,
 } from '../interfaces/IApprovalsService';
 import type { C3Approval } from '@c3/utils/spApprovalMapper';
+import { checkSelfReview } from '@c3/utils/identity';
 
 const PREFIX = '[C3/Approvals/Mock]';
 
@@ -131,9 +134,17 @@ export const createMockApprovalsService = (
 
     const existing = approvalStore[idx];
 
-    // Self-approval enforcement (ADR-013)
-    if (currentUserLoginName && currentUserLoginName === existing.submittedBy) {
-      throw new Error(`[C3/Approvals] Self-approval not permitted (ADR-013). ReviewedBy must differ from SubmittedBy.`);
+    // Self-approval enforcement (ADR-013) — canonical identity comparison
+    // (Sprint 33 Defect B, DSM parity with usePatchApprovalStatus). Fails
+    // closed on indeterminate identity; the prior raw `===` failed open on
+    // claims-vs-bare-email format mismatches.
+    const selfCheck = checkSelfReview(currentUserLoginName, existing.submittedBy);
+    if (selfCheck.blocked) {
+      throw new Error(
+        selfCheck.reason === 'self'
+          ? `[C3/Approvals] Self-approval not permitted (ADR-013). ReviewedBy must differ from SubmittedBy.`
+          : `[C3/Approvals] Review blocked (ADR-013): the reviewer or submitter identity could not be verified reliably.`,
+      );
     }
 
     // Rejected requires a rejection reason

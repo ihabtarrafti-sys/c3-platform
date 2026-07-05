@@ -51,7 +51,10 @@ check('host: awaits the runtime import explicitly inside try/catch', /try \{[\s\
 check('host: validates the runtime export before mounting', host.includes('validateRuntimeModule(runtimeModule)') && host.includes('if (!validation.ok)'));
 check('host: guards late mount via decideMount (disposed/duplicate/detached)', host.includes('decideMount({') && host.includes('this.disposed') && host.includes('targetConnected'));
 check('host: checks the mount target is connected', host.includes('.isConnected'));
-check('host: catches a thrown mount() (async rejection) and fails closed', host.includes('validation.app.mount(') && host.includes('C3 runtime mount failed:') && /} catch \(err\) \{[\s\S]{0,200}failClosed\(`C3 runtime mount failed/.test(host));
+// S33: the mount invocation moved into mountRuntimeOnce (shared by the
+// initial mount and the single bounded recovery) — the try/catch + visible
+// fail-closed contract is unchanged.
+check('host: catches a thrown mount() (async rejection) and fails closed', /mountRuntimeOnce\(validation\.app, target as HTMLDivElement, 'initial'\)/.test(host) && host.includes('app.mount(target, {') && host.includes('C3 runtime mount failed:') && /} catch \(err\) \{[\s\S]{0,260}failClosed\(`C3 runtime mount failed/.test(host));
 check('host: prevents mounting after unmount (disposed flag set in componentWillUnmount)', /componentWillUnmount\(\)[\s\S]{0,120}this\.disposed = true/.test(host));
 check('host: avoids duplicate mounts (mountedRuntime guard)', host.includes('this.mountedRuntime') && host.includes("stage: 'skipped-duplicate'"));
 check('host: calls runtime cleanup exactly once on unmount', /if \(this\.mountedRuntime && this\.application[\s\S]{0,160}\.unmount\(this\.containerRef\.current\)/.test(host) && /componentWillUnmount[\s\S]{0,400}this\.mountedRuntime = false/.test(host));
