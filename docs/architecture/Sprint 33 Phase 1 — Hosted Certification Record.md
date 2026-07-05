@@ -1,8 +1,10 @@
 # Sprint 33 Phase 1 — Hosted Functional Certification Record
 
 **Date:** 2026-07-05 · **Operator:** Owner session (Ihab Tarrafti, `C3 Platform Owners`, site admin)
-**Deployed baseline:** solution **1.0.0.2**, runtime **`bb2ffba3…`** (loaded chunk `dc718d6c…` verified),
-catalog Deployed/Enabled/no per-site. Repo HEAD = origin/master = `8561051`. Gate: **PASS**.
+**Deployed baseline at start:** solution **1.0.0.2**, runtime **`bb2ffba3…`** (chunk `dc718d6c…`).
+**After RISK-1 fix:** solution **1.0.0.3**, runtime **`72c2f441…`** (loaded host `95d1c388…` / chunk
+`621e13be…` byte-verified live), catalog Deployed/Enabled/no per-site. Repo HEAD (local) at Phase-1
+close: `ff932ab` (started at origin `8561051`). Gate: **PASS**.
 
 **Status:** Phase **1A COMPLETE** (read-only sweep, no mutation) · **1B COMPLETE** (read-only) ·
 **1C/1D/1E BLOCKED** (accounts + fixtures + irreversible decision + render blocker — see §Blockers).
@@ -62,11 +64,38 @@ AddCredential/AddPerson/StartJourney/AddParticipant panels use toasts for succes
 outcome feedback.
 
 → In the hosted app, **all governed success/failure/refusal feedback is SILENT**. A user whose
-execution fails, whose rejection fails, or who is denied self-approval sees **nothing**. This violates
-the required "success and failure feedback is visible and understandable" and is a **Controlled-Beta
-blocker** independent of accounts. Fix (bounded, preserves all locked constraints): surface governed
-outcomes via an inline non-toast channel (MessageBar/status region) that works with the Toaster
-disabled — or re-enable a hosted-safe Toaster. Requires a source correction + one versioned redeploy.
+execution fails, whose rejection fails, or who is denied self-approval sees **nothing**.
+
+### RISK-1 — FIXED, deployed 1.0.0.3, hosted-verified (2026-07-05)
+
+**Fix (commit `73893fc`):** an always-mounted, Toaster-independent `NotificationRegion` (plain DOM,
+no Fluent Toaster/Tabster surface, aria-live) provides an inline feedback channel. `useToast()` routes
+to it when `disableToasts=true` (hosted) and keeps the Fluent Toaster path otherwise (Mock/local
+unchanged — **Mock DSM parity preserved**). Public `{ success, error }` surface unchanged → all ~40
+call sites covered with no edits. New `s33-parity-hosted-feedback` (16 checks) in the gate; **gate
+PASS**; runtime rebuilt `72c2f441…`. No ADR/fetch/ID/ETag/governance boundary touched.
+
+**Deploy (commit `ff932ab`):** SPFx `1.0.0.2 → 1.0.0.3`; one clean `Add(overwrite=true)`+`Deploy`
+(package `aec99503…`, 283,498 bytes). Catalog **1.0.0.3 Deployed/Enabled/no per-site/valid/"No
+errors."** Live bundles verified byte-identical to the build: host `95d1c388…`
+(`c-3-host-web-part_f07bbc0a…`), runtime chunk `621e13be…` (`chunk.c3-runtime_e929c06e…`).
+
+**Hosted verification (owner-only governed drill, fully reversed):**
+- Submitted an AddPerson approval → **inline SUCCESS rendered**: "Person creation submitted — Approval
+  APR-0053 submitted…" (previously silent). SP-mode governance confirmed (button "Submit for
+  Approval"; one C3Approvals row created; no person at submit).
+- Attempted self-approval of APR-0053 → **inline ERROR rendered**: "Self-approval not permitted — You
+  cannot approve your own submission." (guard blocked; **non-mutating**). Certifies the ADR-013
+  self-approval refusal (identity guard `loginName === submittedBy`, app uses bare-email login
+  consistently for both sides).
+- **Cleanup:** recycled test approval Id 53 (now 404); **no test person created** (never executed);
+  all 9 list counts reconciled to the Phase 1A baseline; genuine row unchanged. **Zero net change.**
+
+**RISK-1 status: RESOLVED (hosted-green on 1.0.0.3).**
+
+_Owner-only certified as a by-product:_ AddPerson **submit** path + one-approval-row creation +
+**self-approval refusal** + inline success/error feedback. The AddPerson **execution** branch, and the
+other five chains' execution, still require the distinct submitter identity.
 
 ## Governed EXECUTION is not certifiable owner-only (identity-based self-approval guard)
 
