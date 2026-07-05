@@ -1,0 +1,105 @@
+/**
+ * stores.ts — concrete ReadStore / WriteStore over a pg Pool (as the c3_app
+ * role). Implements the @c3web/application Persistence port.
+ */
+import { Pool } from 'pg';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Person } from '@c3web/domain';
+import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
+import * as schema from './schema';
+import { withTenantTx } from './tenantContext';
+import { makeWriteTx } from './writeTx';
+import { mapApproval, mapApprovalEvent, mapAuditEvent, mapPerson } from './mappers';
+
+export interface PersistenceConfig {
+  /** Connection string for the least-privileged application role (c3_app). */
+  readonly appConnectionString: string;
+  /** Optional pool tuning. */
+  readonly max?: number;
+}
+
+export interface PersistenceHandle extends Persistence {
+  readonly pool: Pool;
+  close(): Promise<void>;
+}
+
+export function createPersistence(config: PersistenceConfig): PersistenceHandle {
+  const pool = new Pool({ connectionString: config.appConnectionString, max: config.max ?? 10 });
+  // Every pooled connection uses UTF-8 (Windows servers may default to WIN1252).
+  pool.on('connect', (c) => {
+    c.query("SET client_encoding TO 'UTF8'").catch(() => {});
+  });
+
+  const reads = {
+    forActor(actor: Actor): ReadStore {
+      return {
+        listPeople: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Person[]> => {
+            const rows = await db.select().from(schema.person).orderBy(asc(schema.person.personId));
+            return rows.map(mapPerson);
+          }),
+
+        getPersonById: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Person | null> => {
+            const rows = await db.select().from(schema.person).where(eq(schema.person.personId, personId)).limit(1);
+            return rows[0] ? mapPerson(rows[0]) : null;
+          }),
+
+        listApprovals: (filter?: { statuses?: ApprovalStatus[] }) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Approval[]> => {
+            const base = db.select().from(schema.approval);
+            const rows = filter?.statuses?.length
+              ? await base.where(inArray(schema.approval.status, filter.statuses)).orderBy(desc(schema.approval.approvalId))
+              : await base.orderBy(desc(schema.approval.approvalId));
+            return rows.map(mapApproval);
+          }),
+
+        getApprovalById: (approvalId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Approval | null> => {
+            const rows = await db
+              .select()
+              .from(schema.approval)
+              .where(eq(schema.approval.approvalId, approvalId))
+              .limit(1);
+            return rows[0] ? mapApproval(rows[0]) : null;
+          }),
+
+        listApprovalEvents: (approvalId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<ApprovalEvent[]> => {
+            const rows = await db
+              .select()
+              .from(schema.approvalEvent)
+              .where(eq(schema.approvalEvent.approvalId, approvalId))
+              .orderBy(asc(schema.approvalEvent.at));
+            return rows.map(mapApprovalEvent);
+          }),
+
+        listAuditEventsForEntity: (entityType: string, entityId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<AuditEvent[]> => {
+            const rows = await db
+              .select()
+              .from(schema.auditEvent)
+              .where(and(eq(schema.auditEvent.entityType, entityType), eq(schema.auditEvent.entityId, entityId)))
+              .orderBy(asc(schema.auditEvent.at));
+            return rows.map(mapAuditEvent);
+          }),
+      };
+    },
+  };
+
+  const writes: WriteStore = {
+    transaction<T>(actor: Actor, fn: (tx: WriteTx) => Promise<T>): Promise<T> {
+      return withTenantTx(pool, actor, 'write', async (db) => {
+        const tx = makeWriteTx(db, actor);
+        return fn(tx);
+      });
+    },
+  };
+
+  return {
+    reads,
+    writes,
+    pool,
+    close: () => pool.end(),
+  };
+}

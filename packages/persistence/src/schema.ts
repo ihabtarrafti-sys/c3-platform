@@ -1,0 +1,129 @@
+/**
+ * schema.ts — Drizzle ORM table definitions mirroring migrations/0001_schema.sql.
+ *
+ * The SQL migrations are the source of truth for DDL (RLS, triggers, grants,
+ * roles — things Drizzle-kit cannot express). This Drizzle schema is the typed
+ * query surface used by the repositories.
+ */
+import {
+  pgTable,
+  uuid,
+  text,
+  boolean,
+  integer,
+  bigint,
+  timestamp,
+  jsonb,
+  primaryKey,
+} from 'drizzle-orm/pg-core';
+
+export const tenant = pgTable('tenant', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  slug: text('slug').notNull().unique(),
+  name: text('name').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const appUser = pgTable('app_user', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  email: text('email').notNull().unique(),
+  displayName: text('display_name').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const tenantMembership = pgTable(
+  'tenant_membership',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.userId] }) }),
+);
+
+export const roleAssignment = pgTable(
+  'role_assignment',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    role: text('role').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.userId, t.role] }) }),
+);
+
+export const businessIdCounter = pgTable(
+  'business_id_counter',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    kind: text('kind').notNull(),
+    lastValue: bigint('last_value', { mode: 'number' }).notNull().default(0),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.kind] }) }),
+);
+
+export const approval = pgTable('approval', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  approvalId: text('approval_id').notNull(),
+  operationType: text('operation_type').notNull(),
+  targetPersonId: text('target_person_id').notNull(),
+  targetId: text('target_id'),
+  reason: text('reason'),
+  status: text('status').notNull(),
+  payload: jsonb('payload').notNull(),
+  submittedBy: text('submitted_by').notNull(),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
+  reviewedBy: text('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  rejectionReason: text('rejection_reason'),
+  executedAt: timestamp('executed_at', { withTimezone: true }),
+  executionError: text('execution_error'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const person = pgTable('person', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  personId: text('person_id').notNull(),
+  fullName: text('full_name').notNull(),
+  ign: text('ign'),
+  nationality: text('nationality'),
+  primaryRole: text('primary_role'),
+  personnelCode: text('personnel_code'),
+  currentTeam: text('current_team'),
+  currentGameTitle: text('current_game_title'),
+  primaryDepartment: text('primary_department'),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdByApprovalId: text('created_by_approval_id'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const approvalEvent = pgTable('approval_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  approvalId: text('approval_id').notNull(),
+  fromStatus: text('from_status'),
+  toStatus: text('to_status').notNull(),
+  actor: text('actor').notNull(),
+  at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  note: text('note'),
+});
+
+export const auditEvent = pgTable('audit_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  entityType: text('entity_type').notNull(),
+  entityId: text('entity_id').notNull(),
+  action: text('action').notNull(),
+  actor: text('actor').notNull(),
+  at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+  before: jsonb('before'),
+  after: jsonb('after'),
+});
