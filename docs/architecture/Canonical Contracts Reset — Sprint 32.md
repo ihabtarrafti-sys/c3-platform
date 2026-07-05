@@ -187,6 +187,31 @@ concurrency semantics, tests, and the owner runbook: see
 completed its terminal verification: C3Contracts has unique permissions with
 exactly the five target principals (Platform Owners FC; Operations/Legal/
 Finance/Management Read), no Limited Access, and unchanged schema/settings/
-contents/identity/dependencies/scopes. Remaining Sprint 32 phases (separate
-authorizations): NavRail Contracts activation → deploy runtime `1286a3ec…` →
-hosted Part 19 → closeout + TD-22 resolution + Internal V1.0 marker.
+contents/identity/dependencies/scopes. (Final ACL fingerprint: to be appended
+from the owner's preserved console output — see the Phase 3D doc §8 appendix.)
+
+## 11. NavRail Contracts activation (source phase, 2026-07-05) — IMPLEMENTED, NOT DEPLOYED
+
+The intentional S24-P1 navigation guard
+(`visibleWhen: mode !== 'sharepoint'` on the `contracts` NAV_ITEM in
+`NavRail.tsx`) was the single source-of-truth gate — `AppShell` already routed
+`contracts` → ContractsList and `contract-profile` → ContractProfile
+unconditionally, and Contract Profile was already reachable in SP mode via
+Renewals/PersonProfile/Inbox. Changes (smallest coherent activation):
+
+- guard removed: Contracts is visible and selectable in every data source mode;
+- `toScreen('contract-profile')` now roots to `contracts` (was the
+  `command-center` relic from the hidden-rail era);
+- NOTHING else: read-only 4-method contract service untouched (no write
+  surface), Amendments/Intelligence SP-DSM guards intact, role/capability
+  guards intact, Mock DSM baseline intact, no provisioning/ACL code touched.
+- New gate parity: `s32-parity-nav-activation.mjs` (21 checks) proves all of
+  the above and is wired into `npm run gate` (13 parity scripts).
+
+**Runtime:** previous undeployed SHA
+`1286a3ecf22147c49971f7b503a53b8b74e75c0e857bad0582aa52e9e8dcbd29` superseded by
+`e8382ae15d1849dcab4a27b5860a177898aa9529243d3033916f310b1d5edf02` — the only
+runtime-affecting source change in the diff is `NavRail.tsx` (activation), so
+the SHA delta is attributable solely to the approved activation. **The runtime
+remains UNDEPLOYED. Deployment and hosted Part 19 validation are separate
+owner-authorized gates.**
