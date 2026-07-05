@@ -70,7 +70,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -286,6 +286,40 @@ describe('tenant isolation (RLS)', () => {
       expect(rows.rowCount).toBe(0);
     } finally {
       c.release();
+    }
+  });
+});
+
+describe('auth role (c3_auth) least privilege', () => {
+  it('can resolve memberships (SELECT identity tables) but cannot write them or read business data', async () => {
+    const authClient = new Client({ connectionString: db.authUrl });
+    await authClient.connect();
+    try {
+      // Membership resolution works (pre-tenant-context, SELECT-only).
+      const m = await authClient.query(
+        `SELECT t.slug, ra.role FROM app_user u
+           JOIN tenant_membership tm ON tm.user_id = u.id
+           JOIN role_assignment ra ON ra.user_id = u.id AND ra.tenant_id = tm.tenant_id
+           JOIN tenant t ON t.id = tm.tenant_id
+          WHERE u.email = $1`,
+        ['owner@a.com'],
+      );
+      expect(m.rows[0]).toMatchObject({ slug: 'alpha', role: 'owner' });
+
+      // No writes to identity tables.
+      await expect(
+        authClient.query(`INSERT INTO role_assignment (tenant_id, user_id, role) SELECT tenant_id, user_id, 'owner' FROM tenant_membership LIMIT 1`),
+      ).rejects.toThrow(/permission denied/i);
+
+      // No access to business data at all.
+      await expect(authClient.query('SELECT * FROM person')).rejects.toThrow(/permission denied/i);
+      await expect(authClient.query('SELECT * FROM approval')).rejects.toThrow(/permission denied/i);
+
+      // And it can never bypass RLS.
+      const r = await authClient.query(`SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user`);
+      expect(r.rows[0]).toMatchObject({ rolsuper: false, rolbypassrls: false });
+    } finally {
+      await authClient.end();
     }
   });
 });

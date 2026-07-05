@@ -42,7 +42,8 @@ export function createDevAuthAdapter(secret: string): AuthAdapter {
     async authenticate(token: string): Promise<AuthenticatedPrincipal> {
       let payload: Record<string, unknown>;
       try {
-        ({ payload } = await jwtVerify(token, enc.encode(secret), { issuer: ISSUER }));
+        // Explicit algorithm allow-list: no alg-confusion downgrade.
+        ({ payload } = await jwtVerify(token, enc.encode(secret), { issuer: ISSUER, algorithms: ['HS256'] }));
       } catch (err) {
         throw new AuthError(`Invalid dev token: ${(err as Error).message}`);
       }

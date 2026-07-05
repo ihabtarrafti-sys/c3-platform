@@ -18,6 +18,7 @@ async function main(): Promise<void> {
     AUTH_PROVIDER: 'dev',
     DEV_AUTH_SECRET: 'openapi-generation-only',
     DATABASE_URL: 'postgres://unused:unused@localhost:5432/unused',
+    DATABASE_ADMIN_URL: 'postgres://unused:unused@localhost:5432/unused',
   } as NodeJS.ProcessEnv);
 
   const deps = buildDeps(env, createLogger(env));

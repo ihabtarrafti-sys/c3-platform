@@ -41,7 +41,7 @@ beforeAll(async () => {
   const env = loadEnv({
     NODE_ENV: 'test',
     AUTH_PROVIDER: 'dev',
-    DEV_AUTH_SECRET: 'api-test-secret',
+    DEV_AUTH_SECRET: 'api-test-secret-0123456789',
     DATABASE_URL: db.appUrl,
     DATABASE_ADMIN_URL: db.adminUrl,
   } as NodeJS.ProcessEnv);
@@ -183,6 +183,87 @@ describe('tenant isolation', () => {
     expect((await app.inject({ method: 'POST', url: `/api/v1/approvals/${a.approvalId}/begin-review`, headers: auth(tokens.ownerB), payload: { expectedVersion: a.version } })).statusCode).toBe(404);
     // alpha still sees it.
     expect((await app.inject({ method: 'GET', url: `/api/v1/approvals/${a.approvalId}`, headers: auth(tokens.owner) })).statusCode).toBe(200);
+  });
+});
+
+describe('security guarantees (Phase 2A)', () => {
+  it('the dev-login route is NOT registered when the provider is entra', async () => {
+    const entraEnv = loadEnv({
+      NODE_ENV: 'test',
+      AUTH_PROVIDER: 'entra',
+      ENTRA_ISSUER: 'https://login.microsoftonline.com/t/v2.0',
+      ENTRA_AUDIENCE: 'api://c3web',
+      ENTRA_JWKS_URI: 'https://login.microsoftonline.com/t/discovery/v2.0/keys',
+      DATABASE_URL: db.appUrl,
+      DATABASE_AUTH_URL: db.authUrl,
+    } as NodeJS.ProcessEnv);
+    const entraDeps = buildDeps(entraEnv, createLogger(entraEnv));
+    const entraApp = buildApp(entraDeps);
+    await entraApp.ready();
+    try {
+      const res = await entraApp.inject({
+        method: 'POST',
+        url: '/api/v1/dev/login',
+        payload: { email: 'x@y.com', role: 'owner', tenantSlug: 'alpha' },
+      });
+      expect(res.statusCode).toBe(404);
+      expect(entraApp.printRoutes()).not.toContain('dev/login');
+    } finally {
+      await entraApp.close();
+      await entraDeps.close();
+    }
+  });
+
+  it('a malformed client correlation id is replaced, not echoed (log-injection guard)', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/people',
+      headers: { ...auth(tokens.owner), 'x-correlation-id': 'evil\nid injection' },
+    });
+    const echoed = res.headers['x-correlation-id'] as string;
+    expect(echoed).not.toContain('evil');
+    expect(echoed).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  it('request bodies are bounded (oversized payload refused, no mutation)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/approvals',
+      headers: auth(tokens.ops),
+      payload: { input: { fullName: 'X', notes: 'n'.repeat(200 * 1024) } },
+    });
+    expect(res.statusCode).toBe(413);
+    const list = await app.inject({ method: 'GET', url: '/api/v1/approvals', headers: auth(tokens.owner) });
+    expect(list.json().approvals).toHaveLength(0);
+  });
+
+  it('a request cannot supply or override tenant_id (strict schemas reject it)', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/approvals',
+      headers: auth(tokens.ops),
+      payload: { input: { fullName: 'X', tenantId: '00000000-0000-0000-0000-00000000dead' } },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('a token signed with a WRONG secret is rejected (forged role/tenant claims useless)', async () => {
+    const { SignJWT } = await import('jose');
+    const forged = await new SignJWT({ role: 'owner', tenant_id: '00000000-0000-0000-0000-0000000000aa', tenant_slug: 'alpha', name: 'Forger' })
+      .setProtectedHeader({ alg: 'HS256' })
+      .setSubject('forger@alpha.com')
+      .setIssuer('c3web-dev-idp')
+      .setIssuedAt()
+      .setExpirationTime('1h')
+      .sign(new TextEncoder().encode('not-the-server-secret'));
+    const res = await app.inject({ method: 'GET', url: '/api/v1/people', headers: auth(forged) });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it('API responses carry no-store and nosniff headers', async () => {
+    const res = await app.inject({ method: 'GET', url: '/api/v1/people', headers: auth(tokens.owner) });
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
   });
 });
 

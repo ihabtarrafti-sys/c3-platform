@@ -5,6 +5,12 @@ import type { Env } from './env';
 export function loggerOptions(env: Env): LoggerOptions {
   return {
     level: env.nodeEnv === 'test' ? 'silent' : env.logLevel,
+    // Never log credentials or tokens; request bodies (approval payloads,
+    // identity claims) are not serialized by Fastify's default req logger.
+    redact: {
+      paths: ['req.headers.authorization', 'req.headers.cookie', 'headers.authorization'],
+      censor: '[REDACTED]',
+    },
     ...(env.nodeEnv === 'development'
       ? { transport: { target: 'pino-pretty', options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' } } }
       : {}),

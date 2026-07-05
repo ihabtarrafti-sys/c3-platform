@@ -18,7 +18,7 @@ await db.seedTenant({ slug: 'alpha', name: 'Alpha Org' });
 const env = loadEnv({
   NODE_ENV: 'test',
   AUTH_PROVIDER: 'dev',
-  DEV_AUTH_SECRET: 'e2e-secret',
+  DEV_AUTH_SECRET: 'e2e-secret-0123456789',
   DATABASE_URL: db.appUrl,
   DATABASE_ADMIN_URL: db.adminUrl,
   CORS_ORIGIN: webOrigin,

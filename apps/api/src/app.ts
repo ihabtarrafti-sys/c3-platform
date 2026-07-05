@@ -59,18 +59,28 @@ function sendError(req: FastifyRequest, reply: FastifyReply, status: number, cod
 }
 
 export function buildApp(deps: Deps): FastifyInstance {
+  // Correlation ids from clients are accepted only in a safe shape (log-injection guard).
+  const CORRELATION_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
   const app = Fastify({
     logger: loggerOptions(deps.env),
+    // X-Forwarded-* headers are trusted ONLY when the deployment boundary
+    // explicitly enables it (TRUST_PROXY=true behind a known proxy).
+    trustProxy: deps.env.trustProxy,
+    // Bounded request bodies: the largest legitimate payload (AddPerson) is
+    // a few KB; 128 KiB leaves ample headroom.
+    bodyLimit: 128 * 1024,
     genReqId: (req) => {
       const h = req.headers['x-correlation-id'];
-      return (typeof h === 'string' && h) || randomUUID();
+      return typeof h === 'string' && CORRELATION_RE.test(h) ? h : randomUUID();
     },
   }).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  app.register(cors, { origin: deps.env.corsOrigin, credentials: true });
+  // Bearer-token auth: no cookies, so no credentialed CORS.
+  app.register(cors, { origin: deps.env.corsOrigin });
   app.register(swagger, {
     openapi: {
       info: { title: 'C3 Web V0 API', version: '0.1.0', description: 'People + AddPerson governed vertical slice.' },
@@ -82,9 +92,14 @@ export function buildApp(deps: Deps): FastifyInstance {
     transform: jsonSchemaTransform,
   });
 
-  // Correlation id echoed on every response.
+  // Correlation id + security headers on every response; API responses are
+  // authorization-dependent and must never be cached by intermediaries.
   app.addHook('onSend', async (req, reply) => {
     reply.header('x-correlation-id', req.id);
+    reply.header('x-content-type-options', 'nosniff');
+    if (req.url.startsWith('/api/')) {
+      reply.header('cache-control', 'no-store');
+    }
   });
 
   // Authentication: all /api/v1 routes except the dev login require a bearer token.
@@ -112,6 +127,12 @@ export function buildApp(deps: Deps): FastifyInstance {
       return sendError(req, reply, 400, 'VALIDATION', 'Request failed validation.', { issues: anyErr.issues ?? anyErr.validation });
     }
     if (error instanceof AuthError) return sendError(req, reply, 401, 'UNAUTHENTICATED', error.message);
+    // Fastify framework errors (body too large, malformed JSON, …) carry a 4xx
+    // statusCode — surface them truthfully instead of a generic 500.
+    if (typeof anyErr.statusCode === 'number' && anyErr.statusCode >= 400 && anyErr.statusCode < 500) {
+      const code = (error as { code?: string }).code ?? 'BAD_REQUEST';
+      return sendError(req, reply, anyErr.statusCode, code, error.message);
+    }
     const mapped = mapError(error);
     if (mapped.status >= 500) req.log.error({ err: error }, 'unhandled error');
     return sendError(req, reply, mapped.status, mapped.code, mapped.message, mapped.details);
@@ -138,34 +159,39 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return reply.status(ok ? 200 : 503).send({ status: ok ? 'ready' : 'unavailable' });
   });
 
-  // ── dev login (only when the dev IdP is active) ────────────────────────────
-  r.post(
-    '/api/v1/dev/login',
-    {
-      schema: {
-        body: submitDevLoginSchema(),
-        response: { 200: devLoginResponseSchema(), 400: errorResponseSchema, 404: errorResponseSchema },
+  // ── dev login ───────────────────────────────────────────────────────────────
+  // Registered ONLY when the dev IdP is the active provider (never in
+  // production — env validation forbids AUTH_PROVIDER=dev there, so this route
+  // does not exist in a production process). Hidden from the OpenAPI contract.
+  if (deps.env.authProvider === 'dev' && deps.directory && deps.env.devAuthSecret) {
+    const devSecret = deps.env.devAuthSecret;
+    const directory = deps.directory;
+    r.post(
+      '/api/v1/dev/login',
+      {
+        schema: {
+          hide: true,
+          body: submitDevLoginSchema(),
+          response: { 200: devLoginResponseSchema(), 400: errorResponseSchema, 404: errorResponseSchema },
+        },
       },
-    },
-    async (req, reply) => {
-      if (deps.env.authProvider !== 'dev' || !deps.directory || !deps.env.devAuthSecret) {
-        return sendError(req, reply, 404, 'NOT_FOUND', 'Dev login is not enabled.');
-      }
-      const { email, displayName, role, tenantSlug } = req.body as DevLoginBody;
-      const tenant = await deps.directory.resolveTenantBySlug(tenantSlug);
-      if (!tenant) return sendError(req, reply, 404, 'NOT_FOUND', `Unknown tenant '${tenantSlug}'.`);
-      const name = displayName ?? email;
-      await deps.directory.upsertMembership(tenant.tenantId, email, name, role);
-      const token = await signDevToken(deps.env.devAuthSecret, {
-        identity: email,
-        displayName: name,
-        role,
-        tenantId: tenant.tenantId,
-        tenantSlug,
-      });
-      return reply.send({ token, identity: email, displayName: name, role, tenantSlug });
-    },
-  );
+      async (req, reply) => {
+        const { email, displayName, role, tenantSlug } = req.body as DevLoginBody;
+        const tenant = await directory.resolveTenantBySlug(tenantSlug);
+        if (!tenant) return sendError(req, reply, 404, 'NOT_FOUND', `Unknown tenant '${tenantSlug}'.`);
+        const name = displayName ?? email;
+        await directory.upsertMembership(tenant.tenantId, email, name, role);
+        const token = await signDevToken(devSecret, {
+          identity: email,
+          displayName: name,
+          role,
+          tenantId: tenant.tenantId,
+          tenantSlug,
+        });
+        return reply.send({ token, identity: email, displayName: name, role, tenantSlug });
+      },
+    );
+  }
 
   // ── me ─────────────────────────────────────────────────────────────────────
   r.get('/api/v1/me', { schema: { response: { 200: meResponseSchema } } }, async (req) => {

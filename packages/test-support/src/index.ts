@@ -19,6 +19,8 @@ import { runMigrations } from '@c3web/persistence';
 
 const APP_ROLE = 'c3_app';
 const APP_PW = 'c3_app_test_pw';
+const AUTH_ROLE = 'c3_auth';
+const AUTH_PW = 'c3_auth_test_pw';
 
 export interface SeededUser {
   readonly userId: string;
@@ -36,6 +38,8 @@ export interface SeededTenant {
 export interface TestDatabase {
   readonly adminUrl: string;
   readonly appUrl: string;
+  /** SELECT-only membership-resolution role (c3_auth). */
+  readonly authUrl: string;
   seedTenant(spec: {
     slug: string;
     name?: string;
@@ -57,10 +61,13 @@ export async function startTestDatabase(): Promise<TestDatabase> {
   let stopEmbedded: (() => Promise<void>) | null = null;
   let adminUrl: string;
   let appUrl: string;
+  let authUrl: string;
 
   if (envAdmin && envApp) {
     adminUrl = envAdmin;
     appUrl = envApp;
+    authUrl =
+      process.env.DATABASE_AUTH_URL ?? envApp.replace(/\/\/[^:]+:[^@]+@/, `//${AUTH_ROLE}:${AUTH_PW}@`);
   } else {
     const dir = mkdtempSync(join(tmpdir(), 'c3web-pg-'));
     const port = randomPort();
@@ -82,13 +89,20 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     await bootstrap.end();
     adminUrl = `postgres://c3_admin:c3_admin_test_pw@localhost:${port}/c3web`;
     appUrl = `postgres://${APP_ROLE}:${APP_PW}@localhost:${port}/c3web`;
+    authUrl = `postgres://${AUTH_ROLE}:${AUTH_PW}@localhost:${port}/c3web`;
     stopEmbedded = async () => {
       await pg.stop();
       rmSync(dir, { recursive: true, force: true });
     };
   }
 
-  await runMigrations({ adminConnectionString: adminUrl, appRole: APP_ROLE, appPassword: APP_PW });
+  await runMigrations({
+    adminConnectionString: adminUrl,
+    appRole: APP_ROLE,
+    appPassword: APP_PW,
+    authRole: AUTH_ROLE,
+    authPassword: AUTH_PW,
+  });
 
   const adminQuery = async <T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]> => {
     const client = new Client({ connectionString: adminUrl });
@@ -105,6 +119,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
   return {
     adminUrl,
     appUrl,
+    authUrl,
 
     async seedTenant(spec): Promise<SeededTenant> {
       const rows = await adminQuery<{ id: string }>(

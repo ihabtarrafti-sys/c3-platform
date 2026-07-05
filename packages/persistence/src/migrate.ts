@@ -19,6 +19,10 @@ export interface MigrateConfig {
   readonly appRole: string;
   /** Password to (re)set on the application role. */
   readonly appPassword: string;
+  /** Name of the SELECT-only membership-resolution role (default c3_auth). */
+  readonly authRole?: string;
+  /** Password to (re)set on the auth role. */
+  readonly authPassword?: string;
   readonly log?: (msg: string) => void;
 }
 
@@ -26,8 +30,8 @@ function quoteLiteral(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-async function ensureAppRole(client: Client, role: string, password: string): Promise<void> {
-  if (!ROLE_RE.test(role)) throw new Error(`Unsafe app role name: ${role}`);
+async function ensureRestrictedRole(client: Client, role: string, password: string): Promise<void> {
+  if (!ROLE_RE.test(role)) throw new Error(`Unsafe role name: ${role}`);
   const pw = quoteLiteral(password);
   await client.query(`
     DO $do$
@@ -40,7 +44,7 @@ async function ensureAppRole(client: Client, role: string, password: string): Pr
     END
     $do$;
   `);
-  // Defense in depth: the app role must never bypass RLS or be superuser.
+  // Defense in depth: restricted roles never bypass RLS and are never superuser.
   await client.query(`ALTER ROLE ${role} NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);
 }
 
@@ -53,7 +57,10 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
   await client.query("SET client_encoding TO 'UTF8'");
   const applied: string[] = [];
   try {
-    await ensureAppRole(client, config.appRole, config.appPassword);
+    await ensureRestrictedRole(client, config.appRole, config.appPassword);
+    // SELECT-only membership-resolution role for the API's auth boundary (the
+    // running API never receives the privileged admin credentials).
+    await ensureRestrictedRole(client, config.authRole ?? 'c3_auth', config.authPassword ?? 'c3_auth_dev_pw');
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
         id text PRIMARY KEY,

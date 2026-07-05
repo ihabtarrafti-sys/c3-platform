@@ -48,8 +48,13 @@ export function createEntraAuthAdapter(
     async authenticate(token: string): Promise<AuthenticatedPrincipal> {
       let payload: Record<string, unknown>;
       try {
+        // Explicit algorithm allow-list (RS256 only): no alg-confusion downgrade.
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ({ payload } = await jwtVerify(token, keys as any, { issuer: config.issuer, audience: config.audience }));
+        ({ payload } = await jwtVerify(token, keys as any, {
+          issuer: config.issuer,
+          audience: config.audience,
+          algorithms: ['RS256'],
+        }));
       } catch (err) {
         throw new AuthError(`Invalid Entra token: ${(err as Error).message}`);
       }

@@ -23,13 +23,19 @@ export interface Deps {
 
 export function buildDeps(env: Env, logger: Logger): Deps {
   const persistence = createPersistence({ appConnectionString: env.databaseUrl });
-  const directory = env.databaseAdminUrl ? createAdminDirectory(env.databaseAdminUrl) : undefined;
+
+  // Membership resolution: production Entra uses the SELECT-only c3_auth role.
+  // The dev IdP needs the privileged directory (it provisions memberships) and
+  // is only permitted outside production (enforced by env validation).
+  const directoryUrl =
+    env.authProvider === 'entra' ? (env.databaseAuthUrl ?? env.databaseAdminUrl) : env.databaseAdminUrl;
+  const directory = directoryUrl ? createAdminDirectory(directoryUrl) : undefined;
 
   let authAdapter: AuthAdapter;
   if (env.authProvider === 'dev') {
     authAdapter = createDevAuthAdapter(env.devAuthSecret!);
   } else {
-    if (!directory) throw new Error('Entra provider requires the admin directory (DATABASE_ADMIN_URL).');
+    if (!directory) throw new Error('Entra provider requires a membership directory connection.');
     authAdapter = createEntraAuthAdapter(env.entra!, directory);
   }
 

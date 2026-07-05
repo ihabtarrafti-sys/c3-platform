@@ -18,11 +18,14 @@ function parseAppRole(appUrl: string | undefined): { role: string; password: str
 const adminConnectionString =
   process.env.DATABASE_ADMIN_URL ?? 'postgres://c3_admin:c3_admin_dev_pw@localhost:5432/c3web';
 const { role, password } = parseAppRole(process.env.DATABASE_URL);
+const auth = process.env.DATABASE_AUTH_URL ? parseAppRole(process.env.DATABASE_AUTH_URL) : null;
 
 runMigrations({
   adminConnectionString,
   appRole: process.env.APP_DB_ROLE ?? role,
   appPassword: process.env.APP_DB_PASSWORD ?? password,
+  authRole: process.env.AUTH_DB_ROLE ?? auth?.role ?? 'c3_auth',
+  authPassword: process.env.AUTH_DB_PASSWORD ?? auth?.password ?? 'c3_auth_dev_pw',
   log: (m) => console.log(m),
 })
   .then((applied) => {
