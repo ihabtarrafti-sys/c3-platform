@@ -795,6 +795,50 @@ reopen), Missions, PersonProfile, Contracts, Renewals. Runtime 982bd2e6..., chun
 c9536c3d... deployed and hosted-verified. Deferred mounting retained as defence
 in depth.
 
+**REOPENED then RESOLVED-PROPERLY 2026-07-05 (S33 Correction Set B, 1.0.0.6
+hosted-green).** The S32 fix (root `useModalAttributes`) was itself the TD-34
+cold-load crash cause — see the TD-34 S33 section — and even after the 1.0.0.5
+containment made it non-fatal, the FIRST Fluent modal open on a foreign-Tabster
+session still crashed once at the screen ErrorBoundary (retry worked). PROVEN
+CAUSE (tabster 8.8 source + hosted 1.0.0.5 diagnostics): SharePoint's page shell
+owns an OLDER Tabster instance on `window.__tabsterInstance`; tabster 8.x
+acquisition ADOPTS it version-blind; `getModalizer`/`getRestorer` then do
+`core.modalizer = api` **before** `core.attrHandlers.set("modalizer", …)`, and
+that `.set` throws on the old core's missing `attrHandlers` — so the first modal
+init crashes, while every retry skips the throwing branch because the failed
+attempt already assigned `core.modalizer` (mutating SharePoint's instance). Even
+the "working" retry never registered the v8 attribute handlers, so focus
+containment was silently inert on foreign sessions.
+
+**Correction (1.0.0.6):** `packages/c3/src/utils/tabsterSandbox.ts` — a
+`targetDocument` facade for C3's FluentProvider whose `defaultView` virtualizes
+ONLY the three Tabster global slots (`__tabsterInstance*`), binding
+receiver-dependent natives and passing constructors through untouched. Fluent
+creates a PRIVATE, fully-compatible Tabster core for C3; SharePoint's instance
+is never adopted, read, or mutated (this also removes the accidental mutation
+1.0.0.5 performed). Falls back to the real document if Proxy construction fails;
+`TabsterInitializerBoundary` and the whole cold-load fix remain. Modal triggers
+across PeopleWorkspace/PersonProfile/MissionWorkspace/ContractProfile also gained
+the public `useRestoreFocusTarget` so focus genuinely returns to the initiating
+control on close (was landing on `<body>` even on healthy sessions). No Fluent
+removal, no new UI dependency, no global destructive mutation, no
+polling/reload/retry.
+
+**Hosted acceptance (1.0.0.6, five independent foreign-Tabster cold contexts):**
+every context rendered (runtime-committed 7–31 ms, zero recovery, probe
+`{preExisting:true, foreign:true}`, single instance, no ErrorBoundary). First
+modal open succeeded WITHOUT retry across Add Person, Add Credential, Apparel,
+Add Participant, Add Kit, and the Remove-Participant dialog, with focus contained
+inside each; a real click closed the Remove-Participant dialog and drawer
+dismissals restored focus to the trigger (screenshot-proven). Add Amendment is
+correctly hidden in SP read-only mode. Escape is swallowed by SharePoint's own
+canvas key handling (pre-existing on every version, independent of Tabster) — the
+close-button/Cancel path is the hosted affordance and works. Parity:
+`s33-parity-modal-interop` (23 checks) + the browser harness against the real
+built runtime (none/foreign scenarios: first-open, focus-inside, Escape-close +
+focus-restore, reopen, sequential second surface, foreign instance
+byte-untouched). **TD-33 CLASS CLOSED.**
+
 ### TD-34 — SPFx host mount hardening + hosted blank-render recovery
 
 **Severity:** 🔴 (V1 blocker) → ✅ **RESOLVED (S32, hosted-green Part 19.6, 2026-07-05)**
