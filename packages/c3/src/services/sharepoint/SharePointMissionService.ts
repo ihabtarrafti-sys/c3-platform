@@ -588,6 +588,35 @@ export const createSharePointMissionService = (siteUrl: string): IMissionService
       return toActiveParticipants(items);
     },
 
+    // S33 Set D: authoritative membership-state read for ONE exact canonical
+    // MissionID + PersonID pair, INCLUDING inactive historical rows (no
+    // active filter — absence is proven, never inferred). Read failure THROWS
+    // so the submission guard fails closed.
+    async getParticipantMembershipStates(
+      missionId: string,
+      personId: string,
+    ): Promise<{ isActive: boolean }[]> {
+      const url =
+        `${participantsBaseUrl}` +
+        `?$select=IsActive` +
+        `&$filter=MissionID eq '${encodeODataLiteral(missionId)}'` +
+        ` and PersonID eq '${encodeODataLiteral(personId)}'` +
+        `&$top=${PAGE_SIZE}`;
+
+      const response = await fetch(url, {
+        credentials: 'same-origin',
+        headers: { Accept: 'application/json;odata=nometadata' },
+      });
+      if (!response.ok) {
+        throw new Error(
+          `[C3/Participants] Could not read membership state for ${personId} on ${missionId} ` +
+          `(HTTP ${response.status}) — submission blocked (fail-closed).`,
+        );
+      }
+      const body = (await response.json()) as { value?: Array<{ IsActive?: boolean | null }> };
+      return (body.value ?? []).map(r => ({ isActive: r.IsActive !== false }));
+    },
+
     async listKitAssignments(missionId: string): Promise<KitAssignment[]> {
       const url =
         `${kitBaseUrl}` +

@@ -38,6 +38,11 @@ import {
   validateAddParticipantPayload,
   validateRemoveParticipantPayload,
 } from '@c3/utils/participantWrites';
+import {
+  decideParticipantSubmission,
+  ParticipantAlreadyActiveError,
+  ParticipantHistoryIntegrityError,
+} from '@c3/utils/participantSubmissionGuard';
 
 // ---------------------------------------------------------------------------
 // Outcome types
@@ -113,6 +118,30 @@ export const useSubmitParticipantApproval = () => {
     }
   };
 
+  /**
+   * S33 Set D — submission-time membership guard. Inspects the authoritative
+   * state for the EXACT canonical pair (including inactive historical rows)
+   * and refuses knowably-impossible requests BEFORE any approval is created:
+   * active row → ParticipantAlreadyActiveError (identical or differing fields
+   * both refuse — updates are deferred); >1 rows → fail closed. The inactive-
+   * row reactivation path stays allowed. Execution-time checks remain the
+   * authoritative race boundary.
+   */
+  const assertSubmittableMembershipState = async (
+    missionId: string,
+    personId: string,
+  ): Promise<void> => {
+    const rows = await missionService.getParticipantMembershipStates(missionId, personId);
+    const decision = decideParticipantSubmission(rows);
+    if (decision.kind === 'refuse-active') {
+      throw new ParticipantAlreadyActiveError(missionId, personId);
+    }
+    if (decision.kind === 'fail-integrity') {
+      throw new ParticipantHistoryIntegrityError(missionId, personId, decision.rowCount);
+    }
+    // 'allow-create' and 'allow-reactivation' both proceed.
+  };
+
   const submitAdd = async (input: AddParticipantSubmission): Promise<ParticipantSubmissionOutcome> => {
     setIsPending(true);
     try {
@@ -120,6 +149,7 @@ export const useSubmitParticipantApproval = () => {
       if (errors.length > 0) throw new Error(errors.join(' '));
 
       if (config.dataSourceMode !== 'sharepoint') {
+        await assertSubmittableMembershipState(input.missionId, input.personId);
         const result = await missionService.addMissionParticipant({
           MissionID: input.missionId,
           PersonID: input.personId,
@@ -134,6 +164,7 @@ export const useSubmitParticipantApproval = () => {
       }
 
       await assertNoPendingDuplicate('AddMissionParticipant', input.missionId, input.personId);
+      await assertSubmittableMembershipState(input.missionId, input.personId);
 
       const payload: AddMissionParticipantApprovalPayload = {
         operationType: 'AddMissionParticipant',

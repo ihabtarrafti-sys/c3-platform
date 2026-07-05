@@ -252,6 +252,19 @@ export const createMockMissionService = (): IMissionService => ({
     return [...participantStore];
   },
 
+  // S33 Set D: membership-state read for one exact pair (submission guard).
+  // Mock has no IsActive persistence (removal deletes from the store — see
+  // removeMissionParticipant), so every stored row is an ACTIVE membership;
+  // an absent pair truthfully reports zero rows.
+  async getParticipantMembershipStates(
+    missionId: string,
+    personId: string,
+  ): Promise<{ isActive: boolean }[]> {
+    return participantStore
+      .filter(p => p.MissionID === missionId && p.PersonID === personId)
+      .map(() => ({ isActive: true }));
+  },
+
   async listKitAssignments(missionId: string): Promise<KitAssignment[]> {
     return kitStore.filter(k => k.MissionID === missionId);
   },

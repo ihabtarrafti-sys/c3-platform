@@ -87,6 +87,19 @@ export interface IMissionService {
   listAllMissionParticipants(): Promise<MissionParticipant[]>;
 
   /**
+   * S33 Correction Set D — authoritative membership-state read for ONE exact
+   * canonical MissionID + PersonID pair, INCLUDING inactive historical rows.
+   * Drives the submission-time guard (utils/participantSubmissionGuard):
+   * the active-only list queries must never be used to infer absence.
+   * THROWS on read failure (the guard fails closed — callers must not treat
+   * an error as "no rows").
+   */
+  getParticipantMembershipStates(
+    missionId: string,
+    personId: string,
+  ): Promise<{ isActive: boolean }[]>;
+
+  /**
    * Returns all active kit assignments for a Mission (S28-2, read-only).
    * Returns an empty array if the Mission has no assignments or the
    * C3MissionKitAssignments list is not provisioned (404-safe).
