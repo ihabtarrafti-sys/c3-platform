@@ -172,6 +172,19 @@ const ACTION_LABEL: Record<WorkItemCategory, string> = {
   MissionReadinessGap:      'Assign Participants',
 };
 
+// S33 Set E: neutral, non-actionable status copy shown to read-only roles in
+// place of the write CTA. Describes the STATE, never an action the role
+// cannot perform.
+const NEUTRAL_STATUS_LABEL: Record<WorkItemCategory, string> = {
+  CredentialRenewal:        'Renewal due',
+  CredentialAcquisition:    'Credential needed',
+  JourneyInitiation:        'Journey required',
+  ObligationRouting:        'Owner needed',
+  MissionDeparturePressure: 'Departure risk',
+  MilestoneAlert:           'Milestone due',
+  MissionReadinessGap:      'Roster gap',
+};
+
 // ---------------------------------------------------------------------------
 // WorkItemCard
 // ---------------------------------------------------------------------------
@@ -179,9 +192,13 @@ const ACTION_LABEL: Record<WorkItemCategory, string> = {
 export interface WorkItemCardProps {
   workItem: WorkItem;
   onAction: (item: WorkItem) => void;
+  /** S33 Set E: when false (read-only roles), no active-looking write CTA is
+   *  rendered — neutral descriptive copy is shown and no click handler is
+   *  attached. Authorized (owner/operations) users keep the actionable CTA. */
+  actionable: boolean;
 }
 
-export const WorkItemCard = ({ workItem, onAction }: WorkItemCardProps) => {
+export const WorkItemCard = ({ workItem, onAction, actionable }: WorkItemCardProps) => {
   const { title, detail, owner, ownerSource, blockingMission, dueDate, priority, category } =
     workItem;
 
@@ -255,15 +272,23 @@ export const WorkItemCard = ({ workItem, onAction }: WorkItemCardProps) => {
         </div>
       </div>
 
-      {/* Action button */}
+      {/* Action button (authorized) or neutral status label (read-only).
+          S33 Set E: read-only roles get no active-looking write CTA and no
+          click handler — only descriptive state copy. */}
       <div style={{ flexShrink: 0, alignSelf: 'center' }}>
-        <Button
-          appearance="subtle"
-          size="small"
-          onClick={() => onAction(workItem)}
-        >
-          {ACTION_LABEL[category]}
-        </Button>
+        {actionable ? (
+          <Button
+            appearance="subtle"
+            size="small"
+            onClick={() => onAction(workItem)}
+          >
+            {ACTION_LABEL[category]}
+          </Button>
+        ) : (
+          <Text size={200} style={{ color: 'var(--c3-gray-400)', whiteSpace: 'nowrap' }}>
+            {NEUTRAL_STATUS_LABEL[category]}
+          </Text>
+        )}
       </div>
     </div>
   );

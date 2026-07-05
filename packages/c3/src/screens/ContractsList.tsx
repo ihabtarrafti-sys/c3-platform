@@ -36,6 +36,7 @@ import { OpsStatusBadge } from '@c3/components/shared/OpsStatusBadge';
 import { StageBadge } from '@c3/components/shared/StageBadge';
 import { useApp } from '@c3/hooks/useApp';
 import { useContracts } from '@c3/hooks/useContracts';
+import { ContractsListUnprovisionedError, ContractReadFailedError } from '@c3/services/errors';
 import { isActiveDisposition } from '@c3/intelligence/contractKpis';
 import type { Contract, ContractFilter, ContractStage, Disposition } from '@c3/types';
 
@@ -290,7 +291,7 @@ export const ContractsList = ({ filter }: ContractsListProps) => {
   void filter; // reserved for future deep-link filter pre-population
 
   const { navigate } = useApp();
-  const { data: contracts = [], isLoading, error } = useContracts();
+  const { data: contracts = [], isLoading, error, roleDenied } = useContracts();
 
   // Data freshness timestamp — recomputes on each React Query refetch.
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -330,6 +331,21 @@ export const ContractsList = ({ filter }: ContractsListProps) => {
     return { total, active, renewing, archived };
   }, [contracts]);
 
+  // ── Role denied (S33 Set E) ─────────────────────────────────────────────────
+  // A role without C3Contracts access reaches this screen only via a stale or
+  // direct route (the NavRail item is hidden). Render a truthful denied state —
+  // never a false empty register. No contract query was issued.
+  if (roleDenied) {
+    return (
+      <div style={{ padding: 'var(--c3-space-8)' }}>
+        <EmptyState
+          title="Contracts are unavailable for your role"
+          description="You don't have access to the contract register. Contact an administrator if you believe you should."
+        />
+      </div>
+    );
+  }
+
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isLoading) {
     return (
@@ -365,14 +381,21 @@ export const ContractsList = ({ filter }: ContractsListProps) => {
     );
   }
 
-  // ── Error ──────────────────────────────────────────────────────────────────
+  // ── Error (S33 Set E: distinguish unavailable/provisioning from unexpected) ──
   if (error) {
+    const unavailable =
+      error instanceof ContractsListUnprovisionedError ||
+      error instanceof ContractReadFailedError;
     return (
       <div style={{ padding: 'var(--c3-space-8)' }}>
         <EmptyState
           variant="error"
-          title="Could not load contracts"
-          description="The contract register could not be retrieved. Check your connection or try refreshing the page."
+          title={unavailable ? 'Contracts are currently unavailable' : 'Could not load contracts'}
+          description={
+            unavailable
+              ? 'The contract register could not be reached right now. This is not an empty register — try again shortly.'
+              : 'The contract register could not be retrieved. Check your connection or try refreshing the page.'
+          }
         />
       </div>
     );

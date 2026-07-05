@@ -34,6 +34,7 @@ import {
   mapSpItemsToPeople,
   mapSpItemToPerson,
 } from '@c3/utils/spPersonMapper';
+import { ContractsListUnprovisionedError, ContractReadFailedError } from '../errors';
 import type { SpPersonItem } from '@c3/utils/spPersonMapper';
 import { mapContract, type SPContractItem } from '@c3/mappers';
 
@@ -247,24 +248,22 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
           headers: { Accept: 'application/json;odata=nometadata' },
         });
       } catch (err) {
+        // S33 Set E: network failure FAILS CLOSED — never a silent empty domain.
         console.error('[C3/People] listPersonContracts: network error:', err);
-        return [];
+        throw new Error(
+          '[C3/People] listPersonContracts: network error reading C3Contracts — failing closed.',
+        );
       }
 
+      // S33 Set E: a 404 (security-trimmed OR unprovisioned) and any other
+      // non-OK status must FAIL CLOSED. The prior "return [] for PersonProfile
+      // stability" converted a denied/unavailable read into a false empty
+      // contract summary. Role-denial is handled upstream (the query is not
+      // issued for a role without contract access), so a 404 reaching here is a
+      // genuine provisioning failure for an authorized role.
       if (!response.ok) {
-        if (response.status === 404) {
-          console.warn(
-            `[C3/People] listPersonContracts: C3Contracts list not found (HTTP 404). ` +
-            'Returning empty contract list for PersonProfile stability. ' +
-            'Provision C3Contracts and add contracts to see results here.',
-          );
-        } else {
-          console.error(
-            `[C3/People] listPersonContracts: HTTP ${response.status} from C3Contracts. ` +
-            `Returning empty contract list.`,
-          );
-        }
-        return [];
+        if (response.status === 404) throw new ContractsListUnprovisionedError();
+        throw new ContractReadFailedError(response.status, 'listPersonContracts');
       }
 
       let json: { value: SPContractItem[] };
@@ -272,14 +271,14 @@ export const createSharePointPersonService = (siteUrl: string): IPersonService =
         json = (await response.json()) as { value: SPContractItem[] };
       } catch (err) {
         console.error('[C3/People] listPersonContracts: failed to parse JSON:', err);
-        return [];
+        throw new Error('[C3/People] listPersonContracts: malformed C3Contracts response — failing closed.');
       }
 
       if (!Array.isArray(json.value)) {
-        console.error('[C3/People] listPersonContracts: unexpected response shape from C3Contracts.');
-        return [];
+        throw new Error('[C3/People] listPersonContracts: unexpected C3Contracts response shape — failing closed.');
       }
 
+      // Authorized empty (200 with no rows) legitimately returns [].
       return json.value.map(mapContract);
     },
 

@@ -90,6 +90,7 @@ import { EmptyState } from '@c3/components/ui';
 import { useActionableApprovals } from '@c3/hooks/useActionableApprovals';
 import { useActiveJourney } from '@c3/hooks/useActiveJourney';
 import { useApp } from '@c3/hooks/useApp';
+import { canViewPerDiem } from '@c3/utils/rolePolicy';
 import { useTerminalApprovals, DEFAULT_TERMINAL_HISTORY_LIMIT } from '@c3/hooks/useTerminalApprovals';
 import { usePatchApprovalStatus, SelfApprovalError } from '@c3/hooks/usePatchApprovalStatus';
 import {
@@ -336,6 +337,11 @@ const PayloadSummary = ({
   // Person name resolution (S29B) — cached shared query; safe ID fallback.
   // Called unconditionally (rules of hooks) before the operation-type gate.
   const { data: summaryPeople = [] } = usePeople();
+  // S33 Set E: per-diem visibility by role policy — the approval payload
+  // summary must not leak the per-diem value to denied roles (legal/hr) who
+  // can still read the Approvals register.
+  const { currentUser } = useApp();
+  const showPerDiem = canViewPerDiem(currentUser.c3Role);
 
   // Only render for known operation types with defined payload shapes
   if (
@@ -576,7 +582,7 @@ const PayloadSummary = ({
             ? <>Add <strong>{personLabel(personId)}</strong> to <strong>{missionId}</strong>
                 {role ? ` as ${role}` : ''}
                 {externalCode ? ` · External ${externalCode}` : ''}
-                {perDiemRate !== null ? ` · Per diem ${perDiemRate}` : ''}</>
+                {showPerDiem && perDiemRate !== null ? ` · Per diem ${perDiemRate}` : ''}</>
             : <>Remove <strong>{personLabel(personId)}</strong> from <strong>{missionId}</strong>
                 {reason ? ` · Reason: ${reason}` : ''}</>}
         </Text>

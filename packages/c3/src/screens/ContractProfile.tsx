@@ -56,7 +56,7 @@ export const ContractProfile = ({
 }: ContractProfileProps) => {
   const { navigate } = useNavigate();
   const isSpReadOnly = useSpReadOnly();
-  const { data: contract, isLoading, error } = useContract(contractId);
+  const { data: contract, isLoading, error, roleDenied } = useContract(contractId);
   const { data: people = [] } = usePeople();
   const {
     data: amendments = [],
@@ -88,6 +88,24 @@ export const ContractProfile = ({
     timestamp: a.Timestamp,
     detail: a.Notes,
   }));
+
+  // S33 Set E: truthful unavailable-for-role state (reached only via a stale
+  // or direct route; no contract detail query is issued for a denied role).
+  if (roleDenied) {
+    return (
+      <div style={{ padding: 'var(--c3-space-8)' }}>
+        <EmptyState
+          title="Contracts are unavailable for your role"
+          description="You don't have access to contract details. Contact an administrator if you believe you should."
+          action={
+            <Button appearance="primary" onClick={() => navigate({ id: 'command-center' })}>
+              Back to Command Center
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
 
   if (isLoading) {
     return (

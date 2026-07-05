@@ -72,6 +72,7 @@ import { useMissions } from '@c3/hooks/useMissions';
 import { usePeople } from '@c3/hooks/usePeople';
 import { useSubmitParticipantApproval } from '@c3/hooks/useSubmitParticipantApproval';
 import { useToast } from '@c3/hooks/useToast';
+import { canViewPerDiem } from '@c3/utils/rolePolicy';
 import { useTransitionKitStatus } from '@c3/hooks/useTransitionKitStatus';
 import type { KitAssignment, KitStatus, Mission, MissionParticipant, MissionReadiness, MissionStatus, Person } from '@c3/types';
 import { FULFILLED_KIT_STATUSES, MISSION_OBLIGATION_ACTIVE_STATUSES } from '@c3/types';
@@ -276,6 +277,7 @@ const ParticipantList = ({
   onRemoveParticipant,
   pendingRequests,
   restoreFocusTarget,
+  showPerDiem,
 }: {
   participants: MissionParticipant[];
   peopleById: Map<string, Person>;
@@ -293,6 +295,8 @@ const ParticipantList = ({
   pendingRequests: Map<string, string>;
   /** S33 Set B: spread on modal triggers so focus restores to them on close. */
   restoreFocusTarget: ReturnType<typeof useRestoreFocusTarget>;
+  /** S33 Set E: per-diem visibility (owner/operations/finance/management). */
+  showPerDiem: boolean;
 }) => (
   <div
     style={{
@@ -356,7 +360,11 @@ const ParticipantList = ({
           </div>
           <div style={{ flexShrink: 0, display: 'flex', alignItems: 'baseline', gap: 'var(--c3-space-2)' }}>
             <Badge appearance="outline">{p.Role}</Badge>
-            {p.PerDiemRate !== undefined && (
+            {/* S33 Set E: per-diem is gated by role policy (owner/operations/
+                finance/management). Denied roles (visitor/legal/hr) must not
+                receive the value in ANY form — it is not rendered at all, so it
+                is absent from the DOM and accessibility tree. */}
+            {showPerDiem && p.PerDiemRate !== undefined && (
               <Text size={200} style={{ color: 'var(--c3-gray-600)', whiteSpace: 'nowrap' }}>
                 {p.PerDiemRate}{currency ? ` ${currency}` : ''}/day
               </Text>
@@ -418,6 +426,7 @@ const MissionCard = ({
   readiness,
   readinessLoading,
   restoreFocusTarget,
+  showPerDiem,
 }: {
   mission: Mission;
   participants: MissionParticipant[];
@@ -440,6 +449,8 @@ const MissionCard = ({
   readinessLoading: boolean;
   /** S33 Set B: spread on modal triggers so focus restores to them on close. */
   restoreFocusTarget: ReturnType<typeof useRestoreFocusTarget>;
+  /** S33 Set E: per-diem visibility (owner/operations/finance/management). */
+  showPerDiem: boolean;
 }) => (
   <div
     style={{
@@ -592,6 +603,7 @@ const MissionCard = ({
         onRemoveParticipant={onRemoveParticipant}
         pendingRequests={pendingRequests}
         restoreFocusTarget={restoreFocusTarget}
+        showPerDiem={showPerDiem}
       />
     )}
   </div>
@@ -607,6 +619,8 @@ export const MissionWorkspace = () => {
   // S33 Set B: modal triggers become tabster restore targets (threaded down
   // to MissionCard/ParticipantList buttons).
   const restoreFocusTarget = useRestoreFocusTarget();
+  // S33 Set E: per-diem visibility by role policy (threaded to ParticipantList).
+  const showPerDiem = canViewPerDiem(currentUser.c3Role);
   const { data: missions = [], isLoading: missionsLoading, error } = useMissions();
 
   // S29A: kit actions are role-gated (owner/operations). UI affordance only —
@@ -953,6 +967,7 @@ export const MissionWorkspace = () => {
               pendingRequests={pendingParticipantRequests}
               pendingUnavailable={pendingUnavailable}
               restoreFocusTarget={restoreFocusTarget}
+              showPerDiem={showPerDiem}
               readiness={readinessByMission.get(mission.MissionID)}
               readinessLoading={readinessLoading}
             />

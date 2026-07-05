@@ -198,6 +198,23 @@ export class ContractsListUnprovisionedError extends Error {
 }
 
 /**
+ * S33 Set E — a contract read failed with a non-404 HTTP status (e.g. an
+ * unexpected 500). Distinct from unprovisioned (404), role-denial (a UI-layer
+ * predicate — the query is never issued for a denied role), and authorized
+ * empty (a successful [] result). A 403/security-trimmed status is NEVER
+ * inferred as an empty domain — it fails closed here.
+ */
+export class ContractReadFailedError extends Error {
+  override readonly name = 'ContractReadFailedError';
+  constructor(status: number, context: string) {
+    super(
+      `[C3/Contracts] Contract read failed (HTTP ${status}) in ${context} — failing closed. ` +
+      'This is NOT an empty contract register.',
+    );
+  }
+}
+
+/**
  * S32 — a C3Contracts read returned one or more rows that failed canonical
  * validation (missing required canonical fields, or lookup-object values where
  * flat plain-text is required). The read fails truthfully with the item IDs —

@@ -188,7 +188,7 @@ export const RenewalsCenter = ({ stage }: RenewalsCenterProps) => {
   void stage; // reserved for future deep-link filtering by renewal stage
 
   const { navigate } = useApp();
-  const { data: contracts = [], isLoading, error } = useRenewalContracts();
+  const { data: contracts = [], isLoading, error, roleDenied } = useRenewalContracts();
 
   // Capture data freshness time.
   // contracts reference identity changes on each successful React Query fetch,
@@ -278,6 +278,19 @@ export const RenewalsCenter = ({ stage }: RenewalsCenterProps) => {
   }, [contracts]);
 
   // ── Loading ───────────────────────────────────────────────────────────────
+  // S33 Set E: Renewals reads C3Contracts; a denied role (reached only via a
+  // stale/direct route — the NavRail item is hidden) gets a truthful state.
+  if (roleDenied) {
+    return (
+      <div style={{ padding: 'var(--c3-space-8)' }}>
+        <EmptyState
+          title="Renewals are unavailable for your role"
+          description="Renewals are derived from contracts, which you don't have access to. Contact an administrator if you believe you should."
+        />
+      </div>
+    );
+  }
+
   if (isLoading) {
     return (
       <div

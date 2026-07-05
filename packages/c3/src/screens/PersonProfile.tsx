@@ -207,7 +207,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   // S32 (TD-32): expose the contracts query status so the Contract History tile can
   // derive the total from CANONICAL rows (never the stored denormalized field) and
   // stay truthfully "Not specified" while contract data is loading/unavailable.
-  const { data: contracts    = [], isPending: contractsPending, isError: contractsError } = usePersonContracts(person?.PersonID ?? '');
+  const { data: contracts    = [], isPending: contractsPending, isError: contractsError, roleDenied: contractsRoleDenied } = usePersonContracts(person?.PersonID ?? '');
   const { data: credentials  = [] } = usePersonCredentials(person?.PersonID ?? '');
   const { data: journeys     = [] } = usePersonJourneys(person?.PersonID ?? '');
 
@@ -575,12 +575,24 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
           </SectionCard>
 
           <SectionCard title="Contract History">
-            <FieldGrid columns={3}>
-              <FieldTile label="First Contract"  value={formatDate(person.FirstContractDate)} />
-              <FieldTile label="Latest Contract" value={formatDate(person.LatestContractDate)} />
-              {/* S32 (TD-32): canonical count, never the stored TotalContracts field */}
-              <FieldTile label="Total Contracts" value={contractsPending || contractsError ? undefined : contracts.length} />
-            </FieldGrid>
+            {/* S33 Set E: a role without C3Contracts access must not see a
+                fabricated "Total Contracts 0". Show a truthful unavailable
+                state and omit the numeric contract summary entirely. */}
+            {contractsRoleDenied ? (
+              <FieldGrid columns={2}>
+                <FieldTile
+                  label="Contracts"
+                  value="Unavailable for your role"
+                />
+              </FieldGrid>
+            ) : (
+              <FieldGrid columns={3}>
+                <FieldTile label="First Contract"  value={formatDate(person.FirstContractDate)} />
+                <FieldTile label="Latest Contract" value={formatDate(person.LatestContractDate)} />
+                {/* S32 (TD-32): canonical count, never the stored TotalContracts field */}
+                <FieldTile label="Total Contracts" value={contractsPending || contractsError ? undefined : contracts.length} />
+              </FieldGrid>
+            )}
           </SectionCard>
 
           <SectionCard title="Notes">
@@ -674,8 +686,17 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
             )}
           </SectionCard>
 
-          <SectionCard title={`Related Contracts (${contracts.length})`}>
-            {contracts.length === 0 ? (
+          {/* S33 Set E: title omits the (0) count and the body shows a
+              truthful unavailable state when the role cannot access contracts —
+              never a false "No contracts linked" empty-success. */}
+          <SectionCard title={contractsRoleDenied ? 'Related Contracts' : `Related Contracts (${contracts.length})`}>
+            {contractsRoleDenied ? (
+              <EmptyState
+                compact
+                title="Contracts unavailable for your role"
+                description="You don't have access to this person's contracts. Contact an administrator if you believe you should."
+              />
+            ) : contracts.length === 0 ? (
               <EmptyState
                 compact
                 title="No contracts linked"

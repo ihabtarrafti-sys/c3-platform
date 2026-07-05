@@ -32,6 +32,7 @@ import { Text, Button } from '@fluentui/react-components';
 import { EmptyState, SkeletonRows } from '@c3/components/ui';
 import { WorkItemCard } from '@c3/components/shared/WorkItemCard';
 import { useApp } from '@c3/hooks/useApp';
+import { canActionWorkItems } from '@c3/utils/rolePolicy';
 import { useWorkItems } from '@c3/hooks/useWorkItems';
 import type { WorkItem } from '@c3/types';
 
@@ -76,9 +77,11 @@ interface PriorityBandProps {
   config: BandConfig;
   items: WorkItem[];
   onAction: (item: WorkItem) => void;
+  /** S33 Set E: whether the current role may action work items (owner/operations). */
+  actionable: boolean;
 }
 
-const PriorityBand = ({ config, items, onAction }: PriorityBandProps) => {
+const PriorityBand = ({ config, items, onAction, actionable }: PriorityBandProps) => {
   if (items.length === 0) return null;
 
   return (
@@ -119,7 +122,7 @@ const PriorityBand = ({ config, items, onAction }: PriorityBandProps) => {
       {/* WorkItemCards */}
       <div>
         {items.map((item) => (
-          <WorkItemCard key={item.id} workItem={item} onAction={onAction} />
+          <WorkItemCard key={item.id} workItem={item} onAction={onAction} actionable={actionable} />
         ))}
       </div>
     </div>
@@ -183,8 +186,11 @@ const QueueSkeleton = () => (
 // ---------------------------------------------------------------------------
 
 export const CommandCenter = () => {
-  const { navigate } = useApp();
+  const { navigate, currentUser } = useApp();
   const { items, counts, isLoading, error } = useWorkItems();
+  // S33 Set E: only owner/operations get actionable work-item CTAs; read-only
+  // roles see neutral status copy instead of an inert write CTA.
+  const workItemsActionable = canActionWorkItems(currentUser.c3Role);
 
   // -- Navigation handler --
   const handleWorkItemAction = (item: WorkItem) => {
@@ -266,9 +272,9 @@ export const CommandCenter = () => {
       {/* Priority bands */}
       {counts.total > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--c3-space-4)' }}>
-          <PriorityBand config={BANDS[0]} items={immediateItems} onAction={handleWorkItemAction} />
-          <PriorityBand config={BANDS[1]} items={highItems}      onAction={handleWorkItemAction} />
-          <PriorityBand config={BANDS[2]} items={normalItems}    onAction={handleWorkItemAction} />
+          <PriorityBand config={BANDS[0]} items={immediateItems} onAction={handleWorkItemAction} actionable={workItemsActionable} />
+          <PriorityBand config={BANDS[1]} items={highItems}      onAction={handleWorkItemAction} actionable={workItemsActionable} />
+          <PriorityBand config={BANDS[2]} items={normalItems}    onAction={handleWorkItemAction} actionable={workItemsActionable} />
         </div>
       )}
 

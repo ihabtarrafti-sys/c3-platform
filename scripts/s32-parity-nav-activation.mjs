@@ -38,7 +38,11 @@ const navItemLine = (id) => {
 };
 const contractsLine = navItemLine('contracts');
 check('nav: Contracts item present in NAV_ITEMS', contractsLine !== null && contractsLine.includes("label: 'Contracts'"));
-check('nav: Contracts item has NO visibleWhen guard (S24-P1 guard removed)', contractsLine !== null && !contractsLine.includes('visibleWhen'));
+// S33 Set E: the S24-P1 SP-DSM MODE guard stays removed (contracts show in SP
+// mode), but a ROLE guard now gates Contracts to contract-access roles
+// (canAccessContracts) — hr/visitor are security-trimmed and must not see the
+// nav item. The two guards are distinct; only the mode guard was the S32 fix.
+check('nav: Contracts item has NO SP-DSM mode guard; role guard is canAccessContracts', contractsLine !== null && !/mode/.test(contractsLine) && contractsLine.includes('visibleWhen: role => canAccessContracts(role)'));
 check("nav: the old SP-DSM guard no longer controls Contracts", !/id: 'contracts'[^\n]*mode !== 'sharepoint'/.test(nav));
 
 // ── 2. Route resolution reaches the existing Contracts workspace ─────────────

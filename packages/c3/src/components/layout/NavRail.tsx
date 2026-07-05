@@ -17,6 +17,7 @@ import {
 
 import { useApp } from '@c3/hooks/useApp';
 import { useCapabilities } from '@c3/hooks/useCapabilities';
+import { canAccessContracts } from '@c3/utils/rolePolicy';
 import type { C3Capabilities, C3Role, C3Screen } from '@c3/types';
 
 // ---------------------------------------------------------------------------
@@ -41,7 +42,11 @@ const NAV_ITEMS: NavItem[] = [
   // the exact five-principal Phase 3D ACL (both hosted-green), and contract reads
   // are fail-closed (S32 P2). ACLs are the security boundary -- a user without
   // list access gets a truthful unavailable state, never fabricated data.
-  { id: 'contracts',      label: 'Contracts',       icon: DocumentRegular },
+  // S33 Set E: Contracts is hidden for roles the C3Contracts ACL denies
+  // (hr, visitor) — they are security-trimmed (404), so the register must not
+  // appear navigable and must never render a false empty state. A stale/direct
+  // route still renders an explicit unavailable-for-role state.
+  { id: 'contracts',      label: 'Contracts',       icon: DocumentRegular,       visibleWhen: role => canAccessContracts(role) },
   { id: 'people',         label: 'People',          icon: PeopleRegular },
   { id: 'renewals',       label: 'Renewals',        icon: ArrowClockwiseRegular, visibleWhen: role => role !== 'visitor' },
   // S20-P0-3: SharePointAmendmentService is a stub -- hide in SP DSM to prevent
