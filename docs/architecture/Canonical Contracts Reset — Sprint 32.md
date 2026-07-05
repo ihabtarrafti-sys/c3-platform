@@ -168,13 +168,18 @@ state of `C3Contracts` (GUID `88e835ad-ffd8-4565-9364-c1c1b4f0fc2f`, URL
 ## 10. Phase 3D boundary — exact C3Contracts ACL (IN FLIGHT, mutation pending)
 
 Phase 3D changes ONLY list role assignments — never schema, Title configuration,
-settings, GUID, URL, or contents. Exact target: unique permissions with exactly
-five principals — C3 Owners = Full Control; C3 Operations, C3 Legal, C3 Finance,
-C3 Management = Read. C3 HR / C3 Members / C3 Visitors / any other copied or
-direct principal must not retain direct list access. V1 authoring remains
-Owners-only; ACLs are the security boundary (UI role checks are UX only).
+settings, GUID, URL, or contents. Exact target (rev 2, corrected by reviewed
+3D-0 hosted evidence): unique permissions with exactly five principals —
+**C3 Platform Owners** = Full Control; C3 Operations, C3 Legal, C3 Finance,
+C3 Management = Read. The associated site-shell groups (`C3 - Contract Command
+Center Owners/Members/Visitors`), C3 HR, and any individual principal must not
+retain direct list access. The assumed group `C3 Owners` does not exist —
+`C3 - Contract Command Center Owners` is the site-shell Owners group and is NOT
+the operational target. V1 authoring remains Owners-only; ACLs are the security
+boundary (UI role checks are UX only).
 
-Tooling, method (grant-before-remove with `copyRoleAssignments=true`,
-`clearSubscopes=false`), concurrency semantics, tests, and the owner runbook:
-see `C3 Contracts ACL — Sprint 32 Phase 3D.md`. **Phase 3D hosted mutation
-remains PENDING owner execution — not complete, not hosted-green.**
+Tooling, method (proven rev-2 uncopied break `copyRoleAssignments=false,
+clearSubscopes=false` → five grants → conditional acting-user removal),
+concurrency semantics, tests, and the owner runbook: see
+`C3 Contracts ACL — Sprint 32 Phase 3D.md`. **Phase 3D hosted mutation remains
+PENDING owner execution — not complete, not hosted-green.**
