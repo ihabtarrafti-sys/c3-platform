@@ -1,0 +1,2351 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "C3 Web V0 API",
+    "version": "0.1.0",
+    "description": "People + AddPerson governed vertical slice."
+  },
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    },
+    "schemas": {}
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/ready": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/dev/login": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "format": "email"
+                  },
+                  "displayName": {
+                    "type": "string"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "owner",
+                      "operations",
+                      "legal",
+                      "finance",
+                      "hr",
+                      "management",
+                      "visitor"
+                    ]
+                  },
+                  "tenantSlug": {
+                    "type": "string",
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "email",
+                  "role",
+                  "tenantSlug"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "token": {
+                      "type": "string"
+                    },
+                    "identity": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "owner",
+                        "operations",
+                        "legal",
+                        "finance",
+                        "hr",
+                        "management",
+                        "visitor"
+                      ]
+                    },
+                    "tenantSlug": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "token",
+                    "identity",
+                    "displayName",
+                    "role",
+                    "tenantSlug"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "correlationId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "message": {
+                          "type": "string"
+                        },
+                        "details": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "code",
+                        "message"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "correlationId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "correlationId"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "identity": {
+                      "type": "string"
+                    },
+                    "displayName": {
+                      "type": "string"
+                    },
+                    "role": {
+                      "type": "string",
+                      "enum": [
+                        "owner",
+                        "operations",
+                        "legal",
+                        "finance",
+                        "hr",
+                        "management",
+                        "visitor"
+                      ]
+                    },
+                    "tenantSlug": {
+                      "type": "string"
+                    },
+                    "capabilities": {
+                      "type": "object",
+                      "properties": {
+                        "canReadPeople": {
+                          "type": "boolean"
+                        },
+                        "canSubmitApproval": {
+                          "type": "boolean"
+                        },
+                        "canReviewApproval": {
+                          "type": "boolean"
+                        },
+                        "canExecuteApproval": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "canReadPeople",
+                        "canSubmitApproval",
+                        "canReviewApproval",
+                        "canExecuteApproval"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "identity",
+                    "displayName",
+                    "role",
+                    "tenantSlug",
+                    "capabilities"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "personId": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "ign": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "nationality": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "primaryRole": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "personnelCode": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "currentTeam": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "currentGameTitle": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "primaryDepartment": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "personId",
+                          "fullName",
+                          "ign",
+                          "nationality",
+                          "primaryRole",
+                          "personnelCode",
+                          "currentTeam",
+                          "currentGameTitle",
+                          "primaryDepartment",
+                          "notes",
+                          "isActive",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "people"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{personId}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PER-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "personId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "person": {
+                      "type": "object",
+                      "properties": {
+                        "personId": {
+                          "type": "string"
+                        },
+                        "fullName": {
+                          "type": "string"
+                        },
+                        "ign": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "nationality": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "primaryRole": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "personnelCode": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "currentTeam": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "currentGameTitle": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "primaryDepartment": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "personId",
+                        "fullName",
+                        "ign",
+                        "nationality",
+                        "primaryRole",
+                        "personnelCode",
+                        "currentTeam",
+                        "currentGameTitle",
+                        "primaryDepartment",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "person"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{personId}/audit": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PER-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "personId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entityType": {
+                            "type": "string"
+                          },
+                          "entityId": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "actor": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "before": {
+                            "type": "object",
+                            "additionalProperties": {},
+                            "nullable": true
+                          },
+                          "after": {
+                            "type": "object",
+                            "additionalProperties": {},
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "entityType",
+                          "entityId",
+                          "action",
+                          "actor",
+                          "at",
+                          "before",
+                          "after"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approvals": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "approvalId": {
+                            "type": "string"
+                          },
+                          "operationType": {
+                            "type": "string",
+                            "enum": [
+                              "AddPerson"
+                            ]
+                          },
+                          "targetPersonId": {
+                            "type": "string"
+                          },
+                          "targetId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "reason": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "Submitted",
+                              "InReview",
+                              "Approved",
+                              "Rejected",
+                              "Executed",
+                              "ExecutionFailed"
+                            ]
+                          },
+                          "payload": {
+                            "type": "object",
+                            "properties": {
+                              "operationType": {
+                                "type": "string",
+                                "enum": [
+                                  "AddPerson"
+                                ]
+                              },
+                              "input": {
+                                "type": "object",
+                                "properties": {
+                                  "fullName": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 200
+                                  },
+                                  "ign": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "nullable": true
+                                  },
+                                  "nationality": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "nullable": true
+                                  },
+                                  "primaryRole": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "nullable": true
+                                  },
+                                  "personnelCode": {
+                                    "type": "string",
+                                    "maxLength": 60,
+                                    "nullable": true
+                                  },
+                                  "currentTeam": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "nullable": true
+                                  },
+                                  "currentGameTitle": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "nullable": true
+                                  },
+                                  "primaryDepartment": {
+                                    "type": "string",
+                                    "maxLength": 120,
+                                    "nullable": true
+                                  },
+                                  "notes": {
+                                    "type": "string",
+                                    "maxLength": 2000,
+                                    "nullable": true
+                                  }
+                                },
+                                "required": [
+                                  "fullName"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "operationType",
+                              "input"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "submittedBy": {
+                            "type": "string"
+                          },
+                          "submittedAt": {
+                            "type": "string"
+                          },
+                          "reviewedBy": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "reviewedAt": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "rejectionReason": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "executedAt": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "executionError": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "approvalId",
+                          "operationType",
+                          "targetPersonId",
+                          "targetId",
+                          "reason",
+                          "status",
+                          "payload",
+                          "submittedBy",
+                          "submittedAt",
+                          "reviewedBy",
+                          "reviewedAt",
+                          "rejectionReason",
+                          "executedAt",
+                          "executionError",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "approvals"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "object",
+                    "properties": {
+                      "fullName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 200
+                      },
+                      "ign": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "nationality": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "primaryRole": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "personnelCode": {
+                        "type": "string",
+                        "maxLength": 60,
+                        "nullable": true
+                      },
+                      "currentTeam": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "currentGameTitle": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "primaryDepartment": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "fullName"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed"
+                          ]
+                        },
+                        "payload": {
+                          "type": "object",
+                          "properties": {
+                            "operationType": {
+                              "type": "string",
+                              "enum": [
+                                "AddPerson"
+                              ]
+                            },
+                            "input": {
+                              "type": "object",
+                              "properties": {
+                                "fullName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "ign": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "nationality": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryRole": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "personnelCode": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "nullable": true
+                                },
+                                "currentTeam": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "currentGameTitle": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryDepartment": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "maxLength": 2000,
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "operationType",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "payload",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{approvalId}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "approvalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed"
+                          ]
+                        },
+                        "payload": {
+                          "type": "object",
+                          "properties": {
+                            "operationType": {
+                              "type": "string",
+                              "enum": [
+                                "AddPerson"
+                              ]
+                            },
+                            "input": {
+                              "type": "object",
+                              "properties": {
+                                "fullName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "ign": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "nationality": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryRole": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "personnelCode": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "nullable": true
+                                },
+                                "currentTeam": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "currentGameTitle": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryDepartment": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "maxLength": 2000,
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "operationType",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "payload",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{approvalId}/begin-review": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "approvalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed"
+                          ]
+                        },
+                        "payload": {
+                          "type": "object",
+                          "properties": {
+                            "operationType": {
+                              "type": "string",
+                              "enum": [
+                                "AddPerson"
+                              ]
+                            },
+                            "input": {
+                              "type": "object",
+                              "properties": {
+                                "fullName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "ign": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "nationality": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryRole": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "personnelCode": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "nullable": true
+                                },
+                                "currentTeam": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "currentGameTitle": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryDepartment": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "maxLength": 2000,
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "operationType",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "payload",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{approvalId}/approve": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "approvalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed"
+                          ]
+                        },
+                        "payload": {
+                          "type": "object",
+                          "properties": {
+                            "operationType": {
+                              "type": "string",
+                              "enum": [
+                                "AddPerson"
+                              ]
+                            },
+                            "input": {
+                              "type": "object",
+                              "properties": {
+                                "fullName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "ign": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "nationality": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryRole": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "personnelCode": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "nullable": true
+                                },
+                                "currentTeam": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "currentGameTitle": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryDepartment": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "maxLength": 2000,
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "operationType",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "payload",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{approvalId}/reject": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 1000
+                  }
+                },
+                "required": [
+                  "expectedVersion",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "approvalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed"
+                          ]
+                        },
+                        "payload": {
+                          "type": "object",
+                          "properties": {
+                            "operationType": {
+                              "type": "string",
+                              "enum": [
+                                "AddPerson"
+                              ]
+                            },
+                            "input": {
+                              "type": "object",
+                              "properties": {
+                                "fullName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "ign": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "nationality": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryRole": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "personnelCode": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "nullable": true
+                                },
+                                "currentTeam": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "currentGameTitle": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryDepartment": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "maxLength": 2000,
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "operationType",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "payload",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{approvalId}/execute": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "approvalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed"
+                          ]
+                        },
+                        "payload": {
+                          "type": "object",
+                          "properties": {
+                            "operationType": {
+                              "type": "string",
+                              "enum": [
+                                "AddPerson"
+                              ]
+                            },
+                            "input": {
+                              "type": "object",
+                              "properties": {
+                                "fullName": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 200
+                                },
+                                "ign": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "nationality": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryRole": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "personnelCode": {
+                                  "type": "string",
+                                  "maxLength": 60,
+                                  "nullable": true
+                                },
+                                "currentTeam": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "currentGameTitle": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "primaryDepartment": {
+                                  "type": "string",
+                                  "maxLength": 120,
+                                  "nullable": true
+                                },
+                                "notes": {
+                                  "type": "string",
+                                  "maxLength": 2000,
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "fullName"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "operationType",
+                            "input"
+                          ],
+                          "additionalProperties": false
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "payload",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "person": {
+                      "type": "object",
+                      "properties": {
+                        "personId": {
+                          "type": "string"
+                        },
+                        "fullName": {
+                          "type": "string"
+                        },
+                        "ign": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "nationality": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "primaryRole": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "personnelCode": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "currentTeam": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "currentGameTitle": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "primaryDepartment": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "personId",
+                        "fullName",
+                        "ign",
+                        "nationality",
+                        "primaryRole",
+                        "personnelCode",
+                        "currentTeam",
+                        "currentGameTitle",
+                        "primaryDepartment",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "idempotent": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "approval",
+                    "person",
+                    "idempotent"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{approvalId}/events": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "approvalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "approvalId": {
+                            "type": "string"
+                          },
+                          "fromStatus": {
+                            "type": "string",
+                            "enum": [
+                              "Submitted",
+                              "InReview",
+                              "Approved",
+                              "Rejected",
+                              "Executed",
+                              "ExecutionFailed"
+                            ],
+                            "nullable": true
+                          },
+                          "toStatus": {
+                            "type": "string",
+                            "enum": [
+                              "Submitted",
+                              "InReview",
+                              "Approved",
+                              "Rejected",
+                              "Executed",
+                              "ExecutionFailed"
+                            ]
+                          },
+                          "actor": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "note": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "approvalId",
+                          "fromStatus",
+                          "toStatus",
+                          "actor",
+                          "at",
+                          "note"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/approvals/{approvalId}/audit": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "approvalId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entityType": {
+                            "type": "string"
+                          },
+                          "entityId": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "actor": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "before": {
+                            "type": "object",
+                            "additionalProperties": {},
+                            "nullable": true
+                          },
+                          "after": {
+                            "type": "object",
+                            "additionalProperties": {},
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "entityType",
+                          "entityId",
+                          "action",
+                          "actor",
+                          "at",
+                          "before",
+                          "after"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
+}

@@ -24,10 +24,12 @@ export interface PersistenceHandle extends Persistence {
 }
 
 export function createPersistence(config: PersistenceConfig): PersistenceHandle {
-  const pool = new Pool({ connectionString: config.appConnectionString, max: config.max ?? 10 });
-  // Every pooled connection uses UTF-8 (Windows servers may default to WIN1252).
-  pool.on('connect', (c) => {
-    c.query("SET client_encoding TO 'UTF8'").catch(() => {});
+  // Force UTF-8 at connection startup (avoids a racing per-connection SET, and
+  // guards against a client locale defaulting to WIN1252 on Windows).
+  const pool = new Pool({
+    connectionString: config.appConnectionString,
+    max: config.max ?? 10,
+    options: '-c client_encoding=UTF8',
   });
 
   const reads = {
