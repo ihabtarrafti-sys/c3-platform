@@ -839,3 +839,48 @@ now surfaces a visible fail-closed error with bounded diagnostics instead of a s
 `617e5555…` was **not** removed or re-added; canvas verified byte-equivalent to the
 preserved A.5 record. Evidence:
 `S32 Part 19.6 — C3.aspx Preservation + Diagnostic Isolation.md`.
+
+**S33 REOPENED (2026-07-05) — normal-use cold-load blank; ROOT CAUSE PROVEN + CONTAINED (1.0.0.5, deploy pending owner authorization).**
+
+TD-34 reproduced during ordinary use, outside any deployment window. The S32 closure
+above attributed the residual blank to catalog propagation state; that attribution is
+**superseded** by direct hosted evidence from the instrumented 1.0.0.4 build:
+
+1. **Instrumentation (1.0.0.4, deployed).** The runtime root gained an ErrorBoundary
+   (render-phase throws above the screen boundary previously unmounted the ENTIRE
+   React 18 tree silently — attached root, zero committed DOM, error rethrown only
+   asynchronously) and a FirstCommitSignal layout effect; the host gained a single
+   bounded commit deadline with a one-shot recovery remount and new diagnostics
+   stages (runtime-committed / runtime-error / recovering / recovered / recovery-failed).
+
+2. **Proven cause (hosted, first instrumented cold load).** Diagnostics recorded stage
+   `runtime-error`, `TypeError: Cannot read properties of undefined (reading 'set')` —
+   the SharePoint page shell creates a FOREIGN, older tabster instance on
+   `window.__tabsterInstance` (no `attrHandlers`); tabster 8.x instance acquisition
+   ADOPTS any existing instance without a version check; `useModalAttributes` in
+   TabsterInitializer (added by the S32 TD-33 fix) then crashes the FIRST render.
+   The TD-33 fix therefore moved the tabster interop crash from first-modal-open to
+   app init, converting race-lost cold loads into full blanks — TD-34's normal-use
+   reproduction. Warm/remounted sessions worked because by then the shell's own
+   modalizer existed on the shared instance and the creation path was skipped
+   (Edit → Cancel = remount after that point). On current SP page composition the
+   shell wins the race on EVERY load of C3.aspx (verified: 3/3 loads, cold hard-reload
+   and warm, all `runtime-error` in 9–89 ms) — 1.0.0.4 shows the visible fail-closed
+   fallback instead of the previous silent blank.
+
+3. **Actual correction (1.0.0.5, built + gate-green, NOT yet deployed).**
+   `TabsterInitializerBoundary` makes the tabster pre-registration NON-FATAL (it is an
+   optimization, never worth the tree), and `mountC3` publishes a bounded
+   `__C3_TABSTER_PROBE {preExisting, foreign}`. A/B harness replaying the foreign-
+   instance condition against the real built runtimes: 1.0.0.4 runtime → boundary
+   fallback (no app); 1.0.0.5 runtime → probe `{preExisting:true, foreign:true}`,
+   non-fatal warning, FULL app renders. Parity: s33-parity-cold-load-recovery.
+
+**Residual (follow-up, OPEN):** on foreign-instance sessions, Fluent modal surfaces
+(OverlayDrawer/Dialog with modalizer) may still fail bounded at the screen-level
+ErrorBoundary when the shell's modalizer has not yet initialized — the TD-33 exposure
+in its original, bounded form. Real interop fix (tabster instance isolation or version
+alignment) requires its own dedicated hosted validation. TD-34 is NOT closed until the
+1.0.0.5 containment is deployed and five independent cold loads render without
+Edit → Cancel.
+
