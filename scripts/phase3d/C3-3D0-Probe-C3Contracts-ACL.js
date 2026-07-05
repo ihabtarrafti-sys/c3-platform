@@ -1,9 +1,17 @@
 (async () => {
   'use strict';
-  // ═══ C3 S32 · 3D-0 rev2 — READ-ONLY PROBE: C3Contracts ACL + principal resolution ═══
+  // ═══ C3 S32 · 3D-0 rev3 — READ-ONLY PROBE: C3Contracts ACL + principal resolution ═══
   // rev2: operational owner principal = `C3 Platform Owners` (exact hosted title;
   // `C3 - Contract Command Center Owners` is the associated site-shell group and is
   // NOT the target); plan preview uses the proven rev-2 uncopied inheritance break.
+  // rev3: field-inventory DRIFT CLASSIFICATION — compares the live full inventory
+  // fingerprint to the prior reviewed value and classifies any difference: drift is
+  // SAFE TO REBIND only when the reduced canonical schema fingerprint is intact,
+  // all 19 canonical business fields remain genuinely exact, the two SP-managed
+  // comment fields keep every invariant, and identity/settings/contents/deps are
+  // unchanged — i.e. the difference is confined to SharePoint-managed metadata
+  // (SchemaXml attributes, dependent computed fields). Anything else is a BLOCKER.
+  // Also prints per-field state hashes for exact diffing against prior evidence.
   // Owner-executed in a browser console on https://geekaygames.sharepoint.com/sites/C3.
   // GET-only. Zero mutations. Resolves live principals/role definitions, captures a
   // two-snapshot-stable pre-state, previews the deterministic Phase 3D mutation plan,
@@ -14,6 +22,11 @@
   const EXPECTED_TITLE = 'C3Contracts';
   // Phase 3C hosted-green closure fingerprint (reduced Stage-A-compatible formula):
   const EXPECTED_SCHEMA_FP = '3a13b28f94ccc462e5b5001a56a0d543cab3a74a4ba96c5913498087334bea98';
+  // Prior REVIEWED full field-inventory fingerprint (3D-0 rev 2, 2026-07-05) — used
+  // only to detect and classify drift; the FRESH value printed below is what 3D-1
+  // binds to:
+  const PRIOR_REVIEWED_FIELD_INVENTORY_FP = 'b3e726b0ad97b75a48ab77cdcaef8b80f20044391a7f5a0a150faefb5f1e7842';
+  const TITLE_BASE_FIELD_ID = 'fa564e0f-0c70-4ab9-b863-0177e6ddd247'; // SP base Title field
 
   const PAGE = 500, MAX_PAGES = 200;
   const fail = (m) => { console.error(`%c✖ FAIL-CLOSED: ${m}`, 'color:#c00;font-weight:bold'); throw new Error(m); };
@@ -236,6 +249,54 @@
   };
 // ── 3D-CORE-END ──
 
+  // ── Phase 3C canonical business schema (19 fields) + SP-managed comment-field
+  //    allowlist — used by the rev3 drift classifier ──
+  const CANON = [
+    ['Title', 'Contract ID', 'Text', true, true, true, null],
+    ['PersonID', 'Person ID', 'Text', true, true, false, null],
+    ['FullName', 'Full Name', 'Text', true, false, false, null],
+    ['DisplayName', 'Display Name', 'Text', false, false, false, null],
+    ['ContractTypeName', 'Contract Type', 'Text', true, false, false, null],
+    ['AgreementCategory', 'Agreement Category', 'Text', false, false, false, null],
+    ['ContractStage1', 'Contract Stage', 'Text', true, false, false, null],
+    ['Disposition1', 'Disposition', 'Text', false, false, false, null],
+    ['StartDate', 'Start Date', 'DateTime', false, false, false, 'DateOnly'],
+    ['EndDate', 'End Date', 'DateTime', true, true, false, 'DateOnly'],
+    ['SignatureDate', 'Signature Date', 'DateTime', false, false, false, 'DateOnly'],
+    ['TerminationDate', 'Termination Date', 'DateTime', false, false, false, 'DateOnly'],
+    ['HasSignedContract', 'Has Signed Contract', 'Boolean', false, false, false, null],
+    ['MonthlyCompensation', 'Monthly Compensation', 'Currency', false, false, false, 'Decimals2'],
+    ['CurrencyCode', 'Currency Code', 'Text', false, false, false, null],
+    ['PrizeSharePct', 'Prize Share %', 'Number', false, false, false, 'NoDefault'],
+    ['ContractOwnerName', 'Contract Owner Name', 'Text', false, false, false, null],
+    ['ContractOwnerEmail', 'Contract Owner Email', 'Text', false, false, false, null],
+    ['IsActive', 'Is Active', 'Boolean', false, false, false, 'Default1'],
+  ];
+  const isExact = (f, spec) => {
+    const [, disp, type, req, idx, uniq, extra] = spec;
+    if (f.TypeAsString !== type || f.Required !== req || f.Indexed !== idx) return false;
+    if ((f.EnforceUniqueValues === true) !== uniq) return false;
+    if (f.Title !== disp) return false;
+    if (extra === 'DateOnly' && !/Format="DateOnly"/.test(f.SchemaXml ?? '')) return false;
+    if (extra === 'Decimals2' && !/Decimals="2"/.test(f.SchemaXml ?? '')) return false;
+    if (extra === 'Default1' && f.DefaultValue !== '1') return false;
+    if (extra === 'NoDefault' && f.DefaultValue != null && f.DefaultValue !== '') return false;
+    return true;
+  };
+  const MANAGED_COMMENT_FIELDS = [
+    { id: 'd307dff3-340f-44a2-9f4b-fbfe1ba07459', internalName: '_CommentCount', title: 'Comment count', showField: 'CommentCount' },
+    { id: 'c274cbfd-084a-4017-925f-cce50c9e3eec', internalName: '_CommentFlags', title: 'Comment settings', showField: 'CommentFlags' },
+  ];
+  const isManagedCommentFieldIntact = (fields, expected) => {
+    const f = fields.find(x => String(x.Id ?? '').toLowerCase() === expected.id && x.InternalName === expected.internalName);
+    if (!f) return false;
+    const schema = f.SchemaXml ?? '';
+    return f.Title === expected.title && f.TypeAsString === 'Lookup'
+      && f.FromBaseType === false && f.CanBeDeleted === false
+      && f.Hidden === true && f.ReadOnlyField === true && f.Sealed === true
+      && /DisplaceOnUpgrade="TRUE"/.test(schema) && /RecreateIfMissing="TRUE"/.test(schema)
+      && new RegExp(`ShowField="${expected.showField}"`).test(schema);
+  };
   const FIELD_SELECT = '$select=Id,InternalName,Title,TypeAsString,Required,Indexed,EnforceUniqueValues,Hidden,ReadOnlyField,Sealed,FromBaseType,CanBeDeleted,LookupList,LookupField,DefaultValue,SchemaXml';
   const scanLookupsInto = async (targetGuid) => {
     const hits = []; const t = targetGuid.toLowerCase();
@@ -322,11 +383,44 @@
     resolvedTargets: resolved, resolvedRoles: roles,
     currentListAclNormalized: normalized, evaluation, plan: planStrings };
 
+  // ── rev3 FIELD-INVENTORY DRIFT CLASSIFICATION ──
+  const canonicalFieldIssues = [];
+  {
+    const byName = new Map(A.fields.map(f => [f.InternalName, f]));
+    for (const spec of CANON) {
+      const f = byName.get(spec[0]);
+      if (!f) { canonicalFieldIssues.push(`canonical business field MISSING: ${spec[0]}`); continue; }
+      if (spec[0] === 'Title' && !(String(f.Id).toLowerCase() === TITLE_BASE_FIELD_ID && f.FromBaseType === true)) canonicalFieldIssues.push('Title is not the base Title field');
+      if (!isExact(f, spec)) canonicalFieldIssues.push(`canonical business field NOT exact: ${spec[0]}`);
+    }
+    for (const m of MANAGED_COMMENT_FIELDS) if (!isManagedCommentFieldIntact(A.fields, m)) canonicalFieldIssues.push(`SP-managed comment field missing/invariant-drifted: ${m.internalName}`);
+  }
+  const inventoryMatchesPrior = A.fieldInventoryFingerprintSha256 === PRIOR_REVIEWED_FIELD_INVENTORY_FP;
+  const businessIntact = A.schemaCompatibilityFingerprintSha256 === EXPECTED_SCHEMA_FP && canonicalFieldIssues.length === 0
+    && A.list.itemCount === 0 && A.inboundLookups.length === 0 && A.uniqueChildScopes.length === 0
+    && A.list.enableVersioning === true && A.list.majorVersionLimit === 10 && A.list.enableAttachments === false;
+  out.fieldInventoryDrift = {
+    priorReviewedFingerprint: PRIOR_REVIEWED_FIELD_INVENTORY_FP,
+    liveFingerprint: A.fieldInventoryFingerprintSha256,
+    matchesPrior: inventoryMatchesPrior,
+    classification: inventoryMatchesPrior
+      ? 'none — matches the prior reviewed inventory'
+      : businessIntact
+        ? 'sharepoint-managed-metadata — reduced canonical schema fingerprint intact, all 19 canonical business fields exact, SP-managed comment fields intact, identity/settings/contents/dependencies unchanged. SAFE TO REBIND the fresh field-inventory fingerprint.'
+        : 'BLOCKER — drift is NOT confined to SharePoint-managed metadata; owner review required.',
+  };
+  // Per-field state hashes (frozen fieldState property order, no field ETag) — for
+  // exact diffing against prior evidence (see diff-3d0-field-inventories.mjs).
+  out.fieldStateHashes = {};
+  for (const f of A.fields) out.fieldStateHashes[f.InternalName] = await sha([f.Id, f.InternalName, f.Title, f.TypeAsString, f.Required, f.Indexed, f.EnforceUniqueValues, f.Hidden, f.ReadOnlyField, f.Sealed, f.FromBaseType, f.CanBeDeleted, f.LookupList, f.LookupField, f.DefaultValue, f.SchemaXml].map(nz).join('|'));
+
   // ── BLOCKERS: recorded as evidence, never thrown ──
   out.blockers = [];
   for (const e of groupErrors) out.blockers.push(`principal resolution: ${e}`);
   for (const e of roleErrors) out.blockers.push(`role-definition resolution: ${e}`);
   for (const e of plan.errors) out.blockers.push(`plan: ${e}`);
+  for (const e of canonicalFieldIssues) out.blockers.push(`canonical schema: ${e}`);
+  if (!inventoryMatchesPrior && !businessIntact) out.blockers.push('field-inventory drift NOT classifiable as SharePoint-managed metadata — owner review required');
   if (A.schemaCompatibilityFingerprintSha256 !== EXPECTED_SCHEMA_FP) out.blockers.push(`schema fingerprint drift from closed Phase 3C state: ${A.schemaCompatibilityFingerprintSha256} ≠ ${EXPECTED_SCHEMA_FP}`);
   if (A.list.itemCount !== 0 || A.items.length !== 0) out.blockers.push(`list not empty: ItemCount=${A.list.itemCount}`);
   if (A.inboundLookups.length !== 0) out.blockers.push(`inbound lookup dependencies present: ${JSON.stringify(A.inboundLookups)}`);
@@ -348,6 +442,8 @@
   console.log('Current ACL fingerprint (EXPECTED_PRE_ACL_FP for 3D-1):', A.aclFingerprintSha256);
   console.log('Schema fingerprint (must equal Phase 3C closure):', A.schemaCompatibilityFingerprintSha256);
   console.log('Field-inventory fingerprint (EXPECTED_PRE_FIELD_INVENTORY_FP for 3D-1):', A.fieldInventoryFingerprintSha256);
+  console.log('Field-inventory drift classification:', JSON.stringify(out.fieldInventoryDrift, null, 1));
+  console.log('Per-field state hashes (for exact diffing vs prior evidence):', JSON.stringify(out.fieldStateHashes, null, 1));
   console.log('List ETag (EXPECTED_PRE_LIST_ETAG for 3D-1):', A.list.listEtag);
   console.log('Executing user (EXPECTED_EXECUTING_USER_ID / _TITLE for 3D-1):', me.Id, '/', JSON.stringify(me.Title));
   console.log('HasUniqueRoleAssignments:', A.list.hasUniqueRoleAssignments, '· ItemCount:', A.list.itemCount, '· inbound:', JSON.stringify(A.inboundLookups), '· scopes:', JSON.stringify(A.uniqueChildScopes));

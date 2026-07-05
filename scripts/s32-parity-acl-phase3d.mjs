@@ -253,6 +253,33 @@ check('discipline: 3D-1 stops before later phases', d1.includes('SEPARATE later 
 check('discipline: no tenant principal ids embedded (bound from probe evidence only)', !/principalid=\d/.test(d1) && d1.includes('EXPECTED_TARGET_PRINCIPALS = []') && d1.includes('EXPECTED_EXECUTING_USER_ID = 0'));
 check('discipline: probe rejects Platform Owners resolving to the associated site-shell Owners group', d0.includes('ASSOCIATED site-shell Owners group'));
 
+// ── 8. rev3 gate ordering: dry-run success banner UNREACHABLE until every
+//      evidence binding has passed; confirmation phrase is armed-only ─────────
+{
+  const iBind = d1.indexOf('── EVIDENCE-BINDING VALIDATION');
+  const iBindPass = d1.indexOf('Evidence bindings: ALL PASSED');
+  const iDry = d1.indexOf('── DRY-RUN RETURN');
+  const iDryBanner = d1.indexOf('DRY RUN (${RECOVERY_MODE');
+  const iArm = d1.indexOf('── ARMED CONFIRMATION GATE');
+  const iConfirm = d1.indexOf('CONFIRM !== PHRASE');
+  const iRecConfirm = d1.indexOf('RECOVERY_CONFIRM !== RECOVERY_PHRASE');
+  const iDig = d1.indexOf('await getDigest()');
+  check('ordering: binding validation < dry-run return < armed confirmation < first mutation', iBind > 0 && iBind < iDry && iDry < iArm && iArm < iDig);
+  check('ordering: dry-run banner sits inside the post-binding section', iDryBanner > iBindPass && iBindPass > iBind);
+  check('ordering: every normal binding gate precedes the dry-run return', ['EXPECTED_TARGET_PRINCIPALS / EXPECTED_ROLE_DEFS not populated', 'EXPECTED_PRE_ACL_FP empty or ≠ live ACL fingerprint', 'EXPECTED_PRE_FIELD_INVENTORY_FP empty or ≠ live field inventory', 'EXPECTED_PRE_LIST_ETAG empty/wildcard', 'the SAME administrator must run 3D-1', 'Normal mode expects an INHERITED pre-state', 'Live deterministic plan ≠ reviewed EXPECTED_PLAN'].every(g => d1.indexOf(g) > 0 && d1.indexOf(g) < iDry));
+  check('ordering: every recovery binding gate precedes the dry-run return', ['EXPECTED_RECOVERY_ACL_FP empty', 'live ACL fingerprint ≠ reviewed recovery evidence', '≠ EXPECTED_RECOVERY_PLAN'].every(g => d1.indexOf(g) > 0 && d1.indexOf(g) < iDry));
+  check('ordering: confirmation phrases are the ONLY armed-only validation (both after the dry-run return)', iConfirm > iDry && iRecConfirm > iDry && iConfirm > iArm);
+}
+
+// ── 9. rev3 probe: field-inventory drift classification ──────────────────────
+check('drift: probe embeds the prior reviewed inventory fingerprint for comparison', d0.includes('PRIOR_REVIEWED_FIELD_INVENTORY_FP'));
+check('drift: probe verifies all 19 canonical business fields exactly', d0.includes("['Title', 'Contract ID', 'Text', true, true, true, null]") && d0.includes("['IsActive', 'Is Active', 'Boolean', false, false, false, 'Default1']") && d0.includes('canonical business field NOT exact'));
+check('drift: probe verifies the SP-managed comment fields invariants', d0.includes('_CommentCount') && d0.includes('_CommentFlags') && d0.includes('isManagedCommentFieldIntact'));
+check('drift: safe-to-rebind classification requires intact business state', d0.includes('SAFE TO REBIND the fresh field-inventory fingerprint') && d0.includes('businessIntact'));
+check('drift: unclassifiable drift is a blocker', d0.includes('field-inventory drift NOT classifiable as SharePoint-managed metadata'));
+check('drift: probe prints per-field state hashes for exact diffing', d0.includes('fieldStateHashes'));
+check('drift: probe remains GET-only after rev3 additions', !/X-RequestDigest|X-HTTP-Method|getDigest|method: 'POST'/.test(d0));
+
 // ── Summary ──────────────────────────────────────────────────────────────────
 const total = passed + failures.length;
 if (failures.length) {

@@ -1,6 +1,10 @@
 (async () => {
   'use strict';
-  // ═══ C3 S32 · 3D-1 rev2 — CONFIGURE C3Contracts exact five-principal ACL ═══
+  // ═══ C3 S32 · 3D-1 rev3 — CONFIGURE C3Contracts exact five-principal ACL ═══
+  // rev3 (gate-order correction): evidence-binding validation now runs BEFORE the
+  // dry-run return — a dry run succeeds ONLY when every populated binding matches
+  // live state, so stale evidence surfaces in the dry run, never in the armed run.
+  // The confirmation phrase is the ONLY armed-only validation.
   // Owner-executed in a browser console on https://geekaygames.sharepoint.com/sites/C3.
   // Modes: DRY RUN (default, zero mutations) · ARMED NORMAL · RECOVERY (partial prior
   // run) · TERMINAL RECOVERY (verification only). One mutation per fresh witness with
@@ -376,20 +380,19 @@
   console.log('HasUniqueRoleAssignments:', A.list.hasUniqueRoleAssignments, '· list ETag (drift witness only):', A.list.listEtag);
   console.log('Deterministic mutation plan:', JSON.stringify(planStrings, null, 1));
   console.log('Evaluation vs exact target:', JSON.stringify(evaluateAcl(A.normalizedAcl, resolved), null, 1));
-  if (DRY_RUN) { console.log(`%c═══ ${TAG} DRY RUN (${RECOVERY_MODE ? 'RECOVERY' : 'normal'}) — preflights PASSED; zero mutations. ACL endpoints expose no ETag semantics (documented): safety = fresh witness + one mutation + full reconciliation. Normal mode: populate the EXPECTED_* constants from the reviewed 3D-0 evidence. Recovery mode: populate EXPECTED_RECOVERY_* from the failed run's printed live evidence (empty EXPECTED_RECOVERY_PLAN is valid ONLY for terminal verification-only recovery). ═══`, 'color:#080;font-weight:bold'); return; }
-  // ── ARM GATE (normal binds to reviewed 3D-0 evidence; recovery to fresh evidence) ──
+  // ── EVIDENCE-BINDING VALIDATION (dry run AND armed must BOTH pass every gate;
+  //    the confirmation phrase below is the ONLY armed-only validation) ──
   const sameTargets = (a, b) => JSON.stringify((a ?? []).map(t => `${t.title}#${t.id}=${t.role}`)) === JSON.stringify((b ?? []).map(t => `${t.title}#${t.id}=${t.role}`));
   if (!RECOVERY_MODE) {
-    if (EXPECTED_TARGET_PRINCIPALS.length !== 5 || !EXPECTED_ROLE_DEFS) fail('EXPECTED_TARGET_PRINCIPALS / EXPECTED_ROLE_DEFS not populated — arm only from reviewed 3D-0 evidence.');
+    if (EXPECTED_TARGET_PRINCIPALS.length !== 5 || !EXPECTED_ROLE_DEFS) fail('EXPECTED_TARGET_PRINCIPALS / EXPECTED_ROLE_DEFS not populated — bind from reviewed 3D-0 evidence before any dry run.');
     if (!sameTargets(EXPECTED_TARGET_PRINCIPALS, resolved)) fail('Live resolved principals ≠ reviewed 3D-0 principals — re-run 3D-0 and review.');
     if (EXPECTED_ROLE_DEFS['Full Control']?.id !== roles['Full Control'].id || EXPECTED_ROLE_DEFS.Read?.id !== roles.Read.id) fail('Live role-definition ids ≠ reviewed 3D-0 evidence.');
     if (!EXPECTED_PRE_ACL_FP || A.aclFingerprintSha256 !== EXPECTED_PRE_ACL_FP) fail('EXPECTED_PRE_ACL_FP empty or ≠ live ACL fingerprint — if a prior run partially completed, use RECOVERY_MODE.');
-    if (!EXPECTED_PRE_FIELD_INVENTORY_FP || A.fieldInventoryFingerprintSha256 !== EXPECTED_PRE_FIELD_INVENTORY_FP) fail('EXPECTED_PRE_FIELD_INVENTORY_FP empty or ≠ live field inventory.');
+    if (!EXPECTED_PRE_FIELD_INVENTORY_FP || A.fieldInventoryFingerprintSha256 !== EXPECTED_PRE_FIELD_INVENTORY_FP) fail(`EXPECTED_PRE_FIELD_INVENTORY_FP empty or ≠ live field inventory (live: ${A.fieldInventoryFingerprintSha256}) — re-run 3D-0, classify the drift, and rebind.`);
     if (!EXPECTED_PRE_LIST_ETAG || EXPECTED_PRE_LIST_ETAG === '*' || nz(A.list.listEtag) !== nz(EXPECTED_PRE_LIST_ETAG)) fail('EXPECTED_PRE_LIST_ETAG empty/wildcard or ≠ live list ETag (drift witness).');
     if (!Number.isInteger(EXPECTED_EXECUTING_USER_ID) || EXPECTED_EXECUTING_USER_ID <= 0 || me.Id !== EXPECTED_EXECUTING_USER_ID || String(me.Title ?? '') !== EXPECTED_EXECUTING_USER_TITLE) fail(`Executing user ${me.Id} (${me.Title}) ≠ reviewed 3D-0 executing user — the SAME administrator must run 3D-1 (acting-user modeling).`);
     if (A.list.hasUniqueRoleAssignments !== false) fail('Normal mode expects an INHERITED pre-state — list already unique; use RECOVERY_MODE with reviewed evidence.');
     if (EXPECTED_PLAN.length === 0 || JSON.stringify(planStrings) !== JSON.stringify(EXPECTED_PLAN)) fail('Live deterministic plan ≠ reviewed EXPECTED_PLAN — re-run 3D-0 and review.');
-    if (CONFIRM !== PHRASE) fail('Confirmation phrase absent.');
   } else {
     // Terminal recovery: an EMPTY reviewed plan is valid ONLY together with the
     // fresh ACL fingerprint binding and the recovery phrase — it verifies and
@@ -397,8 +400,13 @@
     if (!EXPECTED_RECOVERY_ACL_FP) fail('Recovery: EXPECTED_RECOVERY_ACL_FP empty — populate from the failed run\'s printed live evidence after owner review.');
     if (A.aclFingerprintSha256 !== EXPECTED_RECOVERY_ACL_FP) fail('Recovery: live ACL fingerprint ≠ reviewed recovery evidence.');
     if (JSON.stringify(planStrings) !== JSON.stringify(EXPECTED_RECOVERY_PLAN)) fail(`Recovery: live plan ${JSON.stringify(planStrings)} ≠ EXPECTED_RECOVERY_PLAN.`);
-    if (RECOVERY_CONFIRM !== RECOVERY_PHRASE) fail('Recovery confirmation phrase absent.');
   }
+  console.log('Evidence bindings: ALL PASSED — targets, role definitions, ACL fingerprint, field-inventory fingerprint, list-ETag witness, executing-user identity, inheritance state, exact plan (schema/settings/contents/inbound/scopes enforced by the fail-closed preflight above).');
+  // ── DRY-RUN RETURN (unreachable until EVERY evidence binding above has passed) ──
+  if (DRY_RUN) { console.log(`%c═══ ${TAG} DRY RUN (${RECOVERY_MODE ? 'RECOVERY' : 'normal'}) — preflights AND ALL evidence bindings PASSED; zero mutations. ACL endpoints expose no ETag semantics (documented): safety = fresh witness + one mutation + full reconciliation. ═══`, 'color:#080;font-weight:bold'); return; }
+  // ── ARMED CONFIRMATION GATE (the phrase is the ONLY armed-only validation) ──
+  if (!RECOVERY_MODE && CONFIRM !== PHRASE) fail('Confirmation phrase absent.');
+  if (RECOVERY_MODE && RECOVERY_CONFIRM !== RECOVERY_PHRASE) fail('Recovery confirmation phrase absent.');
   let verifiedState = A;
   const completed = [], remainingActs = [...planStrings];
   const done = (s) => { completed.push(s); remainingActs.splice(remainingActs.indexOf(s), 1); console.log(`✔ ${s}`); };
