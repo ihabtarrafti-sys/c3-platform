@@ -1,10 +1,24 @@
 /**
- * acl-plan-core.mjs — Sprint 32 Phase 3D pure ACL evaluation/planning core.
+ * acl-plan-core.mjs — Sprint 32 Phase 3D pure ACL evaluation/planning core (rev 2).
  *
  * This module is the single source of truth for Phase 3D ACL logic. The region
  * between the 3D-CORE-BEGIN / 3D-CORE-END markers is embedded BYTE-IDENTICALLY
  * in the owner-executed browser tooling (C3-3D0 / C3-3D1); the s32 parity
  * harness fails the gate if the copies drift.
+ *
+ * rev 2 (2026-07-05, after reviewed 3D-0 hosted evidence):
+ *  - operational owner principal is `C3 Platform Owners` (resolved by exact hosted
+ *    title, never by hard-coded id); `C3 - Contract Command Center Owners` is the
+ *    associated site-shell Owners group and is NOT the operational target;
+ *  - inheritance break uses the proven Sprint 32 rev-2 method
+ *    breakroleinheritance(copyRoleAssignments=false, clearSubscopes=false) — the
+ *    inherited ACL is NOT copied (it carries Limited Access on all relevant
+ *    principals, Legal Full Control, multi-binding Platform Owners, site-shell
+ *    groups, HR, and an individual acting user — copying would create unproven
+ *    Limited Access cleanup); clearSubscopes=true remains PROHIBITED;
+ *  - the temporary acting-user assignment SharePoint creates on an uncopied break
+ *    is modeled EXPLICITLY and removed only after Platform Owners Full Control is
+ *    proven and administrative access is preserved.
  *
  * Environment-neutral: no imports, no fetch, no window. Pure data in/out.
  *
@@ -14,15 +28,22 @@
 // ── 3D-CORE-BEGIN ──
   /** Exact Phase 3D target: five principals, no extras. V1 authoring = Owners only. */
   const P3D_TARGET_GROUPS = Object.freeze([
-    Object.freeze({ title: 'C3 Owners', role: 'Full Control' }),
+    Object.freeze({ title: 'C3 Platform Owners', role: 'Full Control' }),
     Object.freeze({ title: 'C3 Operations', role: 'Read' }),
     Object.freeze({ title: 'C3 Legal', role: 'Read' }),
     Object.freeze({ title: 'C3 Finance', role: 'Read' }),
     Object.freeze({ title: 'C3 Management', role: 'Read' }),
   ]);
-  /** Groups that must NOT retain direct list access (detected as extras like any
-   *  other non-target principal — listed here for explicit evidence reporting). */
-  const P3D_FORBIDDEN_GROUPS = Object.freeze(['C3 HR', 'C3 Members', 'C3 Visitors']);
+  /** Hosted principals that must NOT retain direct list access — the ACTUAL
+   *  associated site-shell group titles (hosted-resolved 2026-07-05) plus HR.
+   *  Individual users (e.g. the acting administrator) are reported through the
+   *  generic extras detection like any other non-target principal. */
+  const P3D_FORBIDDEN_GROUPS = Object.freeze([
+    'C3 - Contract Command Center Owners',
+    'C3 - Contract Command Center Members',
+    'C3 - Contract Command Center Visitors',
+    'C3 HR',
+  ]);
   const SP_PRINCIPAL_TYPE_SHAREPOINT_GROUP = 8;
   const LIMITED_ACCESS = 'Limited Access';
 
@@ -79,7 +100,7 @@
 
   /** Evaluate a normalized ACL against the resolved five-principal target.
    *  exact === true ⇔ exactly the five target principals, each with exactly its
-   *  single required binding, and nothing else. */
+   *  single required binding, no Limited Access, and nothing else. */
   const evaluateAcl = (normalized, resolvedTargets) => {
     const byId = new Map(normalized.map(p => [p.principalId, p]));
     const targetIds = new Set(resolvedTargets.map(t => t.id));
@@ -97,7 +118,7 @@
     }
     const extraPrincipals = normalized
       .filter(p => !targetIds.has(p.principalId))
-      .map(p => ({ principalId: p.principalId, title: p.title, bindings: p.bindings.map(b => b.name) }));
+      .map(p => ({ principalId: p.principalId, title: p.title, principalType: p.principalType, bindings: p.bindings.map(b => b.name) }));
     const forbiddenPresent = extraPrincipals
       .filter(p => P3D_FORBIDDEN_GROUPS.includes(String(p.title ?? '').trim()))
       .map(p => p.title);
@@ -107,62 +128,78 @@
     return { exact, matchedTargets, missingTargets, wrongBindings, extraPrincipals, forbiddenPresent, limitedAccessOnTargets };
   };
 
-  /** Deterministic mutation plan. Grant-before-remove, one mutation per action:
-   *    1. break-inheritance(copy=true, clearSubscopes=false)   [only if inherited]
-   *    2. grant:<title>#<pid>=<role>#<rid>                     [target order]
-   *    3. revoke:<title>#<pid>-<role>#<rid>                    [extra bindings ON target principals]
-   *    4. remove:<title>#<pid>                                 [whole non-target principals]
-   *  Errors (never actions): Limited Access on a target principal; unresolved
-   *  targets; any plan that would revoke the C3 Owners Full Control binding. */
-  const planMutations = (normalized, resolvedTargets, roles, hasUniqueRoleAssignments) => {
+  /** The temporary assignment SharePoint may create for the acting administrator
+   *  when inheritance is broken WITHOUT copying. Null when absent. */
+  const actingUserAssignment = (normalized, executingUserId) =>
+    (normalized ?? []).find(p => p.principalId === executingUserId) ?? null;
+
+  /** Shared planner preconditions. Returns error strings (empty = plannable). */
+  const planPreconditions = (resolvedTargets, roles, executingUser) => {
     const errors = [];
-    const actions = [];
     if (resolvedTargets.length !== P3D_TARGET_GROUPS.length) errors.push(`unresolved targets: ${resolvedTargets.length}/${P3D_TARGET_GROUPS.length} — refuse to plan`);
     if (!roles?.['Full Control'] || !roles?.Read) errors.push('unresolved role definitions — refuse to plan');
+    if (!executingUser || !Number.isInteger(executingUser.id) || executingUser.id <= 0) errors.push('executing user unresolved — refuse to plan');
+    if (!errors.length && resolvedTargets.some(t => t.id === executingUser.id)) errors.push('executing user principal id collides with a target principal — refuse to plan');
+    if (!errors.length && (resolvedTargets[0].title !== 'C3 Platform Owners' || resolvedTargets[0].role !== 'Full Control')) errors.push('target[0] must be C3 Platform Owners = Full Control');
+    return errors;
+  };
+
+  /** NORMAL-MODE deterministic plan (proven Sprint 32 rev-2 method):
+   *    1. break-inheritance(copy=false, clearSubscopes=false) — the inherited ACL
+   *       (Limited Access everywhere, Legal Full Control, multi-binding Platform
+   *       Owners, site-shell groups, HR, individual users) is DISCARDED, never
+   *       copied; no revoke actions are ever generated for inherited bindings.
+   *    2. grant C3 Platform Owners Full Control (verified before any removal).
+   *    3. grant Read to Operations, Legal, Finance, Management in fixed order.
+   *    4. remove the temporary acting-user assignment (conditional: only when it
+   *       exists as a principal distinct from every target). */
+  const planNormalMutations = (resolvedTargets, roles, executingUser) => {
+    const errors = planPreconditions(resolvedTargets, roles, executingUser);
+    const actions = [];
     if (errors.length) return { actions, errors };
+    actions.push({ kind: 'break-inheritance', copyRoleAssignments: false, clearSubscopes: false });
+    for (const t of resolvedTargets) actions.push({ kind: 'grant', principalId: t.id, principalTitle: t.title, roleDefId: roles[t.role].id, roleName: t.role });
+    actions.push({ kind: 'remove-acting-user', principalId: executingUser.id, principalTitle: executingUser.title ?? String(executingUser.id), conditional: true });
+    return { actions, errors };
+  };
+
+  /** RECOVERY-MODE plan from LIVE direct assignments after a partial run.
+   *  Fails closed (errors, zero actions) on: any direct Limited Access binding,
+   *  any unexpected direct binding on a target, or any non-target direct
+   *  principal other than the acting user. Otherwise plans the missing grants in
+   *  fixed target order plus the conditional acting-user removal. An empty plan
+   *  is the terminal verification-only state. */
+  const planRecoveryMutations = (normalized, resolvedTargets, roles, hasUniqueRoleAssignments, executingUser) => {
+    const errors = planPreconditions(resolvedTargets, roles, executingUser);
+    if (errors.length) return { actions: [], errors };
+    if (hasUniqueRoleAssignments === false) return planNormalMutations(resolvedTargets, roles, executingUser); // nothing committed yet
+    const actions = [];
     const byId = new Map(normalized.map(p => [p.principalId, p]));
     const targetIds = new Set(resolvedTargets.map(t => t.id));
-    const owners = resolvedTargets[0];
-    if (owners.title !== 'C3 Owners' || owners.role !== 'Full Control') errors.push('target[0] must be C3 Owners = Full Control');
-    if (hasUniqueRoleAssignments === false) actions.push({ kind: 'break-inheritance', copyRoleAssignments: true, clearSubscopes: false });
-    // Grants in fixed target order (Owners first — Full Control exists before any removal).
-    for (const t of resolvedTargets) {
-      const roleDef = roles[t.role];
-      const p = byId.get(t.id);
-      const has = p?.bindings.some(b => b.name === t.role) ?? false;
-      if (!has) actions.push({ kind: 'grant', principalId: t.id, principalTitle: t.title, roleDefId: roleDef.id, roleName: t.role });
-      if (p?.bindings.some(b => b.name === LIMITED_ACCESS)) errors.push(`Limited Access binding on target principal ${t.title} — owner review required; not plannable`);
+    for (const p of normalized) {
+      if (p.bindings.some(b => b.name === LIMITED_ACCESS)) errors.push(`unexpected direct Limited Access binding on ${p.title ?? p.principalId} — owner review required`);
     }
-    // Revoke extra bindings on TARGET principals (sorted by title, then role name).
-    const revokes = [];
     for (const t of resolvedTargets) {
       const p = byId.get(t.id);
-      if (!p) continue;
-      for (const b of p.bindings) {
-        if (b.name === t.role || b.name === LIMITED_ACCESS) continue;
-        revokes.push({ kind: 'revoke-binding', principalId: t.id, principalTitle: t.title, roleDefId: b.id, roleName: b.name });
-      }
+      const nonLimited = p ? p.bindings.filter(b => b.name !== LIMITED_ACCESS) : [];
+      const unexpected = nonLimited.filter(b => b.name !== t.role);
+      if (unexpected.length) errors.push(`unexpected/ambiguous direct binding(s) on target ${t.title}: ${unexpected.map(b => b.name).join(', ')} — owner review required`);
+      if (!nonLimited.some(b => b.name === t.role)) actions.push({ kind: 'grant', principalId: t.id, principalTitle: t.title, roleDefId: roles[t.role].id, roleName: t.role });
     }
-    revokes.sort((x, y) => x.principalTitle.localeCompare(y.principalTitle) || x.roleName.localeCompare(y.roleName));
-    actions.push(...revokes);
-    // Remove whole NON-target principals (sorted by title, then id).
-    const removes = normalized
-      .filter(p => !targetIds.has(p.principalId))
-      .map(p => ({ kind: 'remove-principal', principalId: p.principalId, principalTitle: p.title ?? String(p.principalId) }))
-      .sort((x, y) => String(x.principalTitle).localeCompare(String(y.principalTitle)) || x.principalId - y.principalId);
-    actions.push(...removes);
-    // Invariant: the plan must NEVER revoke or remove the Owners Full Control binding.
-    if (actions.some(a => (a.kind === 'revoke-binding' && a.principalId === owners.id && a.roleName === 'Full Control') || (a.kind === 'remove-principal' && a.principalId === owners.id)))
-      errors.push('INVARIANT VIOLATION: plan would revoke/remove C3 Owners Full Control — refuse to plan');
+    for (const p of normalized) {
+      if (!targetIds.has(p.principalId) && p.principalId !== executingUser.id)
+        errors.push(`unexpected non-target direct principal ${p.title ?? p.principalId} (#${p.principalId}) — owner review required`);
+    }
+    if (actingUserAssignment(normalized, executingUser.id)) actions.push({ kind: 'remove-acting-user', principalId: executingUser.id, principalTitle: executingUser.title ?? String(executingUser.id), conditional: true });
+    if (errors.length) return { actions: [], errors };
     return { actions, errors };
   };
 
   /** Deterministic string form of a plan (for evidence binding and recovery). */
   const planActionStrings = (actions) => actions.map(a =>
-    a.kind === 'break-inheritance' ? 'break-inheritance(copy=true,clearSubscopes=false)'
+    a.kind === 'break-inheritance' ? 'break-inheritance(copy=false,clearSubscopes=false)'
       : a.kind === 'grant' ? `grant:${a.principalTitle}#${a.principalId}=${a.roleName}#${a.roleDefId}`
-      : a.kind === 'revoke-binding' ? `revoke:${a.principalTitle}#${a.principalId}-${a.roleName}#${a.roleDefId}`
-      : `remove:${a.principalTitle}#${a.principalId}`);
+      : `remove-acting-user:${a.principalTitle}#${a.principalId}`);
 
   /** Non-ACL dimensions that NO Phase 3D mutation may change. Returns drifted keys.
    *  listEtag is deliberately excluded — role-assignment mutations may or may not
@@ -192,7 +229,9 @@ export {
   normalizeAssignments,
   aclFingerprintInput,
   evaluateAcl,
-  planMutations,
+  actingUserAssignment,
+  planNormalMutations,
+  planRecoveryMutations,
   planActionStrings,
   nonAclDrift,
 };
