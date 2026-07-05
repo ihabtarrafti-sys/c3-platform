@@ -182,6 +182,45 @@ fresh-load rendering does not recover after propagation, retract+redeploy the
 solution cleanly (hosting operation, no code change). Part 19.4 goes green — and
 Internal V1.0 can be declared — once both paths are confirmed.
 
+### Version bump 1.0.0.0 → 1.0.0.1 (single clean deploy, 2026-07-05) — render STILL blank; STOPPED
+
+Per owner directive, bumped ONLY `solution.version` (1.0.0.0 → 1.0.0.1) in
+`package-solution.json` (runtime asset unchanged `bb2ffba3…`; Part 19.4 fix
+carried unchanged; full gate PASS), rebuilt from the clean tree, and performed
+exactly ONE tenant-wide catalog deploy (`Add(overwrite=true)` + `Deploy`,
+200/200). No retract, no per-site install, no other same-version overwrite.
+
+**Read-only post-deploy verification:**
+- catalog `AppCatalogVersion` = **1.0.0.1**, `Deployed=true`, `IsEnabled=true`;
+- per-site app instances on `/sites/C3` = **0** (tenant deployment preserved);
+- no list/field/ACL/group/operational SharePoint state changed.
+
+**Fresh-context hosted result: STILL BLANK.** On a genuinely fresh tab the C3
+webpart does not render. Evidence captured (owner directive stop condition):
+- **loaded host bundle:** `c-3-host-web-part_2bd683a49a92be3c0c69.js` (200);
+- **loaded runtime chunk:** `.../ClientSideAssets/45869e8b-…/chunk.c3-runtime_c595c83d2e1a77358fa2.js`,
+  SHA-256 `dc718d6c045690ff58261f136384b4ab3605467e20681acb1faed5598ad7d1a0`
+  — **exact match** to the packaged build (asset `bb2ffba3…`);
+- **webpart container present** (component id `842c36e2-5aae-4b32-814c-1b89436ee9c7`)
+  but its React mount `<div>` is **empty** (innerHTML ≈ 11 chars) — the host
+  webpart rendered its container but the SPFx `componentDidMount` dynamic-import
+  + `application.mount()` did not populate it;
+- **console errors: NONE; network failures: NONE** (all 200; ClientSideAssets
+  served from cache). A native `import()` of the chunk returns no ES exports —
+  expected for a webpack chunk (it registers with the host's webpack runtime),
+  NOT evidence of a broken runtime.
+
+**Assessment:** the correct assets load with matching hashes and the version is
+genuinely new, yet the webpart mount silently no-ops on fresh loads while warm
+sessions continue to work — a SharePoint/SPFx host-side registration/render
+state that a version bump did not clear. **Per directive: STOPPED — no further
+deploys.** Do NOT use repeated redeploys as a cache-clear. Candidate next steps
+for owner review (hosting operations, no code change): allow longer propagation
+of the new version then hard-refresh; if still blank, a clean **retract +
+redeploy** of the solution in the tenant app catalog (which fully de-registers
+and re-registers the app), or re-adding the C3 webpart to the page. The deployed
+CODE is correct and gate-green; this is purely a hosting render-state blocker.
+
 ## Part 19.5 — TD-33 cold-start modal remediation (RESOLVED, hosted-green 2026-07-05)
 
 **Root cause (app-owned call path):** every "Add/Create" panel rendered its
