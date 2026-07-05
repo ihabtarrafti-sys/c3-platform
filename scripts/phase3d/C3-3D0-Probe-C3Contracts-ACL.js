@@ -1,0 +1,326 @@
+(async () => {
+  'use strict';
+  // ═══ C3 S32 · 3D-0 rev1 — READ-ONLY PROBE: C3Contracts ACL + principal resolution ═══
+  // Owner-executed in a browser console on https://geekaygames.sharepoint.com/sites/C3.
+  // GET-only. Zero mutations. Resolves live principals/role definitions, captures a
+  // two-snapshot-stable pre-state, previews the deterministic Phase 3D mutation plan,
+  // and exports complete evidence to window.__C3_PHASE3D0_EVIDENCE.
+  // Blockers are RECORDED (never thrown) after target identity is proven.
+  const TARGET_GUID = '88e835ad-ffd8-4565-9364-c1c1b4f0fc2f';
+  const EXPECTED_URL = '/sites/C3/Lists/C3_Contracts';
+  const EXPECTED_TITLE = 'C3Contracts';
+  // Phase 3C hosted-green closure fingerprint (reduced Stage-A-compatible formula):
+  const EXPECTED_SCHEMA_FP = '3a13b28f94ccc462e5b5001a56a0d543cab3a74a4ba96c5913498087334bea98';
+
+  const PAGE = 500, MAX_PAGES = 200;
+  const fail = (m) => { console.error(`%c✖ FAIL-CLOSED: ${m}`, 'color:#c00;font-weight:bold'); throw new Error(m); };
+  const web = (typeof _spPageContextInfo !== 'undefined' && _spPageContextInfo.webAbsoluteUrl) || `${location.origin}/sites/C3`;
+  if (!/\/sites\/C3$/i.test(web)) fail(`Wrong web context: ${web}`);
+  const ORIGIN = new URL(web).origin, WEBPATH = new URL(web).pathname.replace(/\/$/, '');
+  const trust = (u, l) => { let p; try { p = new URL(u, web + '/'); } catch { fail(`${l}: unparseable link`); }
+    if (p.origin !== ORIGIN || !p.pathname.toLowerCase().startsWith(`${WEBPATH.toLowerCase()}/_api/`)) fail(`${l}: untrusted link ${u}`); return p.href; };
+  const GETraw = async (url, accept = 'application/json;odata=nometadata') => {
+    const response = await fetch(url, { headers: { Accept: accept }, credentials: 'same-origin' });
+    if (response.status === 404) return { __404: true };
+    if (!response.ok) {
+      let body = '';
+      try { body = await response.text(); } catch { body = '<unreadable response body>'; }
+      fail(`GET ${url} → HTTP ${response.status}${body ? ` · BODY: ${body}` : ''}`);
+    }
+    let json; try { json = await response.json(); } catch { fail(`Non-JSON response: ${url}`); }
+    json.__etagHeader = response.headers.get('ETag') ?? null; return json; };
+  const getAll = async (path, l) => { let url = web + path; const items = []; const seen = new Set(); let n = 0;
+    while (url) { if (n > 0) url = trust(url, l); if (seen.has(url)) fail(`${l}: paging loop`); seen.add(url);
+      if (++n > MAX_PAGES) fail(`${l}: page cap`); const j = await GETraw(url);
+      if (j.__404) fail(`${l}: 404 mid-pagination`); if (!Array.isArray(j.value)) fail(`${l}: malformed page`);
+      items.push(...j.value); const a = j['odata.nextLink'], b = j['@odata.nextLink'];
+      if (a != null && b != null && a !== b) fail(`${l}: conflicting nextLinks`); url = a ?? b ?? null; }
+    return items; };
+  const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map(b => b.toString(16).padStart(2, '0')).join('');
+  const nz = (v) => (v === null || v === undefined) ? '∅' : String(v);
+
+// ── 3D-CORE-BEGIN ──
+  /** Exact Phase 3D target: five principals, no extras. V1 authoring = Owners only. */
+  const P3D_TARGET_GROUPS = Object.freeze([
+    Object.freeze({ title: 'C3 Owners', role: 'Full Control' }),
+    Object.freeze({ title: 'C3 Operations', role: 'Read' }),
+    Object.freeze({ title: 'C3 Legal', role: 'Read' }),
+    Object.freeze({ title: 'C3 Finance', role: 'Read' }),
+    Object.freeze({ title: 'C3 Management', role: 'Read' }),
+  ]);
+  /** Groups that must NOT retain direct list access (detected as extras like any
+   *  other non-target principal — listed here for explicit evidence reporting). */
+  const P3D_FORBIDDEN_GROUPS = Object.freeze(['C3 HR', 'C3 Members', 'C3 Visitors']);
+  const SP_PRINCIPAL_TYPE_SHAREPOINT_GROUP = 8;
+  const LIMITED_ACCESS = 'Limited Access';
+
+  /** Resolve the five target groups against the live site-group inventory.
+   *  Fails (error entries) on missing, duplicate/ambiguous, or non-group principals.
+   *  Never resolves by assumption — only by exact trimmed live Title. */
+  const resolvePrincipals = (siteGroups, targetGroups = P3D_TARGET_GROUPS) => {
+    const errors = [];
+    const resolved = [];
+    for (const t of targetGroups) {
+      const matches = (siteGroups ?? []).filter(g => String(g.Title ?? '').trim() === t.title);
+      if (matches.length === 0) { errors.push(`missing required group: ${t.title}`); continue; }
+      if (matches.length > 1) { errors.push(`duplicate/ambiguous group title: ${t.title} (ids ${matches.map(m => m.Id).join(', ')})`); continue; }
+      const g = matches[0];
+      if (g.PrincipalType !== SP_PRINCIPAL_TYPE_SHAREPOINT_GROUP) { errors.push(`unexpected principal type for ${t.title}: ${g.PrincipalType} (expected SharePoint group = ${SP_PRINCIPAL_TYPE_SHAREPOINT_GROUP})`); continue; }
+      if (!Number.isInteger(g.Id) || g.Id <= 0) { errors.push(`unresolvable principal id for ${t.title}: ${g.Id}`); continue; }
+      resolved.push({ title: t.title, role: t.role, id: g.Id, loginName: g.LoginName ?? null, principalType: g.PrincipalType });
+    }
+    return { resolved, errors };
+  };
+
+  /** Resolve 'Full Control' and 'Read' role definitions by exact live Name.
+   *  Fails on missing or duplicate definitions. */
+  const resolveRoleDefinitions = (roleDefinitions) => {
+    const errors = [];
+    const roles = {};
+    for (const name of ['Full Control', 'Read']) {
+      const matches = (roleDefinitions ?? []).filter(r => String(r.Name ?? '').trim() === name);
+      if (matches.length === 0) { errors.push(`missing role definition: ${name}`); continue; }
+      if (matches.length > 1) { errors.push(`duplicate role definition name: ${name} (ids ${matches.map(m => m.Id).join(', ')})`); continue; }
+      roles[name] = { id: matches[0].Id, name };
+    }
+    return { roles, errors };
+  };
+
+  /** Normalize expanded SharePoint role assignments to a deterministic shape:
+   *  [{ principalId, title, loginName, principalType, bindings: [{id, name}] }]
+   *  sorted by principalId; bindings sorted by name then id. */
+  const normalizeAssignments = (roleAssignments) =>
+    (roleAssignments ?? []).map(a => ({
+      principalId: a.PrincipalId,
+      title: a.Member?.Title ?? null,
+      loginName: a.Member?.LoginName ?? null,
+      principalType: a.Member?.PrincipalType ?? null,
+      bindings: (a.RoleDefinitionBindings ?? [])
+        .map(b => ({ id: b.Id, name: String(b.Name ?? '').trim() }))
+        .sort((x, y) => x.name.localeCompare(y.name) || x.id - y.id),
+    })).sort((x, y) => x.principalId - y.principalId);
+
+  /** Frozen ACL fingerprint input (formula identical to the Phase 3C snapshot
+   *  fingerprint): PrincipalId|LoginName-or-Title|sorted-role-names, sorted lines. */
+  const aclFingerprintInput = (roleAssignments) =>
+    (roleAssignments ?? []).map(a => `${a.PrincipalId}|${a.Member?.LoginName ?? a.Member?.Title ?? ''}|${(a.RoleDefinitionBindings ?? []).map(r => r.Name).sort().join(',')}`).sort().join('\n');
+
+  /** Evaluate a normalized ACL against the resolved five-principal target.
+   *  exact === true ⇔ exactly the five target principals, each with exactly its
+   *  single required binding, and nothing else. */
+  const evaluateAcl = (normalized, resolvedTargets) => {
+    const byId = new Map(normalized.map(p => [p.principalId, p]));
+    const targetIds = new Set(resolvedTargets.map(t => t.id));
+    const matchedTargets = [];
+    const missingTargets = [];
+    const wrongBindings = [];
+    const limitedAccessOnTargets = [];
+    for (const t of resolvedTargets) {
+      const p = byId.get(t.id);
+      if (!p) { missingTargets.push(t.title); continue; }
+      if (p.bindings.some(b => b.name === LIMITED_ACCESS)) limitedAccessOnTargets.push(t.title);
+      const nonLimited = p.bindings.filter(b => b.name !== LIMITED_ACCESS);
+      if (nonLimited.length === 1 && nonLimited[0].name === t.role) matchedTargets.push(t.title);
+      else wrongBindings.push({ title: t.title, expected: t.role, actual: nonLimited.map(b => b.name) });
+    }
+    const extraPrincipals = normalized
+      .filter(p => !targetIds.has(p.principalId))
+      .map(p => ({ principalId: p.principalId, title: p.title, bindings: p.bindings.map(b => b.name) }));
+    const forbiddenPresent = extraPrincipals
+      .filter(p => P3D_FORBIDDEN_GROUPS.includes(String(p.title ?? '').trim()))
+      .map(p => p.title);
+    const exact = missingTargets.length === 0 && wrongBindings.length === 0
+      && extraPrincipals.length === 0 && limitedAccessOnTargets.length === 0
+      && matchedTargets.length === resolvedTargets.length;
+    return { exact, matchedTargets, missingTargets, wrongBindings, extraPrincipals, forbiddenPresent, limitedAccessOnTargets };
+  };
+
+  /** Deterministic mutation plan. Grant-before-remove, one mutation per action:
+   *    1. break-inheritance(copy=true, clearSubscopes=false)   [only if inherited]
+   *    2. grant:<title>#<pid>=<role>#<rid>                     [target order]
+   *    3. revoke:<title>#<pid>-<role>#<rid>                    [extra bindings ON target principals]
+   *    4. remove:<title>#<pid>                                 [whole non-target principals]
+   *  Errors (never actions): Limited Access on a target principal; unresolved
+   *  targets; any plan that would revoke the C3 Owners Full Control binding. */
+  const planMutations = (normalized, resolvedTargets, roles, hasUniqueRoleAssignments) => {
+    const errors = [];
+    const actions = [];
+    if (resolvedTargets.length !== P3D_TARGET_GROUPS.length) errors.push(`unresolved targets: ${resolvedTargets.length}/${P3D_TARGET_GROUPS.length} — refuse to plan`);
+    if (!roles?.['Full Control'] || !roles?.Read) errors.push('unresolved role definitions — refuse to plan');
+    if (errors.length) return { actions, errors };
+    const byId = new Map(normalized.map(p => [p.principalId, p]));
+    const targetIds = new Set(resolvedTargets.map(t => t.id));
+    const owners = resolvedTargets[0];
+    if (owners.title !== 'C3 Owners' || owners.role !== 'Full Control') errors.push('target[0] must be C3 Owners = Full Control');
+    if (hasUniqueRoleAssignments === false) actions.push({ kind: 'break-inheritance', copyRoleAssignments: true, clearSubscopes: false });
+    // Grants in fixed target order (Owners first — Full Control exists before any removal).
+    for (const t of resolvedTargets) {
+      const roleDef = roles[t.role];
+      const p = byId.get(t.id);
+      const has = p?.bindings.some(b => b.name === t.role) ?? false;
+      if (!has) actions.push({ kind: 'grant', principalId: t.id, principalTitle: t.title, roleDefId: roleDef.id, roleName: t.role });
+      if (p?.bindings.some(b => b.name === LIMITED_ACCESS)) errors.push(`Limited Access binding on target principal ${t.title} — owner review required; not plannable`);
+    }
+    // Revoke extra bindings on TARGET principals (sorted by title, then role name).
+    const revokes = [];
+    for (const t of resolvedTargets) {
+      const p = byId.get(t.id);
+      if (!p) continue;
+      for (const b of p.bindings) {
+        if (b.name === t.role || b.name === LIMITED_ACCESS) continue;
+        revokes.push({ kind: 'revoke-binding', principalId: t.id, principalTitle: t.title, roleDefId: b.id, roleName: b.name });
+      }
+    }
+    revokes.sort((x, y) => x.principalTitle.localeCompare(y.principalTitle) || x.roleName.localeCompare(y.roleName));
+    actions.push(...revokes);
+    // Remove whole NON-target principals (sorted by title, then id).
+    const removes = normalized
+      .filter(p => !targetIds.has(p.principalId))
+      .map(p => ({ kind: 'remove-principal', principalId: p.principalId, principalTitle: p.title ?? String(p.principalId) }))
+      .sort((x, y) => String(x.principalTitle).localeCompare(String(y.principalTitle)) || x.principalId - y.principalId);
+    actions.push(...removes);
+    // Invariant: the plan must NEVER revoke or remove the Owners Full Control binding.
+    if (actions.some(a => (a.kind === 'revoke-binding' && a.principalId === owners.id && a.roleName === 'Full Control') || (a.kind === 'remove-principal' && a.principalId === owners.id)))
+      errors.push('INVARIANT VIOLATION: plan would revoke/remove C3 Owners Full Control — refuse to plan');
+    return { actions, errors };
+  };
+
+  /** Deterministic string form of a plan (for evidence binding and recovery). */
+  const planActionStrings = (actions) => actions.map(a =>
+    a.kind === 'break-inheritance' ? 'break-inheritance(copy=true,clearSubscopes=false)'
+      : a.kind === 'grant' ? `grant:${a.principalTitle}#${a.principalId}=${a.roleName}#${a.roleDefId}`
+      : a.kind === 'revoke-binding' ? `revoke:${a.principalTitle}#${a.principalId}-${a.roleName}#${a.roleDefId}`
+      : `remove:${a.principalTitle}#${a.principalId}`);
+
+  /** Non-ACL dimensions that NO Phase 3D mutation may change. Returns drifted keys.
+   *  listEtag is deliberately excluded — role-assignment mutations may or may not
+   *  advance it, and ACL endpoints expose no ETag semantics in this tenant. */
+  const nonAclDrift = (a, b) => {
+    const dims = {
+      guid: [a.list.guid, b.list.guid], title: [a.list.title, b.list.title], url: [a.list.url, b.list.url],
+      itemCount: [a.list.itemCount, b.list.itemCount],
+      settings: [JSON.stringify([a.list.baseTemplate, a.list.baseType, a.list.contentTypesEnabled, a.list.enableVersioning, a.list.majorVersionLimit, a.list.enableAttachments]),
+        JSON.stringify([b.list.baseTemplate, b.list.baseType, b.list.contentTypesEnabled, b.list.enableVersioning, b.list.majorVersionLimit, b.list.enableAttachments])],
+      schema: [a.schemaCompatibilityFingerprintSha256, b.schemaCompatibilityFingerprintSha256],
+      fieldInventory: [a.fieldInventoryFingerprintSha256, b.fieldInventoryFingerprintSha256],
+      scopes: [JSON.stringify(a.uniqueChildScopes), JSON.stringify(b.uniqueChildScopes)],
+      inbound: [JSON.stringify(a.inboundLookups), JSON.stringify(b.inboundLookups)],
+    };
+    return Object.entries(dims).filter(([, [x, y]]) => x !== y).map(([k]) => k);
+  };
+// ── 3D-CORE-END ──
+
+  const FIELD_SELECT = '$select=Id,InternalName,Title,TypeAsString,Required,Indexed,EnforceUniqueValues,Hidden,ReadOnlyField,Sealed,FromBaseType,CanBeDeleted,LookupList,LookupField,DefaultValue,SchemaXml';
+  const scanLookupsInto = async (targetGuid) => {
+    const hits = []; const t = targetGuid.toLowerCase();
+    for (const sl of await getAll(`/_api/web/lists?$select=Id,Title&$top=${PAGE}`, 'site lists'))
+      for (const f of await getAll(`/_api/web/lists(guid'${sl.Id}')/fields?$select=InternalName,TypeAsString,LookupList&$top=${PAGE}`, `fields of ${sl.Title}`))
+        if (['Lookup', 'LookupMulti'].includes(f.TypeAsString) && f.LookupList && f.LookupList.replace(/[{}]/g, '').toLowerCase() === t && sl.Id.toLowerCase() !== t)
+          hits.push(`${sl.Id.toLowerCase()}|${sl.Title}|${f.InternalName}|${f.TypeAsString}`);
+    return hits.sort(); };
+
+  /** COMPLETE read-only pre-state snapshot for Phase 3D (list + ACL + fingerprints). */
+  const captureAclSnapshot = async () => {
+    const li = await GETraw(`${web}/_api/web/lists(guid'${TARGET_GUID}')?$select=Id,Title,ItemCount,LastItemModifiedDate,BaseTemplate,BaseType,ContentTypesEnabled,EnableVersioning,MajorVersionLimit,EnableAttachments,RootFolder/ServerRelativeUrl&$expand=RootFolder`, 'application/json;odata=minimalmetadata');
+    if (li.__404) fail('C3Contracts (by GUID) not found.');
+    const items = await getAll(`/_api/web/lists(guid'${TARGET_GUID}')/items?$select=Id,Title,HasUniqueRoleAssignments&$orderby=Id asc&$top=${PAGE}`, 'items');
+    const fields = await getAll(`/_api/web/lists(guid'${TARGET_GUID}')/fields?${FIELD_SELECT}&$top=${PAGE}`, 'fields');
+    const acl = await getAll(`/_api/web/lists(guid'${TARGET_GUID}')/roleassignments?$expand=Member,RoleDefinitionBindings&$select=PrincipalId,Member/Id,Member/LoginName,Member/Title,Member/PrincipalType,RoleDefinitionBindings/Id,RoleDefinitionBindings/Name&$top=${PAGE}`, 'ACL');
+    const hasUnique = (await GETraw(`${web}/_api/web/lists(guid'${TARGET_GUID}')/HasUniqueRoleAssignments`)).value;
+    const inbound = await scanLookupsInto(TARGET_GUID);
+    const snap = {
+      list: { guid: li.Id, title: li.Title, url: li.RootFolder.ServerRelativeUrl, itemCount: li.ItemCount,
+        lastItemModifiedDate: li.LastItemModifiedDate, listEtag: li.__etagHeader ?? li['odata.etag'] ?? null,
+        baseTemplate: li.BaseTemplate, baseType: li.BaseType, contentTypesEnabled: li.ContentTypesEnabled,
+        enableVersioning: li.EnableVersioning, majorVersionLimit: li.MajorVersionLimit, enableAttachments: li.EnableAttachments,
+        hasUniqueRoleAssignments: hasUnique },
+      items: items.map(i => ({ Id: i.Id, Title: i.Title })), fields, roleAssignments: acl, inboundLookups: inbound,
+      uniqueChildScopes: items.filter(i => i.HasUniqueRoleAssignments === true).map(i => i.Id).sort((a, b) => a - b),
+    };
+    // REDUCED Stage-A-compatible schema fingerprint — formula FROZEN.
+    snap.schemaCompatibilityFingerprintSha256 = await sha(fields.map(f => `${f.InternalName}|${f.TypeAsString}|${f.Required}|${f.Indexed}|${f.EnforceUniqueValues}|${f.Hidden}|${f.ReadOnlyField}|${f.LookupList ?? ''}|${f.LookupField ?? ''}`).sort().join('\n'));
+    // COMPLETE field-inventory fingerprint (frozen formula; field-resource ETag slot
+    // is '∅' — fields expose no ETag in this hosted tenant).
+    snap.fieldInventoryFingerprintSha256 = await sha(fields.map(f => [f.Id, f.InternalName, f.Title, f.TypeAsString, f.Required, f.Indexed, f.EnforceUniqueValues, f.Hidden, f.ReadOnlyField, f.Sealed, f.FromBaseType, f.CanBeDeleted, f.LookupList, f.LookupField, f.DefaultValue, f.SchemaXml, f.__etag].map(nz).join('|')).sort().join('\n'));
+    snap.aclFingerprintSha256 = await sha(aclFingerprintInput(acl));
+    return snap;
+  };
+  const assertStable = (A, B) => {
+    const drift = nonAclDrift(A, B);
+    if (A.list.listEtag !== B.list.listEtag) drift.push('listEtag');
+    if (A.aclFingerprintSha256 !== B.aclFingerprintSha256) drift.push('acl');
+    if (A.list.hasUniqueRoleAssignments !== B.list.hasUniqueRoleAssignments) drift.push('inheritance');
+    if (A.list.lastItemModifiedDate !== B.list.lastItemModifiedDate) drift.push('lastModified');
+    if (drift.length) fail(`Evidence UNSTABLE between snapshots (${drift.join(', ')}) — rerun in a quiet window.`);
+  };
+
+  // ── Site-scope read-only inventory ──
+  const siteGroups = await getAll(`/_api/web/sitegroups?$select=Id,Title,LoginName,PrincipalType,OwnerTitle&$top=${PAGE}`, 'site groups');
+  const roleDefs = await getAll(`/_api/web/roledefinitions?$select=Id,Name,Hidden,RoleTypeKind&$top=${PAGE}`, 'role definitions');
+  const webAcl = await getAll(`/_api/web/roleassignments?$expand=Member,RoleDefinitionBindings&$select=PrincipalId,Member/Id,Member/LoginName,Member/Title,Member/PrincipalType,RoleDefinitionBindings/Id,RoleDefinitionBindings/Name&$top=${PAGE}`, 'web ACL');
+  const assoc = await GETraw(`${web}/_api/web?$select=AssociatedOwnerGroup/Id,AssociatedOwnerGroup/Title,AssociatedMemberGroup/Id,AssociatedMemberGroup/Title,AssociatedVisitorGroup/Id,AssociatedVisitorGroup/Title&$expand=AssociatedOwnerGroup,AssociatedMemberGroup,AssociatedVisitorGroup`);
+  const me = await GETraw(`${web}/_api/web/currentuser?$select=Id,Title,LoginName,IsSiteAdmin`);
+  const myGroups = await getAll(`/_api/web/currentuser/Groups?$select=Id,Title&$top=${PAGE}`, 'current user groups');
+  const myListPerms = await GETraw(`${web}/_api/web/lists(guid'${TARGET_GUID}')/EffectiveBasePermissions`);
+  const MANAGE_PERMISSIONS_LOW = 0x02000000; // SP.PermissionKind.managePermissions (kind 26 → 1<<25)
+  const canManage = (Number(BigInt(myListPerms.Low ?? '0') & BigInt(MANAGE_PERMISSIONS_LOW)) !== 0);
+
+  // ── Two-snapshot-stable list pre-state ──
+  const A = await captureAclSnapshot();
+  const B = await captureAclSnapshot();
+  assertStable(A, B);
+  if (A.list.title !== EXPECTED_TITLE) fail(`Title '${A.list.title}' ≠ ${EXPECTED_TITLE}`);
+  if (A.list.guid.toLowerCase() !== TARGET_GUID) fail(`GUID mismatch: ${A.list.guid}`);
+  if (A.list.url !== EXPECTED_URL) fail(`URL mismatch: ${A.list.url}`);
+
+  // ── Resolution + plan preview (assumes copy=true break for planning purposes) ──
+  const { resolved, errors: groupErrors } = resolvePrincipals(siteGroups);
+  const { roles, errors: roleErrors } = resolveRoleDefinitions(roleDefs);
+  const normalized = normalizeAssignments(A.roleAssignments);
+  const evaluation = resolved.length === P3D_TARGET_GROUPS.length ? evaluateAcl(normalized, resolved) : null;
+  const plan = planMutations(normalized, resolved, roles, A.list.hasUniqueRoleAssignments);
+  const planStrings = planActionStrings(plan.actions);
+
+  const out = { at: new Date().toISOString(), web, evidenceStable: true,
+    snapshotA: A,
+    snapshotB: { list: B.list, schemaCompatibilityFingerprintSha256: B.schemaCompatibilityFingerprintSha256,
+      fieldInventoryFingerprintSha256: B.fieldInventoryFingerprintSha256, aclFingerprintSha256: B.aclFingerprintSha256,
+      uniqueChildScopes: B.uniqueChildScopes, inboundLookups: B.inboundLookups },
+    siteGroups, roleDefinitions: roleDefs, webRoleAssignments: webAcl,
+    associatedGroups: { owner: assoc.AssociatedOwnerGroup ?? null, member: assoc.AssociatedMemberGroup ?? null, visitor: assoc.AssociatedVisitorGroup ?? null },
+    executingUser: { ...me, groups: myGroups, listEffectiveBasePermissions: { High: myListPerms.High, Low: myListPerms.Low }, hasManagePermissionsOnList: canManage },
+    resolvedTargets: resolved, resolvedRoles: roles,
+    currentListAclNormalized: normalized, evaluation, plan: planStrings };
+
+  // ── BLOCKERS: recorded as evidence, never thrown ──
+  out.blockers = [];
+  for (const e of groupErrors) out.blockers.push(`principal resolution: ${e}`);
+  for (const e of roleErrors) out.blockers.push(`role-definition resolution: ${e}`);
+  for (const e of plan.errors) out.blockers.push(`plan: ${e}`);
+  if (A.schemaCompatibilityFingerprintSha256 !== EXPECTED_SCHEMA_FP) out.blockers.push(`schema fingerprint drift from closed Phase 3C state: ${A.schemaCompatibilityFingerprintSha256} ≠ ${EXPECTED_SCHEMA_FP}`);
+  if (A.list.itemCount !== 0 || A.items.length !== 0) out.blockers.push(`list not empty: ItemCount=${A.list.itemCount}`);
+  if (A.inboundLookups.length !== 0) out.blockers.push(`inbound lookup dependencies present: ${JSON.stringify(A.inboundLookups)}`);
+  if (A.uniqueChildScopes.length !== 0) out.blockers.push(`item-level unique scopes present: ${JSON.stringify(A.uniqueChildScopes)}`);
+  if (A.list.hasUniqueRoleAssignments === true) out.blockers.push('list ALREADY has unique role assignments — expected inherited pre-state; owner review required (possible partial prior run → 3D-1 RECOVERY_MODE)');
+  if (!canManage) out.blockers.push('executing user lacks ManagePermissions on C3Contracts — cannot run 3D-1');
+  if (me.IsSiteAdmin !== true && !myGroups.some(g => String(g.Title ?? '').trim() === 'C3 Owners')) out.blockers.push('executing user is neither site admin nor a C3 Owners member — administrative-access preservation cannot be proven');
+  if (!(A.list.enableVersioning === true && A.list.majorVersionLimit === 10 && A.list.enableAttachments === false)) out.blockers.push('list settings drifted from canonical Phase 3C state');
+
+  window.__C3_PHASE3D0_EVIDENCE = out;
+  console.log('Resolved target principals:', JSON.stringify(resolved, null, 1));
+  console.log('Resolved role definitions:', JSON.stringify(roles, null, 1));
+  console.log('Associated groups:', JSON.stringify(out.associatedGroups, null, 1));
+  console.log('Executing user:', JSON.stringify({ Id: me.Id, LoginName: me.LoginName, IsSiteAdmin: me.IsSiteAdmin, hasManagePermissionsOnList: canManage }, null, 1));
+  console.log('Current C3Contracts ACL (normalized):', JSON.stringify(normalized, null, 1));
+  console.log('Current ACL fingerprint (EXPECTED_PRE_ACL_FP for 3D-1):', A.aclFingerprintSha256);
+  console.log('Schema fingerprint (must equal Phase 3C closure):', A.schemaCompatibilityFingerprintSha256);
+  console.log('Field-inventory fingerprint (EXPECTED_PRE_FIELD_INVENTORY_FP for 3D-1):', A.fieldInventoryFingerprintSha256);
+  console.log('List ETag (EXPECTED_PRE_LIST_ETAG for 3D-1):', A.list.listEtag);
+  console.log('HasUniqueRoleAssignments:', A.list.hasUniqueRoleAssignments, '· ItemCount:', A.list.itemCount, '· inbound:', JSON.stringify(A.inboundLookups), '· scopes:', JSON.stringify(A.uniqueChildScopes));
+  console.log('Deterministic mutation plan (EXPECTED_PLAN for 3D-1):', JSON.stringify(planStrings, null, 1));
+  console.log('Evaluation vs exact five-principal target:', JSON.stringify(evaluation, null, 1));
+  console.log('Blockers:', JSON.stringify(out.blockers, null, 1));
+  console.log('═══ PHASE 3D-0 EVIDENCE JSON (also on window.__C3_PHASE3D0_EVIDENCE) ═══');
+  console.log(JSON.stringify(out, null, 2));
+  console.log(`%c═══ 3D-0 COMPLETE — GET-only probe · ZERO mutations occurred · two-snapshot stable · blockers=${out.blockers.length}${out.blockers.length ? ' — OWNER REVIEW REQUIRED before 3D-1' : ''} ═══`, out.blockers.length ? 'color:#c00;font-weight:bold' : 'color:#080;font-weight:bold');
+})();
