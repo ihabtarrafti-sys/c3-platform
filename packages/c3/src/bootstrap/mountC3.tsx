@@ -55,6 +55,28 @@ export const mountC3 = (
   container: HTMLElement,
   runtime?: HostRuntime,
 ): void => {
+  // TD-34 hosted diagnostics: record whether a tabster instance already
+  // exists on this window and whether it is a FOREIGN (older) one lacking
+  // the internals our Fluent version requires. Foreign = SharePoint's shell
+  // won the cold-load race; predicts degraded modal surfaces this session.
+  // Bounded and non-sensitive (two booleans).
+  try {
+    const win = container.ownerDocument?.defaultView as
+      | (Window & { __tabsterInstance?: object; __C3_TABSTER_PROBE?: object })
+      | null
+      | undefined;
+    if (win) {
+      const existing = win.__tabsterInstance;
+      win.__C3_TABSTER_PROBE = {
+        preExisting: !!existing,
+        foreign: !!existing && !('attrHandlers' in existing),
+        at: new Date().toISOString(),
+      };
+    }
+  } catch {
+    /* diagnostics must never affect mounting */
+  }
+
   const hostContext = {
   ...defaultHostContext,
   ...(runtime?.context ?? {}),

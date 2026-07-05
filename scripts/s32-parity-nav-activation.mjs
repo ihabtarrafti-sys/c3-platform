@@ -98,10 +98,13 @@ check('TD-33: no always-mounted OverlayDrawer remains in a shared panel (each ga
   OVERLAY_PANELS.every(p => { const s = read(panelDir + p + '.tsx'); return s.indexOf('if (!shouldMount) return null;') < s.indexOf('<OverlayDrawer'); }));
 {
   const app = read('packages/c3/src/App.tsx');
+  // S33: TabsterInitializer is wrapped in a NON-FATAL boundary — the
+  // pre-registration is an optimization and must never kill the first render
+  // (hosted-proven TD-34 root cause: foreign SP tabster instance on cold loads).
   check('TD-33: modalizer pre-initialized at the FluentProvider root (public useModalAttributes)',
     app.includes("useModalAttributes } from '@fluentui/react-components'")
     && /const TabsterInitializer = \(\): null => \{[\s\S]{0,180}useModalAttributes\(\{ trapFocus: true \}\);/.test(app)
-    && /<FluentProvider[^>]*>\s*[\r\n]\s*<TabsterInitializer \/>/.test(app));
+    && /<FluentProvider[^>]*>\s*[\r\n]\s*<TabsterInitializerBoundary>\s*[\r\n]\s*<TabsterInitializer \/>/.test(app));
   check('TD-33: no private/unsupported Tabster API used (no direct tabster import / createTabster / _unstable)',
     !/from ['"]tabster['"]/.test(app) && !app.includes('createTabster') && !app.includes('_unstable'));
 }

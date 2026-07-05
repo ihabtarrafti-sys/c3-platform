@@ -164,6 +164,23 @@ check('boundary: onError sink is optional and cannot break the fallback',
   boundarySrc.includes('onError?: (error: Error) => void') &&
   /try \{\s*this\.props\.onError\?\.\(error\);\s*\} catch/.test(boundarySrc));
 
+// ── Hosted-proven root cause containment (1.0.0.5) ─────────────────────────
+// SP shell's FOREIGN older tabster instance is adopted by tabster 8.x on
+// race-lost cold loads; useModalAttributes then crashes the first render.
+// The pre-registration is an optimization and must be NON-FATAL.
+const appSrc = read('packages/c3/src/App.tsx');
+check('root-cause: TabsterInitializer isolated by a non-fatal boundary',
+  /class TabsterInitializerBoundary[\s\S]{0,600}getDerivedStateFromError/.test(appSrc) &&
+  /<TabsterInitializerBoundary>\s*<TabsterInitializer \/>\s*<\/TabsterInitializerBoundary>/.test(appSrc) &&
+  /this\.state\.failed \? null : this\.props\.children/.test(appSrc));
+check('root-cause: boundary failure is silent + sanitized (no rethrow, no PII)',
+  /componentDidCatch\(error: Error\): void \{[\s\S]{0,400}console\.warn/.test(appSrc) &&
+  !/throw error/.test(appSrc.slice(appSrc.indexOf('class TabsterInitializerBoundary'), appSrc.indexOf('export const C3App'))));
+check('root-cause: mountC3 publishes the bounded foreign-tabster probe',
+  mountSrc.includes('__C3_TABSTER_PROBE') &&
+  mountSrc.includes("!('attrHandlers' in existing)") &&
+  /try \{[\s\S]{0,700}__C3_TABSTER_PROBE[\s\S]{0,300}\} catch \{/.test(mountSrc));
+
 // forbidden approaches stay absent from runtime too.
 check('x: no reload/polling/edit-mode automation anywhere in the fix',
   !/setInterval|location\.reload|MSOLayout|displayMode/i.test(mountSrc + host));

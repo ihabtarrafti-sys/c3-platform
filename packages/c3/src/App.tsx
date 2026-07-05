@@ -1,3 +1,4 @@
+import * as React from 'react';
 import { FluentProvider, Toaster, useModalAttributes } from '@fluentui/react-components';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { AppConfig } from './config/AppConfig';
@@ -35,10 +36,52 @@ const TabsterInitializer = (): null => {
   return null;
 };
 
+/**
+ * TabsterInitializerBoundary — TD-34 root cause containment (Sprint 33).
+ *
+ * HOSTED-PROVEN cause of the normal-use cold-load blank: SharePoint's page
+ * shell creates its OWN (older) tabster instance on window.__tabsterInstance.
+ * tabster 8.x instance acquisition ADOPTS any existing instance without a
+ * version check, so when the C3 runtime chunk loses the cold-load race, our
+ * `useModalAttributes` receives SP's foreign instance, which has no
+ * `attrHandlers` → TypeError "Cannot read properties of undefined (reading
+ * 'set')" in a layout effect. Since S32 placed TabsterInitializer at app
+ * init, that race-lost crash killed the ENTIRE first render (React 18
+ * unmounts the tree → attached root, zero DOM — TD-34's exact signature).
+ * Warm loads win the race (cached chunk runs first, our instance is created
+ * before SP's) which is why Edit→Cancel "fixed" it.
+ *
+ * Tabster pre-registration is an OPTIMIZATION (TD-33 defence) and must never
+ * be fatal: this boundary silently absorbs its failure so the application
+ * always renders. On race-lost sessions Fluent modal surfaces may still fail
+ * bounded at the screen-level ErrorBoundary (pre-TD-33 exposure, unchanged);
+ * the real interop fix is tracked as follow-up work in the register.
+ */
+class TabsterInitializerBoundary extends React.Component<
+  { children: React.ReactNode },
+  { failed: boolean }
+> {
+  public state = { failed: false };
+  static getDerivedStateFromError(): { failed: boolean } {
+    return { failed: true };
+  }
+  componentDidCatch(error: Error): void {
+    // Non-fatal by design — sanitized log only.
+    console.warn(
+      `[C3] Tabster pre-registration failed (non-fatal; foreign host tabster instance): ${error.name}: ${error.message}`,
+    );
+  }
+  render(): React.ReactNode {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+
 export const C3App = ({ config }: { config: AppConfig }) => {
   return (
     <FluentProvider theme={c3Theme} style={c3CSSVars}>
-      <TabsterInitializer />
+      <TabsterInitializerBoundary>
+        <TabsterInitializer />
+      </TabsterInitializerBoundary>
       <QueryClientProvider client={queryClient}>
         <AppProvider config={config}>
           {/*

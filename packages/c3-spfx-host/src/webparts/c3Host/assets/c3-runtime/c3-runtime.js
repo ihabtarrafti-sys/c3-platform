@@ -13192,7 +13192,7 @@ Check the render method of \`` + r + "`." : "";
         };
       }
     }
-    function Oie(r) {
+    function Fie(r) {
       return r;
     }
     function Pz(r) {
@@ -15422,9 +15422,9 @@ Incoming: %s`, Te, "[" + o.join(", ") + "]", "[" + r.join(", ") + "]");
       }
       return [_, S];
     }
-    function Fie(r, o, c) {
-    }
     function Lie(r, o, c) {
+    }
+    function $ie(r, o, c) {
     }
     function yC(r, o, c) {
       var f = Mn, m = Fl(), S, D = Jo();
@@ -58584,30 +58584,48 @@ const Eie = {
       refetchOnWindowFocus: !1
     }
   }
-}), jie = () => (d3({ trapFocus: !0 }), null), UB = ({ config: e }) => /* @__PURE__ */ p.jsxs($5, { theme: kie, style: Die, children: [
-  /* @__PURE__ */ p.jsx(jie, {}),
+}), jie = () => (d3({ trapFocus: !0 }), null);
+class Aie extends A.Component {
+  constructor() {
+    super(...arguments);
+    W(this, "state", { failed: !1 });
+  }
+  static getDerivedStateFromError() {
+    return { failed: !0 };
+  }
+  componentDidCatch(n) {
+    console.warn(
+      `[C3] Tabster pre-registration failed (non-fatal; foreign host tabster instance): ${n.name}: ${n.message}`
+    );
+  }
+  render() {
+    return this.state.failed ? null : this.props.children;
+  }
+}
+const UB = ({ config: e }) => /* @__PURE__ */ p.jsxs($5, { theme: kie, style: Die, children: [
+  /* @__PURE__ */ p.jsx(Aie, { children: /* @__PURE__ */ p.jsx(jie, {}) }),
   /* @__PURE__ */ p.jsxs(jY, { client: Rie, children: [
     /* @__PURE__ */ p.jsx(qY, { config: e, children: /* @__PURE__ */ p.jsx(ete, { children: /* @__PURE__ */ p.jsx(Cie, {}) }) }),
     !e.disableToasts && /* @__PURE__ */ p.jsx(Tie, { children: /* @__PURE__ */ p.jsx(mN, { toasterId: AB, position: "top-end" }) })
   ] })
-] }), Aie = {
+] }), _ie = {
   displayName: "Ihab Tarrafti",
   email: "ihab@geekaygroupmea.com",
   loginName: "i:0#.f|membership|ihab@geekaygroupmea.com",
   c3Role: "owner"
-}, _ie = () => {
+}, Iie = () => {
   const e = O3(), t = {
     environment: e.environment,
     dataSourceMode: e.dataSourceMode,
     spSiteUrl: e.spSiteUrl ?? "https://geekaygames.sharepoint.com/sites/C3",
     disableToasts: e.disableToasts,
     authService: {
-      getCurrentUser: async () => Aie,
+      getCurrentUser: async () => _ie,
       getAccessToken: async () => ""
     }
   };
   return /* @__PURE__ */ p.jsx(UB, { config: t });
-}, Iie = [
+}, Pie = [
   ["C3 Platform Owners", "owner"],
   ["C3 Operations", "operations"],
   ["C3 HR", "hr"],
@@ -58615,7 +58633,7 @@ const Eie = {
   ["C3 Finance", "finance"],
   ["C3 Management", "management"]
 ];
-async function Pie(e, t) {
+async function Nie(e, t) {
   if (!t.trim())
     return console.warn(
       "[C3/RoleResolver] loginName is empty. Defaulting to visitor. Ensure pageContext.user.loginName is populated by the SPFx host."
@@ -58645,16 +58663,16 @@ async function Pie(e, t) {
       i
     ), "visitor";
   }
-  for (const [i, s] of Iie)
+  for (const [i, s] of Pie)
     if (n.includes(i))
       return console.info(`[C3/RoleResolver] Resolved role '${s}' via group '${i}'.`), s;
   return console.info(
     `[C3/RoleResolver] No C3 group matched for this user. Defaulting to visitor. Groups found: ${n.length ? n.join(", ") : "(none)"}`
   ), "visitor";
 }
-const Nie = () => {
+const Bie = () => {
   const e = O3(), t = e.userLoginName ?? "", n = e.spSiteUrl ?? "", i = A.useMemo(
-    () => Pie(n, t),
+    () => Nie(n, t),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [n, t]
   ), s = {
@@ -58686,14 +58704,27 @@ const Nie = () => {
     }
   };
   return /* @__PURE__ */ p.jsx(UB, { config: u });
-}, sw = /* @__PURE__ */ new WeakMap(), Bie = ({
+}, sw = /* @__PURE__ */ new WeakMap(), zie = ({
   onFirstCommit: e
 }) => {
   const t = zd.useRef(!1);
   return zd.useLayoutEffect(() => {
     t.current || (t.current = !0, e == null || e());
   }, [e]), null;
-}, zie = (e, t) => {
+}, Mie = (e, t) => {
+  var u;
+  try {
+    const d = (u = e.ownerDocument) == null ? void 0 : u.defaultView;
+    if (d) {
+      const h = d.__tabsterInstance;
+      d.__C3_TABSTER_PROBE = {
+        preExisting: !!h,
+        foreign: !!h && !("attrHandlers" in h),
+        at: (/* @__PURE__ */ new Date()).toISOString()
+      };
+    }
+  } catch {
+  }
   const n = {
     ...NN,
     ...(t == null ? void 0 : t.context) ?? {}
@@ -58705,25 +58736,25 @@ const Nie = () => {
       /* @__PURE__ */ p.jsx(
         zN,
         {
-          onError: (u) => {
-            var d;
-            return (d = t == null ? void 0 : t.onRuntimeError) == null ? void 0 : d.call(t, u.name, u.message);
+          onError: (d) => {
+            var h;
+            return (h = t == null ? void 0 : t.onRuntimeError) == null ? void 0 : h.call(t, d.name, d.message);
           },
-          children: /* @__PURE__ */ p.jsx(HY, { value: n, children: n.dataSourceMode === "sharepoint" ? /* @__PURE__ */ p.jsx(Nie, {}) : /* @__PURE__ */ p.jsx(_ie, {}) })
+          children: /* @__PURE__ */ p.jsx(HY, { value: n, children: n.dataSourceMode === "sharepoint" ? /* @__PURE__ */ p.jsx(Bie, {}) : /* @__PURE__ */ p.jsx(Iie, {}) })
         }
       ),
-      /* @__PURE__ */ p.jsx(Bie, { onFirstCommit: t == null ? void 0 : t.onFirstCommit })
+      /* @__PURE__ */ p.jsx(zie, { onFirstCommit: t == null ? void 0 : t.onFirstCommit })
     ] })
   );
-}, Mie = (e) => {
+}, Oie = (e) => {
   const t = sw.get(e);
   t && (t.unmount(), sw.delete(e));
-}, Vie = {
-  mount: zie,
-  unmount: Mie
+}, Wie = {
+  mount: Mie,
+  unmount: Oie
 };
 export {
-  zie as mountC3,
-  Vie as runtime,
-  Mie as unmountC3
+  Mie as mountC3,
+  Wie as runtime,
+  Oie as unmountC3
 };
