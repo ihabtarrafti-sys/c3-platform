@@ -959,7 +959,9 @@ export const MissionWorkspace = () => {
         onDismiss={() => setAddParticipantTarget(null)}
       />
 
-      {/* ── S29B: remove-participant dialog (mandatory reason; kit block) ──── */}
+      {/* ── S29B: remove-participant dialog (mandatory reason; kit block) ────
+           TD-33: mount only when open (cold-render Tabster modalizer guard). */}
+      {removeTarget !== null && (
       <Dialog open={removeTarget !== null} onOpenChange={(_, data) => { if (!data.open) setRemoveTarget(null); }}>
         <DialogSurface>
           <DialogBody>
@@ -1018,6 +1020,7 @@ export const MissionWorkspace = () => {
           </DialogBody>
         </DialogSurface>
       </Dialog>
+      )}
 
       {/* ── S29A: add-kit drawer (mounted outside the card tree) ───────────── */}
       <AddKitPanel
@@ -1028,7 +1031,9 @@ export const MissionWorkspace = () => {
         onDismiss={() => setAddKitTarget(null)}
       />
 
-      {/* ── S29A: reason dialog (Returned/Missing/Replaced + deactivation) ─── */}
+      {/* ── S29A: reason dialog (Returned/Missing/Replaced + deactivation) ───
+           TD-33: mount only when open (cold-render Tabster modalizer guard). */}
+      {reasonDialog !== null && (
       <Dialog open={reasonDialog !== null} onOpenChange={(_, data) => { if (!data.open) setReasonDialog(null); }}>
         <DialogSurface>
           <DialogBody>
@@ -1068,6 +1073,7 @@ export const MissionWorkspace = () => {
           </DialogBody>
         </DialogSurface>
       </Dialog>
+      )}
 
     </div>
   );

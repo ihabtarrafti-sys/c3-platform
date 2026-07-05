@@ -27,6 +27,7 @@ import {
 import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { useToast } from '@c3/hooks/useToast';
+import { useDeferredMount } from '@c3/hooks/useDeferredMount';
 import { useUpsertApparelProfile } from '@c3/hooks/useUpsertApparelProfile';
 import type { ApparelProfile, JerseySize } from '@c3/types';
 import { JERSEY_SIZES } from '@c3/types';
@@ -78,6 +79,10 @@ export const ApparelProfilePanel = ({ personId, personName, existing, open, onDi
       toast.error('Failed to save apparel profile', msg.slice(0, 240));
     }
   };
+
+  // TD-33: defer mounting the overlay until first opened (cold-render modalizer guard).
+  const shouldMount = useDeferredMount(open);
+  if (!shouldMount) return null;
 
   return (
     <OverlayDrawer open={open} onOpenChange={(_, data) => { if (!data.open) onDismiss(); }} position="end" size="medium">

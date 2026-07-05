@@ -51,6 +51,7 @@ import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { FormField } from '@c3/components/ui';
 import { useApp } from '@c3/hooks/useApp';
+import { useDeferredMount } from '@c3/hooks/useDeferredMount';
 import { useSubmitCredentialApproval } from '@c3/hooks/useSubmitCredentialApproval';
 import { useToast } from '@c3/hooks/useToast';
 import { credentialTypesFor } from '@c3/protocols';
@@ -190,6 +191,10 @@ export const AddCredentialPanel = ({
   const pendingLabel = isSP ? 'Submitting…'     : 'Registering…';
 
   // ── Render ────────────────────────────────────────────────────────────────
+
+  // TD-33: defer mounting the overlay until first opened (cold-render modalizer guard).
+  const shouldMount = useDeferredMount(open);
+  if (!shouldMount) return null;
 
   return (
     <OverlayDrawer

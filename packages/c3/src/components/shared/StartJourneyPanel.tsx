@@ -49,6 +49,7 @@ import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { FormField } from '@c3/components/ui';
 import { useApp } from '@c3/hooks/useApp';
+import { useDeferredMount } from '@c3/hooks/useDeferredMount';
 import { useSubmitJourneyApproval } from '@c3/hooks/useSubmitJourneyApproval';
 import { useToast } from '@c3/hooks/useToast';
 import type { CredentialCapability, ObligationAssignment } from '@c3/types';
@@ -260,6 +261,10 @@ export const StartJourneyPanel = ({
   };
 
   const hasObligations = (obligations?.length ?? 0) > 0;
+
+  // TD-33: defer mounting the overlay until first opened (cold-render modalizer guard).
+  const shouldMount = useDeferredMount(open);
+  if (!shouldMount) return null;
 
   return (
     <OverlayDrawer

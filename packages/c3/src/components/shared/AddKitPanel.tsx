@@ -29,6 +29,7 @@ import {
 import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { useApp } from '@c3/hooks/useApp';
+import { useDeferredMount } from '@c3/hooks/useDeferredMount';
 import { useCreateKitAssignment } from '@c3/hooks/useCreateKitAssignment';
 import { useToast } from '@c3/hooks/useToast';
 import type { ItemCategory } from '@c3/types';
@@ -90,6 +91,10 @@ export const AddKitPanel = ({ missionId, personId, personName, open, onDismiss }
       toast.error('Failed to add kit item', msg.slice(0, 240));
     }
   };
+
+  // TD-33: defer mounting the overlay until first opened (cold-render modalizer guard).
+  const shouldMount = useDeferredMount(open);
+  if (!shouldMount) return null;
 
   return (
     <OverlayDrawer open={open} onOpenChange={(_, data) => { if (!data.open) handleDismiss(); }} position="end" size="medium">

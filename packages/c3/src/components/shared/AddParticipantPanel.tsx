@@ -31,6 +31,7 @@ import {
 import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { usePeople } from '@c3/hooks/usePeople';
+import { useDeferredMount } from '@c3/hooks/useDeferredMount';
 import { useSubmitParticipantApproval } from '@c3/hooks/useSubmitParticipantApproval';
 import { useToast } from '@c3/hooks/useToast';
 import type { MissionParticipant, MissionParticipantRole } from '@c3/types';
@@ -106,6 +107,10 @@ export const AddParticipantPanel = ({
       toast.error('Failed to submit participant addition', msg.slice(0, 240));
     }
   };
+
+  // TD-33: defer mounting the overlay until first opened (cold-render modalizer guard).
+  const shouldMount = useDeferredMount(open);
+  if (!shouldMount) return null;
 
   return (
     <OverlayDrawer open={open} onOpenChange={(_, data) => { if (!data.open) handleDismiss(); }} position="end" size="medium">

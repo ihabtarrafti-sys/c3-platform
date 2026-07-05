@@ -46,6 +46,7 @@ import { Dismiss24Regular } from '@fluentui/react-icons';
 
 import { FormField } from '@c3/components/ui';
 import { useApp } from '@c3/hooks/useApp';
+import { useDeferredMount } from '@c3/hooks/useDeferredMount';
 import { useSubmitAddPersonApproval } from '@c3/hooks/useSubmitAddPersonApproval';
 import { useToast } from '@c3/hooks/useToast';
 
@@ -144,6 +145,10 @@ export const AddPersonPanel = ({ open, onDismiss }: AddPersonPanelProps) => {
   // -- Title and button text --
   const panelTitle  = isSPMode ? 'Submit Person Creation Request' : 'Add Person';
   const submitLabel = isSPMode ? 'Submit for Approval' : 'Add Person';
+
+  // TD-33: defer mounting the overlay until first opened (cold-render modalizer guard).
+  const shouldMount = useDeferredMount(open);
+  if (!shouldMount) return null;
 
   return (
     <OverlayDrawer

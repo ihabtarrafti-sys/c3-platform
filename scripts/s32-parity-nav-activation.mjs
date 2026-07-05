@@ -76,6 +76,27 @@ check('TD-32: People register "Contracts" column removed for V1 (no stale/fabric
 check('TD-32: People register HEADERS and COL_WIDTHS stay aligned (6 columns)', (peopleWs.match(/\{ label: '/g) ?? []).length === 6 && /COL_WIDTHS[^=]*=\s*\[120, null, 140, 160, 120, 96\]/.test(peopleWs));
 check('TD-32: PersonProfile Total Contracts tile derives from canonical rows', !personProfile.includes('value={person.TotalContracts}') && personProfile.includes('contractsPending || contractsError ? undefined : contracts.length'));
 
+// ── 4c. TD-33 cold-start modal remediation ────────────────────────────────────
+const panelDir = 'packages/c3/src/components/shared/';
+const OVERLAY_PANELS = ['AddCredentialPanel', 'AddKitPanel', 'AddParticipantPanel', 'AddPersonPanel', 'ApparelProfilePanel', 'CreateAmendmentPanel', 'StartJourneyPanel'];
+check('TD-33: useDeferredMount hook exists and latches on first open', /export function useDeferredMount\(open: boolean\): boolean/.test(read('packages/c3/src/hooks/useDeferredMount.ts')) && read('packages/c3/src/hooks/useDeferredMount.ts').includes('hasOpened.current = true'));
+for (const p of OVERLAY_PANELS) {
+  const src = read(panelDir + p + '.tsx');
+  check(`TD-33: ${p} defers mount until first open (no cold modalizer)`,
+    src.includes("import { useDeferredMount } from '@c3/hooks/useDeferredMount'")
+    && src.includes('const shouldMount = useDeferredMount(open);')
+    && /if \(!shouldMount\) return null;[\s\S]{0,80}<OverlayDrawer/.test(src));
+}
+{
+  const mission = read('packages/c3/src/screens/MissionWorkspace.tsx');
+  check('TD-33: Mission remove-participant dialog mounts only when open', /\{removeTarget !== null && \(\s*[\r\n][^]{0,120}<Dialog open=\{removeTarget !== null\}/.test(mission));
+  check('TD-33: Mission reason dialog mounts only when open', /\{reasonDialog !== null && \(\s*[\r\n][^]{0,120}<Dialog open=\{reasonDialog !== null\}/.test(mission));
+  const profile = read('packages/c3/src/screens/PersonProfile.tsx');
+  check('TD-33: PersonProfile dialogs already conditional-mount (confirm + deactivate)', /\{confirmAction && \(\s*[\r\n][^]{0,60}<Dialog/.test(profile) && /\{deactivateTarget && \(\s*[\r\n][^]{0,60}<Dialog/.test(profile));
+}
+check('TD-33: no always-mounted OverlayDrawer remains in a shared panel (each gated by shouldMount)',
+  OVERLAY_PANELS.every(p => { const s = read(panelDir + p + '.tsx'); return s.indexOf('if (!shouldMount) return null;') < s.indexOf('<OverlayDrawer'); }));
+
 // ── 5. Navigation code contains no SharePoint provisioning or ACL logic ──────
 check('boundary: NavRail/AppShell contain no SharePoint REST, provisioning, or ACL code',
   !/_api\/|roleassignment|breakroleinheritance|roledefinition|fetch\(/i.test(nav)
