@@ -131,3 +131,50 @@ Canonical Contracts live read-only + hosted-green (three screens truthful, ≥1 
 owner-authored row, failure drill) · TD-30 gate in use · nine lists ACL-hardened per
 approved matrices · full gate green via `npm run gate` · owner-signed accepted-debt
 review (TD-29 et al.) · V1 baseline + release marker published.
+
+## 9. Phase 3C closure (hosted-green, 2026-07-05) — PERMANENTLY CLOSED
+
+Executed via Option C′ in-place canonical remediation (owner-executed 3C-0…3C-3
+package, dry-run-first, one witnessed reconciled mutation at a time). Final hosted
+state of `C3Contracts` (GUID `88e835ad-ffd8-4565-9364-c1c1b4f0fc2f`, URL
+`/sites/C3/Lists/C3_Contracts` retained):
+
+- ItemCount `0` · inbound lookups `[]` · no unique item scopes.
+- Canonical 19-field schema + the two evidence-confirmed SP-managed comment fields
+  (`_CommentCount` / `_CommentFlags`) + base fields; list settings canonical
+  (versioning major/10, attachments off); Title = "Contract ID", required,
+  indexed, unique.
+- **Final reduced schema fingerprint (frozen Stage-A-compatible formula):**
+  `3a13b28f94ccc462e5b5001a56a0d543cab3a74a4ba96c5913498087334bea98`
+- No Phase 3C script may be rerun.
+
+**Hosted observations recorded during execution (tenant behavior, not corruption):**
+
+1. **Deleted-field GUID endpoints return HTTP 400 (not 404).** A committed field
+   DELETE left the field-by-GUID endpoint returning 400 on every verification
+   attempt while the complete fields collection proved absence. Rule: a 400 alone
+   is never absence; absence is proven only through the complete fields
+   collection (3C-2 rev3.3.3 correction; recovered via evidence-bound RECOVERY_MODE).
+2. **Updating the base `Title` field also changed its dependent built-in
+   `LinkTitle` field.** This is SharePoint propagating display configuration to
+   the dependent title-link fields. It caused the controlled 3C-3 recovery
+   (reconciliation correctly refused the unexpected delta) and was NOT schema
+   corruption.
+3. **`S32-P3C-FIELD-ETAG-EXCEPTION` has EXPIRED with Phase 3C hosted closure.**
+   The narrow no-field-ETag exception (hosted probes: field resources expose no
+   ETag through JSON/Atom/HEAD in this tenant) applied only to Phase 3C schema
+   provisioning and must not be reused by any later phase.
+
+## 10. Phase 3D boundary — exact C3Contracts ACL (IN FLIGHT, mutation pending)
+
+Phase 3D changes ONLY list role assignments — never schema, Title configuration,
+settings, GUID, URL, or contents. Exact target: unique permissions with exactly
+five principals — C3 Owners = Full Control; C3 Operations, C3 Legal, C3 Finance,
+C3 Management = Read. C3 HR / C3 Members / C3 Visitors / any other copied or
+direct principal must not retain direct list access. V1 authoring remains
+Owners-only; ACLs are the security boundary (UI role checks are UX only).
+
+Tooling, method (grant-before-remove with `copyRoleAssignments=true`,
+`clearSubscopes=false`), concurrency semantics, tests, and the owner runbook:
+see `C3 Contracts ACL — Sprint 32 Phase 3D.md`. **Phase 3D hosted mutation
+remains PENDING owner execution — not complete, not hosted-green.**
