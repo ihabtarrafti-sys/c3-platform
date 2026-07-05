@@ -51,12 +51,43 @@ content byte-preserved, checkout None — no data mutation).
 **No mock-only data appeared in SP mode. No zero/missing value presented as readiness/success.**
 Data integrity: all 9 list counts unchanged pre/post 1A; genuine row unchanged.
 
-## RISK-1 — toasts disabled hosted (write feedback)
+## RISK-1 — toasts disabled hosted → **SILENT governed-write feedback (PROVEN BLOCKER)**
 
 Confirmed hosted: **zero Toaster elements in the DOM** (`C3Host` passes `disableToasts:true`; `App.tsx`
-omits `<Toaster>`). Read surfaces need no toast. **Write-action feedback (submit/approve/execute)
-therefore relies on panel-close + cache refresh + inline state — to be assessed in 1C.** Flagged as a
-certification risk pending a governed-write drill.
+omits `<Toaster>`). Source review (2026-07-05) proves **every governed-write outcome is signalled only
+via `toast.success`/`toast.error`**: submit success, approve, reject, **self-approval refusal,
+execution success, execution FAILURE**, and recovery (ApprovalInbox ≈30 toast calls;
+AddCredential/AddPerson/StartJourney/AddParticipant panels use toasts for success+error). The
+`MessageBar` instances are static advisories ("approval may take time", recovery callout), **not**
+outcome feedback.
+
+→ In the hosted app, **all governed success/failure/refusal feedback is SILENT**. A user whose
+execution fails, whose rejection fails, or who is denied self-approval sees **nothing**. This violates
+the required "success and failure feedback is visible and understandable" and is a **Controlled-Beta
+blocker** independent of accounts. Fix (bounded, preserves all locked constraints): surface governed
+outcomes via an inline non-toast channel (MessageBar/status region) that works with the Toaster
+disabled — or re-enable a hosted-safe Toaster. Requires a source correction + one versioned redeploy.
+
+## Governed EXECUTION is not certifiable owner-only (identity-based self-approval guard)
+
+`usePatchApprovalStatus` blocks review when `currentUser.loginName === approval.submittedBy`
+(ADR-013: **ReviewedBy must differ from SubmittedBy**; ApprovalInbox surfaces "Self-approval not
+permitted"). With **only the Owner identity existing**, every owner-submitted approval is
+**un-approvable and un-executable**. Therefore, owner-only:
+- **Certifiable:** submit (one approval row), requester-immutability, **self-approval refusal**
+  (though the refusal is a suppressed toast — see RISK-1).
+- **NOT certifiable:** owner review of another's submission, approve, reject-with-reason, and **all six
+  execution branches** — and by extension the **authorized AddPerson test persona cannot be created**
+  owner-only (AddPerson is itself governed).
+
+→ Governed-write execution certification (1C), reject-with-reason, and the role matrix (1E) require
+**exactly one distinct submitter identity** (a single dedicated test/service account operated by us is
+sufficient — no external people). This is a hard technical requirement, not deferrable by "owner acts."
+
+Narrow exception — **Phase 1D exemptions** (journey lifecycle, kit, apparel) are **direct** writes for
+which the Owner holds ACL, so they are potentially owner-certifiable **if** a safe non-genuine fixture
+(person + non-terminal test mission) is designated. No such fixture is currently identifiable
+(the only clearly-informal mission "ewc rl" is Settled; personas unidentified; PER-0001 is genuine).
 
 ## RISK-2 — Situation Room finance/milestone truthfulness — **PASS**
 
