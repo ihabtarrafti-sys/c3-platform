@@ -221,6 +221,48 @@ redeploy** of the solution in the tenant app catalog (which fully de-registers
 and re-registers the app), or re-adding the C3 webpart to the page. The deployed
 CODE is correct and gate-green; this is purely a hosting render-state blocker.
 
+## TD-34 — SPFx host mount hardening + blank-render root-cause isolation (2026-07-05)
+
+**Host mount defect FIXED (deployed 1.0.0.2).** `C3Host.componentDidMount` was an
+unguarded async import+mount; hardened with explicit await, `validateRuntimeModule`
+(export/mount/unmount checks), `decideMount` (disposed/duplicate/detached guards
+after the await), try/catch on import and mount, cleanup-once on unmount, a
+VISIBLE fail-closed error instead of a blank `<div>`, and a bounded non-sensitive
+`window.__C3_HOST_DIAGNOSTICS`. Pure helpers unit-tested; `s32-parity-host-mount`
+(28 checks) in the gate. Host bundle `c-3-host-web-part_a869c918…` =
+`8138ea6a…`; runtime app asset unchanged (`bb2ffba3…`); solution `1.0.0.2`.
+
+**Hosted diagnostics now reach `mount-complete`** on a cold load
+(`importStatus: resolved`, `mountInvoked/mountCompleted: true`,
+`mountTargetConnected: true`) — the host mount lifecycle is proven healthy.
+
+**Blank render root cause ISOLATED — it is NOT a code regression:**
+- Both live bundles hash-match the package (host `8138ea6a…`, chunk `dc718d6c…`);
+  catalog registration consistent (`1.0.0.2`, deployed, enabled); no per-site
+  install. → per the branch rule, an application-layer issue, not a cache theory.
+- The runtime's `mount()` runs and `createRoot(container).render(<StrictMode>…
+  <SharePointHost/>…)` executes, a React root attaches to the container, but the
+  tree **commits ZERO DOM** — no error, no console output, no loading spinner,
+  indefinitely. `SharePointHost` returns `<C3App/>` unconditionally; role
+  resolution REST works (`currentUser/groups` → 200, `["C3 Platform Owners"]`).
+- **Byte-diff of the deployed runtime (`bb2ffba3`, blank) vs the last build that
+  rendered cold (`982bd2e6`, TD-33) = 101 bytes, in exactly the Part 19.4 identity
+  fix (mock `r.ContractID===e` + the onClick nav payloads) — NONE of which runs at
+  initial render.** The initial-render code path is therefore byte-identical
+  between the rendering and blank builds.
+
+**Conclusion:** host mount, package assets, catalog registration, and the
+runtime initial-render code are ALL proven healthy/identical-to-rendering. The
+persistent blank render is an environmental SharePoint webpart-render/registration
+state that degraded across the session's rapid redeploys — not a code defect, and
+not fixable by further code changes (the host is already hardened; the runtime is
+byte-identical to a rendering build). Per the escalation rules the "assets +
+mount lifecycle proven healthy" precondition is now satisfied; the appropriate
+next actions are owner-gated hosting operations: a clean **retract + redeploy**
+of the solution, or **remove + re-add** the C3 web part on `C3.aspx` (its stored
+instance may be stale after the redeploys). No further code change or speculative
+redeploy is warranted.
+
 ## Part 19.5 — TD-33 cold-start modal remediation (RESOLVED, hosted-green 2026-07-05)
 
 **Root cause (app-owned call path):** every "Add/Create" panel rendered its
