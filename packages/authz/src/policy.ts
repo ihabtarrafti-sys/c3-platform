@@ -69,6 +69,16 @@ export function assertExecuteApproval(actor: Actor, submitterIdentity: string): 
   if (check.blocked) throw new SelfReviewError(check.reason);
 }
 
+/**
+ * May the actor view the approvals inbox / an approval / its history? Actors who
+ * can submit (operations) or review (owner) may; pure read-only roles may not.
+ */
+export function assertViewApprovals(actor: Actor): void {
+  if (!canSubmitApproval(actor.role) && !canReviewApproval(actor.role)) {
+    throw new ForbiddenError('Your role may not view approvals.', { role: actor.role });
+  }
+}
+
 /** Fail-closed tenant match. Callers surface a mismatch as not-found. */
 export function assertTenantMatch(actorTenantId: string, recordTenantId: string): void {
   if (actorTenantId !== recordTenantId || !actorTenantId) {
