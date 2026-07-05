@@ -25,6 +25,7 @@ function step(label: string, cmd: string, args: string[]): void {
 const tsx = join(repoRoot, 'node_modules', 'tsx', 'dist', 'cli.mjs');
 const vitest = join(repoRoot, 'node_modules', 'vitest', 'vitest.mjs');
 
+step('nul/truncation audit', 'tsx', [tsx, join(repoRoot, 'scripts', 'webv0-nul-audit.mts')]);
 step('typecheck', 'tsx', [tsx, join(repoRoot, 'scripts', 'webv0-typecheck.mts')]);
 step('test (unit + db + api)', 'vitest', [vitest, 'run']);
 

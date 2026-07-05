@@ -2,9 +2,12 @@
 # no external DNS, no managed database, no production Entra app. Bring up with:
 #   docker compose -f infra/docker-compose.staging.yml up --build
 #
-# The `migrate` one-shot creates the least-privileged c3_app role and applies
-# all migrations using the privileged admin connection, then exits. The API
-# then connects ONLY as c3_app (RLS-enforced).
+# Credential separation (enforced by the API's env validation):
+#   - `migrate` one-shot: DATABASE_ADMIN_URL (privileged) — creates the
+#     least-privileged c3_app + SELECT-only c3_auth roles, applies migrations.
+#   - `api`: DATABASE_URL (c3_app, RLS-enforced) + DATABASE_AUTH_URL (c3_auth,
+#     SELECT-only membership resolution). It NEVER receives the admin URL —
+#     production startup fails closed if it does.
 services:
   postgres:
     image: postgres:18
@@ -26,6 +29,7 @@ services:
     environment:
       DATABASE_ADMIN_URL: postgres://c3_admin:${DB_ADMIN_PASSWORD:-c3_admin_staging_pw}@postgres:5432/c3web
       DATABASE_URL: postgres://c3_app:${DB_APP_PASSWORD:-c3_app_staging_pw}@postgres:5432/c3web
+      DATABASE_AUTH_URL: postgres://c3_auth:${DB_AUTH_PASSWORD:-c3_auth_staging_pw}@postgres:5432/c3web
     depends_on:
       postgres: { condition: service_healthy }
 
@@ -34,14 +38,15 @@ services:
     environment:
       NODE_ENV: production
       API_PORT: 4000
+      # Least-privileged roles ONLY — no admin URL (env validation enforces).
       DATABASE_URL: postgres://c3_app:${DB_APP_PASSWORD:-c3_app_staging_pw}@postgres:5432/c3web
-      DATABASE_ADMIN_URL: postgres://c3_admin:${DB_ADMIN_PASSWORD:-c3_admin_staging_pw}@postgres:5432/c3web
-      # Staging auth: set AUTH_PROVIDER=entra + ENTRA_* to use real OIDC.
-      AUTH_PROVIDER: ${AUTH_PROVIDER:-entra}
+      DATABASE_AUTH_URL: postgres://c3_auth:${DB_AUTH_PASSWORD:-c3_auth_staging_pw}@postgres:5432/c3web
+      AUTH_PROVIDER: entra
       ENTRA_ISSUER: ${ENTRA_ISSUER:-}
       ENTRA_AUDIENCE: ${ENTRA_AUDIENCE:-}
       ENTRA_JWKS_URI: ${ENTRA_JWKS_URI:-}
       CORS_ORIGIN: ${WEB_ORIGIN:-http://localhost:8080}
+      TRUST_PROXY: "false"
     ports:
       - "4000:4000"
     depends_on:
@@ -54,7 +59,7 @@ services:
       args:
         VITE_API_BASE_URL: ${API_ORIGIN:-http://localhost:4000}
     ports:
-      - "8080:80"
+      - "8080:8080"
     depends_on:
       - api
 
