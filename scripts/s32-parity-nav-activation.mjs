@@ -72,8 +72,8 @@ const personProfile = read('packages/c3/src/screens/PersonProfile.tsx');
 check('TD-31: inert New Contract control removed from the Contracts workspace', !contractsList.includes('New Contract') || !/<Button[^>]*>New Contract<\/Button>/.test(contractsList));
 check('TD-31: ContractsList renders no button-based header action at all', !/actions=\{<Button/.test(contractsList));
 check('TD-32: People register no longer displays the stored TotalContracts field', !peopleWs.includes('person.TotalContracts'));
-check('TD-32: People register derives counts from canonical contracts by PersonID', peopleWs.includes('useContracts') && peopleWs.includes('counts.set(c.PersonID'));
-check("TD-32: unavailable contract data renders '—', never a fabricated zero", peopleWs.includes("contractCount === null ? '—' : contractCount") && peopleWs.includes('isPending || contractsQuery.isError) return null'));
+check('TD-32: People register "Contracts" column removed for V1 (no stale/fabricated count)', !peopleWs.includes("label: 'Contracts'") && !peopleWs.includes('contractCount'));
+check('TD-32: People register HEADERS and COL_WIDTHS stay aligned (6 columns)', (peopleWs.match(/\{ label: '/g) ?? []).length === 6 && /COL_WIDTHS[^=]*=\s*\[120, null, 140, 160, 120, 96\]/.test(peopleWs));
 check('TD-32: PersonProfile Total Contracts tile derives from canonical rows', !personProfile.includes('value={person.TotalContracts}') && personProfile.includes('contractsPending || contractsError ? undefined : contracts.length'));
 
 // ── 5. Navigation code contains no SharePoint provisioning or ACL logic ──────

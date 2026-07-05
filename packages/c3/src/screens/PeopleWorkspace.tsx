@@ -12,7 +12,6 @@ import {
 } from '@c3/components/ui';
 import { useApp } from '@c3/hooks/useApp';
 import { useCapabilities } from '@c3/hooks/useCapabilities';
-import { useContracts } from '@c3/hooks/useContracts';
 import { usePeople } from '@c3/hooks/usePeople';
 import type { Person, PersonFilter } from '@c3/types';
 
@@ -41,7 +40,12 @@ const TH: CSSProperties = {
   textAlign: 'left',
 };
 
-const COL_WIDTHS: (number | null)[] = [120, null, 140, 160, 120, 96, 80];
+// S32 (TD-32): the "Contracts" register column is REMOVED for Internal V1. It
+// previously showed the stored denormalized Person.TotalContracts, which is stale
+// against canonical C3Contracts truth. A live per-row derivation is documented as
+// later work (TD-32); the PersonProfile "Total Contracts" tile already derives from
+// canonical rows. The count is not shown here rather than shown wrong.
+const COL_WIDTHS: (number | null)[] = [120, null, 140, 160, 120, 96];
 
 const HEADERS: { label: string; align?: 'left' | 'right' }[] = [
   { label: 'Person ID' },
@@ -50,7 +54,6 @@ const HEADERS: { label: string; align?: 'left' | 'right' }[] = [
   { label: 'Role' },
   { label: 'Nationality' },
   { label: 'Status' },
-  { label: 'Contracts', align: 'right' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -145,11 +148,7 @@ const RegisterPanelSkeleton = () => (
 // PersonRow
 // ---------------------------------------------------------------------------
 
-// S32 (TD-32): contractCount is DERIVED from canonical C3Contracts rows by exact
-// plain-text PersonID — the stored denormalized Person.TotalContracts field is no
-// longer displayed. null = contract data unavailable/loading → render '—' (an
-// unknown count is never shown as zero).
-const PersonRow = ({ person, contractCount, onClick }: { person: Person; contractCount: number | null; onClick: () => void }) => {
+const PersonRow = ({ person, onClick }: { person: Person; onClick: () => void }) => {
   const [hovered, setHovered] = useState(false);
 
   return (
@@ -228,13 +227,6 @@ const PersonRow = ({ person, contractCount, onClick }: { person: Person; contrac
           {person.IsActive ? 'Active' : 'Inactive'}
         </span>
       </td>
-
-      {/* Contracts — canonical count; '—' while unknown/unavailable */}
-      <td style={{ ...CELL, textAlign: 'right' }}>
-        <Text size={300} style={{ color: 'var(--c3-gray-700)' }}>
-          {contractCount === null ? '—' : contractCount}
-        </Text>
-      </td>
     </tr>
   );
 };
@@ -247,16 +239,6 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
   void filter;
   const { navigate } = useApp();
   const { data: people = [], isLoading, error } = usePeople();
-  // S32 (TD-32): canonical contract counts, shared query key with the Contracts
-  // workspace. Unavailable/loading ⇒ null map ⇒ every row shows '—' (truthful
-  // unknown), never a fabricated zero.
-  const contractsQuery = useContracts();
-  const contractCounts = useMemo(() => {
-    if (contractsQuery.isPending || contractsQuery.isError) return null;
-    const counts = new Map<string, number>();
-    for (const c of contractsQuery.data ?? []) counts.set(c.PersonID, (counts.get(c.PersonID) ?? 0) + 1);
-    return counts;
-  }, [contractsQuery.data, contractsQuery.isPending, contractsQuery.isError]);
   const capabilities = useCapabilities();
   const [addPersonOpen, setAddPersonOpen] = useState(false);
 
@@ -385,7 +367,6 @@ export const PeopleWorkspace = ({ filter }: PeopleWorkspaceProps) => {
                 <PersonRow
                   key={person.Id}
                   person={person}
-                  contractCount={contractCounts === null ? null : (contractCounts.get(person.PersonID) ?? 0)}
                   onClick={() =>
                     navigate({ id: 'person-profile', personId: person.PersonID })
                   }
