@@ -57,6 +57,9 @@ jobs:
       - name: Web production build
         run: npm --workspace apps/web run build
 
+      - name: Entra production bundle excludes dev auth
+        run: npx tsx scripts/verify-entra-bundle.mts
+
       - name: Dependency security audit (production graph)
         # Policy: FAIL on high/critical in the production dependency graph.
         # The full (dev-inclusive) audit is reported but non-blocking.

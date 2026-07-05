@@ -22,7 +22,8 @@ import {
   tokens,
 } from '@fluentui/react-components';
 import { usePeople } from '../queries';
-import { api, ApiError } from '../api';
+import { ApiError } from '../api';
+import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 
 const useStyles = makeStyles({

@@ -11,7 +11,9 @@ import {
   tokens,
 } from '@fluentui/react-components';
 import { useSession, useNotify } from '../session';
+import { IS_ENTRA } from '../auth';
 import { LoginGate } from '../pages/LoginGate';
+import { EntraSignIn, AccessNotProvisioned } from '../pages/EntraSignIn';
 
 const useStyles = makeStyles({
   root: { display: 'flex', flexDirection: 'column', minHeight: '100vh', fontFamily: tokens.fontFamilyBase },
@@ -45,7 +47,7 @@ function NavItem({ to, label }: { to: string; label: string }) {
 
 export function AppShell() {
   const s = useStyles();
-  const { status, me, logout } = useSession();
+  const { status, me, providerSession, signOut } = useSession();
   const { notices, dismiss } = useNotify();
   const location = useLocation();
 
@@ -59,7 +61,14 @@ export function AppShell() {
 
   if (status === 'anonymous') {
     // Preserve the intended deep link: after sign-in the same route renders.
-    return <LoginGate intendedPath={location.pathname + location.search} />;
+    const intended = location.pathname + location.search;
+    // IS_ENTRA is a build-time constant: the dev sign-in UI is dead-code-
+    // eliminated from entra (production) bundles.
+    return IS_ENTRA ? <EntraSignIn intendedPath={intended} /> : <LoginGate intendedPath={intended} />;
+  }
+
+  if (status === 'unprovisioned') {
+    return <AccessNotProvisioned identity={providerSession?.identity ?? 'This account'} onSignOut={() => void signOut()} />;
   }
 
   return (
@@ -73,7 +82,7 @@ export function AppShell() {
         <Text data-testid="role-display">
           {me?.displayName} &middot; <Badge appearance="tint">{me?.role}</Badge> &middot; {me?.tenantSlug}
         </Text>
-        <Button appearance="secondary" onClick={logout} data-testid="logout">
+        <Button appearance="secondary" onClick={() => void signOut()} data-testid="logout">
           Sign out
         </Button>
       </header>

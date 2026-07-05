@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { api } from './api';
+import { api } from './apiClient';
 
 export const usePeople = (enabled = true) =>
   useQuery({ queryKey: ['people'], queryFn: () => api.listPeople(), enabled });

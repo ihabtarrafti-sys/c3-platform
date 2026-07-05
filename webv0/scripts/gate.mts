@@ -29,5 +29,6 @@ const vitest = join(webv0Root, 'node_modules', 'vitest', 'vitest.mjs');
 step('nul/truncation audit', [tsx, join(webv0Root, 'scripts', 'nul-audit.mts')]);
 step('typecheck', [tsx, join(webv0Root, 'scripts', 'typecheck.mts')]);
 step('test (unit + db + api)', [vitest, 'run']);
+step('entra production bundle excludes dev auth', [tsx, join(webv0Root, 'scripts', 'verify-entra-bundle.mts')]);
 
 console.log('\nwebv0 gate: PASSED');

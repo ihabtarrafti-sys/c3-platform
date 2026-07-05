@@ -29,7 +29,7 @@ const ROLES = ['owner', 'operations', 'legal', 'finance', 'hr', 'management', 'v
  */
 export function LoginGate({ intendedPath }: { intendedPath?: string }) {
   const s = useStyles();
-  const { login } = useSession();
+  const { devLogin } = useSession();
   const { notify } = useNotify();
   const [email, setEmail] = useState('ops@alpha.com');
   const [role, setRole] = useState('operations');
@@ -39,7 +39,7 @@ export function LoginGate({ intendedPath }: { intendedPath?: string }) {
   async function onSubmit() {
     setBusy(true);
     try {
-      await login({ email, role, tenantSlug });
+      await devLogin({ email, role, tenantSlug });
       if (intendedPath && intendedPath !== '/' && window.location.pathname !== intendedPath) {
         window.history.replaceState(null, '', intendedPath);
       }

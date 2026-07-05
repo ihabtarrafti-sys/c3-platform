@@ -42,6 +42,15 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: 'web',
+      root: './apps/web',
+      environment: 'node',
+      include: ['test/**/*.test.ts'],
+      setupFiles: ['test/setup.ts'],
+    },
+  },
+  {
+    test: {
       name: 'persistence',
       root: './packages/persistence',
       environment: 'node',

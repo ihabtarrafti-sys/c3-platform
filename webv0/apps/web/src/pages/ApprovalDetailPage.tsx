@@ -22,7 +22,8 @@ import {
   tokens,
 } from '@fluentui/react-components';
 import { useApproval, useApprovalEvents } from '../queries';
-import { api, ApiError, type ApprovalDto } from '../api';
+import { ApiError, type ApprovalDto } from '../api';
+import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 
 const useStyles = makeStyles({
