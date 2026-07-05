@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import type { AppConfig } from './config/AppConfig';
 import { AppProvider } from './context/AppContext';
 import { AppShell } from './components/layout/AppShell';
+import { NotificationProvider } from './components/NotificationRegion';
 import { ToasterGuard } from './components/ToasterGuard';
 import { c3CSSVars, c3Theme } from './tokens/c3Tokens';
 import { queryClient } from './queryClient';
@@ -40,7 +41,16 @@ export const C3App = ({ config }: { config: AppConfig }) => {
       <TabsterInitializer />
       <QueryClientProvider client={queryClient}>
         <AppProvider config={config}>
-          <AppShell />
+          {/*
+            NotificationProvider is ALWAYS mounted. It is the Toaster-independent
+            inline feedback channel that useToast() routes to when the Fluent
+            Toaster is disabled (SPFx-hosted). When the Toaster is enabled it
+            simply stays idle — Mock/local toast behaviour is unchanged.
+            Sprint 33 (RISK-1): fixes silent governed-write feedback hosted.
+          */}
+          <NotificationProvider>
+            <AppShell />
+          </NotificationProvider>
         </AppProvider>
         {/*
           Toaster is omitted when the host sets disableToasts=true (e.g. SPFx
