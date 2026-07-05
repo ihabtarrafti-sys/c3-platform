@@ -840,7 +840,7 @@ now surfaces a visible fail-closed error with bounded diagnostics instead of a s
 preserved A.5 record. Evidence:
 `S32 Part 19.6 — C3.aspx Preservation + Diagnostic Isolation.md`.
 
-**S33 REOPENED (2026-07-05) — normal-use cold-load blank; ROOT CAUSE PROVEN + CONTAINED (1.0.0.5, deploy pending owner authorization).**
+**S33 REOPENED (2026-07-05) — normal-use cold-load blank; ROOT CAUSE PROVEN + CONTAINED; **RESOLVED same day on 1.0.0.5 (see S33 CLOSURE below).****
 
 TD-34 reproduced during ordinary use, outside any deployment window. The S32 closure
 above attributed the residual blank to catalog propagation state; that attribution is
@@ -883,4 +883,25 @@ in its original, bounded form. Real interop fix (tabster instance isolation or v
 alignment) requires its own dedicated hosted validation. TD-34 is NOT closed until the
 1.0.0.5 containment is deployed and five independent cold loads render without
 Edit → Cancel.
+
+**S33 CLOSURE (2026-07-05, 1.0.0.5 HOSTED-GREEN): TD-34 RESOLVED — proven cause corrected, not worked around.**
+
+1.0.0.5 deployed (owner-authorized single Add+Deploy, no retract; catalog
+Deployed/Enabled/valid/no errors; live host bundle 0b949897… and runtime chunk
+3b86aa5d… byte-match the package). **Cold-load acceptance 5/5**: attempt 1 fresh
+bundle URLs (chunk 358,956 B over network), attempts 2/5 hard-reload cache-bypass
+in tab 1, attempt 3 first load in a separate tab, attempt 4 hard-reload in tab 2.
+Every attempt: application rendered, stage runtime-committed, first commit in
+5–27 ms, committedFirstMount=true, recoveryUsed=false (zero recoveries needed),
+no fallback, no blank, no Edit → Cancel, single application instance, probe
+`{preExisting:true, foreign:true}` on ALL five — the foreign SP-shell tabster was
+present every time and never prevented rendering.
+
+**Residual confirmed and bounded (tracked with TD-33):** on a foreign-instance
+session the FIRST Fluent modal open after a cold load can still crash once at
+the screen-level ErrorBoundary (observed hosted: People → Add Person →
+"reading 'set'" → bounded screen fallback; navigate-away + retry immediately
+succeeded and the panel worked). Root interop fix (tabster instance isolation /
+version alignment) remains follow-up work requiring its own hosted validation.
+
 

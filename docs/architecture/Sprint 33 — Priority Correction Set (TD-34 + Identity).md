@@ -1,7 +1,8 @@
 # Sprint 33 — Priority Correction Set: Cold-Load Recovery + Self-Approval Identity Hardening
 
-Date: 2026-07-05 · Author: platform engineering (agent) · Status: **1.0.0.4 DEPLOYED;
-1.0.0.5 built + gate-green, deployment PENDING OWNER AUTHORIZATION**
+Date: 2026-07-05 · Author: platform engineering (agent) · Status: **CLOSED
+HOSTED-GREEN — 1.0.0.5 deployed (owner-authorized), cold-load acceptance 5/5,
+identity drill green, integrity reconciled. TD-34 RESOLVED (see register).**
 
 ## Source / gate evidence
 
@@ -69,15 +70,65 @@ C3Contracts 1 (GKE-PL-2026-001, Id 49), C3Journeys 11, C3Missions 4, C3People 14
 C3_People 8, C3_Users 2. Deployment actions were catalog Add+Deploy only — no
 retract, no per-site install, no list/ACL/schema/data operation.
 
-## Outstanding (blocked on owner)
+## 1.0.0.5 hosted closure (2026-07-05, owner-authorized deployment)
 
-1. **Authorize the 1.0.0.5 tenant-wide deployment** (same controlled Add+Deploy,
-   no retract). Without it the platform shows the visible error on every normal
-   load (Edit → Cancel remains the interim workaround).
-2. After deployment: five independent cold loads (fresh contexts / hard reloads)
-   recording rendered/blank, recovery, stage, hashes, time-to-shell; Command
-   Center / People / Contracts / Contract Profile (both paths); RISK-1 inline
-   feedback; self-approval canonical block on APR-0034 (UI attempt, no write);
-   legacy rows + counts + GKE-PL-2026-001 unchanged.
-3. Follow-up register item: Fluent modal surfaces on foreign-tabster sessions
-   (bounded TD-33 exposure) — real interop fix needs dedicated hosted validation.
+**Pre-deploy artifact verification:** HEAD = origin = `34bcef8`, tracked tree
+clean, version 1.0.0.5, runtime asset `63b9a05c…`, sppkg `13cced93…` 284,852 B —
+all matched the recorded values byte-for-byte (committed asset = working asset);
+no rebuild performed. Upload bytes re-hashed IN THE BROWSER before Add:
+`13cced9330c35d48…`. Add 200 → Deploy 200 (skipFeatureDeployment), catalog
+1.0.0.4 → **1.0.0.5 Deployed / Enabled / valid / "No errors."** No retract, no
+per-site install. Live bundles re-fetched and hashed in-page: host
+`0b949897…` (13,830 B), chunk `3b86aa5d…` — byte-match the package.
+
+**Cold-load acceptance: 5/5 rendered — TD-34 acceptance met.**
+
+| # | Isolation | Result | Stage | Commit | Recovery | Probe |
+| - | --- | --- | --- | --- | --- | --- |
+| 1 | Fresh 1.0.0.5 bundle URLs, first fetch (chunk 358,956 B over network) | APP RENDERED | runtime-committed | 27 ms | none | preExisting+foreign |
+| 2 | Ctrl+Shift+R hard reload, tab 1 (host+chunk over network) | APP RENDERED | runtime-committed | 5 ms | none | preExisting+foreign |
+| 3 | Separate tab, first load (fresh JS/render context) | APP RENDERED | runtime-committed | 24 ms | none | preExisting+foreign |
+| 4 | Ctrl+Shift+R hard reload, tab 2 | APP RENDERED | runtime-committed | 11 ms | none | preExisting+foreign |
+| 5 | Ctrl+Shift+R hard reload, tab 1 | APP RENDERED | runtime-committed | 6 ms | none | preExisting+foreign |
+
+No blank, no root fallback, no Edit → Cancel, zero recovery remounts (single
+mount every time), single application instance every time (one NavRail; the two
+container markers = SPFx legacy root + runtime React 18 root, by architecture).
+The foreign SP-shell tabster instance was PRESENT ON ALL FIVE LOADS and never
+prevented rendering — the S32-era intermittency is fully explained: 1.0.0.4 and
+earlier crashed whenever that instance existed pre-mount; 1.0.0.5 tolerates it.
+
+**Functional regression:** Command Center (work queue 17 items), People (14),
+Contracts (GKE-PL-2026-001 listed, New Contract absent), Contract Profile from
+the register AND from the Person Profile (both resolve, correct fields, no
+"Contract not found"), Activity tab shows the honest "Activity not yet
+available … not yet supported" copy (old copy absent), NavRail navigation used
+throughout, Fluent aria-live regions present.
+
+**Identity + notification drill (zero-mutation, certification row preserved):**
+APR-0034/0045 untouched. Created ONE labelled certification approval from the
+Owner account: **APR-0054** (item Id 54, AddPerson, reason "DO NOT EXECUTE —
+self-approval and hosted-feedback test… preserve"). Inline SUCCESS notification
+rendered hosted ("Approval APR-0054 submitted…"; exactly one POST /items, 201).
+Live format evidence: the stored SubmittedBy is **bare email/UPN** while the
+session login is **claims format** — `rawStringsIdentical: false`,
+`canonicalSamePerson: true` (computed in-page; no identity values exported).
+Under the old raw `===` guard this row was self-approvable. UI Approve attempt:
+inline refusal **"Self-approval not permitted"**, row remained Submitted, and
+the network trace after the click contains ONLY GETs (freshness read of
+items(54)) — zero POST/MERGE/PATCH. APR-0054 is preserved as evidence (do not
+approve, execute, or recycle). Canonical matrix (claims↔bare, case, whitespace,
+malformed → fail closed) remains parity-proven (s33-parity-identity-hardening).
+
+**Integrity reconciliation (post-testing):** People 14, Credentials 18,
+Journeys 11, Missions 4, MissionParticipants 4, KitAssignments 6,
+ApparelProfiles 4, Contracts 1, C3_People 8, C3_Users 2 — all unchanged.
+C3Approvals 36 = baseline 35 + exactly APR-0054. APR-0034 and APR-0045:
+Submitted with byte-identical Modified timestamps. GKE-PL-2026-001 (Id 49):
+Title and Modified unchanged.
+
+**Residual (tracked with TD-33, follow-up):** on a foreign-instance session the
+FIRST Fluent modal open after a cold load can crash once, bounded at the
+screen-level ErrorBoundary (observed: People → Add Person → screen fallback;
+navigate-away + retry immediately succeeded and the panel worked normally).
+Real tabster interop fix needs its own hosted validation cycle.
