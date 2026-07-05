@@ -98,12 +98,12 @@ check('TD-33: no always-mounted OverlayDrawer remains in a shared panel (each ga
   OVERLAY_PANELS.every(p => { const s = read(panelDir + p + '.tsx'); return s.indexOf('if (!shouldMount) return null;') < s.indexOf('<OverlayDrawer'); }));
 {
   const app = read('packages/c3/src/App.tsx');
-  check('TD-33: Tabster core is force-initialized at the FluentProvider root (public useFocusFinders)',
-    app.includes("useFocusFinders } from '@fluentui/react-components'")
-    && /const TabsterInitializer = \(\): null => \{\s*[\r\n]\s*useFocusFinders\(\);/.test(app)
+  check('TD-33: modalizer pre-initialized at the FluentProvider root (public useModalAttributes)',
+    app.includes("useModalAttributes } from '@fluentui/react-components'")
+    && /const TabsterInitializer = \(\): null => \{[\s\S]{0,180}useModalAttributes\(\{ trapFocus: true \}\);/.test(app)
     && /<FluentProvider[^>]*>\s*[\r\n]\s*<TabsterInitializer \/>/.test(app));
-  check('TD-33: no private/unsupported Tabster API used (no direct tabster import / createTabster)',
-    !/from ['"]tabster['"]/.test(app) && !app.includes('createTabster') && !app.includes('_unstable') || app.includes('useFocusFinders'));
+  check('TD-33: no private/unsupported Tabster API used (no direct tabster import / createTabster / _unstable)',
+    !/from ['"]tabster['"]/.test(app) && !app.includes('createTabster') && !app.includes('_unstable'));
 }
 
 // ── 5. Navigation code contains no SharePoint provisioning or ACL logic ──────

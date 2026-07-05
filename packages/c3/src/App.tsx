@@ -1,4 +1,4 @@
-import { FluentProvider, Toaster, useFocusFinders } from '@fluentui/react-components';
+import { FluentProvider, Toaster, useModalAttributes } from '@fluentui/react-components';
 import { QueryClientProvider } from '@tanstack/react-query';
 import type { AppConfig } from './config/AppConfig';
 import { AppProvider } from './context/AppContext';
@@ -11,24 +11,26 @@ import { C3_TOASTER_ID } from './hooks/useToast';
 /**
  * TabsterInitializer — TD-33 (Sprint 32).
  *
- * Fluent v9 modal surfaces (OverlayDrawer / Dialog) initialize a Tabster
- * *modalizer* on mount, which requires the Tabster *core* (`attrHandlers`) to
- * already exist. The core is created lazily by the first focus-management
- * consumer, so on a COLD session where a modal is the first such consumer the
- * modalizer runs before the core and throws "Cannot read properties of
- * undefined (reading 'set')" (crashing e.g. People → AddPersonPanel). Warm
- * sessions never hit it because earlier components created the core.
+ * Fluent v9 modal surfaces (OverlayDrawer / Dialog) run `getModalizer(tabster)`
+ * on mount, which does `tabster.core.attrHandlers.set("modalizer", …)`. On a
+ * COLD session where a modal is the first Tabster consumer, that path executes
+ * before the Tabster modalizer machinery is initialized and throws "Cannot read
+ * properties of undefined (reading 'set')", crashing the first modal-bearing
+ * screen (e.g. People → AddPersonPanel). Warm sessions never hit it because
+ * earlier components already initialized the modalizer.
  *
- * This forces core creation once, at the FluentProvider root, before any modal
- * can mount. `useFocusFinders` is a PUBLIC `@fluentui/react-components` hook
- * that calls `useTabster()` → `createTabster(targetDocument)` internally — no
- * private/unsupported Tabster API, no provider replacement. Rendered as the
- * first child of FluentProvider so it runs within the provider's targetDocument
- * context. Paired with per-panel deferred mounting (useDeferredMount) as
- * defence in depth.
+ * `useModalAttributes()` is the PUBLIC `@fluentui/react-components` hook that
+ * modals themselves use; it runs `initTabsterModules` (`getModalizer` +
+ * `getRestorer`) at mount via `useTabster`. Calling it ONCE at the
+ * FluentProvider root pre-registers the modalizer during app init, so
+ * `getModalizer` is idempotent thereafter and every real modal open skips the
+ * failing registration. No private/unsupported Tabster API, no provider
+ * replacement, no node_modules patch. Paired with per-panel deferred mounting
+ * (useDeferredMount) as defence in depth.
  */
 const TabsterInitializer = (): null => {
-  useFocusFinders();
+  // trapFocus:true ensures the modalizer branch of initialization runs.
+  useModalAttributes({ trapFocus: true });
   return null;
 };
 
