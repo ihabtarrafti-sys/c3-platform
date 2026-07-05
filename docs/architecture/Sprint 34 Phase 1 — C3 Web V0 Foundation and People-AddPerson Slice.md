@@ -24,6 +24,14 @@ workspaces retained.
   packages/c3-spfx-host packages/c3-runtime packages/runtime-sdk` is EMPTY. Only
   additive root-manifest entries (new workspaces + `webv0:*` scripts). No frozen
   package was modified, rebuilt, packaged, or deployed.
+- **Correction (Phase 2A audit):** while frozen SOURCE is unchanged, the Phase 1
+  `npm install` re-deduped the shared lockfile: ~80 nested entries under the
+  frozen workspaces (Fluent UI v9 family, @tanstack/query, a few utilities)
+  re-resolved to patch-bumped hoisted versions (e.g. @fluentui/react-components
+  9.74.1/9.74.2 → 9.74.3) within their declared semver ranges. React 17/18,
+  TypeScript and Vite isolation held. The certified 1.0.0.8 artifacts are
+  unaffected; a bit-exact frozen rebuild uses the lockfile at commit `0558a6c`.
+  See the Phase 2A report §3 for the full audit.
 
 ## 2. Created package/application structure
 ```

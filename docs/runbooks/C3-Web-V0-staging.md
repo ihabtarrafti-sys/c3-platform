@@ -42,8 +42,13 @@ Order of operations (enforced by compose):
 4. `web` serves the built SPA (nginx, SPA fallback) at :8080.
 
 ### Connection roles (never share)
-- **Admin / migration**: `DATABASE_ADMIN_URL` (schema owner). Migrations only.
+- **Admin / migration**: `DATABASE_ADMIN_URL` (schema owner). Migrations and the
+  dev IdP's membership provisioning only. A production API REFUSES to start if
+  this variable is present (Phase 2A guarantee).
 - **Application**: `DATABASE_URL` = `c3_app` (NOSUPERUSER, NOBYPASSRLS). The API.
+- **Auth / membership**: `DATABASE_AUTH_URL` = `c3_auth` (SELECT-only on the
+  four identity tables; no business-data access). The production API's
+  membership resolution.
 
 ## Seeding a tenant + first users (staging)
 The dev IdP is disabled outside `AUTH_PROVIDER=dev`. For an Entra staging tenant,
