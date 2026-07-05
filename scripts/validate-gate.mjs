@@ -114,6 +114,7 @@ const PARITY = [
   's27-parity-participants', 's28-parity-logistics', 's29-parity-kit-lifecycle',
   's29b-parity-participant-writes', 's30-parity-readiness', 's31-parity-approval-queries',
   's32-parity-contract-integrity', 's32-parity-acl-phase3d', 's32-parity-nav-activation',
+  's32-parity-host-mount',
 ];
 
 if (process.argv.includes('--self-test-failure')) {
