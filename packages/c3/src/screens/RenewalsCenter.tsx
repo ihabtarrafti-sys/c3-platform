@@ -417,7 +417,7 @@ export const RenewalsCenter = ({ stage }: RenewalsCenterProps) => {
                   variant={getRenewalVariant(daysToExpiry)}
                   mono={false}
                   onClick={() =>
-                    navigate({ id: 'contract-profile', contractId: String(contract.Id) })
+                    navigate({ id: 'contract-profile', contractId: contract.ContractID })
                   }
                   right={
                     <div
@@ -463,7 +463,7 @@ export const RenewalsCenter = ({ stage }: RenewalsCenterProps) => {
                   variant={getRenewalVariant(daysToExpiry)}
                   mono={false}
                   onClick={() =>
-                    navigate({ id: 'contract-profile', contractId: String(contract.Id) })
+                    navigate({ id: 'contract-profile', contractId: contract.ContractID })
                   }
                   right={<DaysPill endDate={contract.EndDate} />}
                 />
@@ -509,7 +509,7 @@ export const RenewalsCenter = ({ stage }: RenewalsCenterProps) => {
                     variant={getRenewalVariant(daysToExpiry)}
                     mono={false}
                     onClick={() =>
-                      navigate({ id: 'contract-profile', contractId: String(contract.Id) })
+                      navigate({ id: 'contract-profile', contractId: contract.ContractID })
                     }
                     right={<DaysPill endDate={contract.EndDate} />}
                   />

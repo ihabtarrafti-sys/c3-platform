@@ -581,7 +581,7 @@ export const ContractsList = ({ filter }: ContractsListProps) => {
                     onClick={() =>
                       navigate({
                         id: 'contract-profile',
-                        contractId: String(contract.Id),
+                        contractId: contract.ContractID,
                       })
                     }
                   />

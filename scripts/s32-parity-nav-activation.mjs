@@ -106,6 +106,34 @@ check('TD-33: no always-mounted OverlayDrawer remains in a shared panel (each ga
     !/from ['"]tabster['"]/.test(app) && !app.includes('createTabster') && !app.includes('_unstable'));
 }
 
+// ── 4d. Part 19.4 — contract-profile identity: canonical business ContractID ──
+{
+  const contractsList = read('packages/c3/src/screens/ContractsList.tsx');
+  const personProfile = read('packages/c3/src/screens/PersonProfile.tsx');
+  const inbox = read('packages/c3/src/screens/Inbox.tsx');
+  const renewals = read('packages/c3/src/screens/RenewalsCenter.tsx');
+  const amendmentProfile = read('packages/c3/src/screens/AmendmentProfile.tsx');
+  const mock = read('packages/c3/src/services/mock/MockContractService.ts');
+  const spSvc = read('packages/c3/src/services/sharepoint/SharePointContractService.ts');
+  const useContract = read('packages/c3/src/hooks/useContract.ts');
+  const navFiles = { ContractsList: contractsList, PersonProfile: personProfile, Inbox: inbox, RenewalsCenter: renewals };
+  // (1)(2) both entry points (and all others) pass the canonical business ContractID
+  check('Part19.4: Contracts register row navigates with canonical contract.ContractID', /id: 'contract-profile',\s*[\r\n]?\s*contractId: contract\.ContractID/.test(contractsList));
+  check('Part19.4: People profile contract link navigates with canonical contract.ContractID', /id: 'contract-profile', contractId: contract\.ContractID/.test(personProfile));
+  // (4) numeric SharePoint Id is NEVER used as the contract-profile identity
+  for (const [name, src] of Object.entries(navFiles))
+    check(`Part19.4: ${name} never passes numeric Id as contract identity`, !/contract-profile'[^}]*contractId: String\(contract\.Id\)/.test(src) && !src.includes('contractId: String(contract.Id)'));
+  // (3) service lookup is by business ID on BOTH DSMs (mock aligned to SP)
+  check('Part19.4: mock getContract looks up by canonical ContractID, not numeric Id', mock.includes('item.ContractID === contractId') && !mock.includes('String(item.Id) === contractId'));
+  check('Part19.4: SharePoint getContract filters by Title (canonical business ID)', /getContract[\s\S]{0,120}\$filter=Title eq '\$\{escOData\(contractId\)\}'/.test(spSvc));
+  // (5) undefined/malformed payload still fails truthfully (query disabled, no fabrication)
+  check('Part19.4: useContract disables the query for empty/undefined id (truthful not-found)', /enabled: contractId\.trim\(\)\.length > 0/.test(useContract));
+  // AmendmentProfile correctly uses the plain-text ParentContractID business FK (unchanged)
+  check('Part19.4: AmendmentProfile still navigates via the business ParentContractID', amendmentProfile.includes('contractId: String(amendment.ParentContractID)'));
+  // (8) read-only lock: no contract write path introduced
+  check('Part19.4: no contract write path introduced by the nav fix', !/createContract|updateContract|saveContract/i.test(contractsList + personProfile + inbox + renewals + mock));
+}
+
 // ── 5. Navigation code contains no SharePoint provisioning or ACL logic ──────
 check('boundary: NavRail/AppShell contain no SharePoint REST, provisioning, or ACL code',
   !/_api\/|roleassignment|breakroleinheritance|roledefinition|fetch\(/i.test(nav)

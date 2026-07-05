@@ -18,7 +18,10 @@ export const createMockContractService = (): IContractService => ({
   },
 
   getContract(contractId: string): Promise<Contract> {
-    const contract = mockContracts.find(item => String(item.Id) === contractId);
+    // S32 (Part 19.4): look up by the canonical plain-text business Contract ID
+    // (Title/ContractID), never the numeric SharePoint Id — mirrors
+    // SharePointContractService.getContract (filters Title eq).
+    const contract = mockContracts.find(item => item.ContractID === contractId);
     if (!contract) {
       return Promise.reject(new Error(`Contract not found: ${contractId}`));
     }

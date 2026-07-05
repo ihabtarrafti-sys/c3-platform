@@ -170,7 +170,7 @@ export const Inbox = () => {
                 subtitle={`${contract.FullName} · ${contract.ContractTypeName}`}
                 variant={getRenewalVariant(daysToExpiry)}
                 onClick={() =>
-                  navigate({ id: 'contract-profile', contractId: String(contract.Id) })
+                  navigate({ id: 'contract-profile', contractId: contract.ContractID })
                 }
                 right={
                   <>
@@ -205,7 +205,7 @@ export const Inbox = () => {
                 subtitle={`${contract.FullName} · ${contract.ContractTypeName}`}
                 variant={getRenewalVariant(daysToExpiry)}
                 onClick={() =>
-                  navigate({ id: 'contract-profile', contractId: String(contract.Id) })
+                  navigate({ id: 'contract-profile', contractId: contract.ContractID })
                 }
                 right={
                   <>
@@ -239,7 +239,7 @@ export const Inbox = () => {
                 subtitle={`${contract.FullName} · ${contract.ContractTypeName}`}
                 variant={getRenewalVariant(daysToExpiry)}
                 onClick={() =>
-                  navigate({ id: 'contract-profile', contractId: String(contract.Id) })
+                  navigate({ id: 'contract-profile', contractId: contract.ContractID })
                 }
                 right={
                   <>

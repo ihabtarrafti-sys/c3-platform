@@ -678,7 +678,7 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
                     subtitle={contract.ContractTypeName}
                     variant={getRenewalVariant(computeDaysToExpiry(contract.EndDate))}
                     onClick={() =>
-                      navigate({ id: 'contract-profile', contractId: String(contract.Id) })
+                      navigate({ id: 'contract-profile', contractId: contract.ContractID })
                     }
                     right={
                       <>
