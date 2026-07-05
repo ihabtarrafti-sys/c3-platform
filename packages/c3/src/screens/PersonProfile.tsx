@@ -200,7 +200,10 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
   };
 
   const { data: person, isLoading, error } = usePerson(personId);
-  const { data: contracts    = [] } = usePersonContracts(person?.PersonID ?? '');
+  // S32 (TD-32): expose the contracts query status so the Contract History tile can
+  // derive the total from CANONICAL rows (never the stored denormalized field) and
+  // stay truthfully "Not specified" while contract data is loading/unavailable.
+  const { data: contracts    = [], isPending: contractsPending, isError: contractsError } = usePersonContracts(person?.PersonID ?? '');
   const { data: credentials  = [] } = usePersonCredentials(person?.PersonID ?? '');
   const { data: journeys     = [] } = usePersonJourneys(person?.PersonID ?? '');
 
@@ -566,7 +569,8 @@ export const PersonProfile = ({ personId, tab: initialTab, missionContext }: Per
             <FieldGrid columns={3}>
               <FieldTile label="First Contract"  value={formatDate(person.FirstContractDate)} />
               <FieldTile label="Latest Contract" value={formatDate(person.LatestContractDate)} />
-              <FieldTile label="Total Contracts" value={person.TotalContracts} />
+              {/* S32 (TD-32): canonical count, never the stored TotalContracts field */}
+              <FieldTile label="Total Contracts" value={contractsPending || contractsError ? undefined : contracts.length} />
             </FieldGrid>
           </SectionCard>
 

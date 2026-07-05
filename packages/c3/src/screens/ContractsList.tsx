@@ -21,7 +21,7 @@
  */
 
 import { useMemo, useState, type ReactNode } from 'react';
-import { Button, Input, Select, Text } from '@fluentui/react-components';
+import { Input, Select, Text } from '@fluentui/react-components';
 
 import {
   EmptyState,
@@ -389,11 +389,13 @@ export const ContractsList = ({ filter }: ContractsListProps) => {
     <div style={{ padding: 'var(--c3-space-8)' }}>
 
       {/* ── Page header ──────────────────────────────────────────────── */}
+      {/* S32 (TD-31): the inert mock-era "New Contract" header action is REMOVED.
+          Contracts is application read-only in Internal V1 — authoring happens
+          directly in SharePoint by C3 Platform Owners (ACL-enforced). */}
       <PageHeader
         title="Contracts Workspace"
         subtitle="Operational register for contract lifecycle tracking."
         lastUpdated={loadedAt}
-        actions={<Button appearance="primary">New Contract</Button>}
       />
 
       {/* ── KPI strip ────────────────────────────────────────────────── */}
