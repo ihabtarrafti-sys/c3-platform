@@ -130,4 +130,58 @@ missing optionals stay missing · zero/missing never implies readiness.
 | 19.2 Roles/security | 🟡 PARTIAL — Owners green; other-role walkthroughs pending |
 | 19.3 Failure drill | ✅ GREEN |
 | 19.4 Real record | ⏳ PENDING owner |
-| **Internal V1.0** | **NOT DECLARED** — blocked on 19.2 completion + 19.4 |
+| **Internal V1.0** | **NOT DECLARED** — BLOCKED by TD-33 (People cold-load crash) + 19.2/19.4 |
+
+## BLOCKER — TD-33: People screen cold-load crash (Fluent v9 tabster) — discovered 2026-07-05
+
+**Severity:** 🔴 V1 blocker (core screen crashes on a real user's first visit).
+**Not a regression from this workstream** — see isolation proof below.
+
+### Symptom
+On a **cold** page load (fresh browser session), navigating to **People** — even
+after the default Command Center screen has fully settled — throws the app-level
+error boundary: "Something went wrong … Cannot read properties of undefined
+(reading 'set')". People renders 0 rows. Contracts, Renewals, Command Center,
+Diagnostics all render fine on the same cold load.
+
+### Root cause
+The stack is entirely inside Fluent UI v9 **tabster**:
+`Ja(e)` → modalizer creation → `a.attrHandlers.set(...)` with `a.attrHandlers`
+undefined — i.e. a tabster **modalizer** initializes before the tabster **core**
+has created its `attrHandlers` map. The People screen mounts `AddPersonPanel` (a
+Fluent modal/Drawer) whose modalizer registration triggers this on a cold
+session. It does **not** reproduce in a **warm** session (a tab that has already
+completed enough Fluent mounts) — which is why every prior hosted validation,
+always performed warm, passed, and why the warm reference tab renders People fine.
+
+### Isolation (why it is NOT this workstream's regression)
+1. The **original, unmodified** PeopleWorkspace (byte-identical to the pre-Sprint-32
+   `5936606` version) crashes cold — proven by deploying a build whose only diffs
+   from the activation build were TD-31 (ContractsList) and the PersonProfile tile.
+2. The **exact e8382ae1 build** — the Part 19.1-"validated" runtime, chunk
+   `96045e9c…` / `4b61b26e…`, reproduced byte-identical — **also crashes People
+   cold**. The earlier "GREEN" People observation was a warm-session artifact.
+3. Therefore the defect is pre-existing Fluent-v9/tabster infrastructure fragility,
+   independent of TD-31/TD-32 and of NavRail activation. My TD-31/TD-32 source
+   fixes are correct, gate-green (parity 27/27), and committed
+   (`0992bff`, `a0b8ae5`) — but are **not deployed**, because a proper fix for
+   TD-33 will rebuild+redeploy the runtime and they will ship together then.
+
+### Likely fix direction (for the owner/lead — architecture decision, not routine)
+Defer modalizer init until the panel is actually opened — e.g. mount the Fluent
+panels conditionally (`{open && <AddPersonPanel …/>}`) rather than always-rendered
+with `open={false}` — and/or ensure the tabster core is initialized once at
+`FluentProvider` mount. This pattern likely also affects other modal-bearing
+screens (PersonProfile's StartJourney/AddCredential panels, Approvals) and should
+be applied as a shared pattern, then cold-validated on every panel screen. This
+touches Fluent integration and warrants a small dedicated fix + hosted cold-path
+regression pass — out of scope for a V1 closeout keystroke.
+
+### Tenant state left by this workstream
+The tenant is restored to the **pre-workstream e8382ae1 build** (chunk
+`96045e9c…`), i.e. exactly the Part 19 baseline — no net hosted change. The
+TD-31/TD-32 corrected runtime (`442a5e04…`) is committed but intentionally
+undeployed pending TD-33. **Deployment SHA integrity was preserved throughout**
+(every deploy proved the loaded chunk against its built hash; the ALM
+Add/Deploy operations were the only catalog mutations; no list/field/permission/
+group was provisioned or changed).

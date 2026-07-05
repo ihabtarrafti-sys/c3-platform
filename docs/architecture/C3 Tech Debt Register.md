@@ -747,3 +747,20 @@ from C3_People — a mock-era denormalized count that now reads 2/1 while the
 canonical C3Contracts list is empty. Replace with a live derivation from the
 canonical list (or drop the column) so zero/missing canonical data is never
 contradicted by a stale rollup.
+
+### TD-33 — People screen cold-load crash (Fluent v9 tabster) 🔴 V1 BLOCKER
+
+**Severity:** 🔴 Blocker · **Discovered:** S32 Part 19 hosted (2026-07-05)
+**Files:** Fluent UI v9 tabster (vendor); triggered by `AddPersonPanel` on `PeopleWorkspace.tsx` (and likely other modal panels: StartJourney/AddCredential on PersonProfile, Approvals)
+
+On a COLD page load, first navigation to People throws the error boundary
+("Cannot read properties of undefined (reading 'set')") — a tabster modalizer
+initializes before the tabster core creates its `attrHandlers` map. Does not
+reproduce warm (why all prior warm hosted validations passed). PRE-EXISTING —
+proven by cold-crashing the byte-identical e8382ae1 build and the unmodified
+PeopleWorkspace; independent of the S32 NavRail activation and TD-31/TD-32 work.
+
+**Fix direction:** mount Fluent panels conditionally (`{open && <Panel/>}`) so the
+modalizer registers only on open (tabster warm by then), and/or force tabster core
+init at FluentProvider mount; apply as a shared pattern across all modal-panel
+screens and cold-validate each. Blocks Internal V1.0 until fixed + cold-regressed.
