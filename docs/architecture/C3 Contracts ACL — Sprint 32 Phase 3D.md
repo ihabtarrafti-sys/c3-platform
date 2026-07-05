@@ -1,10 +1,13 @@
 # C3 Contracts ACL — Sprint 32 Phase 3D
 
-**Status:** 🟡 rev 2 TOOLING COMPLETE — 3D-0 probe re-run + 3D-1 dry-run evidence
-PENDING owner execution; hosted mutation NOT authorized yet. Phase 3D is NOT
-complete and NOT hosted-green.
+**Status:** 🟡 rev 3 TOOLING COMPLETE — fresh 3D-0 rev 3 probe + rebound dry run
+PENDING owner execution; the first armed run STOPPED FAIL-CLOSED with zero
+mutations (stale field-inventory binding — see §9). Phase 3D is NOT complete
+and NOT hosted-green.
 **Scope:** Exact ACL configuration of the canonical `C3Contracts` list only.
-**Prepared:** 2026-07-05 · **rev 2:** 2026-07-05 (after reviewed 3D-0 hosted evidence)
+**Prepared:** 2026-07-05 · **rev 2:** 2026-07-05 (after reviewed 3D-0 hosted
+evidence) · **rev 3:** 2026-07-05 (gate-order correction + field-inventory
+drift classification, under delegated engineering authority)
 
 ---
 
@@ -185,4 +188,39 @@ inheritance strategy.
 - 3D-1 rev 2 dry-run evidence: _pending owner execution_
 - 3D-1 armed execution + final ACL fingerprint: _pending separate authorization_
 
+**Armed 3D-1 rev 2 run (2026-07-05): STOPPED FAIL-CLOSED, ZERO mutations.**
+The `EXPECTED_PRE_FIELD_INVENTORY_FP` binding (`b3e726b0…`) no longer matched
+live state. Confirmed at failure: `HasUniqueRoleAssignments=false`, ACL
+fingerprint unchanged (`87f278b2…`), list ETag unchanged (`"255"`), plan
+unchanged, no inheritance break, no grant, no removal, no PARTIAL STATE.
+Normal mode remains valid after fresh evidence rebinding; recovery mode is not
+required. This exposed the rev 2 defect fixed in §9.
+
 Phase 3D must not be recorded complete until hosted evidence lands here.
+
+## 9. rev 3 — gate-order correction and field-inventory drift policy
+
+**Defect:** in rev 2, the dry run returned BEFORE evidence-binding validation,
+so a stale binding could only surface in the armed run. **Correction:** 3D-1 is
+now strictly ordered — (1) common live preflight; (2) full evidence-binding
+validation for the active mode (targets, role definitions, ACL fingerprint,
+field-inventory fingerprint, list-ETag witness, executing-user identity,
+inheritance state, exact plan; schema/settings/contents/inbound/scopes enforced
+by the fail-closed preflight); (3) dry-run return; (4) armed confirmation gate —
+the phrase is the ONLY armed-only validation; (5) mutation execution. Recovery
+mode follows the same ordering. Parity checks prove the dry-run success banner
+is unreachable until every binding has passed.
+
+**Field-inventory drift policy** (delegated classification): the full inventory
+fingerprint includes `SchemaXml` and other SharePoint-managed metadata, which
+the platform may change without any business meaning. Drift is **safe to
+rebind** ONLY when ALL of the following remain true — reduced canonical schema
+fingerprint `3a13b28f…` intact · all 19 canonical business fields genuinely
+exact (verified field-by-field by the rev 3 probe, incl. Title as the base
+field) · the two SP-managed comment fields keep every invariant · GUID/URL/
+settings/ItemCount 0/inbound []/scopes [] unchanged · ACL inherited and
+unchanged. Then the difference is by construction confined to SharePoint-managed
+metadata, is documented, and the FRESH full fingerprint is bound. Anything else
+is a mandatory stop. Tooling: the 3D-0 rev 3 probe classifies live drift and
+prints per-field state hashes; `diff-3d0-field-inventories.mjs` diffs two saved
+evidence files property-by-property (exit 1 on business-relevant drift).
