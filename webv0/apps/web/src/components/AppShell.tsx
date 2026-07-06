@@ -12,6 +12,7 @@ import { useSession, useNotify } from '../session';
 import { IS_ENTRA } from '../auth';
 import { LoginGate } from '../pages/LoginGate';
 import { EntraSignIn, AccessNotProvisioned } from '../pages/EntraSignIn';
+import { ENV_LABEL, SHOW_ENV } from '../theme/env';
 
 /**
  * The C3 shell — Concept C "Split Authority" (Part A). Three always-present
@@ -24,13 +25,6 @@ import { EntraSignIn, AccessNotProvisioned } from '../pages/EntraSignIn';
  * increment that also updates the addPerson E2E, which currently asserts the raw
  * role string on `role-display` and clicks a directly-visible `logout`.
  */
-
-// Environment badge: staging/dev only, hidden in production (Part A.9). No new
-// required plumbing — a prod build can set VITE_ENV_LABEL='' to hide it.
-const ENV_LABEL = (
-  (import.meta.env.VITE_ENV_LABEL as string | undefined) ?? (import.meta.env.DEV ? 'LOCAL' : 'STAGING')
-).toUpperCase();
-const SHOW_ENV = ENV_LABEL !== '' && ENV_LABEL !== 'PRODUCTION' && ENV_LABEL !== 'PROD';
 
 const useStyles = makeStyles({
   root: {
