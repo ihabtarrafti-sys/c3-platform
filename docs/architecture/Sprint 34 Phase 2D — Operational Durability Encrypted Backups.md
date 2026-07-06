@@ -1,9 +1,9 @@
 # Sprint 34 Phase 2D — Operational Durability: Encrypted Staging Backups & Restore Certification
 
-**Status:** implementation + hosted certification COMPLETE (first manual backup
-+ restore drill certified; daily schedule enabled). One owner follow-up remains
-(monitor credential placement — see §Limitations). Nothing in Concept C /
-Credentials touched; SharePoint + Entra unchanged.
+**Status:** COMPLETE and hosted-certified — first manual backup + restore drill
+certified, daily schedule enabled, stale-monitor validated end-to-end. No open
+follow-ups. Nothing in Concept C / Credentials touched; SharePoint + Entra
+unchanged.
 
 Provider limitation that drove this design: **Railway Hobby provides no native
 PostgreSQL backup controls / PITR** in the owner's hosted account. This is an
@@ -59,12 +59,20 @@ Disposable DB **dropped**. Restore logs: 0 key/secret hits. Post-drill:
 `RESTORE_ADMIN_URL` + `JOB_MODE` + `AGE_IDENTITY` removed; no leftover
 `c3_restore_drill_*` database.
 
-## Monitoring
+## Monitoring (hosted, validated)
 GitHub Actions `webv0-backup-monitor` (daily 06:30 UTC + manual): read-only R2,
 36h threshold, opens/updates one `backup-stale` issue, closes on recovery,
-never decrypts. Freshness logic validated locally against the real
-`status/latest-success.json` (stale=false, 0.2h). **End-to-end hosted run
-pending correct secret placement (see Limitations).**
+never decrypts. The four monitor secrets live ONLY in GitHub Actions
+(`R2_ENDPOINT`, `R2_BUCKET`, `R2_MONITOR_ACCESS_KEY_ID`,
+`R2_MONITOR_SECRET_ACCESS_KEY`); the cron service holds only the writer token.
+Manual dispatch (run `28809147554`) evidence: "Evaluate backup freshness
+(read-only R2)" step **success** (authenticated with the read-only monitor
+credential; read `status/latest-success.json` from the real bucket) →
+`stale=false`, actual age 0.04h; **no dump downloaded/decrypted** (zero
+decrypt/pg_restore/.dump.age references); "Open stale issue" step **skipped**,
+"Close on recovery" success (no-op), "Fail if stale" **skipped**; **0
+`backup-stale` issues** created (any state); log secret scan clean (only
+git SHAs; GitHub masks registered secrets).
 
 ## Tests / gate
 39 new backup tests (env fail-closed + forbidden-cred detection, deterministic
@@ -84,17 +92,14 @@ R2 within free tier ($0); Railway cron ~$0.02–0.05/mo. **Additional
 < $0.10/month**; total staging < $20/month. Railway Pro / PITR / native
 backups / Agent: not used.
 
-## Limitations / follow-ups
-- **Monitor secret placement:** the R2 monitor token was placed on the Railway
-  cron service (harmless read-only, but wrong home). Owner must copy the four
-  values into **GitHub Actions secrets** (`R2_ENDPOINT`, `R2_BUCKET`,
-  `R2_MONITOR_ACCESS_KEY_ID`, `R2_MONITOR_SECRET_ACCESS_KEY`), **remove**
-  `R2_MONITOR_ACCESS_KEY_ID` + `R2_MONITOR_SECRET_ACCESS_KEY` from Railway, and
-  re-run the monitor workflow to confirm a `stale=false` log line (the earlier
-  "green" run without GitHub secrets is a no-op false-green).
+## Limitations
+- Restore is logical (last snapshot), **not PITR** — recovery is to the last
+  successful daily/manual backup.
 - Cron schedule set via the Railway dashboard (no CLI); the first automatic run
   fires at the next 02:15 UTC.
-- Restore is logical (last snapshot), not PITR.
+- (Resolved) The monitor secret placement was corrected: the read-only monitor
+  token now lives only in GitHub Actions; it was removed from the Railway cron
+  service; the monitor was re-dispatched and validated end-to-end (above).
 
 ## Rollback / disable
 Clear the Cron Schedule (or delete `c3-backup-cron`) to stop backups + cost;
