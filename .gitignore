@@ -57,3 +57,7 @@ webv0/apps/api/dist/
 playwright-report/
 test-results/
 .turbo/
+
+# Intentionally untracked owner handoff material (never commit)
+docs/Handoff v2/
+docs/fable/
