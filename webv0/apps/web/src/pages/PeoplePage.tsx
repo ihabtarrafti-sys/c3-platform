@@ -10,6 +10,7 @@ import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
+import { GovernedAction } from '../components/GovernedAction';
 
 const useStyles = makeStyles({
   form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
@@ -76,9 +77,17 @@ export function PeoplePage() {
           <Field label="Team">
             <Input value={team} onChange={(_, d) => setTeam(d.value)} data-testid="add-person-team" />
           </Field>
-          <Button appearance="primary" onClick={submit} disabled={busy || fullName.trim() === ''} data-testid="add-person-submit">
-            {busy ? 'Submitting…' : 'Submit for approval'}
-          </Button>
+          <div>
+            <GovernedAction
+              triggerLabel="Submit for approval"
+              triggerTestId="add-person-submit"
+              triggerDisabled={busy || fullName.trim() === ''}
+              title="Submit this request for approval?"
+              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
+              confirmLabel="Submit for approval"
+              onConfirm={submit}
+            />
+          </div>
         </Card>
       )}
 

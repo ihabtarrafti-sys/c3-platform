@@ -31,6 +31,7 @@ test('AddPerson governed workflow, end to end', async ({ page }) => {
     await page.getByTestId('add-person-fullname').fill('Jordan Reyes');
     await page.getByTestId('add-person-team').fill('Vanguard');
     await page.getByTestId('add-person-submit').click();
+    await page.getByTestId('add-person-submit-confirm').click();
     await expect(page.getByTestId('notifications')).toContainText('Submitted APR-0001');
     // Still no person.
     await expect(page.getByTestId('people-empty')).toBeVisible();
@@ -54,6 +55,7 @@ test('AddPerson governed workflow, end to end', async ({ page }) => {
     await page.getByTestId('begin-review').click();
     await expect(page.getByTestId('approval-detail-status')).toHaveText('In review');
     await page.getByTestId('approve').click();
+    await page.getByTestId('approve-confirm').click();
     await expect(page.getByTestId('approval-detail-status')).toHaveText('Approved');
     // Approval alone creates no person.
     await page.goto('/people');
@@ -63,6 +65,7 @@ test('AddPerson governed workflow, end to end', async ({ page }) => {
   await test.step('Owner executes; exactly one person appears', async () => {
     await page.goto('/approvals/APR-0001');
     await page.getByTestId('execute').click();
+    await page.getByTestId('execute-confirm').click();
     await expect(page.getByTestId('approval-detail-status')).toHaveText('Executed');
     await expect(page.getByTestId('created-person-link')).toHaveText('PER-0001');
 

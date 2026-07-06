@@ -12,6 +12,7 @@ import { DefinitionList, type DefItem } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { ErrorState, LoadingState } from '../components/states';
+import { GovernedAction } from '../components/GovernedAction';
 import { approvalStatusOf, operationOf } from '../labels';
 
 const useStyles = makeStyles({
@@ -156,41 +157,46 @@ export function ApprovalDetailPage() {
                 )}
                 {canReview && a.status === 'InReview' && (
                   <>
-                    <Button
-                      appearance="primary"
-                      disabled={busy}
-                      data-testid="approve"
-                      onClick={() => run(() => api.approve(a.approvalId, a.version), 'Approved.')}
-                    >
-                      Approve
-                    </Button>
-                    <Field label="Reason for rejection">
-                      <Input value={reason} onChange={(_, d) => setReason(d.value)} data-testid="reject-reason" />
-                    </Field>
-                    <Button
-                      disabled={busy || reason.trim() === ''}
-                      data-testid="reject"
-                      onClick={() => run(() => api.reject(a.approvalId, a.version, reason), 'Rejected.')}
-                    >
-                      Reject
-                    </Button>
+                    <GovernedAction
+                      triggerLabel="Approve"
+                      triggerTestId="approve"
+                      title="Approve this request?"
+                      description="Approving records your decision. It does not execute the change — execution is a separate step."
+                      confirmLabel="Approve"
+                      onConfirm={() => run(() => api.approve(a.approvalId, a.version), 'Approved.')}
+                    />
+                    <GovernedAction
+                      triggerLabel="Reject"
+                      triggerTestId="reject"
+                      triggerAppearance="secondary"
+                      title="Reject this request?"
+                      description="Add a reason. This is recorded in the request’s history."
+                      extra={
+                        <Field label="Reason for rejection">
+                          <Input value={reason} onChange={(_, d) => setReason(d.value)} data-testid="reject-reason" />
+                        </Field>
+                      }
+                      confirmLabel="Reject"
+                      confirmDisabled={reason.trim() === ''}
+                      onConfirm={() => run(() => api.reject(a.approvalId, a.version, reason), 'Rejected.')}
+                    />
                   </>
                 )}
                 {canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed') && (
-                  <Button
-                    appearance="primary"
-                    disabled={busy}
-                    data-testid="execute"
-                    onClick={() =>
+                  <GovernedAction
+                    triggerLabel={a.status === 'ExecutionFailed' ? 'Retry execute' : 'Execute'}
+                    triggerTestId="execute"
+                    title="Execute this approved request?"
+                    description="This performs the approved change. Pending and executed are different states — this moves the request to executed."
+                    confirmLabel="Execute"
+                    onConfirm={() =>
                       run(async () => {
                         const res = await api.execute(a.approvalId, a.version);
                         notify('info', res.idempotent ? 'Already executed (idempotent).' : `Created ${res.person?.personId}.`);
                         return res;
                       }, 'Execution complete.')
                     }
-                  >
-                    {a.status === 'ExecutionFailed' ? 'Retry execute' : 'Execute'}
-                  </Button>
+                  />
                 )}
               </div>
             </div>
