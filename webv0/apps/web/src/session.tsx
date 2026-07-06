@@ -24,6 +24,8 @@ type Status = 'loading' | 'authenticated' | 'anonymous' | 'unprovisioned';
 interface SessionValue {
   status: Status;
   me: MeResponse | null;
+  /** Truthful reason the last session resolution failed (shown on the sign-in screen). */
+  authNotice: string | null;
   providerSession: AuthSession | null;
   authProvider: 'entra' | 'dev';
   /** Entra: interactive redirect sign-in. */
@@ -40,6 +42,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<Status>('loading');
   const [me, setMe] = useState<MeResponse | null>(null);
   const [providerSession, setProviderSession] = useState<AuthSession | null>(null);
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
 
   const resolveMe = useCallback(async (session: AuthSession | null) => {
     setProviderSession(session);
@@ -51,6 +54,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     try {
       const m = await api.me();
       setMe(m);
+      setAuthNotice(null);
       setStatus('authenticated');
     } catch (err) {
       setMe(null);
@@ -58,7 +62,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         // Valid identity, no C3 membership: truthful state, not a login error.
         setStatus('unprovisioned');
       } else {
-        await authClient.signOut().catch(() => {});
+        // The API refused the session (e.g. token rejected). Clear ONLY the
+        // local session — never bounce through the provider's logout page —
+        // and surface the exact refusal on the sign-in screen.
+        setAuthNotice(err instanceof ApiError ? err.message : 'The service could not be reached.');
+        await authClient.clearLocalSession().catch(() => {});
         setStatus('anonymous');
       }
     }
@@ -104,8 +112,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [resolveMe]);
 
   const value = useMemo<SessionValue>(
-    () => ({ status, me, providerSession, authProvider: AUTH_PROVIDER, signIn, devLogin, signOut, refresh }),
-    [status, me, providerSession, signIn, devLogin, signOut, refresh],
+    () => ({ status, me, providerSession, authNotice, authProvider: AUTH_PROVIDER, signIn, devLogin, signOut, refresh }),
+    [status, me, providerSession, authNotice, signIn, devLogin, signOut, refresh],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

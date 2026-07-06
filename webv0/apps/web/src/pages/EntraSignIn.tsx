@@ -14,7 +14,7 @@ const useStyles = makeStyles({
  */
 export function EntraSignIn({ intendedPath }: { intendedPath?: string }) {
   const s = useStyles();
-  const { signIn } = useSession();
+  const { signIn, authNotice } = useSession();
   return (
     <div className={s.wrap}>
       <Card className={s.card}>
@@ -23,6 +23,11 @@ export function EntraSignIn({ intendedPath }: { intendedPath?: string }) {
         <Button appearance="primary" data-testid="entra-signin" onClick={() => void signIn(intendedPath)}>
           Sign in with Microsoft
         </Button>
+        {authNotice ? (
+          <Text className={s.hint} data-testid="auth-notice">
+            Last attempt: {authNotice}
+          </Text>
+        ) : null}
       </Card>
     </div>
   );

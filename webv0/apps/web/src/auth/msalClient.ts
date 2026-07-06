@@ -69,6 +69,13 @@ export function createMsalAuthClient(cfg: EntraWebConfig): AuthClient {
       return { session: toSession(result.account)!, intendedPath: result.state || null };
     },
 
+    async clearLocalSession(): Promise<void> {
+      await ensureInit();
+      const account = activeAccount();
+      if (account) await pca.clearCache({ account });
+      pca.setActiveAccount(null);
+    },
+
     async signOut(): Promise<void> {
       await ensureInit();
       await pca.logoutRedirect({ account: activeAccount() ?? undefined });

@@ -47,6 +47,7 @@ function fakeAuth(over: Partial<AuthClient> = {}): AuthClient {
     signIn: vi.fn(async () => {}),
     completeRedirect: vi.fn(async () => ({ session, intendedPath: '/approvals/APR-0001' })),
     signOut: vi.fn(async () => {}),
+    clearLocalSession: vi.fn(async () => {}),
     getAccessToken: vi.fn(async () => 'token-abc'),
     reauthenticate: vi.fn(async () => {}),
     getSession: vi.fn(() => session),

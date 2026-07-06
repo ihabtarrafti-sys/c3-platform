@@ -39,6 +39,12 @@ export function createDevAuthClient(): AuthClient & {
       return null; // no redirect flow in dev
     },
 
+    async clearLocalSession(): Promise<void> {
+      session = null;
+      write(TOKEN_KEY, null);
+      write(SESSION_KEY, null);
+    },
+
     async signOut(): Promise<void> {
       session = null;
       write(TOKEN_KEY, null);

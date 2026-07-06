@@ -33,6 +33,11 @@ export interface AuthClient {
 
   signOut(): Promise<void>;
 
+  /** Clear the LOCAL session only (no provider logout redirect). Used when the
+   *  API rejects a valid-looking provider session — bouncing through the
+   *  provider's logout page cannot fix that and disorients the user. */
+  clearLocalSession(): Promise<void>;
+
   /** Acquire an API access token silently. Returns null when interactive
    *  reauthentication is required (caller decides when to trigger it). */
   getAccessToken(): Promise<string | null>;
