@@ -1,28 +1,18 @@
-import { Link, useParams } from 'react-router-dom';
-import {
-  Badge,
-  Card,
-  MessageBar,
-  MessageBarBody,
-  Spinner,
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableHeaderCell,
-  TableRow,
-  Text,
-  Title2,
-  makeStyles,
-  tokens,
-} from '@fluentui/react-components';
+import { useParams } from 'react-router-dom';
+import { makeStyles } from '@fluentui/react-components';
 import { usePerson, usePersonAudit } from '../queries';
 import { ApiError } from '../api';
+import { PageHeader } from '../components/PageHeader';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { DefinitionList } from '../components/DefinitionList';
+import { StatusBadge } from '../components/StatusBadge';
+import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
+import { ErrorState, LoadingState } from '../components/states';
+import { auditActionOf } from '../labels';
 
 const useStyles = makeStyles({
-  card: { display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '8px 24px', padding: '20px', maxWidth: '560px', marginBottom: '24px' },
-  label: { color: tokens.colorNeutralForeground3 },
-  back: { marginBottom: '12px', display: 'inline-block' },
+  section: { marginTop: '32px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
 });
 
 export function PersonProfilePage() {
@@ -31,58 +21,56 @@ export function PersonProfilePage() {
   const { data, isLoading, isError, error } = usePerson(personId);
   const audit = usePersonAudit(personId);
 
+  if (isError) {
+    const is404 = error instanceof ApiError && error.status === 404;
+    return (
+      <div>
+        <PageHeader title="Person" breadcrumbs={<Breadcrumbs crumbs={[{ label: 'People', to: '/people' }, { label: personId }]} />} />
+        <ErrorState
+          data-testid="person-error"
+          message={is404 ? `No person ${personId} in your tenant.` : 'Could not load this person.'}
+          correlationId={error instanceof ApiError ? error.correlationId : undefined}
+        />
+      </div>
+    );
+  }
+
+  const name = data?.person.fullName ?? (isLoading ? 'Loading…' : personId);
+  const entries: TimelineEntry[] = (audit.data?.events ?? []).map((e) => ({
+    at: e.at,
+    label: auditActionOf(e.action),
+    actor: e.actor,
+  }));
+
   return (
     <div>
-      <Link to="/people" className={s.back}>
-        &larr; People
-      </Link>
-      {isLoading && <Spinner label="Loading person..." />}
-      {isError && (
-        <MessageBar intent={error instanceof ApiError && error.status === 404 ? 'warning' : 'error'}>
-          <MessageBarBody data-testid="person-error">
-            {error instanceof ApiError && error.status === 404 ? `No person ${personId} in your tenant.` : 'Could not load this person.'}
-          </MessageBarBody>
-        </MessageBar>
-      )}
+      <PageHeader
+        title={name}
+        titleTestId="person-title"
+        breadcrumbs={<Breadcrumbs crumbs={[{ label: 'People', to: '/people' }, { label: name }]} />}
+      />
+      {isLoading && <LoadingState label="Loading person…" />}
       {data && (
         <>
-          <Title2 data-testid="person-title">{data.person.fullName}</Title2>
-          <Card className={s.card}>
-            <Text className={s.label}>Person ID</Text>
-            <Text data-testid="person-id">{data.person.personId}</Text>
-            <Text className={s.label}>In-game name</Text>
-            <Text>{data.person.ign ?? '-'}</Text>
-            <Text className={s.label}>Team</Text>
-            <Text>{data.person.currentTeam ?? '-'}</Text>
-            <Text className={s.label}>Status</Text>
-            <Badge appearance="tint" color={data.person.isActive ? 'success' : 'informative'}>
-              {data.person.isActive ? 'Active' : 'Inactive'}
-            </Badge>
-          </Card>
-
-          <Title2>History</Title2>
-          {audit.data && audit.data.events.length > 0 ? (
-            <Table aria-label="Person audit history" data-testid="person-audit">
-              <TableHeader>
-                <TableRow>
-                  <TableHeaderCell>When</TableHeaderCell>
-                  <TableHeaderCell>Action</TableHeaderCell>
-                  <TableHeaderCell>Actor</TableHeaderCell>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {audit.data.events.map((e, i) => (
-                  <TableRow key={i}>
-                    <TableCell>{new Date(e.at).toLocaleString()}</TableCell>
-                    <TableCell>{e.action}</TableCell>
-                    <TableCell>{e.actor}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          ) : (
-            <Text>No audit history.</Text>
-          )}
+          <DefinitionList
+            items={[
+              { label: 'Person ID', value: data.person.personId, mono: true, testId: 'person-id' },
+              { label: 'In-game name', value: data.person.ign ?? null },
+              { label: 'Team', value: data.person.currentTeam ?? null },
+              {
+                label: 'Status',
+                value: (
+                  <StatusBadge variant={data.person.isActive ? 'ready' : 'neutral'}>
+                    {data.person.isActive ? 'Active' : 'Inactive'}
+                  </StatusBadge>
+                ),
+              },
+            ]}
+          />
+          <div className={s.section}>
+            <h2 className={s.h2}>History</h2>
+            <AuditTimeline entries={entries} testId="person-audit" />
+          </div>
         </>
       )}
     </div>

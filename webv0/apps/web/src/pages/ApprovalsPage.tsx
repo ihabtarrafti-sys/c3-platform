@@ -4,22 +4,10 @@ import { useApprovals } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
 import { PageHeader } from '../components/PageHeader';
-import { StatusBadge, type StatusVariant } from '../components/StatusBadge';
+import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
-
-/** Approval status → human label + StatusBadge variant (D.4). Raw enum never renders. */
-const STATUS: Record<string, { label: string; variant: StatusVariant }> = {
-  Submitted: { label: 'Submitted', variant: 'pending' },
-  InReview: { label: 'In review', variant: 'pending' },
-  Approved: { label: 'Approved', variant: 'ready' },
-  Rejected: { label: 'Rejected', variant: 'blocked' },
-  Executed: { label: 'Executed', variant: 'ready' },
-  ExecutionFailed: { label: 'Execution failed', variant: 'blocked' },
-};
-
-/** Operation type → human label (D.5). */
-const OPERATION: Record<string, string> = { AddPerson: 'Add Person' };
+import { approvalStatusOf, operationOf } from '../labels';
 
 const useStyles = makeStyles({ denied: { fontSize: '14px', color: 'var(--c3-ink-70)' } });
 
@@ -68,7 +56,7 @@ export function ApprovalsPage() {
             </thead>
             <tbody>
               {data.approvals.map((a) => {
-                const st = STATUS[a.status] ?? { label: a.status, variant: 'neutral' as StatusVariant };
+                const st = approvalStatusOf(a.status);
                 return (
                   <tr key={a.approvalId} className={r.row} data-testid={`approval-row-${a.approvalId}`}>
                     <td className={r.td}>
@@ -76,7 +64,7 @@ export function ApprovalsPage() {
                         {a.approvalId}
                       </Link>
                     </td>
-                    <td className={`${r.td} ${r.name}`}>{OPERATION[a.operationType] ?? a.operationType}</td>
+                    <td className={`${r.td} ${r.name}`}>{operationOf(a.operationType)}</td>
                     <td className={r.td}>
                       <StatusBadge variant={st.variant} data-testid={`approval-status-${a.approvalId}`}>
                         {st.label}

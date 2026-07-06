@@ -52,7 +52,7 @@ test('AddPerson governed workflow, end to end', async ({ page }) => {
   await test.step('Owner begins review and approves; person still does not exist', async () => {
     await page.goto('/approvals/APR-0001');
     await page.getByTestId('begin-review').click();
-    await expect(page.getByTestId('approval-detail-status')).toHaveText('InReview');
+    await expect(page.getByTestId('approval-detail-status')).toHaveText('In review');
     await page.getByTestId('approve').click();
     await expect(page.getByTestId('approval-detail-status')).toHaveText('Approved');
     // Approval alone creates no person.
@@ -79,7 +79,7 @@ test('AddPerson governed workflow, end to end', async ({ page }) => {
 
     await page.goto('/people/PER-0001');
     await expect(page.getByTestId('person-title')).toHaveText('Jordan Reyes');
-    await expect(page.getByTestId('person-audit')).toContainText('PersonCreated');
+    await expect(page.getByTestId('person-audit')).toContainText('Person created');
   });
 
   await test.step('A read-only identity sees no write affordance', async () => {

@@ -21,7 +21,19 @@ const useStyles = makeStyles({
   actions: { display: 'flex', alignItems: 'center', columnGap: '8px', flexShrink: 0 },
 });
 
-export function PageHeader({ title, context, actions }: { title: string; context?: ReactNode; actions?: ReactNode }) {
+export function PageHeader({
+  title,
+  context,
+  actions,
+  titleTestId,
+  breadcrumbs,
+}: {
+  title: string;
+  context?: ReactNode;
+  actions?: ReactNode;
+  titleTestId?: string;
+  breadcrumbs?: ReactNode;
+}) {
   const s = useStyles();
   useEffect(() => {
     document.title = `C3 — ${title}`;
@@ -29,7 +41,10 @@ export function PageHeader({ title, context, actions }: { title: string; context
   return (
     <div className={s.header}>
       <div className={s.titleWrap}>
-        <h1 className={s.h1}>{title}</h1>
+        {breadcrumbs}
+        <h1 className={s.h1} data-testid={titleTestId}>
+          {title}
+        </h1>
         {context != null && <div className={s.context}>{context}</div>}
       </div>
       {actions && (

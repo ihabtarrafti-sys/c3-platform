@@ -1,37 +1,34 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Badge,
-  Button,
-  Card,
-  Field,
-  Input,
-  MessageBar,
-  MessageBarBody,
-  Spinner,
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableHeaderCell,
-  TableRow,
-  Text,
-  Title2,
-  makeStyles,
-  tokens,
-} from '@fluentui/react-components';
+import { Button, Field, Input, makeStyles } from '@fluentui/react-components';
 import { useApproval, useApprovalEvents } from '../queries';
 import { ApiError, type ApprovalDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
+import { PageHeader } from '../components/PageHeader';
+import { Breadcrumbs } from '../components/Breadcrumbs';
+import { DefinitionList, type DefItem } from '../components/DefinitionList';
+import { StatusBadge } from '../components/StatusBadge';
+import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
+import { ErrorState, LoadingState } from '../components/states';
+import { approvalStatusOf, operationOf } from '../labels';
 
 const useStyles = makeStyles({
-  back: { marginBottom: '12px', display: 'inline-block' },
-  card: { display: 'grid', gridTemplateColumns: 'max-content 1fr', gap: '8px 24px', padding: '20px', maxWidth: '620px', margin: '12px 0 20px' },
-  label: { color: tokens.colorNeutralForeground3 },
-  actions: { display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '20px' },
-  note: { color: tokens.colorNeutralForeground3, marginBottom: '16px' },
+  section: { marginTop: '32px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  decision: {
+    marginTop: '24px',
+    padding: '16px',
+    border: '1px solid var(--c3-hairline)',
+    borderRadius: 'var(--c3-radius)',
+    backgroundColor: 'var(--c3-identity-white)',
+    maxWidth: '640px',
+  },
+  decisionNote: { fontSize: '12.5px', color: 'var(--c3-ink-50)', marginBottom: '12px' },
+  decisionRow: { display: 'flex', columnGap: '10px', rowGap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' },
+  ownNote: { fontSize: '13px', color: 'var(--c3-ink-70)', marginTop: '16px', maxWidth: '640px' },
+  idLink: { fontFamily: 'var(--c3-font-mono)', fontSize: '13px', color: 'var(--c3-command-black)' },
 });
 
 export function ApprovalDetailPage() {
@@ -63,133 +60,147 @@ export function ApprovalDetailPage() {
     }
   }
 
-  if (isLoading) return <Spinner label="Loading approval..." />;
+  const crumbs = [{ label: 'Approvals', to: '/approvals' }, { label: approvalId }];
+
   if (isError) {
+    const is404 = error instanceof ApiError && error.status === 404;
     return (
-      <MessageBar intent={error instanceof ApiError && error.status === 404 ? 'warning' : 'error'}>
-        <MessageBarBody data-testid="approval-error">
-          {error instanceof ApiError && error.status === 404 ? `No approval ${approvalId} in your tenant.` : 'Could not load this approval.'}
-        </MessageBarBody>
-      </MessageBar>
+      <div>
+        <PageHeader title={approvalId} breadcrumbs={<Breadcrumbs crumbs={crumbs} />} />
+        <ErrorState
+          data-testid="approval-error"
+          message={is404 ? `No approval ${approvalId} in your tenant.` : 'Could not load this approval.'}
+          correlationId={error instanceof ApiError ? error.correlationId : undefined}
+        />
+      </div>
     );
   }
-  if (!data) return null;
 
-  const a = data.approval;
+  const a = data?.approval;
+  const st = a ? approvalStatusOf(a.status) : null;
   const canReview = me?.capabilities.canReviewApproval ?? false;
   const canExecute = me?.capabilities.canExecuteApproval ?? false;
-  const isOwnRequest = me?.identity === a.submittedBy;
+  const isOwnRequest = a ? me?.identity === a.submittedBy : false;
   const actionable = !isOwnRequest;
+
+  const entries: TimelineEntry[] = (events.data?.events ?? []).map((e) => {
+    const to = approvalStatusOf(e.toStatus).label;
+    const from = e.fromStatus ? approvalStatusOf(e.fromStatus).label : null;
+    return { at: e.at, label: from ? `${from} → ${to}` : to, actor: e.actor, detail: e.note };
+  });
+
+  const items: DefItem[] = a
+    ? [
+        {
+          label: 'Status',
+          value: (
+            <StatusBadge variant={st!.variant} data-testid="approval-detail-status">
+              {st!.label}
+            </StatusBadge>
+          ),
+        },
+        { label: 'Operation', value: operationOf(a.operationType) },
+        { label: 'New person', value: <span data-testid="approval-fullname">{a.payload.input.fullName}</span> },
+        { label: 'Submitted by', value: a.submittedBy },
+        { label: 'Reviewed by', value: a.reviewedBy ?? null },
+        {
+          label: 'Target person',
+          value:
+            a.status === 'Executed' && a.targetPersonId.startsWith('PER-') ? (
+              <Link className={s.idLink} to={`/people/${a.targetPersonId}`} data-testid="created-person-link">
+                {a.targetPersonId}
+              </Link>
+            ) : (
+              a.targetPersonId || null
+            ),
+        },
+      ]
+    : [];
+  if (a?.rejectionReason) items.push({ label: 'Rejection reason', value: a.rejectionReason });
+  if (a?.executionError) items.push({ label: 'Execution error', value: a.executionError });
+
+  const showDecision =
+    !!a &&
+    actionable &&
+    ((canReview && (a.status === 'Submitted' || a.status === 'InReview')) ||
+      (canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed')));
 
   return (
     <div>
-      <Link to="/approvals" className={s.back}>
-        &larr; Approvals
-      </Link>
-      <Title2>{a.approvalId}</Title2>
+      <PageHeader title={approvalId} breadcrumbs={<Breadcrumbs crumbs={crumbs} />} />
+      {isLoading && <LoadingState label="Loading approval…" />}
+      {a && st && (
+        <>
+          <DefinitionList items={items} />
 
-      <Card className={s.card}>
-        <Text className={s.label}>Status</Text>
-        <Badge appearance="filled" data-testid="approval-detail-status">
-          {a.status}
-        </Badge>
-        <Text className={s.label}>Operation</Text>
-        <Text>{a.operationType}</Text>
-        <Text className={s.label}>New person</Text>
-        <Text data-testid="approval-fullname">{a.payload.input.fullName}</Text>
-        <Text className={s.label}>Submitted by</Text>
-        <Text>{a.submittedBy}</Text>
-        <Text className={s.label}>Reviewed by</Text>
-        <Text>{a.reviewedBy ?? '-'}</Text>
-        <Text className={s.label}>Target person</Text>
-        <Text>
-          {a.status === 'Executed' && a.targetPersonId.startsWith('PER-') ? (
-            <Link to={`/people/${a.targetPersonId}`} data-testid="created-person-link">
-              {a.targetPersonId}
-            </Link>
-          ) : (
-            a.targetPersonId
+          {isOwnRequest && canReview && (
+            <p className={s.ownNote} data-testid="own-request-note">
+              You submitted this request. Separation of duties requires someone other than the submitter to review and
+              execute it.
+            </p>
           )}
-        </Text>
-        {a.rejectionReason && (
-          <>
-            <Text className={s.label}>Rejection reason</Text>
-            <Text>{a.rejectionReason}</Text>
-          </>
-        )}
-        {a.executionError && (
-          <>
-            <Text className={s.label}>Execution error</Text>
-            <Text>{a.executionError}</Text>
-          </>
-        )}
-      </Card>
 
-      {isOwnRequest && canReview && (
-        <Text className={s.note} data-testid="own-request-note">
-          You submitted this request. Separation of duties requires a different owner to review and execute it.
-        </Text>
-      )}
+          {showDecision && (
+            <div className={s.decision}>
+              <div className={s.decisionNote}>Governed action — approval and execution are separate steps.</div>
+              <div className={s.decisionRow}>
+                {canReview && a.status === 'Submitted' && (
+                  <Button
+                    appearance="primary"
+                    disabled={busy}
+                    data-testid="begin-review"
+                    onClick={() => run(() => api.beginReview(a.approvalId, a.version), 'Review started.')}
+                  >
+                    Begin review
+                  </Button>
+                )}
+                {canReview && a.status === 'InReview' && (
+                  <>
+                    <Button
+                      appearance="primary"
+                      disabled={busy}
+                      data-testid="approve"
+                      onClick={() => run(() => api.approve(a.approvalId, a.version), 'Approved.')}
+                    >
+                      Approve
+                    </Button>
+                    <Field label="Reason for rejection">
+                      <Input value={reason} onChange={(_, d) => setReason(d.value)} data-testid="reject-reason" />
+                    </Field>
+                    <Button
+                      disabled={busy || reason.trim() === ''}
+                      data-testid="reject"
+                      onClick={() => run(() => api.reject(a.approvalId, a.version, reason), 'Rejected.')}
+                    >
+                      Reject
+                    </Button>
+                  </>
+                )}
+                {canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed') && (
+                  <Button
+                    appearance="primary"
+                    disabled={busy}
+                    data-testid="execute"
+                    onClick={() =>
+                      run(async () => {
+                        const res = await api.execute(a.approvalId, a.version);
+                        notify('info', res.idempotent ? 'Already executed (idempotent).' : `Created ${res.person?.personId}.`);
+                        return res;
+                      }, 'Execution complete.')
+                    }
+                  >
+                    {a.status === 'ExecutionFailed' ? 'Retry execute' : 'Execute'}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
 
-      <div className={s.actions}>
-        {actionable && canReview && a.status === 'Submitted' && (
-          <Button appearance="primary" disabled={busy} data-testid="begin-review" onClick={() => run(() => api.beginReview(a.approvalId, a.version), 'Review started.')}>
-            Begin review
-          </Button>
-        )}
-        {actionable && canReview && a.status === 'InReview' && (
-          <>
-            <Button appearance="primary" disabled={busy} data-testid="approve" onClick={() => run(() => api.approve(a.approvalId, a.version), 'Approved.')}>
-              Approve
-            </Button>
-            <Field label="Rejection reason">
-              <Input value={reason} onChange={(_, d) => setReason(d.value)} data-testid="reject-reason" />
-            </Field>
-            <Button disabled={busy || reason.trim() === ''} data-testid="reject" onClick={() => run(() => api.reject(a.approvalId, a.version, reason), 'Rejected.')}>
-              Reject
-            </Button>
-          </>
-        )}
-        {actionable && canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed') && (
-          <Button
-            appearance="primary"
-            disabled={busy}
-            data-testid="execute"
-            onClick={() =>
-              run(async () => {
-                const res = await api.execute(a.approvalId, a.version);
-                notify('info', res.idempotent ? 'Already executed (idempotent).' : `Created ${res.person?.personId}.`);
-                return res;
-              }, 'Execution complete.')
-            }
-          >
-            {a.status === 'ExecutionFailed' ? 'Retry execute' : 'Execute'}
-          </Button>
-        )}
-      </div>
-
-      <Title2>History</Title2>
-      {events.data && events.data.events.length > 0 ? (
-        <Table aria-label="Approval history" data-testid="approval-events">
-          <TableHeader>
-            <TableRow>
-              <TableHeaderCell>When</TableHeaderCell>
-              <TableHeaderCell>Transition</TableHeaderCell>
-              <TableHeaderCell>Actor</TableHeaderCell>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {events.data.events.map((e, i) => (
-              <TableRow key={i}>
-                <TableCell>{new Date(e.at).toLocaleString()}</TableCell>
-                <TableCell>{(e.fromStatus ?? 'start') + ' -> ' + e.toStatus}</TableCell>
-                <TableCell>{e.actor}</TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      ) : (
-        <Text>No history.</Text>
+          <div className={s.section}>
+            <h2 className={s.h2}>History</h2>
+            <AuditTimeline entries={entries} testId="approval-events" />
+          </div>
+        </>
       )}
     </div>
   );
