@@ -45,6 +45,6 @@ COPY apps/backup ./apps/backup
 # Non-root runtime (the official node user).
 USER node
 
-# Default: one daily backup, then exit. Restore is an explicit override:
-#   command: ["node","node_modules/tsx/dist/cli.mjs","apps/backup/src/restore-main.ts"]
-CMD ["node", "node_modules/tsx/dist/cli.mjs", "apps/backup/src/main.ts"]
+# One-shot dispatcher: JOB_MODE=backup (default) or JOB_MODE=restore. Exits
+# after the selected job; no long-running process.
+CMD ["node", "node_modules/tsx/dist/cli.mjs", "apps/backup/src/entrypoint.ts"]
