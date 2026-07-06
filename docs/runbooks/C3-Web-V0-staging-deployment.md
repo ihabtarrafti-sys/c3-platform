@@ -23,7 +23,7 @@ Approved staging direction:
 3. Add a delegated scope **`C3.Access`** ("Access the C3 staging API";
    admins-and-users consentable). Full scope value:
    `api://<API_CLIENT_ID>/C3.Access`.
-4. Manifest: `accessTokenAcceptedVersion: 2` (v2 tokens).
+4. Manifest: `requestedAccessTokenVersion: 2` (v2 tokens) — MANDATORY; the default null issues v1 tokens whose issuer the API refuses (hosted-proven 2C failure mode).
 5. NO application permissions, NO app roles, NO client secret or certificate
    (the API only validates tokens via the tenant JWKS).
 
@@ -76,7 +76,7 @@ directory **`apps/web/dist`**. SPA fallback + security headers ship in
 | `ENTRA_CLIENT_ID` | `<API_CLIENT_ID>` |
 | `ENTRA_ISSUER` | `https://login.microsoftonline.com/<ENTRA_TENANT_ID>/v2.0` |
 | `ENTRA_JWKS_URI` | `https://login.microsoftonline.com/<ENTRA_TENANT_ID>/discovery/v2.0/keys` |
-| `ENTRA_AUDIENCE` | `api://<API_CLIENT_ID>` |
+| `ENTRA_AUDIENCE` | `<API_CLIENT_ID>` (bare GUID — v2 access tokens carry the client id as aud, NOT the api:// URI; hosted-proven 2C) |
 | `ENTRA_SCOPE` | `C3.Access` (default; explicit for clarity) |
 
 Railway service: Dockerfile deploy, **root directory `webv0`**, Dockerfile path
