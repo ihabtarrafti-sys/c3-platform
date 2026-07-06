@@ -1,40 +1,24 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  Badge,
-  Button,
-  Card,
-  Field,
-  Input,
-  MessageBar,
-  MessageBarBody,
-  Spinner,
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableHeaderCell,
-  TableRow,
-  Text,
-  Title2,
-  makeStyles,
-  tokens,
-} from '@fluentui/react-components';
+import { Button, Card, Field, Input, Text, makeStyles } from '@fluentui/react-components';
 import { usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
+import { PageHeader } from '../components/PageHeader';
+import { StatusBadge } from '../components/StatusBadge';
+import { EmptyState, ErrorState, LoadingState } from '../components/states';
+import { useRegisterStyles } from '../components/registerStyles';
 
 const useStyles = makeStyles({
-  head: { display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' },
-  spacer: { flexGrow: 1 },
-  form: { display: 'flex', flexDirection: 'column', gap: '10px', maxWidth: '420px', padding: '16px', marginBottom: '20px' },
-  muted: { color: tokens.colorNeutralForeground3 },
+  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
+  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
 });
 
 export function PeoplePage() {
   const s = useStyles();
+  const r = useRegisterStyles();
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -64,21 +48,25 @@ export function PeoplePage() {
     }
   }
 
+  const addAction = canSubmit ? (
+    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="add-person-toggle">
+      {showForm ? 'Cancel' : 'Add Person'}
+    </Button>
+  ) : undefined;
+
   return (
     <div>
-      <div className={s.head}>
-        <Title2>People</Title2>
-        <div className={s.spacer} />
-        {canSubmit && (
-          <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="add-person-toggle">
-            {showForm ? 'Cancel' : 'Add person'}
-          </Button>
-        )}
-      </div>
+      <PageHeader
+        title="People"
+        context={data ? `${data.people.length} in this view` : undefined}
+        actions={addAction}
+      />
 
       {canSubmit && showForm && (
         <Card className={s.form}>
-          <Text>New person requests go through approval — an owner must review and execute before the person exists.</Text>
+          <Text className={s.formIntro}>
+            New person requests go through approval — an owner must review and execute before the person exists.
+          </Text>
           <Field label="Full name" required>
             <Input value={fullName} onChange={(_, d) => setFullName(d.value)} data-testid="add-person-fullname" />
           </Field>
@@ -89,49 +77,63 @@ export function PeoplePage() {
             <Input value={team} onChange={(_, d) => setTeam(d.value)} data-testid="add-person-team" />
           </Field>
           <Button appearance="primary" onClick={submit} disabled={busy || fullName.trim() === ''} data-testid="add-person-submit">
-            {busy ? 'Submitting...' : 'Submit for approval'}
+            {busy ? 'Submitting…' : 'Submit for approval'}
           </Button>
         </Card>
       )}
 
-      {isLoading && <Spinner label="Loading people..." />}
+      {isLoading && <LoadingState label="Loading people…" />}
       {isError && (
-        <MessageBar intent="error">
-          <MessageBarBody>{error instanceof ApiError ? error.message : 'Could not load people.'}</MessageBarBody>
-        </MessageBar>
+        <ErrorState
+          message={error instanceof ApiError ? error.message : 'Could not load people.'}
+          correlationId={error instanceof ApiError ? error.correlationId : undefined}
+        />
       )}
       {data && data.people.length === 0 && (
-        <Text data-testid="people-empty" className={s.muted}>
-          No people yet. {canSubmit ? 'Submit an AddPerson request to get started.' : ''}
-        </Text>
+        <EmptyState
+          data-testid="people-empty"
+          message="No people yet."
+          action={
+            canSubmit ? (
+              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="people-empty-add">
+                Add Person
+              </Button>
+            ) : undefined
+          }
+        />
       )}
       {data && data.people.length > 0 && (
-        <Table data-testid="people-table" aria-label="People register">
-          <TableHeader>
-            <TableRow>
-              <TableHeaderCell>Person ID</TableHeaderCell>
-              <TableHeaderCell>Full name</TableHeaderCell>
-              <TableHeaderCell>Team</TableHeaderCell>
-              <TableHeaderCell>Status</TableHeaderCell>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {data.people.map((p) => (
-              <TableRow key={p.personId} data-testid={`person-row-${p.personId}`}>
-                <TableCell>
-                  <Link to={`/people/${p.personId}`}>{p.personId}</Link>
-                </TableCell>
-                <TableCell>{p.fullName}</TableCell>
-                <TableCell>{p.currentTeam ?? '-'}</TableCell>
-                <TableCell>
-                  <Badge appearance="tint" color={p.isActive ? 'success' : 'informative'}>
-                    {p.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+        <>
+          <table className={r.table} data-testid="people-table" aria-label="People register">
+            <thead>
+              <tr>
+                <th className={r.th}>Person</th>
+                <th className={r.th}>Full name</th>
+                <th className={r.th}>Team</th>
+                <th className={r.th}>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.people.map((p) => (
+                <tr key={p.personId} className={r.row} data-testid={`person-row-${p.personId}`}>
+                  <td className={r.td}>
+                    <Link className={r.idLink} to={`/people/${p.personId}`}>
+                      {p.personId}
+                    </Link>
+                  </td>
+                  <td className={`${r.td} ${r.name}`}>{p.fullName}</td>
+                  <td className={r.td}>{p.currentTeam ?? '—'}</td>
+                  <td className={r.td}>
+                    <StatusBadge variant={p.isActive ? 'ready' : 'neutral'}>{p.isActive ? 'Active' : 'Inactive'}</StatusBadge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className={r.count}>
+            {data.people.length} {data.people.length === 1 ? 'person' : 'people'}
+          </div>
+        </>
       )}
     </div>
   );
