@@ -23,6 +23,10 @@ export interface MigrateConfig {
   readonly authRole?: string;
   /** Password to (re)set on the auth role. */
   readonly authPassword?: string;
+  /** Name of the read-only logical-backup role (default c3_backup). */
+  readonly backupRole?: string;
+  /** Password to (re)set on the backup role. */
+  readonly backupPassword?: string;
   readonly log?: (msg: string) => void;
 }
 
@@ -61,6 +65,9 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
     // SELECT-only membership-resolution role for the API's auth boundary (the
     // running API never receives the privileged admin credentials).
     await ensureRestrictedRole(client, config.authRole ?? 'c3_auth', config.authPassword ?? 'c3_auth_dev_pw');
+    // Read-only logical-backup role (created here so 0006 can grant to it; the
+    // documented BYPASSRLS exception is applied by migration 0006, not here).
+    await ensureRestrictedRole(client, config.backupRole ?? 'c3_backup', config.backupPassword ?? 'c3_backup_dev_pw');
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
         id text PRIMARY KEY,

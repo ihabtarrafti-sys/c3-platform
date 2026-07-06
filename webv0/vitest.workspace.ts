@@ -51,6 +51,14 @@ export default defineWorkspace([
   },
   {
     test: {
+      name: 'backup',
+      root: './apps/backup',
+      environment: 'node',
+      include: ['test/**/*.test.ts'],
+    },
+  },
+  {
+    test: {
       name: 'persistence',
       root: './packages/persistence',
       environment: 'node',

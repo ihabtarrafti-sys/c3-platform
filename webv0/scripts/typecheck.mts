@@ -18,6 +18,7 @@ const PROJECTS = [
   'packages/test-support',
   'apps/api',
   'apps/web',
+  'apps/backup',
 ];
 
 const tscBin = join(repoRoot, 'node_modules', 'typescript', 'bin', 'tsc');

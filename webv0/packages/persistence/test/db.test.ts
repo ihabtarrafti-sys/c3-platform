@@ -70,7 +70,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -103,6 +103,65 @@ describe('admin/app connection separation (privilege)', () => {
       expect(who.rows[0].current_user).toBe('c3_app');
     } finally {
       c.release();
+    }
+  });
+});
+
+describe('c3_backup role posture (read-only backup identity, 0006)', () => {
+  it('is a restricted role with ONLY the documented BYPASSRLS exception', async () => {
+    const client = new Client({ connectionString: db.adminUrl });
+    await client.connect();
+    try {
+      const r = await client.query(
+        `SELECT rolsuper, rolbypassrls, rolcreatedb, rolcreaterole, rolreplication, rolcanlogin
+           FROM pg_roles WHERE rolname='c3_backup'`,
+      );
+      expect(r.rows[0]).toMatchObject({
+        rolsuper: false,
+        rolbypassrls: true, // the single documented backup exception
+        rolcreatedb: false,
+        rolcreaterole: false,
+        rolreplication: false,
+        rolcanlogin: true,
+      });
+      // It must be the ONLY non-superuser BYPASSRLS principal.
+      const bypass = await client.query(
+        `SELECT rolname FROM pg_roles WHERE rolbypassrls AND NOT rolsuper ORDER BY rolname`,
+      );
+      expect(bypass.rows.map((x) => x.rolname)).toEqual(['c3_backup']);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('can read every tenant\'s rows but cannot mutate or create objects', async () => {
+    // Seed two tenants with data via the admin path.
+    await db.truncateAll();
+    await db.seedTenant({ slug: 'alpha', users: [{ key: 'o', email: 'o@a.com', displayName: 'O', role: 'owner' }] });
+    await db.seedTenant({ slug: 'bravo', users: [{ key: 'o', email: 'o@b.com', displayName: 'O', role: 'owner' }] });
+
+    const backup = new Client({ connectionString: db.backupUrl });
+    await backup.connect();
+    try {
+      // Reads ALL tenants (BYPASSRLS) — a complete logical backup needs this.
+      const t = await backup.query('SELECT count(*)::int AS n FROM tenant');
+      expect(t.rows[0].n).toBe(2);
+      const u = await backup.query('SELECT count(*)::int AS n FROM app_user');
+      expect(u.rows[0].n).toBe(2);
+
+      // Cannot mutate identity or operational tables.
+      await expect(backup.query("INSERT INTO app_user (email, display_name) VALUES ('x@x.com','x')")).rejects.toThrow(/permission denied/i);
+      await expect(backup.query("UPDATE tenant SET name='hacked'")).rejects.toThrow(/permission denied/i);
+      await expect(backup.query('DELETE FROM person')).rejects.toThrow(/permission denied/i);
+      // Cannot create objects.
+      await expect(backup.query('CREATE TABLE evil (id int)')).rejects.toThrow(/permission denied/i);
+      // Cannot grant privileges: lacking grant-option, PostgreSQL makes the
+      // GRANT a no-op (a warning, not an error) — so prove it conferred nothing.
+      await backup.query('GRANT INSERT ON person TO c3_auth').catch(() => {});
+      const conferred = await backup.query("SELECT has_table_privilege('c3_auth','person','INSERT') AS granted");
+      expect(conferred.rows[0].granted).toBe(false);
+    } finally {
+      await backup.end();
     }
   });
 });

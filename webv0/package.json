@@ -10,7 +10,8 @@
     "packages/persistence",
     "packages/test-support",
     "apps/api",
-    "apps/web"
+    "apps/web",
+    "apps/backup"
   ],
   "scripts": {
     "typecheck": "tsx scripts/typecheck.mts",
@@ -21,6 +22,9 @@
     "openapi": "tsx apps/api/scripts/generate-openapi.ts",
     "db:migrate": "tsx packages/persistence/scripts/migrate.ts",
     "seed:staging": "tsx packages/persistence/scripts/seed-staging.ts",
+    "backup:bootstrap-role": "tsx apps/backup/scripts/bootstrap-backup-role.ts",
+    "backup:run": "tsx apps/backup/src/main.ts",
+    "backup:restore": "tsx apps/backup/src/restore-main.ts",
     "api:dev": "tsx watch apps/api/src/server.ts",
     "web:dev": "npm --workspace apps/web run dev",
     "e2e": "npm --workspace apps/web run e2e",

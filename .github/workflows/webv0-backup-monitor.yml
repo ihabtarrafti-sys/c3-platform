@@ -1,0 +1,96 @@
+# C3 Web V0 — staging backup freshness monitor (Sprint 34 Phase 2D).
+#
+# Independent of Railway. Uses the READ-ONLY R2 monitor credential to read
+# status/latest-success.json ONLY. It never downloads or decrypts a database
+# dump, never receives the database URL, and never receives the encryption
+# private key. On stale/missing backup it opens (or updates) ONE labelled
+# issue; when freshness returns it closes/annotates that issue.
+#
+# Secrets required (repo → Settings → Secrets → Actions):
+#   R2_ENDPOINT, R2_BUCKET, R2_MONITOR_ACCESS_KEY_ID, R2_MONITOR_SECRET_ACCESS_KEY
+# These are the bucket-scoped READ-ONLY monitor credentials — never the writer
+# token, never a DB URL, never the age identity.
+name: webv0-backup-monitor
+
+on:
+  schedule:
+    - cron: '30 6 * * *' # daily, a few hours after the 02:15 UTC backup
+  workflow_dispatch: {}
+
+concurrency:
+  group: webv0-backup-monitor
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  STALE_LABEL: backup-stale
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: webv0
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.14.0
+          cache: npm
+          cache-dependency-path: webv0/package-lock.json
+      - run: npm ci --no-audit --no-fund
+
+      - name: Evaluate backup freshness (read-only R2)
+        id: fresh
+        continue-on-error: true
+        env:
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_MONITOR_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_MONITOR_SECRET_ACCESS_KEY }}
+        run: |
+          set +e
+          OUT=$(npx tsx apps/backup/scripts/check-freshness.mjs); CODE=$?
+          echo "$OUT"
+          echo "stale=$(echo "$OUT" | sed -n 's/^FRESHNESS_STALE=//p' | tail -1)" >> "$GITHUB_OUTPUT"
+          REASON=$(echo "$OUT" | sed -n 's/^FRESHNESS_REASON=//p' | tail -1)
+          echo "reason=${REASON}" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Open or update stale-backup issue
+        if: steps.fresh.outputs.stale == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = process.env.STALE_LABEL;
+            const reason = ${{ toJSON(steps.fresh.outputs.reason) }};
+            const title = 'C3 staging backup is STALE';
+            const body = `The daily encrypted staging backup freshness check failed.\n\n**Reason:** ${reason}\n\nThe monitor reads only \`status/latest-success.json\` (read-only R2). No dump was downloaded or decrypted. Investigate the Railway \`c3-backup-cron\` service logs.\n\n_Updated: ${new Date().toISOString()}_`;
+            const existing = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: label });
+            if (existing.data.length > 0) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: existing.data[0].number, body });
+            } else {
+              await github.rest.issues.create({ owner: context.repo.owner, repo: context.repo.repo, title, body, labels: [label] });
+            }
+
+      - name: Close stale-backup issue on recovery
+        if: steps.fresh.outputs.stale == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const label = process.env.STALE_LABEL;
+            const existing = await github.rest.issues.listForRepo({ owner: context.repo.owner, repo: context.repo.repo, state: 'open', labels: label });
+            for (const issue of existing.data) {
+              await github.rest.issues.createComment({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, body: `Backup freshness recovered at ${new Date().toISOString()}. Closing.` });
+              await github.rest.issues.update({ owner: context.repo.owner, repo: context.repo.repo, issue_number: issue.number, state: 'closed' });
+            }
+
+      - name: Fail the run if stale (surfaces on the Actions dashboard)
+        if: steps.fresh.outputs.stale == 'true'
+        run: |
+          echo "::error::Staging backup is stale: ${{ steps.fresh.outputs.reason }}"
+          exit 1

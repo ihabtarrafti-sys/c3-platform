@@ -1,0 +1,125 @@
+import { describe, it, expect } from 'vitest';
+import { runBackup, type BackupDeps } from '../src/runner';
+import type { BackupEnv } from '../src/env';
+
+const env: BackupEnv = {
+  databaseUrl: 'postgresql://c3_backup:pw@postgres.railway.internal:5432/railway',
+  r2Endpoint: 'https://acct.r2.cloudflarestorage.com',
+  r2Bucket: 'c3-web-v0-staging-backups',
+  r2AccessKeyId: 'AKID',
+  r2SecretAccessKey: 'SECRET-VALUE-SHOULD-NOT-LOG',
+  ageRecipient: 'age1ql3z7hjy54pw3hyww5ayyfg7zqgvc7w3j2elw8zmrj2kg5sfn9aqmcac8p',
+  sourceCommit: 'd133f0f',
+  mode: 'daily',
+  environmentLabel: 'staging',
+};
+
+interface Recorder {
+  uploads: string[];
+  removed: string[];
+  cleaned: string[];
+  released: number;
+  logs: Array<{ event: string; fields?: Record<string, unknown> }>;
+}
+
+function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02:15:00Z')): { deps: BackupDeps; rec: Recorder } {
+  const rec: Recorder = { uploads: [], removed: [], cleaned: [], released: 0, logs: [] };
+  const deps: BackupDeps = {
+    now: () => when,
+    serverVersion: async () => '18.4',
+    migrations: async () => ['0001_schema.sql', '0006_backup_role_grants.sql'],
+    pgDumpVersion: async () => 'pg_dump (PostgreSQL) 18.4',
+    acquireLock: async () => true,
+    releaseLock: async () => {
+      rec.released++;
+    },
+    makeTempDir: async () => '/tmp/c3bkp-xyz',
+    cleanupTempDir: async (d) => {
+      rec.cleaned.push(d);
+    },
+    dump: async () => ({ bytes: 4096 }),
+    sha256File: async (p) => (p.endsWith('.age') ? 'e'.repeat(64) : 'p'.repeat(64)),
+    fileSize: async () => 2048,
+    encrypt: async () => {},
+    removeFile: async (p) => {
+      rec.removed.push(p);
+    },
+    uploadFile: async (k) => {
+      rec.uploads.push(k);
+    },
+    uploadBytes: async (k) => {
+      rec.uploads.push(k);
+    },
+    verifyObject: async () => {},
+    log: (event, fields) => {
+      rec.logs.push({ event, fields });
+    },
+    ...over,
+  };
+  return { deps, rec };
+}
+
+describe('runBackup orchestration', () => {
+  it('completes the happy path and writes latest-success LAST', async () => {
+    const { deps, rec } = makeDeps();
+    const res = await runBackup(env, deps);
+    expect(res.primaryKey).toBe('daily/2026/07/07/c3-staging-20260707T021500Z-d133f0f.dump.age');
+    // plaintext removed before upload; cleanup + release happened.
+    expect(rec.removed).toContain('/tmp/c3bkp-xyz/dump.pgc');
+    expect(rec.cleaned).toContain('/tmp/c3bkp-xyz');
+    expect(rec.released).toBe(1);
+    // latest-success is the FINAL upload.
+    expect(rec.uploads.at(-1)).toBe('status/latest-success.json');
+    // encrypted object + manifest uploaded before the status marker.
+    expect(rec.uploads).toContain('daily/2026/07/07/c3-staging-20260707T021500Z-d133f0f.dump.age');
+  });
+
+  it('on a Sunday uploads to both daily/ and weekly/', async () => {
+    const { deps, rec } = makeDeps({}, new Date('2026-07-05T02:15:00Z')); // Sunday
+    await runBackup(env, deps);
+    expect(rec.uploads.some((k) => k.startsWith('daily/'))).toBe(true);
+    expect(rec.uploads.some((k) => k.startsWith('weekly/'))).toBe(true);
+  });
+
+  it('rejects an empty dump and never uploads or writes latest-success', async () => {
+    const { deps, rec } = makeDeps({ dump: async () => ({ bytes: 0 }) });
+    await expect(runBackup(env, deps)).rejects.toThrow(/empty dump/);
+    expect(rec.uploads).toHaveLength(0);
+    expect(rec.cleaned).toContain('/tmp/c3bkp-xyz'); // still cleaned up
+    expect(rec.released).toBe(1);
+  });
+
+  it('aborts (no latest-success) when encryption fails', async () => {
+    const { deps, rec } = makeDeps({ encrypt: async () => { throw new Error('age failed'); } });
+    await expect(runBackup(env, deps)).rejects.toThrow(/age failed/);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+  });
+
+  it('aborts (no latest-success) when upload fails', async () => {
+    const { deps, rec } = makeDeps({ uploadFile: async () => { throw new Error('R2 5xx'); } });
+    await expect(runBackup(env, deps)).rejects.toThrow(/R2 5xx/);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+  });
+
+  it('aborts (no latest-success) when verification fails', async () => {
+    const { deps, rec } = makeDeps({ verifyObject: async () => { throw new Error('sha mismatch'); } });
+    await expect(runBackup(env, deps)).rejects.toThrow(/sha mismatch/);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+  });
+
+  it('does not run when the advisory lock is held (overlap prevention)', async () => {
+    const { deps, rec } = makeDeps({ acquireLock: async () => false });
+    await expect(runBackup(env, deps)).rejects.toThrow(/already running/i);
+    expect(rec.uploads).toHaveLength(0);
+    // never entered the try body, so temp dir was never created/cleaned.
+    expect(rec.cleaned).toHaveLength(0);
+  });
+
+  it('never logs the R2 secret', async () => {
+    const { deps, rec } = makeDeps();
+    await runBackup(env, deps);
+    const all = JSON.stringify(rec.logs);
+    expect(all).not.toContain('SECRET-VALUE-SHOULD-NOT-LOG');
+    expect(all).not.toContain(env.r2SecretAccessKey);
+  });
+});
