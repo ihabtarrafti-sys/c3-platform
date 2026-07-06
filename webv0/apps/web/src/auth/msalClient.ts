@@ -89,6 +89,14 @@ export function createMsalAuthClient(cfg: EntraWebConfig): AuthClient {
 
     async reauthenticate(intendedPath?: string): Promise<void> {
       await ensureInit();
+      // Loop guard: at most ONE interactive redirect per minute. If a redirect
+      // just happened and the API still 401s, the token is being rejected
+      // server-side — another round trip through the IdP cannot help, and
+      // unbounded redirects lock the browser into a sign-in loop.
+      const GUARD_KEY = 'c3web.reauth.at';
+      const last = Number(sessionStorage.getItem(GUARD_KEY) ?? '0');
+      if (Date.now() - last < 60_000) return;
+      sessionStorage.setItem(GUARD_KEY, String(Date.now()));
       await pca.acquireTokenRedirect({ ...tokenRequest, state: intendedPath ?? '' });
     },
 
