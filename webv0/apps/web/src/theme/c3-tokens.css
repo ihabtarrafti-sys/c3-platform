@@ -1,0 +1,67 @@
+/*
+ * C3 design tokens — Part A (Product Foundation), frozen identity.
+ * The canonical design authority is c3-governance/product/design/A-PRODUCT-FOUNDATION.md.
+ * These are the --c3-* custom properties; the Fluent v9 theme (c3Theme.ts) maps
+ * the brand slots to Command Black so Fluent components stop rendering blue.
+ * Signal Red is a restrained accent only — never a fill block, never the mark.
+ */
+:root {
+  /* palette (frozen identity) */
+  --c3-command-black: #0d0d0d;
+  --c3-paper-white: #f5f4f1;
+  --c3-identity-white: #ffffff;
+  --c3-signal-red: #c22a22;
+  --c3-ink-70: rgba(13, 13, 13, 0.7);
+  --c3-ink-50: rgba(13, 13, 13, 0.5);
+  --c3-ink-35: rgba(13, 13, 13, 0.35);
+  --c3-hairline: rgba(13, 13, 13, 0.12);
+  --c3-on-dark-70: rgba(255, 255, 255, 0.68);
+  --c3-on-dark-40: rgba(255, 255, 255, 0.16);
+  --c3-on-dark-hover: rgba(255, 255, 255, 0.08);
+
+  /* semantic status (accessible >=4.5:1 on paper; always paired with a label + shape) */
+  --c3-status-ready: #286046;
+  --c3-status-pending: #8a5220;
+  --c3-status-blocked: #a63a2b;
+  --c3-status-neutral: #5b5750;
+  --c3-status-info: #33617f;
+
+  /* spacing — 4px base */
+  --c3-space-1: 4px;
+  --c3-space-2: 8px;
+  --c3-space-3: 12px;
+  --c3-space-4: 16px;
+  --c3-space-5: 24px;
+  --c3-space-6: 32px;
+  --c3-space-7: 48px;
+  --c3-space-8: 64px;
+
+  /* radii / elevation */
+  --c3-radius: 2px;
+  --c3-e1: 0 1px 2px rgba(0, 0, 0, 0.08);
+  --c3-e2: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  /* shell geometry */
+  --c3-content-max: 1200px;
+  --c3-rail-w: 248px;
+  --c3-identitybar-h: 56px;
+
+  /* application type — IBM Plex when present, graceful system fallback until the
+     woff2 files are self-hosted (tracked follow-up; never load an external CDN) */
+  --c3-font-base: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --c3-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--c3-paper-white);
+  color: var(--c3-command-black);
+  font-family: var(--c3-font-base);
+  -webkit-font-smoothing: antialiased;
+}
