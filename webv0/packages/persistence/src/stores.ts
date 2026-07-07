@@ -3,8 +3,8 @@
  * role). Implements the @c3web/application Persistence port.
  */
 import { Pool } from 'pg';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
-import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Person } from '@c3web/domain';
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Member, Person } from '@c3web/domain';
 import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
@@ -84,6 +84,22 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               .where(and(eq(schema.auditEvent.entityType, entityType), eq(schema.auditEvent.entityId, entityId)))
               .orderBy(asc(schema.auditEvent.at));
             return rows.map(mapAuditEvent);
+          }),
+
+        // Sprint 35: the member directory is read through the tenant-scoped
+        // member_list() SECURITY DEFINER gateway — c3_app has no table access.
+        listMembers: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Member[]> => {
+            const res = await db.execute(sql`SELECT * FROM member_list()`);
+            return (res.rows as Array<{ user_id: string; email: string; display_name: string; role: string; is_active: boolean; created_at: Date | string }>).map((r) => ({
+              userId: r.user_id,
+              tenantId: actor.tenantId,
+              email: r.email,
+              displayName: r.display_name,
+              role: r.role as Member['role'],
+              isActive: r.is_active,
+              createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+            }));
           }),
       };
     },

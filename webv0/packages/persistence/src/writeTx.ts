@@ -3,11 +3,70 @@
  * All statements run under the transaction's `app.tenant_id` (RLS enforced).
  */
 import { sql } from 'drizzle-orm';
-import type { Actor, Approval, Person } from '@c3web/domain';
+import {
+  ConflictError,
+  IdentityAlreadyBoundError,
+  LastOwnerProtectionError,
+  NotFoundError,
+  SelfAdministrationError,
+  TenantContextMissingError,
+  type Actor,
+  type Approval,
+  type C3Role,
+  type Member,
+  type Person,
+} from '@c3web/domain';
 import type { NewApprovalRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
 import { mapApproval, mapPerson } from './mappers';
+
+/**
+ * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
+ * 'C3E:<CODE>:') to the domain error taxonomy. Non-gateway errors re-throw.
+ */
+function mapMemberGatewayError(err: unknown, action: string): never {
+  const msg = err instanceof Error ? err.message : String(err);
+  const m = /C3E:([A-Z_]+):/.exec(msg);
+  if (m) {
+    switch (m[1]) {
+      case 'TENANT_CONTEXT_MISSING':
+        throw new TenantContextMissingError();
+      case 'IDENTITY_ALREADY_BOUND':
+        throw new IdentityAlreadyBoundError();
+      case 'SELF_ADMINISTRATION_BLOCKED':
+        throw new SelfAdministrationError(action);
+      case 'LAST_OWNER_PROTECTED':
+        throw new LastOwnerProtectionError(action);
+      case 'NOT_FOUND':
+        throw new NotFoundError('Member', action);
+      case 'CONFLICT':
+        throw new ConflictError(msg.slice(msg.indexOf(':', 4) + 1).trim() || 'Member operation conflict.');
+    }
+  }
+  throw err;
+}
+
+interface MemberRow {
+  user_id: string;
+  email: string;
+  display_name: string;
+  role: string;
+  is_active: boolean;
+  created_at: Date | string;
+}
+
+function mapMember(r: MemberRow, tenantId: string): Member {
+  return {
+    userId: r.user_id,
+    tenantId,
+    email: r.email,
+    displayName: r.display_name,
+    role: r.role as Member['role'],
+    isActive: r.is_active,
+    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+  };
+}
 
 export function makeWriteTx(db: Db, actor: Actor): WriteTx {
   const tenantId = actor.tenantId;
@@ -123,6 +182,42 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         before: (evt.before ?? null) as unknown as Record<string, unknown>,
         after: (evt.after ?? null) as unknown as Record<string, unknown>,
       });
+    },
+
+    async memberProvision(input): Promise<string> {
+      try {
+        const res = await db.execute(sql`
+          SELECT member_provision(${input.email}, ${input.displayName}, ${input.role},
+                                  ${input.provider}, ${input.issuerTenantId}, ${input.subject}) AS user_id
+        `);
+        return (res.rows[0] as { user_id: string }).user_id;
+      } catch (err) {
+        mapMemberGatewayError(err, 'ProvisionMember');
+      }
+    },
+
+    async memberSetRole(userId: string, toRole: C3Role, actorEmail: string): Promise<string> {
+      try {
+        const res = await db.execute(sql`SELECT member_set_role(${userId}::uuid, ${toRole}, ${actorEmail}) AS prev`);
+        return (res.rows[0] as { prev: string }).prev;
+      } catch (err) {
+        mapMemberGatewayError(err, 'ChangeRole');
+      }
+    },
+
+    async memberSetActive(userId: string, active: boolean, actorEmail: string): Promise<string> {
+      try {
+        const res = await db.execute(sql`SELECT member_set_active(${userId}::uuid, ${active}, ${actorEmail}) AS mode`);
+        return (res.rows[0] as { mode: string }).mode;
+      } catch (err) {
+        mapMemberGatewayError(err, active ? 'ReactivateMember' : 'DeactivateMember');
+      }
+    },
+
+    async getMember(userId: string): Promise<Member | null> {
+      const res = await db.execute(sql`SELECT * FROM member_get(${userId}::uuid)`);
+      const row = res.rows[0] as MemberRow | undefined;
+      return row ? mapMember(row, tenantId) : null;
     },
   } satisfies WriteTx;
 }

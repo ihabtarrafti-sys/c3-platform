@@ -44,7 +44,9 @@ export type AddPersonApprovalPayload = z.infer<typeof addPersonPayloadSchema>;
 /**
  * Member-operation payloads (Sprint 35). For these, Approval.targetPersonId
  * carries the MEMBER_OP_TARGET sentinel and Approval.targetId carries the
- * member user id (backfilled at execution for ProvisionMember).
+ * target member user id at submission (null for ProvisionMember — targetId is
+ * write-once, so the created user id is recorded in the execution event +
+ * audit trail instead).
  */
 export const provisionMemberPayloadSchema = z
   .object({ operationType: z.literal('ProvisionMember'), input: provisionMemberInputSchema })

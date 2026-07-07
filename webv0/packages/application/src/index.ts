@@ -4,6 +4,7 @@
  */
 export * from './ports';
 export * from './usecases/submitAddPerson';
+export * from './usecases/submitMemberChange';
 export * from './usecases/reviewApproval';
 export * from './usecases/executeApproval';
 export * from './usecases/queries';

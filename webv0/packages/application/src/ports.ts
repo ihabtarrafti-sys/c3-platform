@@ -14,6 +14,8 @@ import type {
   ApprovalEvent,
   ApprovalStatus,
   AuditEvent,
+  C3Role,
+  Member,
   Person,
 } from '@c3web/domain';
 
@@ -25,6 +27,8 @@ export interface ReadStore {
   getApprovalById(approvalId: string): Promise<Approval | null>;
   listApprovalEvents(approvalId: string): Promise<ApprovalEvent[]>;
   listAuditEventsForEntity(entityType: string, entityId: string): Promise<AuditEvent[]>;
+  /** Tenant-scoped member directory (via the member_list gateway; Sprint 35). */
+  listMembers(): Promise<Member[]>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -46,7 +50,7 @@ export interface NewPersonRow {
 /** Fields written when submitting a new approval. */
 export interface NewApprovalRow {
   readonly approvalId: string;
-  readonly operationType: 'AddPerson';
+  readonly operationType: Approval['operationType'];
   readonly targetPersonId: string;
   readonly targetId: string | null;
   readonly reason: string | null;
@@ -107,6 +111,31 @@ export interface WriteTx {
     before?: Record<string, unknown> | null;
     after?: Record<string, unknown> | null;
   }): Promise<void>;
+
+  // ── Sprint 35 member gateways (SECURITY DEFINER functions; the app role has
+  //    no table access to the directory — these are the ONLY member surface).
+  //    Guard violations surface as domain errors (SelfAdministrationError,
+  //    LastOwnerProtectionError, IdentityAlreadyBoundError, ConflictError,
+  //    NotFoundError) mapped by the adapter from the gateway's C3E: prefix.
+
+  /** Execute-time provision: create/reuse + bind-once + membership + role. Returns the member user id. */
+  memberProvision(input: {
+    email: string;
+    displayName: string;
+    role: C3Role;
+    provider: string;
+    issuerTenantId: string;
+    subject: string;
+  }): Promise<string>;
+
+  /** Exact-set role change. Returns the PREVIOUS role set for the audit before-image. */
+  memberSetRole(userId: string, toRole: C3Role, actorEmail: string): Promise<string>;
+
+  /** Activation flip (Phase-E1 semantics). Returns 'deactivated-sole' | 'membership-removed' | 'reactivated'. */
+  memberSetActive(userId: string, active: boolean, actorEmail: string): Promise<string>;
+
+  /** Tenant-scoped single-member read (null when not a member of this tenant). */
+  getMember(userId: string): Promise<Member | null>;
 }
 
 export interface WriteStore {

@@ -96,6 +96,12 @@ describe('capabilityView (UX hint)', () => {
       canSubmitApproval: true,
       canReviewApproval: false,
       canExecuteApproval: false,
+      canReadMembers: true,
+      canSubmitMemberChange: true,
     });
+  });
+
+  it('withholds member administration from read-only roles', () => {
+    expect(capabilityView('visitor')).toMatchObject({ canReadMembers: false, canSubmitMemberChange: false });
   });
 });

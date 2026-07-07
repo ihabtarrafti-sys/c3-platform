@@ -31,6 +31,8 @@ export const canReadPeople = (role: C3Role): boolean => capabilitiesFor(role).ca
 export const canSubmitApproval = (role: C3Role): boolean => capabilitiesFor(role).canSubmitApproval;
 export const canReviewApproval = (role: C3Role): boolean => capabilitiesFor(role).canReviewApproval;
 export const canExecuteApproval = (role: C3Role): boolean => capabilitiesFor(role).canExecuteApproval;
+export const canReadMembers = (role: C3Role): boolean => capabilitiesFor(role).canReadMembers;
+export const canSubmitMemberChange = (role: C3Role): boolean => capabilitiesFor(role).canSubmitMemberChange;
 
 export function assertReadPeople(actor: Actor): void {
   if (!canReadPeople(actor.role)) {
@@ -86,12 +88,31 @@ export function assertTenantMatch(actorTenantId: string, recordTenantId: string)
   }
 }
 
+/**
+ * Guard reading the Members register (sensitive directory data — owner and
+ * operations only).
+ */
+export function assertReadMembers(actor: Actor): void {
+  if (!canReadMembers(actor.role)) {
+    throw new ForbiddenError('Your role may not view organization members.', { role: actor.role });
+  }
+}
+
+/** Guard SUBMITTING a governed member operation (owner, operations). */
+export function assertSubmitMemberChange(actor: Actor): void {
+  if (!canSubmitMemberChange(actor.role)) {
+    throw new ForbiddenError('Your role may not request member changes.', { role: actor.role, action: 'submit-member-change' });
+  }
+}
+
 /** Non-throwing summary for building UX-only capability hints served to the web app. */
 export interface CapabilityView {
   readonly canReadPeople: boolean;
   readonly canSubmitApproval: boolean;
   readonly canReviewApproval: boolean;
   readonly canExecuteApproval: boolean;
+  readonly canReadMembers: boolean;
+  readonly canSubmitMemberChange: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -101,5 +122,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canSubmitApproval: c.canSubmitApproval,
     canReviewApproval: c.canReviewApproval,
     canExecuteApproval: c.canExecuteApproval,
+    canReadMembers: c.canReadMembers,
+    canSubmitMemberChange: c.canSubmitMemberChange,
   };
 }

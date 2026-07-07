@@ -25,6 +25,8 @@ import {
   type Actor,
   type AddPersonApprovalPayload,
   type Approval,
+  type ApprovalPayload,
+  type AuditAction,
   type Person,
   ApprovalNotApprovedError,
   canApply,
@@ -39,6 +41,71 @@ export interface ExecuteResult {
   readonly approval: Approval;
   readonly person: Person | null;
   readonly idempotent: boolean;
+}
+
+/**
+ * Execute a member operation through the SECURITY DEFINER gateways (Sprint 35).
+ * Runs inside the same transaction as the status flip + events + audit — an
+ * unaudited access change is unrepresentable. Returns audit facts to record.
+ */
+async function executeMemberOperation(
+  tx: WriteTx,
+  actor: Actor,
+  payload: Exclude<ApprovalPayload, { operationType: 'AddPerson' }>,
+): Promise<{ entityId: string; action: AuditAction; before: Record<string, unknown> | null; after: Record<string, unknown>; note: string }> {
+  switch (payload.operationType) {
+    case 'ProvisionMember': {
+      const { input } = payload;
+      const userId = await tx.memberProvision({
+        email: input.email,
+        displayName: input.displayName,
+        role: input.role,
+        provider: input.identity.provider,
+        issuerTenantId: input.identity.issuerTenantId,
+        subject: input.identity.subject,
+      });
+      return {
+        entityId: userId,
+        action: 'MemberProvisioned',
+        before: null,
+        after: { userId, email: input.email, role: input.role },
+        note: `Executed: provisioned member ${input.email} (${input.role})`,
+      };
+    }
+    case 'ChangeRole': {
+      const { input } = payload;
+      const previousRoles = await tx.memberSetRole(input.targetUserId, input.toRole, actor.identity);
+      return {
+        entityId: input.targetUserId,
+        action: 'MemberRoleChanged',
+        before: { roles: previousRoles },
+        after: { role: input.toRole, email: input.email },
+        note: `Executed: role changed to ${input.toRole} for ${input.email}`,
+      };
+    }
+    case 'DeactivateMember': {
+      const { input } = payload;
+      const mode = await tx.memberSetActive(input.targetUserId, false, actor.identity);
+      return {
+        entityId: input.targetUserId,
+        action: 'MemberDeactivated',
+        before: { isActive: true },
+        after: { isActive: false, mode, email: input.email },
+        note: `Executed: deactivated ${input.email} (${mode})`,
+      };
+    }
+    case 'ReactivateMember': {
+      const { input } = payload;
+      const mode = await tx.memberSetActive(input.targetUserId, true, actor.identity);
+      return {
+        entityId: input.targetUserId,
+        action: 'MemberReactivated',
+        before: { isActive: false },
+        after: { isActive: true, mode, email: input.email },
+        note: `Executed: reactivated ${input.email}`,
+      };
+    }
+  }
 }
 
 function isUniqueViolation(err: unknown): boolean {
@@ -75,6 +142,46 @@ export async function executeApproval(
 
       // ── point of no return: any failure past here is an EXECUTION failure ──
       enteredExecution = true;
+
+      // Member operations (Sprint 35): gateway mutation + status flip + events
+      // + audit, all in this one transaction. The AddPerson path below is the
+      // certified original, unchanged.
+      if (approval.payload.operationType !== 'AddPerson') {
+        const fact = await executeMemberOperation(tx, actor, approval.payload);
+
+        const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+          status: 'Executed',
+          executedAt: new Date().toISOString(),
+          executionError: null,
+        });
+        if (!executed) throw new ConcurrencyError('Approval', approvalId);
+
+        await tx.appendApprovalEvent({
+          approvalId,
+          fromStatus: approval.status,
+          toStatus: 'Executed',
+          actor: actor.identity,
+          note: fact.note,
+        });
+        await tx.appendAuditEvent({
+          entityType: 'Member',
+          entityId: fact.entityId,
+          action: fact.action,
+          actor: actor.identity,
+          before: fact.before,
+          after: fact.after,
+        });
+        await tx.appendAuditEvent({
+          entityType: 'Approval',
+          entityId: approvalId,
+          action: 'ApprovalExecuted',
+          actor: actor.identity,
+          before: { status: approval.status },
+          after: { status: 'Executed', operationType: approval.payload.operationType, member: fact.entityId },
+        });
+
+        return { approval: executed, person: null, idempotent: false };
+      }
 
       const seq = await tx.allocateSequence('person');
       const personId = formatPersonId(seq);
