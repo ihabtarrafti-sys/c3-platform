@@ -10,6 +10,7 @@
 
 import { z } from 'zod';
 import { addPersonInputSchema } from './person';
+import { addCredentialInputSchema, deactivateCredentialInputSchema } from './credential';
 import {
   changeRoleInputSchema,
   deactivateMemberInputSchema,
@@ -25,6 +26,9 @@ export const OPERATION_TYPES = [
   'ChangeRole',
   'DeactivateMember',
   'ReactivateMember',
+  // Sprint 36: the Credentials domain.
+  'AddCredential',
+  'DeactivateCredential',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -68,12 +72,31 @@ export const reactivateMemberPayloadSchema = z
   .strict();
 export type ReactivateMemberApprovalPayload = z.infer<typeof reactivateMemberPayloadSchema>;
 
+/**
+ * Credential payloads (Sprint 36). Approval.targetPersonId carries the OWNING
+ * person's PER-XXXX for both operations (the column's natural fit); the
+ * created CRED id is recorded in the execution event + audit (targetId is
+ * write-once and stays the credential id for DeactivateCredential, null for
+ * AddCredential until known-at-execute).
+ */
+export const addCredentialPayloadSchema = z
+  .object({ operationType: z.literal('AddCredential'), input: addCredentialInputSchema })
+  .strict();
+export type AddCredentialApprovalPayload = z.infer<typeof addCredentialPayloadSchema>;
+
+export const deactivateCredentialPayloadSchema = z
+  .object({ operationType: z.literal('DeactivateCredential'), input: deactivateCredentialInputSchema })
+  .strict();
+export type DeactivateCredentialApprovalPayload = z.infer<typeof deactivateCredentialPayloadSchema>;
+
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
   provisionMemberPayloadSchema,
   changeRolePayloadSchema,
   deactivateMemberPayloadSchema,
   reactivateMemberPayloadSchema,
+  addCredentialPayloadSchema,
+  deactivateCredentialPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 

@@ -43,6 +43,11 @@ export interface ExecuteResult {
   readonly idempotent: boolean;
 }
 
+type MemberOperationPayload = Extract<
+  ApprovalPayload,
+  { operationType: 'ProvisionMember' | 'ChangeRole' | 'DeactivateMember' | 'ReactivateMember' }
+>;
+
 /**
  * Execute a member operation through the SECURITY DEFINER gateways (Sprint 35).
  * Runs inside the same transaction as the status flip + events + audit — an
@@ -51,7 +56,7 @@ export interface ExecuteResult {
 async function executeMemberOperation(
   tx: WriteTx,
   actor: Actor,
-  payload: Exclude<ApprovalPayload, { operationType: 'AddPerson' }>,
+  payload: MemberOperationPayload,
 ): Promise<{ entityId: string; action: AuditAction; before: Record<string, unknown> | null; after: Record<string, unknown>; note: string }> {
   switch (payload.operationType) {
     case 'ProvisionMember': {
@@ -145,8 +150,17 @@ export async function executeApproval(
 
       // Member operations (Sprint 35): gateway mutation + status flip + events
       // + audit, all in this one transaction. The AddPerson path below is the
-      // certified original, unchanged.
+      // certified original, unchanged. Operations without an executor in this
+      // build (Sprint 36 credentials until C2) FAIL CLOSED before mutating.
       if (approval.payload.operationType !== 'AddPerson') {
+        if (
+          approval.payload.operationType !== 'ProvisionMember' &&
+          approval.payload.operationType !== 'ChangeRole' &&
+          approval.payload.operationType !== 'DeactivateMember' &&
+          approval.payload.operationType !== 'ReactivateMember'
+        ) {
+          throw new Error(`No executor for operation '${approval.payload.operationType}' in this build (failing closed).`);
+        }
         const fact = await executeMemberOperation(tx, actor, approval.payload);
 
         const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {

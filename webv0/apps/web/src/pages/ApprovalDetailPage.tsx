@@ -102,11 +102,16 @@ export function ApprovalDetailPage() {
         },
         { label: 'Operation', value: operationOf(a.operationType) },
         // The subject row narrows on the payload discriminant: AddPerson shows
-        // the person name (testid preserved for E2E); member operations
-        // (Sprint 35) show the subject member's email snapshot.
+        // the person name (testid preserved for E2E); member operations show
+        // the subject member's email; credential operations show the
+        // credential subject with its owning person.
         ...(a.payload.operationType === 'AddPerson'
           ? [{ label: 'New person', value: <span data-testid="approval-fullname">{a.payload.input.fullName}</span> }]
-          : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
+          : a.payload.operationType === 'AddCredential'
+            ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${a.payload.input.credentialType} for ${a.payload.input.personId}`}</span> }]
+            : a.payload.operationType === 'DeactivateCredential'
+              ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${a.payload.input.credentialId} (${a.payload.input.personId})`}</span> }]
+              : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {

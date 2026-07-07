@@ -34,6 +34,9 @@ export const AUDIT_ACTIONS = [
   // Owner-only direct lockout — the sole non-workflow access mutation; still
   // audited synchronously in the same transaction as the flip.
   'EmergencyLockout',
+  // Sprint 36: the Credentials domain entity mutations.
+  'CredentialCreated',
+  'CredentialDeactivated',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

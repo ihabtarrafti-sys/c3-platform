@@ -21,7 +21,12 @@ import {
 import { assertSubmitMemberChange } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
-export type MemberChangePayload = Exclude<ApprovalPayload, { operationType: 'AddPerson' }>;
+export type MemberChangePayload = Extract<
+  ApprovalPayload,
+  { operationType: 'ProvisionMember' | 'ChangeRole' | 'DeactivateMember' | 'ReactivateMember' }
+>;
+
+const MEMBER_OPS = new Set(['ProvisionMember', 'ChangeRole', 'DeactivateMember', 'ReactivateMember']);
 
 export interface SubmitMemberChangeCommand {
   readonly payload: MemberChangePayload;
@@ -36,10 +41,11 @@ export async function submitMemberChange(
   assertSubmitMemberChange(actor);
 
   // Validate/normalise defensively even though the API validates the wire.
-  const payload = approvalPayloadSchema.parse(command.payload);
-  if (payload.operationType === 'AddPerson') {
-    throw new ValidationError('AddPerson is submitted through its own flow.');
+  const parsed = approvalPayloadSchema.parse(command.payload);
+  if (!MEMBER_OPS.has(parsed.operationType)) {
+    throw new ValidationError(`${parsed.operationType} is submitted through its own flow.`);
   }
+  const payload = parsed as MemberChangePayload;
 
   // Self-administration fails closed at the door (identity = canonical email).
   if (payload.input.email === actor.identity.toLowerCase()) {

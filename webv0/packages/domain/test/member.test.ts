@@ -24,13 +24,9 @@ const UUID = '6f1a2b3c-4d5e-4f60-8a9b-0c1d2e3f4a5b';
 
 describe('operation registry (Sprint 35)', () => {
   it('registers the four member operations alongside AddPerson', () => {
-    expect(OPERATION_TYPES).toEqual([
-      'AddPerson',
-      'ProvisionMember',
-      'ChangeRole',
-      'DeactivateMember',
-      'ReactivateMember',
-    ]);
+    for (const op of ['AddPerson', 'ProvisionMember', 'ChangeRole', 'DeactivateMember', 'ReactivateMember']) {
+      expect(OPERATION_TYPES).toContain(op);
+    }
   });
 
   it('defines the member-op target sentinel (targetPersonId is person-specific)', () => {

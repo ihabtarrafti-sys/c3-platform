@@ -27,6 +27,8 @@ const OPERATION: Record<string, string> = {
   ChangeRole: 'Change Role',
   DeactivateMember: 'Deactivate Member',
   ReactivateMember: 'Reactivate Member',
+  AddCredential: 'Add Credential',
+  DeactivateCredential: 'Deactivate Credential',
 };
 export function operationOf(op: string): string {
   return OPERATION[op] ?? op;
@@ -47,6 +49,8 @@ const AUDIT_ACTION: Record<string, string> = {
   MemberDeactivated: 'Member deactivated',
   MemberReactivated: 'Member reactivated',
   EmergencyLockout: 'Emergency lockout',
+  CredentialCreated: 'Credential created',
+  CredentialDeactivated: 'Credential deactivated',
 };
 export function auditActionOf(action: string): string {
   return AUDIT_ACTION[action] ?? action;
