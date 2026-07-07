@@ -20,18 +20,20 @@ The host must have `age`, `pg_restore`, and `pg_dump` on PATH (Railway does; a l
 
 ## Steps
 
-1. From `webv0/`, with the env above set for a **one-shot** invocation (never persisted to the service):
-   ```
-   npm --workspace apps/backup run restore
-   ```
-2. Watch the structured log for, in order:
+The cron container only exists while a job runs (you cannot SSH into an exited cron service), and a local dev box lacks `age`/`pg_restore` — so the drill runs **as a one-shot job on the service itself**, via the image's `JOB_MODE` dispatch (`apps/backup/src/entrypoint.ts`).
+
+1. Railway dashboard → **c3-backup-cron** → **Variables**: add, temporarily —
+   `JOB_MODE=restore`, `AGE_IDENTITY=<private key>`, `RESTORE_ADMIN_URL=<postgres admin URL>`, `RESTORE_EXPORT_TENANT=c3-internal`. (R2 access + the `c3_backup` `DATABASE_URL` are already on the service.)
+2. Apply/deploy the staged variable changes — the service restarts and runs the drill once, then exits.
+3. Watch the deployment **Logs** for the structured events, in order:
    - `restore.downloaded_verified` → `restore.decrypted_verified` (artifact integrity),
    - `restore.restored` (into the disposable DB),
    - `restore.fixtures_verified` (PER-0001, APR-0001/0002, migrations, counts),
    - `restore.live_unchanged` (live counts identical before/after),
    - **`restore.tenant_export_verified`** — the new step: `{ slug, rowsTotal, files:[{name,rows,sha256}], schemaVersionCount }`,
    - `restore.success` then `restore.disposable_dropped`.
-3. Exit code `0` = pass. Any integrity, fixture, live-change, or unknown-tenant failure exits non-zero and the disposable DB is still dropped in `finally`.
+4. Exit code `0` = pass. Any integrity, fixture, live-change, or unknown-tenant failure exits non-zero and the disposable DB is still dropped in `finally`.
+5. **MANDATORY CLEANUP, same day:** delete all four temporary variables (`JOB_MODE`, `AGE_IDENTITY`, `RESTORE_ADMIN_URL`, `RESTORE_EXPORT_TENANT`) and apply. If `JOB_MODE=restore` survives to the next 02:15 UTC cron tick, the nightly run performs a **drill instead of a backup** — a missed backup — and the private key must never persist in service config. The cleanup redeploy triggers one extra normal backup run, which is harmless.
 
 ## Acceptance (what makes A-5 green)
 
