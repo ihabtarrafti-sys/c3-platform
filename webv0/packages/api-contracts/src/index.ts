@@ -7,7 +7,17 @@
  * The internal tenantId is deliberately NOT exposed on the wire.
  */
 import { z } from 'zod';
-import { APPROVAL_STATUSES, C3_ROLES, OPERATION_TYPES, addPersonInputSchema, approvalPayloadSchema } from '@c3web/domain';
+import {
+  APPROVAL_STATUSES,
+  C3_ROLES,
+  OPERATION_TYPES,
+  addPersonInputSchema,
+  approvalPayloadSchema,
+  changeRolePayloadSchema,
+  deactivateMemberPayloadSchema,
+  provisionMemberPayloadSchema,
+  reactivateMemberPayloadSchema,
+} from '@c3web/domain';
 
 export const approvalStatusSchema = z.enum(APPROVAL_STATUSES);
 export const roleSchema = z.enum(C3_ROLES);
@@ -90,6 +100,31 @@ export const auditEventSchema = z.object({
 });
 export const auditEventsListSchema = z.object({ events: z.array(auditEventSchema) });
 
+// ── members (Sprint 35 tenant-admin) ────────────────────────────────────────
+export const memberSchema = z.object({
+  userId: z.string().uuid(),
+  email: z.string(),
+  displayName: z.string(),
+  role: roleSchema,
+  isActive: z.boolean(),
+  createdAt: z.string(),
+});
+export type MemberDto = z.infer<typeof memberSchema>;
+export const membersListSchema = z.object({ members: z.array(memberSchema) });
+
+/** The four governed member operations (AddPerson has its own submit route). */
+export const memberChangePayloadSchema = z.discriminatedUnion('operationType', [
+  provisionMemberPayloadSchema,
+  changeRolePayloadSchema,
+  deactivateMemberPayloadSchema,
+  reactivateMemberPayloadSchema,
+]);
+export const submitMemberChangeRequestSchema = z.object({
+  payload: memberChangePayloadSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitMemberChangeRequest = z.infer<typeof submitMemberChangeRequestSchema>;
+
 // ── requests ────────────────────────────────────────────────────────────────
 export const submitAddPersonRequestSchema = z.object({
   input: addPersonInputSchema,
@@ -122,6 +157,8 @@ export const capabilityViewSchema = z.object({
   canSubmitApproval: z.boolean(),
   canReviewApproval: z.boolean(),
   canExecuteApproval: z.boolean(),
+  canReadMembers: z.boolean(),
+  canSubmitMemberChange: z.boolean(),
 });
 export const meResponseSchema = z.object({
   identity: z.string(),

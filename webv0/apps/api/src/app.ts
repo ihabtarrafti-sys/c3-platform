@@ -25,6 +25,7 @@ import {
   auditEventsListSchema,
   errorResponseSchema,
   executeResponseSchema,
+  membersListSchema,
   meResponseSchema,
   peopleListSchema,
   personIdParamSchema,
@@ -32,6 +33,7 @@ import {
   rejectRequestSchema,
   roleSchema,
   submitAddPersonRequestSchema,
+  submitMemberChangeRequestSchema,
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 import { capabilityView } from '@c3web/authz';
@@ -44,16 +46,19 @@ import {
   listApprovalEvents,
   listApprovals,
   listAuditEvents,
+  listMembers,
   listPeople,
   rejectApproval,
   submitAddPerson,
+  submitMemberChange,
+  type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
 import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toPersonDto } from './dto';
+import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toMemberDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -346,6 +351,24 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const events = await listAuditEvents(P, actorOf(req), 'Approval', approvalId);
     return { events: events.map(toAuditEventDto) };
   });
+
+  // ── members (Sprint 35 tenant-admin) ───────────────────────────────────────
+  r.get('/api/v1/members', { schema: { response: { 200: membersListSchema } } }, async (req) => {
+    const members = await listMembers(P, actorOf(req));
+    return { members: members.map(toMemberDto) };
+  });
+
+  // Submitting a member change creates a governed approval — review and
+  // execution go through the SAME approval routes as every other operation.
+  r.post(
+    '/api/v1/members/changes',
+    { schema: { body: submitMemberChangeRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { payload: SubmitMemberChangeCommand['payload']; reason?: string };
+      const approval = await submitMemberChange(P, actorOf(req), { payload: body.payload, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
 }
 
 // Dev-login schemas kept local (dev-only surface).

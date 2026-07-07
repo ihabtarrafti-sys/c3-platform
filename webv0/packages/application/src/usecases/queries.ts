@@ -9,15 +9,22 @@ import {
   type ApprovalEvent,
   type ApprovalStatus,
   type AuditEvent,
+  type Member,
   type Person,
   NotFoundError,
 } from '@c3web/domain';
-import { assertReadPeople, assertViewApprovals } from '@c3web/authz';
+import { assertReadMembers, assertReadPeople, assertViewApprovals } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
 export function listPeople(p: Persistence, actor: Actor): Promise<Person[]> {
   assertReadPeople(actor);
   return p.reads.forActor(actor).listPeople();
+}
+
+/** Sprint 35: tenant-scoped member directory (owner/operations only). */
+export function listMembers(p: Persistence, actor: Actor): Promise<Member[]> {
+  assertReadMembers(actor);
+  return p.reads.forActor(actor).listMembers();
 }
 
 export async function getPerson(p: Persistence, actor: Actor, personId: string): Promise<Person> {

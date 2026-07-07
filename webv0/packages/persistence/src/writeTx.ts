@@ -24,9 +24,26 @@ import { mapApproval, mapPerson } from './mappers';
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
  * 'C3E:<CODE>:') to the domain error taxonomy. Non-gateway errors re-throw.
+ * The driver/ORM may WRAP the pg error (drizzle puts it in `cause`), so the
+ * prefix is searched across the whole cause chain.
  */
+function gatewayMessage(err: unknown): string {
+  const parts: string[] = [];
+  let cur: unknown = err;
+  for (let i = 0; i < 4 && cur; i++) {
+    if (cur instanceof Error) {
+      parts.push(cur.message);
+      cur = (cur as { cause?: unknown }).cause;
+    } else {
+      parts.push(String(cur));
+      break;
+    }
+  }
+  return parts.join(' | ');
+}
+
 function mapMemberGatewayError(err: unknown, action: string): never {
-  const msg = err instanceof Error ? err.message : String(err);
+  const msg = gatewayMessage(err);
   const m = /C3E:([A-Z_]+):/.exec(msg);
   if (m) {
     switch (m[1]) {
@@ -40,8 +57,10 @@ function mapMemberGatewayError(err: unknown, action: string): never {
         throw new LastOwnerProtectionError(action);
       case 'NOT_FOUND':
         throw new NotFoundError('Member', action);
-      case 'CONFLICT':
-        throw new ConflictError(msg.slice(msg.indexOf(':', 4) + 1).trim() || 'Member operation conflict.');
+      case 'CONFLICT': {
+        const detail = /C3E:CONFLICT:\s*([^|]*)/.exec(msg)?.[1]?.trim();
+        throw new ConflictError(detail || 'Member operation conflict.');
+      }
     }
   }
   throw err;

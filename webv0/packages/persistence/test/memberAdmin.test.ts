@@ -256,7 +256,11 @@ describe('full governed chain (use-cases end to end)', () => {
     // The owner may approve (submitter is ops), but execution hits BOTH SQL
     // guards: the target is the executor (self) AND the last active owner.
     const approved = await approveApproval(p, alphaOwner, inReview.approvalId, inReview.version);
-    await expect(executeApproval(p, alphaOwner, approved.approvalId, approved.version)).rejects.toThrow();
+    // Must surface as a MAPPED domain error (the ORM wraps pg errors in a
+    // cause chain — the adapter walks it), not a generic 500-shaped throw.
+    await expect(executeApproval(p, alphaOwner, approved.approvalId, approved.version)).rejects.toMatchObject({
+      code: expect.stringMatching(/^(SELF_ADMINISTRATION_BLOCKED|LAST_OWNER_PROTECTED)$/),
+    });
 
     const after = await p.reads.forActor(alphaOwner).getApprovalById(approval.approvalId);
     expect(after?.status).toBe('ExecutionFailed');
