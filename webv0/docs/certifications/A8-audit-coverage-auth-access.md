@@ -26,6 +26,14 @@
 
 **Interim compensating control (now):** access-administration changes remain owner-run, are recorded in this lane's certification documents (as done for the seed and both drills), and the staging population is two named humans. Honest, adequate for internal beta; **not** adequate for external customers.
 
+## Phase 1 — SHIPPED + HOSTED-PROVEN (2026-07-07, HEAD `65741cb`)
+
+The Phase-1 remediation is implemented, deployed to staging, and exercised live:
+- Migration `0007_access_events.sql` applied (owner-run, runner-consistent bookkeeping); `access_event` live with the append-only trigger; `c3_app` write-only posture test-proven.
+- `SessionEstablished` live end-to-end: first hosted row written by a real session refresh — `Access | SessionEstablished | certbeta@c3hq.org | 2026-07-07 11:25:12 UTC`.
+- `AccessDenied` path test-proven (integration: denied token-valid identity → `access_event` row); hosted rows will appear on the first real denial.
+- Both writes verified non-fatal by design.
+
 ## Gate consequence
 
-A-8 open. Green path: Phase 1 ships (small) → auth flows covered; Phase 2 ships with tenant-admin → access-admin flows covered. Both are already reflected in the sanitized public roadmap (band 3). No public claim beyond "application workflow history" is permitted meanwhile (already enforced by the claims sign-off).
+A-8: **auth flows now covered (Phase 1 hosted)**; the item fully greens when Phase 2 ships with tenant-admin → access-admin flows covered. Both are already reflected in the sanitized public roadmap (band 3). No public claim beyond "application workflow history" is permitted meanwhile (already enforced by the claims sign-off).
