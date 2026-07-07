@@ -6,6 +6,7 @@ import { PersonProfilePage } from './pages/PersonProfilePage';
 import { ApprovalsPage } from './pages/ApprovalsPage';
 import { ApprovalDetailPage } from './pages/ApprovalDetailPage';
 import { MembersPage } from './pages/MembersPage';
+import { CredentialsPage } from './pages/CredentialsPage';
 
 /**
  * A real URL router. Deep links and browser refresh resolve to the correct
@@ -25,6 +26,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="/people" replace /> },
       { path: 'people', element: <PeoplePage /> },
       { path: 'people/:personId', element: <PersonProfilePage /> },
+      { path: 'credentials', element: <CredentialsPage /> },
       { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'approvals/:approvalId', element: <ApprovalDetailPage /> },
       { path: 'members', element: <MembersPage /> },

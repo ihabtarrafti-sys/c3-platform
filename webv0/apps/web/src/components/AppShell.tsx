@@ -178,6 +178,16 @@ function ApprovalsIcon({ className }: { className?: string }) {
   );
 }
 
+function CredentialsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <rect x="3" y="4" width="14" height="10" rx="1.5" />
+      <circle cx="7.5" cy="9" r="1.8" />
+      <path d="M11.5 7.5h3M11.5 10.5h3M8.5 14v3l-1-0.8-1 0.8v-3" />
+    </svg>
+  );
+}
+
 function MembersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -291,6 +301,12 @@ export function AppShell() {
           aria-label="Primary"
         >
           <NavItem to="/people" label="People" icon={<PeopleIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
+          <NavItem
+            to="/credentials"
+            label="Credentials"
+            icon={<CredentialsIcon className={s.navIcon} />}
+            onNavigate={() => setNavOpen(false)}
+          />
           <NavItem
             to="/approvals"
             label="Approvals"

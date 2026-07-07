@@ -14,7 +14,16 @@
  *     problem);
  *   - server correlation ids are preserved onto ApiError.
  */
-import type { ApprovalDto, MeResponse, MemberDto, PersonDto, SubmitMemberChangeRequest } from '@c3web/api-contracts';
+import type {
+  ApprovalDto,
+  CredentialDto,
+  MeResponse,
+  MemberDto,
+  PersonDto,
+  SubmitAddCredentialRequest,
+  SubmitDeactivateCredentialRequest,
+  SubmitMemberChangeRequest,
+} from '@c3web/api-contracts';
 
 export class ApiError extends Error {
   constructor(
@@ -82,6 +91,13 @@ export function createApiClient(deps: ApiClientDeps) {
     listMembers: () => request<{ members: MemberDto[] }>('GET', '/api/v1/members'),
     submitMemberChange: (payload: SubmitMemberChangeRequest['payload'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/members/changes', { payload, ...(reason ? { reason } : {}) }),
+    // Sprint 36: credentials.
+    listCredentials: () => request<{ credentials: CredentialDto[] }>('GET', '/api/v1/credentials'),
+    personCredentials: (personId: string) => request<{ credentials: CredentialDto[] }>('GET', `/api/v1/people/${personId}/credentials`),
+    submitAddCredential: (input: SubmitAddCredentialRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/credentials/requests', { input, ...(reason ? { reason } : {}) }),
+    submitDeactivateCredential: (input: SubmitDeactivateCredentialRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/credentials/deactivations', { input, ...(reason ? { reason } : {}) }),
   };
 }
 
@@ -104,4 +120,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { ApprovalDto, MemberDto, PersonDto, MeResponse };
+export type { ApprovalDto, CredentialDto, MemberDto, PersonDto, MeResponse };

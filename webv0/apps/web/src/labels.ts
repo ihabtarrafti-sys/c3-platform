@@ -20,6 +20,18 @@ export function approvalStatusOf(status: string): { label: string; variant: Stat
   return APPROVAL_STATUS[status] ?? { label: status, variant: 'neutral' };
 }
 
+/** Sprint 36 — derived credential status (credentialStatusOn) → label + variant. */
+const CREDENTIAL_STATUS: Record<string, { label: string; variant: StatusVariant }> = {
+  Active: { label: 'Active', variant: 'ready' },
+  ExpiresSoon: { label: 'Expires soon', variant: 'pending' },
+  Expired: { label: 'Expired', variant: 'blocked' },
+  Inactive: { label: 'Inactive', variant: 'neutral' },
+};
+
+export function credentialStatusOf(status: string): { label: string; variant: StatusVariant } {
+  return CREDENTIAL_STATUS[status] ?? { label: status, variant: 'neutral' };
+}
+
 /** D.5 — operation type → label. */
 const OPERATION: Record<string, string> = {
   AddPerson: 'Add Person',

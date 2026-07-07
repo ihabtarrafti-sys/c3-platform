@@ -21,3 +21,9 @@ export const useApprovalEvents = (id: string) =>
 
 export const useMembers = (enabled = true) =>
   useQuery({ queryKey: ['members'], queryFn: () => api.listMembers(), enabled });
+
+export const useCredentials = () =>
+  useQuery({ queryKey: ['credentials'], queryFn: () => api.listCredentials() });
+
+export const usePersonCredentials = (personId: string) =>
+  useQuery({ queryKey: ['personCredentials', personId], queryFn: () => api.personCredentials(personId) });
