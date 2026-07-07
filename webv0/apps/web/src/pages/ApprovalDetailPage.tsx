@@ -111,7 +111,9 @@ export function ApprovalDetailPage() {
             ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${a.payload.input.credentialType} for ${a.payload.input.personId}`}</span> }]
             : a.payload.operationType === 'DeactivateCredential'
               ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${a.payload.input.credentialId} (${a.payload.input.personId})`}</span> }]
-              : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
+              : a.payload.operationType === 'InitiateJourney'
+                ? [{ label: 'Journey', value: <span data-testid="approval-journey-subject">{`${a.payload.input.journeyType} for ${a.payload.input.personId}`}</span> }]
+                : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {

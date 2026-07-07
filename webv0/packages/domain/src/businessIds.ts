@@ -14,18 +14,20 @@
 
 const MIN_WIDTH = 4;
 
-export type BusinessIdKind = 'person' | 'approval' | 'credential';
+export type BusinessIdKind = 'person' | 'approval' | 'credential' | 'journey';
 
 const PREFIX: Record<BusinessIdKind, string> = {
   person: 'PER',
   approval: 'APR',
   credential: 'CRED',
+  journey: 'JRN',
 };
 
 const PATTERN: Record<BusinessIdKind, RegExp> = {
   person: /^PER-\d{4,}$/,
   approval: /^APR-\d{4,}$/,
   credential: /^CRED-\d{4,}$/,
+  journey: /^JRN-\d{4,}$/,
 };
 
 /** Format an allocated sequence number into a canonical business ID. */
@@ -39,6 +41,7 @@ export function formatBusinessId(kind: BusinessIdKind, sequence: number): string
 export const formatPersonId = (sequence: number): string => formatBusinessId('person', sequence);
 export const formatApprovalId = (sequence: number): string => formatBusinessId('approval', sequence);
 export const formatCredentialId = (sequence: number): string => formatBusinessId('credential', sequence);
+export const formatJourneyId = (sequence: number): string => formatBusinessId('journey', sequence);
 
 export function isBusinessId(kind: BusinessIdKind, value: unknown): value is string {
   return typeof value === 'string' && PATTERN[kind].test(value);
@@ -47,6 +50,7 @@ export function isBusinessId(kind: BusinessIdKind, value: unknown): value is str
 export const isPersonId = (value: unknown): value is string => isBusinessId('person', value);
 export const isApprovalId = (value: unknown): value is string => isBusinessId('approval', value);
 export const isCredentialId = (value: unknown): value is string => isBusinessId('credential', value);
+export const isJourneyId = (value: unknown): value is string => isBusinessId('journey', value);
 
 /**
  * Placeholder written to an AddPerson approval's target person field at

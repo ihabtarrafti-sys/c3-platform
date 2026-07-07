@@ -159,6 +159,11 @@ export async function executeApproval(
       // this one transaction. The AddPerson path below is the certified
       // original, unchanged. Anything without an executor FAILS CLOSED.
       if (approval.payload.operationType !== 'AddPerson') {
+        // Sprint 37 J1: the InitiateJourney executor lands in J2 — until then
+        // execution fails closed BEFORE any mutation (truthful ExecutionFailed).
+        if (approval.payload.operationType === 'InitiateJourney') {
+          throw new Error("No executor for 'InitiateJourney' in this build (failing closed).");
+        }
         // ── Sprint 36: credentials ─────────────────────────────────────────
         if (approval.payload.operationType === 'AddCredential') {
           const { input } = approval.payload;

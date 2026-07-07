@@ -11,6 +11,7 @@
 import { z } from 'zod';
 import { addPersonInputSchema } from './person';
 import { addCredentialInputSchema, deactivateCredentialInputSchema } from './credential';
+import { initiateJourneyInputSchema } from './journey';
 import {
   changeRoleInputSchema,
   deactivateMemberInputSchema,
@@ -29,6 +30,8 @@ export const OPERATION_TYPES = [
   // Sprint 36: the Credentials domain.
   'AddCredential',
   'DeactivateCredential',
+  // Sprint 37: the Journeys domain (transitions are direct-audited, not governed).
+  'InitiateJourney',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -89,6 +92,12 @@ export const deactivateCredentialPayloadSchema = z
   .strict();
 export type DeactivateCredentialApprovalPayload = z.infer<typeof deactivateCredentialPayloadSchema>;
 
+/** InitiateJourney payload (Sprint 37): targetPersonId = the owning person. */
+export const initiateJourneyPayloadSchema = z
+  .object({ operationType: z.literal('InitiateJourney'), input: initiateJourneyInputSchema })
+  .strict();
+export type InitiateJourneyApprovalPayload = z.infer<typeof initiateJourneyPayloadSchema>;
+
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
   provisionMemberPayloadSchema,
@@ -97,6 +106,7 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   reactivateMemberPayloadSchema,
   addCredentialPayloadSchema,
   deactivateCredentialPayloadSchema,
+  initiateJourneyPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 

@@ -41,6 +41,7 @@ const OPERATION: Record<string, string> = {
   ReactivateMember: 'Reactivate Member',
   AddCredential: 'Add Credential',
   DeactivateCredential: 'Deactivate Credential',
+  InitiateJourney: 'Initiate Journey',
 };
 export function operationOf(op: string): string {
   return OPERATION[op] ?? op;
@@ -63,7 +64,24 @@ const AUDIT_ACTION: Record<string, string> = {
   EmergencyLockout: 'Emergency lockout',
   CredentialCreated: 'Credential created',
   CredentialDeactivated: 'Credential deactivated',
+  JourneyInitiated: 'Journey initiated',
+  JourneySuspended: 'Journey suspended',
+  JourneyResumed: 'Journey resumed',
+  JourneyCompleted: 'Journey completed',
+  JourneyCancelled: 'Journey cancelled',
 };
+
+/** Sprint 37 — journey status → label + StatusBadge variant. */
+const JOURNEY_STATUS: Record<string, { label: string; variant: StatusVariant }> = {
+  Active: { label: 'Active', variant: 'ready' },
+  Suspended: { label: 'Suspended', variant: 'pending' },
+  Completed: { label: 'Completed', variant: 'neutral' },
+  Cancelled: { label: 'Cancelled', variant: 'blocked' },
+};
+
+export function journeyStatusOf(status: string): { label: string; variant: StatusVariant } {
+  return JOURNEY_STATUS[status] ?? { label: status, variant: 'neutral' };
+}
 export function auditActionOf(action: string): string {
   return AUDIT_ACTION[action] ?? action;
 }

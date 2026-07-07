@@ -37,6 +37,13 @@ export const AUDIT_ACTIONS = [
   // Sprint 36: the Credentials domain entity mutations.
   'CredentialCreated',
   'CredentialDeactivated',
+  // Sprint 37: Journeys — one governed creation + four DIRECT-audited
+  // transitions (role-gated, state-machine validated, same-tx audit).
+  'JourneyInitiated',
+  'JourneySuspended',
+  'JourneyResumed',
+  'JourneyCompleted',
+  'JourneyCancelled',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

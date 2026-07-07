@@ -31,8 +31,8 @@ export interface Credential {
   readonly updatedAt: string;
 }
 
-/** Strictly-valid ISO calendar date: shape AND a real day (rejects 2026-02-30). */
-const isoDate = z
+/** Strictly-valid ISO calendar date: shape AND a real day (rejects 2026-02-30). Shared by date-bearing domains (Credentials, Journeys). */
+export const isoDateSchema = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use the ISO date format YYYY-MM-DD')
   .refine((v) => {
@@ -60,8 +60,8 @@ export const addCredentialInputSchema = z
     personId: z.string().regex(/^PER-\d{4,}$/, 'personId must be a canonical PER id'),
     credentialType: z.string().trim().min(1, 'Credential type is required').max(120),
     issuer: trimmedOptional(160),
-    issuedOn: isoDate,
-    expiresOn: isoDate.nullish().transform((v) => v ?? null),
+    issuedOn: isoDateSchema,
+    expiresOn: isoDateSchema.nullish().transform((v) => v ?? null),
     notes: trimmedOptional(2000),
   })
   .strict()
