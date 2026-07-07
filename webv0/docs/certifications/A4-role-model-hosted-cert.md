@@ -1,7 +1,21 @@
 # A-4 — Role Model Hosted Certification (+ A-8 full-green exercise)
 
 **Gate items:** A-4 (all roles' enforcement hosted) + the final A-8 condition (governed access-administration exercised hosted). **Author:** Architect-of-record · **Date:** 2026-07-07.
-**Result: PENDING — protocol designed, owner prep = ONE disposable guest.** No pre-written results.
+**Result: ✅ PASSED — executed hosted 2026-07-07 (~16:57–17:04 UTC+1), owner-driven, Architect-verified read-only. A-4 GREEN · A-8 FULLY GREEN · Sprint 35 HOSTED-CERTIFIED.**
+
+## Evidence (hosted, verified in the product's own audit stream)
+
+Disposable B2B guest (oid `dfa8ce1b…2594`, profile `role-test@synthetic.invalid`), everything through the product in `c3-internal`:
+
+- **APR-0004..0011, all Executed, all `submitted by m.khalailah` / `reviewed by ihab`** — requester ≠ approver held on every one of the 8 governed operations.
+- **Audit chain complete with before/after images:** `MemberProvisioned` (visitor) → `MemberRoleChanged` ×6 (visitor→management→hr→finance→legal→**operations**→legal — the owner rotated one role beyond protocol, bonus coverage) → `MemberDeactivated` (`deactivated-sole`). Every mutation same-transaction audited; every row actor = the executor.
+- **Role landings certified by the owner on each rotation:** role displayed correctly; People readable; no Add Person; Approvals denied; no Members nav; `/members` denied — identical read-only surface across visitor/management/hr/finance/legal, exactly matching the V1 capability matrix.
+- **9 live `SessionEstablished` rows** for the guest (the landing sign-ins) and, post-deactivation, the access-not-provisioned screen witnessed + **1 `AccessDenied` forensic row** with the guest's oid.
+- Final fixture state: member Inactive, identity binding retained — the durable audit-backed artifact. Owner deletes the Entra guest as closing hygiene.
+
+## Consequence
+
+Every Sprint-35 governed member operation (Provision / ChangeRole / Deactivate) has now been exercised **hosted, through the UI, under governance, with verified audit truth** — closing A-8's last condition. All five read-only roles are hosted-certified — closing A-4. **Every Architect-owned Stage-4 gate item is now green.**
 
 ## Design — one drill, two gate items
 

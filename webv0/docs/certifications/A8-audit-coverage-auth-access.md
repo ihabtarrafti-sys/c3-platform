@@ -34,6 +34,10 @@ The Phase-1 remediation is implemented, deployed to staging, and exercised live:
 - `AccessDenied` path test-proven (integration: denied token-valid identity → `access_event` row); hosted rows will appear on the first real denial.
 - Both writes verified non-fatal by design.
 
+## Phase 2 — SHIPPED + HOSTED-EXERCISED (2026-07-07): ✅ A-8 FULLY GREEN
+
+Sprint 35 delivered access administration as governed, same-transaction-audited product flows (design: `A8-P2-access-admin-audit.md`; SECURITY DEFINER gateways, migration 0008). The A-4 drill then exercised them hosted end-to-end: `MemberProvisioned` + `MemberRoleChanged` ×6 (with before/after images) + `MemberDeactivated`, all via APR-0004..0011 under requester ≠ approver, verified in the live audit stream (see `A4-role-model-hosted-cert.md`). Both A-8 phases are now hosted-proven with real events (SessionEstablished, AccessDenied, and the full member-mutation family). **The "auditing manual SQL is impossible" compensating control is retired for tenant-scoped access changes** — they are product flows now.
+
 ## Gate consequence
 
-A-8: **auth flows now covered (Phase 1 hosted)**; the item fully greens when Phase 2 ships with tenant-admin → access-admin flows covered. Both are already reflected in the sanitized public roadmap (band 3). No public claim beyond "application workflow history" is permitted meanwhile (already enforced by the claims sign-off).
+**A-8: FULLY SATISFIED** — governed operations, auth flows, and access-administration flows all emit queryable, append-only audit events, hosted-proven. Public claims remain bounded by the sign-off discipline; any new wording routes through the truthfulness authority.
