@@ -1,7 +1,11 @@
 # A-5 — Per-Organization Restore & Recoverability
 
 **Gate item:** A-5 (recoverability / per-org restore), Stage-4 admission gate. **Author:** Architect-of-record · **Date:** 2026-07-07 · repo tip (this commit).
-**Result: HOSTED COMPOSED DRILL PASSED (2026-07-07 12:56 UTC) — technical evidence complete; formal owner acceptance is the only remaining condition for GREEN.**
+**Result: ✅ GREEN — HOSTED-CERTIFIED + OWNER-ACCEPTED.** The composed drill passed (2026-07-07 12:56 UTC) and the Owner recorded formal acceptance the same day:
+
+> "As Owner, I accept the per-organization restore posture — whole-database restore into a disposable environment composed with the organization-scoped export — as drilled on 2026-07-07, for the external-admission context." — Owner (Ihab), 2026-07-07
+
+No conditions remain on this gate item. (Related but separate: the backup-freshness monitoring action surfaced by attempt #1 stays on the owner action list as URGENT.)
 
 ## Hosted composed drill — PASSED (attempt #3, 2026-07-07 12:56 UTC)
 
@@ -21,10 +25,10 @@ Owner-run via `JOB_MODE=restore` + `RESTORE_EXPORT_TENANT=c3-internal` on image 
 
 Per-org restore needs **no new backup infrastructure**: it is the already-certified whole-DB restore **composed with** `export:tenant`. Restore the newest encrypted backup into a disposable DB (proven), run the org-scoped export against it (tested), and the bundle is that org's point-in-time data. The composition is now a single owner-run command.
 
-## What remains for GREEN
+## What remained for GREEN — all satisfied
 
 - ~~Run the hosted composed drill~~ **DONE — PASSED 2026-07-07 12:56 UTC** (see above; all runbook acceptance criteria met).
-- **Owner acceptance** of the posture for the external context (the gate requires sign-off, not just a green run). **This is the sole remaining condition.**
+- ~~Owner acceptance~~ **DONE — recorded verbatim in the header, 2026-07-07.**
 
 ## First drill attempt (2026-07-07, ~12:21 UTC) — whole-DB re-proven, composed step did not run, and a REAL FINDING
 
