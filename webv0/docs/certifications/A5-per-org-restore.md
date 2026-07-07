@@ -1,7 +1,15 @@
 # A-5 — Per-Organization Restore & Recoverability
 
 **Gate item:** A-5 (recoverability / per-org restore), Stage-4 admission gate. **Author:** Architect-of-record · **Date:** 2026-07-07 · repo tip (this commit).
-**Result: YELLOW — implemented + wired + tested; the end-to-end HOSTED composed drill is PENDING owner execution (needs the age private key) and owner acceptance.** No overclaim: A-5 does not go green on code alone.
+**Result: HOSTED COMPOSED DRILL PASSED (2026-07-07 12:56 UTC) — technical evidence complete; formal owner acceptance is the only remaining condition for GREEN.**
+
+## Hosted composed drill — PASSED (attempt #3, 2026-07-07 12:56 UTC)
+
+Owner-run via `JOB_MODE=restore` + `RESTORE_EXPORT_TENANT=c3-internal` on image `51e5fcd` (disposable `c3_restore_drill_20260707125622_d`, deployment `f06d00b9`):
+- Restored the **fresh** backup (12:25 UTC same day): migrations **0001–0007**, tenants **c3-internal + certbeta**, PER-0001, APR-0001 Executed / APR-0002 Submitted / **APR-0003 Submitted (present — freshness recovery confirmed)**, external identities 4.
+- **`tenantExport` verified in evidence:** slug `c3-internal`, **32 rows across 10 files**, per-file SHA-256 recorded (tenant 1, app_user 2, external_identity 2, membership 2, role_assignment 2, counters 2, approval 3, person 1, approval_event 6, audit_event 11), `schemaVersionCount` **7** = applied migrations. Counts consistent with the live org.
+- Live-unchanged check passed (export runs only after it), disposable dropped, one-shot variables removed by the owner afterwards.
+- All runbook acceptance criteria met. **APR-0003 attribution resolved: submitted by the owner (confirmed 2026-07-07) — benign; its absence from the first drill remains evidence of the backup-freshness gap, not a data problem.**
 
 ## What is DONE (green sub-parts)
 
@@ -15,9 +23,8 @@ Per-org restore needs **no new backup infrastructure**: it is the already-certif
 
 ## What remains for GREEN
 
-- **Run the hosted composed drill** ([runbooks/A5-per-org-restore-composed-drill.md](../runbooks/A5-per-org-restore-composed-drill.md)) — owner-run, needs `AGE_IDENTITY` + `RESTORE_ADMIN_URL` + R2 read + `RESTORE_EXPORT_TENANT=c3-internal` (the live staging org; verified slug); the host needs `age`/`pg_restore` on PATH (Railway has them; a local dev box does not — this cannot be self-certified from here).
-- **Acceptance criteria** (from the runbook): exit 0 with `restore.tenant_export_verified`, non-zero consistent row counts for the target org, `schemaVersionCount` = applied-migration count, `restore.live_unchanged` confirmed.
-- **Owner acceptance** of the posture for the external context (the gate requires sign-off, not just a green run).
+- ~~Run the hosted composed drill~~ **DONE — PASSED 2026-07-07 12:56 UTC** (see above; all runbook acceptance criteria met).
+- **Owner acceptance** of the posture for the external context (the gate requires sign-off, not just a green run). **This is the sole remaining condition.**
 
 ## First drill attempt (2026-07-07, ~12:21 UTC) — whole-DB re-proven, composed step did not run, and a REAL FINDING
 
