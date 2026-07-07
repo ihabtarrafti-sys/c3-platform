@@ -11,9 +11,11 @@ import {
   APPROVAL_STATUSES,
   C3_ROLES,
   OPERATION_TYPES,
+  addCredentialInputSchema,
   addPersonInputSchema,
   approvalPayloadSchema,
   changeRolePayloadSchema,
+  deactivateCredentialInputSchema,
   deactivateMemberPayloadSchema,
   provisionMemberPayloadSchema,
   reactivateMemberPayloadSchema,
@@ -125,6 +127,35 @@ export const submitMemberChangeRequestSchema = z.object({
 });
 export type SubmitMemberChangeRequest = z.infer<typeof submitMemberChangeRequestSchema>;
 
+// ── credentials (Sprint 36) ─────────────────────────────────────────────────
+export const credentialSchema = z.object({
+  credentialId: z.string(),
+  personId: z.string(),
+  credentialType: z.string(),
+  issuer: z.string().nullable(),
+  issuedOn: z.string(), // plain ISO date, YYYY-MM-DD
+  expiresOn: z.string().nullable(),
+  notes: z.string().nullable(),
+  isActive: z.boolean(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type CredentialDto = z.infer<typeof credentialSchema>;
+export const credentialsListSchema = z.object({ credentials: z.array(credentialSchema) });
+
+export const submitAddCredentialRequestSchema = z.object({
+  input: addCredentialInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitAddCredentialRequest = z.infer<typeof submitAddCredentialRequestSchema>;
+
+export const submitDeactivateCredentialRequestSchema = z.object({
+  input: deactivateCredentialInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitDeactivateCredentialRequest = z.infer<typeof submitDeactivateCredentialRequestSchema>;
+
 // ── requests ────────────────────────────────────────────────────────────────
 export const submitAddPersonRequestSchema = z.object({
   input: addPersonInputSchema,
@@ -148,6 +179,7 @@ export const personResponseSchema = z.object({ person: personSchema });
 export const executeResponseSchema = z.object({
   approval: approvalSchema,
   person: personSchema.nullable(),
+  credential: credentialSchema.nullable(),
   idempotent: z.boolean(),
 });
 
@@ -172,3 +204,4 @@ export type MeResponse = z.infer<typeof meResponseSchema>;
 // ── path params ─────────────────────────────────────────────────────────────
 export const personIdParamSchema = z.object({ personId: z.string().regex(/^PER-\d{4,}$/) });
 export const approvalIdParamSchema = z.object({ approvalId: z.string().regex(/^APR-\d{4,}$/) });
+export const credentialIdParamSchema = z.object({ credentialId: z.string().regex(/^CRED-\d{4,}$/) });

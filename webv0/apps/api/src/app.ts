@@ -23,6 +23,7 @@ import {
   approvalsListSchema,
   approvalEventsListSchema,
   auditEventsListSchema,
+  credentialsListSchema,
   errorResponseSchema,
   executeResponseSchema,
   membersListSchema,
@@ -32,7 +33,9 @@ import {
   personResponseSchema,
   rejectRequestSchema,
   roleSchema,
+  submitAddCredentialRequestSchema,
   submitAddPersonRequestSchema,
+  submitDeactivateCredentialRequestSchema,
   submitMemberChangeRequestSchema,
   versionedRequestSchema,
 } from '@c3web/api-contracts';
@@ -46,10 +49,14 @@ import {
   listApprovalEvents,
   listApprovals,
   listAuditEvents,
+  listCredentials,
+  listCredentialsForPerson,
   listMembers,
   listPeople,
   rejectApproval,
+  submitAddCredential,
   submitAddPerson,
+  submitDeactivateCredential,
   submitMemberChange,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
@@ -58,7 +65,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toMemberDto, toPersonDto } from './dto';
+import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toMemberDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -336,7 +343,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     versionedAction(async (approvalId, req) => {
       const { expectedVersion } = req.body as { expectedVersion: number };
       const res = await executeApproval(P, actorOf(req), approvalId, expectedVersion);
-      return { approval: toApprovalDto(res.approval), person: res.person ? toPersonDto(res.person) : null, idempotent: res.idempotent };
+      return {
+        approval: toApprovalDto(res.approval),
+        person: res.person ? toPersonDto(res.person) : null,
+        credential: res.credential ? toCredentialDto(res.credential) : null,
+        idempotent: res.idempotent,
+      };
     }),
   );
 
@@ -351,6 +363,44 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const events = await listAuditEvents(P, actorOf(req), 'Approval', approvalId);
     return { events: events.map(toAuditEventDto) };
   });
+
+  // ── credentials (Sprint 36) ────────────────────────────────────────────────
+  r.get('/api/v1/credentials', { schema: { response: { 200: credentialsListSchema } } }, async (req) => {
+    const credentials = await listCredentials(P, actorOf(req));
+    return { credentials: credentials.map(toCredentialDto) };
+  });
+
+  r.get(
+    '/api/v1/people/:personId/credentials',
+    { schema: { params: personIdParamSchema, response: { 200: credentialsListSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      const credentials = await listCredentialsForPerson(P, actorOf(req), personId);
+      return { credentials: credentials.map(toCredentialDto) };
+    },
+  );
+
+  // Credential changes are governed: submission creates an approval that flows
+  // through the standard review/approve/execute routes above.
+  r.post(
+    '/api/v1/credentials/requests',
+    { schema: { body: submitAddCredentialRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').AddCredentialInput; reason?: string };
+      const approval = await submitAddCredential(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  r.post(
+    '/api/v1/credentials/deactivations',
+    { schema: { body: submitDeactivateCredentialRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').DeactivateCredentialInput; reason?: string };
+      const approval = await submitDeactivateCredential(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
 
   // ── members (Sprint 35 tenant-admin) ───────────────────────────────────────
   r.get('/api/v1/members', { schema: { response: { 200: membersListSchema } } }, async (req) => {

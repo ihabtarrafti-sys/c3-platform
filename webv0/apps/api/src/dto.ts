@@ -2,8 +2,25 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { Approval, ApprovalEvent, AuditEvent, Member, Person } from '@c3web/domain';
-import type { ApprovalDto, MemberDto, PersonDto } from '@c3web/api-contracts';
+import type { Approval, ApprovalEvent, AuditEvent, Credential, Member, Person } from '@c3web/domain';
+import type { ApprovalDto, CredentialDto, MemberDto, PersonDto } from '@c3web/api-contracts';
+
+/** Credential → wire (plain ISO dates pass through untouched). */
+export function toCredentialDto(c: Credential): CredentialDto {
+  return {
+    credentialId: c.credentialId,
+    personId: c.personId,
+    credentialType: c.credentialType,
+    issuer: c.issuer,
+    issuedOn: c.issuedOn,
+    expiresOn: c.expiresOn,
+    notes: c.notes,
+    isActive: c.isActive,
+    version: c.version,
+    createdAt: c.createdAt,
+    updatedAt: c.updatedAt,
+  };
+}
 
 /** Member → wire (the internal tenantId never leaves the server). */
 export function toMemberDto(m: Member): MemberDto {
