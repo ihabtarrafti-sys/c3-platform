@@ -188,6 +188,16 @@ function CredentialsIcon({ className }: { className?: string }) {
   );
 }
 
+function JourneysIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="4.5" cy="15.5" r="1.8" />
+      <circle cx="15.5" cy="4.5" r="1.8" />
+      <path d="M6 14.5c3-1 2-4.5 5-6.5 1.2-.8 2.4-1 3-1.5" />
+    </svg>
+  );
+}
+
 function MembersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -305,6 +315,12 @@ export function AppShell() {
             to="/credentials"
             label="Credentials"
             icon={<CredentialsIcon className={s.navIcon} />}
+            onNavigate={() => setNavOpen(false)}
+          />
+          <NavItem
+            to="/journeys"
+            label="Journeys"
+            icon={<JourneysIcon className={s.navIcon} />}
             onNavigate={() => setNavOpen(false)}
           />
           <NavItem

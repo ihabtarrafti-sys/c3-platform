@@ -27,3 +27,9 @@ export const useCredentials = () =>
 
 export const usePersonCredentials = (personId: string) =>
   useQuery({ queryKey: ['personCredentials', personId], queryFn: () => api.personCredentials(personId) });
+
+export const useJourneys = () =>
+  useQuery({ queryKey: ['journeys'], queryFn: () => api.listJourneys() });
+
+export const usePersonJourneys = (personId: string) =>
+  useQuery({ queryKey: ['personJourneys', personId], queryFn: () => api.personJourneys(personId) });

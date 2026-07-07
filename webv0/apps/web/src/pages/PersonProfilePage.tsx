@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { makeStyles } from '@fluentui/react-components';
 import { credentialStatusOn } from '@c3web/domain';
-import { usePerson, usePersonAudit, usePersonCredentials } from '../queries';
+import { usePerson, usePersonAudit, usePersonCredentials, usePersonJourneys } from '../queries';
 import { ApiError } from '../api';
 import { PageHeader } from '../components/PageHeader';
 import { Breadcrumbs } from '../components/Breadcrumbs';
@@ -10,7 +10,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
-import { auditActionOf, credentialStatusOf } from '../labels';
+import { auditActionOf, credentialStatusOf, journeyStatusOf } from '../labels';
 
 function localTodayIso(): string {
   const d = new Date();
@@ -30,6 +30,7 @@ export function PersonProfilePage() {
   const { data, isLoading, isError, error } = usePerson(personId);
   const audit = usePersonAudit(personId);
   const credentials = usePersonCredentials(personId);
+  const journeys = usePersonJourneys(personId);
   const today = localTodayIso();
 
   if (isError) {
@@ -98,6 +99,36 @@ export function PersonProfilePage() {
                         <td className={r.td}>{c.credentialId}</td>
                         <td className={`${r.td} ${r.name}`}>{c.credentialType}</td>
                         <td className={r.td}>{c.expiresOn ?? '—'}</td>
+                        <td className={r.td}>
+                          <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {(journeys.data?.journeys.length ?? 0) > 0 && (
+            <div className={s.section}>
+              <h2 className={s.h2}>Journeys</h2>
+              <table className={r.table} data-testid="person-journeys" aria-label="Person journeys">
+                <thead>
+                  <tr>
+                    <th className={r.th}>Journey</th>
+                    <th className={r.th}>Type</th>
+                    <th className={r.th}>Started</th>
+                    <th className={r.th}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {journeys.data!.journeys.map((j) => {
+                    const badge = journeyStatusOf(j.status);
+                    return (
+                      <tr key={j.journeyId} className={r.row}>
+                        <td className={r.td}>{j.journeyId}</td>
+                        <td className={`${r.td} ${r.name}`}>{j.title ?? j.journeyType}</td>
+                        <td className={r.td}>{j.startedOn}</td>
                         <td className={r.td}>
                           <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
                         </td>

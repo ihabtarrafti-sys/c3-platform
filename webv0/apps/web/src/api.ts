@@ -17,11 +17,13 @@
 import type {
   ApprovalDto,
   CredentialDto,
+  JourneyDto,
   MeResponse,
   MemberDto,
   PersonDto,
   SubmitAddCredentialRequest,
   SubmitDeactivateCredentialRequest,
+  SubmitInitiateJourneyRequest,
   SubmitMemberChangeRequest,
 } from '@c3web/api-contracts';
 
@@ -98,6 +100,16 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/credentials/requests', { input, ...(reason ? { reason } : {}) }),
     submitDeactivateCredential: (input: SubmitDeactivateCredentialRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/credentials/deactivations', { input, ...(reason ? { reason } : {}) }),
+    // Sprint 37: journeys.
+    listJourneys: () => request<{ journeys: JourneyDto[] }>('GET', '/api/v1/journeys'),
+    personJourneys: (personId: string) => request<{ journeys: JourneyDto[] }>('GET', `/api/v1/people/${personId}/journeys`),
+    submitInitiateJourney: (input: SubmitInitiateJourneyRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/journeys/requests', { input, ...(reason ? { reason } : {}) }),
+    transitionJourney: (journeyId: string, action: 'suspend' | 'resume' | 'complete' | 'cancel', expectedVersion: number, reason?: string) =>
+      request<{ journey: JourneyDto }>('POST', `/api/v1/journeys/${journeyId}/transitions/${action}`, {
+        expectedVersion,
+        ...(reason ? { reason } : {}),
+      }),
   };
 }
 
@@ -120,4 +132,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { ApprovalDto, CredentialDto, MemberDto, PersonDto, MeResponse };
+export type { ApprovalDto, CredentialDto, JourneyDto, MemberDto, PersonDto, MeResponse };
