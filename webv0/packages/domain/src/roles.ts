@@ -57,6 +57,12 @@ export interface C3Capabilities {
    * canExecuteApproval (owner), preserving requester ≠ approver.
    */
   readonly canSubmitMemberChange: boolean;
+  /**
+   * Sprint 37: may perform DIRECT-audited journey lifecycle transitions
+   * (suspend/resume/complete/cancel) — the CP "exempt-edit" posture:
+   * owner and operations only. Initiation stays governed (canSubmitApproval).
+   */
+  readonly canOperateJourneys: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
@@ -68,6 +74,7 @@ const READ_ONLY = {
   canExecuteApproval: false,
   canReadMembers: false,
   canSubmitMemberChange: false,
+  canOperateJourneys: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
 
@@ -79,6 +86,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canExecuteApproval: true,
     canReadMembers: true,
     canSubmitMemberChange: true,
+    canOperateJourneys: true,
     isReadOnly: false,
   },
   operations: {
@@ -88,6 +96,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canExecuteApproval: false,
     canReadMembers: true,
     canSubmitMemberChange: true,
+    canOperateJourneys: true,
     isReadOnly: false,
   },
   legal: READ_ONLY,

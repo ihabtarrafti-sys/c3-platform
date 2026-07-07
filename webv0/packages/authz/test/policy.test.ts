@@ -98,6 +98,7 @@ describe('capabilityView (UX hint)', () => {
       canExecuteApproval: false,
       canReadMembers: true,
       canSubmitMemberChange: true,
+      canOperateJourneys: true,
     });
   });
 

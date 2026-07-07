@@ -16,6 +16,8 @@ import type {
   AuditEvent,
   C3Role,
   Credential,
+  Journey,
+  JourneyStatus,
   Member,
   Person,
 } from '@c3web/domain';
@@ -34,6 +36,10 @@ export interface ReadStore {
   listCredentials(): Promise<Credential[]>;
   listCredentialsForPerson(personId: string): Promise<Credential[]>;
   getCredentialById(credentialId: string): Promise<Credential | null>;
+  // Sprint 37: journeys.
+  listJourneys(): Promise<Journey[]>;
+  listJourneysForPerson(personId: string): Promise<Journey[]>;
+  getJourneyById(journeyId: string): Promise<Journey | null>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -80,9 +86,21 @@ export interface NewCredentialRow {
   readonly createdByApprovalId: string;
 }
 
+/** Fields written when creating a Journey during InitiateJourney execution. */
+export interface NewJourneyRow {
+  readonly journeyId: string;
+  readonly personId: string;
+  readonly journeyType: string;
+  readonly title: string | null;
+  readonly startedOn: string; // plain ISO YYYY-MM-DD
+  readonly notes: string | null;
+  /** The approval whose execution created this journey (idempotency boundary). */
+  readonly createdByApprovalId: string;
+}
+
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
-  allocateSequence(kind: 'person' | 'approval' | 'credential'): Promise<number>;
+  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey'): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
 
@@ -165,6 +183,25 @@ export interface WriteTx {
    * → truthful ExecutionFailed).
    */
   deactivateCredential(credentialId: string): Promise<Credential | null>;
+
+  // ── Sprint 37 journeys ─────────────────────────────────────────────────────
+  insertJourney(row: NewJourneyRow): Promise<Journey>;
+  /** Return the journey an approval already created (idempotent execute path). */
+  getJourneyByCreatingApproval(approvalId: string): Promise<Journey | null>;
+  /** Read the current row inside the transaction (for precise refusal errors). */
+  getJourney(journeyId: string): Promise<Journey | null>;
+  /**
+   * Version-guarded, state-guarded transition: updates only when the row's
+   * version matches AND its current status is in `allowedFrom` (the state
+   * machine enforced at the statement level). Returns null when no row
+   * qualified — the caller distinguishes not-found / illegal / stale.
+   */
+  transitionJourney(
+    journeyId: string,
+    expectedVersion: number,
+    allowedFrom: readonly JourneyStatus[],
+    patch: { status: JourneyStatus; endedOn: string | null },
+  ): Promise<Journey | null>;
 }
 
 export interface WriteStore {

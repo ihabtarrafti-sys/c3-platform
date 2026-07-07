@@ -127,6 +127,24 @@ export const credential = pgTable('credential', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const journey = pgTable('journey', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  journeyId: text('journey_id').notNull(),
+  personId: text('person_id').notNull(),
+  journeyType: text('journey_type').notNull(),
+  title: text('title'),
+  // mode 'string' — same date discipline as credential (never driver-parsed).
+  startedOn: date('started_on', { mode: 'string' }).notNull(),
+  endedOn: date('ended_on', { mode: 'string' }),
+  status: text('status').notNull().default('Active'),
+  notes: text('notes'),
+  createdByApprovalId: text('created_by_approval_id').notNull(),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const approvalEvent = pgTable('approval_event', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

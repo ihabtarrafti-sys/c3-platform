@@ -60,6 +60,7 @@ const TENANT_TABLES = [
   'audit_event',
   'approval_event',
   'credential', // FK → person AND approval, so credential first (Sprint 36)
+  'journey', // FK → person AND approval (Sprint 37)
   'person', // FK → approval (composite), so person before approval
   'approval',
   'business_id_counter',

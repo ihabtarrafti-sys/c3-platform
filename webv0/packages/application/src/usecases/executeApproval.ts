@@ -28,12 +28,14 @@ import {
   type ApprovalPayload,
   type AuditAction,
   type Credential,
+  type Journey,
   type Person,
   ApprovalNotApprovedError,
   canApply,
   ConcurrencyError,
   ConflictError,
   formatCredentialId,
+  formatJourneyId,
   formatPersonId,
   NotFoundError,
 } from '@c3web/domain';
@@ -45,6 +47,8 @@ export interface ExecuteResult {
   readonly person: Person | null;
   /** Set when the executed operation created or mutated a credential (Sprint 36). */
   readonly credential: Credential | null;
+  /** Set when the executed operation created a journey (Sprint 37). */
+  readonly journey: Journey | null;
   readonly idempotent: boolean;
 }
 
@@ -144,7 +148,9 @@ export async function executeApproval(
         const person = await tx.getPersonByCreatingApproval(approvalId);
         const credential =
           approval.payload.operationType === 'AddCredential' ? await tx.getCredentialByCreatingApproval(approvalId) : null;
-        return { approval, person, credential, idempotent: true };
+        const journey =
+          approval.payload.operationType === 'InitiateJourney' ? await tx.getJourneyByCreatingApproval(approvalId) : null;
+        return { approval, person, credential, journey, idempotent: true };
       }
 
       if (!canApply('executeSuccess', approval.status)) {
@@ -159,10 +165,52 @@ export async function executeApproval(
       // this one transaction. The AddPerson path below is the certified
       // original, unchanged. Anything without an executor FAILS CLOSED.
       if (approval.payload.operationType !== 'AddPerson') {
-        // Sprint 37 J1: the InitiateJourney executor lands in J2 — until then
-        // execution fails closed BEFORE any mutation (truthful ExecutionFailed).
+        // ── Sprint 37: journeys ────────────────────────────────────────────
         if (approval.payload.operationType === 'InitiateJourney') {
-          throw new Error("No executor for 'InitiateJourney' in this build (failing closed).");
+          const { input } = approval.payload;
+          const seq = await tx.allocateSequence('journey');
+          const journeyId = formatJourneyId(seq);
+          // The composite FK (tenant_id, person_id) authoritatively enforces
+          // the owning person; the journey is born Active.
+          const journey = await tx.insertJourney({
+            journeyId,
+            personId: input.personId,
+            journeyType: input.journeyType,
+            title: input.title,
+            startedOn: input.startedOn,
+            notes: input.notes,
+            createdByApprovalId: approvalId,
+          });
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: initiated ${journeyId} for ${input.personId}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Journey',
+            entityId: journeyId,
+            action: 'JourneyInitiated',
+            actor: actor.identity,
+            before: null,
+            after: { journeyId, personId: input.personId, journeyType: input.journeyType, startedOn: input.startedOn, status: 'Active' },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'InitiateJourney', journeyId },
+          });
+          return { approval: executed, person: null, credential: null, journey, idempotent: false };
         }
         // ── Sprint 36: credentials ─────────────────────────────────────────
         if (approval.payload.operationType === 'AddCredential') {
@@ -217,7 +265,7 @@ export async function executeApproval(
             before: { status: approval.status },
             after: { status: 'Executed', operationType: 'AddCredential', credentialId },
           });
-          return { approval: executed, person: null, credential, idempotent: false };
+          return { approval: executed, person: null, credential, journey: null, idempotent: false };
         }
 
         if (approval.payload.operationType === 'DeactivateCredential') {
@@ -257,7 +305,7 @@ export async function executeApproval(
             before: { status: approval.status },
             after: { status: 'Executed', operationType: 'DeactivateCredential', credentialId: input.credentialId },
           });
-          return { approval: executed, person: null, credential, idempotent: false };
+          return { approval: executed, person: null, credential, journey: null, idempotent: false };
         }
 
         // ── Sprint 35: member operations ───────────────────────────────────
@@ -298,7 +346,7 @@ export async function executeApproval(
           after: { status: 'Executed', operationType: approval.payload.operationType, member: fact.entityId },
         });
 
-        return { approval: executed, person: null, credential: null, idempotent: false };
+        return { approval: executed, person: null, credential: null, journey: null, idempotent: false };
       }
 
       const seq = await tx.allocateSequence('person');
@@ -351,7 +399,7 @@ export async function executeApproval(
         after: { status: 'Executed', targetPersonId: personId },
       });
 
-      return { approval: executed, person, credential: null, idempotent: false };
+      return { approval: executed, person, credential: null, journey: null, idempotent: false };
     });
   } catch (err) {
     // A concurrent duplicate execute already created the record: resolve to
@@ -360,10 +408,10 @@ export async function executeApproval(
       const approval = await p.reads.forActor(actor).getApprovalById(approvalId);
       if (approval?.payload.operationType === 'AddCredential') {
         const credential = await p.writes.transaction(actor, (tx) => tx.getCredentialByCreatingApproval(approvalId));
-        if (credential) return { approval, person: null, credential, idempotent: true };
+        if (credential) return { approval, person: null, credential, journey: null, idempotent: true };
       } else {
         const person = await p.writes.transaction(actor, (tx) => tx.getPersonByCreatingApproval(approvalId));
-        if (approval && person) return { approval, person, credential: null, idempotent: true };
+        if (approval && person) return { approval, person, credential: null, journey: null, idempotent: true };
       }
     }
 

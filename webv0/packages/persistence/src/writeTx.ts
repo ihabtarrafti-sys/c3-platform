@@ -2,7 +2,7 @@
  * writeTx.ts — WriteTx implementation bound to a single tenant transaction.
  * All statements run under the transaction's `app.tenant_id` (RLS enforced).
  */
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import {
   ConflictError,
   IdentityAlreadyBoundError,
@@ -14,13 +14,15 @@ import {
   type Approval,
   type C3Role,
   type Credential,
+  type Journey,
+  type JourneyStatus,
   type Member,
   type Person,
 } from '@c3web/domain';
-import type { NewApprovalRow, NewCredentialRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { NewApprovalRow, NewCredentialRow, NewJourneyRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapApproval, mapCredential, mapPerson } from './mappers';
+import { mapApproval, mapCredential, mapJourney, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -276,6 +278,58 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.credential.credentialId, credentialId), eq(schema.credential.isActive, true)))
         .returning();
       return rows[0] ? mapCredential(rows[0]) : null;
+    },
+
+    // ── Sprint 37 journeys — drizzle-only (mode:'string' dates). ──────────────
+    async insertJourney(row: NewJourneyRow): Promise<Journey> {
+      const [r] = await db
+        .insert(schema.journey)
+        .values({
+          tenantId,
+          journeyId: row.journeyId,
+          personId: row.personId,
+          journeyType: row.journeyType,
+          title: row.title,
+          startedOn: row.startedOn,
+          notes: row.notes,
+          createdByApprovalId: row.createdByApprovalId,
+        })
+        .returning();
+      return mapJourney(r);
+    },
+
+    async getJourneyByCreatingApproval(approvalId: string): Promise<Journey | null> {
+      const rows = await db
+        .select()
+        .from(schema.journey)
+        .where(eq(schema.journey.createdByApprovalId, approvalId))
+        .limit(1);
+      return rows[0] ? mapJourney(rows[0]) : null;
+    },
+
+    async getJourney(journeyId: string): Promise<Journey | null> {
+      const rows = await db.select().from(schema.journey).where(eq(schema.journey.journeyId, journeyId)).limit(1);
+      return rows[0] ? mapJourney(rows[0]) : null;
+    },
+
+    async transitionJourney(
+      journeyId: string,
+      expectedVersion: number,
+      allowedFrom: readonly JourneyStatus[],
+      patch: { status: JourneyStatus; endedOn: string | null },
+    ): Promise<Journey | null> {
+      const rows = await db
+        .update(schema.journey)
+        .set({ status: patch.status, endedOn: patch.endedOn, version: sql`${schema.journey.version} + 1` })
+        .where(
+          and(
+            eq(schema.journey.journeyId, journeyId),
+            eq(schema.journey.version, expectedVersion),
+            inArray(schema.journey.status, [...allowedFrom]),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapJourney(rows[0]) : null;
     },
   } satisfies WriteTx;
 }

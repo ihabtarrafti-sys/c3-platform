@@ -33,6 +33,7 @@ export const canReviewApproval = (role: C3Role): boolean => capabilitiesFor(role
 export const canExecuteApproval = (role: C3Role): boolean => capabilitiesFor(role).canExecuteApproval;
 export const canReadMembers = (role: C3Role): boolean => capabilitiesFor(role).canReadMembers;
 export const canSubmitMemberChange = (role: C3Role): boolean => capabilitiesFor(role).canSubmitMemberChange;
+export const canOperateJourneys = (role: C3Role): boolean => capabilitiesFor(role).canOperateJourneys;
 
 export function assertReadPeople(actor: Actor): void {
   if (!canReadPeople(actor.role)) {
@@ -105,6 +106,16 @@ export function assertSubmitMemberChange(actor: Actor): void {
   }
 }
 
+/**
+ * Guard a DIRECT-audited journey lifecycle transition (Sprint 37 — the CP
+ * "exempt-edit" posture: owner and operations; not approval-gated).
+ */
+export function assertOperateJourneys(actor: Actor): void {
+  if (!canOperateJourneys(actor.role)) {
+    throw new ForbiddenError('Your role may not operate journey lifecycles.', { role: actor.role });
+  }
+}
+
 /** Non-throwing summary for building UX-only capability hints served to the web app. */
 export interface CapabilityView {
   readonly canReadPeople: boolean;
@@ -113,6 +124,7 @@ export interface CapabilityView {
   readonly canExecuteApproval: boolean;
   readonly canReadMembers: boolean;
   readonly canSubmitMemberChange: boolean;
+  readonly canOperateJourneys: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -124,5 +136,6 @@ export function capabilityView(role: C3Role): CapabilityView {
     canExecuteApproval: c.canExecuteApproval,
     canReadMembers: c.canReadMembers,
     canSubmitMemberChange: c.canSubmitMemberChange,
+    canOperateJourneys: c.canOperateJourneys,
   };
 }

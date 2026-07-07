@@ -191,6 +191,7 @@ export const capabilityViewSchema = z.object({
   canExecuteApproval: z.boolean(),
   canReadMembers: z.boolean(),
   canSubmitMemberChange: z.boolean(),
+  canOperateJourneys: z.boolean(),
 });
 export const meResponseSchema = z.object({
   identity: z.string(),

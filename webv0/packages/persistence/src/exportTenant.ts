@@ -84,6 +84,13 @@ function tableExports(): TableExport[] {
                    notes, is_active, created_by_approval_id, version, created_at, updated_at
               FROM credential WHERE tenant_id = $1 ORDER BY credential_id`,
     },
+    {
+      name: 'journey',
+      sql: `SELECT id, tenant_id, journey_id, person_id, journey_type, title,
+                   started_on::text AS started_on, ended_on::text AS ended_on,
+                   status, notes, created_by_approval_id, version, created_at, updated_at
+              FROM journey WHERE tenant_id = $1 ORDER BY journey_id`,
+    },
     { name: 'approval_event', sql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id` },
     { name: 'audit_event', sql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id` },
   ];

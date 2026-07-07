@@ -9,6 +9,8 @@ import {
   type AuditEvent,
   type AuditAction,
   type Credential,
+  type Journey,
+  type JourneyStatus,
   type OperationType,
   type Person,
   parseApprovalPayload,
@@ -67,6 +69,23 @@ export function mapCredential(row: any): Credential {
     expiresOn: plainDate(row.expiresOn ?? row.expires_on),
     notes: row.notes ?? null,
     isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapJourney(row: any): Journey {
+  return {
+    journeyId: row.journeyId ?? row.journey_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    personId: row.personId ?? row.person_id,
+    journeyType: row.journeyType ?? row.journey_type,
+    title: row.title ?? null,
+    startedOn: plainDate(row.startedOn ?? row.started_on)!,
+    endedOn: plainDate(row.endedOn ?? row.ended_on),
+    status: (row.status) as JourneyStatus,
+    notes: row.notes ?? null,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

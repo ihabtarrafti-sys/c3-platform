@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Member, Person } from '@c3web/domain';
+import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Member, Person } from '@c3web/domain';
 import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapPerson } from './mappers';
+import { mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapJourney, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -111,6 +111,29 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               .where(eq(schema.credential.credentialId, credentialId))
               .limit(1);
             return rows[0] ? mapCredential(rows[0]) : null;
+          }),
+
+        // Sprint 37: journeys — drizzle-only reads (mode:'string' dates).
+        listJourneys: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Journey[]> => {
+            const rows = await db.select().from(schema.journey).orderBy(asc(schema.journey.journeyId));
+            return rows.map(mapJourney);
+          }),
+
+        listJourneysForPerson: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Journey[]> => {
+            const rows = await db
+              .select()
+              .from(schema.journey)
+              .where(eq(schema.journey.personId, personId))
+              .orderBy(asc(schema.journey.journeyId));
+            return rows.map(mapJourney);
+          }),
+
+        getJourneyById: (journeyId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Journey | null> => {
+            const rows = await db.select().from(schema.journey).where(eq(schema.journey.journeyId, journeyId)).limit(1);
+            return rows[0] ? mapJourney(rows[0]) : null;
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped
