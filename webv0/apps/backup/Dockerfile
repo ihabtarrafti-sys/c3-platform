@@ -41,6 +41,11 @@ RUN set -eux; \
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY apps/backup ./apps/backup
+# The composed per-org restore step (B-5/A-5) imports exactly this ONE
+# self-contained file by relative path (no runtime deps beyond node built-ins;
+# 'pg' is type-only there). Deliberately NOT a workspace install — this
+# credentialed image stays minimal.
+COPY packages/persistence/src/exportTenant.ts ./packages/persistence/src/exportTenant.ts
 
 # Non-root runtime (the official node user).
 USER node

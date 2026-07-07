@@ -20,7 +20,13 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { exportTenant } from '@c3web/persistence';
+// Relative (not workspace) import, by image-packaging contract: this minimal,
+// credentialed image ships apps/backup plus exactly this one self-contained
+// file (see Dockerfile) — exportTenant.ts has no runtime deps beyond node
+// built-ins ('pg' is type-only). A workspace dep on @c3web/persistence would
+// drag drizzle/application/domain into the backup image (proven crash-loop,
+// ERR_MODULE_NOT_FOUND, 2026-07-07).
+import { exportTenant } from '../../../packages/persistence/src/exportTenant';
 import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant } from './restore';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
