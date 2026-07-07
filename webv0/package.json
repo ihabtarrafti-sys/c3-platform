@@ -22,6 +22,7 @@
     "openapi": "tsx apps/api/scripts/generate-openapi.ts",
     "db:migrate": "tsx packages/persistence/scripts/migrate.ts",
     "seed:staging": "tsx packages/persistence/scripts/seed-staging.ts",
+    "export:tenant": "tsx packages/persistence/scripts/export-tenant.ts",
     "backup:bootstrap-role": "tsx apps/backup/scripts/bootstrap-backup-role.ts",
     "backup:run": "tsx apps/backup/src/main.ts",
     "backup:restore": "tsx apps/backup/src/restore-main.ts",

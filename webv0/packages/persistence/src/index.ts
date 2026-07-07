@@ -8,4 +8,6 @@ export { createPersistence } from './stores';
 export type { PersistenceConfig, PersistenceHandle } from './stores';
 export { runMigrations } from './migrate';
 export type { MigrateConfig } from './migrate';
+export { exportTenant } from './exportTenant';
+export type { ExportSpec, ExportResult, ExportManifest, ExportedFile } from './exportTenant';
 export * as schema from './schema';
