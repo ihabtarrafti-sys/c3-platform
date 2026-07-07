@@ -1,0 +1,117 @@
+/**
+ * exit-tenant.ts (CLI) — OWNER-RUN Phase-E2 tenant erasure ceremony (B-5 item 3).
+ *
+ *   Dry-run (default, cannot mutate):
+ *     npm run exit:tenant -- --tenant-slug <slug>
+ *
+ *   Execute (the ceremony):
+ *     C3_EXIT_SECOND_CONFIRM=<slug> npm run exit:tenant -- \
+ *       --tenant-slug <slug> --execute --confirm <slug> --manifest <path>
+ *
+ * Guardrails (mandated by docs/design/B5-org-scoped-export-and-exit.md §2):
+ *   - DRY-RUN by default; execute is opt-in and loud;
+ *   - DUAL AUTHORIZATION: --confirm typed by the requester AND
+ *     C3_EXIT_SECOND_CONFIRM typed by the second authorizer, both = slug;
+ *   - DATA RETURN FIRST: --manifest must point at an export:tenant
+ *     manifest.json for the SAME tenant (slug + tenant id verified) — the org's
+ *     data must have been exported before it can be erased. Skipping requires
+ *     the explicit, self-describing --no-export-bundle flag;
+ *   - E1 BEFORE E2: refuses while any active user still holds a membership;
+ *   - single transaction, in-tx zero-row post-checks, append-only triggers
+ *     re-enabled or everything rolls back;
+ *   - prints the reconciliation report — file it in the exit register. The
+ *     report is the retained record OF the erasure, not the erased data.
+ *
+ * Uses ONLY the privileged admin connection (DATABASE_ADMIN_URL): disabling
+ * the append-only triggers requires table ownership. Never an API hook.
+ */
+import { Client } from 'pg';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { exitTenant } from '../src/exitTenant';
+
+function arg(name: string, required: boolean): string | undefined {
+  const i = process.argv.indexOf(`--${name}`);
+  const v = i >= 0 ? process.argv[i + 1] : undefined;
+  if (required && (!v || v.startsWith('--'))) {
+    console.error(`Missing required argument --${name}`);
+    process.exit(2);
+  }
+  return v && !v.startsWith('--') ? v : undefined;
+}
+const flag = (name: string): boolean => process.argv.includes(`--${name}`);
+
+const tenantSlug = arg('tenant-slug', true)!;
+const execute = flag('execute');
+const confirmSlug = arg('confirm', false);
+const manifestPath = arg('manifest', false);
+const skipManifest = flag('no-export-bundle');
+
+const adminUrl = process.env.DATABASE_ADMIN_URL;
+if (!adminUrl) {
+  console.error('DATABASE_ADMIN_URL (privileged admin connection; trigger control needs table ownership) is required.');
+  process.exit(2);
+}
+
+if (execute) {
+  // Data-return-first: verify the export bundle before anything irreversible.
+  if (!skipManifest) {
+    if (!manifestPath) {
+      console.error(
+        'Execute refused: provide --manifest <path-to-export-manifest.json> proving the org\'s data was exported ' +
+          '(export:tenant), or pass --no-export-bundle to explicitly skip the data-return check.',
+      );
+      process.exit(2);
+    }
+    let manifest: { tenant?: { slug?: string } };
+    try {
+      manifest = JSON.parse(readFileSync(resolve(manifestPath), 'utf8'));
+    } catch (err) {
+      console.error(`Execute refused: cannot read manifest at ${manifestPath}: ${(err as Error).message}`);
+      process.exit(2);
+    }
+    if (manifest.tenant?.slug !== tenantSlug) {
+      console.error(
+        `Execute refused: manifest is for tenant '${manifest.tenant?.slug ?? 'unknown'}', not '${tenantSlug}'.`,
+      );
+      process.exit(2);
+    }
+  } else {
+    console.error('WARNING: --no-export-bundle set — proceeding WITHOUT verifying a data-return export.');
+  }
+}
+
+const client = new Client({ connectionString: adminUrl, options: '-c client_encoding=UTF8' });
+await client.connect();
+try {
+  const report = await exitTenant(client, {
+    tenantSlug,
+    execute,
+    confirmSlug,
+    secondConfirm: process.env.C3_EXIT_SECOND_CONFIRM,
+  });
+
+  console.log(`\n=== tenant exit ${report.mode === 'executed' ? 'EXECUTED' : 'DRY-RUN'}: ${report.tenant.slug} (${report.tenant.name}) ===`);
+  console.log(`  tenant id       ${report.tenant.id}`);
+  console.log(`  active members  ${report.activeMembers}${report.activeMembers > 0 ? '  ← BLOCKS execute (complete Phase E1 first)' : ''}`);
+  console.log(`  sole users      ${report.soleUsers} (erased with the org)`);
+  console.log(`  shared users    ${report.sharedUsers} (preserved — members of another tenant)`);
+  for (const t of report.tables) {
+    console.log(`    ${t.name.padEnd(24)} ${String(t.rows).padStart(6)} rows ${report.mode === 'executed' ? 'erased' : 'would be erased'}`);
+  }
+  if (report.postChecks) {
+    console.log(
+      `  post-checks     zeroRows=${report.postChecks.zeroRowsVerified} tenantRowGone=${report.postChecks.tenantRowGone} triggersReEnabled=${report.postChecks.triggersReEnabled}`,
+    );
+    console.log('\n  Erasure committed. File this report in the exit register.');
+    console.log('  Residual: encrypted backups retain this data until lifecycle expiry (max 180d);');
+    console.log('  any post-exit restore MUST re-apply this erasure (see B5 design §3).');
+  } else if (report.activeMembers === 0) {
+    console.log('\n  Dry-run only — nothing was changed. To execute, see the ceremony header of this script.');
+  }
+} catch (err) {
+  console.error(`\nEXIT REFUSED: ${(err as Error).message}`);
+  process.exitCode = 1;
+} finally {
+  await client.end();
+}

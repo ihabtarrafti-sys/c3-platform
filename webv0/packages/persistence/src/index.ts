@@ -10,4 +10,6 @@ export { runMigrations } from './migrate';
 export type { MigrateConfig } from './migrate';
 export { exportTenant } from './exportTenant';
 export type { ExportSpec, ExportResult, ExportManifest, ExportedFile } from './exportTenant';
+export { exitTenant } from './exitTenant';
+export type { ExitOptions, ExitReport } from './exitTenant';
 export * as schema from './schema';
