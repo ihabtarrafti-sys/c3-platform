@@ -18,9 +18,9 @@
 ## Findings (honest)
 
 1. **Runbook deviation (now documented as the standard path):** the repo CLIs (`export:tenant`, `exit:tenant`) were run from the owner's machine against the Railway Postgres **public proxy** (`DATABASE_PUBLIC_URL`) with one-shot env vars — the runbooks assumed a local `DATABASE_ADMIN_URL` without saying where it comes from. This works and is acceptable owner practice, with the hygiene rule: env var one-shot, never persisted, never pasted into shared channels.
-2. **Credential exposure incident:** the owner pasted the full admin URL (incl. the Postgres superuser password) into the session transcript while reporting results. Contained (staging, synthetic data) but real: **rotation of the Postgres password is a required follow-up**, and disabling the public TCP proxy when not in use is recommended. Tracked on the owner action list.
+2. **Credential exposure incident — CLOSED 2026-07-07 same day:** the owner pasted the full admin URL (incl. the Postgres superuser password) into the session transcript while reporting results. Contained (staging, synthetic data) and remediated with three-axis verification by the Architect: **(a)** password rotated (in-container psql consistent with the new value); **(b)** the leaked credential is dead — connection to the old public proxy endpoint resets (**the public TCP proxy is DISABLED**; re-enable transiently only for owner-run repo CLIs, then disable again); **(c)** API health 200 throughout (runtime roles were never exposed — only the superuser credential leaked, and nothing at runtime consumes it). **Not an admission blocker: evidenced complete.**
 3. `SessionEstablished` writes once per `/me` call (several per browsing session). Fine at current scale; consider per-session dedup only if volume ever matters. Not a defect.
-4. Entra cleanup (delete/disable the disposable guest) is the owner's remaining hygiene step.
+4. Entra cleanup: the E-1 disposable guest was **deleted by the owner (confirmed 2026-07-07)**. The A-4 drill's `Role Test` guest deletion is requested and pending owner confirmation (tracked in `A4-role-model-hosted-cert.md`).
 
 ## Design note that made this cheap
 
