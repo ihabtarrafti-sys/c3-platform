@@ -20,7 +20,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Client } from 'pg';
 import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
-import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES } from './restore';
+import { exportTenant } from '@c3web/persistence';
+import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant } from './restore';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
   console.log(JSON.stringify({ level: 'info', event, ...fields }));
@@ -150,6 +151,32 @@ async function main(): Promise<void> {
     const liveUnchanged = JSON.stringify(liveBefore) === JSON.stringify(liveAfter);
     if (!liveUnchanged) throw new Error('Live database counts changed during the restore drill!');
     log('restore.live_unchanged', { liveBefore, liveAfter });
+
+    // Optional composed per-org restore (Track A, B-5 / A-5): run the
+    // organization-scoped export against the DISPOSABLE restored DB — proving
+    // per-org restore = whole-DB restore ∘ export:tenant, with no new backup
+    // infrastructure. Bundle is verified for internal consistency then
+    // discarded with the disposable DB; only redacted evidence (row counts +
+    // checksums, no PII) is logged.
+    const exportSlug = resolveExportTenant(process.env.RESTORE_EXPORT_TENANT);
+    if (exportSlug) {
+      const ec = new Client({ connectionString: restoreUrl.toString() });
+      await ec.connect();
+      try {
+        const { manifest } = await exportTenant(ec, { tenantSlug: exportSlug });
+        const rows = manifest.files.reduce((n, f) => n + f.rows, 0);
+        const tenantExport = {
+          slug: manifest.tenant.slug,
+          rowsTotal: rows,
+          files: manifest.files, // name + rows + sha256 only — no content
+          schemaVersionCount: manifest.schemaVersion.length,
+        };
+        evidence = { ...evidence, tenantExport };
+        log('restore.tenant_export_verified', tenantExport);
+      } finally {
+        await ec.end();
+      }
+    }
 
     log('restore.success', { db: dbName, ...evidence });
   } finally {

@@ -24,3 +24,20 @@ export const REQUIRED_FIXTURES = {
   persons: ['PER-0001'],
   approvals: ['APR-0001', 'APR-0002'],
 } as const;
+
+/**
+ * Resolve the optional composed per-org-restore target (Track A, B-5 / A-5).
+ * When `RESTORE_EXPORT_TENANT` is set, the drill additionally runs the
+ * organization-scoped export against the disposable restored database, proving
+ * per-org restore = whole-DB restore ∘ export:tenant. Returns null when unset;
+ * throws on a malformed slug (fail-closed rather than silently skipping).
+ */
+export function resolveExportTenant(raw: string | undefined): string | null {
+  if (raw === undefined) return null;
+  const slug = raw.trim();
+  if (slug === '') return null;
+  if (!/^[a-z0-9-]+$/.test(slug)) {
+    throw new Error(`Invalid RESTORE_EXPORT_TENANT '${raw}': expected a lower-case tenant slug.`);
+  }
+  return slug;
+}

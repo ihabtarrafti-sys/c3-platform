@@ -44,9 +44,9 @@ Whole-DB restore into a scratch database is already hosted-certified (Phase 2D d
 
 ## 6. Sequencing & effort
 
-1. `export:tenant` CLI + tests + one hosted drill (small — the same read patterns as backup already exist).
-2. Composed per-org-restore drill (uses existing 2D machinery + #1). → **A-5 green** (with owner acceptance).
-3. Exit ceremony runbook + `exit:tenant` dry-run tooling (medium; the erasure transaction itself is simple — the value is the guardrails).
-4. Owner + Counsel retention-policy decision → exit schedule text in the legal pack. → **B-5 green**.
+1. **DONE** — `export:tenant` CLI + core + 4 tests + real-CLI smoke (`packages/persistence/src/exportTenant.ts`, `npm run export:tenant`). Read-only snapshot, checksummed manifest, shared-user withholding, unknown-slug refusal.
+2. **WIRED, hosted drill PENDING owner** — composed per-org restore: `RESTORE_EXPORT_TENANT=<slug>` runs the export against the disposable restored DB inside the existing 2D drill (`apps/backup/src/restore-main.ts` + `resolveExportTenant` guard + 3 unit tests). Runbook: [runbooks/A5-per-org-restore-composed-drill.md](../runbooks/A5-per-org-restore-composed-drill.md); status: [certifications/A5-per-org-restore.md](../certifications/A5-per-org-restore.md). → **A-5 greens** on the hosted run + owner acceptance.
+3. Exit ceremony runbook + `exit:tenant` dry-run tooling (medium; the erasure transaction itself is simple — the value is the guardrails). *(not yet built)*
+4. Owner + Counsel retention-policy decision → exit schedule text in the legal pack. → **B-5 green**. *(policy gate)*
 
-Items 1–3 are self-service builds; item 4 is the policy gate. Nothing publishes any capability claim until drilled and certified.
+Items 1–3 are self-service builds (1 done, 2 wired); item 4 is the policy gate. Nothing publishes any capability claim until drilled and certified.
