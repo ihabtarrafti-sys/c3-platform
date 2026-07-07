@@ -15,7 +15,7 @@ Per-org restore needs **no new backup infrastructure**: it is the already-certif
 
 ## What remains for GREEN
 
-- **Run the hosted composed drill** ([runbooks/A5-per-org-restore-composed-drill.md](../runbooks/A5-per-org-restore-composed-drill.md)) — owner-run, needs `AGE_IDENTITY` + `RESTORE_ADMIN_URL` + R2 read + `RESTORE_EXPORT_TENANT=geekay`; the host needs `age`/`pg_restore` on PATH (Railway has them; a local dev box does not — this cannot be self-certified from here).
+- **Run the hosted composed drill** ([runbooks/A5-per-org-restore-composed-drill.md](../runbooks/A5-per-org-restore-composed-drill.md)) — owner-run, needs `AGE_IDENTITY` + `RESTORE_ADMIN_URL` + R2 read + `RESTORE_EXPORT_TENANT=c3-internal` (the live staging org; verified slug); the host needs `age`/`pg_restore` on PATH (Railway has them; a local dev box does not — this cannot be self-certified from here).
 - **Acceptance criteria** (from the runbook): exit 0 with `restore.tenant_export_verified`, non-zero consistent row counts for the target org, `schemaVersionCount` = applied-migration count, `restore.live_unchanged` confirmed.
 - **Owner acceptance** of the posture for the external context (the gate requires sign-off, not just a green run).
 

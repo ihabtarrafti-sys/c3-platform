@@ -14,7 +14,7 @@ Introduced only for this bounded run, never on the cron service:
 - `RESTORE_ADMIN_URL` — privileged connection able to `CREATE`/`DROP DATABASE` + `pg_restore`.
 - `DATABASE_URL` — the read-only `c3_backup` connection (to read live counts and prove no change).
 - `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — read access to the backup bucket.
-- **New for the composed drill:** `RESTORE_EXPORT_TENANT=<slug>` — the tenant slug to export (e.g. `geekay`). Unset ⇒ the drill behaves exactly as the 2D whole-DB drill.
+- **New for the composed drill:** `RESTORE_EXPORT_TENANT=<slug>` — the tenant slug to export. On staging the live org is **`c3-internal`** (verified 2026-07-07: 1 person, 3 approvals; `certbeta` is the empty isolation fixture). Unset ⇒ the drill behaves exactly as the 2D whole-DB drill.
 
 The host must have `age`, `pg_restore`, and `pg_dump` on PATH (Railway does; a local Windows dev box does not — this is a hosted-only drill).
 
