@@ -26,6 +26,10 @@ import {
   credentialsListSchema,
   errorResponseSchema,
   executeResponseSchema,
+  journeyResponseSchema,
+  journeysListSchema,
+  journeyTransitionParamSchema,
+  journeyTransitionRequestSchema,
   membersListSchema,
   meResponseSchema,
   peopleListSchema,
@@ -36,6 +40,7 @@ import {
   submitAddCredentialRequestSchema,
   submitAddPersonRequestSchema,
   submitDeactivateCredentialRequestSchema,
+  submitInitiateJourneyRequestSchema,
   submitMemberChangeRequestSchema,
   versionedRequestSchema,
 } from '@c3web/api-contracts';
@@ -51,13 +56,17 @@ import {
   listAuditEvents,
   listCredentials,
   listCredentialsForPerson,
+  listJourneys,
+  listJourneysForPerson,
   listMembers,
   listPeople,
   rejectApproval,
   submitAddCredential,
   submitAddPerson,
   submitDeactivateCredential,
+  submitInitiateJourney,
   submitMemberChange,
+  transitionJourney,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -65,7 +74,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toMemberDto, toPersonDto } from './dto';
+import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toMemberDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -347,6 +356,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         approval: toApprovalDto(res.approval),
         person: res.person ? toPersonDto(res.person) : null,
         credential: res.credential ? toCredentialDto(res.credential) : null,
+        journey: res.journey ? toJourneyDto(res.journey) : null,
         idempotent: res.idempotent,
       };
     }),
@@ -399,6 +409,46 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const body = req.body as { input: import('@c3web/domain').DeactivateCredentialInput; reason?: string };
       const approval = await submitDeactivateCredential(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
       return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  // ── journeys (Sprint 37) ───────────────────────────────────────────────────
+  r.get('/api/v1/journeys', { schema: { response: { 200: journeysListSchema } } }, async (req) => {
+    const journeys = await listJourneys(P, actorOf(req));
+    return { journeys: journeys.map(toJourneyDto) };
+  });
+
+  r.get(
+    '/api/v1/people/:personId/journeys',
+    { schema: { params: personIdParamSchema, response: { 200: journeysListSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      const journeys = await listJourneysForPerson(P, actorOf(req), personId);
+      return { journeys: journeys.map(toJourneyDto) };
+    },
+  );
+
+  // Initiation is governed: the approval flows through the standard routes.
+  r.post(
+    '/api/v1/journeys/requests',
+    { schema: { body: submitInitiateJourneyRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').InitiateJourneyInput; reason?: string };
+      const approval = await submitInitiateJourney(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  // Transitions are DIRECT-BUT-AUDITED: role-gated, state-machine validated,
+  // version-guarded; the effect is immediate and recorded.
+  r.post(
+    '/api/v1/journeys/:journeyId/transitions/:action',
+    { schema: { params: journeyTransitionParamSchema, body: journeyTransitionRequestSchema, response: { 200: journeyResponseSchema } } },
+    async (req) => {
+      const { journeyId, action } = req.params as { journeyId: string; action: import('@c3web/domain').JourneyTransition };
+      const { expectedVersion, reason } = req.body as { expectedVersion: number; reason?: string };
+      const journey = await transitionJourney(P, actorOf(req), journeyId, action, expectedVersion, reason ?? null);
+      return { journey: toJourneyDto(journey) };
     },
   );
 

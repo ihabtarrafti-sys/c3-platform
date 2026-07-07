@@ -10,6 +10,7 @@ import {
   type ApprovalStatus,
   type AuditEvent,
   type Credential,
+  type Journey,
   type Member,
   type Person,
   NotFoundError,
@@ -26,6 +27,24 @@ export function listPeople(p: Persistence, actor: Actor): Promise<Person[]> {
 export function listMembers(p: Persistence, actor: Actor): Promise<Member[]> {
   assertReadMembers(actor);
   return p.reads.forActor(actor).listMembers();
+}
+
+// ── Sprint 37: journeys (people-adjacent operational reads — same gate). ─────
+export function listJourneys(p: Persistence, actor: Actor): Promise<Journey[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listJourneys();
+}
+
+export function listJourneysForPerson(p: Persistence, actor: Actor, personId: string): Promise<Journey[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listJourneysForPerson(personId);
+}
+
+export async function getJourney(p: Persistence, actor: Actor, journeyId: string): Promise<Journey> {
+  assertReadPeople(actor);
+  const journey = await p.reads.forActor(actor).getJourneyById(journeyId);
+  if (!journey) throw new NotFoundError('Journey', journeyId);
+  return journey;
 }
 
 // ── Sprint 36: credentials (people-adjacent operational reads — same gate). ──

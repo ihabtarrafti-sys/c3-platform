@@ -10,6 +10,8 @@ import { z } from 'zod';
 import {
   APPROVAL_STATUSES,
   C3_ROLES,
+  JOURNEY_STATUSES,
+  JOURNEY_TRANSITIONS,
   OPERATION_TYPES,
   addCredentialInputSchema,
   addPersonInputSchema,
@@ -17,6 +19,8 @@ import {
   changeRolePayloadSchema,
   deactivateCredentialInputSchema,
   deactivateMemberPayloadSchema,
+  initiateJourneyInputSchema,
+  journeyTransitionRequestSchema,
   provisionMemberPayloadSchema,
   reactivateMemberPayloadSchema,
 } from '@c3web/domain';
@@ -156,6 +160,37 @@ export const submitDeactivateCredentialRequestSchema = z.object({
 });
 export type SubmitDeactivateCredentialRequest = z.infer<typeof submitDeactivateCredentialRequestSchema>;
 
+// ── journeys (Sprint 37) ────────────────────────────────────────────────────
+export const journeySchema = z.object({
+  journeyId: z.string(),
+  personId: z.string(),
+  journeyType: z.string(),
+  title: z.string().nullable(),
+  startedOn: z.string(), // plain ISO date
+  endedOn: z.string().nullable(),
+  status: z.enum(JOURNEY_STATUSES),
+  notes: z.string().nullable(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type JourneyDto = z.infer<typeof journeySchema>;
+export const journeysListSchema = z.object({ journeys: z.array(journeySchema) });
+export const journeyResponseSchema = z.object({ journey: journeySchema });
+
+export const submitInitiateJourneyRequestSchema = z.object({
+  input: initiateJourneyInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitInitiateJourneyRequest = z.infer<typeof submitInitiateJourneyRequestSchema>;
+
+/** Body of a direct transition (expectedVersion + optional/mandatory reason). */
+export { journeyTransitionRequestSchema };
+export const journeyTransitionParamSchema = z.object({
+  journeyId: z.string().regex(/^JRN-\d{4,}$/),
+  action: z.enum(JOURNEY_TRANSITIONS),
+});
+
 // ── requests ────────────────────────────────────────────────────────────────
 export const submitAddPersonRequestSchema = z.object({
   input: addPersonInputSchema,
@@ -180,6 +215,7 @@ export const executeResponseSchema = z.object({
   approval: approvalSchema,
   person: personSchema.nullable(),
   credential: credentialSchema.nullable(),
+  journey: journeySchema.nullable(),
   idempotent: z.boolean(),
 });
 
@@ -206,3 +242,4 @@ export type MeResponse = z.infer<typeof meResponseSchema>;
 export const personIdParamSchema = z.object({ personId: z.string().regex(/^PER-\d{4,}$/) });
 export const approvalIdParamSchema = z.object({ approvalId: z.string().regex(/^APR-\d{4,}$/) });
 export const credentialIdParamSchema = z.object({ credentialId: z.string().regex(/^CRED-\d{4,}$/) });
+export const journeyIdParamSchema = z.object({ journeyId: z.string().regex(/^JRN-\d{4,}$/) });
