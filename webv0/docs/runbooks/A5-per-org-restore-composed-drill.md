@@ -22,6 +22,8 @@ The host must have `age`, `pg_restore`, and `pg_dump` on PATH (Railway does; a l
 
 The cron container only exists while a job runs (you cannot SSH into an exited cron service), and a local dev box lacks `age`/`pg_restore` — so the drill runs **as a one-shot job on the service itself**, via the image's `JOB_MODE` dispatch (`apps/backup/src/entrypoint.ts`).
 
+**Prerequisite (learned 2026-07-07):** the service must be running an image built from code that includes the export step. "Deploy changes" after a variable edit **restarts the existing image** — it does not rebuild. If the service was last deployed before the composed-drill commit, first run `railway up --service c3-backup-cron` from `webv0/` at current HEAD (this also triggers an immediate normal backup run — harmless). The absence of `restore.tenant_export_verified` in an otherwise-green drill is the tell that the old image ran.
+
 1. Railway dashboard → **c3-backup-cron** → **Variables**: add, temporarily —
    `JOB_MODE=restore`, `AGE_IDENTITY=<private key>`, `RESTORE_ADMIN_URL=<postgres admin URL>`, `RESTORE_EXPORT_TENANT=c3-internal`. (R2 access + the `c3_backup` `DATABASE_URL` are already on the service.)
 2. Apply/deploy the staged variable changes — the service restarts and runs the drill once, then exits.
