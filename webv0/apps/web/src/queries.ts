@@ -18,3 +18,6 @@ export const useApproval = (id: string) =>
 
 export const useApprovalEvents = (id: string) =>
   useQuery({ queryKey: ['approvalEvents', id], queryFn: () => api.approvalEvents(id) });
+
+export const useMembers = (enabled = true) =>
+  useQuery({ queryKey: ['members'], queryFn: () => api.listMembers(), enabled });

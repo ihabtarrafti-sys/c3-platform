@@ -178,6 +178,16 @@ function ApprovalsIcon({ className }: { className?: string }) {
   );
 }
 
+function MembersIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="10" cy="6" r="2.6" />
+      <path d="M5 16c0-2.8 2.2-4.5 5-4.5s5 1.7 5 4.5" />
+      <path d="M14.6 3.9l.9.9 1.6-1.7" />
+    </svg>
+  );
+}
+
 function NavItem({
   to,
   label,
@@ -287,6 +297,14 @@ export function AppShell() {
             icon={<ApprovalsIcon className={s.navIcon} />}
             onNavigate={() => setNavOpen(false)}
           />
+          {me?.capabilities.canReadMembers && (
+            <NavItem
+              to="/members"
+              label="Members"
+              icon={<MembersIcon className={s.navIcon} />}
+              onNavigate={() => setNavOpen(false)}
+            />
+          )}
         </nav>
 
         <main className={s.work}>

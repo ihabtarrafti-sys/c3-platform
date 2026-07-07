@@ -14,7 +14,7 @@
  *     problem);
  *   - server correlation ids are preserved onto ApiError.
  */
-import type { ApprovalDto, MeResponse, PersonDto } from '@c3web/api-contracts';
+import type { ApprovalDto, MeResponse, MemberDto, PersonDto, SubmitMemberChangeRequest } from '@c3web/api-contracts';
 
 export class ApiError extends Error {
   constructor(
@@ -78,6 +78,10 @@ export function createApiClient(deps: ApiClientDeps) {
     approve: (id: string, expectedVersion: number) => request<{ approval: ApprovalDto }>('POST', `/api/v1/approvals/${id}/approve`, { expectedVersion }),
     reject: (id: string, expectedVersion: number, reason: string) => request<{ approval: ApprovalDto }>('POST', `/api/v1/approvals/${id}/reject`, { expectedVersion, reason }),
     execute: (id: string, expectedVersion: number) => request<{ approval: ApprovalDto; person: PersonDto | null; idempotent: boolean }>('POST', `/api/v1/approvals/${id}/execute`, { expectedVersion }),
+    // Sprint 35 tenant-admin: member directory + governed member changes.
+    listMembers: () => request<{ members: MemberDto[] }>('GET', '/api/v1/members'),
+    submitMemberChange: (payload: SubmitMemberChangeRequest['payload'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/members/changes', { payload, ...(reason ? { reason } : {}) }),
   };
 }
 
@@ -100,4 +104,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { ApprovalDto, PersonDto, MeResponse };
+export type { ApprovalDto, MemberDto, PersonDto, MeResponse };
