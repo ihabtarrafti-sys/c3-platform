@@ -118,6 +118,37 @@ describe('membership resolution by immutable (tid, oid)', () => {
     }
   });
 
+  it('a denied token-valid identity is recorded in the platform access_event stream (A-8 P1)', async () => {
+    const res = await me(await sign(claims(STRANGER_OID)));
+    expect(res.statusCode).toBe(403);
+    const c = new Client({ connectionString: db.adminUrl });
+    await c.connect();
+    try {
+      const r = await c.query(
+        `SELECT provider, issuer_tenant_id, subject, outcome FROM access_event WHERE subject = $1 ORDER BY at DESC LIMIT 1`,
+        [STRANGER_OID],
+      );
+      expect(r.rows[0]).toMatchObject({ provider: 'entra', issuer_tenant_id: TID, subject: STRANGER_OID, outcome: 'AccessDenied' });
+    } finally {
+      await c.end();
+    }
+  });
+
+  it('a successful /me resolution records SessionEstablished in the tenant audit stream (A-8 P1)', async () => {
+    const res = await me(await sign(claims(OWNER_OID)));
+    expect(res.statusCode).toBe(200);
+    const c = new Client({ connectionString: db.adminUrl });
+    await c.connect();
+    try {
+      const r = await c.query(
+        `SELECT entity_type, action, actor FROM audit_event WHERE action='SessionEstablished' ORDER BY at DESC LIMIT 1`,
+      );
+      expect(r.rows[0]).toMatchObject({ entity_type: 'Access', action: 'SessionEstablished', actor: 'owner@geekay.com' });
+    } finally {
+      await c.end();
+    }
+  });
+
   it('an inactive user fails closed even with a valid token and existing membership', async () => {
     const c = new Client({ connectionString: db.adminUrl });
     await c.connect();

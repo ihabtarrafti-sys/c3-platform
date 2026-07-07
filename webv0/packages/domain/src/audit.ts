@@ -21,6 +21,10 @@ export const AUDIT_ACTIONS = [
   'ApprovalExecuted',
   'ApprovalExecutionFailed',
   'PersonCreated',
+  // A-8 Phase 1: session establishment (successful /me membership resolution).
+  // Access DENIALS have no resolvable tenant and live in the platform-level
+  // access_event stream (migration 0007), not here.
+  'SessionEstablished',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

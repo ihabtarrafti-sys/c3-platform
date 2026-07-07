@@ -9,6 +9,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
+import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import {
   serializerCompiler,
@@ -81,6 +82,29 @@ export function buildApp(deps: Deps): FastifyInstance {
 
   // Bearer-token auth: no cookies, so no credentialed CORS.
   app.register(cors, { origin: deps.env.corsOrigin });
+
+  // F-1: per-client request ceiling (keyed by IP; trustProxy governs req.ip at
+  // the deployment boundary). Health/readiness are exempt (platform probes).
+  // 429 carries the same structured envelope as every other error.
+  if (deps.env.rateLimitMax > 0) {
+    app.register(rateLimit, {
+      global: true,
+      max: deps.env.rateLimitMax,
+      timeWindow: '1 minute',
+      allowList: (req) => {
+        const url = req.url.split('?')[0] ?? '';
+        return url === '/health' || url === '/ready';
+      },
+      // The plugin THROWS this return value; statusCode routes it through the
+      // global error handler's 4xx branch, which emits the structured envelope
+      // ({ error: { code, message }, correlationId }) like every other error.
+      errorResponseBuilder: (_req, context) => ({
+        statusCode: 429,
+        code: 'RATE_LIMITED',
+        message: `Too many requests. Limit is ${context.max} per ${context.after}.`,
+      }),
+    });
+  }
   app.register(swagger, {
     openapi: {
       info: { title: 'C3 Web V0 API', version: '0.1.0', description: 'People + AddPerson governed vertical slice.' },
@@ -102,8 +126,12 @@ export function buildApp(deps: Deps): FastifyInstance {
     }
   });
 
-  // Authentication: all /api/v1 routes except the dev login require a bearer token.
-  app.addHook('onRequest', async (req, reply) => {
+  // Authentication: all /api/v1 routes except the dev login require a bearer
+  // token. Runs at preValidation (NOT onRequest) so the rate limiter's
+  // onRequest hook — registered via deferred plugin boot — always executes
+  // first: unauthenticated 401 spam is therefore rate-limited too. Body size
+  // is already bounded (128 KiB) before parsing, so pre-auth parsing is safe.
+  app.addHook('preValidation', async (req, reply) => {
     const url = req.url.split('?')[0] ?? '';
     if (!url.startsWith('/api/v1/') || url === '/api/v1/dev/login') return;
 
@@ -119,6 +147,20 @@ export function buildApp(deps: Deps): FastifyInstance {
       // Authenticated-but-unprovisioned is an AUTHORIZATION state (truthful 403),
       // distinct from an authentication failure (401).
       if (err instanceof AccessNotProvisionedError) {
+        // A-8 Phase 1: a token-VALID identity was denied — record it in the
+        // platform-level access_event stream (no tenant is resolvable, by
+        // definition). Non-fatal: an audit-write failure never changes the 403.
+        if (err.identityKey) {
+          try {
+            await deps.persistence.pool.query(
+              `INSERT INTO access_event (provider, issuer_tenant_id, subject, outcome, detail)
+               VALUES ($1, $2, $3, 'AccessDenied', $4)`,
+              [err.identityKey.provider, err.identityKey.issuerTenantId, err.identityKey.subject, 'ACCESS_NOT_PROVISIONED'],
+            );
+          } catch (auditErr) {
+            req.log.error({ err: auditErr }, 'access-denial audit write failed');
+          }
+        }
         return sendError(req, reply, 403, 'ACCESS_NOT_PROVISIONED', err.message);
       }
       return sendError(req, reply, 401, 'UNAUTHENTICATED', err instanceof AuthError ? err.message : 'Authentication failed.');
@@ -201,6 +243,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── me ─────────────────────────────────────────────────────────────────────
   r.get('/api/v1/me', { schema: { response: { 200: meResponseSchema } } }, async (req) => {
     const pr = req.principal!;
+    // A-8 Phase 1: session establishment — /me resolution is the truthful
+    // "signed in" moment in a stateless per-request API (the SPA calls it once
+    // per session load). Non-fatal: an audit failure never blocks sign-in.
+    try {
+      await P.writes.transaction(actorOf(req), (tx) =>
+        tx.appendAuditEvent({ entityType: 'Access', entityId: pr.identity, action: 'SessionEstablished', actor: pr.identity }),
+      );
+    } catch (auditErr) {
+      req.log.error({ err: auditErr }, 'session-established audit write failed');
+    }
     return { identity: pr.identity, displayName: pr.displayName, role: pr.role, tenantSlug: pr.tenantSlug, capabilities: capabilityView(pr.role) };
   });
 

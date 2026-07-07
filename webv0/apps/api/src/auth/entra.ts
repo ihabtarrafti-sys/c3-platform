@@ -89,8 +89,9 @@ export function createEntraAuthAdapter(
       // Membership by the IMMUTABLE key only. Token roles/groups/wids/email
       // claims are never consulted; nothing is auto-provisioned.
       const membership = await directory.resolveMembership({ provider: 'entra', issuerTenantId: tid, subject: oid });
-      if (!membership) throw new AccessNotProvisionedError();
-      if (!isC3Role(membership.role)) throw new AccessNotProvisionedError();
+      const identityKey = { provider: 'entra' as const, issuerTenantId: tid, subject: oid };
+      if (!membership) throw new AccessNotProvisionedError(identityKey);
+      if (!isC3Role(membership.role)) throw new AccessNotProvisionedError(identityKey);
 
       return {
         // Stable, admin-controlled profile email from the DIRECTORY (not the token).

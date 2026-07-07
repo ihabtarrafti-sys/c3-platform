@@ -17,6 +17,8 @@ const rawSchema = z.object({
   CORS_ORIGIN: z.string().optional(),
   /** Trust X-Forwarded-* ONLY when explicitly enabled at a known proxy boundary. */
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
+  /** Per-client request ceiling per minute (F-1). 0 disables (tests only). */
+  RATE_LIMIT_MAX: z.coerce.number().int().min(0).default(300),
 
   DATABASE_URL: z.string().min(1, 'DATABASE_URL (app role) is required'),
   /** Privileged migration role — migrations/dev tooling only, never the prod API. */
@@ -41,6 +43,8 @@ export type Env = {
   logLevel: z.infer<typeof rawSchema>['LOG_LEVEL'];
   corsOrigin: string;
   trustProxy: boolean;
+  /** Requests per minute per client key; 0 = disabled (tests only). */
+  rateLimitMax: number;
   databaseUrl: string;
   databaseAdminUrl: string | undefined;
   databaseAuthUrl: string | undefined;
@@ -72,6 +76,10 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
     if (!e.CORS_ORIGIN) {
       throw new Error('CORS_ORIGIN must be set explicitly in production (no localhost default).');
+    }
+    // Rate limiting may not be disabled in production (0 is a test-only escape).
+    if (e.RATE_LIMIT_MAX === 0) {
+      throw new Error('RATE_LIMIT_MAX=0 (disabled) is forbidden in production.');
     }
     // The privileged migration role must not be handed to the production API.
     if (e.DATABASE_ADMIN_URL) {
@@ -127,6 +135,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     logLevel: e.LOG_LEVEL,
     corsOrigin: e.CORS_ORIGIN ?? 'http://localhost:5173',
     trustProxy: e.TRUST_PROXY === 'true',
+    rateLimitMax: e.RATE_LIMIT_MAX,
     databaseUrl: e.DATABASE_URL,
     databaseAdminUrl: e.DATABASE_ADMIN_URL,
     databaseAuthUrl: e.DATABASE_AUTH_URL,

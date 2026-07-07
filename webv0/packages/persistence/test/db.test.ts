@@ -70,7 +70,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -345,6 +345,36 @@ describe('tenant isolation (RLS)', () => {
       expect(rows.rowCount).toBe(0);
     } finally {
       c.release();
+    }
+  });
+});
+
+describe('access_event posture (platform-level denial stream, 0007)', () => {
+  it('c3_app can INSERT but not SELECT/UPDATE/DELETE; append-only enforced', async () => {
+    const c = await p.pool.connect();
+    try {
+      // INSERT allowed (write-only stream for the app role; no RLS, no tenant).
+      await c.query(
+        `INSERT INTO access_event (provider, issuer_tenant_id, subject, outcome, detail)
+         VALUES ('entra','tid-x','oid-x','AccessDenied','test')`,
+      );
+      // No read-back, no mutation for the app role.
+      await expect(c.query('SELECT * FROM access_event')).rejects.toThrow(/permission denied/i);
+      await expect(c.query(`UPDATE access_event SET detail='x'`)).rejects.toThrow();
+      await expect(c.query('DELETE FROM access_event')).rejects.toThrow();
+    } finally {
+      c.release();
+    }
+    // Admin sees the row; append-only trigger blocks even the owner.
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const r = await admin.query(`SELECT outcome FROM access_event WHERE subject='oid-x'`);
+      expect(r.rows[0]).toMatchObject({ outcome: 'AccessDenied' });
+      await expect(admin.query(`UPDATE access_event SET detail='hacked'`)).rejects.toThrow(/append-only/i);
+      await expect(admin.query('DELETE FROM access_event')).rejects.toThrow(/append-only/i);
+    } finally {
+      await admin.end();
     }
   });
 });

@@ -35,6 +35,7 @@ const AUDIT_ACTION: Record<string, string> = {
   ApprovalExecuted: 'Request executed',
   ApprovalExecutionFailed: 'Execution failed',
   PersonCreated: 'Person created',
+  SessionEstablished: 'Session established',
 };
 export function auditActionOf(action: string): string {
   return AUDIT_ACTION[action] ?? action;

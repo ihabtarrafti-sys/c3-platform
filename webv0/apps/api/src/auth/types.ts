@@ -35,7 +35,11 @@ export class AuthError extends Error {
  */
 export class AccessNotProvisionedError extends AuthError {
   override readonly name = 'AccessNotProvisionedError';
-  constructor() {
+  /** The immutable identity key of the denied (but token-valid) identity, when
+   *  known — consumed by the access-denial audit write (A-8 Phase 1). */
+  readonly identityKey?: { provider: 'entra' | 'dev'; issuerTenantId: string; subject: string };
+  constructor(identityKey?: { provider: 'entra' | 'dev'; issuerTenantId: string; subject: string }) {
     super('Your identity is authenticated but not provisioned for C3 access. Contact the platform owner.');
+    this.identityKey = identityKey;
   }
 }
