@@ -1,6 +1,6 @@
 # A-7 — Session Revocation & Token-Expiry Timing
 
-**Gate item:** A-7 (E-8), Stage-4 admission gate. **Status: INVESTIGATION COMPLETE — timing verified from source + tests; hosted revocation drill specified below (10 min, joint) to upgrade to Hosted-certified.** **Date:** 2026-07-07 · repo tip `6897eb7`.
+**Gate item:** A-7 (E-8), Stage-4 admission gate. **Status: HOSTED-CERTIFIED** — timing verified from source + tests (2026-07-07, repo tip `6897eb7`), then proven by the joint hosted revocation drill (2026-07-07, drill result at the end of this document).
 
 ## The architecture answer (why revocation is fast here)
 
@@ -40,4 +40,9 @@ C3's API is **stateless bearer-auth with per-request authority resolution**. The
 - **No defect.** The per-request-resolution design gives near-immediate revocation — stronger than typical cached-session architectures. Accepted trade-off: one membership SELECT per request (fine at current scale; if ever cached, the cache TTL becomes the revocation SLA and must be a deliberate, documented decision).
 - Token lifetime is Microsoft-governed (default 60–90 min) and does **not** bound revocation; no action needed.
 
-**HOSTED DRILL RESULT: PENDING — the drill has not been run.** A-7 remains at *source/test-verified + timing-analysis-complete* until the joint drill above is executed and its observations are recorded here. Do not represent A-7 as Hosted-certified before that.
+**HOSTED DRILL RESULT (2026-07-07): PASS — executed jointly (owner ran the flips + observed the session; architect guided + recorded).** With a live, token-valid `certbeta@c3hq.org` session on staging:
+
+1. `UPDATE app_user SET is_active=false …` returned `active=f`; the **immediately following request** in the open session was denied — the truthful "Access not provisioned" screen, with the Microsoft token still valid. No lingering access observed.
+2. `… is_active=true` returned `active=t`; the next refresh restored access to the certbeta org.
+
+Observed revocation latency: **one request round-trip**, exactly as the per-request-resolution analysis predicted. **A-7 = Hosted-certified.** Fixture left in the restored (active) state.
