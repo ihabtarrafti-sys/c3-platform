@@ -27,10 +27,13 @@ import {
   type Approval,
   type ApprovalPayload,
   type AuditAction,
+  type Credential,
   type Person,
   ApprovalNotApprovedError,
   canApply,
   ConcurrencyError,
+  ConflictError,
+  formatCredentialId,
   formatPersonId,
   NotFoundError,
 } from '@c3web/domain';
@@ -40,6 +43,8 @@ import type { Persistence, WriteTx } from '../ports';
 export interface ExecuteResult {
   readonly approval: Approval;
   readonly person: Person | null;
+  /** Set when the executed operation created or mutated a credential (Sprint 36). */
+  readonly credential: Credential | null;
   readonly idempotent: boolean;
 }
 
@@ -134,10 +139,12 @@ export async function executeApproval(
       assertExecuteApproval(actor, approval.submittedBy);
       assertTenantMatch(actor.tenantId, approval.tenantId);
 
-      // Idempotent: already executed -> return the person it created.
+      // Idempotent: already executed -> return what it created.
       if (approval.status === 'Executed') {
         const person = await tx.getPersonByCreatingApproval(approvalId);
-        return { approval, person, idempotent: true };
+        const credential =
+          approval.payload.operationType === 'AddCredential' ? await tx.getCredentialByCreatingApproval(approvalId) : null;
+        return { approval, person, credential, idempotent: true };
       }
 
       if (!canApply('executeSuccess', approval.status)) {
@@ -148,19 +155,111 @@ export async function executeApproval(
       // ── point of no return: any failure past here is an EXECUTION failure ──
       enteredExecution = true;
 
-      // Member operations (Sprint 35): gateway mutation + status flip + events
-      // + audit, all in this one transaction. The AddPerson path below is the
-      // certified original, unchanged. Operations without an executor in this
-      // build (Sprint 36 credentials until C2) FAIL CLOSED before mutating.
+      // Non-AddPerson operations dispatch on the payload discriminant, all in
+      // this one transaction. The AddPerson path below is the certified
+      // original, unchanged. Anything without an executor FAILS CLOSED.
       if (approval.payload.operationType !== 'AddPerson') {
-        if (
-          approval.payload.operationType !== 'ProvisionMember' &&
-          approval.payload.operationType !== 'ChangeRole' &&
-          approval.payload.operationType !== 'DeactivateMember' &&
-          approval.payload.operationType !== 'ReactivateMember'
-        ) {
-          throw new Error(`No executor for operation '${approval.payload.operationType}' in this build (failing closed).`);
+        // ── Sprint 36: credentials ─────────────────────────────────────────
+        if (approval.payload.operationType === 'AddCredential') {
+          const { input } = approval.payload;
+          const seq = await tx.allocateSequence('credential');
+          const credentialId = formatCredentialId(seq);
+          // The composite FK (tenant_id, person_id) authoritatively enforces
+          // that the owning person exists — a violation is a truthful
+          // ExecutionFailed, not a partial write.
+          const credential = await tx.insertCredential({
+            credentialId,
+            personId: input.personId,
+            credentialType: input.credentialType,
+            issuer: input.issuer,
+            issuedOn: input.issuedOn,
+            expiresOn: input.expiresOn,
+            notes: input.notes,
+            createdByApprovalId: approvalId,
+          });
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: created ${credentialId} for ${input.personId}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Credential',
+            entityId: credentialId,
+            action: 'CredentialCreated',
+            actor: actor.identity,
+            before: null,
+            after: {
+              credentialId,
+              personId: input.personId,
+              credentialType: input.credentialType,
+              issuedOn: input.issuedOn,
+              expiresOn: input.expiresOn,
+            },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'AddCredential', credentialId },
+          });
+          return { approval: executed, person: null, credential, idempotent: false };
         }
+
+        if (approval.payload.operationType === 'DeactivateCredential') {
+          const { input } = approval.payload;
+          const credential = await tx.deactivateCredential(input.credentialId);
+          if (!credential) {
+            throw new ConflictError('The credential does not exist or is already inactive.', {
+              credentialId: input.credentialId,
+            });
+          }
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: deactivated ${input.credentialId}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Credential',
+            entityId: input.credentialId,
+            action: 'CredentialDeactivated',
+            actor: actor.identity,
+            before: { isActive: true },
+            after: { isActive: false, personId: credential.personId },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'DeactivateCredential', credentialId: input.credentialId },
+          });
+          return { approval: executed, person: null, credential, idempotent: false };
+        }
+
+        // ── Sprint 35: member operations ───────────────────────────────────
+        // Exhaustiveness is compile-enforced: after the credential branches,
+        // the payload narrows to exactly the member-operation union that
+        // executeMemberOperation accepts — adding a new operation type without
+        // an executor is a type error here, not a runtime surprise.
         const fact = await executeMemberOperation(tx, actor, approval.payload);
 
         const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
@@ -194,7 +293,7 @@ export async function executeApproval(
           after: { status: 'Executed', operationType: approval.payload.operationType, member: fact.entityId },
         });
 
-        return { approval: executed, person: null, idempotent: false };
+        return { approval: executed, person: null, credential: null, idempotent: false };
       }
 
       const seq = await tx.allocateSequence('person');
@@ -247,15 +346,20 @@ export async function executeApproval(
         after: { status: 'Executed', targetPersonId: personId },
       });
 
-      return { approval: executed, person, idempotent: false };
+      return { approval: executed, person, credential: null, idempotent: false };
     });
   } catch (err) {
-    // A concurrent duplicate execute already created the person: resolve to the
-    // same idempotent result rather than a spurious failure.
+    // A concurrent duplicate execute already created the record: resolve to
+    // the same idempotent result rather than a spurious failure.
     if (isUniqueViolation(err)) {
       const approval = await p.reads.forActor(actor).getApprovalById(approvalId);
-      const person = await p.writes.transaction(actor, (tx) => tx.getPersonByCreatingApproval(approvalId));
-      if (approval && person) return { approval, person, idempotent: true };
+      if (approval?.payload.operationType === 'AddCredential') {
+        const credential = await p.writes.transaction(actor, (tx) => tx.getCredentialByCreatingApproval(approvalId));
+        if (credential) return { approval, person: null, credential, idempotent: true };
+      } else {
+        const person = await p.writes.transaction(actor, (tx) => tx.getPersonByCreatingApproval(approvalId));
+        if (approval && person) return { approval, person, credential: null, idempotent: true };
+      }
     }
 
     // Genuine fault after the point of no return -> record ExecutionFailed truthfully.

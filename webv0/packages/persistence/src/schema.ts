@@ -13,6 +13,7 @@ import {
   integer,
   bigint,
   timestamp,
+  date,
   jsonb,
   primaryKey,
 } from 'drizzle-orm/pg-core';
@@ -100,6 +101,27 @@ export const person = pgTable('person', {
   notes: text('notes'),
   isActive: boolean('is_active').notNull().default(true),
   createdByApprovalId: text('created_by_approval_id'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const credential = pgTable('credential', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  credentialId: text('credential_id').notNull(),
+  personId: text('person_id').notNull(),
+  credentialType: text('credential_type').notNull(),
+  issuer: text('issuer'),
+  // mode 'string': plain ISO YYYY-MM-DD in and out — node-pg's default DATE →
+  // JS Date parsing (local-midnight, timezone-shiftable) never runs. This is
+  // the persistence half of the CP date-swap guarantee; ALL credential CRUD
+  // must go through drizzle with this schema, never raw SELECT *.
+  issuedOn: date('issued_on', { mode: 'string' }).notNull(),
+  expiresOn: date('expires_on', { mode: 'string' }),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  createdByApprovalId: text('created_by_approval_id').notNull(),
   version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

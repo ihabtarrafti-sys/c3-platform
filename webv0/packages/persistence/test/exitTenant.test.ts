@@ -63,7 +63,7 @@ async function admin<T>(fn: (c: Client) => Promise<T>): Promise<T> {
 async function fingerprint(): Promise<string> {
   return admin(async (c) => {
     const parts: string[] = [];
-    for (const t of ['tenant', 'app_user', 'external_identity', 'tenant_membership', 'role_assignment', 'business_id_counter', 'person', 'approval', 'approval_event', 'audit_event']) {
+    for (const t of ['tenant', 'app_user', 'external_identity', 'tenant_membership', 'role_assignment', 'business_id_counter', 'person', 'credential', 'approval', 'approval_event', 'audit_event']) {
       const r = await c.query(`SELECT count(*)::int AS n FROM ${t}`);
       parts.push(`${t}=${r.rows[0].n}`);
     }
@@ -190,7 +190,7 @@ describe('exit ceremony — executed', () => {
     await admin(async (c) => {
       // Alpha is gone everywhere.
       expect((await c.query(`SELECT count(*)::int AS n FROM tenant WHERE slug='alpha'`)).rows[0].n).toBe(0);
-      for (const t of ['person', 'approval', 'approval_event', 'audit_event', 'tenant_membership', 'role_assignment', 'business_id_counter']) {
+      for (const t of ['person', 'credential', 'approval', 'approval_event', 'audit_event', 'tenant_membership', 'role_assignment', 'business_id_counter']) {
         expect((await c.query(`SELECT count(*)::int AS n FROM ${t} WHERE tenant_id = $1`, [alphaId])).rows[0].n).toBe(0);
       }
       // Sole-tenant user + identity erased with the org.

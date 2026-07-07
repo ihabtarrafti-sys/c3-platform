@@ -2,7 +2,7 @@
  * writeTx.ts — WriteTx implementation bound to a single tenant transaction.
  * All statements run under the transaction's `app.tenant_id` (RLS enforced).
  */
-import { sql } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import {
   ConflictError,
   IdentityAlreadyBoundError,
@@ -13,13 +13,14 @@ import {
   type Actor,
   type Approval,
   type C3Role,
+  type Credential,
   type Member,
   type Person,
 } from '@c3web/domain';
-import type { NewApprovalRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { NewApprovalRow, NewCredentialRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapApproval, mapPerson } from './mappers';
+import { mapApproval, mapCredential, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -237,6 +238,44 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       const res = await db.execute(sql`SELECT * FROM member_get(${userId}::uuid)`);
       const row = res.rows[0] as MemberRow | undefined;
       return row ? mapMember(row, tenantId) : null;
+    },
+
+    // ── Sprint 36 credentials — drizzle-only CRUD (mode:'string' dates; the
+    //    node-pg DATE→Date parser must never touch these values).
+    async insertCredential(row: NewCredentialRow): Promise<Credential> {
+      const [r] = await db
+        .insert(schema.credential)
+        .values({
+          tenantId,
+          credentialId: row.credentialId,
+          personId: row.personId,
+          credentialType: row.credentialType,
+          issuer: row.issuer,
+          issuedOn: row.issuedOn,
+          expiresOn: row.expiresOn,
+          notes: row.notes,
+          createdByApprovalId: row.createdByApprovalId,
+        })
+        .returning();
+      return mapCredential(r);
+    },
+
+    async getCredentialByCreatingApproval(approvalId: string): Promise<Credential | null> {
+      const rows = await db
+        .select()
+        .from(schema.credential)
+        .where(eq(schema.credential.createdByApprovalId, approvalId))
+        .limit(1);
+      return rows[0] ? mapCredential(rows[0]) : null;
+    },
+
+    async deactivateCredential(credentialId: string): Promise<Credential | null> {
+      const rows = await db
+        .update(schema.credential)
+        .set({ isActive: false, version: sql`${schema.credential.version} + 1` })
+        .where(and(eq(schema.credential.credentialId, credentialId), eq(schema.credential.isActive, true)))
+        .returning();
+      return rows[0] ? mapCredential(rows[0]) : null;
     },
   } satisfies WriteTx;
 }

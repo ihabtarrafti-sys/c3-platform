@@ -9,6 +9,7 @@ import {
   type ApprovalEvent,
   type ApprovalStatus,
   type AuditEvent,
+  type Credential,
   type Member,
   type Person,
   NotFoundError,
@@ -25,6 +26,24 @@ export function listPeople(p: Persistence, actor: Actor): Promise<Person[]> {
 export function listMembers(p: Persistence, actor: Actor): Promise<Member[]> {
   assertReadMembers(actor);
   return p.reads.forActor(actor).listMembers();
+}
+
+// ── Sprint 36: credentials (people-adjacent operational reads — same gate). ──
+export function listCredentials(p: Persistence, actor: Actor): Promise<Credential[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listCredentials();
+}
+
+export function listCredentialsForPerson(p: Persistence, actor: Actor, personId: string): Promise<Credential[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listCredentialsForPerson(personId);
+}
+
+export async function getCredential(p: Persistence, actor: Actor, credentialId: string): Promise<Credential> {
+  assertReadPeople(actor);
+  const credential = await p.reads.forActor(actor).getCredentialById(credentialId);
+  if (!credential) throw new NotFoundError('Credential', credentialId);
+  return credential;
 }
 
 export async function getPerson(p: Persistence, actor: Actor, personId: string): Promise<Person> {

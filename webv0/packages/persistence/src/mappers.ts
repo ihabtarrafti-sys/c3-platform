@@ -8,6 +8,7 @@ import {
   type ApprovalStatus,
   type AuditEvent,
   type AuditAction,
+  type Credential,
   type OperationType,
   type Person,
   parseApprovalPayload,
@@ -31,6 +32,39 @@ export function mapPerson(row: any): Person {
     currentTeam: row.currentTeam ?? row.current_team ?? null,
     currentGameTitle: row.currentGameTitle ?? row.current_game_title ?? null,
     primaryDepartment: row.primaryDepartment ?? row.primary_department ?? null,
+    notes: row.notes ?? null,
+    isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+/**
+ * Plain calendar date, defensively normalised. Drizzle mode:'string' delivers
+ * ISO strings; if a raw path ever hands us a node-pg-parsed Date (constructed
+ * at LOCAL midnight), rebuild from local components — never toISOString(),
+ * which shifts to UTC and can change the day (the CP swap bug).
+ */
+const plainDate = (v: unknown): string | null => {
+  if (v === null || v === undefined) return null;
+  if (typeof v === 'string') return v.slice(0, 10);
+  if (v instanceof Date) {
+    const p = (n: number, w = 2) => String(n).padStart(w, '0');
+    return `${p(v.getFullYear(), 4)}-${p(v.getMonth() + 1)}-${p(v.getDate())}`;
+  }
+  return String(v).slice(0, 10);
+};
+
+export function mapCredential(row: any): Credential {
+  return {
+    credentialId: row.credentialId ?? row.credential_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    personId: row.personId ?? row.person_id,
+    credentialType: row.credentialType ?? row.credential_type,
+    issuer: row.issuer ?? null,
+    issuedOn: plainDate(row.issuedOn ?? row.issued_on)!,
+    expiresOn: plainDate(row.expiresOn ?? row.expires_on),
     notes: row.notes ?? null,
     isActive: row.isActive ?? row.is_active,
     version: row.version,

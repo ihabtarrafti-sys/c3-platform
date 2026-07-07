@@ -15,6 +15,7 @@ import type {
   ApprovalStatus,
   AuditEvent,
   C3Role,
+  Credential,
   Member,
   Person,
 } from '@c3web/domain';
@@ -29,6 +30,10 @@ export interface ReadStore {
   listAuditEventsForEntity(entityType: string, entityId: string): Promise<AuditEvent[]>;
   /** Tenant-scoped member directory (via the member_list gateway; Sprint 35). */
   listMembers(): Promise<Member[]>;
+  // Sprint 36: credentials (plain ISO dates end-to-end).
+  listCredentials(): Promise<Credential[]>;
+  listCredentialsForPerson(personId: string): Promise<Credential[]>;
+  getCredentialById(credentialId: string): Promise<Credential | null>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -62,9 +67,22 @@ export interface NewApprovalRow {
  * Transactional, tenant-bound write surface. All methods execute inside the
  * single transaction opened by WriteStore.transaction and are subject to RLS.
  */
+/** Fields written when creating a Credential during AddCredential execution. */
+export interface NewCredentialRow {
+  readonly credentialId: string;
+  readonly personId: string;
+  readonly credentialType: string;
+  readonly issuer: string | null;
+  readonly issuedOn: string; // plain ISO YYYY-MM-DD
+  readonly expiresOn: string | null;
+  readonly notes: string | null;
+  /** The approval whose execution created this credential (idempotency boundary). */
+  readonly createdByApprovalId: string;
+}
+
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
-  allocateSequence(kind: 'person' | 'approval'): Promise<number>;
+  allocateSequence(kind: 'person' | 'approval' | 'credential'): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
 
@@ -136,6 +154,17 @@ export interface WriteTx {
 
   /** Tenant-scoped single-member read (null when not a member of this tenant). */
   getMember(userId: string): Promise<Member | null>;
+
+  // ── Sprint 36 credentials ──────────────────────────────────────────────────
+  insertCredential(row: NewCredentialRow): Promise<Credential>;
+  /** Return the credential an approval already created (idempotent execute path). */
+  getCredentialByCreatingApproval(approvalId: string): Promise<Credential | null>;
+  /**
+   * Deactivate iff currently active: returns the updated credential, or null
+   * when it does not exist / is already inactive (caller raises ConflictError
+   * → truthful ExecutionFailed).
+   */
+  deactivateCredential(credentialId: string): Promise<Credential | null>;
 }
 
 export interface WriteStore {

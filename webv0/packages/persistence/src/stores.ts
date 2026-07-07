@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Member, Person } from '@c3web/domain';
+import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Member, Person } from '@c3web/domain';
 import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapApproval, mapApprovalEvent, mapAuditEvent, mapPerson } from './mappers';
+import { mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -84,6 +84,33 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               .where(and(eq(schema.auditEvent.entityType, entityType), eq(schema.auditEvent.entityId, entityId)))
               .orderBy(asc(schema.auditEvent.at));
             return rows.map(mapAuditEvent);
+          }),
+
+        // Sprint 36: credentials — drizzle-only reads (mode:'string' dates).
+        listCredentials: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Credential[]> => {
+            const rows = await db.select().from(schema.credential).orderBy(asc(schema.credential.credentialId));
+            return rows.map(mapCredential);
+          }),
+
+        listCredentialsForPerson: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Credential[]> => {
+            const rows = await db
+              .select()
+              .from(schema.credential)
+              .where(eq(schema.credential.personId, personId))
+              .orderBy(asc(schema.credential.credentialId));
+            return rows.map(mapCredential);
+          }),
+
+        getCredentialById: (credentialId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Credential | null> => {
+            const rows = await db
+              .select()
+              .from(schema.credential)
+              .where(eq(schema.credential.credentialId, credentialId))
+              .limit(1);
+            return rows[0] ? mapCredential(rows[0]) : null;
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped

@@ -59,6 +59,7 @@ const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
 const TENANT_TABLES = [
   'audit_event',
   'approval_event',
+  'credential', // FK → person AND approval, so credential first (Sprint 36)
   'person', // FK → approval (composite), so person before approval
   'approval',
   'business_id_counter',

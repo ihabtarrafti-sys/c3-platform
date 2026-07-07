@@ -76,6 +76,14 @@ function tableExports(): TableExport[] {
     { name: 'business_id_counter', sql: `SELECT * FROM business_id_counter WHERE tenant_id = $1 ORDER BY kind` },
     { name: 'approval', sql: `SELECT * FROM approval WHERE tenant_id = $1 ORDER BY approval_id` },
     { name: 'person', sql: `SELECT * FROM person WHERE tenant_id = $1 ORDER BY person_id` },
+    // Dates export as ISO date strings (::text) — never driver-parsed Dates.
+    {
+      name: 'credential',
+      sql: `SELECT id, tenant_id, credential_id, person_id, credential_type, issuer,
+                   issued_on::text AS issued_on, expires_on::text AS expires_on,
+                   notes, is_active, created_by_approval_id, version, created_at, updated_at
+              FROM credential WHERE tenant_id = $1 ORDER BY credential_id`,
+    },
     { name: 'approval_event', sql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id` },
     { name: 'audit_event', sql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id` },
   ];

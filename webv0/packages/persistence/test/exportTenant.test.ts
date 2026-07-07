@@ -147,7 +147,9 @@ describe('organization-scoped export', () => {
       expect(lines).toBe(f.rows);
     }
     expect(res.manifest.schemaVersion).toContain('0001_schema.sql');
-    expect(res.manifest.schemaVersion).toContain('0007_access_events.sql');
+    expect(res.manifest.schemaVersion).toContain('0009_credentials.sql');
+    // Sprint 36: credentials are part of the org's bundle.
+    expect(res.files.some((f) => f.name === 'credential.jsonl')).toBe(true);
     // access_event (platform-level) is never part of a tenant bundle.
     expect(res.files.some((f) => f.name === 'access_event.jsonl')).toBe(false);
   });
