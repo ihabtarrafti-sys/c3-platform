@@ -15,6 +15,11 @@ const STATUS_BY_CODE: Record<DomainErrorCode, number> = {
   TENANT_CONTEXT_MISSING: 401,
   FORBIDDEN: 403,
   CONFLICT: 409,
+  // Sprint 35 tenant-admin guards: self-administration is a permission
+  // boundary (403); the other two are state-integrity refusals (409).
+  SELF_ADMINISTRATION_BLOCKED: 403,
+  LAST_OWNER_PROTECTED: 409,
+  IDENTITY_ALREADY_BOUND: 409,
 };
 
 export interface MappedError {

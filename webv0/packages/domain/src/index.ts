@@ -13,5 +13,6 @@ export * from './businessIds';
 export * from './errors';
 export * from './identity';
 export * from './lifecycle';
+export * from './member';
 export * from './person';
 export * from './roles';

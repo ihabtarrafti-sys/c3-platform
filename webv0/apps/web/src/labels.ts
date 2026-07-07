@@ -21,7 +21,13 @@ export function approvalStatusOf(status: string): { label: string; variant: Stat
 }
 
 /** D.5 — operation type → label. */
-const OPERATION: Record<string, string> = { AddPerson: 'Add Person' };
+const OPERATION: Record<string, string> = {
+  AddPerson: 'Add Person',
+  ProvisionMember: 'Provision Member',
+  ChangeRole: 'Change Role',
+  DeactivateMember: 'Deactivate Member',
+  ReactivateMember: 'Reactivate Member',
+};
 export function operationOf(op: string): string {
   return OPERATION[op] ?? op;
 }
@@ -36,6 +42,11 @@ const AUDIT_ACTION: Record<string, string> = {
   ApprovalExecutionFailed: 'Execution failed',
   PersonCreated: 'Person created',
   SessionEstablished: 'Session established',
+  MemberProvisioned: 'Member provisioned',
+  MemberRoleChanged: 'Role changed',
+  MemberDeactivated: 'Member deactivated',
+  MemberReactivated: 'Member reactivated',
+  EmergencyLockout: 'Emergency lockout',
 };
 export function auditActionOf(action: string): string {
   return AUDIT_ACTION[action] ?? action;

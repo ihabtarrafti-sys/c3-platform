@@ -25,6 +25,15 @@ export const AUDIT_ACTIONS = [
   // Access DENIALS have no resolvable tenant and live in the platform-level
   // access_event stream (migration 0007), not here.
   'SessionEstablished',
+  // Sprint 35 tenant-admin (A-8 Phase 2): entity mutations of governed member
+  // operations. The approval-chain actions above are generic and reused.
+  'MemberProvisioned',
+  'MemberRoleChanged',
+  'MemberDeactivated',
+  'MemberReactivated',
+  // Owner-only direct lockout — the sole non-workflow access mutation; still
+  // audited synchronously in the same transaction as the flip.
+  'EmergencyLockout',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

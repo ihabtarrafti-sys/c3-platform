@@ -18,7 +18,11 @@ export type DomainErrorCode =
   | 'CONCURRENCY'
   | 'TENANT_CONTEXT_MISSING'
   | 'FORBIDDEN'
-  | 'CONFLICT';
+  | 'CONFLICT'
+  // Sprint 35 tenant-admin guards (A-8 Phase 2 design invariants).
+  | 'SELF_ADMINISTRATION_BLOCKED'
+  | 'LAST_OWNER_PROTECTED'
+  | 'IDENTITY_ALREADY_BOUND';
 
 export abstract class DomainError extends Error {
   abstract readonly code: DomainErrorCode;
@@ -114,6 +118,30 @@ export class ConflictError extends DomainError {
   override readonly name = 'ConflictError';
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, details);
+  }
+}
+
+export class SelfAdministrationError extends DomainError {
+  override readonly code = 'SELF_ADMINISTRATION_BLOCKED' as const;
+  override readonly name = 'SelfAdministrationError';
+  constructor(action: string) {
+    super(`A member may not '${action}' their own access. Another authorized member must perform this.`, { action });
+  }
+}
+
+export class LastOwnerProtectionError extends DomainError {
+  override readonly code = 'LAST_OWNER_PROTECTED' as const;
+  override readonly name = 'LastOwnerProtectionError';
+  constructor(action: string) {
+    super(`Refused: '${action}' would leave the organization without an active owner (failing closed).`, { action });
+  }
+}
+
+export class IdentityAlreadyBoundError extends DomainError {
+  override readonly code = 'IDENTITY_ALREADY_BOUND' as const;
+  override readonly name = 'IdentityAlreadyBoundError';
+  constructor() {
+    super('This external identity is already bound to a user. Identity bindings are write-once (bind-once key).');
   }
 }
 

@@ -101,7 +101,12 @@ export function ApprovalDetailPage() {
           ),
         },
         { label: 'Operation', value: operationOf(a.operationType) },
-        { label: 'New person', value: <span data-testid="approval-fullname">{a.payload.input.fullName}</span> },
+        // The subject row narrows on the payload discriminant: AddPerson shows
+        // the person name (testid preserved for E2E); member operations
+        // (Sprint 35) show the subject member's email snapshot.
+        ...(a.payload.operationType === 'AddPerson'
+          ? [{ label: 'New person', value: <span data-testid="approval-fullname">{a.payload.input.fullName}</span> }]
+          : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {

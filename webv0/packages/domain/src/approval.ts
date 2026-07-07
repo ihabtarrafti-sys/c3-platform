@@ -10,9 +10,22 @@
 
 import { z } from 'zod';
 import { addPersonInputSchema } from './person';
+import {
+  changeRoleInputSchema,
+  deactivateMemberInputSchema,
+  provisionMemberInputSchema,
+  reactivateMemberInputSchema,
+} from './member';
 import type { ApprovalStatus } from './lifecycle';
 
-export const OPERATION_TYPES = ['AddPerson'] as const;
+export const OPERATION_TYPES = [
+  'AddPerson',
+  // Sprint 35 tenant-admin (A-8 Phase 2): governed access administration.
+  'ProvisionMember',
+  'ChangeRole',
+  'DeactivateMember',
+  'ReactivateMember',
+] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
 /**
@@ -28,7 +41,38 @@ export const addPersonPayloadSchema = z
 
 export type AddPersonApprovalPayload = z.infer<typeof addPersonPayloadSchema>;
 
-export const approvalPayloadSchema = z.discriminatedUnion('operationType', [addPersonPayloadSchema]);
+/**
+ * Member-operation payloads (Sprint 35). For these, Approval.targetPersonId
+ * carries the MEMBER_OP_TARGET sentinel and Approval.targetId carries the
+ * member user id (backfilled at execution for ProvisionMember).
+ */
+export const provisionMemberPayloadSchema = z
+  .object({ operationType: z.literal('ProvisionMember'), input: provisionMemberInputSchema })
+  .strict();
+export type ProvisionMemberApprovalPayload = z.infer<typeof provisionMemberPayloadSchema>;
+
+export const changeRolePayloadSchema = z
+  .object({ operationType: z.literal('ChangeRole'), input: changeRoleInputSchema })
+  .strict();
+export type ChangeRoleApprovalPayload = z.infer<typeof changeRolePayloadSchema>;
+
+export const deactivateMemberPayloadSchema = z
+  .object({ operationType: z.literal('DeactivateMember'), input: deactivateMemberInputSchema })
+  .strict();
+export type DeactivateMemberApprovalPayload = z.infer<typeof deactivateMemberPayloadSchema>;
+
+export const reactivateMemberPayloadSchema = z
+  .object({ operationType: z.literal('ReactivateMember'), input: reactivateMemberInputSchema })
+  .strict();
+export type ReactivateMemberApprovalPayload = z.infer<typeof reactivateMemberPayloadSchema>;
+
+export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
+  addPersonPayloadSchema,
+  provisionMemberPayloadSchema,
+  changeRolePayloadSchema,
+  deactivateMemberPayloadSchema,
+  reactivateMemberPayloadSchema,
+]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 
 /** An Approval as the domain reasons about it (surrogate UUID lives in persistence). */

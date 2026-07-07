@@ -46,9 +46,30 @@ export interface C3Capabilities {
   readonly canReviewApproval: boolean;
   /** May execute an approved governed approval. */
   readonly canExecuteApproval: boolean;
+  /**
+   * Sprint 35 tenant-admin: may read the Members register. Access data is
+   * sensitive directory data — not for read-only business roles.
+   */
+  readonly canReadMembers: boolean;
+  /**
+   * May SUBMIT a governed member operation (provision/role-change/
+   * deactivate/reactivate). Review + execute reuse canReviewApproval /
+   * canExecuteApproval (owner), preserving requester ≠ approver.
+   */
+  readonly canSubmitMemberChange: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
+
+const READ_ONLY = {
+  canReadPeople: true,
+  canSubmitApproval: false,
+  canReviewApproval: false,
+  canExecuteApproval: false,
+  canReadMembers: false,
+  canSubmitMemberChange: false,
+  isReadOnly: true,
+} as const satisfies C3Capabilities;
 
 const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
   owner: {
@@ -56,6 +77,8 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canSubmitApproval: true,
     canReviewApproval: true,
     canExecuteApproval: true,
+    canReadMembers: true,
+    canSubmitMemberChange: true,
     isReadOnly: false,
   },
   operations: {
@@ -63,13 +86,15 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canSubmitApproval: true,
     canReviewApproval: false,
     canExecuteApproval: false,
+    canReadMembers: true,
+    canSubmitMemberChange: true,
     isReadOnly: false,
   },
-  legal: { canReadPeople: true, canSubmitApproval: false, canReviewApproval: false, canExecuteApproval: false, isReadOnly: true },
-  finance: { canReadPeople: true, canSubmitApproval: false, canReviewApproval: false, canExecuteApproval: false, isReadOnly: true },
-  hr: { canReadPeople: true, canSubmitApproval: false, canReviewApproval: false, canExecuteApproval: false, isReadOnly: true },
-  management: { canReadPeople: true, canSubmitApproval: false, canReviewApproval: false, canExecuteApproval: false, isReadOnly: true },
-  visitor: { canReadPeople: true, canSubmitApproval: false, canReviewApproval: false, canExecuteApproval: false, isReadOnly: true },
+  legal: READ_ONLY,
+  finance: READ_ONLY,
+  hr: READ_ONLY,
+  management: READ_ONLY,
+  visitor: READ_ONLY,
 };
 
 /** Total function: every role resolves to a fully-specified capability set. */

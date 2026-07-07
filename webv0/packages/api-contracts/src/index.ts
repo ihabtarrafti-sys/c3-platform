@@ -7,10 +7,11 @@
  * The internal tenantId is deliberately NOT exposed on the wire.
  */
 import { z } from 'zod';
-import { APPROVAL_STATUSES, C3_ROLES, addPersonInputSchema, addPersonPayloadSchema } from '@c3web/domain';
+import { APPROVAL_STATUSES, C3_ROLES, OPERATION_TYPES, addPersonInputSchema, approvalPayloadSchema } from '@c3web/domain';
 
 export const approvalStatusSchema = z.enum(APPROVAL_STATUSES);
 export const roleSchema = z.enum(C3_ROLES);
+export const operationTypeSchema = z.enum(OPERATION_TYPES);
 
 // ── errors ──────────────────────────────────────────────────────────────────
 export const errorResponseSchema = z.object({
@@ -47,12 +48,12 @@ export const peopleListSchema = z.object({ people: z.array(personSchema) });
 // ── approval ────────────────────────────────────────────────────────────────
 export const approvalSchema = z.object({
   approvalId: z.string(),
-  operationType: z.literal('AddPerson'),
+  operationType: operationTypeSchema,
   targetPersonId: z.string(),
   targetId: z.string().nullable(),
   reason: z.string().nullable(),
   status: approvalStatusSchema,
-  payload: addPersonPayloadSchema,
+  payload: approvalPayloadSchema,
   submittedBy: z.string(),
   submittedAt: z.string(),
   reviewedBy: z.string().nullable(),
