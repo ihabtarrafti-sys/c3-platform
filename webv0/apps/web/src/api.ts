@@ -22,11 +22,15 @@ import type {
   KitDto,
   MeResponse,
   MemberDto,
+  MissionDto,
+  MissionParticipantDto,
   PersonDto,
   SubmitAddCredentialRequest,
+  SubmitAddMissionParticipantRequest,
   SubmitDeactivateCredentialRequest,
   SubmitInitiateJourneyRequest,
   SubmitMemberChangeRequest,
+  SubmitRemoveMissionParticipantRequest,
 } from '@c3web/api-contracts';
 
 export interface EquipmentCreateBody {
@@ -37,6 +41,17 @@ export interface EquipmentCreateBody {
   notes?: string | null;
 }
 export interface EquipmentUpdateBody extends Partial<EquipmentCreateBody> {
+  expectedVersion: number;
+}
+
+export interface MissionCreateBody {
+  name: string;
+  gameTitle?: string | null;
+  startsOn: string; // plain ISO date
+  endsOn?: string | null;
+  notes?: string | null;
+}
+export interface MissionUpdateBody extends Partial<MissionCreateBody> {
   expectedVersion: number;
 }
 
@@ -129,6 +144,21 @@ export function createApiClient(deps: ApiClientDeps) {
     updateKit: (kitId: string, body: EquipmentUpdateBody) => request<{ kit: KitDto }>('POST', `/api/v1/kit/${kitId}`, body),
     deactivateKit: (kitId: string, expectedVersion: number) =>
       request<{ kit: KitDto }>('POST', `/api/v1/kit/${kitId}/deactivate`, { expectedVersion }),
+    // Sprint 39: missions (direct-audited shell + governed participants).
+    listMissions: () => request<{ missions: MissionDto[] }>('GET', '/api/v1/missions'),
+    getMission: (missionId: string) => request<{ mission: MissionDto }>('GET', `/api/v1/missions/${missionId}`),
+    missionParticipants: (missionId: string) =>
+      request<{ participants: MissionParticipantDto[] }>('GET', `/api/v1/missions/${missionId}/participants`),
+    missionAudit: (missionId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/missions/${missionId}/audit`),
+    createMission: (body: MissionCreateBody) => request<{ mission: MissionDto }>('POST', '/api/v1/missions', body),
+    updateMission: (missionId: string, body: MissionUpdateBody) =>
+      request<{ mission: MissionDto }>('POST', `/api/v1/missions/${missionId}`, body),
+    deactivateMission: (missionId: string, expectedVersion: number) =>
+      request<{ mission: MissionDto }>('POST', `/api/v1/missions/${missionId}/deactivate`, { expectedVersion }),
+    submitAddMissionParticipant: (input: SubmitAddMissionParticipantRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/requests', { input, ...(reason ? { reason } : {}) }),
+    submitRemoveMissionParticipant: (input: SubmitRemoveMissionParticipantRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/removals', { input, ...(reason ? { reason } : {}) }),
     listApparel: () => request<{ apparel: ApparelDto[] }>('GET', '/api/v1/apparel'),
     createApparel: (body: EquipmentCreateBody) => request<{ apparel: ApparelDto }>('POST', '/api/v1/apparel', body),
     updateApparel: (apparelId: string, body: EquipmentUpdateBody) =>
@@ -157,4 +187,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, PersonDto, MeResponse };
+export type { ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto, MeResponse };

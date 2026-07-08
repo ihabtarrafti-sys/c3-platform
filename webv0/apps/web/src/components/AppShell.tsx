@@ -215,6 +215,16 @@ function ApparelIcon({ className }: { className?: string }) {
   );
 }
 
+function MissionsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="10" cy="10" r="6.5" />
+      <circle cx="10" cy="10" r="3" />
+      <path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3" />
+    </svg>
+  );
+}
+
 function MembersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -342,6 +352,7 @@ export function AppShell() {
           />
           <NavItem to="/kit" label="Kit" icon={<KitIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           <NavItem to="/apparel" label="Apparel" icon={<ApparelIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
+          <NavItem to="/missions" label="Missions" icon={<MissionsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           <NavItem
             to="/approvals"
             label="Approvals"

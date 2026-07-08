@@ -570,6 +570,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     },
   );
 
+  r.get(
+    '/api/v1/missions/:missionId/audit',
+    { schema: { params: missionIdParamSchema, response: { 200: auditEventsListSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const events = await listAuditEvents(P, actorOf(req), 'Mission', missionId);
+      return { events: events.map(toAuditEventDto) };
+    },
+  );
+
   r.post('/api/v1/missions', { schema: { body: missionCreateInputSchema, response: { 201: missionResponseSchema } } }, async (req, reply) => {
     const mission = await createMission(P, actorOf(req), req.body as import('@c3web/domain').MissionCreateInput);
     return reply.status(201).send({ mission: toMissionDto(mission) });

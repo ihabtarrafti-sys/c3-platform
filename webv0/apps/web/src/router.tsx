@@ -10,6 +10,8 @@ import { CredentialsPage } from './pages/CredentialsPage';
 import { JourneysPage } from './pages/JourneysPage';
 import { KitPage } from './pages/KitPage';
 import { ApparelPage } from './pages/ApparelPage';
+import { MissionsPage } from './pages/MissionsPage';
+import { MissionDetailPage } from './pages/MissionDetailPage';
 
 /**
  * A real URL router. Deep links and browser refresh resolve to the correct
@@ -33,6 +35,8 @@ export const router = createBrowserRouter([
       { path: 'journeys', element: <JourneysPage /> },
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
+      { path: 'missions', element: <MissionsPage /> },
+      { path: 'missions/:missionId', element: <MissionDetailPage /> },
       { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'approvals/:approvalId', element: <ApprovalDetailPage /> },
       { path: 'members', element: <MembersPage /> },
