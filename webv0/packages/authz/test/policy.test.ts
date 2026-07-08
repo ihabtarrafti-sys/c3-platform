@@ -102,7 +102,7 @@ describe('capabilityView (UX hint)', () => {
       canManageKit: true,
       canManageApparel: true,
       canManageMissions: true,
-      canReadContracts: true,
+      canReadAgreements: true,
       canViewFinancials: true,
     });
   });

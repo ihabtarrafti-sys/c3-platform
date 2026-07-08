@@ -309,7 +309,7 @@ export const capabilityViewSchema = z.object({
   canManageKit: z.boolean(),
   canManageApparel: z.boolean(),
   canManageMissions: z.boolean(),
-  canReadContracts: z.boolean(),
+  canReadAgreements: z.boolean(),
   canViewFinancials: z.boolean(),
 });
 export const meResponseSchema = z.object({

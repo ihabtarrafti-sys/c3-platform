@@ -80,15 +80,16 @@ export interface C3Capabilities {
    */
   readonly canManageMissions: boolean;
   /**
-   * Sprint 41: may read the Contracts domain AT ALL — owner, operations,
-   * legal, finance, management. HR and visitor are DENIED entirely (the CP
-   * Set-E ACL boundary: contracts are sensitive commercial data; denial is
-   * fail-closed and truthful, never a silent empty register).
+   * Sprint 41: may read the Agreements domain (contracts, NDAs, addendums)
+   * AT ALL — owner, operations, legal, finance, management. HR and visitor
+   * are DENIED entirely (the CP Set-E ACL boundary: agreements are sensitive
+   * commercial data; denial is fail-closed and truthful, never a silent
+   * empty register).
    */
-  readonly canReadContracts: boolean;
+  readonly canReadAgreements: boolean;
   /**
-   * Sprint 41: may see FINANCIAL values (contract USD) — owner, operations,
-   * finance, management. Legal reads contracts WITHOUT values; the read
+   * Sprint 41: may see FINANCIAL values (agreement USD) — owner, operations,
+   * finance, management. Legal reads agreements WITHOUT values; the read
    * model omits the field entirely (absence, not masking).
    */
   readonly canViewFinancials: boolean;
@@ -107,7 +108,7 @@ const READ_ONLY = {
   canManageKit: false,
   canManageApparel: false,
   canManageMissions: false,
-  canReadContracts: false,
+  canReadAgreements: false,
   canViewFinancials: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
@@ -124,7 +125,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageKit: true,
     canManageApparel: true,
     canManageMissions: true,
-    canReadContracts: true,
+    canReadAgreements: true,
     canViewFinancials: true,
     isReadOnly: false,
   },
@@ -139,18 +140,18 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageKit: true,
     canManageApparel: true,
     canManageMissions: true,
-    canReadContracts: true,
+    canReadAgreements: true,
     canViewFinancials: true,
     isReadOnly: false,
   },
   // Sprint 41 (CP Set-E parity): legal reads contracts WITHOUT financial
   // values; finance and management read contracts WITH values. All three
   // remain read-only (no write/governance affordance).
-  legal: { ...READ_ONLY, canReadContracts: true },
-  finance: { ...READ_ONLY, canReadContracts: true, canViewFinancials: true },
+  legal: { ...READ_ONLY, canReadAgreements: true },
+  finance: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true },
   // Sprint 38 (CP-parity): HR manages Apparel — no longer fully read-only.
   hr: { ...READ_ONLY, canManageApparel: true, isReadOnly: false },
-  management: { ...READ_ONLY, canReadContracts: true, canViewFinancials: true },
+  management: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true },
   visitor: READ_ONLY,
 };
 

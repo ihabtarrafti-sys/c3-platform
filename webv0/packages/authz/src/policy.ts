@@ -37,7 +37,7 @@ export const canOperateJourneys = (role: C3Role): boolean => capabilitiesFor(rol
 export const canManageKit = (role: C3Role): boolean => capabilitiesFor(role).canManageKit;
 export const canManageApparel = (role: C3Role): boolean => capabilitiesFor(role).canManageApparel;
 export const canManageMissions = (role: C3Role): boolean => capabilitiesFor(role).canManageMissions;
-export const canReadContracts = (role: C3Role): boolean => capabilitiesFor(role).canReadContracts;
+export const canReadAgreements = (role: C3Role): boolean => capabilitiesFor(role).canReadAgreements;
 export const canViewFinancials = (role: C3Role): boolean => capabilitiesFor(role).canViewFinancials;
 
 export function assertReadPeople(actor: Actor): void {
@@ -146,12 +146,12 @@ export function assertManageMissions(actor: Actor): void {
 }
 
 /**
- * Guard reading the Contracts domain (Sprint 41 — the CP Set-E boundary:
+ * Guard reading the Agreements domain (Sprint 41 — the CP Set-E boundary:
  * commercial data; hr and visitor are denied entirely, fail closed).
  */
-export function assertReadContracts(actor: Actor): void {
-  if (!canReadContracts(actor.role)) {
-    throw new ForbiddenError('Contracts are unavailable for your role.', { role: actor.role });
+export function assertReadAgreements(actor: Actor): void {
+  if (!canReadAgreements(actor.role)) {
+    throw new ForbiddenError('Agreements are unavailable for your role.', { role: actor.role });
   }
 }
 
@@ -167,7 +167,7 @@ export interface CapabilityView {
   readonly canManageKit: boolean;
   readonly canManageApparel: boolean;
   readonly canManageMissions: boolean;
-  readonly canReadContracts: boolean;
+  readonly canReadAgreements: boolean;
   readonly canViewFinancials: boolean;
 }
 
@@ -184,7 +184,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canManageKit: c.canManageKit,
     canManageApparel: c.canManageApparel,
     canManageMissions: c.canManageMissions,
-    canReadContracts: c.canReadContracts,
+    canReadAgreements: c.canReadAgreements,
     canViewFinancials: c.canViewFinancials,
   };
 }

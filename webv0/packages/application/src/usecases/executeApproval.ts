@@ -318,16 +318,16 @@ export async function executeApproval(
           return { approval: executed, person: null, credential, journey: null, participant: null, idempotent: false };
         }
 
-        // ── Sprint 41: contracts — FAILS CLOSED until the C2 executor lands
+        // ── Sprint 41: agreements — FAILS CLOSED until the C2 executor lands
         // (guards + row mutation + audit in one transaction). Unsubmittable
         // today (no submit use-case/route yet); this branch keeps the
         // compile-enforced exhaustiveness below honest.
         if (
-          approval.payload.operationType === 'AddContract' ||
-          approval.payload.operationType === 'RenewContract' ||
-          approval.payload.operationType === 'TerminateContract'
+          approval.payload.operationType === 'AddAgreement' ||
+          approval.payload.operationType === 'RenewAgreement' ||
+          approval.payload.operationType === 'TerminateAgreement'
         ) {
-          throw new ConflictError('Contract operations are not yet executable.', {
+          throw new ConflictError('Agreement operations are not yet executable.', {
             operationType: approval.payload.operationType,
           });
         }

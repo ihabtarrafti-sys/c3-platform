@@ -13,7 +13,7 @@ import { addPersonInputSchema } from './person';
 import { addCredentialInputSchema, deactivateCredentialInputSchema } from './credential';
 import { initiateJourneyInputSchema } from './journey';
 import { addMissionParticipantInputSchema, removeMissionParticipantInputSchema } from './mission';
-import { addContractInputSchema, renewContractInputSchema, terminateContractInputSchema } from './contract';
+import { addAgreementInputSchema, renewAgreementInputSchema, terminateAgreementInputSchema } from './agreement';
 import {
   changeRoleInputSchema,
   deactivateMemberInputSchema,
@@ -38,11 +38,12 @@ export const OPERATION_TYPES = [
   // direct-audited and never enters the pipeline).
   'AddMissionParticipant',
   'RemoveMissionParticipant',
-  // Sprint 41: contracts — the MATERIAL lifecycle is governed (creation,
-  // term renewal, termination); non-material edits are direct-audited.
-  'AddContract',
-  'RenewContract',
-  'TerminateContract',
+  // Sprint 41: agreements (contracts, NDAs, addendums, …) — the MATERIAL
+  // lifecycle is governed (creation, term renewal, termination);
+  // non-material edits are direct-audited.
+  'AddAgreement',
+  'RenewAgreement',
+  'TerminateAgreement',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -126,25 +127,25 @@ export const removeMissionParticipantPayloadSchema = z
 export type RemoveMissionParticipantApprovalPayload = z.infer<typeof removeMissionParticipantPayloadSchema>;
 
 /**
- * Contract payloads (Sprint 41). targetPersonId carries the owning person's
- * PER id (AddContract) or the contract's owner as recorded at submit
- * (Renew/Terminate); targetId carries the CTR id for Renew/Terminate and is
- * null for AddContract until execution allocates it.
+ * Agreement payloads (Sprint 41). targetPersonId carries the owning person's
+ * PER id (AddAgreement) or the agreement's owner as recorded at submit
+ * (Renew/Terminate); targetId carries the AGR id for Renew/Terminate and is
+ * null for AddAgreement until execution allocates it.
  */
-export const addContractPayloadSchema = z
-  .object({ operationType: z.literal('AddContract'), input: addContractInputSchema })
+export const addAgreementPayloadSchema = z
+  .object({ operationType: z.literal('AddAgreement'), input: addAgreementInputSchema })
   .strict();
-export type AddContractApprovalPayload = z.infer<typeof addContractPayloadSchema>;
+export type AddAgreementApprovalPayload = z.infer<typeof addAgreementPayloadSchema>;
 
-export const renewContractPayloadSchema = z
-  .object({ operationType: z.literal('RenewContract'), input: renewContractInputSchema })
+export const renewAgreementPayloadSchema = z
+  .object({ operationType: z.literal('RenewAgreement'), input: renewAgreementInputSchema })
   .strict();
-export type RenewContractApprovalPayload = z.infer<typeof renewContractPayloadSchema>;
+export type RenewAgreementApprovalPayload = z.infer<typeof renewAgreementPayloadSchema>;
 
-export const terminateContractPayloadSchema = z
-  .object({ operationType: z.literal('TerminateContract'), input: terminateContractInputSchema })
+export const terminateAgreementPayloadSchema = z
+  .object({ operationType: z.literal('TerminateAgreement'), input: terminateAgreementInputSchema })
   .strict();
-export type TerminateContractApprovalPayload = z.infer<typeof terminateContractPayloadSchema>;
+export type TerminateAgreementApprovalPayload = z.infer<typeof terminateAgreementPayloadSchema>;
 
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
@@ -157,9 +158,9 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   initiateJourneyPayloadSchema,
   addMissionParticipantPayloadSchema,
   removeMissionParticipantPayloadSchema,
-  addContractPayloadSchema,
-  renewContractPayloadSchema,
-  terminateContractPayloadSchema,
+  addAgreementPayloadSchema,
+  renewAgreementPayloadSchema,
+  terminateAgreementPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 
