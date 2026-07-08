@@ -3,7 +3,8 @@
  * on the wire; canonical business ids are the external identity.
  */
 import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
-import type { ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementView } from '@c3web/application';
+import type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -51,6 +52,29 @@ export function toCredentialDto(c: Credential): CredentialDto {
     version: c.version,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+  };
+}
+
+/**
+ * Agreement (per-actor view) → wire. The financial field is forwarded ONLY
+ * when the application read model included it — structural omission survives
+ * the wire (plain ISO dates and integer cents pass through untouched).
+ */
+export function toAgreementDto(a: AgreementView): AgreementDto {
+  return {
+    agreementId: a.agreementId,
+    personId: a.personId,
+    agreementCode: a.agreementCode,
+    agreementType: a.agreementType,
+    linkedAgreementId: a.linkedAgreementId,
+    startsOn: a.startsOn,
+    endsOn: a.endsOn,
+    ...('valueUsdCents' in a ? { valueUsdCents: a.valueUsdCents ?? null } : {}),
+    notes: a.notes,
+    status: a.status,
+    version: a.version,
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt,
   };
 }
 

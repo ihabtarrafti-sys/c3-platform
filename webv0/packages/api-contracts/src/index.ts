@@ -8,14 +8,17 @@
  */
 import { z } from 'zod';
 import {
+  AGREEMENT_STATUSES,
   APPROVAL_STATUSES,
   C3_ROLES,
   JOURNEY_STATUSES,
   JOURNEY_TRANSITIONS,
   OPERATION_TYPES,
+  addAgreementInputSchema,
   addCredentialInputSchema,
   addMissionParticipantInputSchema,
   addPersonInputSchema,
+  agreementUpdateInputSchema,
   approvalPayloadSchema,
   changeRolePayloadSchema,
   deactivateCredentialInputSchema,
@@ -29,6 +32,8 @@ import {
   provisionMemberPayloadSchema,
   reactivateMemberPayloadSchema,
   removeMissionParticipantInputSchema,
+  renewAgreementInputSchema,
+  terminateAgreementInputSchema,
 } from '@c3web/domain';
 
 export const approvalStatusSchema = z.enum(APPROVAL_STATUSES);
@@ -268,6 +273,53 @@ export const submitRemoveMissionParticipantRequestSchema = z.object({
 });
 export type SubmitRemoveMissionParticipantRequest = z.infer<typeof submitRemoveMissionParticipantRequestSchema>;
 
+// ── agreements (Sprint 41) ──────────────────────────────────────────────────
+/**
+ * valueUsdCents is OPTIONAL on the wire: the server OMITS the field entirely
+ * for roles without canViewFinancials (structural absence — a null would
+ * falsely read as "no value recorded").
+ */
+export const agreementSchema = z.object({
+  agreementId: z.string(),
+  personId: z.string(),
+  agreementCode: z.string().nullable(),
+  agreementType: z.string(),
+  linkedAgreementId: z.string().nullable(),
+  startsOn: z.string(), // plain ISO date, YYYY-MM-DD
+  endsOn: z.string(),
+  valueUsdCents: z.number().int().nullable().optional(),
+  notes: z.string().nullable(),
+  status: z.enum(AGREEMENT_STATUSES),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AgreementDto = z.infer<typeof agreementSchema>;
+export const agreementsListSchema = z.object({ agreements: z.array(agreementSchema) });
+export const agreementResponseSchema = z.object({ agreement: agreementSchema });
+export const agreementIdParamSchema = z.object({ agreementId: z.string().regex(/^AGR-\d{4,}$/) });
+
+/** The domain schema IS the wire schema for the direct patch — one validator, no drift. */
+export { agreementUpdateInputSchema };
+
+export const submitAddAgreementRequestSchema = z.object({
+  input: addAgreementInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitAddAgreementRequest = z.infer<typeof submitAddAgreementRequestSchema>;
+
+export const submitRenewAgreementRequestSchema = z.object({
+  input: renewAgreementInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitRenewAgreementRequest = z.infer<typeof submitRenewAgreementRequestSchema>;
+
+export const submitTerminateAgreementRequestSchema = z.object({
+  input: terminateAgreementInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitTerminateAgreementRequest = z.infer<typeof submitTerminateAgreementRequestSchema>;
+
 // ── requests ────────────────────────────────────────────────────────────────
 export const submitAddPersonRequestSchema = z.object({
   input: addPersonInputSchema,
@@ -294,6 +346,7 @@ export const executeResponseSchema = z.object({
   credential: credentialSchema.nullable(),
   journey: journeySchema.nullable(),
   participant: missionParticipantSchema.nullable(),
+  agreement: agreementSchema.nullable(),
   idempotent: z.boolean(),
 });
 

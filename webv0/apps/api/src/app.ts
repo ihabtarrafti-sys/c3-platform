@@ -18,6 +18,10 @@ import {
   type ZodTypeProvider,
 } from 'fastify-type-provider-zod';
 import {
+  agreementIdParamSchema,
+  agreementResponseSchema,
+  agreementsListSchema,
+  agreementUpdateInputSchema,
   approvalIdParamSchema,
   approvalResponseSchema,
   approvalsListSchema,
@@ -51,6 +55,7 @@ import {
   personResponseSchema,
   rejectRequestSchema,
   roleSchema,
+  submitAddAgreementRequestSchema,
   submitAddCredentialRequestSchema,
   submitAddMissionParticipantRequestSchema,
   submitAddPersonRequestSchema,
@@ -58,6 +63,8 @@ import {
   submitInitiateJourneyRequestSchema,
   submitMemberChangeRequestSchema,
   submitRemoveMissionParticipantRequestSchema,
+  submitRenewAgreementRequestSchema,
+  submitTerminateAgreementRequestSchema,
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 import { capabilityView } from '@c3web/authz';
@@ -67,6 +74,13 @@ import {
   createApparel,
   createKit,
   createMission,
+  getAgreement,
+  listAgreements,
+  listAgreementsForPerson,
+  submitAddAgreement,
+  submitRenewAgreement,
+  submitTerminateAgreement,
+  updateAgreement,
   deactivateApparel,
   deactivateKit,
   deactivateMission,
@@ -106,7 +120,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
+import { toAgreementDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -390,6 +404,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         credential: res.credential ? toCredentialDto(res.credential) : null,
         journey: res.journey ? toJourneyDto(res.journey) : null,
         participant: res.participant ? toMissionParticipantDto(res.participant) : null,
+        agreement: res.agreement ? toAgreementDto(res.agreement) : null,
         idempotent: res.idempotent,
       };
     }),
@@ -626,6 +641,74 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const body = req.body as { input: import('@c3web/domain').RemoveMissionParticipantInput; reason?: string };
       const approval = await submitRemoveMissionParticipant(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
       return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  // ── agreements (Sprint 41): governed material lifecycle + direct patch ────
+  // Reads are role-differentiated (canReadAgreements; hr/visitor 403) and the
+  // financial field is structurally absent for roles without canViewFinancials.
+  r.get('/api/v1/agreements', { schema: { response: { 200: agreementsListSchema } } }, async (req) => {
+    return { agreements: (await listAgreements(P, actorOf(req))).map(toAgreementDto) };
+  });
+
+  r.get(
+    '/api/v1/agreements/:agreementId',
+    { schema: { params: agreementIdParamSchema, response: { 200: agreementResponseSchema } } },
+    async (req) => {
+      const { agreementId } = req.params as { agreementId: string };
+      return { agreement: toAgreementDto(await getAgreement(P, actorOf(req), agreementId)) };
+    },
+  );
+
+  r.get(
+    '/api/v1/people/:personId/agreements',
+    { schema: { params: personIdParamSchema, response: { 200: agreementsListSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      return { agreements: (await listAgreementsForPerson(P, actorOf(req), personId)).map(toAgreementDto) };
+    },
+  );
+
+  // The material lifecycle is governed: each submit creates an approval that
+  // flows through the standard review/approve/execute routes.
+  r.post(
+    '/api/v1/agreements/requests',
+    { schema: { body: submitAddAgreementRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').AddAgreementInput; reason?: string };
+      const approval = await submitAddAgreement(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  r.post(
+    '/api/v1/agreements/renewals',
+    { schema: { body: submitRenewAgreementRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').RenewAgreementInput; reason?: string };
+      const approval = await submitRenewAgreement(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  r.post(
+    '/api/v1/agreements/terminations',
+    { schema: { body: submitTerminateAgreementRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').TerminateAgreementInput; reason?: string };
+      const approval = await submitTerminateAgreement(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  // NON-MATERIAL fields only (code/type/linkage/notes) — direct-but-audited.
+  r.post(
+    '/api/v1/agreements/:agreementId',
+    { schema: { params: agreementIdParamSchema, body: agreementUpdateInputSchema, response: { 200: agreementResponseSchema } } },
+    async (req) => {
+      const { agreementId } = req.params as { agreementId: string };
+      const agreement = await updateAgreement(P, actorOf(req), agreementId, req.body as import('@c3web/domain').AgreementUpdateInput);
+      return { agreement: toAgreementDto(agreement) };
     },
   );
 
