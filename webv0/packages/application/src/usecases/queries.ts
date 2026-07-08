@@ -5,12 +5,14 @@
  */
 import {
   type Actor,
+  type Apparel,
   type Approval,
   type ApprovalEvent,
   type ApprovalStatus,
   type AuditEvent,
   type Credential,
   type Journey,
+  type Kit,
   type Member,
   type Person,
   NotFoundError,
@@ -45,6 +47,17 @@ export async function getJourney(p: Persistence, actor: Actor, journeyId: string
   const journey = await p.reads.forActor(actor).getJourneyById(journeyId);
   if (!journey) throw new NotFoundError('Journey', journeyId);
   return journey;
+}
+
+// ── Sprint 38: equipment (people-adjacent operational reads — same gate). ────
+export function listKit(p: Persistence, actor: Actor): Promise<Kit[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listKit();
+}
+
+export function listApparel(p: Persistence, actor: Actor): Promise<Apparel[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listApparel();
 }
 
 // ── Sprint 36: credentials (people-adjacent operational reads — same gate). ──

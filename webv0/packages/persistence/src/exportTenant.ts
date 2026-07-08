@@ -91,6 +91,8 @@ function tableExports(): TableExport[] {
                    status, notes, created_by_approval_id, version, created_at, updated_at
               FROM journey WHERE tenant_id = $1 ORDER BY journey_id`,
     },
+    { name: 'kit', sql: `SELECT * FROM kit WHERE tenant_id = $1 ORDER BY kit_id` },
+    { name: 'apparel', sql: `SELECT * FROM apparel WHERE tenant_id = $1 ORDER BY apparel_id` },
     { name: 'approval_event', sql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id` },
     { name: 'audit_event', sql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id` },
   ];

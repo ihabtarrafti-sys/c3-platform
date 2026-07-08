@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Member, Person } from '@c3web/domain';
+import type { Actor, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Kit, Member, Person } from '@c3web/domain';
 import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapJourney, mapPerson } from './mappers';
+import { mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapJourney, mapKit, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -134,6 +134,31 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Journey | null> => {
             const rows = await db.select().from(schema.journey).where(eq(schema.journey.journeyId, journeyId)).limit(1);
             return rows[0] ? mapJourney(rows[0]) : null;
+          }),
+
+        // Sprint 38: equipment reads (drizzle-only).
+        listKit: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Kit[]> => {
+            const rows = await db.select().from(schema.kit).orderBy(asc(schema.kit.kitId));
+            return rows.map(mapKit);
+          }),
+
+        getKitById: (kitId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Kit | null> => {
+            const rows = await db.select().from(schema.kit).where(eq(schema.kit.kitId, kitId)).limit(1);
+            return rows[0] ? mapKit(rows[0]) : null;
+          }),
+
+        listApparel: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Apparel[]> => {
+            const rows = await db.select().from(schema.apparel).orderBy(asc(schema.apparel.apparelId));
+            return rows.map(mapApparel);
+          }),
+
+        getApparelById: (apparelId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Apparel | null> => {
+            const rows = await db.select().from(schema.apparel).where(eq(schema.apparel.apparelId, apparelId)).limit(1);
+            return rows[0] ? mapApparel(rows[0]) : null;
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped

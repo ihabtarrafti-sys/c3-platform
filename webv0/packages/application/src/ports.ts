@@ -10,6 +10,7 @@
 
 import type {
   Actor,
+  Apparel,
   Approval,
   ApprovalEvent,
   ApprovalStatus,
@@ -18,6 +19,7 @@ import type {
   Credential,
   Journey,
   JourneyStatus,
+  Kit,
   Member,
   Person,
 } from '@c3web/domain';
@@ -40,6 +42,11 @@ export interface ReadStore {
   listJourneys(): Promise<Journey[]>;
   listJourneysForPerson(personId: string): Promise<Journey[]>;
   getJourneyById(journeyId: string): Promise<Journey | null>;
+  // Sprint 38: equipment.
+  listKit(): Promise<Kit[]>;
+  getKitById(kitId: string): Promise<Kit | null>;
+  listApparel(): Promise<Apparel[]>;
+  getApparelById(apparelId: string): Promise<Apparel | null>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -98,9 +105,27 @@ export interface NewJourneyRow {
   readonly createdByApprovalId: string;
 }
 
+/** Fields written when creating an equipment item (Sprint 38, direct CRUD). */
+export interface NewEquipmentRow {
+  readonly name: string;
+  readonly category: string;
+  readonly size: string | null;
+  readonly assignedPersonId: string | null;
+  readonly notes: string | null;
+}
+
+/** Editable-field patch for an equipment update (only provided keys change). */
+export interface EquipmentPatch {
+  readonly name?: string;
+  readonly category?: string;
+  readonly size?: string | null;
+  readonly assignedPersonId?: string | null;
+  readonly notes?: string | null;
+}
+
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
-  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey'): Promise<number>;
+  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel'): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
 
@@ -202,6 +227,18 @@ export interface WriteTx {
     allowedFrom: readonly JourneyStatus[],
     patch: { status: JourneyStatus; endedOn: string | null },
   ): Promise<Journey | null>;
+
+  // ── Sprint 38 equipment (direct CRUD; version-guarded like the ETag era) ──
+  insertKit(kitId: string, row: NewEquipmentRow): Promise<Kit>;
+  getKit(kitId: string): Promise<Kit | null>;
+  /** Version-guarded field patch; null = stale/missing (caller distinguishes). */
+  updateKit(kitId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Kit | null>;
+  /** Version-guarded deactivate iff currently active; null = stale/missing/inactive. */
+  deactivateKit(kitId: string, expectedVersion: number): Promise<Kit | null>;
+  insertApparel(apparelId: string, row: NewEquipmentRow): Promise<Apparel>;
+  getApparel(apparelId: string): Promise<Apparel | null>;
+  updateApparel(apparelId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Apparel | null>;
+  deactivateApparel(apparelId: string, expectedVersion: number): Promise<Apparel | null>;
 }
 
 export interface WriteStore {

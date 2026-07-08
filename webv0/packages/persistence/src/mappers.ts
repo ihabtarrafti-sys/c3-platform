@@ -3,6 +3,7 @@
  * escapes persistence; the domain sees only canonical business identities.
  */
 import {
+  type Apparel,
   type Approval,
   type ApprovalEvent,
   type ApprovalStatus,
@@ -11,6 +12,7 @@ import {
   type Credential,
   type Journey,
   type JourneyStatus,
+  type Kit,
   type OperationType,
   type Person,
   parseApprovalPayload,
@@ -90,6 +92,29 @@ export function mapJourney(row: any): Journey {
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };
+}
+
+function mapEquipmentBase(row: any) {
+  return {
+    tenantId: row.tenantId ?? row.tenant_id,
+    name: row.name,
+    category: row.category,
+    size: row.size ?? null,
+    assignedPersonId: row.assignedPersonId ?? row.assigned_person_id ?? null,
+    notes: row.notes ?? null,
+    isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapKit(row: any): Kit {
+  return { kitId: row.kitId ?? row.kit_id, ...mapEquipmentBase(row) };
+}
+
+export function mapApparel(row: any): Apparel {
+  return { apparelId: row.apparelId ?? row.apparel_id, ...mapEquipmentBase(row) };
 }
 
 export function mapApproval(row: any): Approval {

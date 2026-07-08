@@ -145,6 +145,36 @@ export const journey = pgTable('journey', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const kit = pgTable('kit', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  kitId: text('kit_id').notNull(),
+  name: text('name').notNull(),
+  category: text('category').notNull(),
+  size: text('size'),
+  assignedPersonId: text('assigned_person_id'),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const apparel = pgTable('apparel', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  apparelId: text('apparel_id').notNull(),
+  name: text('name').notNull(),
+  category: text('category').notNull(),
+  size: text('size'),
+  assignedPersonId: text('assigned_person_id'),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const approvalEvent = pgTable('approval_event', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

@@ -11,18 +11,20 @@ import {
   SelfAdministrationError,
   TenantContextMissingError,
   type Actor,
+  type Apparel,
   type Approval,
   type C3Role,
   type Credential,
   type Journey,
   type JourneyStatus,
+  type Kit,
   type Member,
   type Person,
 } from '@c3web/domain';
-import type { NewApprovalRow, NewCredentialRow, NewJourneyRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { EquipmentPatch, NewApprovalRow, NewCredentialRow, NewEquipmentRow, NewJourneyRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapApproval, mapCredential, mapJourney, mapPerson } from './mappers';
+import { mapApparel, mapApproval, mapCredential, mapJourney, mapKit, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -330,6 +332,63 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         )
         .returning();
       return rows[0] ? mapJourney(rows[0]) : null;
+    },
+
+    // ── Sprint 38 equipment (direct CRUD; drizzle-only) ────────────────────────
+    async insertKit(kitId: string, row: NewEquipmentRow): Promise<Kit> {
+      const [r] = await db.insert(schema.kit).values({ tenantId, kitId, ...row }).returning();
+      return mapKit(r);
+    },
+
+    async getKit(kitId: string): Promise<Kit | null> {
+      const rows = await db.select().from(schema.kit).where(eq(schema.kit.kitId, kitId)).limit(1);
+      return rows[0] ? mapKit(rows[0]) : null;
+    },
+
+    async updateKit(kitId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Kit | null> {
+      const rows = await db
+        .update(schema.kit)
+        .set({ ...patch, version: sql`${schema.kit.version} + 1` })
+        .where(and(eq(schema.kit.kitId, kitId), eq(schema.kit.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapKit(rows[0]) : null;
+    },
+
+    async deactivateKit(kitId: string, expectedVersion: number): Promise<Kit | null> {
+      const rows = await db
+        .update(schema.kit)
+        .set({ isActive: false, version: sql`${schema.kit.version} + 1` })
+        .where(and(eq(schema.kit.kitId, kitId), eq(schema.kit.version, expectedVersion), eq(schema.kit.isActive, true)))
+        .returning();
+      return rows[0] ? mapKit(rows[0]) : null;
+    },
+
+    async insertApparel(apparelId: string, row: NewEquipmentRow): Promise<Apparel> {
+      const [r] = await db.insert(schema.apparel).values({ tenantId, apparelId, ...row }).returning();
+      return mapApparel(r);
+    },
+
+    async getApparel(apparelId: string): Promise<Apparel | null> {
+      const rows = await db.select().from(schema.apparel).where(eq(schema.apparel.apparelId, apparelId)).limit(1);
+      return rows[0] ? mapApparel(rows[0]) : null;
+    },
+
+    async updateApparel(apparelId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Apparel | null> {
+      const rows = await db
+        .update(schema.apparel)
+        .set({ ...patch, version: sql`${schema.apparel.version} + 1` })
+        .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapApparel(rows[0]) : null;
+    },
+
+    async deactivateApparel(apparelId: string, expectedVersion: number): Promise<Apparel | null> {
+      const rows = await db
+        .update(schema.apparel)
+        .set({ isActive: false, version: sql`${schema.apparel.version} + 1` })
+        .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion), eq(schema.apparel.isActive, true)))
+        .returning();
+      return rows[0] ? mapApparel(rows[0]) : null;
     },
   } satisfies WriteTx;
 }
