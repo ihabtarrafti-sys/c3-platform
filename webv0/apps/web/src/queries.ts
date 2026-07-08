@@ -51,6 +51,9 @@ export const useAgreement = (agreementId: string, enabled = true) =>
 export const useAgreementAudit = (agreementId: string, enabled = true) =>
   useQuery({ queryKey: ['agreementAudit', agreementId], queryFn: () => api.agreementAudit(agreementId), enabled });
 
+export const useSituation = (enabled = true) =>
+  useQuery({ queryKey: ['situation'], queryFn: () => api.situation(), enabled });
+
 export const useMissions = () => useQuery({ queryKey: ['missions'], queryFn: () => api.listMissions() });
 export const useMission = (missionId: string) =>
   useQuery({ queryKey: ['mission', missionId], queryFn: () => api.getMission(missionId) });

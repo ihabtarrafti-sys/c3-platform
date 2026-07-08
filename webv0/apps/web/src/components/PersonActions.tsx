@@ -71,7 +71,7 @@ export function PersonActions({ personId, personName }: { personId: string; pers
               <Input type="date" value={cred.issued} onChange={(_, d) => setCred({ ...cred, issued: d.value })} data-testid="person-cred-issued" />
             </Field>
             <Field label="Expires on">
-              <Input type="date" value={cred.expires} onChange={(_, d) => setCred({ ...cred, expires: d.value })} />
+              <Input type="date" value={cred.expires} onChange={(_, d) => setCred({ ...cred, expires: d.value })} data-testid="person-cred-expires" />
             </Field>
           </div>
         }

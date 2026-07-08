@@ -215,6 +215,16 @@ function ApparelIcon({ className }: { className?: string }) {
   );
 }
 
+function SituationIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="10" cy="10" r="7" />
+      <path d="M10 10L14.5 5.5M10 3v2M17 10h-2M10 17v-2M3 10h2" />
+      <circle cx="10" cy="10" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
 function AgreementsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -346,6 +356,9 @@ export function AppShell() {
           className={navOpen ? `${s.navRail} ${s.navRailOpen}` : s.navRail}
           aria-label="Primary"
         >
+          {(me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) && (
+            <NavItem to="/situation" label="Situation" icon={<SituationIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
+          )}
           <NavItem to="/people" label="People" icon={<PeopleIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           <NavItem
             to="/credentials"

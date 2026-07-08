@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
+import { useSession } from './session';
+import { SituationRoomPage } from './pages/SituationRoomPage';
 import { AuthCallback } from './pages/AuthCallback';
 import { PeoplePage } from './pages/PeoplePage';
 import { PersonProfilePage } from './pages/PersonProfilePage';
@@ -24,13 +26,24 @@ import { AgreementDetailPage } from './pages/AgreementDetailPage';
  * routes are protected by AppShell: unauthenticated access shows the
  * deliberate sign-in screen with the deep link preserved.
  */
+/**
+ * The landing surface (Sprint 43): operational roles land in the Situation
+ * Room — the cockpit is where work starts; everyone else lands on People.
+ */
+function HomeRedirect() {
+  const { me } = useSession();
+  const operational = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
+  return <Navigate to={operational ? '/situation' : '/people'} replace />;
+}
+
 export const router = createBrowserRouter([
   { path: '/auth/callback', element: <AuthCallback /> },
   {
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <Navigate to="/people" replace /> },
+      { index: true, element: <HomeRedirect /> },
+      { path: 'situation', element: <SituationRoomPage /> },
       { path: 'people', element: <PeoplePage /> },
       { path: 'people/:personId', element: <PersonProfilePage /> },
       { path: 'credentials', element: <CredentialsPage /> },
