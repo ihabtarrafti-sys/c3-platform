@@ -22,7 +22,9 @@ export type DomainErrorCode =
   // Sprint 35 tenant-admin guards (A-8 Phase 2 design invariants).
   | 'SELF_ADMINISTRATION_BLOCKED'
   | 'LAST_OWNER_PROTECTED'
-  | 'IDENTITY_ALREADY_BOUND';
+  | 'IDENTITY_ALREADY_BOUND'
+  // Sprint 39 missions: the duplicate-participant guard family.
+  | 'PARTICIPANT_CONFLICT';
 
 export abstract class DomainError extends Error {
   abstract readonly code: DomainErrorCode;
@@ -142,6 +144,25 @@ export class IdentityAlreadyBoundError extends DomainError {
   override readonly name = 'IdentityAlreadyBoundError';
   constructor() {
     super('This external identity is already bound to a user. Identity bindings are write-once (bind-once key).');
+  }
+}
+
+/**
+ * Sprint 39: a duplicate-participant refusal. Raised at SUBMIT (friendly, both
+ * conflict kinds) and again authoritatively at EXECUTE inside the transaction
+ * ('active-participant' only — a pair that became active between approval and
+ * execution surfaces as a truthful ExecutionFailed, never a duplicate row).
+ */
+export class ParticipantConflictError extends DomainError {
+  override readonly code = 'PARTICIPANT_CONFLICT' as const;
+  override readonly name = 'ParticipantConflictError';
+  constructor(missionId: string, personId: string, conflict: 'pending-approval' | 'active-participant') {
+    super(
+      conflict === 'pending-approval'
+        ? `An open approval already exists for ${personId} on ${missionId}. Resolve it before submitting another.`
+        : `${personId} is already an active participant of ${missionId}.`,
+      { missionId, personId, conflict },
+    );
   }
 }
 

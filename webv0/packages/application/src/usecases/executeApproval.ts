@@ -308,6 +308,19 @@ export async function executeApproval(
           return { approval: executed, person: null, credential, journey: null, idempotent: false };
         }
 
+        // ── Sprint 39: mission participants — FAILS CLOSED until the M2
+        // executor lands (guards + row flip + audit in one transaction).
+        // Unsubmittable today (no submit use-case/route yet); this branch
+        // keeps the compile-enforced exhaustiveness below honest.
+        if (
+          approval.payload.operationType === 'AddMissionParticipant' ||
+          approval.payload.operationType === 'RemoveMissionParticipant'
+        ) {
+          throw new ConflictError('Mission participant operations are not yet executable.', {
+            operationType: approval.payload.operationType,
+          });
+        }
+
         // ── Sprint 35: member operations ───────────────────────────────────
         // Exhaustiveness is compile-enforced: after the credential branches,
         // the payload narrows to exactly the member-operation union that

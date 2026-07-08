@@ -71,6 +71,14 @@ export interface C3Capabilities {
    * clothing is HR-adjacent). The first non-read capability for hr.
    */
   readonly canManageApparel: boolean;
+  /**
+   * Sprint 39: direct-audited Mission SHELL management (create/update/
+   * deactivate) — owner and operations, a DELIBERATE grant (the CP Set-C
+   * review found ops holding improper direct Missions edit; here it is a
+   * designed capability, not an ACL accident). Participant membership is
+   * governed and rides canSubmitApproval instead.
+   */
+  readonly canManageMissions: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
@@ -85,6 +93,7 @@ const READ_ONLY = {
   canOperateJourneys: false,
   canManageKit: false,
   canManageApparel: false,
+  canManageMissions: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
 
@@ -99,6 +108,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canOperateJourneys: true,
     canManageKit: true,
     canManageApparel: true,
+    canManageMissions: true,
     isReadOnly: false,
   },
   operations: {
@@ -111,6 +121,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canOperateJourneys: true,
     canManageKit: true,
     canManageApparel: true,
+    canManageMissions: true,
     isReadOnly: false,
   },
   legal: READ_ONLY,

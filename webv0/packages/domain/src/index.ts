@@ -17,5 +17,6 @@ export * from './identity';
 export * from './journey';
 export * from './lifecycle';
 export * from './member';
+export * from './mission';
 export * from './person';
 export * from './roles';

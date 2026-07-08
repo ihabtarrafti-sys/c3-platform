@@ -20,6 +20,8 @@ const STATUS_BY_CODE: Record<DomainErrorCode, number> = {
   SELF_ADMINISTRATION_BLOCKED: 403,
   LAST_OWNER_PROTECTED: 409,
   IDENTITY_ALREADY_BOUND: 409,
+  // Sprint 39: duplicate-participant refusals are state conflicts.
+  PARTICIPANT_CONFLICT: 409,
 };
 
 export interface MappedError {

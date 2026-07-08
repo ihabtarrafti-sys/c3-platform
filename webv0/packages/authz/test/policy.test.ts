@@ -101,6 +101,7 @@ describe('capabilityView (UX hint)', () => {
       canOperateJourneys: true,
       canManageKit: true,
       canManageApparel: true,
+      canManageMissions: true,
     });
   });
 

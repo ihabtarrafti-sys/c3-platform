@@ -258,6 +258,7 @@ export const capabilityViewSchema = z.object({
   canOperateJourneys: z.boolean(),
   canManageKit: z.boolean(),
   canManageApparel: z.boolean(),
+  canManageMissions: z.boolean(),
 });
 export const meResponseSchema = z.object({
   identity: z.string(),

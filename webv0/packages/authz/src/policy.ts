@@ -36,6 +36,7 @@ export const canSubmitMemberChange = (role: C3Role): boolean => capabilitiesFor(
 export const canOperateJourneys = (role: C3Role): boolean => capabilitiesFor(role).canOperateJourneys;
 export const canManageKit = (role: C3Role): boolean => capabilitiesFor(role).canManageKit;
 export const canManageApparel = (role: C3Role): boolean => capabilitiesFor(role).canManageApparel;
+export const canManageMissions = (role: C3Role): boolean => capabilitiesFor(role).canManageMissions;
 
 export function assertReadPeople(actor: Actor): void {
   if (!canReadPeople(actor.role)) {
@@ -132,6 +133,16 @@ export function assertManageApparel(actor: Actor): void {
   }
 }
 
+/**
+ * Guard direct-audited Mission SHELL management (Sprint 39: owner, operations
+ * — a deliberate grant; participant membership is governed, not gated here).
+ */
+export function assertManageMissions(actor: Actor): void {
+  if (!canManageMissions(actor.role)) {
+    throw new ForbiddenError('Your role may not manage missions.', { role: actor.role });
+  }
+}
+
 /** Non-throwing summary for building UX-only capability hints served to the web app. */
 export interface CapabilityView {
   readonly canReadPeople: boolean;
@@ -143,6 +154,7 @@ export interface CapabilityView {
   readonly canOperateJourneys: boolean;
   readonly canManageKit: boolean;
   readonly canManageApparel: boolean;
+  readonly canManageMissions: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -157,5 +169,6 @@ export function capabilityView(role: C3Role): CapabilityView {
     canOperateJourneys: c.canOperateJourneys,
     canManageKit: c.canManageKit,
     canManageApparel: c.canManageApparel,
+    canManageMissions: c.canManageMissions,
   };
 }

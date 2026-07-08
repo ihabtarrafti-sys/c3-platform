@@ -5,7 +5,7 @@
 
 ## Entities
 
-**Mission** — `MSN-XXXX`: name (required ≤160), gameTitle (optional ≤120), startsOn (plain date, required), endsOn (plain date, optional, > startsOn), notes, isActive, version. **Direct-audited CRUD** (create/update/deactivate), capability `canManageMissions` = owner/operations (the CP Set-C correction: ops had improper direct Missions edit, corrected to a deliberate grant here). Audit: `MissionCreated/Updated/Deactivated`.
+**Mission** — `MSN-XXXX`: name (required ≤160), gameTitle (optional ≤120), startsOn (plain date, required), endsOn (plain date, optional, >= startsOn — same-day missions legal), notes, isActive, version. **Direct-audited CRUD** (create/update/deactivate), capability `canManageMissions` = owner/operations (the CP Set-C correction: ops had improper direct Missions edit, corrected to a deliberate grant here). Audit: `MissionCreated/Updated/Deactivated`.
 
 **Mission participant** — a person's membership in a mission: `(tenant, missionId, personId)` UNIQUE (one row per pair, ever — reactivation reuses the row, never duplicates: the SP APR-0065 semantics), `role` (free text ≤120, e.g. "Player", "Coach"), `isActive`. **GOVERNED**: `AddMissionParticipant` and `RemoveMissionParticipant` ride the approval pipeline. Audit: `MissionParticipantAdded/Removed` (+ reactivation is an Add that flips the existing row).
 

@@ -42,6 +42,8 @@ const OPERATION: Record<string, string> = {
   AddCredential: 'Add Credential',
   DeactivateCredential: 'Deactivate Credential',
   InitiateJourney: 'Initiate Journey',
+  AddMissionParticipant: 'Add Mission Participant',
+  RemoveMissionParticipant: 'Remove Mission Participant',
 };
 export function operationOf(op: string): string {
   return OPERATION[op] ?? op;
@@ -75,6 +77,11 @@ const AUDIT_ACTION: Record<string, string> = {
   ApparelCreated: 'Apparel item created',
   ApparelUpdated: 'Apparel item updated',
   ApparelDeactivated: 'Apparel item deactivated',
+  MissionCreated: 'Mission created',
+  MissionUpdated: 'Mission updated',
+  MissionDeactivated: 'Mission deactivated',
+  MissionParticipantAdded: 'Participant added',
+  MissionParticipantRemoved: 'Participant removed',
 };
 
 /** Sprint 37 — journey status → label + StatusBadge variant. */

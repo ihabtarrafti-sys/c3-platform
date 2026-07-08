@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { addPersonInputSchema } from './person';
 import { addCredentialInputSchema, deactivateCredentialInputSchema } from './credential';
 import { initiateJourneyInputSchema } from './journey';
+import { addMissionParticipantInputSchema, removeMissionParticipantInputSchema } from './mission';
 import {
   changeRoleInputSchema,
   deactivateMemberInputSchema,
@@ -32,6 +33,10 @@ export const OPERATION_TYPES = [
   'DeactivateCredential',
   // Sprint 37: the Journeys domain (transitions are direct-audited, not governed).
   'InitiateJourney',
+  // Sprint 39: mission participant membership (the mission SHELL is
+  // direct-audited and never enters the pipeline).
+  'AddMissionParticipant',
+  'RemoveMissionParticipant',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -98,6 +103,22 @@ export const initiateJourneyPayloadSchema = z
   .strict();
 export type InitiateJourneyApprovalPayload = z.infer<typeof initiateJourneyPayloadSchema>;
 
+/**
+ * Mission participant payloads (Sprint 39). Both targets are known at
+ * submission: targetPersonId carries the participant's PER-XXXX and targetId
+ * carries the mission's MSN-XXXX. The duplicate-participant guards run at
+ * submit (friendly) and at execute (authoritative, in-transaction).
+ */
+export const addMissionParticipantPayloadSchema = z
+  .object({ operationType: z.literal('AddMissionParticipant'), input: addMissionParticipantInputSchema })
+  .strict();
+export type AddMissionParticipantApprovalPayload = z.infer<typeof addMissionParticipantPayloadSchema>;
+
+export const removeMissionParticipantPayloadSchema = z
+  .object({ operationType: z.literal('RemoveMissionParticipant'), input: removeMissionParticipantInputSchema })
+  .strict();
+export type RemoveMissionParticipantApprovalPayload = z.infer<typeof removeMissionParticipantPayloadSchema>;
+
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
   provisionMemberPayloadSchema,
@@ -107,6 +128,8 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addCredentialPayloadSchema,
   deactivateCredentialPayloadSchema,
   initiateJourneyPayloadSchema,
+  addMissionParticipantPayloadSchema,
+  removeMissionParticipantPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 

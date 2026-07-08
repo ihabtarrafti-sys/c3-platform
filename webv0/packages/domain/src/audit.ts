@@ -51,6 +51,14 @@ export const AUDIT_ACTIONS = [
   'ApparelCreated',
   'ApparelUpdated',
   'ApparelDeactivated',
+  // Sprint 39: Missions — the direct-audited shell plus GOVERNED participant
+  // membership. Reactivating a removed pair is recorded as a
+  // MissionParticipantAdded whose before-image shows the inactive row.
+  'MissionCreated',
+  'MissionUpdated',
+  'MissionDeactivated',
+  'MissionParticipantAdded',
+  'MissionParticipantRemoved',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
