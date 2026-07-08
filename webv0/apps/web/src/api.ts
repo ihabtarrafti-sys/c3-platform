@@ -15,6 +15,7 @@
  *   - server correlation ids are preserved onto ApiError.
  */
 import type {
+  AgreementDto,
   ApparelDto,
   ApprovalDto,
   CredentialDto,
@@ -25,12 +26,15 @@ import type {
   MissionDto,
   MissionParticipantDto,
   PersonDto,
+  SubmitAddAgreementRequest,
   SubmitAddCredentialRequest,
   SubmitAddMissionParticipantRequest,
   SubmitDeactivateCredentialRequest,
   SubmitInitiateJourneyRequest,
   SubmitMemberChangeRequest,
   SubmitRemoveMissionParticipantRequest,
+  SubmitRenewAgreementRequest,
+  SubmitTerminateAgreementRequest,
 } from '@c3web/api-contracts';
 
 export interface EquipmentCreateBody {
@@ -53,6 +57,15 @@ export interface MissionCreateBody {
 }
 export interface MissionUpdateBody extends Partial<MissionCreateBody> {
   expectedVersion: number;
+}
+
+/** NON-MATERIAL agreement patch (material terms move through governed ops). */
+export interface AgreementUpdateBody {
+  expectedVersion: number;
+  agreementCode?: string | null;
+  agreementType?: string;
+  linkedAgreementId?: string | null;
+  notes?: string | null;
 }
 
 export class ApiError extends Error {
@@ -159,6 +172,19 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/requests', { input, ...(reason ? { reason } : {}) }),
     submitRemoveMissionParticipant: (input: SubmitRemoveMissionParticipantRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/removals', { input, ...(reason ? { reason } : {}) }),
+    // Sprint 41: agreements (governed material lifecycle + direct patch).
+    listAgreements: () => request<{ agreements: AgreementDto[] }>('GET', '/api/v1/agreements'),
+    getAgreement: (agreementId: string) => request<{ agreement: AgreementDto }>('GET', `/api/v1/agreements/${agreementId}`),
+    agreementAudit: (agreementId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/agreements/${agreementId}/audit`),
+    personAgreements: (personId: string) => request<{ agreements: AgreementDto[] }>('GET', `/api/v1/people/${personId}/agreements`),
+    submitAddAgreement: (input: SubmitAddAgreementRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/requests', { input, ...(reason ? { reason } : {}) }),
+    submitRenewAgreement: (input: SubmitRenewAgreementRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/renewals', { input, ...(reason ? { reason } : {}) }),
+    submitTerminateAgreement: (input: SubmitTerminateAgreementRequest['input'], reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/terminations', { input, ...(reason ? { reason } : {}) }),
+    updateAgreement: (agreementId: string, body: AgreementUpdateBody) =>
+      request<{ agreement: AgreementDto }>('POST', `/api/v1/agreements/${agreementId}`, body),
     listApparel: () => request<{ apparel: ApparelDto[] }>('GET', '/api/v1/apparel'),
     createApparel: (body: EquipmentCreateBody) => request<{ apparel: ApparelDto }>('POST', '/api/v1/apparel', body),
     updateApparel: (apparelId: string, body: EquipmentUpdateBody) =>
@@ -187,4 +213,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto, MeResponse };
+export type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto, MeResponse };

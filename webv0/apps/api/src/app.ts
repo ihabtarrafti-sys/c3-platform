@@ -669,6 +669,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     },
   );
 
+  r.get(
+    '/api/v1/agreements/:agreementId/audit',
+    { schema: { params: agreementIdParamSchema, response: { 200: auditEventsListSchema } } },
+    async (req) => {
+      const { agreementId } = req.params as { agreementId: string };
+      const events = await listAuditEvents(P, actorOf(req), 'Agreement', agreementId);
+      return { events: events.map(toAuditEventDto) };
+    },
+  );
+
   // The material lifecycle is governed: each submit creates an approval that
   // flows through the standard review/approve/execute routes.
   r.post(

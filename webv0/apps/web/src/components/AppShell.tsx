@@ -215,6 +215,15 @@ function ApparelIcon({ className }: { className?: string }) {
   );
 }
 
+function AgreementsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M6 2.5h6.5L16 6v11.5H6z" />
+      <path d="M12.5 2.5V6H16M8.5 10h5M8.5 13h5" />
+    </svg>
+  );
+}
+
 function MissionsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -353,6 +362,14 @@ export function AppShell() {
           <NavItem to="/kit" label="Kit" icon={<KitIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           <NavItem to="/apparel" label="Apparel" icon={<ApparelIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           <NavItem to="/missions" label="Missions" icon={<MissionsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
+          {me?.capabilities.canReadAgreements && (
+            <NavItem
+              to="/agreements"
+              label="Agreements"
+              icon={<AgreementsIcon className={s.navIcon} />}
+              onNavigate={() => setNavOpen(false)}
+            />
+          )}
           <NavItem
             to="/approvals"
             label="Approvals"

@@ -102,6 +102,26 @@ const JOURNEY_STATUS: Record<string, { label: string; variant: StatusVariant }> 
 export function journeyStatusOf(status: string): { label: string; variant: StatusVariant } {
   return JOURNEY_STATUS[status] ?? { label: status, variant: 'neutral' };
 }
+
+/** Sprint 41 — derived agreement renewal state (agreementRenewalStateOn) → label + variant. */
+const AGREEMENT_RENEWAL_STATE: Record<string, { label: string; variant: StatusVariant }> = {
+  Active: { label: 'Active', variant: 'ready' },
+  Due90: { label: 'Due in 90', variant: 'pending' },
+  Due60: { label: 'Due in 60', variant: 'pending' },
+  Due30: { label: 'Due in 30', variant: 'blocked' },
+  Expired: { label: 'Expired', variant: 'blocked' },
+  Terminated: { label: 'Terminated', variant: 'neutral' },
+};
+
+export function agreementRenewalStateOf(state: string): { label: string; variant: StatusVariant } {
+  return AGREEMENT_RENEWAL_STATE[state] ?? { label: state, variant: 'neutral' };
+}
+
+/** Integer US cents → display currency (money is integers everywhere else). */
+export function formatUsdCents(cents: number | null | undefined): string {
+  if (cents === null || cents === undefined) return '—';
+  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
 export function auditActionOf(action: string): string {
   return AUDIT_ACTION[action] ?? action;
 }
