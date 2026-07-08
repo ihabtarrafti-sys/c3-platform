@@ -23,9 +23,17 @@ import {
   approvalsListSchema,
   approvalEventsListSchema,
   auditEventsListSchema,
+  apparelIdParamSchema,
+  apparelListSchema,
+  apparelResponseSchema,
   credentialsListSchema,
+  equipmentCreateInputSchema,
+  equipmentUpdateInputSchema,
   errorResponseSchema,
   executeResponseSchema,
+  kitIdParamSchema,
+  kitListSchema,
+  kitResponseSchema,
   journeyResponseSchema,
   journeysListSchema,
   journeyTransitionParamSchema,
@@ -48,9 +56,14 @@ import { capabilityView } from '@c3web/authz';
 import {
   approveApproval,
   beginReview,
+  createApparel,
+  createKit,
+  deactivateApparel,
+  deactivateKit,
   executeApproval,
   getApproval,
   getPerson,
+  listApparel,
   listApprovalEvents,
   listApprovals,
   listAuditEvents,
@@ -58,6 +71,7 @@ import {
   listCredentialsForPerson,
   listJourneys,
   listJourneysForPerson,
+  listKit,
   listMembers,
   listPeople,
   rejectApproval,
@@ -67,6 +81,8 @@ import {
   submitInitiateJourney,
   submitMemberChange,
   transitionJourney,
+  updateApparel,
+  updateKit,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -74,7 +90,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toMemberDto, toPersonDto } from './dto';
+import { toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toKitDto, toMemberDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -449,6 +465,67 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { expectedVersion, reason } = req.body as { expectedVersion: number; reason?: string };
       const journey = await transitionJourney(P, actorOf(req), journeyId, action, expectedVersion, reason ?? null);
       return { journey: toJourneyDto(journey) };
+    },
+  );
+
+  // ── equipment (Sprint 38): direct-audited CRUD, versioned mutations ───────
+  r.get('/api/v1/kit', { schema: { response: { 200: kitListSchema } } }, async (req) => {
+    return { kit: (await listKit(P, actorOf(req))).map(toKitDto) };
+  });
+
+  r.post('/api/v1/kit', { schema: { body: equipmentCreateInputSchema, response: { 201: kitResponseSchema } } }, async (req, reply) => {
+    const kit = await createKit(P, actorOf(req), req.body as import('@c3web/domain').EquipmentCreateInput);
+    return reply.status(201).send({ kit: toKitDto(kit) });
+  });
+
+  r.post(
+    '/api/v1/kit/:kitId',
+    { schema: { params: kitIdParamSchema, body: equipmentUpdateInputSchema, response: { 200: kitResponseSchema } } },
+    async (req) => {
+      const { kitId } = req.params as { kitId: string };
+      const kit = await updateKit(P, actorOf(req), kitId, req.body as import('@c3web/domain').EquipmentUpdateInput);
+      return { kit: toKitDto(kit) };
+    },
+  );
+
+  r.post(
+    '/api/v1/kit/:kitId/deactivate',
+    { schema: { params: kitIdParamSchema, body: versionedRequestSchema, response: { 200: kitResponseSchema } } },
+    async (req) => {
+      const { kitId } = req.params as { kitId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const kit = await deactivateKit(P, actorOf(req), kitId, expectedVersion);
+      return { kit: toKitDto(kit) };
+    },
+  );
+
+  r.get('/api/v1/apparel', { schema: { response: { 200: apparelListSchema } } }, async (req) => {
+    return { apparel: (await listApparel(P, actorOf(req))).map(toApparelDto) };
+  });
+
+  r.post('/api/v1/apparel', { schema: { body: equipmentCreateInputSchema, response: { 201: apparelResponseSchema } } }, async (req, reply) => {
+    const apparel = await createApparel(P, actorOf(req), req.body as import('@c3web/domain').EquipmentCreateInput);
+    return reply.status(201).send({ apparel: toApparelDto(apparel) });
+  });
+
+  r.post(
+    '/api/v1/apparel/:apparelId',
+    { schema: { params: apparelIdParamSchema, body: equipmentUpdateInputSchema, response: { 200: apparelResponseSchema } } },
+    async (req) => {
+      const { apparelId } = req.params as { apparelId: string };
+      const apparel = await updateApparel(P, actorOf(req), apparelId, req.body as import('@c3web/domain').EquipmentUpdateInput);
+      return { apparel: toApparelDto(apparel) };
+    },
+  );
+
+  r.post(
+    '/api/v1/apparel/:apparelId/deactivate',
+    { schema: { params: apparelIdParamSchema, body: versionedRequestSchema, response: { 200: apparelResponseSchema } } },
+    async (req) => {
+      const { apparelId } = req.params as { apparelId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const apparel = await deactivateApparel(P, actorOf(req), apparelId, expectedVersion);
+      return { apparel: toApparelDto(apparel) };
     },
   );
 

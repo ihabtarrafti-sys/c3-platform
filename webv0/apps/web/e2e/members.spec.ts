@@ -13,9 +13,15 @@ import { test, expect, type Page } from '@playwright/test';
 
 async function login(page: Page, email: string, role: string): Promise<void> {
   await page.goto('/people');
+  // Deterministic sign-out: under load the page may still be rendering, so a
+  // one-shot isVisible() snapshot races. Wait briefly for an active session's
+  // logout control; fall through when already signed out.
   const logout = page.getByTestId('logout');
-  if (await logout.isVisible().catch(() => false)) {
+  try {
+    await logout.waitFor({ state: 'visible', timeout: 4000 });
     await logout.click();
+  } catch {
+    /* already signed out */
   }
   await page.getByTestId('login-email').fill(email);
   await page.getByTestId('login-role').click();

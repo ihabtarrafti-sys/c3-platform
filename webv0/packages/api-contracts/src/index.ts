@@ -19,6 +19,8 @@ import {
   changeRolePayloadSchema,
   deactivateCredentialInputSchema,
   deactivateMemberPayloadSchema,
+  equipmentCreateInputSchema,
+  equipmentUpdateInputSchema,
   initiateJourneyInputSchema,
   journeyTransitionRequestSchema,
   provisionMemberPayloadSchema,
@@ -190,6 +192,32 @@ export const journeyTransitionParamSchema = z.object({
   journeyId: z.string().regex(/^JRN-\d{4,}$/),
   action: z.enum(JOURNEY_TRANSITIONS),
 });
+
+// ── equipment (Sprint 38) ───────────────────────────────────────────────────
+const equipmentBaseSchema = {
+  name: z.string(),
+  category: z.string(),
+  size: z.string().nullable(),
+  assignedPersonId: z.string().nullable(),
+  notes: z.string().nullable(),
+  isActive: z.boolean(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+};
+export const kitSchema = z.object({ kitId: z.string(), ...equipmentBaseSchema });
+export type KitDto = z.infer<typeof kitSchema>;
+export const kitListSchema = z.object({ kit: z.array(kitSchema) });
+export const kitResponseSchema = z.object({ kit: kitSchema });
+export const apparelSchema = z.object({ apparelId: z.string(), ...equipmentBaseSchema });
+export type ApparelDto = z.infer<typeof apparelSchema>;
+export const apparelListSchema = z.object({ apparel: z.array(apparelSchema) });
+export const apparelResponseSchema = z.object({ apparel: apparelSchema });
+
+/** The domain schemas ARE the wire schemas — one validator, no drift. */
+export { equipmentCreateInputSchema, equipmentUpdateInputSchema };
+export const kitIdParamSchema = z.object({ kitId: z.string().regex(/^KIT-\d{4,}$/) });
+export const apparelIdParamSchema = z.object({ apparelId: z.string().regex(/^APL-\d{4,}$/) });
 
 // ── requests ────────────────────────────────────────────────────────────────
 export const submitAddPersonRequestSchema = z.object({
