@@ -5,7 +5,7 @@
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Actor, Agreement, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
-import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
+import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
@@ -221,6 +221,37 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Agreement | null> => {
             const rows = await db.select().from(schema.agreement).where(eq(schema.agreement.agreementId, agreementId)).limit(1);
             return rows[0] ? mapAgreement(rows[0]) : null;
+          }),
+
+        // Sprint 42: the person hub — memberships joined with the mission's
+        // identity; approvals scoped by the target person column.
+        listMissionMembershipsForPerson: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<PersonMissionMembership[]> => {
+            const res = await db.execute(sql`
+              SELECT mp.mission_id, m.name AS mission_name, m.is_active AS mission_is_active,
+                     mp.role, mp.is_active
+                FROM mission_participant mp
+                JOIN mission m ON m.tenant_id = mp.tenant_id AND m.mission_id = mp.mission_id
+               WHERE mp.person_id = ${personId}
+               ORDER BY mp.mission_id
+            `);
+            return (res.rows as Array<{ mission_id: string; mission_name: string; mission_is_active: boolean; role: string; is_active: boolean }>).map((r) => ({
+              missionId: r.mission_id,
+              missionName: r.mission_name,
+              missionIsActive: r.mission_is_active,
+              role: r.role,
+              isActive: r.is_active,
+            }));
+          }),
+
+        listApprovalsForPerson: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Approval[]> => {
+            const rows = await db
+              .select()
+              .from(schema.approval)
+              .where(eq(schema.approval.targetPersonId, personId))
+              .orderBy(desc(schema.approval.approvalId));
+            return rows.map(mapApproval);
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped

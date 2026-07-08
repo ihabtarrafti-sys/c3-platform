@@ -60,6 +60,9 @@ export interface ReadStore {
   listAgreements(): Promise<Agreement[]>;
   listAgreementsForPerson(personId: string): Promise<Agreement[]>;
   getAgreementById(agreementId: string): Promise<Agreement | null>;
+  // Sprint 42: the person hub's read side.
+  listMissionMembershipsForPerson(personId: string): Promise<PersonMissionMembership[]>;
+  listApprovalsForPerson(personId: string): Promise<Approval[]>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -167,6 +170,15 @@ export interface NewAgreementRow {
   readonly notes: string | null;
   /** The approval whose execution created this agreement (idempotency boundary). */
   readonly createdByApprovalId: string;
+}
+
+/** A person's mission membership, enriched with the mission's identity (Sprint 42). */
+export interface PersonMissionMembership {
+  readonly missionId: string;
+  readonly missionName: string;
+  readonly missionIsActive: boolean;
+  readonly role: string;
+  readonly isActive: boolean;
 }
 
 /** NON-MATERIAL patch for a direct agreement update (only provided keys change). */

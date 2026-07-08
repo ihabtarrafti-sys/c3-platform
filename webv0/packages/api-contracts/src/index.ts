@@ -320,6 +320,17 @@ export const submitTerminateAgreementRequestSchema = z.object({
 });
 export type SubmitTerminateAgreementRequest = z.infer<typeof submitTerminateAgreementRequestSchema>;
 
+// ── the person hub (Sprint 42) ──────────────────────────────────────────────
+export const personMissionMembershipSchema = z.object({
+  missionId: z.string(),
+  missionName: z.string(),
+  missionIsActive: z.boolean(),
+  role: z.string(),
+  isActive: z.boolean(),
+});
+export type PersonMissionMembershipDto = z.infer<typeof personMissionMembershipSchema>;
+export const personMissionsListSchema = z.object({ missions: z.array(personMissionMembershipSchema) });
+
 // ── requests ────────────────────────────────────────────────────────────────
 export const submitAddPersonRequestSchema = z.object({
   input: addPersonInputSchema,

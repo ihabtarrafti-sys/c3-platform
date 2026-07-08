@@ -21,7 +21,7 @@ import {
   NotFoundError,
 } from '@c3web/domain';
 import { assertReadAgreements, assertReadMembers, assertReadPeople, assertViewApprovals, canViewFinancials } from '@c3web/authz';
-import type { Persistence } from '../ports';
+import type { Persistence, PersonMissionMembership } from '../ports';
 
 export function listPeople(p: Persistence, actor: Actor): Promise<Person[]> {
   assertReadPeople(actor);
@@ -116,6 +116,22 @@ export async function getAgreement(p: Persistence, actor: Actor, agreementId: st
   const agreement = await p.reads.forActor(actor).getAgreementById(agreementId);
   if (!agreement) throw new NotFoundError('Agreement', agreementId);
   return toAgreementView(agreement, canViewFinancials(actor.role));
+}
+
+// ── Sprint 42: the person hub reads. ─────────────────────────────────────────
+export function listMissionMembershipsForPerson(
+  p: Persistence,
+  actor: Actor,
+  personId: string,
+): Promise<PersonMissionMembership[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listMissionMembershipsForPerson(personId);
+}
+
+/** Person-scoped approval history (approval-viewing roles only). */
+export function listApprovalsForPerson(p: Persistence, actor: Actor, personId: string): Promise<Approval[]> {
+  assertViewApprovals(actor);
+  return p.reads.forActor(actor).listApprovalsForPerson(personId);
 }
 
 // ── Sprint 36: credentials (people-adjacent operational reads — same gate). ──

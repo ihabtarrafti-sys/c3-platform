@@ -52,6 +52,7 @@ import {
   missionUpdateInputSchema,
   peopleListSchema,
   personIdParamSchema,
+  personMissionsListSchema,
   personResponseSchema,
   rejectRequestSchema,
   roleSchema,
@@ -93,8 +94,10 @@ import {
   listApprovalEvents,
   listApprovals,
   listAuditEvents,
+  listApprovalsForPerson,
   listCredentials,
   listCredentialsForPerson,
+  listMissionMembershipsForPerson,
   listJourneys,
   listJourneysForPerson,
   listKit,
@@ -654,6 +657,25 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const body = req.body as { input: import('@c3web/domain').RemoveMissionParticipantInput; reason?: string };
       const approval = await submitRemoveMissionParticipant(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
       return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  // ── the person hub (Sprint 42): person-scoped reads ────────────────────────
+  r.get(
+    '/api/v1/people/:personId/missions',
+    { schema: { params: personIdParamSchema, response: { 200: personMissionsListSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      return { missions: await listMissionMembershipsForPerson(P, actorOf(req), personId) };
+    },
+  );
+
+  r.get(
+    '/api/v1/people/:personId/approvals',
+    { schema: { params: personIdParamSchema, response: { 200: approvalsListSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      return { approvals: (await listApprovalsForPerson(P, actorOf(req), personId)).map(toApprovalDto) };
     },
   );
 

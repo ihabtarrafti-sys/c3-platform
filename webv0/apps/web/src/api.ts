@@ -26,6 +26,7 @@ import type {
   MissionDto,
   MissionParticipantDto,
   PersonDto,
+  PersonMissionMembershipDto,
   SubmitAddAgreementRequest,
   SubmitAddCredentialRequest,
   SubmitAddMissionParticipantRequest,
@@ -178,6 +179,10 @@ export function createApiClient(deps: ApiClientDeps) {
     getAgreement: (agreementId: string) => request<{ agreement: AgreementDto }>('GET', `/api/v1/agreements/${agreementId}`),
     agreementAudit: (agreementId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/agreements/${agreementId}/audit`),
     personAgreements: (personId: string) => request<{ agreements: AgreementDto[] }>('GET', `/api/v1/people/${personId}/agreements`),
+    // Sprint 42: the person hub.
+    personMissionMemberships: (personId: string) =>
+      request<{ missions: PersonMissionMembershipDto[] }>('GET', `/api/v1/people/${personId}/missions`),
+    personApprovals: (personId: string) => request<{ approvals: ApprovalDto[] }>('GET', `/api/v1/people/${personId}/approvals`),
     submitAddAgreement: (input: SubmitAddAgreementRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/requests', { input, ...(reason ? { reason } : {}) }),
     submitRenewAgreement: (input: SubmitRenewAgreementRequest['input'], reason?: string) =>

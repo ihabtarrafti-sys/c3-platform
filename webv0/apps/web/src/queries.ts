@@ -34,6 +34,13 @@ export const useJourneys = () =>
 export const usePersonJourneys = (personId: string) =>
   useQuery({ queryKey: ['personJourneys', personId], queryFn: () => api.personJourneys(personId) });
 
+export const usePersonAgreements = (personId: string, enabled = true) =>
+  useQuery({ queryKey: ['personAgreements', personId], queryFn: () => api.personAgreements(personId), enabled });
+export const usePersonMissionMemberships = (personId: string) =>
+  useQuery({ queryKey: ['personMissions', personId], queryFn: () => api.personMissionMemberships(personId) });
+export const usePersonApprovals = (personId: string, enabled = true) =>
+  useQuery({ queryKey: ['personApprovals', personId], queryFn: () => api.personApprovals(personId), enabled });
+
 export const useKit = () => useQuery({ queryKey: ['kit'], queryFn: () => api.listKit() });
 export const useApparel = () => useQuery({ queryKey: ['apparel'], queryFn: () => api.listApparel() });
 
