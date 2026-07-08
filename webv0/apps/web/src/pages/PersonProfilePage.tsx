@@ -18,6 +18,7 @@ import { DefinitionList } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { ErrorState, LoadingState } from '../components/states';
+import { PersonActions } from '../components/PersonActions';
 import { useRegisterStyles } from '../components/registerStyles';
 import { agreementRenewalStateOf, approvalStatusOf, auditActionOf, credentialStatusOf, formatUsdCents, journeyStatusOf, operationOf } from '../labels';
 
@@ -95,6 +96,7 @@ export function PersonProfilePage() {
               },
             ]}
           />
+          <PersonActions personId={data.person.personId} personName={data.person.fullName} />
           {(credentials.data?.credentials.length ?? 0) > 0 && (
             <div className={s.section}>
               <h2 className={s.h2}>Credentials</h2>

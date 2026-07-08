@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Field, Input, makeStyles } from '@fluentui/react-components';
+import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { agreementRenewalStateOn } from '@c3web/domain';
 import { useAgreement, useAgreementAudit, useAgreements } from '../queries';
 import { ApiError } from '../api';
@@ -54,7 +54,7 @@ export function AgreementDetailPage() {
 
   const [renewEndsOn, setRenewEndsOn] = useState('');
   const [terminateReason, setTerminateReason] = useState('');
-  const [edit, setEdit] = useState<{ code: string; type: string; notes: string } | null>(null);
+  const [edit, setEdit] = useState<{ code: string; type: string; notes: string; link: string; linkLabel: string } | null>(null);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['agreement', agreementId] });
@@ -90,7 +90,15 @@ export function AgreementDetailPage() {
   const today = localTodayIso();
   const badge = a ? agreementRenewalStateOf(agreementRenewalStateOn(a, today)) : null;
   const addendums = (siblings.data?.agreements ?? []).filter((x) => x.linkedAgreementId === agreementId);
-  const editState = edit ?? { code: a?.agreementCode ?? '', type: a?.agreementType ?? '', notes: a?.notes ?? '' };
+  const linkCandidates = (siblings.data?.agreements ?? []).filter((x) => x.agreementId !== agreementId);
+  const editState =
+    edit ?? {
+      code: a?.agreementCode ?? '',
+      type: a?.agreementType ?? '',
+      notes: a?.notes ?? '',
+      link: a?.linkedAgreementId ?? '',
+      linkLabel: a?.linkedAgreementId ?? '',
+    };
   const history: TimelineEntry[] = (audit.data?.events ?? []).map((e) => ({
     at: e.at,
     label: auditActionOf(e.action),
@@ -128,6 +136,26 @@ export function AgreementDetailPage() {
               <Field label="Notes">
                 <Input value={editState.notes} onChange={(_, d) => setEdit({ ...editState, notes: d.value })} />
               </Field>
+              <Field label="Linked to (parent agreement)">
+                <Dropdown
+                  placeholder="Not linked"
+                  value={editState.linkLabel}
+                  selectedOptions={editState.link ? [editState.link] : []}
+                  onOptionSelect={(_, d) =>
+                    setEdit({ ...editState, link: d.optionValue ?? '', linkLabel: d.optionValue ? (d.optionText ?? '') : '' })
+                  }
+                  data-testid={`edit-agreement-link-${a.agreementId}`}
+                >
+                  <Option value="" text="Not linked">
+                    Not linked
+                  </Option>
+                  {linkCandidates.map((x) => (
+                    <Option key={x.agreementId} value={x.agreementId} text={`${x.agreementId} — ${x.agreementType}`}>
+                      {`${x.agreementId} — ${x.agreementType}`}
+                    </Option>
+                  ))}
+                </Dropdown>
+              </Field>
             </div>
           }
           confirmLabel="Save changes"
@@ -140,6 +168,7 @@ export function AgreementDetailPage() {
                   agreementCode: editState.code.trim() === '' ? null : editState.code.trim(),
                   agreementType: editState.type.trim(),
                   notes: editState.notes.trim() === '' ? null : editState.notes.trim(),
+                  linkedAgreementId: editState.link === '' ? null : editState.link,
                 }),
               () => `${a.agreementId} updated and recorded.`,
             ).then(() => setEdit(null))
