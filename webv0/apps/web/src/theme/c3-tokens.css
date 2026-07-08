@@ -41,15 +41,46 @@
   --c3-e1: 0 1px 2px rgba(0, 0, 0, 0.08);
   --c3-e2: 0 8px 24px rgba(0, 0, 0, 0.16);
 
+  /* motion (A.8) — purposeful, fast, reduced-motion-safe */
+  --c3-dur-state: 120ms;
+  --c3-dur-enter: 180ms;
+  --c3-dur-drawer: 240ms;
+  --c3-ease: cubic-bezier(0.2, 0, 0, 1);
+
   /* shell geometry */
   --c3-content-max: 1200px;
   --c3-rail-w: 248px;
   --c3-identitybar-h: 56px;
 
-  /* application type — IBM Plex when present, graceful system fallback until the
-     woff2 files are self-hosted (tracked follow-up; never load an external CDN) */
+  /* application type (A.4) — IBM Plex, SELF-HOSTED via fonts.css (S45);
+     the system stack is a fallback for the swap window only */
   --c3-font-base: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --c3-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+/* A.8: enter choreography for surfaces that announce themselves (notices).
+   Fade + settle, 180ms; collapses to instant under reduced motion below. */
+@keyframes c3-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* A.8: reduced motion is a contract — every transition/animation collapses,
+   states change instantly, nothing loses meaning. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
 
 html,
@@ -63,5 +94,7 @@ body {
   background-color: var(--c3-paper-white);
   color: var(--c3-command-black);
   font-family: var(--c3-font-base);
+  font-size: 14px; /* A.4 Body 14/22 */
+  line-height: 22px;
   -webkit-font-smoothing: antialiased;
 }

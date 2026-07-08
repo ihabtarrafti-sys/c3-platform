@@ -1,0 +1,35 @@
+/*
+ * Application type (A.4) — IBM Plex Sans/Mono, SELF-HOSTED.
+ * Files vendored from the official IBM npm packages (@ibm/plex-sans 1.1.0,
+ * @ibm/plex-mono 2.5.0), SIL Open Font License 1.1 (fonts/OFL-LICENSE.txt).
+ * Never load fonts from an external CDN — the bundle must be self-contained.
+ * Weights match the A.4 hierarchy: 400 body, 500 eyebrow, 600 headings/strong.
+ */
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('./fonts/IBMPlexSans-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('./fonts/IBMPlexSans-Medium.woff2') format('woff2');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Sans';
+  src: url('./fonts/IBMPlexSans-SemiBold.woff2') format('woff2');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'IBM Plex Mono';
+  src: url('./fonts/IBMPlexMono-Regular.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}

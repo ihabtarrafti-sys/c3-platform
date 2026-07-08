@@ -6,6 +6,7 @@ import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 import { NotificationProvider, SessionProvider } from './session';
 import { c3LightTheme } from './theme/c3Theme';
+import './theme/fonts.css';
 import './theme/c3-tokens.css';
 
 // Build marker (real runtime statement so it survives minification and changes

@@ -24,7 +24,12 @@ export const useRegisterStyles = makeStyles({
     color: 'var(--c3-ink-70)',
     verticalAlign: 'middle',
   },
-  row: { ':hover': { backgroundColor: 'rgba(13,13,13,0.02)' } },
+  row: {
+    transitionProperty: 'background-color',
+    transitionDuration: 'var(--c3-dur-state)',
+    transitionTimingFunction: 'var(--c3-ease)',
+    ':hover': { backgroundColor: 'rgba(13,13,13,0.02)' },
+  },
   idLink: {
     fontFamily: 'var(--c3-font-mono)',
     fontSize: '13px',

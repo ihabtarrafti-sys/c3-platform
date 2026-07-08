@@ -13,7 +13,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { FormPanel } from '../components/FormPanel';
+import { FormDrawer } from '../components/FormDrawer';
 import { journeyStatusOf } from '../labels';
 
 /**
@@ -106,8 +106,8 @@ export function JourneysPage() {
   const ready = personId !== '' && journeyType.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(startedOn);
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="initiate-journey-toggle">
-      {showForm ? 'Cancel' : 'Initiate Journey'}
+    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="initiate-journey-toggle">
+      Initiate Journey
     </Button>
   ) : undefined;
 
@@ -115,8 +115,10 @@ export function JourneysPage() {
     <div>
       <PageHeader title="Journeys" context={data ? `${data.journeys.length} in this view` : undefined} actions={addAction} />
 
-      {canSubmit && showForm && (
-        <FormPanel
+      {canSubmit && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
           eyebrow="Initiate journey"
           mode="governed"
           intro="New journeys go through approval — an owner must review and execute before the journey begins."
@@ -162,7 +164,7 @@ export function JourneysPage() {
           <Field label="Starts on" required>
             <Input type="date" value={startedOn} onChange={(_, d) => setStartedOn(d.value)} data-testid="initiate-journey-started" />
           </Field>
-        </FormPanel>
+        </FormDrawer>
       )}
 
       {isLoading && <LoadingState label="Loading journeys…" />}

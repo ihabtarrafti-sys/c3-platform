@@ -123,6 +123,9 @@ const useStyles = makeStyles({
     fontWeight: 400,
     borderLeft: '3px solid transparent',
     cursor: 'pointer',
+    transitionProperty: 'background-color, color',
+    transitionDuration: 'var(--c3-dur-state)',
+    transitionTimingFunction: 'var(--c3-ease)',
     ':hover': { backgroundColor: 'rgba(13,13,13,0.035)' },
   },
   navItemActive: {
@@ -145,6 +148,9 @@ const useStyles = makeStyles({
     '@media (max-width: 899px)': { padding: '16px' },
   },
   notices: { display: 'flex', flexDirection: 'column', rowGap: '8px', marginBottom: '16px' },
+  // A.8: NotificationRegion fade-in — each notice announces itself in 180ms
+  // (collapses to instant under prefers-reduced-motion via the global rule).
+  notice: { animationName: 'c3-enter', animationDuration: 'var(--c3-dur-enter)', animationTimingFunction: 'var(--c3-ease)' },
   center: { display: 'flex', justifyContent: 'center', padding: '48px' },
   scrim: {
     display: 'none',
@@ -404,7 +410,7 @@ export function AppShell() {
             {notices.length > 0 && (
               <div className={s.notices} aria-live="polite" data-testid="notifications">
                 {notices.map((n) => (
-                  <MessageBar key={n.id} intent={n.intent}>
+                  <MessageBar key={n.id} intent={n.intent} className={s.notice}>
                     <MessageBarBody>{n.message}</MessageBarBody>
                     <Button size="small" appearance="transparent" onClick={() => dismiss(n.id)}>
                       Dismiss

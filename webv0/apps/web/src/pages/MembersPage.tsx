@@ -12,7 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { FormPanel } from '../components/FormPanel';
+import { FormDrawer } from '../components/FormDrawer';
 
 /**
  * Members (Sprint 35 tenant-admin) — the organization's access register.
@@ -108,8 +108,8 @@ export function MembersPage() {
     email.trim() !== '' && displayName.trim() !== '' && (!IS_ENTRA || (oid.trim() !== '' && issuerTid.trim() !== ''));
 
   const addAction = canChange ? (
-    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="provision-member-toggle">
-      {showForm ? 'Cancel' : 'Provision Member'}
+    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="provision-member-toggle">
+      Provision Member
     </Button>
   ) : undefined;
 
@@ -117,8 +117,10 @@ export function MembersPage() {
     <div>
       <PageHeader title="Members" context={data ? `${data.members.length} in this organization` : undefined} actions={addAction} />
 
-      {canChange && showForm && (
-        <FormPanel
+      {canChange && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
           eyebrow="Provision member"
           mode="governed"
           intro="Member changes go through approval — an owner must review and execute before access changes."
@@ -153,7 +155,7 @@ export function MembersPage() {
               </Field>
             </>
           )}
-        </FormPanel>
+        </FormDrawer>
       )}
 
       {isLoading && <LoadingState label="Loading members…" />}

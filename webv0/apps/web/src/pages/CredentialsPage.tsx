@@ -12,7 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { FormPanel } from '../components/FormPanel';
+import { FormDrawer } from '../components/FormDrawer';
 import { credentialStatusOf } from '../labels';
 
 /**
@@ -91,8 +91,8 @@ export function CredentialsPage() {
   const ready = personId !== '' && credentialType.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(issuedOn);
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="add-credential-toggle">
-      {showForm ? 'Cancel' : 'Add Credential'}
+    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-credential-toggle">
+      Add Credential
     </Button>
   ) : undefined;
 
@@ -100,8 +100,10 @@ export function CredentialsPage() {
     <div>
       <PageHeader title="Credentials" context={data ? `${data.credentials.length} in this view` : undefined} actions={addAction} />
 
-      {canSubmit && showForm && (
-        <FormPanel
+      {canSubmit && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
           eyebrow="Add credential"
           mode="governed"
           intro="New credential requests go through approval — an owner must review and execute before the credential exists."
@@ -150,7 +152,7 @@ export function CredentialsPage() {
           <Field label="Expires on" hint="Leave empty for a non-expiring credential.">
             <Input type="date" value={expiresOn} onChange={(_, d) => setExpiresOn(d.value)} data-testid="add-credential-expires" />
           </Field>
-        </FormPanel>
+        </FormDrawer>
       )}
 
       {isLoading && <LoadingState label="Loading credentials…" />}

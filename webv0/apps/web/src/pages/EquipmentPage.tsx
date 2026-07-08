@@ -12,7 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { FormPanel } from '../components/FormPanel';
+import { FormDrawer } from '../components/FormDrawer';
 
 /**
  * EquipmentPage (Sprint 38) — the shared register component behind Kit and
@@ -147,8 +147,8 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
   }
 
   const addAction = canManage ? (
-    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid={`add-${config.testPrefix}-toggle`}>
-      {showForm ? 'Cancel' : `Add ${config.title} Item`}
+    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid={`add-${config.testPrefix}-toggle`}>
+      {`Add ${config.title} Item`}
     </Button>
   ) : undefined;
 
@@ -156,8 +156,10 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
     <div>
       <PageHeader title={config.title} context={data ? `${data.rows.length} in this view` : undefined} actions={addAction} />
 
-      {canManage && showForm && (
-        <FormPanel
+      {canManage && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
           eyebrow={`Add ${config.title.toLowerCase()} item`}
           mode="direct"
           intro={`New ${config.itemNoun}s are created immediately and recorded in the audit history.`}
@@ -194,7 +196,7 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
               people={people.data?.people ?? []}
             />
           </Field>
-        </FormPanel>
+        </FormDrawer>
       )}
 
       {isLoading && <LoadingState label={`Loading ${config.title.toLowerCase()}…`} />}

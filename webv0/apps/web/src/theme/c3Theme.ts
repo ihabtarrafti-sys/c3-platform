@@ -22,9 +22,20 @@ const PURE_BLACK = '#000000';
 export const c3LightTheme: Theme = {
   ...webLightTheme,
 
-  // application typography (IBM Plex; c3-tokens.css defines the fallback stack)
+  // application typography (IBM Plex, self-hosted via fonts.css since S45;
+  // c3-tokens.css defines the fallback stack for the swap window)
   fontFamilyBase: '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   fontFamilyMonospace: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
+
+  // motion (A.8): 120ms state / 180ms enter-exit / 240ms drawer, one easing.
+  // Mapped onto Fluent's motion slots so Drawer slide, Dialog fade, and hover
+  // states all move on the foundation's clock without per-component overrides.
+  durationFast: '120ms',
+  durationNormal: '180ms',
+  durationGentle: '240ms',
+  curveEasyEase: 'cubic-bezier(0.2, 0, 0, 1)',
+  curveDecelerateMid: 'cubic-bezier(0.2, 0, 0, 1)',
+  curveAccelerateMid: 'cubic-bezier(0.2, 0, 0, 1)',
 
   // brand background (primary Button, selected surfaces)
   colorBrandBackground: COMMAND_BLACK,

@@ -11,7 +11,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { FormPanel } from '../components/FormPanel';
+import { FormDrawer } from '../components/FormDrawer';
 
 export function PeoplePage() {
   const r = useRegisterStyles();
@@ -45,8 +45,8 @@ export function PeoplePage() {
   }
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="add-person-toggle">
-      {showForm ? 'Cancel' : 'Add Person'}
+    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-person-toggle">
+      Add Person
     </Button>
   ) : undefined;
 
@@ -58,8 +58,10 @@ export function PeoplePage() {
         actions={addAction}
       />
 
-      {canSubmit && showForm && (
-        <FormPanel
+      {canSubmit && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
           eyebrow="Add person"
           mode="governed"
           intro="New person requests go through approval — an owner must review and execute before the person exists."
@@ -84,7 +86,7 @@ export function PeoplePage() {
           <Field label="Team">
             <Input value={team} onChange={(_, d) => setTeam(d.value)} data-testid="add-person-team" />
           </Field>
-        </FormPanel>
+        </FormDrawer>
       )}
 
       {isLoading && <LoadingState label="Loading people…" />}

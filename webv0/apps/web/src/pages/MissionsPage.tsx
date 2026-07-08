@@ -11,7 +11,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { FormPanel } from '../components/FormPanel';
+import { FormDrawer } from '../components/FormDrawer';
 
 /**
  * Missions (Sprint 39) — the register. The mission SHELL is direct-audited
@@ -57,8 +57,8 @@ export function MissionsPage() {
   const ready = name.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(startsOn) && (endsOn === '' || endsOn >= startsOn);
 
   const addAction = canManage ? (
-    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="add-mission-toggle">
-      {showForm ? 'Cancel' : 'Add Mission'}
+    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-mission-toggle">
+      Add Mission
     </Button>
   ) : undefined;
 
@@ -66,8 +66,10 @@ export function MissionsPage() {
     <div>
       <PageHeader title="Missions" context={data ? `${data.missions.length} in this view` : undefined} actions={addAction} />
 
-      {canManage && showForm && (
-        <FormPanel
+      {canManage && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
           eyebrow="New mission"
           mode="direct"
           intro="New missions are created immediately and recorded in the audit history."
@@ -95,7 +97,7 @@ export function MissionsPage() {
           <Field label="Ends on">
             <Input type="date" value={endsOn} onChange={(_, d) => setEndsOn(d.value)} data-testid="add-mission-ends" />
           </Field>
-        </FormPanel>
+        </FormDrawer>
       )}
 
       {isLoading && <LoadingState label="Loading missions…" />}

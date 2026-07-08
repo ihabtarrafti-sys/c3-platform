@@ -12,7 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { FormPanel } from '../components/FormPanel';
+import { FormDrawer } from '../components/FormDrawer';
 import { agreementRenewalStateOf, formatUsdCents } from '../labels';
 
 /**
@@ -112,8 +112,8 @@ export function AgreementsPage() {
     (valueUsd.trim() === '' || !Number.isNaN(Number(valueUsd)));
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm((v) => !v)} data-testid="add-agreement-toggle">
-      {showForm ? 'Cancel' : 'Add Agreement'}
+    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-agreement-toggle">
+      Add Agreement
     </Button>
   ) : undefined;
 
@@ -121,8 +121,10 @@ export function AgreementsPage() {
     <div>
       <PageHeader title="Agreements" context={data ? `${rows.length} in this view` : undefined} actions={addAction} />
 
-      {canSubmit && showForm && (
-        <FormPanel
+      {canSubmit && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
           eyebrow="New agreement"
           mode="governed"
           intro="New agreements go through approval — an owner must review and execute before the agreement exists."
@@ -198,7 +200,7 @@ export function AgreementsPage() {
               <Input type="number" value={valueUsd} onChange={(_, d) => setValueUsd(d.value)} data-testid="add-agreement-value" />
             </Field>
           )}
-        </FormPanel>
+        </FormDrawer>
       )}
 
       <div className={s.filters} role="group" aria-label="Renewal window filter">
