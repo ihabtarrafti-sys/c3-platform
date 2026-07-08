@@ -40,16 +40,24 @@ import {
   journeyTransitionRequestSchema,
   membersListSchema,
   meResponseSchema,
+  missionCreateInputSchema,
+  missionIdParamSchema,
+  missionParticipantsListSchema,
+  missionResponseSchema,
+  missionsListSchema,
+  missionUpdateInputSchema,
   peopleListSchema,
   personIdParamSchema,
   personResponseSchema,
   rejectRequestSchema,
   roleSchema,
   submitAddCredentialRequestSchema,
+  submitAddMissionParticipantRequestSchema,
   submitAddPersonRequestSchema,
   submitDeactivateCredentialRequestSchema,
   submitInitiateJourneyRequestSchema,
   submitMemberChangeRequestSchema,
+  submitRemoveMissionParticipantRequestSchema,
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 import { capabilityView } from '@c3web/authz';
@@ -58,10 +66,13 @@ import {
   beginReview,
   createApparel,
   createKit,
+  createMission,
   deactivateApparel,
   deactivateKit,
+  deactivateMission,
   executeApproval,
   getApproval,
+  getMission,
   getPerson,
   listApparel,
   listApprovalEvents,
@@ -73,16 +84,21 @@ import {
   listJourneysForPerson,
   listKit,
   listMembers,
+  listMissionParticipants,
+  listMissions,
   listPeople,
   rejectApproval,
   submitAddCredential,
+  submitAddMissionParticipant,
   submitAddPerson,
   submitDeactivateCredential,
   submitInitiateJourney,
   submitMemberChange,
+  submitRemoveMissionParticipant,
   transitionJourney,
   updateApparel,
   updateKit,
+  updateMission,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -90,7 +106,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toKitDto, toMemberDto, toPersonDto } from './dto';
+import { toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -373,6 +389,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         person: res.person ? toPersonDto(res.person) : null,
         credential: res.credential ? toCredentialDto(res.credential) : null,
         journey: res.journey ? toJourneyDto(res.journey) : null,
+        participant: res.participant ? toMissionParticipantDto(res.participant) : null,
         idempotent: res.idempotent,
       };
     }),
@@ -526,6 +543,79 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { expectedVersion } = req.body as { expectedVersion: number };
       const apparel = await deactivateApparel(P, actorOf(req), apparelId, expectedVersion);
       return { apparel: toApparelDto(apparel) };
+    },
+  );
+
+  // ── missions (Sprint 39): direct-audited shell + governed participants ────
+  r.get('/api/v1/missions', { schema: { response: { 200: missionsListSchema } } }, async (req) => {
+    return { missions: (await listMissions(P, actorOf(req))).map(toMissionDto) };
+  });
+
+  r.get(
+    '/api/v1/missions/:missionId',
+    { schema: { params: missionIdParamSchema, response: { 200: missionResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      return { mission: toMissionDto(await getMission(P, actorOf(req), missionId)) };
+    },
+  );
+
+  r.get(
+    '/api/v1/missions/:missionId/participants',
+    { schema: { params: missionIdParamSchema, response: { 200: missionParticipantsListSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const participants = await listMissionParticipants(P, actorOf(req), missionId);
+      return { participants: participants.map(toMissionParticipantDto) };
+    },
+  );
+
+  r.post('/api/v1/missions', { schema: { body: missionCreateInputSchema, response: { 201: missionResponseSchema } } }, async (req, reply) => {
+    const mission = await createMission(P, actorOf(req), req.body as import('@c3web/domain').MissionCreateInput);
+    return reply.status(201).send({ mission: toMissionDto(mission) });
+  });
+
+  r.post(
+    '/api/v1/missions/:missionId',
+    { schema: { params: missionIdParamSchema, body: missionUpdateInputSchema, response: { 200: missionResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const mission = await updateMission(P, actorOf(req), missionId, req.body as import('@c3web/domain').MissionUpdateInput);
+      return { mission: toMissionDto(mission) };
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/deactivate',
+    { schema: { params: missionIdParamSchema, body: versionedRequestSchema, response: { 200: missionResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const mission = await deactivateMission(P, actorOf(req), missionId, expectedVersion);
+      return { mission: toMissionDto(mission) };
+    },
+  );
+
+  // Participant membership is governed: submission creates an approval that
+  // flows through the standard review/approve/execute routes. The duplicate
+  // guards refuse at submit here AND authoritatively at execution.
+  r.post(
+    '/api/v1/missions/participants/requests',
+    { schema: { body: submitAddMissionParticipantRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').AddMissionParticipantInput; reason?: string };
+      const approval = await submitAddMissionParticipant(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/participants/removals',
+    { schema: { body: submitRemoveMissionParticipantRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').RemoveMissionParticipantInput; reason?: string };
+      const approval = await submitRemoveMissionParticipant(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
     },
   );
 

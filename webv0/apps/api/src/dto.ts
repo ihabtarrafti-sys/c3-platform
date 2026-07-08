@@ -2,8 +2,8 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Journey, Kit, Member, Person } from '@c3web/domain';
-import type { ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, PersonDto } from '@c3web/api-contracts';
+import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -51,6 +51,34 @@ export function toCredentialDto(c: Credential): CredentialDto {
     version: c.version,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+  };
+}
+
+/** Mission → wire (plain ISO dates pass through untouched). */
+export function toMissionDto(m: Mission): MissionDto {
+  return {
+    missionId: m.missionId,
+    name: m.name,
+    gameTitle: m.gameTitle,
+    startsOn: m.startsOn,
+    endsOn: m.endsOn,
+    notes: m.notes,
+    isActive: m.isActive,
+    version: m.version,
+    createdAt: m.createdAt,
+    updatedAt: m.updatedAt,
+  };
+}
+
+export function toMissionParticipantDto(mp: MissionParticipant): MissionParticipantDto {
+  return {
+    missionId: mp.missionId,
+    personId: mp.personId,
+    personName: mp.personName,
+    role: mp.role,
+    isActive: mp.isActive,
+    createdAt: mp.createdAt,
+    updatedAt: mp.updatedAt,
   };
 }
 

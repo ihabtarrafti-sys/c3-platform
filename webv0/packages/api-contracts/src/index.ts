@@ -14,6 +14,7 @@ import {
   JOURNEY_TRANSITIONS,
   OPERATION_TYPES,
   addCredentialInputSchema,
+  addMissionParticipantInputSchema,
   addPersonInputSchema,
   approvalPayloadSchema,
   changeRolePayloadSchema,
@@ -23,8 +24,11 @@ import {
   equipmentUpdateInputSchema,
   initiateJourneyInputSchema,
   journeyTransitionRequestSchema,
+  missionCreateInputSchema,
+  missionUpdateInputSchema,
   provisionMemberPayloadSchema,
   reactivateMemberPayloadSchema,
+  removeMissionParticipantInputSchema,
 } from '@c3web/domain';
 
 export const approvalStatusSchema = z.enum(APPROVAL_STATUSES);
@@ -219,6 +223,51 @@ export { equipmentCreateInputSchema, equipmentUpdateInputSchema };
 export const kitIdParamSchema = z.object({ kitId: z.string().regex(/^KIT-\d{4,}$/) });
 export const apparelIdParamSchema = z.object({ apparelId: z.string().regex(/^APL-\d{4,}$/) });
 
+// ── missions (Sprint 39) ────────────────────────────────────────────────────
+export const missionSchema = z.object({
+  missionId: z.string(),
+  name: z.string(),
+  gameTitle: z.string().nullable(),
+  startsOn: z.string(), // plain ISO date, YYYY-MM-DD
+  endsOn: z.string().nullable(),
+  notes: z.string().nullable(),
+  isActive: z.boolean(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type MissionDto = z.infer<typeof missionSchema>;
+export const missionsListSchema = z.object({ missions: z.array(missionSchema) });
+export const missionResponseSchema = z.object({ mission: missionSchema });
+
+export const missionParticipantSchema = z.object({
+  missionId: z.string(),
+  personId: z.string(),
+  personName: z.string(),
+  role: z.string(),
+  isActive: z.boolean(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type MissionParticipantDto = z.infer<typeof missionParticipantSchema>;
+export const missionParticipantsListSchema = z.object({ participants: z.array(missionParticipantSchema) });
+
+/** The domain schemas ARE the wire schemas — one validator, no drift. */
+export { missionCreateInputSchema, missionUpdateInputSchema };
+export const missionIdParamSchema = z.object({ missionId: z.string().regex(/^MSN-\d{4,}$/) });
+
+export const submitAddMissionParticipantRequestSchema = z.object({
+  input: addMissionParticipantInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitAddMissionParticipantRequest = z.infer<typeof submitAddMissionParticipantRequestSchema>;
+
+export const submitRemoveMissionParticipantRequestSchema = z.object({
+  input: removeMissionParticipantInputSchema,
+  reason: z.string().max(500).optional(),
+});
+export type SubmitRemoveMissionParticipantRequest = z.infer<typeof submitRemoveMissionParticipantRequestSchema>;
+
 // ── requests ────────────────────────────────────────────────────────────────
 export const submitAddPersonRequestSchema = z.object({
   input: addPersonInputSchema,
@@ -244,6 +293,7 @@ export const executeResponseSchema = z.object({
   person: personSchema.nullable(),
   credential: credentialSchema.nullable(),
   journey: journeySchema.nullable(),
+  participant: missionParticipantSchema.nullable(),
   idempotent: z.boolean(),
 });
 
