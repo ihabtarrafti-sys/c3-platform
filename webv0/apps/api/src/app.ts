@@ -669,6 +669,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       todayIso: view.todayIso,
       checks: [...view.checks],
       signals: view.signals.map((s) => ({ ...s, reasons: [...s.reasons], actions: s.actions.map((a) => ({ ...a })) })),
+      counts: { ...view.counts },
     };
   });
 

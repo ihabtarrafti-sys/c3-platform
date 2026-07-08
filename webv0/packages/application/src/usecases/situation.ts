@@ -9,15 +9,25 @@
  * see every record and pending fix the signals reason about, so "no renewal
  * request is pending" is always a claim the viewer could verify themselves.
  */
-import { composeSituation, SITUATION_CHECKS, type Actor, type Signal } from '@c3web/domain';
+import { composeSituation, PENDING_STATUSES, SITUATION_CHECKS, type Actor, type Signal } from '@c3web/domain';
 import { assertReadAgreements, assertViewApprovals } from '@c3web/authz';
 import type { Persistence } from '../ports';
+
+export interface SituationCounts {
+  readonly activeMissions: number;
+  readonly rosteredPlayers: number;
+  readonly credentialsTracked: number;
+  readonly liveAgreements: number;
+  readonly openApprovals: number;
+}
 
 export interface SituationView {
   readonly todayIso: string;
   readonly signals: Signal[];
   /** What was checked — rendered with the all-clear so silence ≠ blindness. */
   readonly checks: readonly string[];
+  /** S46 stat ribbon — derived from the SAME one-pass read as the signals. */
+  readonly counts: SituationCounts;
 }
 
 function utcTodayIso(): string {
@@ -85,5 +95,16 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
     })),
   });
 
-  return { todayIso, signals, checks: SITUATION_CHECKS };
+  const activeMissionIds = new Set(missions.filter((m) => m.isActive).map((m) => m.missionId));
+  const counts: SituationCounts = {
+    activeMissions: activeMissionIds.size,
+    rosteredPlayers: new Set(
+      participants.filter((pt) => pt.isActive && activeMissionIds.has(pt.missionId)).map((pt) => pt.personId),
+    ).size,
+    credentialsTracked: credentials.filter((c) => c.isActive).length,
+    liveAgreements: agreements.filter((a) => a.status === 'Active').length,
+    openApprovals: approvals.filter((a) => (PENDING_STATUSES as readonly string[]).includes(a.status)).length,
+  };
+
+  return { todayIso, signals, checks: SITUATION_CHECKS, counts };
 }

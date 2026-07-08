@@ -98,7 +98,7 @@ export function CredentialsPage() {
 
   return (
     <div>
-      <PageHeader title="Credentials" context={data ? `${data.credentials.length} in this view` : undefined} actions={addAction} />
+      <PageHeader kicker="Register" title="Credentials" context={data ? `${data.credentials.length} in this view` : undefined} actions={addAction} />
 
       {canSubmit && (
         <FormDrawer

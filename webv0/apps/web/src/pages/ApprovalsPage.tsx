@@ -31,7 +31,7 @@ export function ApprovalsPage() {
 
   return (
     <div>
-      <PageHeader title="Approvals" context={data ? `${data.approvals.length} in this view` : undefined} />
+      <PageHeader kicker="Register" title="Approvals" context={data ? `${data.approvals.length} in this view` : undefined} />
 
       {isLoading && <LoadingState label="Loading approvals…" />}
       {isError && (

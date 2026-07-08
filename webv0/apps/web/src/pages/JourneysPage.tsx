@@ -113,7 +113,7 @@ export function JourneysPage() {
 
   return (
     <div>
-      <PageHeader title="Journeys" context={data ? `${data.journeys.length} in this view` : undefined} actions={addAction} />
+      <PageHeader kicker="Register" title="Journeys" context={data ? `${data.journeys.length} in this view` : undefined} actions={addAction} />
 
       {canSubmit && (
         <FormDrawer

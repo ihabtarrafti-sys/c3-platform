@@ -41,11 +41,15 @@
   --c3-e1: 0 1px 2px rgba(0, 0, 0, 0.08);
   --c3-e2: 0 8px 24px rgba(0, 0, 0, 0.16);
 
-  /* motion (A.8) — purposeful, fast, reduced-motion-safe */
-  --c3-dur-state: 120ms;
-  --c3-dur-enter: 180ms;
-  --c3-dur-drawer: 240ms;
-  --c3-ease: cubic-bezier(0.2, 0, 0, 1);
+  /* motion v2 (S46, owner-approved A.8 amendment) — one easing carries the
+     system: the "C3 ease". Sweep/pulse are Situation Room ONLY. */
+  --c3-dur-state: 130ms;
+  --c3-dur-enter: 200ms;
+  --c3-dur-drawer: 280ms;
+  --c3-dur-rise: 480ms;
+  --c3-dur-sweep: 2600ms;
+  --c3-dur-pulse: 2400ms;
+  --c3-ease: cubic-bezier(0.22, 1, 0.36, 1);
 
   /* shell geometry */
   --c3-content-max: 1200px;
@@ -58,8 +62,8 @@
   --c3-font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
 }
 
-/* A.8: enter choreography for surfaces that announce themselves (notices).
-   Fade + settle, 180ms; collapses to instant under reduced motion below. */
+/* Enter choreography for surfaces that announce themselves (notices).
+   Fade + settle; collapses to instant under reduced motion below. */
 @keyframes c3-enter {
   from {
     opacity: 0;
@@ -68,6 +72,39 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* S46 approved relaxation #6 — Situation Room ONLY. Card entrance (staggered
+   rise), the once-on-load scan sweep, and the single attention pulse. All
+   collapse under the reduced-motion rule below. */
+@keyframes c3-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes c3-sweep {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(420%);
+  }
+}
+@keyframes c3-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.72);
   }
 }
 

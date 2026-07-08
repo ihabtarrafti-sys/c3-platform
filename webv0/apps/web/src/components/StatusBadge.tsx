@@ -6,7 +6,7 @@ import { makeStyles } from '@fluentui/react-components';
  * NEVER the sole signal: the label is always present. Static, never a button.
  * Approval statuses/outcomes are mapped to human labels by the caller (D.4).
  */
-export type StatusVariant = 'ready' | 'pending' | 'blocked' | 'neutral' | 'info';
+export type StatusVariant = 'ready' | 'pending' | 'blocked' | 'neutral' | 'info' | 'signal';
 
 const COLOR: Record<StatusVariant, string> = {
   ready: 'var(--c3-status-ready)',
@@ -14,6 +14,9 @@ const COLOR: Record<StatusVariant, string> = {
   blocked: 'var(--c3-status-blocked)',
   neutral: 'var(--c3-status-neutral)',
   info: 'var(--c3-status-info)',
+  // S46 (approved relaxation #4): Signal Red as TEXT for the one state that
+  // demands the eye — agreement "Expired". Never on governed flows.
+  signal: 'var(--c3-signal-red)',
 };
 
 const useStyles = makeStyles({

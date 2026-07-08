@@ -27,15 +27,16 @@ export const c3LightTheme: Theme = {
   fontFamilyBase: '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   fontFamilyMonospace: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
 
-  // motion (A.8): 120ms state / 180ms enter-exit / 240ms drawer, one easing.
-  // Mapped onto Fluent's motion slots so Drawer slide, Dialog fade, and hover
-  // states all move on the foundation's clock without per-component overrides.
-  durationFast: '120ms',
-  durationNormal: '180ms',
-  durationGentle: '240ms',
-  curveEasyEase: 'cubic-bezier(0.2, 0, 0, 1)',
-  curveDecelerateMid: 'cubic-bezier(0.2, 0, 0, 1)',
-  curveAccelerateMid: 'cubic-bezier(0.2, 0, 0, 1)',
+  // motion v2 (S46, owner-approved A.8 amendment): 130ms state / 200ms
+  // enter-exit / 280ms drawer, one "C3 ease". Mapped onto Fluent's motion
+  // slots so Drawer slide, Dialog fade, and hover states all move on the
+  // same clock without per-component overrides.
+  durationFast: '130ms',
+  durationNormal: '200ms',
+  durationGentle: '280ms',
+  curveEasyEase: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  curveDecelerateMid: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  curveAccelerateMid: 'cubic-bezier(0.22, 1, 0.36, 1)',
 
   // brand background (primary Button, selected surfaces)
   colorBrandBackground: COMMAND_BLACK,

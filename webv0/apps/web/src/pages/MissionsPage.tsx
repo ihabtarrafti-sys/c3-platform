@@ -64,7 +64,7 @@ export function MissionsPage() {
 
   return (
     <div>
-      <PageHeader title="Missions" context={data ? `${data.missions.length} in this view` : undefined} actions={addAction} />
+      <PageHeader kicker="Register" title="Missions" context={data ? `${data.missions.length} in this view` : undefined} actions={addAction} />
 
       {canManage && (
         <FormDrawer

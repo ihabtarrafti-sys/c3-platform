@@ -353,10 +353,20 @@ export const signalSchema = z.object({
   actions: z.array(suggestedActionSchema),
 });
 export type SignalDto = z.infer<typeof signalSchema>;
+export const situationCountsSchema = z.object({
+  activeMissions: z.number().int(),
+  rosteredPlayers: z.number().int(),
+  credentialsTracked: z.number().int(),
+  liveAgreements: z.number().int(),
+  openApprovals: z.number().int(),
+});
+export type SituationCountsDto = z.infer<typeof situationCountsSchema>;
 export const situationResponseSchema = z.object({
   todayIso: z.string(),
   signals: z.array(signalSchema),
   checks: z.array(z.string()),
+  /** S46 stat ribbon — counts from the same one-pass read as the signals. */
+  counts: situationCountsSchema,
 });
 export type SituationResponse = z.infer<typeof situationResponseSchema>;
 

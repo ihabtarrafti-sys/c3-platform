@@ -147,6 +147,9 @@ const useStyles = makeStyles({
     boxSizing: 'border-box',
     '@media (max-width: 899px)': { padding: '16px' },
   },
+  // S46 approved relaxation #3 — hybrid density: registers and the cockpit
+  // earn command width; detail/reading surfaces keep the calm measure.
+  canvasWide: { maxWidth: '1520px' },
   notices: { display: 'flex', flexDirection: 'column', rowGap: '8px', marginBottom: '16px' },
   // A.8: NotificationRegion fade-in — each notice announces itself in 180ms
   // (collapses to instant under prefers-reduced-motion via the global rule).
@@ -259,6 +262,10 @@ function MembersIcon({ className }: { className?: string }) {
     </svg>
   );
 }
+
+// Register list pages + the cockpit get command width; detail pages (with an
+// :id segment) and reading surfaces keep the calm centred measure.
+const WIDE_ROUTES = /^\/(situation|people|credentials|journeys|kit|apparel|missions|agreements|approvals|members)$/;
 
 function NavItem({
   to,
@@ -406,7 +413,7 @@ export function AppShell() {
         </nav>
 
         <main className={s.work}>
-          <div className={s.canvas}>
+          <div className={WIDE_ROUTES.test(location.pathname) ? `${s.canvas} ${s.canvasWide}` : s.canvas}>
             {notices.length > 0 && (
               <div className={s.notices} aria-live="polite" data-testid="notifications">
                 {notices.map((n) => (

@@ -9516,10 +9516,31 @@ paths:
                     type: array
                     items:
                       type: string
+                  counts:
+                    type: object
+                    properties:
+                      activeMissions:
+                        type: integer
+                      rosteredPlayers:
+                        type: integer
+                      credentialsTracked:
+                        type: integer
+                      liveAgreements:
+                        type: integer
+                      openApprovals:
+                        type: integer
+                    required:
+                      - activeMissions
+                      - rosteredPlayers
+                      - credentialsTracked
+                      - liveAgreements
+                      - openApprovals
+                    additionalProperties: false
                 required:
                   - todayIso
                   - signals
                   - checks
+                  - counts
                 additionalProperties: false
   /api/v1/people/{personId}/missions:
     get:

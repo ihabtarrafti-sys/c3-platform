@@ -111,7 +111,7 @@ const AGREEMENT_RENEWAL_STATE: Record<string, { label: string; variant: StatusVa
   Due90: { label: 'Due in 90', variant: 'pending' },
   Due60: { label: 'Due in 60', variant: 'pending' },
   Due30: { label: 'Due in 30', variant: 'blocked' },
-  Expired: { label: 'Expired', variant: 'blocked' },
+  Expired: { label: 'Expired', variant: 'signal' },
   Terminated: { label: 'Terminated', variant: 'neutral' },
 };
 

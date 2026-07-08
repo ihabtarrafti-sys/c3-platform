@@ -154,7 +154,7 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
 
   return (
     <div>
-      <PageHeader title={config.title} context={data ? `${data.rows.length} in this view` : undefined} actions={addAction} />
+      <PageHeader kicker="Register" title={config.title} context={data ? `${data.rows.length} in this view` : undefined} actions={addAction} />
 
       {canManage && (
         <FormDrawer

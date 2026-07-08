@@ -53,6 +53,7 @@ export function PeoplePage() {
   return (
     <div>
       <PageHeader
+        kicker="Register"
         title="People"
         context={data ? `${data.people.length} in this view` : undefined}
         actions={addAction}

@@ -413,3 +413,19 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Sole-owner governance wedges',
   'Journeys suspended for 14+ days',
 ];
+
+/**
+ * Which signal kind each SITUATION_CHECKS line reports on (index-aligned).
+ * The cockpit's always-on check ledger derives each line's state from the
+ * live signals — firing (immediate/attention), watching (watch), in motion
+ * (matching pending request), or clear. Same engine, no second source.
+ */
+export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
+  'MissionReadiness',
+  'CredentialExpiry',
+  'AgreementWindow',
+  'ApprovalStale',
+  'ExecutionFailedRecovery',
+  'OwnerWedge',
+  'JourneyStalled',
+];

@@ -119,7 +119,7 @@ export function AgreementsPage() {
 
   return (
     <div>
-      <PageHeader title="Agreements" context={data ? `${rows.length} in this view` : undefined} actions={addAction} />
+      <PageHeader kicker="Register" title="Agreements" context={data ? `${rows.length} in this view` : undefined} actions={addAction} />
 
       {canSubmit && (
         <FormDrawer

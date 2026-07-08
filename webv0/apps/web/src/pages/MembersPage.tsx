@@ -115,7 +115,7 @@ export function MembersPage() {
 
   return (
     <div>
-      <PageHeader title="Members" context={data ? `${data.members.length} in this organization` : undefined} actions={addAction} />
+      <PageHeader kicker="Register" title="Members" context={data ? `${data.members.length} in this organization` : undefined} actions={addAction} />
 
       {canChange && (
         <FormDrawer
