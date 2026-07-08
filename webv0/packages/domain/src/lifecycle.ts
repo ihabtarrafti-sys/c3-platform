@@ -23,6 +23,9 @@ export const APPROVAL_STATUSES = [
   'Rejected',
   'Executed',
   'ExecutionFailed',
+  // Sprint 42: the submitter cancelled their own request before a decision
+  // (terminal, no side effects — the S41 single-owner-wedge remedy).
+  'Withdrawn',
 ] as const;
 
 export type ApprovalStatus = (typeof APPROVAL_STATUSES)[number];
@@ -31,7 +34,7 @@ export function isApprovalStatus(value: unknown): value is ApprovalStatus {
   return typeof value === 'string' && (APPROVAL_STATUSES as readonly string[]).includes(value);
 }
 
-export type ApprovalAction = 'beginReview' | 'approve' | 'reject' | 'executeSuccess' | 'executeFailure';
+export type ApprovalAction = 'beginReview' | 'approve' | 'reject' | 'executeSuccess' | 'executeFailure' | 'withdraw';
 
 /** The status an action moves an approval INTO, given its current status. */
 const TRANSITIONS: Readonly<Record<ApprovalAction, { from: readonly ApprovalStatus[]; to: ApprovalStatus }>> = {
@@ -40,6 +43,10 @@ const TRANSITIONS: Readonly<Record<ApprovalAction, { from: readonly ApprovalStat
   reject: { from: ['Submitted', 'InReview'], to: 'Rejected' },
   executeSuccess: { from: ['Approved', 'ExecutionFailed'], to: 'Executed' },
   executeFailure: { from: ['Approved', 'ExecutionFailed'], to: 'ExecutionFailed' },
+  // Withdraw is the SUBMITTER's tool, before a decision only. An Approved
+  // request belongs to the reviewers — reject is their tool. Enforcement of
+  // WHO may withdraw lives in the use-case (the inverse of self-review).
+  withdraw: { from: ['Submitted', 'InReview'], to: 'Withdrawn' },
 };
 
 export function canApply(action: ApprovalAction, from: ApprovalStatus): boolean {
@@ -60,7 +67,7 @@ export const PENDING_STATUSES: readonly ApprovalStatus[] = ['Submitted', 'InRevi
 /** Actionable set: pending band + the recoverable ExecutionFailed state. */
 export const ACTIONABLE_STATUSES: readonly ApprovalStatus[] = ['Submitted', 'InReview', 'Approved', 'ExecutionFailed'];
 /** Terminal states. */
-export const TERMINAL_STATUSES: readonly ApprovalStatus[] = ['Executed', 'Rejected'];
+export const TERMINAL_STATUSES: readonly ApprovalStatus[] = ['Executed', 'Rejected', 'Withdrawn'];
 
 export const isPending = (s: ApprovalStatus): boolean => PENDING_STATUSES.includes(s);
 export const isActionable = (s: ApprovalStatus): boolean => ACTIONABLE_STATUSES.includes(s);

@@ -163,6 +163,26 @@ export function ApprovalDetailPage() {
             </p>
           )}
 
+          {isOwnRequest && (a.status === 'Submitted' || a.status === 'InReview') && (
+            <div className={s.decision}>
+              <div className={s.decisionNote}>
+                Changed your mind? You may withdraw your own request while it awaits a decision — nothing has happened
+                yet, and withdrawal is recorded.
+              </div>
+              <div className={s.decisionRow}>
+                <GovernedAction
+                  triggerLabel="Withdraw my request…"
+                  triggerTestId="withdraw"
+                  triggerAppearance="secondary"
+                  title={`Withdraw ${a.approvalId}?`}
+                  description="This cancels your request permanently — it will not be reviewed or executed. Withdrawal is recorded in the approval history."
+                  confirmLabel="Withdraw request"
+                  onConfirm={() => run(() => api.withdrawApproval(a.approvalId, a.version), 'Request withdrawn and recorded.')}
+                />
+              </div>
+            </div>
+          )}
+
           {showDecision && (
             <div className={s.decision}>
               <div className={s.decisionNote}>Governed action — approval and execution are separate steps.</div>

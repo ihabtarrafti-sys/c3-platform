@@ -67,6 +67,7 @@ import {
   submitTerminateAgreementRequestSchema,
   versionedRequestSchema,
 } from '@c3web/api-contracts';
+// (withdrawApproval imported with the application use-cases below)
 import { capabilityView } from '@c3web/authz';
 import {
   approveApproval,
@@ -113,6 +114,7 @@ import {
   updateApparel,
   updateKit,
   updateMission,
+  withdrawApproval,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -407,6 +409,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         agreement: res.agreement ? toAgreementDto(res.agreement) : null,
         idempotent: res.idempotent,
       };
+    }),
+  );
+
+  // Sprint 42: the submitter withdraws their own request (the use-case
+  // enforces submitter-only + Submitted/InReview; the S41 wedge remedy).
+  r.post(
+    '/api/v1/approvals/:approvalId/withdraw',
+    { schema: { params: approvalIdParamSchema, body: versionedRequestSchema, response: { 200: approvalResponseSchema } } },
+    versionedAction(async (approvalId, req) => {
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      return { approval: toApprovalDto(await withdrawApproval(P, actorOf(req), approvalId, expectedVersion)) };
     }),
   );
 

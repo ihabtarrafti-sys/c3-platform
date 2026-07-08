@@ -14,6 +14,7 @@ const APPROVAL_STATUS: Record<string, { label: string; variant: StatusVariant }>
   Rejected: { label: 'Rejected', variant: 'blocked' },
   Executed: { label: 'Executed', variant: 'ready' },
   ExecutionFailed: { label: 'Execution failed', variant: 'blocked' },
+  Withdrawn: { label: 'Withdrawn', variant: 'neutral' },
 };
 
 export function approvalStatusOf(status: string): { label: string; variant: StatusVariant } {
@@ -60,6 +61,7 @@ const AUDIT_ACTION: Record<string, string> = {
   ApprovalRejected: 'Request rejected',
   ApprovalExecuted: 'Request executed',
   ApprovalExecutionFailed: 'Execution failed',
+  ApprovalWithdrawn: 'Request withdrawn',
   PersonCreated: 'Person created',
   SessionEstablished: 'Session established',
   MemberProvisioned: 'Member provisioned',

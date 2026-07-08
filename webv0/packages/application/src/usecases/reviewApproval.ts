@@ -11,6 +11,7 @@ import {
   type ApprovalStatus,
   canApply,
   ConcurrencyError,
+  ForbiddenError,
   InvalidTransitionError,
   NotFoundError,
   ValidationError,
@@ -102,4 +103,61 @@ export async function rejectApproval(
   const reason = rejectionReason?.trim();
   if (!reason) throw new ValidationError('A rejection reason is mandatory.', { field: 'rejectionReason' });
   return transition(p, actor, 'reject', approvalId, expectedVersion, { rejectionReason: reason });
+}
+
+/**
+ * withdrawApproval (Sprint 42, the S41 single-owner-wedge remedy) — the
+ * SUBMITTER cancels their own request before a decision. The exact inverse
+ * of the self-review guard: only the submitter's identity qualifies, fail
+ * closed on any indeterminacy. Legal only from Submitted/InReview (an
+ * Approved request belongs to the reviewers — reject is their tool). No
+ * side effects: the operation never ran; the flip + events are the whole
+ * transaction. Duplicate-pending guards treat Withdrawn as closed, which is
+ * exactly how a wedged record unblocks.
+ */
+export async function withdrawApproval(
+  p: Persistence,
+  actor: Actor,
+  approvalId: string,
+  expectedVersion: number,
+): Promise<Approval> {
+  return p.writes.transaction(actor, async (tx: WriteTx) => {
+    const approval = await tx.lockApproval(approvalId);
+    if (!approval) throw new NotFoundError('Approval', approvalId);
+    assertTenantMatch(actor.tenantId, approval.tenantId);
+
+    const submitter = approval.submittedBy?.trim().toLowerCase();
+    const requester = actor.identity?.trim().toLowerCase();
+    if (!submitter || !requester || submitter !== requester) {
+      throw new ForbiddenError('Only the submitter may withdraw their own request.', {
+        approvalId,
+        submittedBy: approval.submittedBy,
+      });
+    }
+
+    if (!canApply('withdraw', approval.status)) {
+      throw new InvalidTransitionError(approval.status, 'withdraw');
+    }
+    if (approval.version !== expectedVersion) throw new ConcurrencyError('Approval', approvalId);
+
+    const updated = await tx.updateApprovalStatus(approvalId, expectedVersion, { status: 'Withdrawn' });
+    if (!updated) throw new ConcurrencyError('Approval', approvalId);
+
+    await tx.appendApprovalEvent({
+      approvalId,
+      fromStatus: approval.status,
+      toStatus: 'Withdrawn',
+      actor: actor.identity,
+      note: 'Withdrawn by the submitter',
+    });
+    await tx.appendAuditEvent({
+      entityType: 'Approval',
+      entityId: approvalId,
+      action: 'ApprovalWithdrawn',
+      actor: actor.identity,
+      before: { status: approval.status },
+      after: { status: 'Withdrawn' },
+    });
+    return updated;
+  });
 }

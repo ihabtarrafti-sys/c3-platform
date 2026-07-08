@@ -20,6 +20,8 @@ export const AUDIT_ACTIONS = [
   'ApprovalRejected',
   'ApprovalExecuted',
   'ApprovalExecutionFailed',
+  // Sprint 42: the submitter withdrew their own request (terminal, no effects).
+  'ApprovalWithdrawn',
   'PersonCreated',
   // A-8 Phase 1: session establishment (successful /me membership resolution).
   // Access DENIALS have no resolvable tenant and live in the platform-level
