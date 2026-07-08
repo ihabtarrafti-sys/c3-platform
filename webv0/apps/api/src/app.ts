@@ -56,6 +56,7 @@ import {
   personResponseSchema,
   rejectRequestSchema,
   roleSchema,
+  situationResponseSchema,
   submitAddAgreementRequestSchema,
   submitAddCredentialRequestSchema,
   submitAddMissionParticipantRequestSchema,
@@ -77,6 +78,7 @@ import {
   createKit,
   createMission,
   getAgreement,
+  getSituation,
   listAgreements,
   listAgreementsForPerson,
   submitAddAgreement,
@@ -659,6 +661,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return reply.status(201).send({ approval: toApprovalDto(approval) });
     },
   );
+
+  // ── the Situation Room (Sprint 43): the operational cockpit read ──────────
+  r.get('/api/v1/situation', { schema: { response: { 200: situationResponseSchema } } }, async (req) => {
+    const view = await getSituation(P, actorOf(req));
+    return {
+      todayIso: view.todayIso,
+      checks: [...view.checks],
+      signals: view.signals.map((s) => ({ ...s, reasons: [...s.reasons], actions: s.actions.map((a) => ({ ...a })) })),
+    };
+  });
 
   // ── the person hub (Sprint 42): person-scoped reads ────────────────────────
   r.get(

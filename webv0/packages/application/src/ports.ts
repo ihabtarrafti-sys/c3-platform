@@ -63,6 +63,8 @@ export interface ReadStore {
   // Sprint 42: the person hub's read side.
   listMissionMembershipsForPerson(personId: string): Promise<PersonMissionMembership[]>;
   listApprovalsForPerson(personId: string): Promise<Approval[]>;
+  // Sprint 43: the Situation Room snapshot (bulk, slim, one pass).
+  listAllMissionParticipants(): Promise<Array<{ missionId: string; personId: string; role: string; isActive: boolean }>>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */

@@ -11,6 +11,7 @@ export * from './usecases/missionOps';
 export * from './usecases/submitMissionParticipantOps';
 export * from './usecases/agreementOps';
 export * from './usecases/submitAgreementOps';
+export * from './usecases/situation';
 export * from './usecases/submitMemberChange';
 export * from './usecases/reviewApproval';
 export * from './usecases/executeApproval';

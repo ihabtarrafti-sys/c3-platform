@@ -9419,6 +9419,108 @@ paths:
                 required:
                   - approval
                 additionalProperties: false
+  /api/v1/situation:
+    get:
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  todayIso:
+                    type: string
+                  signals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        key:
+                          type: string
+                        kind:
+                          type: string
+                          enum:
+                            - MissionReadiness
+                            - CredentialExpiry
+                            - AgreementWindow
+                            - ApprovalStale
+                            - ExecutionFailedRecovery
+                            - OwnerWedge
+                            - JourneyStalled
+                        headline:
+                          type: string
+                        reasons:
+                          type: array
+                          items:
+                            type: string
+                        impact:
+                          type: integer
+                        urgency:
+                          type: integer
+                        score:
+                          type: integer
+                        band:
+                          type: string
+                          enum:
+                            - immediate
+                            - attention
+                            - watch
+                            - inMotion
+                        inMotion:
+                          type: boolean
+                        actions:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - AddCredential
+                                  - RenewAgreement
+                                  - ReviewApproval
+                                  - ResubmitOrExecute
+                                  - WithdrawOwnRequest
+                                  - ViewMission
+                                  - ViewPerson
+                                  - ViewAgreement
+                                  - ViewApproval
+                                  - ViewJourney
+                              personId:
+                                type: string
+                              missionId:
+                                type: string
+                              agreementId:
+                                type: string
+                              approvalId:
+                                type: string
+                              journeyId:
+                                type: string
+                            required:
+                              - kind
+                            additionalProperties: false
+                      required:
+                        - key
+                        - kind
+                        - headline
+                        - reasons
+                        - impact
+                        - urgency
+                        - score
+                        - band
+                        - inMotion
+                        - actions
+                      additionalProperties: false
+                  checks:
+                    type: array
+                    items:
+                      type: string
+                required:
+                  - todayIso
+                  - signals
+                  - checks
+                additionalProperties: false
   /api/v1/people/{personId}/missions:
     get:
       parameters:

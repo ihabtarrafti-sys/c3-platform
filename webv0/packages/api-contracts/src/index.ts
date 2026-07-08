@@ -320,6 +320,46 @@ export const submitTerminateAgreementRequestSchema = z.object({
 });
 export type SubmitTerminateAgreementRequest = z.infer<typeof submitTerminateAgreementRequestSchema>;
 
+// ── the Situation Room (Sprint 43) ──────────────────────────────────────────
+export const suggestedActionSchema = z.object({
+  kind: z.enum([
+    'AddCredential',
+    'RenewAgreement',
+    'ReviewApproval',
+    'ResubmitOrExecute',
+    'WithdrawOwnRequest',
+    'ViewMission',
+    'ViewPerson',
+    'ViewAgreement',
+    'ViewApproval',
+    'ViewJourney',
+  ]),
+  personId: z.string().optional(),
+  missionId: z.string().optional(),
+  agreementId: z.string().optional(),
+  approvalId: z.string().optional(),
+  journeyId: z.string().optional(),
+});
+export const signalSchema = z.object({
+  key: z.string(),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled']),
+  headline: z.string(),
+  reasons: z.array(z.string()),
+  impact: z.number().int(),
+  urgency: z.number().int(),
+  score: z.number().int(),
+  band: z.enum(['immediate', 'attention', 'watch', 'inMotion']),
+  inMotion: z.boolean(),
+  actions: z.array(suggestedActionSchema),
+});
+export type SignalDto = z.infer<typeof signalSchema>;
+export const situationResponseSchema = z.object({
+  todayIso: z.string(),
+  signals: z.array(signalSchema),
+  checks: z.array(z.string()),
+});
+export type SituationResponse = z.infer<typeof situationResponseSchema>;
+
 // ── the person hub (Sprint 42) ──────────────────────────────────────────────
 export const personMissionMembershipSchema = z.object({
   missionId: z.string(),

@@ -254,6 +254,14 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return rows.map(mapApproval);
           }),
 
+        // Sprint 43: the Situation Room bulk participant read (slim; the
+        // engine needs ids/roles only, no person-name join).
+        listAllMissionParticipants: () =>
+          withTenantTx(pool, actor, 'read', async (db) => {
+            const rows = await db.select().from(schema.missionParticipant);
+            return rows.map((r) => ({ missionId: r.missionId, personId: r.personId, role: r.role, isActive: r.isActive }));
+          }),
+
         // Sprint 35: the member directory is read through the tenant-scoped
         // member_list() SECURITY DEFINER gateway — c3_app has no table access.
         listMembers: () =>
