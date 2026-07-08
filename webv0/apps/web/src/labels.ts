@@ -69,6 +69,12 @@ const AUDIT_ACTION: Record<string, string> = {
   JourneyResumed: 'Journey resumed',
   JourneyCompleted: 'Journey completed',
   JourneyCancelled: 'Journey cancelled',
+  KitCreated: 'Kit item created',
+  KitUpdated: 'Kit item updated',
+  KitDeactivated: 'Kit item deactivated',
+  ApparelCreated: 'Apparel item created',
+  ApparelUpdated: 'Apparel item updated',
+  ApparelDeactivated: 'Apparel item deactivated',
 };
 
 /** Sprint 37 — journey status → label + StatusBadge variant. */

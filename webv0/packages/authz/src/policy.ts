@@ -34,6 +34,8 @@ export const canExecuteApproval = (role: C3Role): boolean => capabilitiesFor(rol
 export const canReadMembers = (role: C3Role): boolean => capabilitiesFor(role).canReadMembers;
 export const canSubmitMemberChange = (role: C3Role): boolean => capabilitiesFor(role).canSubmitMemberChange;
 export const canOperateJourneys = (role: C3Role): boolean => capabilitiesFor(role).canOperateJourneys;
+export const canManageKit = (role: C3Role): boolean => capabilitiesFor(role).canManageKit;
+export const canManageApparel = (role: C3Role): boolean => capabilitiesFor(role).canManageApparel;
 
 export function assertReadPeople(actor: Actor): void {
   if (!canReadPeople(actor.role)) {
@@ -116,6 +118,20 @@ export function assertOperateJourneys(actor: Actor): void {
   }
 }
 
+/** Guard direct-audited Kit management (Sprint 38: owner, operations). */
+export function assertManageKit(actor: Actor): void {
+  if (!canManageKit(actor.role)) {
+    throw new ForbiddenError('Your role may not manage kit.', { role: actor.role });
+  }
+}
+
+/** Guard direct-audited Apparel management (Sprint 38: owner, operations, hr — CP parity). */
+export function assertManageApparel(actor: Actor): void {
+  if (!canManageApparel(actor.role)) {
+    throw new ForbiddenError('Your role may not manage apparel.', { role: actor.role });
+  }
+}
+
 /** Non-throwing summary for building UX-only capability hints served to the web app. */
 export interface CapabilityView {
   readonly canReadPeople: boolean;
@@ -125,6 +141,8 @@ export interface CapabilityView {
   readonly canReadMembers: boolean;
   readonly canSubmitMemberChange: boolean;
   readonly canOperateJourneys: boolean;
+  readonly canManageKit: boolean;
+  readonly canManageApparel: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -137,5 +155,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canReadMembers: c.canReadMembers,
     canSubmitMemberChange: c.canSubmitMemberChange,
     canOperateJourneys: c.canOperateJourneys,
+    canManageKit: c.canManageKit,
+    canManageApparel: c.canManageApparel,
   };
 }

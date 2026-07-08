@@ -14,13 +14,15 @@
 
 const MIN_WIDTH = 4;
 
-export type BusinessIdKind = 'person' | 'approval' | 'credential' | 'journey';
+export type BusinessIdKind = 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel';
 
 const PREFIX: Record<BusinessIdKind, string> = {
   person: 'PER',
   approval: 'APR',
   credential: 'CRED',
   journey: 'JRN',
+  kit: 'KIT',
+  apparel: 'APL',
 };
 
 const PATTERN: Record<BusinessIdKind, RegExp> = {
@@ -28,6 +30,8 @@ const PATTERN: Record<BusinessIdKind, RegExp> = {
   approval: /^APR-\d{4,}$/,
   credential: /^CRED-\d{4,}$/,
   journey: /^JRN-\d{4,}$/,
+  kit: /^KIT-\d{4,}$/,
+  apparel: /^APL-\d{4,}$/,
 };
 
 /** Format an allocated sequence number into a canonical business ID. */
@@ -42,6 +46,8 @@ export const formatPersonId = (sequence: number): string => formatBusinessId('pe
 export const formatApprovalId = (sequence: number): string => formatBusinessId('approval', sequence);
 export const formatCredentialId = (sequence: number): string => formatBusinessId('credential', sequence);
 export const formatJourneyId = (sequence: number): string => formatBusinessId('journey', sequence);
+export const formatKitId = (sequence: number): string => formatBusinessId('kit', sequence);
+export const formatApparelId = (sequence: number): string => formatBusinessId('apparel', sequence);
 
 export function isBusinessId(kind: BusinessIdKind, value: unknown): value is string {
   return typeof value === 'string' && PATTERN[kind].test(value);
@@ -51,6 +57,8 @@ export const isPersonId = (value: unknown): value is string => isBusinessId('per
 export const isApprovalId = (value: unknown): value is string => isBusinessId('approval', value);
 export const isCredentialId = (value: unknown): value is string => isBusinessId('credential', value);
 export const isJourneyId = (value: unknown): value is string => isBusinessId('journey', value);
+export const isKitId = (value: unknown): value is string => isBusinessId('kit', value);
+export const isApparelId = (value: unknown): value is string => isBusinessId('apparel', value);
 
 /**
  * Placeholder written to an AddPerson approval's target person field at

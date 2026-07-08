@@ -32,14 +32,23 @@ describe('role capability matrix (Sprint 34 Phase 1 authorization spec)', () => 
     expect(owner.isReadOnly).toBe(false);
   });
 
-  it('read-only roles may neither submit nor review', () => {
+  it('non-operational roles may neither submit nor review approvals', () => {
     for (const role of ['legal', 'finance', 'hr', 'management', 'visitor'] as const) {
       const c = capabilitiesFor(role);
-      expect(c.isReadOnly).toBe(true);
       expect(c.canSubmitApproval).toBe(false);
       expect(c.canReviewApproval).toBe(false);
       expect(c.canExecuteApproval).toBe(false);
     }
+  });
+
+  it('fully read-only roles carry the isReadOnly flag; hr does not (apparel management, Sprint 38)', () => {
+    for (const role of ['legal', 'finance', 'management', 'visitor'] as const) {
+      expect(capabilitiesFor(role).isReadOnly).toBe(true);
+    }
+    // CP parity: HR manages Apparel — its sole write affordance.
+    expect(capabilitiesFor('hr').isReadOnly).toBe(false);
+    expect(capabilitiesFor('hr').canManageApparel).toBe(true);
+    expect(capabilitiesFor('hr').canManageKit).toBe(false);
   });
 
   it('isC3Role rejects unknown strings', () => {

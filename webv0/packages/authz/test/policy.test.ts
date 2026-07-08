@@ -99,6 +99,8 @@ describe('capabilityView (UX hint)', () => {
       canReadMembers: true,
       canSubmitMemberChange: true,
       canOperateJourneys: true,
+      canManageKit: true,
+      canManageApparel: true,
     });
   });
 

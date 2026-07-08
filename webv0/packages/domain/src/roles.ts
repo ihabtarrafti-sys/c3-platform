@@ -63,6 +63,14 @@ export interface C3Capabilities {
    * owner and operations only. Initiation stays governed (canSubmitApproval).
    */
   readonly canOperateJourneys: boolean;
+  /** Sprint 38: direct-audited Kit CRUD — owner and operations. */
+  readonly canManageKit: boolean;
+  /**
+   * Sprint 38: direct-audited Apparel CRUD — owner, operations, AND HR
+   * (CP-parity: the certified ACL gave HR edit rights on Apparel; team
+   * clothing is HR-adjacent). The first non-read capability for hr.
+   */
+  readonly canManageApparel: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
@@ -75,6 +83,8 @@ const READ_ONLY = {
   canReadMembers: false,
   canSubmitMemberChange: false,
   canOperateJourneys: false,
+  canManageKit: false,
+  canManageApparel: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
 
@@ -87,6 +97,8 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canReadMembers: true,
     canSubmitMemberChange: true,
     canOperateJourneys: true,
+    canManageKit: true,
+    canManageApparel: true,
     isReadOnly: false,
   },
   operations: {
@@ -97,11 +109,14 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canReadMembers: true,
     canSubmitMemberChange: true,
     canOperateJourneys: true,
+    canManageKit: true,
+    canManageApparel: true,
     isReadOnly: false,
   },
   legal: READ_ONLY,
   finance: READ_ONLY,
-  hr: READ_ONLY,
+  // Sprint 38 (CP-parity): HR manages Apparel — no longer fully read-only.
+  hr: { ...READ_ONLY, canManageApparel: true, isReadOnly: false },
   management: READ_ONLY,
   visitor: READ_ONLY,
 };

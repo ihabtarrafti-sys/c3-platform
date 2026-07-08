@@ -44,6 +44,13 @@ export const AUDIT_ACTIONS = [
   'JourneyResumed',
   'JourneyCompleted',
   'JourneyCancelled',
+  // Sprint 38: Kit & Apparel — pure direct-audited CRUD (no approvals).
+  'KitCreated',
+  'KitUpdated',
+  'KitDeactivated',
+  'ApparelCreated',
+  'ApparelUpdated',
+  'ApparelDeactivated',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
