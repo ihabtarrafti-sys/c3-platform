@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Dropdown, Field, Input, Option, Text, makeStyles } from '@fluentui/react-components';
+import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { credentialStatusOn } from '@c3web/domain';
 import { useCredentials, usePeople } from '../queries';
 import { ApiError } from '../api';
@@ -12,6 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { FormPanel } from '../components/FormPanel';
 import { credentialStatusOf } from '../labels';
 
 /**
@@ -29,8 +30,6 @@ function localTodayIso(): string {
 }
 
 const useStyles = makeStyles({
-  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
-  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
   personSelect: { minWidth: '260px' },
 });
 
@@ -102,10 +101,22 @@ export function CredentialsPage() {
       <PageHeader title="Credentials" context={data ? `${data.credentials.length} in this view` : undefined} actions={addAction} />
 
       {canSubmit && showForm && (
-        <Card className={s.form}>
-          <Text className={s.formIntro}>
-            New credential requests go through approval — an owner must review and execute before the credential exists.
-          </Text>
+        <FormPanel
+          eyebrow="Add credential"
+          mode="governed"
+          intro="New credential requests go through approval — an owner must review and execute before the credential exists."
+          footer={
+            <GovernedAction
+              triggerLabel="Submit for approval"
+              triggerTestId="add-credential-submit"
+              triggerDisabled={!ready}
+              title="Submit this credential request for approval?"
+              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
+              confirmLabel="Submit for approval"
+              onConfirm={submit}
+            />
+          }
+        >
           <Field label="Person" required>
             <Dropdown
               className={s.personSelect}
@@ -139,18 +150,7 @@ export function CredentialsPage() {
           <Field label="Expires on" hint="Leave empty for a non-expiring credential.">
             <Input type="date" value={expiresOn} onChange={(_, d) => setExpiresOn(d.value)} data-testid="add-credential-expires" />
           </Field>
-          <div>
-            <GovernedAction
-              triggerLabel="Submit for approval"
-              triggerTestId="add-credential-submit"
-              triggerDisabled={!ready}
-              title="Submit this credential request for approval?"
-              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
-              confirmLabel="Submit for approval"
-              onConfirm={submit}
-            />
-          </div>
-        </Card>
+        </FormPanel>
       )}
 
       {isLoading && <LoadingState label="Loading credentials…" />}

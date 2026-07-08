@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Dropdown, Field, Input, Option, Text, makeStyles } from '@fluentui/react-components';
+import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import type { UseQueryResult } from '@tanstack/react-query';
 import type { EquipmentCreateBody, EquipmentUpdateBody } from '../api';
 import { usePeople } from '../queries';
@@ -12,6 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { FormPanel } from '../components/FormPanel';
 
 /**
  * EquipmentPage (Sprint 38) — the shared register component behind Kit and
@@ -43,8 +44,6 @@ export interface EquipmentPageConfig {
 }
 
 const useStyles = makeStyles({
-  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
-  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
   personSelect: { minWidth: '240px' },
   actionsCell: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
   editFields: { display: 'flex', flexDirection: 'column', rowGap: '8px' },
@@ -158,8 +157,22 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
       <PageHeader title={config.title} context={data ? `${data.rows.length} in this view` : undefined} actions={addAction} />
 
       {canManage && showForm && (
-        <Card className={s.form}>
-          <Text className={s.formIntro}>New {config.itemNoun}s are created immediately and recorded in the audit history.</Text>
+        <FormPanel
+          eyebrow={`Add ${config.title.toLowerCase()} item`}
+          mode="direct"
+          intro={`New ${config.itemNoun}s are created immediately and recorded in the audit history.`}
+          footer={
+            <GovernedAction
+              triggerLabel="Create item"
+              triggerTestId={`add-${config.testPrefix}-submit`}
+              triggerDisabled={name.trim() === '' || category.trim() === ''}
+              title={`Create this ${config.itemNoun}?`}
+              description="This takes effect immediately and is recorded in the audit history."
+              confirmLabel="Create item"
+              onConfirm={submitCreate}
+            />
+          }
+        >
           <Field label="Name" required>
             <Input value={name} onChange={(_, d) => setName(d.value)} data-testid={`add-${config.testPrefix}-name`} />
           </Field>
@@ -181,18 +194,7 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
               people={people.data?.people ?? []}
             />
           </Field>
-          <div>
-            <GovernedAction
-              triggerLabel="Create item"
-              triggerTestId={`add-${config.testPrefix}-submit`}
-              triggerDisabled={name.trim() === '' || category.trim() === ''}
-              title={`Create this ${config.itemNoun}?`}
-              description="This takes effect immediately and is recorded in the audit history."
-              confirmLabel="Create item"
-              onConfirm={submitCreate}
-            />
-          </div>
-        </Card>
+        </FormPanel>
       )}
 
       {isLoading && <LoadingState label={`Loading ${config.title.toLowerCase()}…`} />}

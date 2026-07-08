@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Field, Input, Text, makeStyles } from '@fluentui/react-components';
+import { Button, Field, Input } from '@fluentui/react-components';
 import { useMissions } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -11,6 +11,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { FormPanel } from '../components/FormPanel';
 
 /**
  * Missions (Sprint 39) — the register. The mission SHELL is direct-audited
@@ -18,13 +19,7 @@ import { GovernedAction } from '../components/GovernedAction';
  * membership is governed and lives on the mission page too.
  */
 
-const useStyles = makeStyles({
-  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
-  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
-});
-
 export function MissionsPage() {
-  const s = useStyles();
   const r = useRegisterStyles();
   const { me } = useSession();
   const { notify } = useNotify();
@@ -72,8 +67,22 @@ export function MissionsPage() {
       <PageHeader title="Missions" context={data ? `${data.missions.length} in this view` : undefined} actions={addAction} />
 
       {canManage && showForm && (
-        <Card className={s.form}>
-          <Text className={s.formIntro}>New missions are created immediately and recorded in the audit history.</Text>
+        <FormPanel
+          eyebrow="New mission"
+          mode="direct"
+          intro="New missions are created immediately and recorded in the audit history."
+          footer={
+            <GovernedAction
+              triggerLabel="Create mission"
+              triggerTestId="add-mission-submit"
+              triggerDisabled={!ready}
+              title="Create this mission?"
+              description="This takes effect immediately and is recorded in the audit history."
+              confirmLabel="Create mission"
+              onConfirm={submitCreate}
+            />
+          }
+        >
           <Field label="Name" required>
             <Input value={name} onChange={(_, d) => setName(d.value)} data-testid="add-mission-name" />
           </Field>
@@ -86,18 +95,7 @@ export function MissionsPage() {
           <Field label="Ends on">
             <Input type="date" value={endsOn} onChange={(_, d) => setEndsOn(d.value)} data-testid="add-mission-ends" />
           </Field>
-          <div>
-            <GovernedAction
-              triggerLabel="Create mission"
-              triggerTestId="add-mission-submit"
-              triggerDisabled={!ready}
-              title="Create this mission?"
-              description="This takes effect immediately and is recorded in the audit history."
-              confirmLabel="Create mission"
-              onConfirm={submitCreate}
-            />
-          </div>
-        </Card>
+        </FormPanel>
       )}
 
       {isLoading && <LoadingState label="Loading missions…" />}

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Dropdown, Field, Input, Option, Text, makeStyles } from '@fluentui/react-components';
+import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { journeyTransitionsFrom, type JourneyStatus, type JourneyTransition } from '@c3web/domain';
 import type { JourneyDto } from '../api';
 import { useJourneys, usePeople } from '../queries';
@@ -13,6 +13,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { FormPanel } from '../components/FormPanel';
 import { journeyStatusOf } from '../labels';
 
 /**
@@ -45,8 +46,6 @@ const TRANSITION_LABEL: Record<JourneyTransition, { button: string; title: (id: 
 };
 
 const useStyles = makeStyles({
-  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
-  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
   personSelect: { minWidth: '260px' },
   actionsCell: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
 });
@@ -117,10 +116,22 @@ export function JourneysPage() {
       <PageHeader title="Journeys" context={data ? `${data.journeys.length} in this view` : undefined} actions={addAction} />
 
       {canSubmit && showForm && (
-        <Card className={s.form}>
-          <Text className={s.formIntro}>
-            New journeys go through approval — an owner must review and execute before the journey begins.
-          </Text>
+        <FormPanel
+          eyebrow="Initiate journey"
+          mode="governed"
+          intro="New journeys go through approval — an owner must review and execute before the journey begins."
+          footer={
+            <GovernedAction
+              triggerLabel="Submit for approval"
+              triggerTestId="initiate-journey-submit"
+              triggerDisabled={!ready}
+              title="Submit this journey request for approval?"
+              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
+              confirmLabel="Submit for approval"
+              onConfirm={submitInitiate}
+            />
+          }
+        >
           <Field label="Person" required>
             <Dropdown
               className={s.personSelect}
@@ -151,18 +162,7 @@ export function JourneysPage() {
           <Field label="Starts on" required>
             <Input type="date" value={startedOn} onChange={(_, d) => setStartedOn(d.value)} data-testid="initiate-journey-started" />
           </Field>
-          <div>
-            <GovernedAction
-              triggerLabel="Submit for approval"
-              triggerTestId="initiate-journey-submit"
-              triggerDisabled={!ready}
-              title="Submit this journey request for approval?"
-              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
-              confirmLabel="Submit for approval"
-              onConfirm={submitInitiate}
-            />
-          </div>
-        </Card>
+        </FormPanel>
       )}
 
       {isLoading && <LoadingState label="Loading journeys…" />}

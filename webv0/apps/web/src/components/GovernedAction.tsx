@@ -21,7 +21,27 @@ import {
  * The trigger keeps the caller's test-id; the confirm carries `${testId}-confirm`.
  */
 const useStyles = makeStyles({
+  // Sprint 44 (Command Desk elevation): the confirmation surface carries a
+  // Command-Black top rail, deliberate title weight, and a hairline above the
+  // action row — the same language as the Situation Room cards. Style only:
+  // this component fronts BOTH governed submits and direct-audited confirms,
+  // so the surface makes no semantic claim; the copy does.
+  surface: {
+    borderTop: '3px solid var(--c3-command-black)',
+    borderRadius: 'var(--c3-radius)',
+    boxShadow: 'var(--c3-e2)',
+    maxWidth: '480px',
+  },
+  title: { fontSize: '17px', lineHeight: '24px', fontWeight: 600, color: 'var(--c3-command-black)' },
   body: { display: 'flex', flexDirection: 'column', rowGap: '14px', fontSize: '14px', color: 'var(--c3-ink-70)' },
+  description: {
+    fontSize: '13px',
+    lineHeight: '20px',
+    color: 'var(--c3-ink-70)',
+    borderLeft: '2px solid var(--c3-hairline)',
+    paddingLeft: '12px',
+  },
+  actions: { borderTop: '1px solid var(--c3-hairline)', paddingTop: '12px', marginTop: '4px' },
 });
 
 export function GovernedAction({
@@ -69,16 +89,16 @@ export function GovernedAction({
           {triggerLabel}
         </Button>
       </DialogTrigger>
-      <DialogSurface>
+      <DialogSurface className={s.surface}>
         <DialogBody>
-          <DialogTitle>{title}</DialogTitle>
+          <DialogTitle className={s.title}>{title}</DialogTitle>
           <DialogContent>
             <div className={s.body}>
-              <div>{description}</div>
+              <div className={s.description}>{description}</div>
               {extra}
             </div>
           </DialogContent>
-          <DialogActions>
+          <DialogActions className={s.actions}>
             <DialogTrigger disableButtonEnhancement action="close">
               <Button appearance="secondary" disabled={busy}>
                 Cancel

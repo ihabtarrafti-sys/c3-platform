@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Dropdown, Field, Input, Option, Text, makeStyles } from '@fluentui/react-components';
+import { Button, Dropdown, Field, Input, Option, Text, makeStyles } from '@fluentui/react-components';
 import type { MemberDto } from '../api';
 import { useMembers } from '../queries';
 import { ApiError } from '../api';
@@ -12,6 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { FormPanel } from '../components/FormPanel';
 
 /**
  * Members (Sprint 35 tenant-admin) — the organization's access register.
@@ -26,8 +27,6 @@ import { GovernedAction } from '../components/GovernedAction';
 const ROLES = ['owner', 'operations', 'legal', 'finance', 'hr', 'management', 'visitor'] as const;
 
 const useStyles = makeStyles({
-  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
-  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
   actionsCell: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
   roleSelect: { minWidth: '160px' },
 });
@@ -119,10 +118,22 @@ export function MembersPage() {
       <PageHeader title="Members" context={data ? `${data.members.length} in this organization` : undefined} actions={addAction} />
 
       {canChange && showForm && (
-        <Card className={s.form}>
-          <Text className={s.formIntro}>
-            Member changes go through approval — an owner must review and execute before access changes.
-          </Text>
+        <FormPanel
+          eyebrow="Provision member"
+          mode="governed"
+          intro="Member changes go through approval — an owner must review and execute before access changes."
+          footer={
+            <GovernedAction
+              triggerLabel="Submit for approval"
+              triggerTestId="provision-submit"
+              triggerDisabled={!provisionReady}
+              title="Request this member provision?"
+              description="Submitting creates an approval request. The member is not provisioned until an owner (other than you) approves and executes it."
+              confirmLabel="Submit for approval"
+              onConfirm={submitProvision}
+            />
+          }
+        >
           <Field label="Email" required>
             <Input value={email} onChange={(_, d) => setEmail(d.value)} data-testid="provision-email" />
           </Field>
@@ -142,18 +153,7 @@ export function MembersPage() {
               </Field>
             </>
           )}
-          <div>
-            <GovernedAction
-              triggerLabel="Submit for approval"
-              triggerTestId="provision-submit"
-              triggerDisabled={!provisionReady}
-              title="Request this member provision?"
-              description="Submitting creates an approval request. The member is not provisioned until an owner (other than you) approves and executes it."
-              confirmLabel="Submit for approval"
-              onConfirm={submitProvision}
-            />
-          </div>
-        </Card>
+        </FormPanel>
       )}
 
       {isLoading && <LoadingState label="Loading members…" />}

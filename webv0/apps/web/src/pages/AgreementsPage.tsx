@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Dropdown, Field, Input, Option, Text, makeStyles } from '@fluentui/react-components';
+import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { agreementRenewalStateOn, type AgreementRenewalState } from '@c3web/domain';
 import { useAgreements, usePeople } from '../queries';
 import { ApiError } from '../api';
@@ -12,6 +12,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { FormPanel } from '../components/FormPanel';
 import { agreementRenewalStateOf, formatUsdCents } from '../labels';
 
 /**
@@ -36,8 +37,6 @@ const FILTERS: Array<{ key: 'all' | AgreementRenewalState; label: string }> = [
 ];
 
 const useStyles = makeStyles({
-  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
-  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
   personSelect: { minWidth: '260px' },
   filters: { display: 'flex', columnGap: '8px', flexWrap: 'wrap', marginBottom: '16px' },
 });
@@ -123,10 +122,22 @@ export function AgreementsPage() {
       <PageHeader title="Agreements" context={data ? `${rows.length} in this view` : undefined} actions={addAction} />
 
       {canSubmit && showForm && (
-        <Card className={s.form}>
-          <Text className={s.formIntro}>
-            New agreements go through approval — an owner must review and execute before the agreement exists.
-          </Text>
+        <FormPanel
+          eyebrow="New agreement"
+          mode="governed"
+          intro="New agreements go through approval — an owner must review and execute before the agreement exists."
+          footer={
+            <GovernedAction
+              triggerLabel="Submit for approval"
+              triggerTestId="add-agreement-submit"
+              triggerDisabled={!ready}
+              title="Submit this agreement request for approval?"
+              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
+              confirmLabel="Submit for approval"
+              onConfirm={submitCreate}
+            />
+          }
+        >
           <Field label="Person" required>
             <Dropdown
               className={s.personSelect}
@@ -187,18 +198,7 @@ export function AgreementsPage() {
               <Input type="number" value={valueUsd} onChange={(_, d) => setValueUsd(d.value)} data-testid="add-agreement-value" />
             </Field>
           )}
-          <div>
-            <GovernedAction
-              triggerLabel="Submit for approval"
-              triggerTestId="add-agreement-submit"
-              triggerDisabled={!ready}
-              title="Submit this agreement request for approval?"
-              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
-              confirmLabel="Submit for approval"
-              onConfirm={submitCreate}
-            />
-          </div>
-        </Card>
+        </FormPanel>
       )}
 
       <div className={s.filters} role="group" aria-label="Renewal window filter">

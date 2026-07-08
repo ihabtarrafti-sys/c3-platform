@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Card, Field, Input, Text, makeStyles } from '@fluentui/react-components';
+import { Button, Field, Input } from '@fluentui/react-components';
 import { usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -11,14 +11,9 @@ import { StatusBadge } from '../components/StatusBadge';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-
-const useStyles = makeStyles({
-  form: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxWidth: '440px', padding: '16px', marginBottom: '20px' },
-  formIntro: { fontSize: '13px', color: 'var(--c3-ink-70)' },
-});
+import { FormPanel } from '../components/FormPanel';
 
 export function PeoplePage() {
-  const s = useStyles();
   const r = useRegisterStyles();
   const { me } = useSession();
   const { notify } = useNotify();
@@ -64,20 +59,11 @@ export function PeoplePage() {
       />
 
       {canSubmit && showForm && (
-        <Card className={s.form}>
-          <Text className={s.formIntro}>
-            New person requests go through approval — an owner must review and execute before the person exists.
-          </Text>
-          <Field label="Full name" required>
-            <Input value={fullName} onChange={(_, d) => setFullName(d.value)} data-testid="add-person-fullname" />
-          </Field>
-          <Field label="In-game name">
-            <Input value={ign} onChange={(_, d) => setIgn(d.value)} data-testid="add-person-ign" />
-          </Field>
-          <Field label="Team">
-            <Input value={team} onChange={(_, d) => setTeam(d.value)} data-testid="add-person-team" />
-          </Field>
-          <div>
+        <FormPanel
+          eyebrow="Add person"
+          mode="governed"
+          intro="New person requests go through approval — an owner must review and execute before the person exists."
+          footer={
             <GovernedAction
               triggerLabel="Submit for approval"
               triggerTestId="add-person-submit"
@@ -87,8 +73,18 @@ export function PeoplePage() {
               confirmLabel="Submit for approval"
               onConfirm={submit}
             />
-          </div>
-        </Card>
+          }
+        >
+          <Field label="Full name" required>
+            <Input value={fullName} onChange={(_, d) => setFullName(d.value)} data-testid="add-person-fullname" />
+          </Field>
+          <Field label="In-game name">
+            <Input value={ign} onChange={(_, d) => setIgn(d.value)} data-testid="add-person-ign" />
+          </Field>
+          <Field label="Team">
+            <Input value={team} onChange={(_, d) => setTeam(d.value)} data-testid="add-person-team" />
+          </Field>
+        </FormPanel>
       )}
 
       {isLoading && <LoadingState label="Loading people…" />}
