@@ -24,6 +24,11 @@ const env = loadEnv({
   CORS_ORIGIN: webOrigin,
   API_PORT: port,
   LOG_LEVEL: 'error',
+  // The whole Playwright suite is ONE client IP; the production default
+  // (300/min) intermittently 429s mid-suite as the spec count grows. The
+  // limiter has its own certification (rateLimit.test + hosted headers) —
+  // E2E must not exercise it implicitly.
+  RATE_LIMIT_MAX: '100000',
 } as NodeJS.ProcessEnv);
 
 const deps = buildDeps(env, createLogger(env));
