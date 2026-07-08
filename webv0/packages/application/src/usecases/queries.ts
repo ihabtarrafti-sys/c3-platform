@@ -5,6 +5,7 @@
  */
 import {
   type Actor,
+  type Agreement,
   type Apparel,
   type Approval,
   type ApprovalEvent,
@@ -19,7 +20,7 @@ import {
   type Person,
   NotFoundError,
 } from '@c3web/domain';
-import { assertReadMembers, assertReadPeople, assertViewApprovals } from '@c3web/authz';
+import { assertReadAgreements, assertReadMembers, assertReadPeople, assertViewApprovals, canViewFinancials } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
 export function listPeople(p: Persistence, actor: Actor): Promise<Person[]> {
@@ -81,6 +82,40 @@ export async function listMissionParticipants(p: Persistence, actor: Actor, miss
   const mission = await p.reads.forActor(actor).getMissionById(missionId);
   if (!mission) throw new NotFoundError('Mission', missionId);
   return p.reads.forActor(actor).listMissionParticipants(missionId);
+}
+
+// ── Sprint 41: agreements (role-differentiated reads — the Set-E boundary). ──
+
+/**
+ * The per-actor agreement READ MODEL: for roles without canViewFinancials the
+ * valueUsdCents field is ABSENT from the object (structural omission — never
+ * null, which would falsely read as "no value recorded").
+ */
+export type AgreementView = Omit<Agreement, 'valueUsdCents'> & { readonly valueUsdCents?: number | null };
+
+function toAgreementView(a: Agreement, financials: boolean): AgreementView {
+  if (financials) return a;
+  const { valueUsdCents: _omitted, ...rest } = a;
+  return rest;
+}
+
+export async function listAgreements(p: Persistence, actor: Actor): Promise<AgreementView[]> {
+  assertReadAgreements(actor);
+  const financials = canViewFinancials(actor.role);
+  return (await p.reads.forActor(actor).listAgreements()).map((a) => toAgreementView(a, financials));
+}
+
+export async function listAgreementsForPerson(p: Persistence, actor: Actor, personId: string): Promise<AgreementView[]> {
+  assertReadAgreements(actor);
+  const financials = canViewFinancials(actor.role);
+  return (await p.reads.forActor(actor).listAgreementsForPerson(personId)).map((a) => toAgreementView(a, financials));
+}
+
+export async function getAgreement(p: Persistence, actor: Actor, agreementId: string): Promise<AgreementView> {
+  assertReadAgreements(actor);
+  const agreement = await p.reads.forActor(actor).getAgreementById(agreementId);
+  if (!agreement) throw new NotFoundError('Agreement', agreementId);
+  return toAgreementView(agreement, canViewFinancials(actor.role));
 }
 
 // ── Sprint 36: credentials (people-adjacent operational reads — same gate). ──

@@ -2,8 +2,9 @@
  * writeTx.ts — WriteTx implementation bound to a single tenant transaction.
  * All statements run under the transaction's `app.tenant_id` (RLS enforced).
  */
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import {
+  type Agreement,
   ConflictError,
   IdentityAlreadyBoundError,
   LastOwnerProtectionError,
@@ -23,10 +24,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { EquipmentPatch, MissionPatch, NewApprovalRow, NewCredentialRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, EquipmentPatch, MissionPatch, NewAgreementRow, NewApprovalRow, NewCredentialRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapApparel, mapApproval, mapCredential, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapApparel, mapApproval, mapCredential, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -479,6 +480,60 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         )
         .returning();
       return rows[0] ? readParticipantView(missionId, personId) : null;
+    },
+    // ── Sprint 41 agreements (drizzle-only; mode:'string' dates, cents int) ──
+    async insertAgreement(row: NewAgreementRow): Promise<Agreement> {
+      const [r] = await db.insert(schema.agreement).values({ tenantId, ...row }).returning();
+      return mapAgreement(r);
+    },
+
+    async getAgreement(agreementId: string): Promise<Agreement | null> {
+      const rows = await db.select().from(schema.agreement).where(eq(schema.agreement.agreementId, agreementId)).limit(1);
+      return rows[0] ? mapAgreement(rows[0]) : null;
+    },
+
+    async getAgreementByCreatingApproval(approvalId: string): Promise<Agreement | null> {
+      const rows = await db
+        .select()
+        .from(schema.agreement)
+        .where(eq(schema.agreement.createdByApprovalId, approvalId))
+        .limit(1);
+      return rows[0] ? mapAgreement(rows[0]) : null;
+    },
+
+    async renewAgreement(agreementId: string, newEndsOn: string): Promise<Agreement | null> {
+      // Statement-level guard: Active AND the new end still beats the stored
+      // one (a renewal that landed in between makes this a no-op → null).
+      const rows = await db
+        .update(schema.agreement)
+        .set({ endsOn: newEndsOn, version: sql`${schema.agreement.version} + 1` })
+        .where(
+          and(
+            eq(schema.agreement.agreementId, agreementId),
+            eq(schema.agreement.status, 'Active'),
+            lt(schema.agreement.endsOn, newEndsOn),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapAgreement(rows[0]) : null;
+    },
+
+    async terminateAgreement(agreementId: string): Promise<Agreement | null> {
+      const rows = await db
+        .update(schema.agreement)
+        .set({ status: 'Terminated', version: sql`${schema.agreement.version} + 1` })
+        .where(and(eq(schema.agreement.agreementId, agreementId), eq(schema.agreement.status, 'Active')))
+        .returning();
+      return rows[0] ? mapAgreement(rows[0]) : null;
+    },
+
+    async updateAgreement(agreementId: string, expectedVersion: number, patch: AgreementPatch): Promise<Agreement | null> {
+      const rows = await db
+        .update(schema.agreement)
+        .set({ ...patch, version: sql`${schema.agreement.version} + 1` })
+        .where(and(eq(schema.agreement.agreementId, agreementId), eq(schema.agreement.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapAgreement(rows[0]) : null;
     },
   } satisfies WriteTx;
 }

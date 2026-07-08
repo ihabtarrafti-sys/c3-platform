@@ -3,6 +3,8 @@
  * escapes persistence; the domain sees only canonical business identities.
  */
 import {
+  type Agreement,
+  type AgreementStatus,
   type Apparel,
   type Approval,
   type ApprovalEvent,
@@ -117,6 +119,27 @@ export function mapKit(row: any): Kit {
 
 export function mapApparel(row: any): Apparel {
   return { apparelId: row.apparelId ?? row.apparel_id, ...mapEquipmentBase(row) };
+}
+
+export function mapAgreement(row: any): Agreement {
+  const cents = row.valueUsdCents ?? row.value_usd_cents ?? null;
+  return {
+    agreementId: row.agreementId ?? row.agreement_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    personId: row.personId ?? row.person_id,
+    agreementCode: row.agreementCode ?? row.agreement_code ?? null,
+    agreementType: row.agreementType ?? row.agreement_type,
+    linkedAgreementId: row.linkedAgreementId ?? row.linked_agreement_id ?? null,
+    startsOn: plainDate(row.startsOn ?? row.starts_on)!,
+    endsOn: plainDate(row.endsOn ?? row.ends_on)!,
+    // bigint may arrive as a string from raw paths; cents are integers ≪ 2^53.
+    valueUsdCents: cents === null ? null : Number(cents),
+    notes: row.notes ?? null,
+    status: (row.status) as AgreementStatus,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
 }
 
 export function mapMission(row: any): Mission {

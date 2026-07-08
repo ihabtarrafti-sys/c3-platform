@@ -175,6 +175,27 @@ export const apparel = pgTable('apparel', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const agreement = pgTable('agreement', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  agreementId: text('agreement_id').notNull(),
+  personId: text('person_id').notNull(),
+  agreementCode: text('agreement_code'),
+  agreementType: text('agreement_type').notNull(),
+  linkedAgreementId: text('linked_agreement_id'),
+  // mode 'string' — the Credentials date discipline (never driver-parsed).
+  startsOn: date('starts_on', { mode: 'string' }).notNull(),
+  endsOn: date('ends_on', { mode: 'string' }).notNull(),
+  // Integer US cents; mode number is safe (values ≪ 2^53).
+  valueUsdCents: bigint('value_usd_cents', { mode: 'number' }),
+  notes: text('notes'),
+  status: text('status').notNull().default('Active'),
+  createdByApprovalId: text('created_by_approval_id').notNull(),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const mission = pgTable('mission', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

@@ -10,6 +10,7 @@
 
 import type {
   Actor,
+  Agreement,
   Apparel,
   Approval,
   ApprovalEvent,
@@ -54,6 +55,11 @@ export interface ReadStore {
   getMissionById(missionId: string): Promise<Mission | null>;
   listMissionParticipants(missionId: string): Promise<MissionParticipant[]>;
   getMissionParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
+  // Sprint 41: agreements. Financial-field omission happens in the
+  // APPLICATION query layer (per-actor); the store returns full rows.
+  listAgreements(): Promise<Agreement[]>;
+  listAgreementsForPerson(personId: string): Promise<Agreement[]>;
+  getAgreementById(agreementId: string): Promise<Agreement | null>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -148,9 +154,32 @@ export interface MissionPatch {
   readonly notes?: string | null;
 }
 
+/** Fields written when creating an Agreement during AddAgreement execution. */
+export interface NewAgreementRow {
+  readonly agreementId: string;
+  readonly personId: string;
+  readonly agreementCode: string | null;
+  readonly agreementType: string;
+  readonly linkedAgreementId: string | null;
+  readonly startsOn: string; // plain ISO YYYY-MM-DD
+  readonly endsOn: string;
+  readonly valueUsdCents: number | null;
+  readonly notes: string | null;
+  /** The approval whose execution created this agreement (idempotency boundary). */
+  readonly createdByApprovalId: string;
+}
+
+/** NON-MATERIAL patch for a direct agreement update (only provided keys change). */
+export interface AgreementPatch {
+  readonly agreementCode?: string | null;
+  readonly agreementType?: string;
+  readonly linkedAgreementId?: string | null;
+  readonly notes?: string | null;
+}
+
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
-  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission'): Promise<number>;
+  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'agreement'): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
 
@@ -287,6 +316,23 @@ export interface WriteTx {
   reactivateParticipant(missionId: string, personId: string, role: string): Promise<MissionParticipant | null>;
   /** Flip an ACTIVE pair to inactive; null when no active row matched. */
   deactivateParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
+
+  // ── Sprint 41 agreements ───────────────────────────────────────────────────
+  insertAgreement(row: NewAgreementRow): Promise<Agreement>;
+  /** Read the row inside the transaction (for precise refusal errors). */
+  getAgreement(agreementId: string): Promise<Agreement | null>;
+  /** Return the agreement an approval already created (idempotent execute path). */
+  getAgreementByCreatingApproval(approvalId: string): Promise<Agreement | null>;
+  /**
+   * Statement-guarded term extension: updates only when the row is Active AND
+   * newEndsOn still beats the stored end date. Null = no row qualified — the
+   * caller distinguishes not-found / terminated / no-longer-extends.
+   */
+  renewAgreement(agreementId: string, newEndsOn: string): Promise<Agreement | null>;
+  /** Terminate iff currently Active; null = missing/already terminated. */
+  terminateAgreement(agreementId: string): Promise<Agreement | null>;
+  /** Version-guarded NON-MATERIAL patch; null = stale/missing. */
+  updateAgreement(agreementId: string, expectedVersion: number, patch: AgreementPatch): Promise<Agreement | null>;
 }
 
 export interface WriteStore {

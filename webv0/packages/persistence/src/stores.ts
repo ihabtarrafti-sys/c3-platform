@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -197,6 +197,30 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             `);
             const row = res.rows[0];
             return row ? mapMissionParticipant(row) : null;
+          }),
+
+        // Sprint 41: agreements (drizzle-only; financial omission is the
+        // application query layer's job, per-actor).
+        listAgreements: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Agreement[]> => {
+            const rows = await db.select().from(schema.agreement).orderBy(asc(schema.agreement.agreementId));
+            return rows.map(mapAgreement);
+          }),
+
+        listAgreementsForPerson: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Agreement[]> => {
+            const rows = await db
+              .select()
+              .from(schema.agreement)
+              .where(eq(schema.agreement.personId, personId))
+              .orderBy(asc(schema.agreement.agreementId));
+            return rows.map(mapAgreement);
+          }),
+
+        getAgreementById: (agreementId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Agreement | null> => {
+            const rows = await db.select().from(schema.agreement).where(eq(schema.agreement.agreementId, agreementId)).limit(1);
+            return rows[0] ? mapAgreement(rows[0]) : null;
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped
