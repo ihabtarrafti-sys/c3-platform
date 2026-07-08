@@ -14,6 +14,8 @@ import {
   type Journey,
   type Kit,
   type Member,
+  type Mission,
+  type MissionParticipant,
   type Person,
   NotFoundError,
 } from '@c3web/domain';
@@ -58,6 +60,27 @@ export function listKit(p: Persistence, actor: Actor): Promise<Kit[]> {
 export function listApparel(p: Persistence, actor: Actor): Promise<Apparel[]> {
   assertReadPeople(actor);
   return p.reads.forActor(actor).listApparel();
+}
+
+// ── Sprint 39: missions (people-adjacent operational reads — same gate). ─────
+export function listMissions(p: Persistence, actor: Actor): Promise<Mission[]> {
+  assertReadPeople(actor);
+  return p.reads.forActor(actor).listMissions();
+}
+
+export async function getMission(p: Persistence, actor: Actor, missionId: string): Promise<Mission> {
+  assertReadPeople(actor);
+  const mission = await p.reads.forActor(actor).getMissionById(missionId);
+  if (!mission) throw new NotFoundError('Mission', missionId);
+  return mission;
+}
+
+export async function listMissionParticipants(p: Persistence, actor: Actor, missionId: string): Promise<MissionParticipant[]> {
+  assertReadPeople(actor);
+  // Ensure the mission is visible in this tenant before returning membership.
+  const mission = await p.reads.forActor(actor).getMissionById(missionId);
+  if (!mission) throw new NotFoundError('Mission', missionId);
+  return p.reads.forActor(actor).listMissionParticipants(missionId);
 }
 
 // ── Sprint 36: credentials (people-adjacent operational reads — same gate). ──

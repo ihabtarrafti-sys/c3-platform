@@ -13,6 +13,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
 import type { Actor } from '@c3web/domain';
+import { createMission } from '@c3web/application';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
 import { exitTenant } from '../src/exitTenant';
@@ -63,7 +64,7 @@ async function admin<T>(fn: (c: Client) => Promise<T>): Promise<T> {
 async function fingerprint(): Promise<string> {
   return admin(async (c) => {
     const parts: string[] = [];
-    for (const t of ['tenant', 'app_user', 'external_identity', 'tenant_membership', 'role_assignment', 'business_id_counter', 'person', 'credential', 'journey', 'kit', 'apparel', 'approval', 'approval_event', 'audit_event']) {
+    for (const t of ['tenant', 'app_user', 'external_identity', 'tenant_membership', 'role_assignment', 'business_id_counter', 'person', 'credential', 'journey', 'mission', 'mission_participant', 'kit', 'apparel', 'approval', 'approval_event', 'audit_event']) {
       const r = await c.query(`SELECT count(*)::int AS n FROM ${t}`);
       parts.push(`${t}=${r.rows[0].n}`);
     }
@@ -133,6 +134,11 @@ beforeEach(async () => {
   bravoId = bravo.tenantId;
   await governedAddPerson(ownerActor(alphaId, 'owner@a.com'), 'Alpha Person');
   await governedAddPerson(ownerActor(bravoId, 'owner@b.com'), 'Bravo Person');
+  // Sprint 39: alpha carries a mission + participant so the ceremony proves
+  // the two newest tables erase too.
+  const alphaOwner = ownerActor(alphaId, 'owner@a.com');
+  const mission = await createMission(p, alphaOwner, { name: 'Exit Fixture Mission', startsOn: '2026-08-01' });
+  await p.writes.transaction(alphaOwner, (tx) => tx.insertParticipant(mission.missionId, 'PER-0001', 'Player'));
 });
 
 describe('exit ceremony — dry-run', () => {
@@ -147,6 +153,8 @@ describe('exit ceremony — dry-run', () => {
     const rows = Object.fromEntries(report.tables.map((t) => [t.name, t.rows]));
     expect(rows.person).toBe(1);
     expect(rows.approval).toBe(1);
+    expect(rows.mission).toBe(1);
+    expect(rows.mission_participant).toBe(1);
     expect(rows.audit_event).toBeGreaterThan(0);
     expect(rows.tenant).toBe(1);
     expect(await fingerprint()).toBe(before);
@@ -190,7 +198,7 @@ describe('exit ceremony — executed', () => {
     await admin(async (c) => {
       // Alpha is gone everywhere.
       expect((await c.query(`SELECT count(*)::int AS n FROM tenant WHERE slug='alpha'`)).rows[0].n).toBe(0);
-      for (const t of ['person', 'credential', 'journey', 'kit', 'apparel', 'approval', 'approval_event', 'audit_event', 'tenant_membership', 'role_assignment', 'business_id_counter']) {
+      for (const t of ['person', 'credential', 'journey', 'mission', 'mission_participant', 'kit', 'apparel', 'approval', 'approval_event', 'audit_event', 'tenant_membership', 'role_assignment', 'business_id_counter']) {
         expect((await c.query(`SELECT count(*)::int AS n FROM ${t} WHERE tenant_id = $1`, [alphaId])).rows[0].n).toBe(0);
       }
       // Sole-tenant user + identity erased with the org.

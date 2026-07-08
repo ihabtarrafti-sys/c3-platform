@@ -14,8 +14,8 @@
 1. **Duplicate-PENDING refused at submit**: an open approval (Submitted/InReview/Approved) for the same (mission, person) pair blocks a second submission.
 2. **Duplicate-ACTIVE refused at submit AND at execute** (the Set-D double guard): submit-time check is friendly; the execute-time check is authoritative inside the transaction — a pair that became active between approval and execution produces a truthful `ExecutionFailed` (`ParticipantConflictError` equivalent), never a duplicate row.
 3. **Reactivation reuses the row**: adding a previously-removed participant flips the existing row active on execute (UNIQUE-constraint-backed), preserving the pair's full audit lineage.
-4. Remove: participant must exist and be active (submit-friendly + execute-authoritative).
-5. Both operations validate the mission is active and the person exists (composite FKs authoritative).
+4. Remove: participant must exist and be active (submit-friendly + execute-authoritative). The mission SHELL may be retired — removal is cleanup and must never be trapped by a deactivated mission.
+5. Add validates the mission is active and the person exists (composite FKs authoritative).
 
 ## Read surfaces (M4)
 

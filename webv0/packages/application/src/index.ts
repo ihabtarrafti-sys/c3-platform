@@ -7,6 +7,8 @@ export * from './usecases/submitAddPerson';
 export * from './usecases/submitCredentialOps';
 export * from './usecases/equipmentOps';
 export * from './usecases/journeyOps';
+export * from './usecases/missionOps';
+export * from './usecases/submitMissionParticipantOps';
 export * from './usecases/submitMemberChange';
 export * from './usecases/reviewApproval';
 export * from './usecases/executeApproval';

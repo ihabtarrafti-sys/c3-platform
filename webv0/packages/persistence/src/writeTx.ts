@@ -19,12 +19,14 @@ import {
   type JourneyStatus,
   type Kit,
   type Member,
+  type Mission,
+  type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { EquipmentPatch, NewApprovalRow, NewCredentialRow, NewEquipmentRow, NewJourneyRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { EquipmentPatch, MissionPatch, NewApprovalRow, NewCredentialRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapApparel, mapApproval, mapCredential, mapJourney, mapKit, mapPerson } from './mappers';
+import { mapApparel, mapApproval, mapCredential, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -94,6 +96,19 @@ function mapMember(r: MemberRow, tenantId: string): Member {
 
 export function makeWriteTx(db: Db, actor: Actor): WriteTx {
   const tenantId = actor.tenantId;
+
+  /** Participant domain view: the pair row joined with the person's name. */
+  const readParticipantView = async (missionId: string, personId: string, lock = false): Promise<MissionParticipant | null> => {
+    const res = await db.execute(sql`
+      SELECT mp.*, p.full_name AS person_name
+        FROM mission_participant mp
+        JOIN person p ON p.tenant_id = mp.tenant_id AND p.person_id = mp.person_id
+       WHERE mp.mission_id = ${missionId} AND mp.person_id = ${personId}
+       ${lock ? sql`FOR UPDATE OF mp` : sql``}
+    `);
+    const row = res.rows[0];
+    return row ? mapMissionParticipant(row) : null;
+  };
 
   return {
     async allocateSequence(kind) {
@@ -389,6 +404,81 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion), eq(schema.apparel.isActive, true)))
         .returning();
       return rows[0] ? mapApparel(rows[0]) : null;
+    },
+
+    // ── Sprint 39 missions (shell = drizzle-only; participants joined with the
+    //    person's display name for the domain view) ────────────────────────────
+    async insertMission(missionId: string, row: NewMissionRow): Promise<Mission> {
+      const [r] = await db.insert(schema.mission).values({ tenantId, missionId, ...row }).returning();
+      return mapMission(r);
+    },
+
+    async getMission(missionId: string): Promise<Mission | null> {
+      const rows = await db.select().from(schema.mission).where(eq(schema.mission.missionId, missionId)).limit(1);
+      return rows[0] ? mapMission(rows[0]) : null;
+    },
+
+    async updateMission(missionId: string, expectedVersion: number, patch: MissionPatch): Promise<Mission | null> {
+      const rows = await db
+        .update(schema.mission)
+        .set({ ...patch, version: sql`${schema.mission.version} + 1` })
+        .where(and(eq(schema.mission.missionId, missionId), eq(schema.mission.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapMission(rows[0]) : null;
+    },
+
+    async deactivateMission(missionId: string, expectedVersion: number): Promise<Mission | null> {
+      const rows = await db
+        .update(schema.mission)
+        .set({ isActive: false, version: sql`${schema.mission.version} + 1` })
+        .where(and(eq(schema.mission.missionId, missionId), eq(schema.mission.version, expectedVersion), eq(schema.mission.isActive, true)))
+        .returning();
+      return rows[0] ? mapMission(rows[0]) : null;
+    },
+
+    // Lock ONLY the participant row (FOR UPDATE OF mp): the person join is a
+    // display read and must not serialise unrelated person writes.
+    getParticipantForUpdate: (missionId, personId) => readParticipantView(missionId, personId, true),
+
+    getParticipant: (missionId, personId) => readParticipantView(missionId, personId),
+
+    async insertParticipant(missionId: string, personId: string, role: string): Promise<MissionParticipant> {
+      // The composite FKs authoritatively require the mission and the person;
+      // the UNIQUE pair constraint turns a concurrent duplicate into 23505.
+      await db.insert(schema.missionParticipant).values({ tenantId, missionId, personId, role });
+      const created = await readParticipantView(missionId, personId);
+      if (!created) throw new Error('participant insert did not persist');
+      return created;
+    },
+
+    async reactivateParticipant(missionId: string, personId: string, role: string): Promise<MissionParticipant | null> {
+      const rows = await db
+        .update(schema.missionParticipant)
+        .set({ role, isActive: true })
+        .where(
+          and(
+            eq(schema.missionParticipant.missionId, missionId),
+            eq(schema.missionParticipant.personId, personId),
+            eq(schema.missionParticipant.isActive, false),
+          ),
+        )
+        .returning();
+      return rows[0] ? readParticipantView(missionId, personId) : null;
+    },
+
+    async deactivateParticipant(missionId: string, personId: string): Promise<MissionParticipant | null> {
+      const rows = await db
+        .update(schema.missionParticipant)
+        .set({ isActive: false })
+        .where(
+          and(
+            eq(schema.missionParticipant.missionId, missionId),
+            eq(schema.missionParticipant.personId, personId),
+            eq(schema.missionParticipant.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? readParticipantView(missionId, personId) : null;
     },
   } satisfies WriteTx;
 }

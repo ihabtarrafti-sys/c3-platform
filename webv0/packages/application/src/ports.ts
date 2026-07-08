@@ -21,6 +21,8 @@ import type {
   JourneyStatus,
   Kit,
   Member,
+  Mission,
+  MissionParticipant,
   Person,
 } from '@c3web/domain';
 
@@ -47,6 +49,11 @@ export interface ReadStore {
   getKitById(kitId: string): Promise<Kit | null>;
   listApparel(): Promise<Apparel[]>;
   getApparelById(apparelId: string): Promise<Apparel | null>;
+  // Sprint 39: missions. Participant reads join the person's display name.
+  listMissions(): Promise<Mission[]>;
+  getMissionById(missionId: string): Promise<Mission | null>;
+  listMissionParticipants(missionId: string): Promise<MissionParticipant[]>;
+  getMissionParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -123,9 +130,27 @@ export interface EquipmentPatch {
   readonly notes?: string | null;
 }
 
+/** Fields written when creating a mission (Sprint 39, direct CRUD shell). */
+export interface NewMissionRow {
+  readonly name: string;
+  readonly gameTitle: string | null;
+  readonly startsOn: string; // plain ISO YYYY-MM-DD
+  readonly endsOn: string | null;
+  readonly notes: string | null;
+}
+
+/** Editable-field patch for a mission update (only provided keys change). */
+export interface MissionPatch {
+  readonly name?: string;
+  readonly gameTitle?: string | null;
+  readonly startsOn?: string;
+  readonly endsOn?: string | null;
+  readonly notes?: string | null;
+}
+
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
-  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel'): Promise<number>;
+  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission'): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
 
@@ -239,6 +264,29 @@ export interface WriteTx {
   getApparel(apparelId: string): Promise<Apparel | null>;
   updateApparel(apparelId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Apparel | null>;
   deactivateApparel(apparelId: string, expectedVersion: number): Promise<Apparel | null>;
+
+  // ── Sprint 39 missions ─────────────────────────────────────────────────────
+  insertMission(missionId: string, row: NewMissionRow): Promise<Mission>;
+  getMission(missionId: string): Promise<Mission | null>;
+  /** Version-guarded field patch; null = stale/missing (caller distinguishes). */
+  updateMission(missionId: string, expectedVersion: number, patch: MissionPatch): Promise<Mission | null>;
+  /** Version-guarded deactivate iff currently active; null = stale/missing/inactive. */
+  deactivateMission(missionId: string, expectedVersion: number): Promise<Mission | null>;
+
+  /**
+   * Row-lock the (mission, person) participant pair inside this transaction
+   * (SELECT ... FOR UPDATE) — serialises concurrent governed executions so the
+   * duplicate-active guard and the reactivation flip cannot race.
+   */
+  getParticipantForUpdate(missionId: string, personId: string): Promise<MissionParticipant | null>;
+  /** Read the pair without locking (idempotent execute path). */
+  getParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
+  /** First-ever membership for the pair; the UNIQUE constraint backs it. */
+  insertParticipant(missionId: string, personId: string, role: string): Promise<MissionParticipant>;
+  /** Flip an INACTIVE pair back to active with a (possibly new) role; null when no inactive row matched. */
+  reactivateParticipant(missionId: string, personId: string, role: string): Promise<MissionParticipant | null>;
+  /** Flip an ACTIVE pair to inactive; null when no active row matched. */
+  deactivateParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
 }
 
 export interface WriteStore {

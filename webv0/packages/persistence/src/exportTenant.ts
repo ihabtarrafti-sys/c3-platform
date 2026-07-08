@@ -93,6 +93,14 @@ function tableExports(): TableExport[] {
     },
     { name: 'kit', sql: `SELECT * FROM kit WHERE tenant_id = $1 ORDER BY kit_id` },
     { name: 'apparel', sql: `SELECT * FROM apparel WHERE tenant_id = $1 ORDER BY apparel_id` },
+    {
+      name: 'mission',
+      sql: `SELECT id, tenant_id, mission_id, name, game_title,
+                   starts_on::text AS starts_on, ends_on::text AS ends_on,
+                   notes, is_active, version, created_at, updated_at
+              FROM mission WHERE tenant_id = $1 ORDER BY mission_id`,
+    },
+    { name: 'mission_participant', sql: `SELECT * FROM mission_participant WHERE tenant_id = $1 ORDER BY mission_id, person_id` },
     { name: 'approval_event', sql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id` },
     { name: 'audit_event', sql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id` },
   ];

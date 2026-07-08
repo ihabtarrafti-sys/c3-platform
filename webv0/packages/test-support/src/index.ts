@@ -51,6 +51,8 @@ export interface TestDatabase {
   }): Promise<SeededTenant>;
   /** Remove all tenant data (keeps schema). */
   truncateAll(): Promise<void>;
+  /** One-shot superuser query — for test arrangements and constraint probes. */
+  adminQuery<T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]>;
   stop(): Promise<void>;
 }
 
@@ -130,6 +132,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     appUrl,
     authUrl,
     backupUrl,
+    adminQuery,
 
     async seedTenant(spec): Promise<SeededTenant> {
       const rows = await adminQuery<{ id: string }>(

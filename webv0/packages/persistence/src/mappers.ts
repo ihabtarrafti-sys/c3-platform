@@ -13,6 +13,8 @@ import {
   type Journey,
   type JourneyStatus,
   type Kit,
+  type Mission,
+  type MissionParticipant,
   type OperationType,
   type Person,
   parseApprovalPayload,
@@ -115,6 +117,36 @@ export function mapKit(row: any): Kit {
 
 export function mapApparel(row: any): Apparel {
   return { apparelId: row.apparelId ?? row.apparel_id, ...mapEquipmentBase(row) };
+}
+
+export function mapMission(row: any): Mission {
+  return {
+    missionId: row.missionId ?? row.mission_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    name: row.name,
+    gameTitle: row.gameTitle ?? row.game_title ?? null,
+    startsOn: plainDate(row.startsOn ?? row.starts_on)!,
+    endsOn: plainDate(row.endsOn ?? row.ends_on),
+    notes: row.notes ?? null,
+    isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+/** Participant rows arrive joined with the person's display name (person_name). */
+export function mapMissionParticipant(row: any): MissionParticipant {
+  return {
+    tenantId: row.tenantId ?? row.tenant_id,
+    missionId: row.missionId ?? row.mission_id,
+    personId: row.personId ?? row.person_id,
+    personName: row.personName ?? row.person_name ?? row.full_name ?? '',
+    role: row.role,
+    isActive: row.isActive ?? row.is_active,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
 }
 
 export function mapApproval(row: any): Approval {

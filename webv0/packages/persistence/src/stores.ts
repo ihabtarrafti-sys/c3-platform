@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Kit, Member, Person } from '@c3web/domain';
+import type { Actor, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapJourney, mapKit, mapPerson } from './mappers';
+import { mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -159,6 +159,44 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Apparel | null> => {
             const rows = await db.select().from(schema.apparel).where(eq(schema.apparel.apparelId, apparelId)).limit(1);
             return rows[0] ? mapApparel(rows[0]) : null;
+          }),
+
+        // Sprint 39: missions (shell drizzle-only; participants joined with
+        // the person's display name for the register).
+        listMissions: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Mission[]> => {
+            const rows = await db.select().from(schema.mission).orderBy(asc(schema.mission.missionId));
+            return rows.map(mapMission);
+          }),
+
+        getMissionById: (missionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Mission | null> => {
+            const rows = await db.select().from(schema.mission).where(eq(schema.mission.missionId, missionId)).limit(1);
+            return rows[0] ? mapMission(rows[0]) : null;
+          }),
+
+        listMissionParticipants: (missionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<MissionParticipant[]> => {
+            const res = await db.execute(sql`
+              SELECT mp.*, p.full_name AS person_name
+                FROM mission_participant mp
+                JOIN person p ON p.tenant_id = mp.tenant_id AND p.person_id = mp.person_id
+               WHERE mp.mission_id = ${missionId}
+               ORDER BY mp.person_id
+            `);
+            return res.rows.map(mapMissionParticipant);
+          }),
+
+        getMissionParticipant: (missionId: string, personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<MissionParticipant | null> => {
+            const res = await db.execute(sql`
+              SELECT mp.*, p.full_name AS person_name
+                FROM mission_participant mp
+                JOIN person p ON p.tenant_id = mp.tenant_id AND p.person_id = mp.person_id
+               WHERE mp.mission_id = ${missionId} AND mp.person_id = ${personId}
+            `);
+            const row = res.rows[0];
+            return row ? mapMissionParticipant(row) : null;
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped

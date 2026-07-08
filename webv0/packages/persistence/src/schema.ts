@@ -175,6 +175,33 @@ export const apparel = pgTable('apparel', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const mission = pgTable('mission', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  missionId: text('mission_id').notNull(),
+  name: text('name').notNull(),
+  gameTitle: text('game_title'),
+  // mode 'string' — the Credentials date discipline (never driver-parsed).
+  startsOn: date('starts_on', { mode: 'string' }).notNull(),
+  endsOn: date('ends_on', { mode: 'string' }),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const missionParticipant = pgTable('mission_participant', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  missionId: text('mission_id').notNull(),
+  personId: text('person_id').notNull(),
+  role: text('role').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const approvalEvent = pgTable('approval_event', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

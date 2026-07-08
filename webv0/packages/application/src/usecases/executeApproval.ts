@@ -29,6 +29,7 @@ import {
   type AuditAction,
   type Credential,
   type Journey,
+  type MissionParticipant,
   type Person,
   ApprovalNotApprovedError,
   canApply,
@@ -38,6 +39,7 @@ import {
   formatJourneyId,
   formatPersonId,
   NotFoundError,
+  ParticipantConflictError,
 } from '@c3web/domain';
 import { assertExecuteApproval, assertTenantMatch } from '@c3web/authz';
 import type { Persistence, WriteTx } from '../ports';
@@ -49,6 +51,8 @@ export interface ExecuteResult {
   readonly credential: Credential | null;
   /** Set when the executed operation created a journey (Sprint 37). */
   readonly journey: Journey | null;
+  /** Set when the executed operation added/removed a mission participant (Sprint 39). */
+  readonly participant: MissionParticipant | null;
   readonly idempotent: boolean;
 }
 
@@ -143,14 +147,20 @@ export async function executeApproval(
       assertExecuteApproval(actor, approval.submittedBy);
       assertTenantMatch(actor.tenantId, approval.tenantId);
 
-      // Idempotent: already executed -> return what it created.
+      // Idempotent: already executed -> return what it created. Participant
+      // ops have no created_by column (a pair outlives many approvals); the
+      // pair row itself is the result, re-read via the immutable payload.
       if (approval.status === 'Executed') {
         const person = await tx.getPersonByCreatingApproval(approvalId);
         const credential =
           approval.payload.operationType === 'AddCredential' ? await tx.getCredentialByCreatingApproval(approvalId) : null;
         const journey =
           approval.payload.operationType === 'InitiateJourney' ? await tx.getJourneyByCreatingApproval(approvalId) : null;
-        return { approval, person, credential, journey, idempotent: true };
+        const participant =
+          approval.payload.operationType === 'AddMissionParticipant' || approval.payload.operationType === 'RemoveMissionParticipant'
+            ? await tx.getParticipant(approval.payload.input.missionId, approval.payload.input.personId)
+            : null;
+        return { approval, person, credential, journey, participant, idempotent: true };
       }
 
       if (!canApply('executeSuccess', approval.status)) {
@@ -210,7 +220,7 @@ export async function executeApproval(
             before: { status: approval.status },
             after: { status: 'Executed', operationType: 'InitiateJourney', journeyId },
           });
-          return { approval: executed, person: null, credential: null, journey, idempotent: false };
+          return { approval: executed, person: null, credential: null, journey, participant: null, idempotent: false };
         }
         // ── Sprint 36: credentials ─────────────────────────────────────────
         if (approval.payload.operationType === 'AddCredential') {
@@ -265,7 +275,7 @@ export async function executeApproval(
             before: { status: approval.status },
             after: { status: 'Executed', operationType: 'AddCredential', credentialId },
           });
-          return { approval: executed, person: null, credential, journey: null, idempotent: false };
+          return { approval: executed, person: null, credential, journey: null, participant: null, idempotent: false };
         }
 
         if (approval.payload.operationType === 'DeactivateCredential') {
@@ -305,20 +315,106 @@ export async function executeApproval(
             before: { status: approval.status },
             after: { status: 'Executed', operationType: 'DeactivateCredential', credentialId: input.credentialId },
           });
-          return { approval: executed, person: null, credential, journey: null, idempotent: false };
+          return { approval: executed, person: null, credential, journey: null, participant: null, idempotent: false };
         }
 
-        // ── Sprint 39: mission participants — FAILS CLOSED until the M2
-        // executor lands (guards + row flip + audit in one transaction).
-        // Unsubmittable today (no submit use-case/route yet); this branch
-        // keeps the compile-enforced exhaustiveness below honest.
-        if (
-          approval.payload.operationType === 'AddMissionParticipant' ||
-          approval.payload.operationType === 'RemoveMissionParticipant'
-        ) {
-          throw new ConflictError('Mission participant operations are not yet executable.', {
-            operationType: approval.payload.operationType,
+        // ── Sprint 39: mission participants (the Set-D discipline) ─────────
+        // The submit-time guards were friendly; THIS is the authoritative
+        // re-check, inside the transaction, on a row-locked pair. A pair that
+        // became active between approval and execution is a truthful
+        // ExecutionFailed — never a duplicate row (the UNIQUE constraint is
+        // the last line).
+        if (approval.payload.operationType === 'AddMissionParticipant') {
+          const { input } = approval.payload;
+          const mission = await tx.getMission(input.missionId);
+          if (!mission) throw new NotFoundError('Mission', input.missionId);
+          if (!mission.isActive) {
+            throw new ConflictError('Participants may not be added to an inactive mission.', { missionId: input.missionId });
+          }
+          const pair = await tx.getParticipantForUpdate(input.missionId, input.personId);
+          if (pair?.isActive) throw new ParticipantConflictError(input.missionId, input.personId, 'active-participant');
+
+          // Reactivation reuses THE SAME row (the SP APR-0065 semantics);
+          // first-ever membership inserts, with the person FK authoritative.
+          const participant = pair
+            ? await tx.reactivateParticipant(input.missionId, input.personId, input.role)
+            : await tx.insertParticipant(input.missionId, input.personId, input.role);
+          if (!participant) throw new ConcurrencyError('Mission participant', `${input.personId} on ${input.missionId}`);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
           });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: added ${input.personId} as ${input.role} on ${input.missionId}${pair ? ' (reactivated existing membership row)' : ''}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'MissionParticipant',
+            entityId: `${input.missionId}/${input.personId}`,
+            action: 'MissionParticipantAdded',
+            actor: actor.identity,
+            before: pair ? { isActive: false, role: pair.role } : null,
+            after: { isActive: true, role: input.role, missionId: input.missionId, personId: input.personId },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'AddMissionParticipant', missionId: input.missionId, personId: input.personId },
+          });
+          return { approval: executed, person: null, credential: null, journey: null, participant, idempotent: false };
+        }
+
+        if (approval.payload.operationType === 'RemoveMissionParticipant') {
+          const { input } = approval.payload;
+          const pair = await tx.getParticipantForUpdate(input.missionId, input.personId);
+          if (!pair || !pair.isActive) {
+            throw new ConflictError('The person is not an active participant of this mission.', {
+              missionId: input.missionId,
+              personId: input.personId,
+            });
+          }
+          const participant = await tx.deactivateParticipant(input.missionId, input.personId);
+          if (!participant) throw new ConcurrencyError('Mission participant', `${input.personId} on ${input.missionId}`);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: removed ${input.personId} from ${input.missionId}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'MissionParticipant',
+            entityId: `${input.missionId}/${input.personId}`,
+            action: 'MissionParticipantRemoved',
+            actor: actor.identity,
+            before: { isActive: true, role: pair.role },
+            after: { isActive: false },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'RemoveMissionParticipant', missionId: input.missionId, personId: input.personId },
+          });
+          return { approval: executed, person: null, credential: null, journey: null, participant, idempotent: false };
         }
 
         // ── Sprint 35: member operations ───────────────────────────────────
@@ -359,7 +455,7 @@ export async function executeApproval(
           after: { status: 'Executed', operationType: approval.payload.operationType, member: fact.entityId },
         });
 
-        return { approval: executed, person: null, credential: null, journey: null, idempotent: false };
+        return { approval: executed, person: null, credential: null, journey: null, participant: null, idempotent: false };
       }
 
       const seq = await tx.allocateSequence('person');
@@ -412,7 +508,7 @@ export async function executeApproval(
         after: { status: 'Executed', targetPersonId: personId },
       });
 
-      return { approval: executed, person, credential: null, journey: null, idempotent: false };
+      return { approval: executed, person, credential: null, journey: null, participant: null, idempotent: false };
     });
   } catch (err) {
     // A concurrent duplicate execute already created the record: resolve to
@@ -421,10 +517,15 @@ export async function executeApproval(
       const approval = await p.reads.forActor(actor).getApprovalById(approvalId);
       if (approval?.payload.operationType === 'AddCredential') {
         const credential = await p.writes.transaction(actor, (tx) => tx.getCredentialByCreatingApproval(approvalId));
-        if (credential) return { approval, person: null, credential, journey: null, idempotent: true };
+        if (credential) return { approval, person: null, credential, journey: null, participant: null, idempotent: true };
+      } else if (approval?.payload.operationType === 'AddMissionParticipant') {
+        // A unique-violation on the pair row means ANOTHER approval activated
+        // this membership concurrently — that is a genuine conflict for THIS
+        // approval (never idempotent success): fall through to the truthful
+        // ExecutionFailed recording below.
       } else {
         const person = await p.writes.transaction(actor, (tx) => tx.getPersonByCreatingApproval(approvalId));
-        if (approval && person) return { approval, person, credential: null, journey: null, idempotent: true };
+        if (approval && person) return { approval, person, credential: null, journey: null, participant: null, idempotent: true };
       }
     }
 
