@@ -15,9 +15,11 @@
  *   - server correlation ids are preserved onto ApiError.
  */
 import type {
+  ApparelDto,
   ApprovalDto,
   CredentialDto,
   JourneyDto,
+  KitDto,
   MeResponse,
   MemberDto,
   PersonDto,
@@ -26,6 +28,17 @@ import type {
   SubmitInitiateJourneyRequest,
   SubmitMemberChangeRequest,
 } from '@c3web/api-contracts';
+
+export interface EquipmentCreateBody {
+  name: string;
+  category: string;
+  size?: string | null;
+  assignedPersonId?: string | null;
+  notes?: string | null;
+}
+export interface EquipmentUpdateBody extends Partial<EquipmentCreateBody> {
+  expectedVersion: number;
+}
 
 export class ApiError extends Error {
   constructor(
@@ -110,6 +123,18 @@ export function createApiClient(deps: ApiClientDeps) {
         expectedVersion,
         ...(reason ? { reason } : {}),
       }),
+    // Sprint 38: equipment (direct CRUD).
+    listKit: () => request<{ kit: KitDto[] }>('GET', '/api/v1/kit'),
+    createKit: (body: EquipmentCreateBody) => request<{ kit: KitDto }>('POST', '/api/v1/kit', body),
+    updateKit: (kitId: string, body: EquipmentUpdateBody) => request<{ kit: KitDto }>('POST', `/api/v1/kit/${kitId}`, body),
+    deactivateKit: (kitId: string, expectedVersion: number) =>
+      request<{ kit: KitDto }>('POST', `/api/v1/kit/${kitId}/deactivate`, { expectedVersion }),
+    listApparel: () => request<{ apparel: ApparelDto[] }>('GET', '/api/v1/apparel'),
+    createApparel: (body: EquipmentCreateBody) => request<{ apparel: ApparelDto }>('POST', '/api/v1/apparel', body),
+    updateApparel: (apparelId: string, body: EquipmentUpdateBody) =>
+      request<{ apparel: ApparelDto }>('POST', `/api/v1/apparel/${apparelId}`, body),
+    deactivateApparel: (apparelId: string, expectedVersion: number) =>
+      request<{ apparel: ApparelDto }>('POST', `/api/v1/apparel/${apparelId}/deactivate`, { expectedVersion }),
   };
 }
 
@@ -132,4 +157,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { ApprovalDto, CredentialDto, JourneyDto, MemberDto, PersonDto, MeResponse };
+export type { ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, PersonDto, MeResponse };

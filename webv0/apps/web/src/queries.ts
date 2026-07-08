@@ -33,3 +33,6 @@ export const useJourneys = () =>
 
 export const usePersonJourneys = (personId: string) =>
   useQuery({ queryKey: ['personJourneys', personId], queryFn: () => api.personJourneys(personId) });
+
+export const useKit = () => useQuery({ queryKey: ['kit'], queryFn: () => api.listKit() });
+export const useApparel = () => useQuery({ queryKey: ['apparel'], queryFn: () => api.listApparel() });

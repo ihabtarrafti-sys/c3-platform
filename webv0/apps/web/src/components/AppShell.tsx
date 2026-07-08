@@ -198,6 +198,23 @@ function JourneysIcon({ className }: { className?: string }) {
   );
 }
 
+function KitIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <rect x="3" y="7" width="14" height="9" rx="1.5" />
+      <path d="M7.5 7V5.5A1.5 1.5 0 0 1 9 4h2a1.5 1.5 0 0 1 1.5 1.5V7M3 11h14" />
+    </svg>
+  );
+}
+
+function ApparelIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M7 4l3 1.5L13 4l3.5 2.5-1.5 2.5-1.5-1V16h-7V8l-1.5 1L3.5 6.5 7 4z" />
+    </svg>
+  );
+}
+
 function MembersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -323,6 +340,8 @@ export function AppShell() {
             icon={<JourneysIcon className={s.navIcon} />}
             onNavigate={() => setNavOpen(false)}
           />
+          <NavItem to="/kit" label="Kit" icon={<KitIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
+          <NavItem to="/apparel" label="Apparel" icon={<ApparelIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           <NavItem
             to="/approvals"
             label="Approvals"
