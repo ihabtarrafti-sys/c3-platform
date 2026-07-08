@@ -59,6 +59,12 @@ export const AUDIT_ACTIONS = [
   'MissionDeactivated',
   'MissionParticipantAdded',
   'MissionParticipantRemoved',
+  // Sprint 41: Contracts — three GOVERNED material operations plus the
+  // direct-audited non-material edit.
+  'ContractCreated',
+  'ContractRenewed',
+  'ContractTerminated',
+  'ContractUpdated',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

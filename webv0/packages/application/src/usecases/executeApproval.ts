@@ -318,6 +318,20 @@ export async function executeApproval(
           return { approval: executed, person: null, credential, journey: null, participant: null, idempotent: false };
         }
 
+        // ── Sprint 41: contracts — FAILS CLOSED until the C2 executor lands
+        // (guards + row mutation + audit in one transaction). Unsubmittable
+        // today (no submit use-case/route yet); this branch keeps the
+        // compile-enforced exhaustiveness below honest.
+        if (
+          approval.payload.operationType === 'AddContract' ||
+          approval.payload.operationType === 'RenewContract' ||
+          approval.payload.operationType === 'TerminateContract'
+        ) {
+          throw new ConflictError('Contract operations are not yet executable.', {
+            operationType: approval.payload.operationType,
+          });
+        }
+
         // ── Sprint 39: mission participants (the Set-D discipline) ─────────
         // The submit-time guards were friendly; THIS is the authoritative
         // re-check, inside the transaction, on a row-locked pair. A pair that

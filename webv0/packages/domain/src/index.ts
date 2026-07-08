@@ -10,6 +10,7 @@ export * from './actor';
 export * from './approval';
 export * from './audit';
 export * from './businessIds';
+export * from './contract';
 export * from './credential';
 export * from './equipment';
 export * from './errors';

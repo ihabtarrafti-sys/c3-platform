@@ -79,6 +79,19 @@ export interface C3Capabilities {
    * governed and rides canSubmitApproval instead.
    */
   readonly canManageMissions: boolean;
+  /**
+   * Sprint 41: may read the Contracts domain AT ALL — owner, operations,
+   * legal, finance, management. HR and visitor are DENIED entirely (the CP
+   * Set-E ACL boundary: contracts are sensitive commercial data; denial is
+   * fail-closed and truthful, never a silent empty register).
+   */
+  readonly canReadContracts: boolean;
+  /**
+   * Sprint 41: may see FINANCIAL values (contract USD) — owner, operations,
+   * finance, management. Legal reads contracts WITHOUT values; the read
+   * model omits the field entirely (absence, not masking).
+   */
+  readonly canViewFinancials: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
@@ -94,6 +107,8 @@ const READ_ONLY = {
   canManageKit: false,
   canManageApparel: false,
   canManageMissions: false,
+  canReadContracts: false,
+  canViewFinancials: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
 
@@ -109,6 +124,8 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageKit: true,
     canManageApparel: true,
     canManageMissions: true,
+    canReadContracts: true,
+    canViewFinancials: true,
     isReadOnly: false,
   },
   operations: {
@@ -122,13 +139,18 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageKit: true,
     canManageApparel: true,
     canManageMissions: true,
+    canReadContracts: true,
+    canViewFinancials: true,
     isReadOnly: false,
   },
-  legal: READ_ONLY,
-  finance: READ_ONLY,
+  // Sprint 41 (CP Set-E parity): legal reads contracts WITHOUT financial
+  // values; finance and management read contracts WITH values. All three
+  // remain read-only (no write/governance affordance).
+  legal: { ...READ_ONLY, canReadContracts: true },
+  finance: { ...READ_ONLY, canReadContracts: true, canViewFinancials: true },
   // Sprint 38 (CP-parity): HR manages Apparel — no longer fully read-only.
   hr: { ...READ_ONLY, canManageApparel: true, isReadOnly: false },
-  management: READ_ONLY,
+  management: { ...READ_ONLY, canReadContracts: true, canViewFinancials: true },
   visitor: READ_ONLY,
 };
 

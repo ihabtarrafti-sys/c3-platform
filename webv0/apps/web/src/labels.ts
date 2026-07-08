@@ -44,6 +44,9 @@ const OPERATION: Record<string, string> = {
   InitiateJourney: 'Initiate Journey',
   AddMissionParticipant: 'Add Mission Participant',
   RemoveMissionParticipant: 'Remove Mission Participant',
+  AddContract: 'Add Contract',
+  RenewContract: 'Renew Contract',
+  TerminateContract: 'Terminate Contract',
 };
 export function operationOf(op: string): string {
   return OPERATION[op] ?? op;
@@ -82,6 +85,10 @@ const AUDIT_ACTION: Record<string, string> = {
   MissionDeactivated: 'Mission deactivated',
   MissionParticipantAdded: 'Participant added',
   MissionParticipantRemoved: 'Participant removed',
+  ContractCreated: 'Contract created',
+  ContractRenewed: 'Contract renewed',
+  ContractTerminated: 'Contract terminated',
+  ContractUpdated: 'Contract updated',
 };
 
 /** Sprint 37 — journey status → label + StatusBadge variant. */

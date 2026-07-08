@@ -117,7 +117,13 @@ export function ApprovalDetailPage() {
                   ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`${a.payload.input.personId} as ${a.payload.input.role} on ${a.payload.input.missionId}`}</span> }]
                   : a.payload.operationType === 'RemoveMissionParticipant'
                     ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`Remove ${a.payload.input.personId} from ${a.payload.input.missionId}`}</span> }]
-                    : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
+                    : a.payload.operationType === 'AddContract'
+                      ? [{ label: 'Contract', value: <span data-testid="approval-contract-subject">{`${a.payload.input.contractType} for ${a.payload.input.personId}`}</span> }]
+                      : a.payload.operationType === 'RenewContract'
+                        ? [{ label: 'Contract', value: <span data-testid="approval-contract-subject">{`Renew ${a.payload.input.contractId} to ${a.payload.input.newEndsOn}`}</span> }]
+                        : a.payload.operationType === 'TerminateContract'
+                          ? [{ label: 'Contract', value: <span data-testid="approval-contract-subject">{`Terminate ${a.payload.input.contractId}`}</span> }]
+                          : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {
