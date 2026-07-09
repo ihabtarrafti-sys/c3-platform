@@ -26,6 +26,7 @@ import type {
   Kit,
   Member,
   Mission,
+  MissionLine,
   MissionParticipant,
   Person,
 } from '@c3web/domain';
@@ -58,6 +59,8 @@ export interface ReadStore {
   getMissionById(missionId: string): Promise<Mission | null>;
   listMissionParticipants(missionId: string): Promise<MissionParticipant[]>;
   getMissionParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
+  // Finance S4: a mission's ACTIVE income/expense lines (the P&L raw material).
+  listMissionLines(missionId: string): Promise<MissionLine[]>;
   // Sprint 41: agreements. Financial-field omission happens in the
   // APPLICATION query layer (per-actor); the store returns full rows.
   listAgreements(): Promise<Agreement[]>;
@@ -186,6 +189,23 @@ export interface NewAgreementRow {
   readonly createdByApprovalId: string;
 }
 
+/** Fields written when creating a mission income/expense line (Finance S4). */
+export interface NewMissionLineRow {
+  readonly lineId: string;
+  readonly missionId: string;
+  readonly direction: string;
+  readonly label: string;
+  readonly amountMinor: number;
+  readonly currency: string;
+}
+
+/** Editable-field patch for a line update (direction is immutable). */
+export interface MissionLinePatch {
+  readonly label?: string;
+  readonly amountMinor?: number;
+  readonly currency?: string;
+}
+
 /** Fields written when creating an agreement financial term (Finance S3). */
 export interface NewAgreementTermRow {
   readonly termId: string;
@@ -241,7 +261,7 @@ export interface AgreementPatch {
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
   allocateSequence(
-    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'agreement' | 'agreementTerm' | 'entity',
+    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'missionLine' | 'agreement' | 'agreementTerm' | 'entity',
   ): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
@@ -394,6 +414,15 @@ export interface WriteTx {
   reactivateParticipant(missionId: string, personId: string, role: string): Promise<MissionParticipant | null>;
   /** Flip an ACTIVE pair to inactive; null when no active row matched. */
   deactivateParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
+
+  // ── Finance S4 mission lines (direct-audited; soft removal) ───────────────
+  insertMissionLine(row: NewMissionLineRow): Promise<MissionLine>;
+  /** Read one ACTIVE line inside the transaction (for the update/remove guard). */
+  getMissionLine(lineId: string): Promise<MissionLine | null>;
+  /** Version-guarded field patch; null = stale/missing/inactive. */
+  updateMissionLine(lineId: string, expectedVersion: number, patch: MissionLinePatch): Promise<MissionLine | null>;
+  /** Version-guarded soft removal iff currently active; null = stale/missing/inactive. */
+  deactivateMissionLine(lineId: string, expectedVersion: number): Promise<MissionLine | null>;
 
   // ── Sprint 41 agreements ───────────────────────────────────────────────────
   insertAgreement(row: NewAgreementRow): Promise<Agreement>;

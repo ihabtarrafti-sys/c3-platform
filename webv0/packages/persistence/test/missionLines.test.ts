@@ -1,0 +1,186 @@
+/**
+ * missionLines.test.ts — Finance Sprint 4 evidence against a REAL PostgreSQL.
+ * Covers the direct-audited mission income/expense lines (add / patch / soft
+ * remove + changed-fields-only audit on the Mission trail), the write gate
+ * (owner/ops only), the canViewFinancials READ gate (section-level denial),
+ * the active-mission-only rule, RLS isolation, and the FULL P&L assembly —
+ * lines + a governed participant's per-diem + the FX table → blended profit.
+ */
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { Actor, AddPersonInput } from '@c3web/domain';
+import { ConflictError, ForbiddenError, NotFoundError } from '@c3web/domain';
+import {
+  addMissionLine,
+  updateMissionLine,
+  removeMissionLine,
+  getMissionPnl,
+  createMission,
+  deactivateMission,
+  setParticipantPerDiem,
+  setFxRate,
+  submitAddPerson,
+  submitAddMissionParticipant,
+  beginReview,
+  approveApproval,
+  executeApproval,
+} from '@c3web/application';
+import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
+import { createPersistence, type PersistenceHandle } from '../src/index';
+
+let db: TestDatabase;
+let p: PersistenceHandle;
+
+const actor = (tenantId: string, email: string, role: string): Actor =>
+  ({ identity: email, displayName: email, role: role as Actor['role'], tenantId });
+
+let alphaId: string;
+let alphaOwner: Actor;
+let alphaOps: Actor;
+let alphaFinance: Actor;
+let alphaLegal: Actor;
+let alphaVisitor: Actor;
+let bravoOwner: Actor;
+
+async function execAsOwner(approvalId: string, version: number) {
+  const inReview = await beginReview(p, alphaOwner, approvalId, version);
+  const approved = await approveApproval(p, alphaOwner, inReview.approvalId, inReview.version);
+  return executeApproval(p, alphaOwner, approved.approvalId, approved.version);
+}
+
+async function addPerson(fullName: string): Promise<string> {
+  const a = await submitAddPerson(p, alphaOps, { input: { fullName } as AddPersonInput });
+  const res = await execAsOwner(a.approvalId, a.version);
+  return res.person!.personId;
+}
+
+async function newMission(endsOn: string | null = '2026-08-15'): Promise<string> {
+  const m = await createMission(p, alphaOps, { name: 'Spring Invitational', gameTitle: null, startsOn: '2026-08-01', endsOn, notes: null });
+  return m.missionId;
+}
+
+beforeAll(async () => {
+  db = await startTestDatabase();
+  p = createPersistence({ appConnectionString: db.appUrl });
+}, 180_000);
+
+afterAll(async () => {
+  await p?.close();
+  await db?.stop();
+});
+
+beforeEach(async () => {
+  await db.truncateAll();
+  const alpha = await db.seedTenant({
+    slug: 'alpha',
+    users: [
+      { key: 'owner', email: 'owner@a.com', displayName: 'Owner A', role: 'owner' },
+      { key: 'ops', email: 'ops@a.com', displayName: 'Ops A', role: 'operations' },
+      { key: 'finance', email: 'finance@a.com', displayName: 'Finance A', role: 'finance' },
+      { key: 'legal', email: 'legal@a.com', displayName: 'Legal A', role: 'legal' },
+      { key: 'visitor', email: 'visitor@a.com', displayName: 'Visitor A', role: 'visitor' },
+    ],
+  });
+  const bravo = await db.seedTenant({ slug: 'bravo', users: [{ key: 'owner', email: 'owner@b.com', displayName: 'Owner B', role: 'owner' }] });
+  alphaId = alpha.tenantId;
+  alphaOwner = actor(alphaId, 'owner@a.com', 'owner');
+  alphaOps = actor(alphaId, 'ops@a.com', 'operations');
+  alphaFinance = actor(alphaId, 'finance@a.com', 'finance');
+  alphaLegal = actor(alphaId, 'legal@a.com', 'legal');
+  alphaVisitor = actor(alphaId, 'visitor@a.com', 'visitor');
+  bravoOwner = actor(bravo.tenantId, 'owner@b.com', 'owner');
+});
+
+describe('mission lines (direct-audited)', () => {
+  it('add → patch (changed-fields-only audit) → soft remove, all on the Mission trail', async () => {
+    const msn = await newMission();
+    const line = await addMissionLine(p, alphaOps, msn, { direction: 'Income', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'USD' });
+    expect(line).toMatchObject({ lineId: 'PNL-0001', direction: 'Income', amountMinor: 1_000_000, currency: 'USD', version: 0 });
+
+    const bumped = await updateMissionLine(p, alphaOwner, msn, line.lineId, { expectedVersion: 0, amountMinor: 1_200_000 });
+    expect(bumped).toMatchObject({ amountMinor: 1_200_000, version: 1 });
+    // stale version refused
+    await expect(updateMissionLine(p, alphaOps, msn, line.lineId, { expectedVersion: 0, amountMinor: 1 })).rejects.toThrow();
+
+    const removed = await removeMissionLine(p, alphaOps, msn, line.lineId, bumped.version);
+    expect(removed.isActive).toBe(false);
+    expect((await getMissionPnl(p, alphaOwner, msn)).lines).toHaveLength(0); // removed rows hidden
+
+    const audit = await p.reads.forActor(alphaOwner).listAuditEventsForEntity('Mission', msn);
+    expect(audit.map((a) => a.action)).toEqual(['MissionCreated', 'MissionLineAdded', 'MissionLineUpdated', 'MissionLineRemoved']);
+    const upd = audit.find((a) => a.action === 'MissionLineUpdated')!;
+    expect(upd.before).toMatchObject({ amountMinor: 1_000_000 });
+    expect(upd.after).toMatchObject({ amountMinor: 1_200_000 });
+    expect('label' in (upd.after ?? {})).toBe(false); // only the changed field
+  });
+
+  it('write gate: finance/legal/visitor may not add lines; read gate: legal/visitor may not view the P&L', async () => {
+    const msn = await newMission();
+    await addMissionLine(p, alphaOps, msn, { direction: 'Expense', label: 'Flights', amountMinor: 200_000, currency: 'USD' });
+
+    for (const who of [alphaFinance, alphaLegal, alphaVisitor]) {
+      await expect(addMissionLine(p, who, msn, { direction: 'Income', label: 'X', amountMinor: 1, currency: 'USD' })).rejects.toBeInstanceOf(ForbiddenError);
+    }
+    // finance CAN read the P&L; legal and visitor cannot (section-level denial)
+    expect((await getMissionPnl(p, alphaFinance, msn)).lines).toHaveLength(1);
+    await expect(getMissionPnl(p, alphaLegal, msn)).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(getMissionPnl(p, alphaVisitor, msn)).rejects.toBeInstanceOf(ForbiddenError);
+  });
+
+  it('lines may only be changed on an ACTIVE mission (a retired shell is frozen record — still readable)', async () => {
+    const msn = await newMission();
+    const line = await addMissionLine(p, alphaOps, msn, { direction: 'Income', label: 'Org support', amountMinor: 500_000, currency: 'USD' });
+    const mission = await p.reads.forActor(alphaOwner).getMissionById(msn);
+    await deactivateMission(p, alphaOps, msn, mission!.version);
+
+    await expect(addMissionLine(p, alphaOps, msn, { direction: 'Expense', label: 'X', amountMinor: 1, currency: 'USD' })).rejects.toBeInstanceOf(ConflictError);
+    await expect(updateMissionLine(p, alphaOps, msn, line.lineId, { expectedVersion: line.version, amountMinor: 2 })).rejects.toBeInstanceOf(ConflictError);
+    await expect(removeMissionLine(p, alphaOps, msn, line.lineId, line.version)).rejects.toBeInstanceOf(ConflictError);
+    expect((await getMissionPnl(p, alphaOwner, msn)).lines).toHaveLength(1); // frozen, readable
+  });
+
+  it('is tenant-isolated (RLS): another tenant cannot reach the mission P&L', async () => {
+    const msn = await newMission();
+    await addMissionLine(p, alphaOps, msn, { direction: 'Income', label: 'Prize', amountMinor: 1, currency: 'USD' });
+    await expect(getMissionPnl(p, bravoOwner, msn)).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('the full P&L assembly (lines + per-diem roll-in + FX blend)', () => {
+  it('income − expenses − per-diems = profit, blended to USD via the rate table', async () => {
+    const msn = await newMission('2026-08-15'); // 15 inclusive days
+    const personId = await addPerson('Jordan Reyes');
+    const sub = await submitAddMissionParticipant(p, alphaOps, { input: { missionId: msn, personId, role: 'Player' } });
+    await execAsOwner(sub.approvalId, sub.version);
+    await setParticipantPerDiem(p, alphaOps, { missionId: msn, personId, perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' }); // SAR 250/day
+
+    await addMissionLine(p, alphaOps, msn, { direction: 'Income', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'USD' });
+    await addMissionLine(p, alphaOps, msn, { direction: 'Expense', label: 'Flights', amountMinor: 200_000, currency: 'USD' });
+    await setFxRate(p, alphaOps, { currency: 'SAR', usdPerUnit: 0.2666 });
+
+    const { pnl } = await getMissionPnl(p, alphaOwner, msn);
+    expect(pnl.perDiem.entries).toEqual([
+      { personId, personName: 'Jordan Reyes', amountMinor: 25_000, currency: 'SAR', days: 15, totalMinor: 375_000 },
+    ]);
+    expect(pnl.perCurrency).toEqual([
+      { currency: 'SAR', incomeMinor: 0, expenseMinor: 375_000 },
+      { currency: 'USD', incomeMinor: 1_000_000, expenseMinor: 200_000 },
+    ]);
+    const sarUsd = Math.round(375_000 * 0.2666); // 99,975
+    expect(pnl.blended).toEqual({
+      incomeUsdMinor: 1_000_000,
+      expenseUsdMinor: 200_000 + sarUsd,
+      profitUsdMinor: 1_000_000 - 200_000 - sarUsd,
+    });
+    expect(pnl.missingRates).toEqual([]);
+  });
+
+  it('a missing rate yields NO blended figure and names the currency', async () => {
+    const msn = await newMission();
+    await addMissionLine(p, alphaOps, msn, { direction: 'Income', label: 'Prize', amountMinor: 1_000_000, currency: 'USD' });
+    await addMissionLine(p, alphaOps, msn, { direction: 'Expense', label: 'Hotels', amountMinor: 367_250, currency: 'AED' }); // no AED rate
+
+    const { pnl } = await getMissionPnl(p, alphaOwner, msn);
+    expect(pnl.blended).toBeNull();
+    expect(pnl.missingRates).toEqual(['AED']);
+  });
+});

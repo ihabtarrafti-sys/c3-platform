@@ -18,7 +18,7 @@ let db: TestDatabase;
 let deps: Deps;
 let app: FastifyInstance;
 
-const tokens = {} as { ops: string; owner: string; visitor: string; ownerB: string };
+const tokens = {} as { ops: string; owner: string; finance: string; legal: string; visitor: string; ownerB: string };
 
 async function login(email: string, role: string, tenantSlug: string): Promise<string> {
   const res = await app.inject({
@@ -81,6 +81,8 @@ beforeEach(async () => {
   await db.seedTenant({ slug: 'bravo' });
   tokens.ops = await login('ops@alpha.com', 'operations', 'alpha');
   tokens.owner = await login('owner@alpha.com', 'owner', 'alpha');
+  tokens.finance = await login('finance@alpha.com', 'finance', 'alpha');
+  tokens.legal = await login('legal@alpha.com', 'legal', 'alpha');
   tokens.visitor = await login('visitor@alpha.com', 'visitor', 'alpha');
   tokens.ownerB = await login('owner@bravo.com', 'owner', 'bravo');
 });
@@ -236,6 +238,61 @@ describe('governed participants over HTTP (the Set-D guards at the wire)', () =>
     expect(res.statusCode).toBe(403);
     const missing = await app.inject({ method: 'GET', url: '/api/v1/missions/MSN-9999/participants', headers: auth(tokens.owner) });
     expect(missing.statusCode).toBe(404);
+  });
+});
+
+describe('mission P&L over HTTP (Finance S4)', () => {
+  it('lines CRUD + per-diem roll-in + FX blend; the whole surface gated to canViewFinancials', async () => {
+    // A bounded mission (15 inclusive days) with a per-diem'd participant.
+    const m = await createMission('Money Mission');
+    const upd = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}`, headers: auth(tokens.ops), payload: { expectedVersion: 0, endsOn: '2026-08-15' } });
+    expect(upd.statusCode, upd.body).toBe(200);
+    const personId = await addPerson('Per Diem Player');
+    const sub = await app.inject({ method: 'POST', url: '/api/v1/missions/participants/requests', headers: auth(tokens.ops), payload: { input: { missionId: m.missionId, personId, role: 'Player' } } });
+    expect((await governedExecute(sub.json().approval.approvalId, sub.json().approval.version)).statusCode).toBe(200);
+    const pd = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/participants/${personId}/per-diem`, headers: auth(tokens.ops), payload: { perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' } });
+    expect(pd.statusCode, pd.body).toBe(200);
+
+    // Lines: income + expense; a bad line (zero amount) is a 400.
+    const income = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'USD' } });
+    expect(income.statusCode, income.body).toBe(201);
+    expect(income.json().line).toMatchObject({ lineId: 'PNL-0001', direction: 'Income' });
+    const expense = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Expense', label: 'Flights', amountMinor: 200_000, currency: 'USD' } });
+    expect(expense.statusCode, expense.body).toBe(201);
+    const bad = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', label: 'X', amountMinor: 0, currency: 'USD' } });
+    expect(bad.statusCode).toBe(400);
+
+    // Without a SAR rate the blend is honestly null; set the rate → profit appears.
+    let pnl = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
+    expect(pnl.statusCode, pnl.body).toBe(200);
+    expect(pnl.json().pnl.blended).toBeNull();
+    expect(pnl.json().pnl.missingRates).toEqual(['SAR']);
+
+    const rate = await app.inject({ method: 'POST', url: '/api/v1/fx-rates', headers: auth(tokens.ops), payload: { currency: 'SAR', usdPerUnit: 0.2666 } });
+    expect(rate.statusCode, rate.body).toBe(200);
+    pnl = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
+    const sarUsd = Math.round(375_000 * 0.2666);
+    expect(pnl.json().pnl.perDiem.entries[0]).toMatchObject({ personId, days: 15, totalMinor: 375_000 });
+    expect(pnl.json().pnl.blended).toEqual({ incomeUsdMinor: 1_000_000, expenseUsdMinor: 200_000 + sarUsd, profitUsdMinor: 800_000 - sarUsd });
+
+    // Patch a line (versioned) and soft-remove the other.
+    const patched = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines/PNL-0001`, headers: auth(tokens.owner), payload: { expectedVersion: 0, amountMinor: 1_200_000 } });
+    expect(patched.statusCode, patched.body).toBe(200);
+    expect(patched.json().line).toMatchObject({ amountMinor: 1_200_000, version: 1 });
+    const removed = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines/PNL-0002/remove`, headers: auth(tokens.ops), payload: { expectedVersion: 0 } });
+    expect(removed.statusCode, removed.body).toBe(200);
+    pnl = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
+    expect(pnl.json().lines).toHaveLength(1);
+
+    // Gating: finance reads the P&L but cannot write; legal and visitor get 403 on the read.
+    const financeRead = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.finance) });
+    expect(financeRead.statusCode).toBe(200);
+    const financeWrite = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.finance), payload: { direction: 'Income', label: 'X', amountMinor: 1, currency: 'USD' } });
+    expect(financeWrite.statusCode).toBe(403);
+    for (const t of [tokens.legal, tokens.visitor]) {
+      const denied = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(t) });
+      expect(denied.statusCode).toBe(403);
+    }
   });
 });
 

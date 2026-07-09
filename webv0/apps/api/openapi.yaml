@@ -10564,6 +10564,453 @@ paths:
                 required:
                   - events
                 additionalProperties: false
+  /api/v1/missions/{missionId}/pnl:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  lines:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        lineId:
+                          type: string
+                        missionId:
+                          type: string
+                        direction:
+                          type: string
+                          enum:
+                            - Income
+                            - Expense
+                        label:
+                          type: string
+                        amountMinor:
+                          type: integer
+                        currency:
+                          type: string
+                          enum:
+                            - USD
+                            - AED
+                            - SAR
+                            - EUR
+                            - GBP
+                        isActive:
+                          type: boolean
+                        version:
+                          type: integer
+                        createdAt:
+                          type: string
+                        updatedAt:
+                          type: string
+                      required:
+                        - lineId
+                        - missionId
+                        - direction
+                        - label
+                        - amountMinor
+                        - currency
+                        - isActive
+                        - version
+                        - createdAt
+                        - updatedAt
+                      additionalProperties: false
+                  pnl:
+                    type: object
+                    properties:
+                      perCurrency:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            currency:
+                              type: string
+                              enum:
+                                - USD
+                                - AED
+                                - SAR
+                                - EUR
+                                - GBP
+                            incomeMinor:
+                              type: integer
+                            expenseMinor:
+                              type: integer
+                          required:
+                            - currency
+                            - incomeMinor
+                            - expenseMinor
+                          additionalProperties: false
+                      perDiem:
+                        type: object
+                        properties:
+                          entries:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                personId:
+                                  type: string
+                                personName:
+                                  type: string
+                                amountMinor:
+                                  type: integer
+                                currency:
+                                  type: string
+                                  enum:
+                                    - USD
+                                    - AED
+                                    - SAR
+                                    - EUR
+                                    - GBP
+                                days:
+                                  type: integer
+                                  nullable: true
+                                totalMinor:
+                                  type: integer
+                                  nullable: true
+                              required:
+                                - personId
+                                - personName
+                                - amountMinor
+                                - currency
+                                - days
+                                - totalMinor
+                              additionalProperties: false
+                          openEnded:
+                            type: boolean
+                        required:
+                          - entries
+                          - openEnded
+                        additionalProperties: false
+                      blended:
+                        type: object
+                        properties:
+                          incomeUsdMinor:
+                            type: integer
+                          expenseUsdMinor:
+                            type: integer
+                          profitUsdMinor:
+                            type: integer
+                        required:
+                          - incomeUsdMinor
+                          - expenseUsdMinor
+                          - profitUsdMinor
+                        additionalProperties: false
+                        nullable: true
+                      missingRates:
+                        type: array
+                        items:
+                          type: string
+                          enum:
+                            - USD
+                            - AED
+                            - SAR
+                            - EUR
+                            - GBP
+                    required:
+                      - perCurrency
+                      - perDiem
+                      - blended
+                      - missingRates
+                    additionalProperties: false
+                required:
+                  - lines
+                  - pnl
+                additionalProperties: false
+  /api/v1/missions/{missionId}/lines:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                direction:
+                  type: string
+                  enum:
+                    - Income
+                    - Expense
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                amountMinor:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 9007199254740991
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                    - AED
+                    - SAR
+                    - EUR
+                    - GBP
+              required:
+                - direction
+                - label
+                - amountMinor
+                - currency
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line:
+                    type: object
+                    properties:
+                      lineId:
+                        type: string
+                      missionId:
+                        type: string
+                      direction:
+                        type: string
+                        enum:
+                          - Income
+                          - Expense
+                      label:
+                        type: string
+                      amountMinor:
+                        type: integer
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      isActive:
+                        type: boolean
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - lineId
+                      - missionId
+                      - direction
+                      - label
+                      - amountMinor
+                      - currency
+                      - isActive
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - line
+                additionalProperties: false
+  /api/v1/missions/{missionId}/lines/{lineId}:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+                label:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                amountMinor:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 9007199254740991
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                    - AED
+                    - SAR
+                    - EUR
+                    - GBP
+              required:
+                - expectedVersion
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+        - schema:
+            type: string
+            pattern: ^PNL-\d{4,}$
+          in: path
+          name: lineId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line:
+                    type: object
+                    properties:
+                      lineId:
+                        type: string
+                      missionId:
+                        type: string
+                      direction:
+                        type: string
+                        enum:
+                          - Income
+                          - Expense
+                      label:
+                        type: string
+                      amountMinor:
+                        type: integer
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      isActive:
+                        type: boolean
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - lineId
+                      - missionId
+                      - direction
+                      - label
+                      - amountMinor
+                      - currency
+                      - isActive
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - line
+                additionalProperties: false
+  /api/v1/missions/{missionId}/lines/{lineId}/remove:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+              required:
+                - expectedVersion
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+        - schema:
+            type: string
+            pattern: ^PNL-\d{4,}$
+          in: path
+          name: lineId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line:
+                    type: object
+                    properties:
+                      lineId:
+                        type: string
+                      missionId:
+                        type: string
+                      direction:
+                        type: string
+                        enum:
+                          - Income
+                          - Expense
+                      label:
+                        type: string
+                      amountMinor:
+                        type: integer
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      isActive:
+                        type: boolean
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - lineId
+                      - missionId
+                      - direction
+                      - label
+                      - amountMinor
+                      - currency
+                      - isActive
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - line
+                additionalProperties: false
   /api/v1/missions/{missionId}/deactivate:
     post:
       requestBody:

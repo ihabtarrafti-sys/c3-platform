@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -197,6 +197,17 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             `);
             const row = res.rows[0];
             return row ? mapMissionParticipant(row) : null;
+          }),
+
+        // Finance S4: the mission's ACTIVE income/expense lines, oldest first.
+        listMissionLines: (missionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<MissionLine[]> => {
+            const rows = await db
+              .select()
+              .from(schema.missionLine)
+              .where(and(eq(schema.missionLine.missionId, missionId), eq(schema.missionLine.isActive, true)))
+              .orderBy(asc(schema.missionLine.createdAt), asc(schema.missionLine.lineId));
+            return rows.map(mapMissionLine);
           }),
 
         // Sprint 41: agreements (drizzle-only; financial omission is the

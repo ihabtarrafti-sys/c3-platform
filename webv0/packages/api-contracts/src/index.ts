@@ -17,6 +17,7 @@ import {
   EQUIPMENT_STATUSES,
   EQUIPMENT_TRANSITIONS,
   JOURNEY_TRANSITIONS,
+  MISSION_LINE_DIRECTIONS,
   OPERATION_TYPES,
   currencyCodeSchema,
   setFxRateInputSchema,
@@ -39,6 +40,8 @@ import {
   initiateJourneyInputSchema,
   journeyTransitionRequestSchema,
   missionCreateInputSchema,
+  missionLineCreateInputSchema,
+  missionLineUpdateInputSchema,
   missionUpdateInputSchema,
   provisionMemberPayloadSchema,
   reactivateMemberPayloadSchema,
@@ -301,6 +304,57 @@ export const participantPerDiemBodySchema = z
 /** The domain schemas ARE the wire schemas — one validator, no drift. */
 export { missionCreateInputSchema, missionUpdateInputSchema };
 export const missionIdParamSchema = z.object({ missionId: z.string().regex(/^MSN-\d{4,}$/) });
+
+// ── mission P&L (Finance S4): income/expense lines + the derived P&L ─────────
+// The whole surface is served ONLY to canViewFinancials roles (section-level
+// denial — the endpoint 403s for legal/hr/visitor).
+export const missionLineSchema = z.object({
+  lineId: z.string(),
+  missionId: z.string(),
+  direction: z.enum(MISSION_LINE_DIRECTIONS),
+  label: z.string(),
+  amountMinor: z.number().int(),
+  currency: currencyCodeSchema,
+  isActive: z.boolean(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type MissionLineDto = z.infer<typeof missionLineSchema>;
+export const missionLineResponseSchema = z.object({ line: missionLineSchema });
+export { missionLineCreateInputSchema, missionLineUpdateInputSchema };
+export const missionLineParamSchema = z.object({
+  missionId: z.string().regex(/^MSN-\d{4,}$/),
+  lineId: z.string().regex(/^PNL-\d{4,}$/),
+});
+/** Soft removal carries the expected version (version-guarded). */
+export const missionLineRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
+
+/** The derived P&L — honest by construction: blended is NULL when a rate is missing. */
+export const missionPnlSchema = z.object({
+  perCurrency: z.array(
+    z.object({ currency: currencyCodeSchema, incomeMinor: z.number().int(), expenseMinor: z.number().int() }),
+  ),
+  perDiem: z.object({
+    entries: z.array(
+      z.object({
+        personId: z.string(),
+        personName: z.string(),
+        amountMinor: z.number().int(),
+        currency: currencyCodeSchema,
+        days: z.number().int().nullable(),
+        totalMinor: z.number().int().nullable(),
+      }),
+    ),
+    openEnded: z.boolean(),
+  }),
+  blended: z
+    .object({ incomeUsdMinor: z.number().int(), expenseUsdMinor: z.number().int(), profitUsdMinor: z.number().int() })
+    .nullable(),
+  missingRates: z.array(currencyCodeSchema),
+});
+export type MissionPnlDto = z.infer<typeof missionPnlSchema>;
+export const missionPnlResponseSchema = z.object({ lines: z.array(missionLineSchema), pnl: missionPnlSchema });
 
 export const submitAddMissionParticipantRequestSchema = z.object({
   input: addMissionParticipantInputSchema,

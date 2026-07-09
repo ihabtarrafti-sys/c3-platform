@@ -61,6 +61,9 @@ async function submitAddParticipant(page: Page, role: string): Promise<string> {
 }
 
 test('Missions capstone workflow, end to end', async ({ page }) => {
+  // Finance S4 adds a full P&L walk (lines CRUD + blended profit) on top of the
+  // governed roster round-trips — triple the budget rather than thin the proof.
+  test.slow();
   let addApr = '';
 
   await test.step('Ops creates the mission shell (immediate, recorded) and opens its page', async () => {
@@ -154,6 +157,42 @@ test('Missions capstone workflow, end to end', async ({ page }) => {
     await expect(page.getByTestId('participants-table').locator('tbody tr')).toHaveCount(1);
   });
 
+  await test.step('P&L: income and expense lines with an HONEST blend — per-diem excluded while open-ended', async () => {
+    // Owner is on MSN-0001 (still no end date). The roster's SAR per-diem shows
+    // as a daily rate only, and the panel says why totals exclude it.
+    await expect(page.getByTestId('mission-pnl-panel')).toBeVisible();
+    await expect(page.getByTestId('pnl-perdiem-PER-0001')).toContainText('SAR 250.00/day');
+    await expect(page.getByTestId('pnl-open-ended-note')).toBeVisible();
+
+    // Income: prize money. Expense: flights. Both USD — the blend is complete.
+    await page.getByTestId('add-line').click();
+    await page.getByTestId('add-line-label').fill('Prize — 2nd place');
+    await page.getByTestId('add-line-amount').fill('10000');
+    await page.getByTestId('add-line-confirm').click();
+    await expect(page.getByTestId('pnl-line-amount-PNL-0001')).toHaveText('USD 10,000.00');
+
+    await page.getByTestId('add-line').click();
+    await page.getByTestId('add-line-direction').click();
+    await page.getByRole('option', { name: 'Expense', exact: true }).click();
+    await page.getByTestId('add-line-label').fill('Flights');
+    await page.getByTestId('add-line-amount').fill('2000');
+    await page.getByTestId('add-line-confirm').click();
+    await expect(page.getByTestId('pnl-line-amount-PNL-0002')).toHaveText('USD 2,000.00');
+    await expect(page.getByTestId('pnl-profit-usd')).toHaveText('Profit ≈ USD 8,000.00');
+
+    // Edit the expense (versioned, immediate) — the profit follows.
+    await page.getByTestId('edit-line-PNL-0002').click();
+    await page.getByTestId('edit-line-PNL-0002-amount').fill('2500');
+    await page.getByTestId('edit-line-PNL-0002-confirm').click();
+    await expect(page.getByTestId('pnl-profit-usd')).toHaveText('Profit ≈ USD 7,500.00');
+
+    // Remove it — the line disappears from the P&L.
+    await page.getByTestId('remove-line-PNL-0002').click();
+    await page.getByTestId('remove-line-PNL-0002-confirm').click();
+    await expect(page.getByTestId('pnl-line-PNL-0002')).toHaveCount(0);
+    await expect(page.getByTestId('pnl-profit-usd')).toHaveText('Profit ≈ USD 10,000.00');
+  });
+
   await test.step('Shell edit is versioned and immediate; deactivation retires the affordances', async () => {
     await page.getByTestId('edit-mission-MSN-0001').click();
     await page.getByTestId('edit-mission-ends-MSN-0001').fill('2026-08-15');
@@ -165,9 +204,16 @@ test('Missions capstone workflow, end to end', async ({ page }) => {
     await expect(page.getByTestId('mission-status')).toHaveText('Inactive');
     await expect(page.getByTestId('edit-mission-MSN-0001')).toHaveCount(0); // retired shells offer nothing
     await expect(page.getByTestId('add-participant-submit')).toHaveCount(0); // no additions to a retired mission
+
+    // The P&L stays READABLE on the retired shell — and with the end date set,
+    // the SAR per-diem total is now computable but has no stored rate: the
+    // blend is honestly withheld and the culprit named (never invented).
+    await expect(page.getByTestId('pnl-perdiem-PER-0001')).toContainText('× 15d = SAR 3,750.00');
+    await expect(page.getByTestId('pnl-missing-rates')).toContainText('SAR');
+    await expect(page.getByTestId('add-line')).toHaveCount(0); // frozen record: no new lines
   });
 
-  await test.step('A read-only identity sees the register and the roster with zero affordances', async () => {
+  await test.step('A read-only identity sees the register and the roster with zero affordances — and NO money', async () => {
     await login(page, 'visitor@alpha.com', 'visitor');
     await page.getByTestId('nav-missions').click();
     await expect(page.getByTestId('mission-row-MSN-0001')).toBeVisible();
@@ -176,5 +222,6 @@ test('Missions capstone workflow, end to end', async ({ page }) => {
     await expect(page.getByTestId('add-participant-submit')).toHaveCount(0);
     await expect(page.getByTestId('remove-participant-PER-0001')).toHaveCount(0);
     await expect(page.getByTestId('edit-mission-MSN-0001')).toHaveCount(0);
+    await expect(page.getByTestId('mission-pnl-panel')).toHaveCount(0); // P&L absent for canViewFinancials-denied roles
   });
 });

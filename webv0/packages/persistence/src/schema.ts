@@ -258,6 +258,22 @@ export const mission = pgTable('mission', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const missionLine = pgTable('mission_line', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  lineId: text('line_id').notNull(),
+  missionId: text('mission_id').notNull(),
+  direction: text('direction').notNull(),
+  label: text('label').notNull(),
+  // Integer minor units ≪ 2^53, so mode number is safe.
+  amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
+  currency: text('currency').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const missionParticipant = pgTable('mission_participant', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

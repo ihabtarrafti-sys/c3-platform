@@ -21,6 +21,7 @@ export * from './journey';
 export * from './lifecycle';
 export * from './member';
 export * from './mission';
+export * from './missionLine';
 export * from './money';
 export * from './person';
 export * from './roles';

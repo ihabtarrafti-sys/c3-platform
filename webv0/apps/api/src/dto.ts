@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { AgreementTerm, Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -109,6 +109,32 @@ export function toMissionDto(m: Mission): MissionDto {
     version: m.version,
     createdAt: m.createdAt,
     updatedAt: m.updatedAt,
+  };
+}
+
+/** Mission income/expense line → wire (Finance S4; only reached by canViewFinancials). */
+export function toMissionLineDto(l: MissionLine): MissionLineDto {
+  return {
+    lineId: l.lineId,
+    missionId: l.missionId,
+    direction: l.direction,
+    label: l.label,
+    amountMinor: l.amountMinor,
+    currency: l.currency,
+    isActive: l.isActive,
+    version: l.version,
+    createdAt: l.createdAt,
+    updatedAt: l.updatedAt,
+  };
+}
+
+/** Derived P&L → wire (readonly domain arrays → the mutable wire shape). */
+export function toMissionPnlDto(pnl: MissionPnl): MissionPnlDto {
+  return {
+    perCurrency: pnl.perCurrency.map((t) => ({ ...t })),
+    perDiem: { entries: pnl.perDiem.entries.map((e) => ({ ...e })), openEnded: pnl.perDiem.openEnded },
+    blended: pnl.blended ? { ...pnl.blended } : null,
+    missingRates: [...pnl.missingRates],
   };
 }
 

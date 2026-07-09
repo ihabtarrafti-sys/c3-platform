@@ -20,6 +20,8 @@ import {
   type JourneyStatus,
   type Kit,
   type Mission,
+  type MissionLine,
+  type MissionLineDirection,
   type MissionParticipant,
   type OperationType,
   type Person,
@@ -200,6 +202,24 @@ export function mapMission(row: any): Mission {
     startsOn: plainDate(row.startsOn ?? row.starts_on)!,
     endsOn: plainDate(row.endsOn ?? row.ends_on),
     notes: row.notes ?? null,
+    isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapMissionLine(row: any): MissionLine {
+  const amount = row.amountMinor ?? row.amount_minor;
+  return {
+    lineId: row.lineId ?? row.line_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    missionId: row.missionId ?? row.mission_id,
+    direction: (row.direction) as MissionLineDirection,
+    label: row.label,
+    // bigint may arrive as a string on raw paths; amounts are integers ≪ 2^53.
+    amountMinor: Number(amount),
+    currency: (row.currency) as MissionLine['currency'],
     isActive: row.isActive ?? row.is_active,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),

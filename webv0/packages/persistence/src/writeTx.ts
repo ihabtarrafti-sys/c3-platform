@@ -24,13 +24,14 @@ import {
   type Kit,
   type Member,
   type Mission,
+  type MissionLine,
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, EntityPatch, EquipmentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, EntityPatch, EquipmentPatch, MissionLinePatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -567,6 +568,51 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .returning();
       return rows[0] ? readParticipantView(missionId, personId) : null;
     },
+    // ── Finance S4 mission lines (direct-audited; soft removal) ──────────────
+    async insertMissionLine(row: NewMissionLineRow): Promise<MissionLine> {
+      const [r] = await db.insert(schema.missionLine).values({ tenantId, ...row }).returning();
+      return mapMissionLine(r);
+    },
+
+    async getMissionLine(lineId: string): Promise<MissionLine | null> {
+      const rows = await db
+        .select()
+        .from(schema.missionLine)
+        .where(and(eq(schema.missionLine.lineId, lineId), eq(schema.missionLine.isActive, true)))
+        .limit(1);
+      return rows[0] ? mapMissionLine(rows[0]) : null;
+    },
+
+    async updateMissionLine(lineId: string, expectedVersion: number, patch: MissionLinePatch): Promise<MissionLine | null> {
+      const rows = await db
+        .update(schema.missionLine)
+        .set({ ...patch, version: sql`${schema.missionLine.version} + 1` })
+        .where(
+          and(
+            eq(schema.missionLine.lineId, lineId),
+            eq(schema.missionLine.version, expectedVersion),
+            eq(schema.missionLine.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapMissionLine(rows[0]) : null;
+    },
+
+    async deactivateMissionLine(lineId: string, expectedVersion: number): Promise<MissionLine | null> {
+      const rows = await db
+        .update(schema.missionLine)
+        .set({ isActive: false, version: sql`${schema.missionLine.version} + 1` })
+        .where(
+          and(
+            eq(schema.missionLine.lineId, lineId),
+            eq(schema.missionLine.version, expectedVersion),
+            eq(schema.missionLine.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapMissionLine(rows[0]) : null;
+    },
+
     // ── Sprint 41 agreements (drizzle-only; mode:'string' dates, cents int) ──
     async insertAgreement(row: NewAgreementRow): Promise<Agreement> {
       const [r] = await db.insert(schema.agreement).values({ tenantId, ...row }).returning();

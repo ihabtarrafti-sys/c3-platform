@@ -69,3 +69,5 @@ export const useMissionParticipants = (missionId: string) =>
   useQuery({ queryKey: ['missionParticipants', missionId], queryFn: () => api.missionParticipants(missionId) });
 export const useMissionAudit = (missionId: string, enabled = true) =>
   useQuery({ queryKey: ['missionAudit', missionId], queryFn: () => api.missionAudit(missionId), enabled });
+export const useMissionPnl = (missionId: string, enabled = true) =>
+  useQuery({ queryKey: ['missionPnl', missionId], queryFn: () => api.missionPnl(missionId), enabled });

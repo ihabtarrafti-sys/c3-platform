@@ -27,6 +27,8 @@ import type {
   MeResponse,
   MemberDto,
   MissionDto,
+  MissionLineDto,
+  MissionPnlDto,
   MissionParticipantDto,
   PersonDto,
   PersonMissionMembershipDto,
@@ -41,7 +43,7 @@ import type {
   SubmitRenewAgreementRequest,
   SubmitTerminateAgreementRequest,
 } from '@c3web/api-contracts';
-import type { AgreementTermKind, EquipmentTransition } from '@c3web/domain';
+import type { AgreementTermKind, EquipmentTransition, MissionLineDirection } from '@c3web/domain';
 
 export interface EquipmentCreateBody {
   name: string;
@@ -73,6 +75,20 @@ export interface MissionCreateBody {
 }
 export interface MissionUpdateBody extends Partial<MissionCreateBody> {
   expectedVersion: number;
+}
+
+/** Finance S4: mission income/expense lines (direction immutable on update). */
+export interface MissionLineCreateBody {
+  direction: MissionLineDirection;
+  label: string;
+  amountMinor: number;
+  currency: string;
+}
+export interface MissionLineUpdateBody {
+  expectedVersion: number;
+  label?: string;
+  amountMinor?: number;
+  currency?: string;
 }
 
 /** NON-MATERIAL agreement patch (material terms move through governed ops). */
@@ -213,6 +229,15 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/requests', { input, ...(reason ? { reason } : {}) }),
     submitRemoveMissionParticipant: (input: SubmitRemoveMissionParticipantRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/removals', { input, ...(reason ? { reason } : {}) }),
+    // Finance S4: mission P&L (canViewFinancials; lines direct-audited).
+    missionPnl: (missionId: string) =>
+      request<{ lines: MissionLineDto[]; pnl: MissionPnlDto }>('GET', `/api/v1/missions/${missionId}/pnl`),
+    addMissionLine: (missionId: string, body: MissionLineCreateBody) =>
+      request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines`, body),
+    updateMissionLine: (missionId: string, lineId: string, body: MissionLineUpdateBody) =>
+      request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines/${lineId}`, body),
+    removeMissionLine: (missionId: string, lineId: string, expectedVersion: number) =>
+      request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines/${lineId}/remove`, { expectedVersion }),
     // Finance S2: set/clear a participant's per-diem daily rate (direct-audited).
     setParticipantPerDiem: (missionId: string, personId: string, perDiemAmountMinor: number | null, perDiemCurrency: string | null) =>
       request<{ participant: MissionParticipantDto }>('POST', `/api/v1/missions/${missionId}/participants/${personId}/per-diem`, {
@@ -291,4 +316,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto, MeResponse };
+export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse };

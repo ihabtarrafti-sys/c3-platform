@@ -46,6 +46,12 @@ import {
   setFxRateInputSchema,
   missionParticipantParamSchema,
   missionParticipantResponseSchema,
+  missionLineCreateInputSchema,
+  missionLineUpdateInputSchema,
+  missionLineParamSchema,
+  missionLineRemoveBodySchema,
+  missionLineResponseSchema,
+  missionPnlResponseSchema,
   participantPerDiemBodySchema,
   credentialsListSchema,
   equipmentCreateInputSchema,
@@ -106,6 +112,10 @@ import {
   submitRenewAgreement,
   submitTerminateAgreement,
   updateAgreement,
+  getMissionPnl,
+  addMissionLine,
+  updateMissionLine,
+  removeMissionLine,
   createEntity,
   deactivateApparel,
   deactivateEntity,
@@ -158,7 +168,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -730,6 +740,49 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { missionId } = req.params as { missionId: string };
       const events = await listAuditEvents(P, actorOf(req), 'Mission', missionId);
       return { events: events.map(toAuditEventDto) };
+    },
+  );
+
+  // ── mission P&L (Finance S4) — lines are direct-audited (owner/ops); the
+  //    WHOLE surface is gated to canViewFinancials (the use-cases 403 here).
+  r.get(
+    '/api/v1/missions/:missionId/pnl',
+    { schema: { params: missionIdParamSchema, response: { 200: missionPnlResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const view = await getMissionPnl(P, actorOf(req), missionId);
+      return { lines: view.lines.map(toMissionLineDto), pnl: toMissionPnlDto(view.pnl) };
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/lines',
+    { schema: { params: missionIdParamSchema, body: missionLineCreateInputSchema, response: { 201: missionLineResponseSchema } } },
+    async (req, reply) => {
+      const { missionId } = req.params as { missionId: string };
+      const line = await addMissionLine(P, actorOf(req), missionId, req.body as import('@c3web/domain').MissionLineCreateInput);
+      return reply.status(201).send({ line: toMissionLineDto(line) });
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/lines/:lineId',
+    { schema: { params: missionLineParamSchema, body: missionLineUpdateInputSchema, response: { 200: missionLineResponseSchema } } },
+    async (req) => {
+      const { missionId, lineId } = req.params as { missionId: string; lineId: string };
+      const line = await updateMissionLine(P, actorOf(req), missionId, lineId, req.body as import('@c3web/domain').MissionLineUpdateInput);
+      return { line: toMissionLineDto(line) };
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/lines/:lineId/remove',
+    { schema: { params: missionLineParamSchema, body: missionLineRemoveBodySchema, response: { 200: missionLineResponseSchema } } },
+    async (req) => {
+      const { missionId, lineId } = req.params as { missionId: string; lineId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const line = await removeMissionLine(P, actorOf(req), missionId, lineId, expectedVersion);
+      return { line: toMissionLineDto(line) };
     },
   );
 
