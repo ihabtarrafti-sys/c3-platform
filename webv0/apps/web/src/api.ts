@@ -190,6 +190,12 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/requests', { input, ...(reason ? { reason } : {}) }),
     submitRemoveMissionParticipant: (input: SubmitRemoveMissionParticipantRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/removals', { input, ...(reason ? { reason } : {}) }),
+    // Finance S2: set/clear a participant's per-diem daily rate (direct-audited).
+    setParticipantPerDiem: (missionId: string, personId: string, perDiemAmountMinor: number | null, perDiemCurrency: string | null) =>
+      request<{ participant: MissionParticipantDto }>('POST', `/api/v1/missions/${missionId}/participants/${personId}/per-diem`, {
+        perDiemAmountMinor,
+        perDiemCurrency,
+      }),
     // Sprint 41: agreements (governed material lifecycle + direct patch).
     listAgreements: () => request<{ agreements: AgreementDto[] }>('GET', '/api/v1/agreements'),
     getAgreement: (agreementId: string) => request<{ agreement: AgreementDto }>('GET', `/api/v1/agreements/${agreementId}`),

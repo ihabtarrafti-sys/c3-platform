@@ -157,6 +157,9 @@
                         },
                         "canViewFinancials": {
                           "type": "boolean"
+                        },
+                        "canViewPerDiem": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -172,7 +175,8 @@
                         "canManageMissions",
                         "canManageEntities",
                         "canReadAgreements",
-                        "canViewFinancials"
+                        "canViewFinancials",
+                        "canViewPerDiem"
                       ],
                       "additionalProperties": false
                     }
@@ -6208,6 +6212,21 @@
                         },
                         "isActive": {
                           "type": "boolean"
+                        },
+                        "perDiemAmountMinor": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "perDiemCurrency": {
+                          "type": "string",
+                          "enum": [
+                            "USD",
+                            "AED",
+                            "SAR",
+                            "EUR",
+                            "GBP"
+                          ],
+                          "nullable": true
                         },
                         "createdAt": {
                           "type": "string"
@@ -12517,6 +12536,21 @@
                           "isActive": {
                             "type": "boolean"
                           },
+                          "perDiemAmountMinor": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "perDiemCurrency": {
+                            "type": "string",
+                            "enum": [
+                              "USD",
+                              "AED",
+                              "SAR",
+                              "EUR",
+                              "GBP"
+                            ],
+                            "nullable": true
+                          },
                           "createdAt": {
                             "type": "string"
                           },
@@ -12539,6 +12573,132 @@
                   },
                   "required": [
                     "participants"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/missions/{missionId}/participants/{personId}/per-diem": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "perDiemAmountMinor": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "nullable": true
+                  },
+                  "perDiemCurrency": {
+                    "type": "string",
+                    "enum": [
+                      "USD",
+                      "AED",
+                      "SAR",
+                      "EUR",
+                      "GBP"
+                    ],
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "perDiemAmountMinor",
+                  "perDiemCurrency"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^MSN-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "missionId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PER-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "personId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "participant": {
+                      "type": "object",
+                      "properties": {
+                        "missionId": {
+                          "type": "string"
+                        },
+                        "personId": {
+                          "type": "string"
+                        },
+                        "personName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "perDiemAmountMinor": {
+                          "type": "integer",
+                          "nullable": true
+                        },
+                        "perDiemCurrency": {
+                          "type": "string",
+                          "enum": [
+                            "USD",
+                            "AED",
+                            "SAR",
+                            "EUR",
+                            "GBP"
+                          ],
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "missionId",
+                        "personId",
+                        "personName",
+                        "role",
+                        "isActive",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "participant"
                   ],
                   "additionalProperties": false
                 }

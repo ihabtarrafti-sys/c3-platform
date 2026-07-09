@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
+import { CURRENCY_CODES } from '@c3web/api-contracts';
+import { formatMoney, missionDayCount } from '@c3web/domain';
 import { useMission, useMissionAudit, useMissionParticipants, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -43,6 +45,8 @@ export function MissionDetailPage() {
   const participants = useMissionParticipants(missionId);
   const canManage = me?.capabilities.canManageMissions ?? false;
   const canSubmit = me?.capabilities.canSubmitApproval ?? false;
+  const canViewPerDiem = me?.capabilities.canViewPerDiem ?? false;
+  const [perDiemDraft, setPerDiemDraft] = useState<Record<string, { amount: string; currency: string }>>({});
   const canViewHistory = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
   const audit = useMissionAudit(missionId, canViewHistory);
   const people = usePeople(canSubmit);
@@ -246,6 +250,7 @@ export function MissionDetailPage() {
                     <th className={r.th}>Person</th>
                     <th className={r.th}>Name</th>
                     <th className={r.th}>Role</th>
+                    {canViewPerDiem && <th className={r.th}>Per-diem</th>}
                     <th className={r.th}>Status</th>
                     {canSubmit && <th className={r.th}>Actions</th>}
                   </tr>
@@ -260,6 +265,21 @@ export function MissionDetailPage() {
                       </td>
                       <td className={`${r.td} ${r.name}`}>{p.personName}</td>
                       <td className={r.td}>{p.role}</td>
+                      {canViewPerDiem && (
+                        <td className={`${r.td} ${r.mono}`} data-testid={`participant-perdiem-${p.personId}`}>
+                          {p.perDiemAmountMinor != null && p.perDiemCurrency ? (
+                            (() => {
+                              const days = missionDayCount(m.startsOn, m.endsOn);
+                              const daily = formatMoney(p.perDiemAmountMinor, p.perDiemCurrency);
+                              return days != null
+                                ? `${daily}/day · ${formatMoney(p.perDiemAmountMinor * days, p.perDiemCurrency)} (${days}d)`
+                                : `${daily}/day`;
+                            })()
+                          ) : (
+                            '—'
+                          )}
+                        </td>
+                      )}
                       <td className={r.td}>
                         <StatusBadge variant={p.isActive ? 'ready' : 'neutral'} data-testid={`participant-status-${p.personId}`}>
                           {p.isActive ? 'Active' : 'Removed'}
@@ -268,20 +288,79 @@ export function MissionDetailPage() {
                       {canSubmit && (
                         <td className={r.td}>
                           {p.isActive && (
-                            <GovernedAction
-                              triggerLabel="Remove…"
-                              triggerTestId={`remove-participant-${p.personId}`}
-                              triggerAppearance="secondary"
-                              title={`Request removing ${p.personId} from ${m.missionId}?`}
-                              description="Removal goes through approval; the person stays on the roster until an owner executes the request."
-                              confirmLabel="Submit for approval"
-                              onConfirm={() =>
-                                run(
-                                  () => api.submitRemoveMissionParticipant({ missionId: m.missionId, personId: p.personId }),
-                                  (res) => `Submitted ${res.approval.approvalId} for approval. The roster is unchanged until an owner executes it.`,
-                                )
-                              }
-                            />
+                            <div style={{ display: 'flex', columnGap: '8px', flexWrap: 'wrap' }}>
+                              {canManage &&
+                                (() => {
+                                  const draft = perDiemDraft[p.personId] ?? {
+                                    amount: p.perDiemAmountMinor != null ? String(p.perDiemAmountMinor / 100) : '',
+                                    currency: p.perDiemCurrency ?? 'USD',
+                                  };
+                                  const setDraft = (patch: Partial<{ amount: string; currency: string }>) =>
+                                    setPerDiemDraft((c) => ({ ...c, [p.personId]: { ...draft, ...patch } }));
+                                  const amt = draft.amount.trim();
+                                  const validAmt = amt === '' || (!Number.isNaN(Number(amt)) && Number(amt) >= 0);
+                                  return (
+                                    <GovernedAction
+                                      triggerLabel="Per-diem…"
+                                      triggerTestId={`perdiem-participant-${p.personId}`}
+                                      triggerAppearance="secondary"
+                                      title={`Set ${p.personId}'s per-diem?`}
+                                      description="This is the daily rate for this person on this mission. It takes effect immediately and is recorded. Leave the amount empty to clear it."
+                                      extra={
+                                        <div className={s.fields}>
+                                          <Field label="Daily rate (leave empty to clear)">
+                                            <Input
+                                              type="number"
+                                              value={draft.amount}
+                                              onChange={(_, d) => setDraft({ amount: d.value })}
+                                              data-testid={`perdiem-amount-${p.personId}`}
+                                            />
+                                          </Field>
+                                          <Field label="Currency">
+                                            <Dropdown
+                                              value={draft.currency}
+                                              selectedOptions={[draft.currency]}
+                                              onOptionSelect={(_, d) => d.optionValue && setDraft({ currency: d.optionValue })}
+                                              data-testid={`perdiem-currency-${p.personId}`}
+                                            >
+                                              {CURRENCY_CODES.map((c) => (
+                                                <Option key={c} value={c}>
+                                                  {c}
+                                                </Option>
+                                              ))}
+                                            </Dropdown>
+                                          </Field>
+                                        </div>
+                                      }
+                                      confirmLabel="Save per-diem"
+                                      confirmDisabled={!validAmt}
+                                      onConfirm={() =>
+                                        run(
+                                          () =>
+                                            amt === ''
+                                              ? api.setParticipantPerDiem(m.missionId, p.personId, null, null)
+                                              : api.setParticipantPerDiem(m.missionId, p.personId, Math.round(Number(amt) * 100), draft.currency),
+                                          () => (amt === '' ? `${p.personId}'s per-diem cleared.` : `${p.personId}'s per-diem saved.`),
+                                        )
+                                      }
+                                    />
+                                  );
+                                })()}
+                              <GovernedAction
+                                triggerLabel="Remove…"
+                                triggerTestId={`remove-participant-${p.personId}`}
+                                triggerAppearance="secondary"
+                                title={`Request removing ${p.personId} from ${m.missionId}?`}
+                                description="Removal goes through approval; the person stays on the roster until an owner executes the request."
+                                confirmLabel="Submit for approval"
+                                onConfirm={() =>
+                                  run(
+                                    () => api.submitRemoveMissionParticipant({ missionId: m.missionId, personId: p.personId }),
+                                    (res) => `Submitted ${res.approval.approvalId} for approval. The roster is unchanged until an owner executes it.`,
+                                  )
+                                }
+                              />
+                            </div>
                           )}
                         </td>
                       )}

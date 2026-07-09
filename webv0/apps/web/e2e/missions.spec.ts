@@ -117,6 +117,16 @@ test('Missions capstone workflow, end to end', async ({ page }) => {
     await page.getByRole('button', { name: 'Cancel' }).click();
   });
 
+  await test.step('A per-diem daily rate is set on the participant (direct-audited, financial-gated)', async () => {
+    await expect(page.getByTestId('participant-perdiem-PER-0001')).toHaveText('—'); // none yet
+    await page.getByTestId('perdiem-participant-PER-0001').click();
+    await page.getByTestId('perdiem-amount-PER-0001').fill('250');
+    await page.getByTestId('perdiem-currency-PER-0001').click();
+    await page.getByRole('option', { name: 'SAR', exact: true }).click();
+    await page.getByTestId('perdiem-participant-PER-0001-confirm').click();
+    await expect(page.getByTestId('participant-perdiem-PER-0001')).toContainText('SAR 250.00/day');
+  });
+
   await test.step('Governed removal, then re-adding REACTIVATES the same membership (one row, new role)', async () => {
     // Requester ≠ approver: ops submits each change, the owner executes it.
     await login(page, 'ops@alpha.com', 'operations');

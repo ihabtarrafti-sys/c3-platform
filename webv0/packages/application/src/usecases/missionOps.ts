@@ -16,9 +16,12 @@ import {
   type Actor,
   type Mission,
   type MissionCreateInput,
+  type MissionParticipant,
   type MissionUpdateInput,
+  type SetParticipantPerDiemInput,
   missionCreateInputSchema,
   missionUpdateInputSchema,
+  setParticipantPerDiemInputSchema,
   formatMissionId,
   ConcurrencyError,
   ConflictError,
@@ -107,6 +110,39 @@ export async function updateMission(
       actor: actor.identity,
       before,
       after,
+    });
+    return updated;
+  });
+}
+
+/**
+ * Finance S2: set (or clear) a participant's per-diem daily rate. DIRECT-audited
+ * money metadata — separate from the governed roster; owner/operations who
+ * manage missions may set it. Passing null amount+currency clears it.
+ */
+export async function setParticipantPerDiem(
+  p: Persistence,
+  actor: Actor,
+  input: SetParticipantPerDiemInput,
+): Promise<MissionParticipant> {
+  assertManageMissions(actor);
+  const parsed = setParticipantPerDiemInputSchema.parse(input);
+
+  return p.writes.transaction(actor, async (tx) => {
+    const current = await tx.getParticipant(parsed.missionId, parsed.personId);
+    if (!current) throw new NotFoundError('Mission participant', `${parsed.missionId}/${parsed.personId}`);
+    if (!current.isActive) throw new ConflictError('Per-diem may only be set on an active participant.');
+
+    const updated = await tx.setParticipantPerDiem(parsed.missionId, parsed.personId, parsed.perDiemAmountMinor, parsed.perDiemCurrency);
+    if (!updated) throw new NotFoundError('Mission participant', `${parsed.missionId}/${parsed.personId}`);
+
+    await tx.appendAuditEvent({
+      entityType: 'MissionParticipant',
+      entityId: `${parsed.missionId}/${parsed.personId}`,
+      action: 'MissionParticipantPerDiemSet',
+      actor: actor.identity,
+      before: { perDiemAmountMinor: current.perDiemAmountMinor, perDiemCurrency: current.perDiemCurrency },
+      after: { perDiemAmountMinor: parsed.perDiemAmountMinor, perDiemCurrency: parsed.perDiemCurrency },
     });
     return updated;
   });

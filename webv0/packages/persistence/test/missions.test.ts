@@ -17,6 +17,7 @@ import {
   deactivateMission,
   submitAddMissionParticipant,
   submitRemoveMissionParticipant,
+  setParticipantPerDiem,
   submitAddPerson,
   beginReview,
   approveApproval,
@@ -131,6 +132,39 @@ describe('mission shell (direct-audited, the equipment pattern)', () => {
 
     await expect(createMission(p, alphaVisitor, { name: 'X', startsOn: '2026-08-01' })).rejects.toThrow(/may not manage missions/i);
     await expect(deactivateMission(p, alphaVisitor, m.missionId, 1)).rejects.toThrow(/may not manage missions/i);
+  });
+});
+
+describe('per-diem on a participant (Finance S2, direct-audited)', () => {
+  it('owner/ops set then clear a daily rate; it is audited; visitor is refused', async () => {
+    const personId = await addPerson('Traveller');
+    const m = await createMission(p, alphaOps, { name: 'Autumn Major', startsOn: '2026-09-12', endsOn: '2026-09-21' });
+    await governedExecute(await submitAddMissionParticipant(p, alphaOps, { input: { missionId: m.missionId, personId, role: 'Player' } }));
+
+    // 250.00 SAR/day
+    const set = await setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId, perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' });
+    expect(set).toMatchObject({ perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' });
+
+    const [seen] = await listMissionParticipants(p, alphaOwner, m.missionId);
+    expect(seen).toMatchObject({ perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' });
+
+    const cleared = await setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId, perDiemAmountMinor: null, perDiemCurrency: null });
+    expect(cleared.perDiemAmountMinor).toBeNull();
+    expect(cleared.perDiemCurrency).toBeNull();
+
+    await expect(
+      setParticipantPerDiem(p, alphaVisitor, { missionId: m.missionId, personId, perDiemAmountMinor: 100, perDiemCurrency: 'USD' }),
+    ).rejects.toThrow(/may not manage missions/i);
+
+    const audit = await p.reads.forActor(alphaOwner).listAuditEventsForEntity('MissionParticipant', `${m.missionId}/${personId}`);
+    expect(audit.filter((a) => a.action === 'MissionParticipantPerDiemSet')).toHaveLength(2); // set + clear
+  });
+
+  it('setting per-diem on a non-participant is refused', async () => {
+    const m = await createMission(p, alphaOps, { name: 'Empty', startsOn: '2026-09-12', endsOn: '2026-09-21' });
+    await expect(
+      setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId: 'PER-9999', perDiemAmountMinor: 100, perDiemCurrency: 'USD' }),
+    ).rejects.toThrow(/participant/i);
   });
 });
 

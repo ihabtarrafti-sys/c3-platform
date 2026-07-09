@@ -347,6 +347,8 @@ export interface WriteTx {
   reactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null>;
   /** Finance S1: set/replace the tenant's rate for a currency (value of 1 unit in USD). */
   upsertFxRate(currency: string, usdPerUnit: number): Promise<FxRate>;
+  /** Finance S2: set/clear a participant's per-diem daily rate; null = missing/no row. */
+  setParticipantPerDiem(missionId: string, personId: string, amountMinor: number | null, currency: string | null): Promise<MissionParticipant | null>;
 
   // ── Sprint 39 missions ─────────────────────────────────────────────────────
   insertMission(missionId: string, row: NewMissionRow): Promise<Mission>;

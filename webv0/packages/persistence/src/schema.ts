@@ -247,6 +247,8 @@ export const missionParticipant = pgTable('mission_participant', {
   personId: text('person_id').notNull(),
   role: text('role').notNull(),
   isActive: boolean('is_active').notNull().default(true),
+  perDiemAmountMinor: bigint('per_diem_amount_minor', { mode: 'number' }),
+  perDiemCurrency: text('per_diem_currency'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

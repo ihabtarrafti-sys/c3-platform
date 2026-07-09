@@ -99,6 +99,11 @@ export interface C3Capabilities {
    * model omits the field entirely (absence, not masking).
    */
   readonly canViewFinancials: boolean;
+  /**
+   * Finance S2 (closes CP D-8): may see per-diem amounts — owner, operations,
+   * finance, management. Others get the field OMITTED (absence, not masking).
+   */
+  readonly canViewPerDiem: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
@@ -117,6 +122,7 @@ const READ_ONLY = {
   canManageEntities: false,
   canReadAgreements: false,
   canViewFinancials: false,
+    canViewPerDiem: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
 
@@ -135,6 +141,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageEntities: true,
     canReadAgreements: true,
     canViewFinancials: true,
+    canViewPerDiem: true,
     isReadOnly: false,
   },
   operations: {
@@ -151,6 +158,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageEntities: true,
     canReadAgreements: true,
     canViewFinancials: true,
+    canViewPerDiem: true,
     isReadOnly: false,
   },
   // Sprint 41 (CP Set-E parity): legal reads contracts WITHOUT financial

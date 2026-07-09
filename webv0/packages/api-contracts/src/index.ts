@@ -40,6 +40,7 @@ import {
   reactivateMemberPayloadSchema,
   removeMissionParticipantInputSchema,
   renewAgreementInputSchema,
+  setParticipantPerDiemInputSchema,
   terminateAgreementInputSchema,
 } from '@c3web/domain';
 
@@ -269,11 +270,29 @@ export const missionParticipantSchema = z.object({
   personName: z.string(),
   role: z.string(),
   isActive: z.boolean(),
+  // Finance S2: per-diem is OMITTED entirely for roles without canViewPerDiem
+  // (absence, not masking) — hence optional on the wire.
+  perDiemAmountMinor: z.number().int().nullable().optional(),
+  perDiemCurrency: currencyCodeSchema.nullable().optional(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
 export type MissionParticipantDto = z.infer<typeof missionParticipantSchema>;
 export const missionParticipantsListSchema = z.object({ participants: z.array(missionParticipantSchema) });
+export const missionParticipantResponseSchema = z.object({ participant: missionParticipantSchema });
+
+// Finance S2: per-diem set/clear (ids in the URL, rate in the body).
+export { setParticipantPerDiemInputSchema };
+export const missionParticipantParamSchema = z.object({
+  missionId: z.string().regex(/^MSN-\d{4,}$/),
+  personId: z.string().regex(/^PER-\d{4,}$/),
+});
+export const participantPerDiemBodySchema = z
+  .object({
+    perDiemAmountMinor: z.number().int().min(0).nullable(),
+    perDiemCurrency: currencyCodeSchema.nullable(),
+  })
+  .strict();
 
 /** The domain schemas ARE the wire schemas — one validator, no drift. */
 export { missionCreateInputSchema, missionUpdateInputSchema };
@@ -474,6 +493,7 @@ export const capabilityViewSchema = z.object({
   canManageEntities: z.boolean(),
   canReadAgreements: z.boolean(),
   canViewFinancials: z.boolean(),
+  canViewPerDiem: z.boolean(),
 });
 export const meResponseSchema = z.object({
   identity: z.string(),

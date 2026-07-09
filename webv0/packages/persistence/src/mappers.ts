@@ -195,6 +195,9 @@ export function mapMissionParticipant(row: any): MissionParticipant {
     personName: row.personName ?? row.person_name ?? row.full_name ?? '',
     role: row.role,
     isActive: row.isActive ?? row.is_active,
+    perDiemAmountMinor:
+      (row.perDiemAmountMinor ?? row.per_diem_amount_minor) == null ? null : Number(row.perDiemAmountMinor ?? row.per_diem_amount_minor),
+    perDiemCurrency: (row.perDiemCurrency ?? row.per_diem_currency ?? null) as MissionParticipant['perDiemCurrency'],
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };

@@ -66,6 +66,8 @@ export const AUDIT_ACTIONS = [
   'MissionDeactivated',
   'MissionParticipantAdded',
   'MissionParticipantRemoved',
+  // Finance Sprint 2: a participant's per-diem daily rate was set or cleared.
+  'MissionParticipantPerDiemSet',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

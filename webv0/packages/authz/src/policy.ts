@@ -40,6 +40,7 @@ export const canManageMissions = (role: C3Role): boolean => capabilitiesFor(role
 export const canManageEntities = (role: C3Role): boolean => capabilitiesFor(role).canManageEntities;
 export const canReadAgreements = (role: C3Role): boolean => capabilitiesFor(role).canReadAgreements;
 export const canViewFinancials = (role: C3Role): boolean => capabilitiesFor(role).canViewFinancials;
+export const canViewPerDiem = (role: C3Role): boolean => capabilitiesFor(role).canViewPerDiem;
 
 export function assertReadPeople(actor: Actor): void {
   if (!canReadPeople(actor.role)) {
@@ -178,6 +179,7 @@ export interface CapabilityView {
   readonly canManageEntities: boolean;
   readonly canReadAgreements: boolean;
   readonly canViewFinancials: boolean;
+  readonly canViewPerDiem: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -196,5 +198,6 @@ export function capabilityView(role: C3Role): CapabilityView {
     canManageEntities: c.canManageEntities,
     canReadAgreements: c.canReadAgreements,
     canViewFinancials: c.canViewFinancials,
+    canViewPerDiem: c.canViewPerDiem,
   };
 }

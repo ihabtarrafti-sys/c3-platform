@@ -96,13 +96,15 @@ export function toMissionDto(m: Mission): MissionDto {
   };
 }
 
-export function toMissionParticipantDto(mp: MissionParticipant): MissionParticipantDto {
+export function toMissionParticipantDto(mp: MissionParticipant, showPerDiem = false): MissionParticipantDto {
   return {
     missionId: mp.missionId,
     personId: mp.personId,
     personName: mp.personName,
     role: mp.role,
     isActive: mp.isActive,
+    // Finance S2: per-diem is OMITTED entirely for roles without canViewPerDiem.
+    ...(showPerDiem ? { perDiemAmountMinor: mp.perDiemAmountMinor, perDiemCurrency: mp.perDiemCurrency } : {}),
     createdAt: mp.createdAt,
     updatedAt: mp.updatedAt,
   };

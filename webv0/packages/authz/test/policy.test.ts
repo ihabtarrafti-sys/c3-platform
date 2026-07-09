@@ -105,6 +105,7 @@ describe('capabilityView (UX hint)', () => {
       canManageEntities: true,
       canReadAgreements: true,
       canViewFinancials: true,
+      canViewPerDiem: true,
     });
   });
 

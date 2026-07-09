@@ -21,6 +21,7 @@
 
 import { z } from 'zod';
 import { isoDateSchema } from './credential';
+import { amountMinorSchema, currencyCodeSchema, type CurrencyCode } from './money';
 
 /** A Mission as the domain reasons about it (surrogate UUID lives in persistence). */
 export interface Mission {
@@ -56,8 +57,29 @@ export interface MissionParticipant {
   /** Free-text mission role, e.g. "Player", "Coach". */
   readonly role: string;
   readonly isActive: boolean;
+  /**
+   * Finance S2: per-diem DAILY rate for this person on this mission (money
+   * metadata, direct-audited, set separately from the governed roster). Both
+   * fields move together — null = no per-diem. FINANCIAL: the read model omits
+   * them for roles without canViewPerDiem (absence, not masking).
+   */
+  readonly perDiemAmountMinor: number | null;
+  readonly perDiemCurrency: CurrencyCode | null;
   readonly createdAt: string;
   readonly updatedAt: string;
+}
+
+/**
+ * Inclusive mission-day count for per-diem totals: startsOn..endsOn counts both
+ * ends. Null when the mission has no end date (total is then unknowable —
+ * callers show the daily rate only). ISO date strings; UTC-noon avoids DST.
+ */
+export function missionDayCount(startsOn: string, endsOn: string | null): number | null {
+  if (!endsOn) return null;
+  const a = Date.parse(`${startsOn}T12:00:00Z`);
+  const b = Date.parse(`${endsOn}T12:00:00Z`);
+  if (Number.isNaN(a) || Number.isNaN(b) || b < a) return null;
+  return Math.round((b - a) / 86_400_000) + 1;
 }
 
 // ── input contracts ──────────────────────────────────────────────────────────
@@ -142,3 +164,21 @@ export const removeMissionParticipantInputSchema = z
   })
   .strict();
 export type RemoveMissionParticipantInput = z.infer<typeof removeMissionParticipantInputSchema>;
+
+/**
+ * SetParticipantPerDiem (Finance S2) — the direct-audited money action.
+ * Supplying amount+currency sets the daily rate; supplying both as null CLEARS
+ * it. They must be provided together (a lone amount or currency is meaningless).
+ */
+export const setParticipantPerDiemInputSchema = z
+  .object({
+    missionId: missionIdField,
+    personId: personIdField,
+    perDiemAmountMinor: amountMinorSchema.nullable(),
+    perDiemCurrency: currencyCodeSchema.nullable(),
+  })
+  .strict()
+  .refine((v) => (v.perDiemAmountMinor === null) === (v.perDiemCurrency === null), {
+    message: 'Per-diem amount and currency must be set together (or both cleared).',
+  });
+export type SetParticipantPerDiemInput = z.infer<typeof setParticipantPerDiemInputSchema>;

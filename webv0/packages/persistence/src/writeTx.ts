@@ -552,6 +552,20 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .returning();
       return rows[0] ? readParticipantView(missionId, personId) : null;
     },
+
+    async setParticipantPerDiem(
+      missionId: string,
+      personId: string,
+      amountMinor: number | null,
+      currency: string | null,
+    ): Promise<MissionParticipant | null> {
+      const rows = await db
+        .update(schema.missionParticipant)
+        .set({ perDiemAmountMinor: amountMinor, perDiemCurrency: currency })
+        .where(and(eq(schema.missionParticipant.missionId, missionId), eq(schema.missionParticipant.personId, personId)))
+        .returning();
+      return rows[0] ? readParticipantView(missionId, personId) : null;
+    },
     // ── Sprint 41 agreements (drizzle-only; mode:'string' dates, cents int) ──
     async insertAgreement(row: NewAgreementRow): Promise<Agreement> {
       const [r] = await db.insert(schema.agreement).values({ tenantId, ...row }).returning();

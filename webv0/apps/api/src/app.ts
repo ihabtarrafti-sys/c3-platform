@@ -40,6 +40,9 @@ import {
   fxRatesListSchema,
   fxRateResponseSchema,
   setFxRateInputSchema,
+  missionParticipantParamSchema,
+  missionParticipantResponseSchema,
+  participantPerDiemBodySchema,
   credentialsListSchema,
   equipmentCreateInputSchema,
   equipmentUpdateInputSchema,
@@ -80,7 +83,7 @@ import {
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { capabilityView } from '@c3web/authz';
+import { capabilityView, canViewPerDiem } from '@c3web/authz';
 import {
   approveApproval,
   beginReview,
@@ -104,6 +107,7 @@ import {
   listFxRates,
   reactivateEntity,
   setFxRate,
+  setParticipantPerDiem,
   transitionApparel,
   transitionKit,
   updateEntity,
@@ -690,9 +694,24 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     '/api/v1/missions/:missionId/participants',
     { schema: { params: missionIdParamSchema, response: { 200: missionParticipantsListSchema } } },
     async (req) => {
+      const actor = actorOf(req);
       const { missionId } = req.params as { missionId: string };
-      const participants = await listMissionParticipants(P, actorOf(req), missionId);
-      return { participants: participants.map(toMissionParticipantDto) };
+      const showPerDiem = canViewPerDiem(actor.role);
+      const participants = await listMissionParticipants(P, actor, missionId);
+      return { participants: participants.map((p) => toMissionParticipantDto(p, showPerDiem)) };
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/participants/:personId/per-diem',
+    { schema: { params: missionParticipantParamSchema, body: participantPerDiemBodySchema, response: { 200: missionParticipantResponseSchema } } },
+    async (req) => {
+      const actor = actorOf(req);
+      const { missionId, personId } = req.params as { missionId: string; personId: string };
+      const body = req.body as { perDiemAmountMinor: number | null; perDiemCurrency: import('@c3web/domain').CurrencyCode | null };
+      const participant = await setParticipantPerDiem(P, actor, { missionId, personId, ...body });
+      // The setter is gated to canManageMissions (owner/ops), who can also view.
+      return { participant: toMissionParticipantDto(participant, canViewPerDiem(actor.role)) };
     },
   );
 
