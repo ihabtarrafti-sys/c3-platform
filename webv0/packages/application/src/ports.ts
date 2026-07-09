@@ -11,6 +11,7 @@
 import type {
   Actor,
   Agreement,
+  AgreementTerm,
   Apparel,
   Approval,
   ApprovalEvent,
@@ -62,6 +63,8 @@ export interface ReadStore {
   listAgreements(): Promise<Agreement[]>;
   listAgreementsForPerson(personId: string): Promise<Agreement[]>;
   getAgreementById(agreementId: string): Promise<Agreement | null>;
+  // Finance S3: the financial terms of an agreement (active rows only).
+  listAgreementTerms(agreementId: string): Promise<AgreementTerm[]>;
   // S48: entities (the tenant's legal operating entities).
   listEntities(): Promise<Entity[]>;
   getEntityById(entityId: string): Promise<Entity | null>;
@@ -183,6 +186,25 @@ export interface NewAgreementRow {
   readonly createdByApprovalId: string;
 }
 
+/** Fields written when creating an agreement financial term (Finance S3). */
+export interface NewAgreementTermRow {
+  readonly termId: string;
+  readonly agreementId: string;
+  readonly kind: string;
+  readonly amountMinor: number | null;
+  readonly currency: string | null;
+  readonly percentBps: number | null;
+  readonly label: string | null;
+}
+
+/** Value patch for a term update (kind is immutable; value replaced wholesale). */
+export interface AgreementTermPatch {
+  readonly amountMinor: number | null;
+  readonly currency: string | null;
+  readonly percentBps: number | null;
+  readonly label: string | null;
+}
+
 /** Fields written when creating an Entity (S48, direct-audited). */
 export interface NewEntityRow {
   readonly name: string;
@@ -219,7 +241,7 @@ export interface AgreementPatch {
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
   allocateSequence(
-    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'agreement' | 'entity',
+    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'agreement' | 'agreementTerm' | 'entity',
   ): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
@@ -389,6 +411,15 @@ export interface WriteTx {
   terminateAgreement(agreementId: string): Promise<Agreement | null>;
   /** Version-guarded NON-MATERIAL patch; null = stale/missing. */
   updateAgreement(agreementId: string, expectedVersion: number, patch: AgreementPatch): Promise<Agreement | null>;
+
+  // ── Finance S3 agreement terms (direct-audited; soft removal) ─────────────
+  insertAgreementTerm(row: NewAgreementTermRow): Promise<AgreementTerm>;
+  /** Read one ACTIVE term inside the transaction (for the update/remove guard). */
+  getAgreementTerm(termId: string): Promise<AgreementTerm | null>;
+  /** Version-guarded value replacement; null = stale/missing/inactive. */
+  updateAgreementTerm(termId: string, expectedVersion: number, patch: AgreementTermPatch): Promise<AgreementTerm | null>;
+  /** Version-guarded soft removal iff currently active; null = stale/missing/inactive. */
+  deactivateAgreementTerm(termId: string, expectedVersion: number): Promise<AgreementTerm | null>;
 }
 
 export interface WriteStore {

@@ -63,6 +63,7 @@ const TENANT_TABLES = [
 
   'credential', // FK → person AND approval, so credential first (Sprint 36)
   'journey', // FK → person AND approval (Sprint 37)
+  'agreement_term', // Finance S3: FK → agreement, so before agreement
   'agreement', // FK → person AND approval AND itself (Sprint 41; one DELETE clears parent+child)
   'mission_participant', // FK → mission AND person (Sprint 39), so before both
   'mission', // referenced by mission_participant (Sprint 39)

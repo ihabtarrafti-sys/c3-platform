@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -77,6 +77,22 @@ export function toAgreementDto(a: AgreementView): AgreementDto {
     version: a.version,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
+  };
+}
+
+/** Agreement financial term → wire (Finance S3; only reached by canViewFinancials). */
+export function toAgreementTermDto(t: AgreementTerm): AgreementTermDto {
+  return {
+    termId: t.termId,
+    agreementId: t.agreementId,
+    kind: t.kind,
+    amountMinor: t.amountMinor,
+    currency: t.currency,
+    percentBps: t.percentBps,
+    label: t.label,
+    version: t.version,
+    createdAt: t.createdAt,
+    updatedAt: t.updatedAt,
   };
 }
 

@@ -109,6 +109,7 @@ function tableExports(): TableExport[] {
                    value_usd_cents, notes, status, created_by_approval_id, version, created_at, updated_at
               FROM agreement WHERE tenant_id = $1 ORDER BY agreement_id`,
     },
+    { name: 'agreement_term', sql: `SELECT * FROM agreement_term WHERE tenant_id = $1 ORDER BY term_id` },
     { name: 'mission_participant', sql: `SELECT * FROM mission_participant WHERE tenant_id = $1 ORDER BY mission_id, person_id` },
     { name: 'approval_event', sql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id` },
     { name: 'audit_event', sql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id` },

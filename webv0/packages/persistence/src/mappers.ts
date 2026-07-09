@@ -5,6 +5,8 @@
 import {
   type Agreement,
   type AgreementStatus,
+  type AgreementTerm,
+  type AgreementTermKind,
   type Apparel,
   type Approval,
   type ApprovalEvent,
@@ -164,6 +166,25 @@ export function mapAgreement(row: any): Agreement {
     valueUsdCents: cents === null ? null : Number(cents),
     notes: row.notes ?? null,
     status: (row.status) as AgreementStatus,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapAgreementTerm(row: any): AgreementTerm {
+  const amount = row.amountMinor ?? row.amount_minor ?? null;
+  const bps = row.percentBps ?? row.percent_bps ?? null;
+  return {
+    termId: row.termId ?? row.term_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    agreementId: row.agreementId ?? row.agreement_id,
+    kind: (row.kind) as AgreementTermKind,
+    // bigint may arrive as a string on raw paths; term amounts are integers ≪ 2^53.
+    amountMinor: amount === null ? null : Number(amount),
+    currency: (row.currency ?? null) as AgreementTerm['currency'],
+    percentBps: bps === null ? null : Number(bps),
+    label: row.label ?? null,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

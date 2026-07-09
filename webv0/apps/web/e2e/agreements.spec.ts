@@ -111,6 +111,42 @@ test('Agreements governed lifecycle, end to end', async ({ page }) => {
     await expect(page.getByTestId('agreement-title')).toHaveText('GKE-PL-2026-001-R1');
   });
 
+  await test.step('Financial terms: add a monthly salary and a prize share, edit, then remove (direct-audited)', async () => {
+    // Owner is on /agreements/AGR-0001 (Active). The terms panel is visible to
+    // canViewFinancials roles and starts empty.
+    await expect(page.getByTestId('agreement-terms-panel')).toBeVisible();
+    await expect(page.getByTestId('agreement-terms-empty')).toBeVisible();
+
+    // A monthly salary (monetary; kind defaults to Salary).
+    await page.getByTestId('add-term').click();
+    await page.getByTestId('add-term-amount').fill('5000');
+    await page.getByTestId('add-term-currency').click();
+    await page.getByRole('option', { name: 'AED', exact: true }).click();
+    await page.getByTestId('add-term-label').fill('Base monthly');
+    await page.getByTestId('add-term-confirm').click();
+    await expect(page.getByTestId('term-value-TRM-0001')).toHaveText('AED 5,000.00');
+
+    // A personal prize share (percent).
+    await page.getByTestId('add-term').click();
+    await page.getByTestId('add-term-kind').click();
+    await page.getByRole('option', { name: 'Prize share — personal', exact: true }).click();
+    await page.getByTestId('add-term-percent').fill('7.5');
+    await page.getByTestId('add-term-confirm').click();
+    await expect(page.getByTestId('term-value-TRM-0002')).toHaveText('7.5%');
+
+    // Edit the salary to 6,000.
+    await page.getByTestId('edit-term-TRM-0001').click();
+    await page.getByTestId('edit-term-TRM-0001-amount').fill('6000');
+    await page.getByTestId('edit-term-TRM-0001-confirm').click();
+    await expect(page.getByTestId('term-value-TRM-0001')).toHaveText('AED 6,000.00');
+
+    // Remove the prize share.
+    await page.getByTestId('remove-term-TRM-0002').click();
+    await page.getByTestId('remove-term-TRM-0002-confirm').click();
+    await expect(page.getByTestId('term-value-TRM-0002')).toHaveCount(0);
+    await expect(page.getByTestId('term-value-TRM-0001')).toBeVisible(); // salary remains
+  });
+
   await test.step('An NDA addendum links to its parent as a first-class relationship', async () => {
     await login(page, 'ops@alpha.com', 'operations');
     const ndaApr = await submitAddAgreement(page, 'NDA Addendum', { linkLabelRe: /AGR-0001/ });
@@ -131,6 +167,7 @@ test('Agreements governed lifecycle, end to end', async ({ page }) => {
     await page.goto('/agreements/AGR-0001');
     await expect(page.getByTestId('agreement-id')).toHaveText('AGR-0001');
     await expect(page.getByTestId('agreement-value')).toHaveCount(0); // no value row
+    await expect(page.getByTestId('agreement-terms-panel')).toHaveCount(0); // financial terms hidden (canViewFinancials denied)
     await expect(page.getByTestId('renew-agreement-AGR-0001')).toHaveCount(0); // read-only: no material affordances
 
     for (const who of [

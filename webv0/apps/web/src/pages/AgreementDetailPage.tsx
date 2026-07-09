@@ -2,9 +2,19 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
-import { agreementRenewalStateOn } from '@c3web/domain';
-import { useAgreement, useAgreementAudit, useAgreements } from '../queries';
-import { ApiError } from '../api';
+import {
+  agreementRenewalStateOn,
+  AGREEMENT_TERM_KINDS,
+  CURRENCY_CODES,
+  MINOR_UNITS_PER_UNIT,
+  isMonetaryTermKind,
+  termLabelRequired,
+  percentToBps,
+  type AgreementTermKind,
+  type CurrencyCode,
+} from '@c3web/domain';
+import { useAgreement, useAgreementAudit, useAgreements, useAgreementTerms } from '../queries';
+import { ApiError, type AgreementTermDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { PageHeader } from '../components/PageHeader';
@@ -15,7 +25,7 @@ import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { agreementRenewalStateOf, auditActionOf, formatUsdCents } from '../labels';
+import { agreementRenewalStateOf, agreementTermKindOf, auditActionOf, formatTermValue, formatUsdCents } from '../labels';
 
 /**
  * AgreementDetailPage (Sprint 41) — one agreement, honestly split: the
@@ -33,6 +43,7 @@ function localTodayIso(): string {
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
   h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  h2Row: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: '12px', flexWrap: 'wrap' },
   headerActions: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '8px' },
 });
@@ -268,6 +279,10 @@ export function AgreementDetailPage() {
             ]}
           />
 
+          {showValue && (
+            <AgreementTermsSection agreementId={a.agreementId} canManage={canSubmit && a.status === 'Active'} />
+          )}
+
           {addendums.length > 0 && (
             <div className={s.section}>
               <h2 className={s.h2}>Linked agreements</h2>
@@ -303,6 +318,225 @@ export function AgreementDetailPage() {
             </div>
           )}
         </>
+      )}
+    </div>
+  );
+}
+
+// ── Finance S3: the agreement's financial terms ──────────────────────────────
+
+type TermForm = { amount: string; currency: CurrencyCode; percent: string; label: string };
+
+function formFromTerm(t: AgreementTermDto): TermForm {
+  return {
+    amount: t.amountMinor != null ? String(t.amountMinor / MINOR_UNITS_PER_UNIT) : '',
+    currency: (t.currency ?? 'USD') as CurrencyCode,
+    percent: t.percentBps != null ? String(t.percentBps / 100) : '',
+    label: t.label ?? '',
+  };
+}
+
+/** Major-units string → integer minor units; null when not a positive number. */
+function amountToMinor(input: string): number | null {
+  const n = Number.parseFloat(input);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return Math.round(n * MINOR_UNITS_PER_UNIT);
+}
+function percentValid(input: string): boolean {
+  const n = Number.parseFloat(input);
+  return Number.isFinite(n) && n > 0 && n <= 100;
+}
+function formInvalid(kind: AgreementTermKind, f: TermForm): boolean {
+  if (isMonetaryTermKind(kind)) {
+    return amountToMinor(f.amount) == null || (termLabelRequired(kind) && f.label.trim() === '');
+  }
+  return !percentValid(f.percent);
+}
+
+/**
+ * The financial-terms surface — rendered only for canViewFinancials roles (the
+ * parent gates on showValue; the API gates the endpoint too). Owner/operations
+ * on an ACTIVE agreement may add / edit / remove terms (direct-audited).
+ */
+function AgreementTermsSection({ agreementId, canManage }: { agreementId: string; canManage: boolean }) {
+  const s = useStyles();
+  const r = useRegisterStyles();
+  const { notify } = useNotify();
+  const qc = useQueryClient();
+  const { data, isLoading } = useAgreementTerms(agreementId);
+  const terms = data?.terms ?? [];
+
+  const [addKind, setAddKind] = useState<AgreementTermKind>('Salary');
+  const [add, setAdd] = useState<TermForm>({ amount: '', currency: 'USD', percent: '', label: '' });
+  const [edits, setEdits] = useState<Record<string, TermForm>>({});
+
+  const invalidate = () => {
+    void qc.invalidateQueries({ queryKey: ['agreementTerms', agreementId] });
+    void qc.invalidateQueries({ queryKey: ['agreementAudit', agreementId] });
+  };
+
+  async function run(fn: () => Promise<unknown>, message: string): Promise<void> {
+    try {
+      await fn();
+      notify('success', message);
+      invalidate();
+    } catch (err) {
+      notify('error', err instanceof ApiError ? err.message : 'The action failed.');
+      throw err instanceof Error ? err : new Error('failed');
+    }
+  }
+
+  function valueFields(kind: AgreementTermKind, form: TermForm, setForm: (f: TermForm) => void, idPrefix: string) {
+    const monetary = isMonetaryTermKind(kind);
+    return (
+      <div className={s.fields}>
+        {monetary ? (
+          <>
+            <Field label="Amount" required>
+              <Input type="number" value={form.amount} onChange={(_, d) => setForm({ ...form, amount: d.value })} data-testid={`${idPrefix}-amount`} />
+            </Field>
+            <Field label="Currency" required>
+              <Dropdown
+                value={form.currency}
+                selectedOptions={[form.currency]}
+                onOptionSelect={(_, d) => setForm({ ...form, currency: (d.optionValue ?? 'USD') as CurrencyCode })}
+                data-testid={`${idPrefix}-currency`}
+              >
+                {CURRENCY_CODES.map((c) => (
+                  <Option key={c} value={c} text={c}>
+                    {c}
+                  </Option>
+                ))}
+              </Dropdown>
+            </Field>
+          </>
+        ) : (
+          <Field label="Share of prize (%)" required>
+            <Input type="number" value={form.percent} onChange={(_, d) => setForm({ ...form, percent: d.value })} data-testid={`${idPrefix}-percent`} />
+          </Field>
+        )}
+        <Field label={termLabelRequired(kind) ? 'Trigger' : monetary ? 'Condition / note (optional)' : 'Label (optional)'} required={termLabelRequired(kind)}>
+          <Input value={form.label} onChange={(_, d) => setForm({ ...form, label: d.value })} data-testid={`${idPrefix}-label`} />
+        </Field>
+      </div>
+    );
+  }
+
+  function bodyFrom(kind: AgreementTermKind, f: TermForm) {
+    return isMonetaryTermKind(kind)
+      ? { amountMinor: amountToMinor(f.amount)!, currency: f.currency, label: f.label.trim() || null }
+      : { percentBps: percentToBps(Number.parseFloat(f.percent)), label: f.label.trim() || null };
+  }
+
+  return (
+    <div className={s.section} data-testid="agreement-terms-panel">
+      <div className={s.h2Row}>
+        <h2 className={s.h2}>Financial terms</h2>
+        {canManage && (
+          <GovernedAction
+            triggerLabel="Add term…"
+            triggerTestId="add-term"
+            triggerAppearance="secondary"
+            title="Add a financial term"
+            description="Financial terms are recorded immediately and audited. Salary is monthly; bonuses and milestones are one-off amounts; prize shares are a percentage."
+            extra={
+              <div className={s.fields}>
+                <Field label="Term type" required>
+                  <Dropdown
+                    value={agreementTermKindOf(addKind)}
+                    selectedOptions={[addKind]}
+                    onOptionSelect={(_, d) => setAddKind((d.optionValue ?? 'Salary') as AgreementTermKind)}
+                    data-testid="add-term-kind"
+                  >
+                    {AGREEMENT_TERM_KINDS.map((k) => (
+                      <Option key={k} value={k} text={agreementTermKindOf(k)}>
+                        {agreementTermKindOf(k)}
+                      </Option>
+                    ))}
+                  </Dropdown>
+                </Field>
+                {valueFields(addKind, add, setAdd, 'add-term')}
+              </div>
+            }
+            confirmLabel="Add term"
+            confirmDisabled={formInvalid(addKind, add)}
+            onConfirm={() =>
+              run(() => api.addAgreementTerm(agreementId, { kind: addKind, ...bodyFrom(addKind, add) }), 'Term added and recorded.').then(() =>
+                setAdd({ amount: '', currency: 'USD', percent: '', label: '' }),
+              )
+            }
+          />
+        )}
+      </div>
+
+      {isLoading && <LoadingState label="Loading terms…" />}
+      {!isLoading && terms.length === 0 && (
+        <EmptyState data-testid="agreement-terms-empty" message="No financial terms recorded yet." />
+      )}
+      {terms.length > 0 && (
+        <table className={r.table} data-testid="agreement-terms" aria-label="Financial terms">
+          <thead>
+            <tr>
+              <th className={r.th}>Type</th>
+              <th className={r.th}>Amount</th>
+              <th className={r.th}>Detail</th>
+              {canManage && <th className={r.th} aria-label="Actions" />}
+            </tr>
+          </thead>
+          <tbody>
+            {terms.map((t) => {
+              const ef = edits[t.termId] ?? formFromTerm(t);
+              const setEf = (f: TermForm) => setEdits({ ...edits, [t.termId]: f });
+              return (
+                <tr key={t.termId} className={r.row}>
+                  <td className={`${r.td} ${r.name}`} data-testid={`term-kind-${t.termId}`}>
+                    {agreementTermKindOf(t.kind)}
+                  </td>
+                  <td className={r.td} data-testid={`term-value-${t.termId}`}>
+                    {formatTermValue(t)}
+                  </td>
+                  <td className={r.td}>{t.label ?? '—'}</td>
+                  {canManage && (
+                    <td className={r.td}>
+                      <div className={s.headerActions}>
+                        <GovernedAction
+                          triggerLabel="Edit…"
+                          triggerTestId={`edit-term-${t.termId}`}
+                          triggerAppearance="secondary"
+                          title={`Edit this ${agreementTermKindOf(t.kind).toLowerCase()} term`}
+                          description="The change is recorded immediately and audited."
+                          extra={valueFields(t.kind, ef, setEf, `edit-term-${t.termId}`)}
+                          confirmLabel="Save term"
+                          confirmDisabled={formInvalid(t.kind, ef)}
+                          onConfirm={() =>
+                            run(
+                              () => api.updateAgreementTerm(agreementId, t.termId, { expectedVersion: t.version, ...bodyFrom(t.kind, ef) }),
+                              'Term updated and recorded.',
+                            ).then(() =>
+                              setEdits((prev) => {
+                                const { [t.termId]: _drop, ...rest } = prev;
+                                return rest;
+                              }),
+                            )
+                          }
+                        />
+                        <GovernedAction
+                          triggerLabel="Remove…"
+                          triggerTestId={`remove-term-${t.termId}`}
+                          triggerAppearance="secondary"
+                          title="Remove this financial term?"
+                          description="The term is removed from the agreement immediately. The removal is recorded and auditable."
+                          confirmLabel="Remove term"
+                          onConfirm={() => run(() => api.removeAgreementTerm(agreementId, t.termId, t.version), 'Term removed and recorded.')}
+                        />
+                      </div>
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       )}
     </div>
   );

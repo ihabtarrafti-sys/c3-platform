@@ -22,6 +22,12 @@ import {
   agreementResponseSchema,
   agreementsListSchema,
   agreementUpdateInputSchema,
+  agreementTermsListSchema,
+  agreementTermResponseSchema,
+  agreementTermParamSchema,
+  agreementTermCreateInputSchema,
+  agreementTermUpdateInputSchema,
+  agreementTermRemoveBodySchema,
   approvalIdParamSchema,
   approvalResponseSchema,
   approvalsListSchema,
@@ -94,6 +100,10 @@ import {
   getSituation,
   listAgreements,
   listAgreementsForPerson,
+  listAgreementTerms,
+  addAgreementTerm,
+  updateAgreementTerm,
+  removeAgreementTerm,
   submitAddAgreement,
   submitRenewAgreement,
   submitTerminateAgreement,
@@ -150,7 +160,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -879,6 +889,49 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { agreementId } = req.params as { agreementId: string };
       const agreement = await updateAgreement(P, actorOf(req), agreementId, req.body as import('@c3web/domain').AgreementUpdateInput);
       return { agreement: toAgreementDto(agreement) };
+    },
+  );
+
+  // ── agreement financial terms (Finance S3) — direct-audited; the WHOLE
+  //    endpoint is gated to canViewFinancials (legal reads agreements WITHOUT
+  //    terms; the use-case 403s here). Writes are owner/operations.
+  r.get(
+    '/api/v1/agreements/:agreementId/terms',
+    { schema: { params: agreementIdParamSchema, response: { 200: agreementTermsListSchema } } },
+    async (req) => {
+      const { agreementId } = req.params as { agreementId: string };
+      return { terms: (await listAgreementTerms(P, actorOf(req), agreementId)).map(toAgreementTermDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/agreements/:agreementId/terms',
+    { schema: { params: agreementIdParamSchema, body: agreementTermCreateInputSchema, response: { 201: agreementTermResponseSchema } } },
+    async (req, reply) => {
+      const { agreementId } = req.params as { agreementId: string };
+      const term = await addAgreementTerm(P, actorOf(req), agreementId, req.body as import('@c3web/domain').AgreementTermCreateInput);
+      return reply.status(201).send({ term: toAgreementTermDto(term) });
+    },
+  );
+
+  r.patch(
+    '/api/v1/agreements/:agreementId/terms/:termId',
+    { schema: { params: agreementTermParamSchema, body: agreementTermUpdateInputSchema, response: { 200: agreementTermResponseSchema } } },
+    async (req) => {
+      const { agreementId, termId } = req.params as { agreementId: string; termId: string };
+      const term = await updateAgreementTerm(P, actorOf(req), agreementId, termId, req.body as import('@c3web/domain').AgreementTermUpdateInput);
+      return { term: toAgreementTermDto(term) };
+    },
+  );
+
+  r.delete(
+    '/api/v1/agreements/:agreementId/terms/:termId',
+    { schema: { params: agreementTermParamSchema, body: agreementTermRemoveBodySchema, response: { 200: agreementTermResponseSchema } } },
+    async (req) => {
+      const { agreementId, termId } = req.params as { agreementId: string; termId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const term = await removeAgreementTerm(P, actorOf(req), agreementId, termId, expectedVersion);
+      return { term: toAgreementTermDto(term) };
     },
   );
 

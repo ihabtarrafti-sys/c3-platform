@@ -201,6 +201,24 @@ export const agreement = pgTable('agreement', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const agreementTerm = pgTable('agreement_term', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  termId: text('term_id').notNull(),
+  agreementId: text('agreement_id').notNull(),
+  kind: text('kind').notNull(),
+  // Monetary kinds only; integers ≪ 2^53 so mode number is safe.
+  amountMinor: bigint('amount_minor', { mode: 'number' }),
+  currency: text('currency'),
+  // Percent kinds only; basis points (1..10000).
+  percentBps: integer('percent_bps'),
+  label: text('label'),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const entity = pgTable('entity', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

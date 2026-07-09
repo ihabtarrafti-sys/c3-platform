@@ -9,6 +9,7 @@
 import { z } from 'zod';
 import {
   AGREEMENT_STATUSES,
+  AGREEMENT_TERM_KINDS,
   APPROVAL_STATUSES,
   C3_ROLES,
   CURRENCY_CODES,
@@ -23,6 +24,8 @@ import {
   addCredentialInputSchema,
   addMissionParticipantInputSchema,
   addPersonInputSchema,
+  agreementTermCreateInputSchema,
+  agreementTermUpdateInputSchema,
   agreementUpdateInputSchema,
   approvalPayloadSchema,
   changeRolePayloadSchema,
@@ -336,6 +339,35 @@ export type AgreementDto = z.infer<typeof agreementSchema>;
 export const agreementsListSchema = z.object({ agreements: z.array(agreementSchema) });
 export const agreementResponseSchema = z.object({ agreement: agreementSchema });
 export const agreementIdParamSchema = z.object({ agreementId: z.string().regex(/^AGR-\d{4,}$/) });
+
+// ── agreement financial terms (Finance S3) ───────────────────────────────────
+/**
+ * A term is either MONETARY (amountMinor + currency, percentBps null) or a
+ * PERCENT share (percentBps set, amount/currency null) — the server only ever
+ * serves these to canViewFinancials roles (the whole terms endpoint is gated).
+ */
+export const agreementTermSchema = z.object({
+  termId: z.string(),
+  agreementId: z.string(),
+  kind: z.enum(AGREEMENT_TERM_KINDS),
+  amountMinor: z.number().int().nullable(),
+  currency: currencyCodeSchema.nullable(),
+  percentBps: z.number().int().nullable(),
+  label: z.string().nullable(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type AgreementTermDto = z.infer<typeof agreementTermSchema>;
+export const agreementTermsListSchema = z.object({ terms: z.array(agreementTermSchema) });
+export const agreementTermResponseSchema = z.object({ term: agreementTermSchema });
+export const agreementTermParamSchema = z.object({
+  agreementId: z.string().regex(/^AGR-\d{4,}$/),
+  termId: z.string().regex(/^TRM-\d{4,}$/),
+});
+export { agreementTermCreateInputSchema, agreementTermUpdateInputSchema };
+/** DELETE carries the expected version as a body (version-guarded soft removal). */
+export const agreementTermRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) });
 
 // ── entities (S48): the tenant's legal operating entities ─────────────────────
 export const entitySchema = z.object({

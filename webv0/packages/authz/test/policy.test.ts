@@ -7,6 +7,8 @@ import {
   assertReviewApproval,
   assertExecuteApproval,
   assertTenantMatch,
+  assertReadAgreements,
+  assertViewFinancials,
   capabilityView,
 } from '../src/policy';
 
@@ -86,6 +88,26 @@ describe('tenant match fails closed', () => {
   });
   it('empty actor tenant blocked', () => {
     expect(() => assertTenantMatch('', '')).toThrow(ForbiddenError);
+  });
+});
+
+describe('agreements: read vs financial detail (Finance S3 gate)', () => {
+  it('owner/operations/legal/finance/management may read agreements; hr/visitor may not', () => {
+    for (const role of ['owner', 'operations', 'legal', 'finance', 'management'] as const) {
+      expect(() => assertReadAgreements(actor({ role }))).not.toThrow();
+    }
+    for (const role of ['hr', 'visitor'] as const) {
+      expect(() => assertReadAgreements(actor({ role }))).toThrow(ForbiddenError);
+    }
+  });
+
+  it('only owner/operations/finance/management may view financial detail — legal is denied', () => {
+    for (const role of ['owner', 'operations', 'finance', 'management'] as const) {
+      expect(() => assertViewFinancials(actor({ role }))).not.toThrow();
+    }
+    for (const role of ['legal', 'hr', 'visitor'] as const) {
+      expect(() => assertViewFinancials(actor({ role }))).toThrow(ForbiddenError);
+    }
   });
 });
 

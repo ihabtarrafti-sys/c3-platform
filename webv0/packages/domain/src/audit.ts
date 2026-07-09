@@ -74,6 +74,10 @@ export const AUDIT_ACTIONS = [
   'AgreementRenewed',
   'AgreementTerminated',
   'AgreementUpdated',
+  // Finance Sprint 3: agreement financial terms (direct-audited, canViewFinancials).
+  'AgreementTermAdded',
+  'AgreementTermUpdated',
+  'AgreementTermRemoved',
   // S48 (2026-07-10): Entities — the tenant's legal operating entities.
   // Direct-audited CRUD (the mission-shell pattern).
   'EntityCreated',

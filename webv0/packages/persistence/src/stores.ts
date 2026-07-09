@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -221,6 +221,17 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Agreement | null> => {
             const rows = await db.select().from(schema.agreement).where(eq(schema.agreement.agreementId, agreementId)).limit(1);
             return rows[0] ? mapAgreement(rows[0]) : null;
+          }),
+
+        // Finance S3: the ACTIVE financial terms of an agreement, oldest first.
+        listAgreementTerms: (agreementId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<AgreementTerm[]> => {
+            const rows = await db
+              .select()
+              .from(schema.agreementTerm)
+              .where(and(eq(schema.agreementTerm.agreementId, agreementId), eq(schema.agreementTerm.isActive, true)))
+              .orderBy(asc(schema.agreementTerm.createdAt), asc(schema.agreementTerm.termId));
+            return rows.map(mapAgreementTerm);
           }),
 
         // S48: entities (the tenant's legal operating entities).

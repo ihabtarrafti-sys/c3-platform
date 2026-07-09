@@ -164,6 +164,18 @@ export function assertReadAgreements(actor: Actor): void {
   }
 }
 
+/**
+ * Guard viewing FINANCIAL detail (agreement financial terms, values). Owner,
+ * operations, finance, management. Legal reads agreements WITHOUT terms — the
+ * financial section is a section-level denial, fail-closed and truthful (never
+ * a false "no terms recorded").
+ */
+export function assertViewFinancials(actor: Actor): void {
+  if (!canViewFinancials(actor.role)) {
+    throw new ForbiddenError('Financial detail is unavailable for your role.', { role: actor.role });
+  }
+}
+
 /** Non-throwing summary for building UX-only capability hints served to the web app. */
 export interface CapabilityView {
   readonly canReadPeople: boolean;

@@ -5,6 +5,7 @@
 import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import {
   type Agreement,
+  type AgreementTerm,
   ConflictError,
   IdentityAlreadyBoundError,
   LastOwnerProtectionError,
@@ -26,10 +27,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, EntityPatch, EquipmentPatch, MissionPatch, NewAgreementRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, EntityPatch, EquipmentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -619,6 +620,51 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.agreement.agreementId, agreementId), eq(schema.agreement.version, expectedVersion)))
         .returning();
       return rows[0] ? mapAgreement(rows[0]) : null;
+    },
+
+    // ── Finance S3 agreement terms (direct-audited; the DB CHECK backstops shape) ──
+    async insertAgreementTerm(row: NewAgreementTermRow): Promise<AgreementTerm> {
+      const [r] = await db.insert(schema.agreementTerm).values({ tenantId, ...row }).returning();
+      return mapAgreementTerm(r);
+    },
+
+    async getAgreementTerm(termId: string): Promise<AgreementTerm | null> {
+      const rows = await db
+        .select()
+        .from(schema.agreementTerm)
+        .where(and(eq(schema.agreementTerm.termId, termId), eq(schema.agreementTerm.isActive, true)))
+        .limit(1);
+      return rows[0] ? mapAgreementTerm(rows[0]) : null;
+    },
+
+    async updateAgreementTerm(termId: string, expectedVersion: number, patch: AgreementTermPatch): Promise<AgreementTerm | null> {
+      const rows = await db
+        .update(schema.agreementTerm)
+        .set({ ...patch, version: sql`${schema.agreementTerm.version} + 1` })
+        .where(
+          and(
+            eq(schema.agreementTerm.termId, termId),
+            eq(schema.agreementTerm.version, expectedVersion),
+            eq(schema.agreementTerm.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapAgreementTerm(rows[0]) : null;
+    },
+
+    async deactivateAgreementTerm(termId: string, expectedVersion: number): Promise<AgreementTerm | null> {
+      const rows = await db
+        .update(schema.agreementTerm)
+        .set({ isActive: false, version: sql`${schema.agreementTerm.version} + 1` })
+        .where(
+          and(
+            eq(schema.agreementTerm.termId, termId),
+            eq(schema.agreementTerm.version, expectedVersion),
+            eq(schema.agreementTerm.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapAgreementTerm(rows[0]) : null;
     },
   } satisfies WriteTx;
 }

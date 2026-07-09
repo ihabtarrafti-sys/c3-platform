@@ -1,3 +1,5 @@
+import { formatMoney, formatPercentBps } from '@c3web/domain';
+import type { AgreementTermDto } from '@c3web/api-contracts';
 import type { StatusVariant } from './components/StatusBadge';
 
 /**
@@ -91,6 +93,9 @@ const AUDIT_ACTION: Record<string, string> = {
   AgreementRenewed: 'Agreement renewed',
   AgreementTerminated: 'Agreement terminated',
   AgreementUpdated: 'Agreement updated',
+  AgreementTermAdded: 'Financial term added',
+  AgreementTermUpdated: 'Financial term updated',
+  AgreementTermRemoved: 'Financial term removed',
 };
 
 /** D-7 — equipment fulfillment status → label + StatusBadge variant. */
@@ -150,6 +155,25 @@ export function agreementRenewalStateOf(state: string): { label: string; variant
 export function formatUsdCents(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return '—';
   return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+}
+
+/** Finance S3 — agreement financial term kind → human label. */
+const AGREEMENT_TERM_KIND: Record<string, string> = {
+  Salary: 'Salary (monthly)',
+  PerformanceBonus: 'Performance bonus',
+  Milestone: 'Milestone',
+  PrizeSharePersonal: 'Prize share — personal',
+  PrizeShareTeam: 'Prize share — team',
+};
+export function agreementTermKindOf(kind: string): string {
+  return AGREEMENT_TERM_KIND[kind] ?? kind;
+}
+
+/** A term's value: money for monetary kinds, a percent for share kinds. */
+export function formatTermValue(term: Pick<AgreementTermDto, 'amountMinor' | 'currency' | 'percentBps'>): string {
+  if (term.percentBps != null) return formatPercentBps(term.percentBps);
+  if (term.amountMinor != null && term.currency) return formatMoney(term.amountMinor, term.currency);
+  return '—';
 }
 export function auditActionOf(action: string): string {
   return AUDIT_ACTION[action] ?? action;

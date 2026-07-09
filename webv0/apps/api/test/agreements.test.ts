@@ -148,6 +148,80 @@ describe('role-differentiated reads (the Set-E boundary at the wire)', () => {
   });
 });
 
+describe('financial terms over HTTP (Finance S3)', () => {
+  it('add monetary + percent → list; edit; remove; gated to canViewFinancials; write owner/ops only', async () => {
+    const personId = await addPerson('Terms Player');
+    await addAgreement(personId);
+
+    // ops adds a monetary term and a percent term
+    const salary = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/AGR-0001/terms',
+      headers: auth(tokens.ops),
+      payload: { kind: 'Salary', amountMinor: 500_000, currency: 'AED', label: 'Base monthly' },
+    });
+    expect(salary.statusCode, salary.body).toBe(201);
+    expect(salary.json().term).toMatchObject({ termId: 'TRM-0001', kind: 'Salary', amountMinor: 500_000, currency: 'AED', percentBps: null });
+
+    const share = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/AGR-0001/terms',
+      headers: auth(tokens.ops),
+      payload: { kind: 'PrizeSharePersonal', percentBps: 750 },
+    });
+    expect(share.statusCode, share.body).toBe(201);
+
+    // a malformed shape is rejected at the wire (share carrying money)
+    const bad = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/AGR-0001/terms',
+      headers: auth(tokens.ops),
+      payload: { kind: 'PrizeShareTeam', percentBps: 500, amountMinor: 1, currency: 'USD' },
+    });
+    expect(bad.statusCode).toBe(400);
+
+    // finance may VIEW the terms; legal may not (financial section denial); visitor 403
+    const financeView = await app.inject({ method: 'GET', url: '/api/v1/agreements/AGR-0001/terms', headers: auth(tokens.finance) });
+    expect(financeView.statusCode).toBe(200);
+    expect(financeView.json().terms).toHaveLength(2);
+    const legalView = await app.inject({ method: 'GET', url: '/api/v1/agreements/AGR-0001/terms', headers: auth(tokens.legal) });
+    expect(legalView.statusCode).toBe(403);
+    const visitorView = await app.inject({ method: 'GET', url: '/api/v1/agreements/AGR-0001/terms', headers: auth(tokens.visitor) });
+    expect(visitorView.statusCode).toBe(403);
+
+    // finance may NOT write a term (read-only role)
+    const financeWrite = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/AGR-0001/terms',
+      headers: auth(tokens.finance),
+      payload: { kind: 'Salary', amountMinor: 1, currency: 'USD' },
+    });
+    expect(financeWrite.statusCode).toBe(403);
+
+    // edit the salary (version-guarded value replacement)
+    const edited = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/agreements/AGR-0001/terms/TRM-0001',
+      headers: auth(tokens.owner),
+      payload: { expectedVersion: 0, amountMinor: 600_000, currency: 'AED', label: 'Base monthly' },
+    });
+    expect(edited.statusCode, edited.body).toBe(200);
+    expect(edited.json().term).toMatchObject({ amountMinor: 600_000, version: 1 });
+
+    // remove the share (version-guarded soft delete)
+    const removed = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/agreements/AGR-0001/terms/TRM-0002',
+      headers: auth(tokens.ops),
+      payload: { expectedVersion: 0 },
+    });
+    expect(removed.statusCode, removed.body).toBe(200);
+
+    const after = await app.inject({ method: 'GET', url: '/api/v1/agreements/AGR-0001/terms', headers: auth(tokens.owner) });
+    expect(after.json().terms.map((t: { termId: string }) => t.termId)).toEqual(['TRM-0001']);
+  });
+});
+
 describe('the direct NON-MATERIAL patch over HTTP', () => {
   it('versioned patch lands; stale is 409 zero-change; self-link is 400; material keys are 400', async () => {
     const personId = await addPerson('Patched Player');

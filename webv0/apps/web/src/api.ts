@@ -16,6 +16,7 @@
  */
 import type {
   AgreementDto,
+  AgreementTermDto,
   ApparelDto,
   ApprovalDto,
   CredentialDto,
@@ -40,7 +41,7 @@ import type {
   SubmitRenewAgreementRequest,
   SubmitTerminateAgreementRequest,
 } from '@c3web/api-contracts';
-import type { EquipmentTransition } from '@c3web/domain';
+import type { AgreementTermKind, EquipmentTransition } from '@c3web/domain';
 
 export interface EquipmentCreateBody {
   name: string;
@@ -81,6 +82,22 @@ export interface AgreementUpdateBody {
   agreementType?: string;
   linkedAgreementId?: string | null;
   notes?: string | null;
+}
+
+/** Finance S3: a financial term's value (monetary XOR percent, per kind). */
+export interface AgreementTermCreateBody {
+  kind: AgreementTermKind;
+  amountMinor?: number | null;
+  currency?: string | null;
+  percentBps?: number | null;
+  label?: string | null;
+}
+export interface AgreementTermUpdateBody {
+  expectedVersion: number;
+  amountMinor?: number | null;
+  currency?: string | null;
+  percentBps?: number | null;
+  label?: string | null;
 }
 
 export class ApiError extends Error {
@@ -215,6 +232,15 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/terminations', { input, ...(reason ? { reason } : {}) }),
     updateAgreement: (agreementId: string, body: AgreementUpdateBody) =>
       request<{ agreement: AgreementDto }>('POST', `/api/v1/agreements/${agreementId}`, body),
+    // Finance S3: agreement financial terms (direct-audited; canViewFinancials).
+    agreementTerms: (agreementId: string) =>
+      request<{ terms: AgreementTermDto[] }>('GET', `/api/v1/agreements/${agreementId}/terms`),
+    addAgreementTerm: (agreementId: string, body: AgreementTermCreateBody) =>
+      request<{ term: AgreementTermDto }>('POST', `/api/v1/agreements/${agreementId}/terms`, body),
+    updateAgreementTerm: (agreementId: string, termId: string, body: AgreementTermUpdateBody) =>
+      request<{ term: AgreementTermDto }>('PATCH', `/api/v1/agreements/${agreementId}/terms/${termId}`, body),
+    removeAgreementTerm: (agreementId: string, termId: string, expectedVersion: number) =>
+      request<{ term: AgreementTermDto }>('DELETE', `/api/v1/agreements/${agreementId}/terms/${termId}`, { expectedVersion }),
     // S48: entities (direct-audited).
     listEntities: () => request<{ entities: EntityDto[] }>('GET', '/api/v1/entities'),
     createEntity: (body: EntityCreateBody) => request<{ entity: EntityDto }>('POST', '/api/v1/entities', body),
@@ -258,4 +284,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto, MeResponse };
+export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto, MeResponse };
