@@ -3,7 +3,9 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import type { UseQueryResult } from '@tanstack/react-query';
+import { equipmentTransitionsFrom, nextEquipmentStatus, type EquipmentStatus, type EquipmentTransition } from '@c3web/domain';
 import type { EquipmentCreateBody, EquipmentUpdateBody } from '../api';
+import { equipmentStatusOf, EQUIPMENT_TRANSITION_LABEL } from '../labels';
 import { usePeople } from '../queries';
 import { ApiError } from '../api';
 import { useNotify, useSession } from '../session';
@@ -27,6 +29,7 @@ export interface EquipmentRow {
   readonly category: string;
   readonly size: string | null;
   readonly assignedPersonId: string | null;
+  readonly status: EquipmentStatus;
   readonly isActive: boolean;
   readonly version: number;
 }
@@ -41,6 +44,7 @@ export interface EquipmentPageConfig {
   readonly create: (body: EquipmentCreateBody) => Promise<unknown>;
   readonly update: (id: string, body: EquipmentUpdateBody) => Promise<unknown>;
   readonly deactivate: (id: string, expectedVersion: number) => Promise<unknown>;
+  readonly transition: (id: string, action: EquipmentTransition, expectedVersion: number) => Promise<unknown>;
 }
 
 const useStyles = makeStyles({
@@ -229,6 +233,7 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
                 <th className={r.th}>Category</th>
                 <th className={r.th}>Size</th>
                 <th className={r.th}>Assigned</th>
+                <th className={r.th}>Fulfillment</th>
                 <th className={r.th}>Status</th>
                 {canManage && <th className={r.th}>Actions</th>}
               </tr>
@@ -252,6 +257,16 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
                       )}
                     </td>
                     <td className={r.td}>
+                      {(() => {
+                        const badge = equipmentStatusOf(row.status);
+                        return (
+                          <StatusBadge variant={badge.variant} data-testid={`${config.testPrefix}-fulfillment-${row.id}`}>
+                            {badge.label}
+                          </StatusBadge>
+                        );
+                      })()}
+                    </td>
+                    <td className={r.td}>
                       <StatusBadge variant={row.isActive ? 'ready' : 'neutral'} data-testid={`${config.testPrefix}-status-${row.id}`}>
                         {row.isActive ? 'Active' : 'Inactive'}
                       </StatusBadge>
@@ -260,6 +275,25 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
                       <td className={r.td}>
                         {row.isActive && (
                           <div className={s.actionsCell}>
+                            {equipmentTransitionsFrom(row.status).map((action) => {
+                              const label = EQUIPMENT_TRANSITION_LABEL[action] ?? action;
+                              return (
+                              <GovernedAction
+                                key={action}
+                                triggerLabel={label}
+                                triggerTestId={`transition-${config.testPrefix}-${action}-${row.id}`}
+                                triggerAppearance="secondary"
+                                title={`${label} — ${row.id}?`}
+                                description="This moves the item's fulfillment status. It takes effect immediately and is recorded in the audit history."
+                                confirmLabel={label}
+                                onConfirm={() => {
+                                  const to = nextEquipmentStatus(action, row.status);
+                                  const toLabel = to ? equipmentStatusOf(to).label.toLowerCase() : 'updated';
+                                  return run(() => config.transition(row.id, action, row.version), `${row.id} is now ${toLabel}. Recorded.`);
+                                }}
+                              />
+                              );
+                            })}
                             <GovernedAction
                               triggerLabel="Edit…"
                               triggerTestId={`edit-${config.testPrefix}-${row.id}`}

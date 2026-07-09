@@ -12,6 +12,8 @@ import {
   APPROVAL_STATUSES,
   C3_ROLES,
   JOURNEY_STATUSES,
+  EQUIPMENT_STATUSES,
+  EQUIPMENT_TRANSITIONS,
   JOURNEY_TRANSITIONS,
   OPERATION_TYPES,
   addAgreementInputSchema,
@@ -209,6 +211,7 @@ const equipmentBaseSchema = {
   size: z.string().nullable(),
   assignedPersonId: z.string().nullable(),
   notes: z.string().nullable(),
+  status: z.enum(EQUIPMENT_STATUSES),
   isActive: z.boolean(),
   version: z.number().int(),
   createdAt: z.string(),
@@ -227,6 +230,15 @@ export const apparelResponseSchema = z.object({ apparel: apparelSchema });
 export { equipmentCreateInputSchema, equipmentUpdateInputSchema };
 export const kitIdParamSchema = z.object({ kitId: z.string().regex(/^KIT-\d{4,}$/) });
 export const apparelIdParamSchema = z.object({ apparelId: z.string().regex(/^APL-\d{4,}$/) });
+// D-7: fulfillment status transitions (action in the URL, version in the body).
+export const kitTransitionParamSchema = z.object({
+  kitId: z.string().regex(/^KIT-\d{4,}$/),
+  action: z.enum(EQUIPMENT_TRANSITIONS),
+});
+export const apparelTransitionParamSchema = z.object({
+  apparelId: z.string().regex(/^APL-\d{4,}$/),
+  action: z.enum(EQUIPMENT_TRANSITIONS),
+});
 
 // ── missions (Sprint 39) ────────────────────────────────────────────────────
 export const missionSchema = z.object({

@@ -30,6 +30,8 @@ import {
   apparelIdParamSchema,
   apparelListSchema,
   apparelResponseSchema,
+  apparelTransitionParamSchema,
+  kitTransitionParamSchema,
   credentialsListSchema,
   equipmentCreateInputSchema,
   equipmentUpdateInputSchema,
@@ -88,6 +90,8 @@ import {
   deactivateApparel,
   deactivateKit,
   deactivateMission,
+  transitionApparel,
+  transitionKit,
   executeApproval,
   getApproval,
   getMission,
@@ -549,6 +553,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     },
   );
 
+  r.post(
+    '/api/v1/kit/:kitId/transitions/:action',
+    { schema: { params: kitTransitionParamSchema, body: versionedRequestSchema, response: { 200: kitResponseSchema } } },
+    async (req) => {
+      const { kitId, action } = req.params as { kitId: string; action: import('@c3web/domain').EquipmentTransition };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const kit = await transitionKit(P, actorOf(req), kitId, action, expectedVersion);
+      return { kit: toKitDto(kit) };
+    },
+  );
+
   r.get('/api/v1/apparel', { schema: { response: { 200: apparelListSchema } } }, async (req) => {
     return { apparel: (await listApparel(P, actorOf(req))).map(toApparelDto) };
   });
@@ -575,6 +590,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { apparelId } = req.params as { apparelId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       const apparel = await deactivateApparel(P, actorOf(req), apparelId, expectedVersion);
+      return { apparel: toApparelDto(apparel) };
+    },
+  );
+
+  r.post(
+    '/api/v1/apparel/:apparelId/transitions/:action',
+    { schema: { params: apparelTransitionParamSchema, body: versionedRequestSchema, response: { 200: apparelResponseSchema } } },
+    async (req) => {
+      const { apparelId, action } = req.params as { apparelId: string; action: import('@c3web/domain').EquipmentTransition };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const apparel = await transitionApparel(P, actorOf(req), apparelId, action, expectedVersion);
       return { apparel: toApparelDto(apparel) };
     },
   );

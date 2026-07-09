@@ -12,6 +12,7 @@ import {
   createKit,
   updateKit,
   deactivateKit,
+  transitionKit,
   createApparel,
   updateApparel,
   deactivateApparel,
@@ -77,6 +78,55 @@ beforeEach(async () => {
   alphaHr = actor(alphaId, 'hr@a.com', 'hr');
   alphaVisitor = actor(alphaId, 'visitor@a.com', 'visitor');
   bravoOwner = actor(bravoId, 'owner@b.com', 'owner');
+});
+
+describe('kit fulfillment status (D-7, direct-audited state machine)', () => {
+  it('walks Received → InProgress → ReadyForShipment → InTransit → Delivered → Done, each version-guarded + audited', async () => {
+    let kit = await createKit(p, alphaOps, { name: 'Jersey batch', category: 'Kit' });
+    expect(kit.status).toBe('Received');
+
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'start', kit.version);
+    expect(kit.status).toBe('InProgress');
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'ready', kit.version);
+    expect(kit.status).toBe('ReadyForShipment');
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'ship', kit.version);
+    expect(kit.status).toBe('InTransit');
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'deliver', kit.version);
+    expect(kit.status).toBe('Delivered');
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'complete', kit.version);
+    expect(kit.status).toBe('Done');
+
+    const audit = await p.reads.forActor(alphaOwner).listAuditEventsForEntity('Kit', kit.kitId);
+    const changes = audit.filter((e) => e.action === 'KitStatusChanged');
+    expect(changes.length).toBe(5);
+  });
+
+  it('refuses an illegal transition from the current state (409), leaving status unchanged', async () => {
+    const kit = await createKit(p, alphaOps, { name: 'Cables', category: 'Kit' });
+    // Cannot ship straight from Received.
+    await expect(transitionKit(p, alphaOps, kit.kitId, 'ship', kit.version)).rejects.toThrow(/Received/i);
+    const still = await p.reads.forActor(alphaOwner).getKitById(kit.kitId);
+    expect(still!.status).toBe('Received');
+  });
+
+  it('hold then resume returns to InProgress; reject is reachable and terminal', async () => {
+    let kit = await createKit(p, alphaOps, { name: 'Mice', category: 'Kit' });
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'start', kit.version);
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'hold', kit.version);
+    expect(kit.status).toBe('OnHold');
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'resume', kit.version);
+    expect(kit.status).toBe('InProgress');
+    kit = await transitionKit(p, alphaOps, kit.kitId, 'reject', kit.version);
+    expect(kit.status).toBe('Rejected');
+    // Terminal: no further transition legal.
+    await expect(transitionKit(p, alphaOps, kit.kitId, 'start', kit.version)).rejects.toThrow(/Rejected/i);
+  });
+
+  it('a stale expectedVersion is refused (the ETag-parity guard)', async () => {
+    const kit = await createKit(p, alphaOps, { name: 'Monitors', category: 'Kit' });
+    await transitionKit(p, alphaOps, kit.kitId, 'start', kit.version); // bumps version to 1
+    await expect(transitionKit(p, alphaOps, kit.kitId, 'ready', 0)).rejects.toThrow();
+  });
 });
 
 describe('kit lifecycle (direct-audited)', () => {

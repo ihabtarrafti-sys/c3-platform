@@ -303,10 +303,13 @@ export interface WriteTx {
   updateKit(kitId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Kit | null>;
   /** Version-guarded deactivate iff currently active; null = stale/missing/inactive. */
   deactivateKit(kitId: string, expectedVersion: number): Promise<Kit | null>;
+  /** Version-guarded status set (D-7); null = stale/missing. State legality is the use-case's job. */
+  setKitStatus(kitId: string, expectedVersion: number, status: string): Promise<Kit | null>;
   insertApparel(apparelId: string, row: NewEquipmentRow): Promise<Apparel>;
   getApparel(apparelId: string): Promise<Apparel | null>;
   updateApparel(apparelId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Apparel | null>;
   deactivateApparel(apparelId: string, expectedVersion: number): Promise<Apparel | null>;
+  setApparelStatus(apparelId: string, expectedVersion: number, status: string): Promise<Apparel | null>;
 
   // ── Sprint 39 missions ─────────────────────────────────────────────────────
   insertMission(missionId: string, row: NewMissionRow): Promise<Mission>;

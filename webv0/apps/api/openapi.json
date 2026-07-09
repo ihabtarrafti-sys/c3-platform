@@ -10083,6 +10083,19 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "Received",
+                              "InProgress",
+                              "OnHold",
+                              "ReadyForShipment",
+                              "InTransit",
+                              "Delivered",
+                              "Done",
+                              "Rejected"
+                            ]
+                          },
                           "isActive": {
                             "type": "boolean"
                           },
@@ -10103,6 +10116,7 @@
                           "size",
                           "assignedPersonId",
                           "notes",
+                          "status",
                           "isActive",
                           "version",
                           "createdAt",
@@ -10197,6 +10211,19 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -10217,6 +10244,7 @@
                         "size",
                         "assignedPersonId",
                         "notes",
+                        "status",
                         "isActive",
                         "version",
                         "createdAt",
@@ -10326,6 +10354,19 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -10346,6 +10387,7 @@
                         "size",
                         "assignedPersonId",
                         "notes",
+                        "status",
                         "isActive",
                         "version",
                         "createdAt",
@@ -10430,6 +10472,19 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -10450,6 +10505,143 @@
                         "size",
                         "assignedPersonId",
                         "notes",
+                        "status",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "kit"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/kit/{kitId}/transitions/{action}": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^KIT-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "kitId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "start",
+                "hold",
+                "resume",
+                "ready",
+                "ship",
+                "deliver",
+                "complete",
+                "reject"
+              ]
+            },
+            "in": "path",
+            "name": "action",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "kit": {
+                      "type": "object",
+                      "properties": {
+                        "kitId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "size": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "assignedPersonId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "kitId",
+                        "name",
+                        "category",
+                        "size",
+                        "assignedPersonId",
+                        "notes",
+                        "status",
                         "isActive",
                         "version",
                         "createdAt",
@@ -10505,6 +10697,19 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "Received",
+                              "InProgress",
+                              "OnHold",
+                              "ReadyForShipment",
+                              "InTransit",
+                              "Delivered",
+                              "Done",
+                              "Rejected"
+                            ]
+                          },
                           "isActive": {
                             "type": "boolean"
                           },
@@ -10525,6 +10730,7 @@
                           "size",
                           "assignedPersonId",
                           "notes",
+                          "status",
                           "isActive",
                           "version",
                           "createdAt",
@@ -10619,6 +10825,19 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -10639,6 +10858,7 @@
                         "size",
                         "assignedPersonId",
                         "notes",
+                        "status",
                         "isActive",
                         "version",
                         "createdAt",
@@ -10748,6 +10968,19 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -10768,6 +11001,7 @@
                         "size",
                         "assignedPersonId",
                         "notes",
+                        "status",
                         "isActive",
                         "version",
                         "createdAt",
@@ -10852,6 +11086,19 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -10872,6 +11119,143 @@
                         "size",
                         "assignedPersonId",
                         "notes",
+                        "status",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "apparel"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/apparel/{apparelId}/transitions/{action}": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^APL-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "apparelId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "enum": [
+                "start",
+                "hold",
+                "resume",
+                "ready",
+                "ship",
+                "deliver",
+                "complete",
+                "reject"
+              ]
+            },
+            "in": "path",
+            "name": "action",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "apparel": {
+                      "type": "object",
+                      "properties": {
+                        "apparelId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "category": {
+                          "type": "string"
+                        },
+                        "size": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "assignedPersonId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Received",
+                            "InProgress",
+                            "OnHold",
+                            "ReadyForShipment",
+                            "InTransit",
+                            "Delivered",
+                            "Done",
+                            "Rejected"
+                          ]
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "apparelId",
+                        "name",
+                        "category",
+                        "size",
+                        "assignedPersonId",
+                        "notes",
+                        "status",
                         "isActive",
                         "version",
                         "createdAt",

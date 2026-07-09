@@ -20,6 +20,7 @@ const config: EquipmentPageConfig = {
   create: (body) => api.createKit(body),
   update: (id, body) => api.updateKit(id, body),
   deactivate: (id, v) => api.deactivateKit(id, v),
+  transition: (id, action, v) => api.transitionKit(id, action, v),
 };
 
 export function KitPage() {

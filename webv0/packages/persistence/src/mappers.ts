@@ -106,6 +106,7 @@ function mapEquipmentBase(row: any) {
     size: row.size ?? null,
     assignedPersonId: row.assignedPersonId ?? row.assigned_person_id ?? null,
     notes: row.notes ?? null,
+    status: (row.status ?? 'Received') as Kit['status'],
     isActive: row.isActive ?? row.is_active,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),

@@ -93,6 +93,33 @@ const AUDIT_ACTION: Record<string, string> = {
   AgreementUpdated: 'Agreement updated',
 };
 
+/** D-7 — equipment fulfillment status → label + StatusBadge variant. */
+const EQUIPMENT_STATUS: Record<string, { label: string; variant: StatusVariant }> = {
+  Received: { label: 'Received', variant: 'neutral' },
+  InProgress: { label: 'In progress', variant: 'info' },
+  OnHold: { label: 'On hold', variant: 'pending' },
+  ReadyForShipment: { label: 'Ready for shipment', variant: 'info' },
+  InTransit: { label: 'In transit', variant: 'info' },
+  Delivered: { label: 'Delivered', variant: 'ready' },
+  Done: { label: 'Done', variant: 'ready' },
+  Rejected: { label: 'Rejected', variant: 'signal' },
+};
+export function equipmentStatusOf(status: string): { label: string; variant: StatusVariant } {
+  return EQUIPMENT_STATUS[status] ?? { label: status, variant: 'neutral' };
+}
+
+/** D-7 — transition verb → button label. */
+export const EQUIPMENT_TRANSITION_LABEL: Record<string, string> = {
+  start: 'Start',
+  hold: 'Hold',
+  resume: 'Resume',
+  ready: 'Ready to ship',
+  ship: 'Ship',
+  deliver: 'Deliver',
+  complete: 'Mark done',
+  reject: 'Reject',
+};
+
 /** Sprint 37 — journey status → label + StatusBadge variant. */
 const JOURNEY_STATUS: Record<string, { label: string; variant: StatusVariant }> = {
   Active: { label: 'Active', variant: 'ready' },

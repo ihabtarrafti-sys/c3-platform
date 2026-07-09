@@ -20,6 +20,7 @@ const config: EquipmentPageConfig = {
   create: (body) => api.createApparel(body),
   update: (id, body) => api.updateApparel(id, body),
   deactivate: (id, v) => api.deactivateApparel(id, v),
+  transition: (id, action, v) => api.transitionApparel(id, action, v),
 };
 
 export function ApparelPage() {

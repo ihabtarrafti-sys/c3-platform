@@ -12,6 +12,7 @@ const equipmentDtoBase = (e: Kit | Apparel) => ({
   size: e.size,
   assignedPersonId: e.assignedPersonId,
   notes: e.notes,
+  status: e.status,
   isActive: e.isActive,
   version: e.version,
   createdAt: e.createdAt,

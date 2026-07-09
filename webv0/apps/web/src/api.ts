@@ -38,6 +38,7 @@ import type {
   SubmitRenewAgreementRequest,
   SubmitTerminateAgreementRequest,
 } from '@c3web/api-contracts';
+import type { EquipmentTransition } from '@c3web/domain';
 
 export interface EquipmentCreateBody {
   name: string;
@@ -160,6 +161,8 @@ export function createApiClient(deps: ApiClientDeps) {
     updateKit: (kitId: string, body: EquipmentUpdateBody) => request<{ kit: KitDto }>('POST', `/api/v1/kit/${kitId}`, body),
     deactivateKit: (kitId: string, expectedVersion: number) =>
       request<{ kit: KitDto }>('POST', `/api/v1/kit/${kitId}/deactivate`, { expectedVersion }),
+    transitionKit: (kitId: string, action: EquipmentTransition, expectedVersion: number) =>
+      request<{ kit: KitDto }>('POST', `/api/v1/kit/${kitId}/transitions/${action}`, { expectedVersion }),
     // Sprint 39: missions (direct-audited shell + governed participants).
     listMissions: () => request<{ missions: MissionDto[] }>('GET', '/api/v1/missions'),
     getMission: (missionId: string) => request<{ mission: MissionDto }>('GET', `/api/v1/missions/${missionId}`),
@@ -200,6 +203,8 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ apparel: ApparelDto }>('POST', `/api/v1/apparel/${apparelId}`, body),
     deactivateApparel: (apparelId: string, expectedVersion: number) =>
       request<{ apparel: ApparelDto }>('POST', `/api/v1/apparel/${apparelId}/deactivate`, { expectedVersion }),
+    transitionApparel: (apparelId: string, action: EquipmentTransition, expectedVersion: number) =>
+      request<{ apparel: ApparelDto }>('POST', `/api/v1/apparel/${apparelId}/transitions/${action}`, { expectedVersion }),
   };
 }
 

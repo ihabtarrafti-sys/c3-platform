@@ -53,6 +53,11 @@ export const AUDIT_ACTIONS = [
   'ApparelCreated',
   'ApparelUpdated',
   'ApparelDeactivated',
+  // D-7 (2026-07-09): fulfillment status transitions (direct-audited,
+  // state-machine validated). One action; the before/after images carry
+  // the from→to status.
+  'KitStatusChanged',
+  'ApparelStatusChanged',
   // Sprint 39: Missions — the direct-audited shell plus GOVERNED participant
   // membership. Reactivating a removed pair is recorded as a
   // MissionParticipantAdded whose before-image shows the inactive row.

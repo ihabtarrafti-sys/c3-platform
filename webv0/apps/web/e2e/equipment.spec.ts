@@ -41,6 +41,22 @@ test('Kit & Apparel direct-audited registers, end to end', async ({ page }) => {
     const row = page.getByTestId('kit-row-KIT-0001');
     await expect(row).toBeVisible();
     await expect(page.getByTestId('kit-status-KIT-0001')).toHaveText('Active');
+    await expect(page.getByTestId('kit-fulfillment-KIT-0001')).toHaveText('Received');
+  });
+
+  await test.step('Fulfillment status walks the state machine (direct-audited)', async () => {
+    // Received → InProgress: only the legal transitions are offered.
+    await page.getByTestId('transition-kit-start-KIT-0001').click();
+    await page.getByTestId('transition-kit-start-KIT-0001-confirm').click();
+    await expect(page.getByTestId('kit-fulfillment-KIT-0001')).toHaveText('In progress');
+
+    // The now-illegal 'ship' transition is not even offered from InProgress.
+    await expect(page.getByTestId('transition-kit-ship-KIT-0001')).toHaveCount(0);
+
+    // InProgress → ReadyForShipment.
+    await page.getByTestId('transition-kit-ready-KIT-0001').click();
+    await page.getByTestId('transition-kit-ready-KIT-0001-confirm').click();
+    await expect(page.getByTestId('kit-fulfillment-KIT-0001')).toHaveText('Ready for shipment');
   });
 
   await test.step('Edit is versioned and immediate; deactivate retires the row actions', async () => {

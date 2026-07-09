@@ -379,6 +379,15 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapKit(rows[0]) : null;
     },
 
+    async setKitStatus(kitId: string, expectedVersion: number, status: string): Promise<Kit | null> {
+      const rows = await db
+        .update(schema.kit)
+        .set({ status, version: sql`${schema.kit.version} + 1` })
+        .where(and(eq(schema.kit.kitId, kitId), eq(schema.kit.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapKit(rows[0]) : null;
+    },
+
     async insertApparel(apparelId: string, row: NewEquipmentRow): Promise<Apparel> {
       const [r] = await db.insert(schema.apparel).values({ tenantId, apparelId, ...row }).returning();
       return mapApparel(r);
@@ -403,6 +412,15 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .update(schema.apparel)
         .set({ isActive: false, version: sql`${schema.apparel.version} + 1` })
         .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion), eq(schema.apparel.isActive, true)))
+        .returning();
+      return rows[0] ? mapApparel(rows[0]) : null;
+    },
+
+    async setApparelStatus(apparelId: string, expectedVersion: number, status: string): Promise<Apparel | null> {
+      const rows = await db
+        .update(schema.apparel)
+        .set({ status, version: sql`${schema.apparel.version} + 1` })
+        .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion)))
         .returning();
       return rows[0] ? mapApparel(rows[0]) : null;
     },
