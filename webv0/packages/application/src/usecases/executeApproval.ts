@@ -37,9 +37,11 @@ import {
   ConcurrencyError,
   ConflictError,
   formatAgreementId,
+  formatAgreementTermId,
   formatCredentialId,
   formatJourneyId,
   formatPersonId,
+  assertTermShape,
   NotFoundError,
   ParticipantConflictError,
 } from '@c3web/domain';
@@ -478,6 +480,107 @@ export async function executeApproval(
             after: { status: 'Executed', operationType: 'TerminateAgreement', agreementId: input.agreementId },
           });
           return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement, idempotent: false };
+        }
+
+        // ── Sprint 3.5: agreement financial terms — the governed money change ──
+        // The submit guards were friendly; THIS is authoritative, in-transaction.
+        // A terminated agreement or a vanished term is a truthful ExecutionFailed,
+        // never a partial write. The term is written through the same
+        // version-guarded writeTx methods the direct S3 path used.
+        if (approval.payload.operationType === 'AddAgreementTerm') {
+          const { input } = approval.payload;
+          const agreement = await tx.getAgreement(input.agreementId);
+          if (!agreement) throw new NotFoundError('Agreement', input.agreementId);
+          if (agreement.status !== 'Active') {
+            throw new ConflictError('Financial terms may only be changed on an active agreement.', { agreementId: input.agreementId, status: agreement.status });
+          }
+          assertTermShape(input.kind, { amountMinor: input.amountMinor, currency: input.currency, percentBps: input.percentBps, label: input.label });
+
+          const seq = await tx.allocateSequence('agreementTerm');
+          const termId = formatAgreementTermId(seq);
+          const term = await tx.insertAgreementTerm({
+            termId,
+            agreementId: input.agreementId,
+            kind: input.kind,
+            amountMinor: input.amountMinor,
+            currency: input.currency,
+            percentBps: input.percentBps,
+            label: input.label,
+          });
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, { status: 'Executed', executedAt: new Date().toISOString(), executionError: null });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({ approvalId, fromStatus: approval.status, toStatus: 'Executed', actor: actor.identity, note: `Executed: added ${input.kind} term ${term.termId} to ${input.agreementId}` });
+          await tx.appendAuditEvent({
+            entityType: 'Agreement',
+            entityId: input.agreementId,
+            action: 'AgreementTermAdded',
+            actor: actor.identity,
+            before: null,
+            after: { termId: term.termId, kind: input.kind, amountMinor: input.amountMinor, currency: input.currency, percentBps: input.percentBps, label: input.label },
+          });
+          await tx.appendAuditEvent({ entityType: 'Approval', entityId: approvalId, action: 'ApprovalExecuted', actor: actor.identity, before: { status: approval.status }, after: { status: 'Executed', operationType: 'AddAgreementTerm', termId: term.termId } });
+          return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
+        if (approval.payload.operationType === 'UpdateAgreementTerm') {
+          const { input } = approval.payload;
+          const agreement = await tx.getAgreement(input.agreementId);
+          if (!agreement) throw new NotFoundError('Agreement', input.agreementId);
+          if (agreement.status !== 'Active') {
+            throw new ConflictError('Financial terms may only be changed on an active agreement.', { agreementId: input.agreementId, status: agreement.status });
+          }
+          const current = await tx.getAgreementTerm(input.termId);
+          if (!current || current.agreementId !== input.agreementId) {
+            throw new ConflictError('The financial term no longer exists.', { termId: input.termId });
+          }
+          const next = { amountMinor: input.amountMinor, currency: input.currency, percentBps: input.percentBps, label: input.label };
+          assertTermShape(current.kind, next); // authoritative shape check against the stored kind
+          const updated = await tx.updateAgreementTerm(input.termId, current.version, next);
+          if (!updated) throw new ConcurrencyError('Agreement term', input.termId);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, { status: 'Executed', executedAt: new Date().toISOString(), executionError: null });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({ approvalId, fromStatus: approval.status, toStatus: 'Executed', actor: actor.identity, note: `Executed: changed term ${input.termId} on ${input.agreementId}` });
+          await tx.appendAuditEvent({
+            entityType: 'Agreement',
+            entityId: input.agreementId,
+            action: 'AgreementTermUpdated',
+            actor: actor.identity,
+            before: { termId: current.termId, amountMinor: current.amountMinor, currency: current.currency, percentBps: current.percentBps, label: current.label },
+            after: { termId: current.termId, ...next },
+          });
+          await tx.appendAuditEvent({ entityType: 'Approval', entityId: approvalId, action: 'ApprovalExecuted', actor: actor.identity, before: { status: approval.status }, after: { status: 'Executed', operationType: 'UpdateAgreementTerm', termId: input.termId } });
+          return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
+        if (approval.payload.operationType === 'RemoveAgreementTerm') {
+          const { input } = approval.payload;
+          const agreement = await tx.getAgreement(input.agreementId);
+          if (!agreement) throw new NotFoundError('Agreement', input.agreementId);
+          if (agreement.status !== 'Active') {
+            throw new ConflictError('Financial terms may only be changed on an active agreement.', { agreementId: input.agreementId, status: agreement.status });
+          }
+          const current = await tx.getAgreementTerm(input.termId);
+          if (!current || current.agreementId !== input.agreementId) {
+            throw new ConflictError('The financial term no longer exists.', { termId: input.termId });
+          }
+          const removed = await tx.deactivateAgreementTerm(input.termId, current.version);
+          if (!removed) throw new ConcurrencyError('Agreement term', input.termId);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, { status: 'Executed', executedAt: new Date().toISOString(), executionError: null });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({ approvalId, fromStatus: approval.status, toStatus: 'Executed', actor: actor.identity, note: `Executed: removed term ${input.termId} from ${input.agreementId}` });
+          await tx.appendAuditEvent({
+            entityType: 'Agreement',
+            entityId: input.agreementId,
+            action: 'AgreementTermRemoved',
+            actor: actor.identity,
+            before: { termId: current.termId, kind: current.kind, amountMinor: current.amountMinor, currency: current.currency, percentBps: current.percentBps, label: current.label },
+            after: { termId: current.termId, isActive: false },
+          });
+          await tx.appendAuditEvent({ entityType: 'Approval', entityId: approvalId, action: 'ApprovalExecuted', actor: actor.identity, before: { status: approval.status }, after: { status: 'Executed', operationType: 'RemoveAgreementTerm', termId: input.termId } });
+          return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
         }
 
         // ── Sprint 39: mission participants (the Set-D discipline) ─────────

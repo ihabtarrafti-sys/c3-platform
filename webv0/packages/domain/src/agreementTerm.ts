@@ -165,5 +165,47 @@ export const agreementTermUpdateInputSchema = z
   .strict();
 export type AgreementTermUpdateInput = z.infer<typeof agreementTermUpdateInputSchema>;
 
+// ── governed submit contracts (Finance S3.5: term changes are dual-controlled) ─
+// A term change is MATERIAL money and rides the approval pipeline (requester ≠
+// approver; the owner executes). These are the immutable payload inputs.
+
+const agreementIdField = z.string().regex(/^AGR-\d{4,}$/, 'agreementId must be a canonical AGR id');
+const termIdField = z.string().regex(/^TRM-\d{4,}$/, 'termId must be a canonical TRM id');
+
+/** Submit adding a term: the create fields plus the owning agreement. */
+export const submitAddAgreementTermInputSchema = z
+  .object({
+    agreementId: agreementIdField,
+    kind: z.enum(AGREEMENT_TERM_KINDS),
+    amountMinor: positiveAmountMinor.nullish().transform((v) => v ?? null),
+    currency: currencyCodeSchema.nullish().transform((v) => v ?? null),
+    percentBps: percentBpsField.nullish().transform((v) => v ?? null),
+    label: labelField,
+  })
+  .strict();
+export type SubmitAddAgreementTermInput = z.infer<typeof submitAddAgreementTermInputSchema>;
+
+/** Submit changing a term's value set (kind immutable; validated at execute). */
+export const submitUpdateAgreementTermInputSchema = z
+  .object({
+    agreementId: agreementIdField,
+    termId: termIdField,
+    amountMinor: positiveAmountMinor.nullish().transform((v) => v ?? null),
+    currency: currencyCodeSchema.nullish().transform((v) => v ?? null),
+    percentBps: percentBpsField.nullish().transform((v) => v ?? null),
+    label: labelField,
+  })
+  .strict();
+export type SubmitUpdateAgreementTermInput = z.infer<typeof submitUpdateAgreementTermInputSchema>;
+
+/** Submit removing a term. */
+export const submitRemoveAgreementTermInputSchema = z
+  .object({
+    agreementId: agreementIdField,
+    termId: termIdField,
+  })
+  .strict();
+export type SubmitRemoveAgreementTermInput = z.infer<typeof submitRemoveAgreementTermInputSchema>;
+
 /** Re-export for callers formatting money terms without importing money.ts too. */
 export { MINOR_UNITS_PER_UNIT };

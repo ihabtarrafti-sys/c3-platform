@@ -373,12 +373,13 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['agreementTerms', agreementId] });
     void qc.invalidateQueries({ queryKey: ['agreementAudit', agreementId] });
+    void qc.invalidateQueries({ queryKey: ['approvals'] });
   };
 
-  async function run(fn: () => Promise<unknown>, message: string): Promise<void> {
+  async function run<T>(fn: () => Promise<T>, message: (result: T) => string): Promise<void> {
     try {
-      await fn();
-      notify('success', message);
+      const result = await fn();
+      notify('success', message(result));
       invalidate();
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'The action failed.');
@@ -437,8 +438,8 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
             triggerLabel="Add term…"
             triggerTestId="add-term"
             triggerAppearance="secondary"
-            title="Add a financial term"
-            description="Financial terms are recorded immediately and audited. Salary is monthly; bonuses and milestones are one-off amounts; prize shares are a percentage."
+            title="Request adding a financial term"
+            description="Term money is material, so it goes through approval — nothing is added until an owner executes it. Salary is monthly; bonuses and milestones are one-off amounts; prize shares are a percentage."
             extra={
               <div className={s.fields}>
                 <Field label="Term type" required>
@@ -458,12 +459,13 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
                 {valueFields(addKind, add, setAdd, 'add-term')}
               </div>
             }
-            confirmLabel="Add term"
+            confirmLabel="Submit for approval"
             confirmDisabled={formInvalid(addKind, add)}
             onConfirm={() =>
-              run(() => api.addAgreementTerm(agreementId, { kind: addKind, ...bodyFrom(addKind, add) }), 'Term added and recorded.').then(() =>
-                setAdd({ amount: '', currency: 'USD', percent: '', label: '' }),
-              )
+              run(
+                () => api.submitAddAgreementTerm({ agreementId, kind: addKind, ...bodyFrom(addKind, add) }),
+                (r) => `Submitted ${r.approval.approvalId} for approval — the term is added once an owner executes it.`,
+              ).then(() => setAdd({ amount: '', currency: 'USD', percent: '', label: '' }))
             }
           />
         )}
@@ -503,15 +505,15 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
                           triggerLabel="Edit…"
                           triggerTestId={`edit-term-${t.termId}`}
                           triggerAppearance="secondary"
-                          title={`Edit this ${agreementTermKindOf(t.kind).toLowerCase()} term`}
-                          description="The change is recorded immediately and audited."
+                          title={`Request changing this ${agreementTermKindOf(t.kind).toLowerCase()} term`}
+                          description="This is a change to material money — it goes through approval and is unchanged until an owner executes it."
                           extra={valueFields(t.kind, ef, setEf, `edit-term-${t.termId}`)}
-                          confirmLabel="Save term"
+                          confirmLabel="Submit for approval"
                           confirmDisabled={formInvalid(t.kind, ef)}
                           onConfirm={() =>
                             run(
-                              () => api.updateAgreementTerm(agreementId, t.termId, { expectedVersion: t.version, ...bodyFrom(t.kind, ef) }),
-                              'Term updated and recorded.',
+                              () => api.submitUpdateAgreementTerm({ agreementId, termId: t.termId, ...bodyFrom(t.kind, ef) }),
+                              (r) => `Submitted ${r.approval.approvalId} for approval — the change applies once an owner executes it.`,
                             ).then(() =>
                               setEdits((prev) => {
                                 const { [t.termId]: _drop, ...rest } = prev;
@@ -524,10 +526,15 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
                           triggerLabel="Remove…"
                           triggerTestId={`remove-term-${t.termId}`}
                           triggerAppearance="secondary"
-                          title="Remove this financial term?"
-                          description="The term is removed from the agreement immediately. The removal is recorded and auditable."
-                          confirmLabel="Remove term"
-                          onConfirm={() => run(() => api.removeAgreementTerm(agreementId, t.termId, t.version), 'Term removed and recorded.')}
+                          title="Request removing this financial term?"
+                          description="Removing material money goes through approval — the term stays on the agreement until an owner executes it."
+                          confirmLabel="Submit for approval"
+                          onConfirm={() =>
+                            run(
+                              () => api.submitRemoveAgreementTerm({ agreementId, termId: t.termId }),
+                              (r) => `Submitted ${r.approval.approvalId} for approval — the term is removed once an owner executes it.`,
+                            )
+                          }
                         />
                       </div>
                     </td>

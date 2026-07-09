@@ -66,6 +66,10 @@ async function submitAddAgreement(page: Page, type: string, opts: { code?: strin
 }
 
 test('Agreements governed lifecycle, end to end', async ({ page }) => {
+  // Governing financial terms (S3.5) adds several requester≠approver round-trips
+  // (salary + share add, edit, remove — each ops-submit → owner-execute), so this
+  // end-to-end legitimately runs long. Triple the budget rather than thin the proof.
+  test.slow();
   let addApr = '';
 
   await test.step('Ops requests a player contract with a value; owner executes; register + detail show it', async () => {
@@ -111,38 +115,68 @@ test('Agreements governed lifecycle, end to end', async ({ page }) => {
     await expect(page.getByTestId('agreement-title')).toHaveText('GKE-PL-2026-001-R1');
   });
 
-  await test.step('Financial terms: add a monthly salary and a prize share, edit, then remove (direct-audited)', async () => {
-    // Owner is on /agreements/AGR-0001 (Active). The terms panel is visible to
-    // canViewFinancials roles and starts empty.
+  await test.step('Financial terms are GOVERNED: ops requests a salary + a share, owner executes; then a governed edit and remove', async () => {
+    // Ops requests a monthly salary (kind defaults to Salary). Nothing lands
+    // until an owner executes — term money is material.
+    await login(page, 'ops@alpha.com', 'operations');
+    await page.goto('/agreements/AGR-0001');
     await expect(page.getByTestId('agreement-terms-panel')).toBeVisible();
     await expect(page.getByTestId('agreement-terms-empty')).toBeVisible();
 
-    // A monthly salary (monetary; kind defaults to Salary).
     await page.getByTestId('add-term').click();
     await page.getByTestId('add-term-amount').fill('5000');
     await page.getByTestId('add-term-currency').click();
     await page.getByRole('option', { name: 'AED', exact: true }).click();
     await page.getByTestId('add-term-label').fill('Base monthly');
     await page.getByTestId('add-term-confirm').click();
+    await expect(page.getByTestId('notifications')).toContainText('added once an owner executes');
+    const salaryApr = await captureApprovalId(page);
+    await expect(page.getByTestId('agreement-terms-empty')).toBeVisible(); // pending: not added yet
+
+    // Owner executes → the salary appears with the right subject on the approval.
+    await login(page, 'owner@alpha.com', 'owner');
+    await page.goto(`/approvals/${salaryApr}`);
+    await expect(page.getByTestId('approval-term-subject')).toContainText('Add Salary (monthly) to AGR-0001');
+    await ownerExecutes(page, salaryApr);
+    await page.goto('/agreements/AGR-0001');
     await expect(page.getByTestId('term-value-TRM-0001')).toHaveText('AED 5,000.00');
 
-    // A personal prize share (percent).
+    // Ops requests a personal prize share (percent); owner executes.
+    await login(page, 'ops@alpha.com', 'operations');
+    await page.goto('/agreements/AGR-0001');
     await page.getByTestId('add-term').click();
     await page.getByTestId('add-term-kind').click();
     await page.getByRole('option', { name: 'Prize share — personal', exact: true }).click();
     await page.getByTestId('add-term-percent').fill('7.5');
     await page.getByTestId('add-term-confirm').click();
+    const shareApr = await captureApprovalId(page);
+    await login(page, 'owner@alpha.com', 'owner');
+    await ownerExecutes(page, shareApr);
+    await page.goto('/agreements/AGR-0001');
     await expect(page.getByTestId('term-value-TRM-0002')).toHaveText('7.5%');
 
-    // Edit the salary to 6,000.
+    // A governed EDIT: ops requests the salary → 6,000; owner executes.
+    await login(page, 'ops@alpha.com', 'operations');
+    await page.goto('/agreements/AGR-0001');
     await page.getByTestId('edit-term-TRM-0001').click();
     await page.getByTestId('edit-term-TRM-0001-amount').fill('6000');
     await page.getByTestId('edit-term-TRM-0001-confirm').click();
+    const editApr = await captureApprovalId(page);
+    await expect(page.getByTestId('term-value-TRM-0001')).toHaveText('AED 5,000.00'); // unchanged until executed
+    await login(page, 'owner@alpha.com', 'owner');
+    await ownerExecutes(page, editApr);
+    await page.goto('/agreements/AGR-0001');
     await expect(page.getByTestId('term-value-TRM-0001')).toHaveText('AED 6,000.00');
 
-    // Remove the prize share.
+    // A governed REMOVE: ops requests removing the share; owner executes.
+    await login(page, 'ops@alpha.com', 'operations');
+    await page.goto('/agreements/AGR-0001');
     await page.getByTestId('remove-term-TRM-0002').click();
     await page.getByTestId('remove-term-TRM-0002-confirm').click();
+    const rmApr = await captureApprovalId(page);
+    await login(page, 'owner@alpha.com', 'owner');
+    await ownerExecutes(page, rmApr);
+    await page.goto('/agreements/AGR-0001');
     await expect(page.getByTestId('term-value-TRM-0002')).toHaveCount(0);
     await expect(page.getByTestId('term-value-TRM-0001')).toBeVisible(); // salary remains
   });

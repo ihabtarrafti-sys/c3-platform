@@ -15,6 +15,11 @@ import { initiateJourneyInputSchema } from './journey';
 import { addMissionParticipantInputSchema, removeMissionParticipantInputSchema } from './mission';
 import { addAgreementInputSchema, renewAgreementInputSchema, terminateAgreementInputSchema } from './agreement';
 import {
+  submitAddAgreementTermInputSchema,
+  submitUpdateAgreementTermInputSchema,
+  submitRemoveAgreementTermInputSchema,
+} from './agreementTerm';
+import {
   changeRoleInputSchema,
   deactivateMemberInputSchema,
   provisionMemberInputSchema,
@@ -44,6 +49,11 @@ export const OPERATION_TYPES = [
   'AddAgreement',
   'RenewAgreement',
   'TerminateAgreement',
+  // Finance S3.5: agreement financial TERMS are material money — every change
+  // (add / edit / remove, all kinds) is dual-controlled through the pipeline.
+  'AddAgreementTerm',
+  'UpdateAgreementTerm',
+  'RemoveAgreementTerm',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -147,6 +157,27 @@ export const terminateAgreementPayloadSchema = z
   .strict();
 export type TerminateAgreementApprovalPayload = z.infer<typeof terminateAgreementPayloadSchema>;
 
+/**
+ * Agreement financial-term payloads (Sprint 3.5). targetPersonId carries the
+ * owning person; targetId carries the AGR id (Add) or the TRM id (Update/Remove).
+ * The snapshot holds the full intended value set; the shape is re-validated at
+ * execute (assertTermShape) as the authoritative check.
+ */
+export const addAgreementTermPayloadSchema = z
+  .object({ operationType: z.literal('AddAgreementTerm'), input: submitAddAgreementTermInputSchema })
+  .strict();
+export type AddAgreementTermApprovalPayload = z.infer<typeof addAgreementTermPayloadSchema>;
+
+export const updateAgreementTermPayloadSchema = z
+  .object({ operationType: z.literal('UpdateAgreementTerm'), input: submitUpdateAgreementTermInputSchema })
+  .strict();
+export type UpdateAgreementTermApprovalPayload = z.infer<typeof updateAgreementTermPayloadSchema>;
+
+export const removeAgreementTermPayloadSchema = z
+  .object({ operationType: z.literal('RemoveAgreementTerm'), input: submitRemoveAgreementTermInputSchema })
+  .strict();
+export type RemoveAgreementTermApprovalPayload = z.infer<typeof removeAgreementTermPayloadSchema>;
+
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
   provisionMemberPayloadSchema,
@@ -161,6 +192,9 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addAgreementPayloadSchema,
   renewAgreementPayloadSchema,
   terminateAgreementPayloadSchema,
+  addAgreementTermPayloadSchema,
+  updateAgreementTermPayloadSchema,
+  removeAgreementTermPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 

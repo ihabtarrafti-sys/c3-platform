@@ -13,7 +13,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { ErrorState, LoadingState } from '../components/states';
 import { GovernedAction } from '../components/GovernedAction';
-import { approvalStatusOf, operationOf } from '../labels';
+import { agreementTermKindOf, approvalStatusOf, operationOf } from '../labels';
 
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
@@ -123,7 +123,13 @@ export function ApprovalDetailPage() {
                         ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Renew ${a.payload.input.agreementId} to ${a.payload.input.newEndsOn}`}</span> }]
                         : a.payload.operationType === 'TerminateAgreement'
                           ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Terminate ${a.payload.input.agreementId}`}</span> }]
-                          : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
+                          : a.payload.operationType === 'AddAgreementTerm'
+                            ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Add ${agreementTermKindOf(a.payload.input.kind)} to ${a.payload.input.agreementId}`}</span> }]
+                            : a.payload.operationType === 'UpdateAgreementTerm'
+                              ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Change ${a.payload.input.termId} on ${a.payload.input.agreementId}`}</span> }]
+                              : a.payload.operationType === 'RemoveAgreementTerm'
+                                ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Remove ${a.payload.input.termId} from ${a.payload.input.agreementId}`}</span> }]
+                                : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {

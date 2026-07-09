@@ -50,6 +50,9 @@ const OPERATION: Record<string, string> = {
   AddAgreement: 'Add Agreement',
   RenewAgreement: 'Renew Agreement',
   TerminateAgreement: 'Terminate Agreement',
+  AddAgreementTerm: 'Add Financial Term',
+  UpdateAgreementTerm: 'Change Financial Term',
+  RemoveAgreementTerm: 'Remove Financial Term',
 };
 export function operationOf(op: string): string {
   return OPERATION[op] ?? op;

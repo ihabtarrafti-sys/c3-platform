@@ -23,11 +23,9 @@ import {
   agreementsListSchema,
   agreementUpdateInputSchema,
   agreementTermsListSchema,
-  agreementTermResponseSchema,
-  agreementTermParamSchema,
-  agreementTermCreateInputSchema,
-  agreementTermUpdateInputSchema,
-  agreementTermRemoveBodySchema,
+  submitAddAgreementTermRequestSchema,
+  submitUpdateAgreementTermRequestSchema,
+  submitRemoveAgreementTermRequestSchema,
   approvalIdParamSchema,
   approvalResponseSchema,
   approvalsListSchema,
@@ -101,9 +99,9 @@ import {
   listAgreements,
   listAgreementsForPerson,
   listAgreementTerms,
-  addAgreementTerm,
-  updateAgreementTerm,
-  removeAgreementTerm,
+  submitAddAgreementTerm,
+  submitUpdateAgreementTerm,
+  submitRemoveAgreementTerm,
   submitAddAgreement,
   submitRenewAgreement,
   submitTerminateAgreement,
@@ -892,9 +890,10 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     },
   );
 
-  // ── agreement financial terms (Finance S3) — direct-audited; the WHOLE
-  //    endpoint is gated to canViewFinancials (legal reads agreements WITHOUT
-  //    terms; the use-case 403s here). Writes are owner/operations.
+  // ── agreement financial terms (Finance S3 read / S3.5 governed writes) ────
+  // The READ endpoint is gated to canViewFinancials (legal reads agreements
+  // WITHOUT terms; the use-case 403s here). Term CHANGES are MATERIAL money:
+  // each rides the approval pipeline (submit → owner executes).
   r.get(
     '/api/v1/agreements/:agreementId/terms',
     { schema: { params: agreementIdParamSchema, response: { 200: agreementTermsListSchema } } },
@@ -905,33 +904,32 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   );
 
   r.post(
-    '/api/v1/agreements/:agreementId/terms',
-    { schema: { params: agreementIdParamSchema, body: agreementTermCreateInputSchema, response: { 201: agreementTermResponseSchema } } },
+    '/api/v1/agreements/terms/requests',
+    { schema: { body: submitAddAgreementTermRequestSchema, response: { 201: approvalResponseSchema } } },
     async (req, reply) => {
-      const { agreementId } = req.params as { agreementId: string };
-      const term = await addAgreementTerm(P, actorOf(req), agreementId, req.body as import('@c3web/domain').AgreementTermCreateInput);
-      return reply.status(201).send({ term: toAgreementTermDto(term) });
+      const body = req.body as { input: import('@c3web/domain').SubmitAddAgreementTermInput; reason?: string };
+      const approval = await submitAddAgreementTerm(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
     },
   );
 
-  r.patch(
-    '/api/v1/agreements/:agreementId/terms/:termId',
-    { schema: { params: agreementTermParamSchema, body: agreementTermUpdateInputSchema, response: { 200: agreementTermResponseSchema } } },
-    async (req) => {
-      const { agreementId, termId } = req.params as { agreementId: string; termId: string };
-      const term = await updateAgreementTerm(P, actorOf(req), agreementId, termId, req.body as import('@c3web/domain').AgreementTermUpdateInput);
-      return { term: toAgreementTermDto(term) };
+  r.post(
+    '/api/v1/agreements/terms/updates',
+    { schema: { body: submitUpdateAgreementTermRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').SubmitUpdateAgreementTermInput; reason?: string };
+      const approval = await submitUpdateAgreementTerm(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
     },
   );
 
-  r.delete(
-    '/api/v1/agreements/:agreementId/terms/:termId',
-    { schema: { params: agreementTermParamSchema, body: agreementTermRemoveBodySchema, response: { 200: agreementTermResponseSchema } } },
-    async (req) => {
-      const { agreementId, termId } = req.params as { agreementId: string; termId: string };
-      const { expectedVersion } = req.body as { expectedVersion: number };
-      const term = await removeAgreementTerm(P, actorOf(req), agreementId, termId, expectedVersion);
-      return { term: toAgreementTermDto(term) };
+  r.post(
+    '/api/v1/agreements/terms/removals',
+    { schema: { body: submitRemoveAgreementTermRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').SubmitRemoveAgreementTermInput; reason?: string };
+      const approval = await submitRemoveAgreementTerm(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
     },
   );
 

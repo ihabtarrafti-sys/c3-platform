@@ -84,20 +84,26 @@ export interface AgreementUpdateBody {
   notes?: string | null;
 }
 
-/** Finance S3: a financial term's value (monetary XOR percent, per kind). */
-export interface AgreementTermCreateBody {
+/** Finance S3.5: governed term changes carry the value set (monetary XOR percent). */
+export interface SubmitAddTermBody {
+  agreementId: string;
   kind: AgreementTermKind;
   amountMinor?: number | null;
   currency?: string | null;
   percentBps?: number | null;
   label?: string | null;
 }
-export interface AgreementTermUpdateBody {
-  expectedVersion: number;
+export interface SubmitUpdateTermBody {
+  agreementId: string;
+  termId: string;
   amountMinor?: number | null;
   currency?: string | null;
   percentBps?: number | null;
   label?: string | null;
+}
+export interface SubmitRemoveTermBody {
+  agreementId: string;
+  termId: string;
 }
 
 export class ApiError extends Error {
@@ -232,15 +238,16 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/terminations', { input, ...(reason ? { reason } : {}) }),
     updateAgreement: (agreementId: string, body: AgreementUpdateBody) =>
       request<{ agreement: AgreementDto }>('POST', `/api/v1/agreements/${agreementId}`, body),
-    // Finance S3: agreement financial terms (direct-audited; canViewFinancials).
+    // Finance S3 read + S3.5 governed writes: term money is material, so changes
+    // ride the approval pipeline (submit → owner executes).
     agreementTerms: (agreementId: string) =>
       request<{ terms: AgreementTermDto[] }>('GET', `/api/v1/agreements/${agreementId}/terms`),
-    addAgreementTerm: (agreementId: string, body: AgreementTermCreateBody) =>
-      request<{ term: AgreementTermDto }>('POST', `/api/v1/agreements/${agreementId}/terms`, body),
-    updateAgreementTerm: (agreementId: string, termId: string, body: AgreementTermUpdateBody) =>
-      request<{ term: AgreementTermDto }>('PATCH', `/api/v1/agreements/${agreementId}/terms/${termId}`, body),
-    removeAgreementTerm: (agreementId: string, termId: string, expectedVersion: number) =>
-      request<{ term: AgreementTermDto }>('DELETE', `/api/v1/agreements/${agreementId}/terms/${termId}`, { expectedVersion }),
+    submitAddAgreementTerm: (input: SubmitAddTermBody, reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/terms/requests', { input, ...(reason ? { reason } : {}) }),
+    submitUpdateAgreementTerm: (input: SubmitUpdateTermBody, reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/terms/updates', { input, ...(reason ? { reason } : {}) }),
+    submitRemoveAgreementTerm: (input: SubmitRemoveTermBody, reason?: string) =>
+      request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/terms/removals', { input, ...(reason ? { reason } : {}) }),
     // S48: entities (direct-audited).
     listEntities: () => request<{ entities: EntityDto[] }>('GET', '/api/v1/entities'),
     createEntity: (body: EntityCreateBody) => request<{ entity: EntityDto }>('POST', '/api/v1/entities', body),

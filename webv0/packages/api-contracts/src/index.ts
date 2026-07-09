@@ -24,8 +24,9 @@ import {
   addCredentialInputSchema,
   addMissionParticipantInputSchema,
   addPersonInputSchema,
-  agreementTermCreateInputSchema,
-  agreementTermUpdateInputSchema,
+  submitAddAgreementTermInputSchema,
+  submitUpdateAgreementTermInputSchema,
+  submitRemoveAgreementTermInputSchema,
   agreementUpdateInputSchema,
   approvalPayloadSchema,
   changeRolePayloadSchema,
@@ -360,14 +361,14 @@ export const agreementTermSchema = z.object({
 });
 export type AgreementTermDto = z.infer<typeof agreementTermSchema>;
 export const agreementTermsListSchema = z.object({ terms: z.array(agreementTermSchema) });
-export const agreementTermResponseSchema = z.object({ term: agreementTermSchema });
-export const agreementTermParamSchema = z.object({
-  agreementId: z.string().regex(/^AGR-\d{4,}$/),
-  termId: z.string().regex(/^TRM-\d{4,}$/),
-});
-export { agreementTermCreateInputSchema, agreementTermUpdateInputSchema };
-/** DELETE carries the expected version as a body (version-guarded soft removal). */
-export const agreementTermRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) });
+
+// Governed term changes (Finance S3.5): each is a submit that yields an approval.
+export const submitAddAgreementTermRequestSchema = z.object({ input: submitAddAgreementTermInputSchema, reason: z.string().max(500).optional() });
+export type SubmitAddAgreementTermRequest = z.infer<typeof submitAddAgreementTermRequestSchema>;
+export const submitUpdateAgreementTermRequestSchema = z.object({ input: submitUpdateAgreementTermInputSchema, reason: z.string().max(500).optional() });
+export type SubmitUpdateAgreementTermRequest = z.infer<typeof submitUpdateAgreementTermRequestSchema>;
+export const submitRemoveAgreementTermRequestSchema = z.object({ input: submitRemoveAgreementTermInputSchema, reason: z.string().max(500).optional() });
+export type SubmitRemoveAgreementTermRequest = z.infer<typeof submitRemoveAgreementTermRequestSchema>;
 
 // ── entities (S48): the tenant's legal operating entities ─────────────────────
 export const entitySchema = z.object({
