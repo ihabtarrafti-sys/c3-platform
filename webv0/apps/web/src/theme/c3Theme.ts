@@ -1,75 +1,118 @@
-import { webLightTheme, type Theme } from '@fluentui/react-components';
+import { webDarkTheme, webLightTheme, type Theme } from '@fluentui/react-components';
 
 /**
- * C3 Fluent v9 theme — Command Black replaces Fluent's blue in every brand
- * slot, so primary buttons/links/selected states render Command Black, not blue.
+ * C3 Fluent v9 themes — Direction E (S47, forward identity): indigo carries
+ * the brand in every Fluent slot; red is reserved for attention and is NEVER
+ * a brand slot. Dark-first; the light set is the same system inverted.
  *
- * Signal Red is deliberately NOT mapped to any brand background: it stays a
- * restrained accent applied via the --c3-* tokens / component CSS only (active
- * nav marker, focused-error border). This is the token conflict the design lane
- * flagged — colorBrandBackground must never become red.
- *
- * The base is already near-black, so hover LIGHTENS to charcoal for visible
- * feedback (the opposite of Fluent's darken-on-hover blue ramp).
- *
- * Canonical authority: c3-governance/product/design/A-PRODUCT-FOUNDATION.md.
+ * Neutrals are aligned to the E ground/surface tokens so Fluent components
+ * (inputs, dialogs, dropdowns, menus) sit natively on the E surfaces instead
+ * of Fluent's own grays. Canonical: docs/design/S47-direction-e-adoption.md.
  */
-const COMMAND_BLACK = '#0d0d0d';
-const CHARCOAL = '#242424';
-const CHARCOAL_LIGHT = '#171717';
-const PURE_BLACK = '#000000';
 
-export const c3LightTheme: Theme = {
-  ...webLightTheme,
-
-  // application typography (IBM Plex, self-hosted via fonts.css since S45;
-  // c3-tokens.css defines the fallback stack for the swap window)
+const type = {
   fontFamilyBase: '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   fontFamilyMonospace: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
+} as const;
 
-  // motion v2 (S46, owner-approved A.8 amendment): 130ms state / 200ms
-  // enter-exit / 280ms drawer, one "C3 ease". Mapped onto Fluent's motion
-  // slots so Drawer slide, Dialog fade, and hover states all move on the
-  // same clock without per-component overrides.
+// Motion v2 (S46 clock): one C3 ease on Fluent's slots.
+const motion = {
   durationFast: '130ms',
   durationNormal: '200ms',
   durationGentle: '280ms',
   curveEasyEase: 'cubic-bezier(0.22, 1, 0.36, 1)',
   curveDecelerateMid: 'cubic-bezier(0.22, 1, 0.36, 1)',
   curveAccelerateMid: 'cubic-bezier(0.22, 1, 0.36, 1)',
+} as const;
 
-  // brand background (primary Button, selected surfaces)
-  colorBrandBackground: COMMAND_BLACK,
-  colorBrandBackgroundHover: CHARCOAL,
-  colorBrandBackgroundPressed: PURE_BLACK,
-  colorBrandBackgroundSelected: CHARCOAL_LIGHT,
+export const c3DarkTheme: Theme = {
+  ...webDarkTheme,
+  ...type,
+  ...motion,
 
-  // compound brand (inputs, checkbox/radio, switch active track)
-  colorCompoundBrandBackground: COMMAND_BLACK,
-  colorCompoundBrandBackgroundHover: CHARCOAL,
-  colorCompoundBrandBackgroundPressed: PURE_BLACK,
-  colorCompoundBrandForeground1: COMMAND_BLACK,
-  colorCompoundBrandForeground1Hover: CHARCOAL,
-  colorCompoundBrandForeground1Pressed: PURE_BLACK,
-  colorCompoundBrandStroke: COMMAND_BLACK,
-  colorCompoundBrandStrokeHover: CHARCOAL,
+  // surfaces aligned to E ground/surface
+  colorNeutralBackground1: '#13151e',
+  colorNeutralBackground1Hover: '#191c28',
+  colorNeutralBackground1Pressed: '#0f111a',
+  colorNeutralBackground2: '#191c28',
+  colorNeutralBackground3: '#0f111a',
+  colorNeutralBackground4: '#0a0c14',
+  colorNeutralBackground6: '#191c28',
+  colorSubtleBackgroundHover: 'rgba(255, 255, 255, 0.05)',
+  colorSubtleBackgroundPressed: 'rgba(255, 255, 255, 0.08)',
 
-  // brand foreground + links (IDs, hyperlinks resolve to ink, not blue)
-  colorBrandForeground1: COMMAND_BLACK,
-  colorBrandForeground2: CHARCOAL,
-  colorBrandForegroundLink: COMMAND_BLACK,
-  colorBrandForegroundLinkHover: PURE_BLACK,
-  colorBrandForegroundLinkPressed: PURE_BLACK,
-  colorBrandForegroundLinkSelected: COMMAND_BLACK,
+  // ink
+  colorNeutralForeground1: '#eef0f6',
+  colorNeutralForeground2: '#c2c7d4',
+  colorNeutralForeground3: '#868d9e',
+  colorNeutralForeground4: '#5a6070',
+  colorNeutralForegroundDisabled: '#5a6070',
 
-  // brand strokes / focus
-  colorBrandStroke1: COMMAND_BLACK,
-  colorBrandStroke2: '#c7c3bc',
+  // strokes
+  colorNeutralStroke1: '#2b2e3a',
+  colorNeutralStroke2: '#232633',
+  colorNeutralStroke3: '#232633',
+  colorNeutralStrokeAccessible: '#868d9e',
 
-  // selected navigation / tab foreground
-  colorNeutralForeground2BrandHover: COMMAND_BLACK,
-  colorNeutralForeground2BrandPressed: PURE_BLACK,
-  colorNeutralForeground2BrandSelected: COMMAND_BLACK,
-  colorNeutralForeground3BrandHover: COMMAND_BLACK,
-  colorNeutralForeground3BrandSelected: COMMAND_BLACK,
+  // brand = indigo (never red)
+  colorBrandBackground: '#5666f0',
+  colorBrandBackgroundHover: '#6875f2',
+  colorBrandBackgroundPressed: '#4553d8',
+  colorBrandBackgroundSelected: '#5666f0',
+  colorCompoundBrandBackground: '#5666f0',
+  colorCompoundBrandBackgroundHover: '#6875f2',
+  colorCompoundBrandBackgroundPressed: '#4553d8',
+  colorCompoundBrandForeground1: '#a6b0ff',
+  colorCompoundBrandForeground1Hover: '#bcc4ff',
+  colorCompoundBrandForeground1Pressed: '#8f9bff',
+  colorCompoundBrandStroke: '#5666f0',
+  colorCompoundBrandStrokeHover: '#6875f2',
+  colorBrandForeground1: '#a6b0ff',
+  colorBrandForeground2: '#8f9bff',
+  colorBrandForegroundLink: '#a6b0ff',
+  colorBrandForegroundLinkHover: '#bcc4ff',
+  colorBrandForegroundLinkPressed: '#8f9bff',
+  colorBrandForegroundLinkSelected: '#a6b0ff',
+  colorBrandStroke1: '#5666f0',
+  colorBrandStroke2: '#2b2e3a',
+  colorNeutralForeground2BrandHover: '#a6b0ff',
+  colorNeutralForeground2BrandPressed: '#8f9bff',
+  colorNeutralForeground2BrandSelected: '#a6b0ff',
+  colorNeutralForeground3BrandHover: '#a6b0ff',
+  colorNeutralForeground3BrandSelected: '#a6b0ff',
+};
+
+export const c3LightTheme: Theme = {
+  ...webLightTheme,
+  ...type,
+  ...motion,
+
+  colorNeutralStroke1: '#e2e4ee',
+  colorNeutralStroke2: '#e9ebf3',
+
+  colorBrandBackground: '#4b57db',
+  colorBrandBackgroundHover: '#5a66e8',
+  colorBrandBackgroundPressed: '#3a44c4',
+  colorBrandBackgroundSelected: '#4b57db',
+  colorCompoundBrandBackground: '#4b57db',
+  colorCompoundBrandBackgroundHover: '#5a66e8',
+  colorCompoundBrandBackgroundPressed: '#3a44c4',
+  colorCompoundBrandForeground1: '#3a44c4',
+  colorCompoundBrandForeground1Hover: '#4b57db',
+  colorCompoundBrandForeground1Pressed: '#2f38a8',
+  colorCompoundBrandStroke: '#4b57db',
+  colorCompoundBrandStrokeHover: '#5a66e8',
+  colorBrandForeground1: '#3a44c4',
+  colorBrandForeground2: '#4b57db',
+  colorBrandForegroundLink: '#3a44c4',
+  colorBrandForegroundLinkHover: '#2f38a8',
+  colorBrandForegroundLinkPressed: '#2f38a8',
+  colorBrandForegroundLinkSelected: '#3a44c4',
+  colorBrandStroke1: '#4b57db',
+  colorBrandStroke2: '#e2e4ee',
+  colorNeutralForeground2BrandHover: '#3a44c4',
+  colorNeutralForeground2BrandPressed: '#2f38a8',
+  colorNeutralForeground2BrandSelected: '#3a44c4',
+  colorNeutralForeground3BrandHover: '#3a44c4',
+  colorNeutralForeground3BrandSelected: '#3a44c4',
 };

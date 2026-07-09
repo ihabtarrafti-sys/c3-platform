@@ -5,7 +5,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 import { NotificationProvider, SessionProvider } from './session';
-import { c3LightTheme } from './theme/c3Theme';
+import { c3DarkTheme, c3LightTheme } from './theme/c3Theme';
+import { ThemeModeProvider, useThemeMode } from './theme/mode';
 import './theme/fonts.css';
 import './theme/c3-tokens.css';
 
@@ -19,9 +20,11 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <FluentProvider theme={c3LightTheme}>
+/** Inside ThemeModeProvider so the Fluent theme follows the E mode toggle. */
+function Root() {
+  const { mode } = useThemeMode();
+  return (
+    <FluentProvider theme={mode === 'dark' ? c3DarkTheme : c3LightTheme} style={{ background: 'transparent' }}>
       <QueryClientProvider client={queryClient}>
         <NotificationProvider>
           <SessionProvider>
@@ -30,5 +33,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
         </NotificationProvider>
       </QueryClientProvider>
     </FluentProvider>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')!).render(
+  <React.StrictMode>
+    <ThemeModeProvider>
+      <Root />
+    </ThemeModeProvider>
   </React.StrictMode>,
 );

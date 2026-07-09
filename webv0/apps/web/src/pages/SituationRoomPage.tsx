@@ -62,7 +62,7 @@ const useStyles = makeStyles({
     bottom: 0,
     left: 0,
     width: '28%',
-    background: 'linear-gradient(90deg, transparent, rgba(13,13,13,0.045), transparent)',
+    background: 'linear-gradient(90deg, transparent, var(--c3-sweep-tint), transparent)',
     animationName: 'c3-sweep',
     animationDuration: 'var(--c3-dur-sweep)',
     animationTimingFunction: 'ease-in-out',
@@ -70,14 +70,16 @@ const useStyles = makeStyles({
     pointerEvents: 'none',
   },
 
-  // ── signal cards ───────────────────────────────────────────────────────────
+  // ── signal cards — T2 FLOATING GLASS (Direction E): signals are ambient,
+  //     they float and may glow; the data they point at stays matte. ─────────
   grid: { display: 'flex', flexDirection: 'column', rowGap: '14px', maxWidth: '980px' },
   card: {
     position: 'relative',
-    backgroundColor: 'var(--c3-identity-white)',
-    border: '1px solid var(--c3-hairline)',
-    borderRadius: 'var(--c3-radius)',
-    boxShadow: 'var(--c3-e1)',
+    backgroundColor: 'var(--c3-glass-float-bg)',
+    backdropFilter: 'var(--c3-backdrop-float)',
+    border: '1px solid var(--c3-line)',
+    borderRadius: 'var(--c3-radius-float)',
+    boxShadow: 'var(--c3-e2), var(--c3-rim)',
     padding: '16px 20px 14px 24px',
     overflow: 'hidden',
     animationName: 'c3-rise',
@@ -85,6 +87,8 @@ const useStyles = makeStyles({
     animationTimingFunction: 'var(--c3-ease)',
     animationFillMode: 'backwards',
   },
+  // Attention is the only role allowed a glow — one card class, never governed.
+  cardAttention: { boxShadow: 'var(--c3-e2), var(--c3-rim), var(--c3-glow-attention)' },
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '4px' },
   railImmediate: { backgroundColor: 'var(--c3-signal-red)' },
   railAttention: { backgroundColor: 'var(--c3-status-pending)' },
@@ -244,7 +248,7 @@ function SignalCard({ signal, index, pulse }: { signal: SignalDto; index: number
 
   return (
     <article
-      className={s.card}
+      className={mergeClasses(s.card, (signal.band === 'immediate' || signal.band === 'attention') && s.cardAttention)}
       style={{ animationDelay: `${index * 70}ms` }}
       data-testid={`signal-${signal.key}`}
       aria-label={signal.headline}

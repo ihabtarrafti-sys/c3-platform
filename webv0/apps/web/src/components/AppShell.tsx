@@ -9,6 +9,7 @@ import {
   makeStyles,
 } from '@fluentui/react-components';
 import { useSession, useNotify } from '../session';
+import { useThemeMode } from '../theme/mode';
 import { IS_ENTRA } from '../auth';
 import { LoginGate } from '../pages/LoginGate';
 import { EntraSignIn, AccessNotProvisioned } from '../pages/EntraSignIn';
@@ -31,11 +32,11 @@ const useStyles = makeStyles({
     display: 'flex',
     flexDirection: 'column',
     minHeight: '100vh',
-    backgroundColor: 'var(--c3-paper-white)',
+    backgroundColor: 'transparent', // the E ground + ambient glow live on <body>
     fontFamily: 'var(--c3-font-base)',
   },
 
-  // ── IdentityBar (top, Command Black) ──────────────────────────────────────
+  // ── IdentityBar — T1 glass chrome (Direction E): floats over the ground ──
   identityBar: {
     display: 'flex',
     alignItems: 'center',
@@ -44,18 +45,34 @@ const useStyles = makeStyles({
     flexShrink: 0,
     paddingLeft: '20px',
     paddingRight: '20px',
-    backgroundColor: 'var(--c3-command-black)',
-    color: 'var(--c3-identity-white)',
+    backgroundColor: 'var(--c3-glass-chrome-bg)',
+    backdropFilter: 'var(--c3-backdrop-chrome)',
+    boxShadow: 'var(--c3-rim)',
+    borderBottom: '1px solid var(--c3-line)',
+    color: 'var(--c3-ink)',
+    position: 'sticky',
+    top: 0,
+    zIndex: 30,
   },
   brand: { display: 'flex', alignItems: 'center', gap: '10px' },
-  mark: { width: '22px', height: '20px', display: 'block' },
+  markTile: {
+    width: '26px',
+    height: '26px',
+    borderRadius: '8px',
+    backgroundColor: 'var(--c3-brand)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  mark: { width: '16px', height: '15px', display: 'block' },
   wordmark: { fontSize: '16px', fontWeight: 600, letterSpacing: '0.02em' },
   tenant: {
     fontFamily: 'var(--c3-font-mono)',
     fontSize: '12.5px',
-    color: 'var(--c3-on-dark-70)',
+    color: 'var(--c3-ink-muted)',
     paddingLeft: '12px',
-    borderLeft: '1px solid var(--c3-on-dark-40)',
+    borderLeft: '1px solid var(--c3-line)',
   },
   spacer: { flexGrow: 1 },
   envBadge: {
@@ -63,35 +80,41 @@ const useStyles = makeStyles({
     fontSize: '11px',
     fontWeight: 500,
     letterSpacing: '0.14em',
-    color: 'var(--c3-signal-red)',
-    border: '1px solid var(--c3-signal-red)',
-    borderRadius: 'var(--c3-radius)',
-    padding: '2px 8px',
+    color: 'var(--c3-attention)',
+    border: '1px solid var(--c3-attention)',
+    borderRadius: '999px',
+    padding: '2px 10px',
   },
   identity: { display: 'flex', alignItems: 'center', gap: '10px' },
   identityText: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 },
   identityName: { fontSize: '13px', fontWeight: 600 },
-  identityRole: { fontSize: '11px', color: 'var(--c3-on-dark-70)', textTransform: 'capitalize' },
+  identityRole: { fontSize: '11px', color: 'var(--c3-ink-muted)', textTransform: 'capitalize' },
   signOut: {
-    color: 'var(--c3-identity-white)',
+    color: 'var(--c3-ink)',
     minWidth: 'auto',
-    ':hover': { color: 'var(--c3-identity-white)', backgroundColor: 'var(--c3-on-dark-hover)' },
-    ':hover:active': { color: 'var(--c3-identity-white)' },
+    ':hover': { color: 'var(--c3-ink)', backgroundColor: 'var(--c3-hover)' },
+    ':hover:active': { color: 'var(--c3-ink)' },
+  },
+  chromeToggle: {
+    color: 'var(--c3-ink-muted)',
+    minWidth: 'auto',
+    ':hover': { color: 'var(--c3-ink)', backgroundColor: 'var(--c3-hover)' },
   },
   menuButton: {
     display: 'none',
-    color: 'var(--c3-identity-white)',
-    ':hover': { color: 'var(--c3-identity-white)', backgroundColor: 'var(--c3-on-dark-hover)' },
+    color: 'var(--c3-ink)',
+    ':hover': { color: 'var(--c3-ink)', backgroundColor: 'var(--c3-hover)' },
     '@media (max-width: 899px)': { display: 'inline-flex' },
   },
 
-  // ── body row: NavRail + work ──────────────────────────────────────────────
+  // ── body row: NavRail (T1 glass) + work ───────────────────────────────────
   body: { display: 'flex', flexGrow: 1, minHeight: 0 },
   navRail: {
     width: 'var(--c3-rail-w)',
     flexShrink: 0,
-    backgroundColor: 'var(--c3-identity-white)',
-    borderRight: '1px solid var(--c3-hairline)',
+    backgroundColor: 'var(--c3-glass-chrome-bg)',
+    backdropFilter: 'var(--c3-backdrop-chrome)',
+    borderRight: '1px solid var(--c3-line)',
     paddingTop: '12px',
     display: 'flex',
     flexDirection: 'column',
@@ -118,7 +141,7 @@ const useStyles = makeStyles({
     height: '40px',
     paddingLeft: '21px',
     paddingRight: '16px',
-    color: 'var(--c3-ink-70)',
+    color: 'var(--c3-ink-muted)',
     fontSize: '14px',
     fontWeight: 400,
     borderLeft: '3px solid transparent',
@@ -126,13 +149,14 @@ const useStyles = makeStyles({
     transitionProperty: 'background-color, color',
     transitionDuration: 'var(--c3-dur-state)',
     transitionTimingFunction: 'var(--c3-ease)',
-    ':hover': { backgroundColor: 'rgba(13,13,13,0.035)' },
+    ':hover': { backgroundColor: 'var(--c3-hover)', color: 'var(--c3-ink)' },
   },
+  // E: indigo carries the structural role — active nav is brand, not red.
   navItemActive: {
-    color: 'var(--c3-command-black)',
+    color: 'var(--c3-ink)',
     fontWeight: 600,
-    borderLeftColor: 'var(--c3-signal-red)',
-    backgroundColor: 'rgba(13,13,13,0.045)',
+    borderLeftColor: 'var(--c3-brand)',
+    backgroundColor: 'var(--c3-active-tint)',
   },
   navIcon: { width: '20px', height: '20px', flexShrink: 0 },
 
@@ -162,7 +186,7 @@ const useStyles = makeStyles({
       position: 'fixed',
       inset: 0,
       top: 'var(--c3-identitybar-h)',
-      backgroundColor: 'rgba(13,13,13,0.32)',
+      backgroundColor: 'rgba(4, 6, 12, 0.5)',
       zIndex: 10,
     },
   },
@@ -299,6 +323,7 @@ export function AppShell() {
   const s = useStyles();
   const { status, me, providerSession, signOut } = useSession();
   const { notices, dismiss } = useNotify();
+  const { mode, toggleMode, effectsReduced, toggleEffects } = useThemeMode();
   const location = useLocation();
   const [navOpen, setNavOpen] = useState(false);
 
@@ -335,7 +360,9 @@ export function AppShell() {
           {navOpen ? 'Close' : 'Menu'}
         </Button>
         <div className={s.brand}>
-          <img className={s.mark} src="/brand/c3-symbol-white.svg" alt="" aria-hidden="true" />
+          <span className={s.markTile}>
+            <img className={s.mark} src="/brand/c3-symbol-white.svg" alt="" aria-hidden="true" />
+          </span>
           <span className={s.wordmark}>C3</span>
         </div>
         {me?.tenantSlug && (
@@ -349,6 +376,26 @@ export function AppShell() {
             {ENV_LABEL}
           </span>
         )}
+        <Button
+          appearance="transparent"
+          className={s.chromeToggle}
+          onClick={toggleMode}
+          data-testid="mode-toggle"
+          aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+        >
+          ◐
+        </Button>
+        <Button
+          appearance="transparent"
+          className={s.chromeToggle}
+          onClick={toggleEffects}
+          data-testid="effects-toggle"
+          aria-label={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
+          title={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
+        >
+          ✦
+        </Button>
         <div className={s.identity}>
           <Avatar name={me?.displayName ?? undefined} size={28} color="neutral" />
           <div className={s.identityText}>

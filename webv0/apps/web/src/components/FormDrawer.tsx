@@ -32,9 +32,11 @@ const useStyles = makeStyles({
     height: '100%',
     backgroundColor: 'var(--c3-identity-white)',
   },
+  // E (S47): the drawer is MATTE by law; the rail is a quiet marker, not a
+  // highlight — muted for governed, faint for direct, in both modes.
   rail: { position: 'absolute', left: 0, top: 0, bottom: 0, width: '3px', zIndex: 1 },
-  railGoverned: { backgroundColor: 'var(--c3-command-black)' },
-  railDirect: { backgroundColor: 'var(--c3-ink-35)' },
+  railGoverned: { backgroundColor: 'var(--c3-ink-muted)' },
+  railDirect: { backgroundColor: 'var(--c3-ink-faint)' },
   header: {
     display: 'flex',
     alignItems: 'center',
