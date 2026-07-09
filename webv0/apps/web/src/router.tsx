@@ -13,6 +13,7 @@ import { JourneysPage } from './pages/JourneysPage';
 import { KitPage } from './pages/KitPage';
 import { ApparelPage } from './pages/ApparelPage';
 import { MissionsPage } from './pages/MissionsPage';
+import { EntitiesPage } from './pages/EntitiesPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { AgreementsPage } from './pages/AgreementsPage';
 import { AgreementDetailPage } from './pages/AgreementDetailPage';
@@ -54,6 +55,7 @@ export const router = createBrowserRouter([
       { path: 'missions/:missionId', element: <MissionDetailPage /> },
       { path: 'agreements', element: <AgreementsPage /> },
       { path: 'agreements/:agreementId', element: <AgreementDetailPage /> },
+      { path: 'entities', element: <EntitiesPage /> },
       { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'approvals/:approvalId', element: <ApprovalDetailPage /> },
       { path: 'members', element: <MembersPage /> },

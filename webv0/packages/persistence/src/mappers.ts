@@ -12,6 +12,7 @@ import {
   type AuditEvent,
   type AuditAction,
   type Credential,
+  type Entity,
   type Journey,
   type JourneyStatus,
   type Kit,
@@ -40,6 +41,7 @@ export function mapPerson(row: any): Person {
     currentTeam: row.currentTeam ?? row.current_team ?? null,
     currentGameTitle: row.currentGameTitle ?? row.current_game_title ?? null,
     primaryDepartment: row.primaryDepartment ?? row.primary_department ?? null,
+    entityId: row.entityId ?? row.entity_id ?? null,
     notes: row.notes ?? null,
     isActive: row.isActive ?? row.is_active,
     version: row.version,
@@ -114,6 +116,20 @@ function mapEquipmentBase(row: any) {
   };
 }
 
+export function mapEntity(row: any): Entity {
+  return {
+    entityId: row.entityId ?? row.entity_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    name: row.name,
+    jurisdiction: row.jurisdiction,
+    registrationId: row.registrationId ?? row.registration_id ?? null,
+    isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
 export function mapKit(row: any): Kit {
   return { kitId: row.kitId ?? row.kit_id, ...mapEquipmentBase(row) };
 }
@@ -128,6 +144,7 @@ export function mapAgreement(row: any): Agreement {
     agreementId: row.agreementId ?? row.agreement_id,
     tenantId: row.tenantId ?? row.tenant_id,
     personId: row.personId ?? row.person_id,
+    entityId: row.entityId ?? row.entity_id ?? null,
     agreementCode: row.agreementCode ?? row.agreement_code ?? null,
     agreementType: row.agreementType ?? row.agreement_type,
     linkedAgreementId: row.linkedAgreementId ?? row.linked_agreement_id ?? null,

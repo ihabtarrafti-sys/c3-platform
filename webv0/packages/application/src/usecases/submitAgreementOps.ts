@@ -62,6 +62,11 @@ export async function submitAddAgreement(
   const person = await reads.getPersonById(input.personId);
   if (!person) throw new NotFoundError('Person', input.personId);
 
+  if (input.entityId) {
+    const entity = await reads.getEntityById(input.entityId);
+    if (!entity) throw new NotFoundError('Entity', input.entityId);
+  }
+
   if (input.linkedAgreementId) {
     const parent = await reads.getAgreementById(input.linkedAgreementId);
     if (!parent) throw new NotFoundError('Linked agreement', input.linkedAgreementId);

@@ -14,7 +14,16 @@
 
 const MIN_WIDTH = 4;
 
-export type BusinessIdKind = 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'agreement';
+export type BusinessIdKind =
+  | 'person'
+  | 'approval'
+  | 'credential'
+  | 'journey'
+  | 'kit'
+  | 'apparel'
+  | 'mission'
+  | 'agreement'
+  | 'entity';
 
 const PREFIX: Record<BusinessIdKind, string> = {
   person: 'PER',
@@ -25,6 +34,7 @@ const PREFIX: Record<BusinessIdKind, string> = {
   apparel: 'APL',
   mission: 'MSN',
   agreement: 'AGR',
+  entity: 'ENT',
 };
 
 const PATTERN: Record<BusinessIdKind, RegExp> = {
@@ -36,6 +46,7 @@ const PATTERN: Record<BusinessIdKind, RegExp> = {
   apparel: /^APL-\d{4,}$/,
   mission: /^MSN-\d{4,}$/,
   agreement: /^AGR-\d{4,}$/,
+  entity: /^ENT-\d{4,}$/,
 };
 
 /** Format an allocated sequence number into a canonical business ID. */
@@ -54,6 +65,7 @@ export const formatKitId = (sequence: number): string => formatBusinessId('kit',
 export const formatApparelId = (sequence: number): string => formatBusinessId('apparel', sequence);
 export const formatMissionId = (sequence: number): string => formatBusinessId('mission', sequence);
 export const formatAgreementId = (sequence: number): string => formatBusinessId('agreement', sequence);
+export const formatEntityId = (sequence: number): string => formatBusinessId('entity', sequence);
 
 export function isBusinessId(kind: BusinessIdKind, value: unknown): value is string {
   return typeof value === 'string' && PATTERN[kind].test(value);
@@ -67,6 +79,7 @@ export const isKitId = (value: unknown): value is string => isBusinessId('kit', 
 export const isApparelId = (value: unknown): value is string => isBusinessId('apparel', value);
 export const isMissionId = (value: unknown): value is string => isBusinessId('mission', value);
 export const isAgreementId = (value: unknown): value is string => isBusinessId('agreement', value);
+export const isEntityId = (value: unknown): value is string => isBusinessId('entity', value);
 
 /**
  * Placeholder written to an AddPerson approval's target person field at

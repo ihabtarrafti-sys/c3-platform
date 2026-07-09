@@ -9,6 +9,7 @@ import {
   type AddPersonInput,
   addPersonInputSchema,
   formatApprovalId,
+  NotFoundError,
   PENDING_ADD_PERSON_TARGET,
 } from '@c3web/domain';
 import { assertSubmitApproval } from '@c3web/authz';
@@ -27,6 +28,14 @@ export async function submitAddPerson(
   assertSubmitApproval(actor);
   // Validate/normalise defensively even though the API also validates the wire.
   const input = addPersonInputSchema.parse(command.input);
+
+  // S48: friendly submit-time check — the "signed with" entity must exist
+  // (the FK is the authoritative guard at execute).
+  if (input.entityId) {
+    const entity = await p.reads.forActor(actor).getEntityById(input.entityId);
+    if (!entity) throw new NotFoundError('Entity', input.entityId);
+  }
+
   const reason = command.reason?.trim() ? command.reason.trim() : null;
 
   return p.writes.transaction(actor, async (tx) => {

@@ -277,6 +277,15 @@ function MissionsIcon({ className }: { className?: string }) {
   );
 }
 
+function EntitiesIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <rect x="3" y="3" width="8" height="14" rx="1" />
+      <path d="M11 8h5a1 1 0 0 1 1 1v8h-6M5.5 6h3M5.5 9h3M5.5 12h3M13.5 11h1.5M13.5 14h1.5" />
+    </svg>
+  );
+}
+
 function MembersIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -289,7 +298,7 @@ function MembersIcon({ className }: { className?: string }) {
 
 // Register list pages + the cockpit get command width; detail pages (with an
 // :id segment) and reading surfaces keep the calm centred measure.
-const WIDE_ROUTES = /^\/(situation|people|credentials|journeys|kit|apparel|missions|agreements|approvals|members)$/;
+const WIDE_ROUTES = /^\/(situation|people|credentials|journeys|kit|apparel|missions|agreements|entities|approvals|members)$/;
 
 function NavItem({
   to,
@@ -440,6 +449,14 @@ export function AppShell() {
               to="/agreements"
               label="Agreements"
               icon={<AgreementsIcon className={s.navIcon} />}
+              onNavigate={() => setNavOpen(false)}
+            />
+          )}
+          {me?.capabilities.canManageEntities && (
+            <NavItem
+              to="/entities"
+              label="Entities"
+              icon={<EntitiesIcon className={s.navIcon} />}
               onNavigate={() => setNavOpen(false)}
             />
           )}

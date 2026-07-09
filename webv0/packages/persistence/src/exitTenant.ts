@@ -67,6 +67,7 @@ const TENANT_TABLES = [
   'kit', // FK → person (Sprint 38)
   'apparel', // FK → person (Sprint 38)
   'person', // FK → approval (composite), so person before approval
+  'entity', // S48: referenced by person.entity_id AND agreement.entity_id, so after both
   'approval',
   'business_id_counter',
   'role_assignment',

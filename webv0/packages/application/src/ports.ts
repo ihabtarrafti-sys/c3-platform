@@ -18,6 +18,7 @@ import type {
   AuditEvent,
   C3Role,
   Credential,
+  Entity,
   Journey,
   JourneyStatus,
   Kit,
@@ -60,6 +61,9 @@ export interface ReadStore {
   listAgreements(): Promise<Agreement[]>;
   listAgreementsForPerson(personId: string): Promise<Agreement[]>;
   getAgreementById(agreementId: string): Promise<Agreement | null>;
+  // S48: entities (the tenant's legal operating entities).
+  listEntities(): Promise<Entity[]>;
+  getEntityById(entityId: string): Promise<Entity | null>;
   // Sprint 42: the person hub's read side.
   listMissionMembershipsForPerson(personId: string): Promise<PersonMissionMembership[]>;
   listApprovalsForPerson(personId: string): Promise<Approval[]>;
@@ -78,6 +82,7 @@ export interface NewPersonRow {
   readonly currentTeam: string | null;
   readonly currentGameTitle: string | null;
   readonly primaryDepartment: string | null;
+  readonly entityId: string | null;
   readonly notes: string | null;
   /** The approval whose execution created this person (idempotency boundary). */
   readonly createdByApprovalId: string;
@@ -163,6 +168,7 @@ export interface MissionPatch {
 export interface NewAgreementRow {
   readonly agreementId: string;
   readonly personId: string;
+  readonly entityId: string | null;
   readonly agreementCode: string | null;
   readonly agreementType: string;
   readonly linkedAgreementId: string | null;
@@ -172,6 +178,20 @@ export interface NewAgreementRow {
   readonly notes: string | null;
   /** The approval whose execution created this agreement (idempotency boundary). */
   readonly createdByApprovalId: string;
+}
+
+/** Fields written when creating an Entity (S48, direct-audited). */
+export interface NewEntityRow {
+  readonly name: string;
+  readonly jurisdiction: string;
+  readonly registrationId: string | null;
+}
+
+/** Editable-field patch for an entity update (only provided keys change). */
+export interface EntityPatch {
+  readonly name?: string;
+  readonly jurisdiction?: string;
+  readonly registrationId?: string | null;
 }
 
 /** A person's mission membership, enriched with the mission's identity (Sprint 42). */
@@ -193,7 +213,9 @@ export interface AgreementPatch {
 
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
-  allocateSequence(kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'agreement'): Promise<number>;
+  allocateSequence(
+    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'agreement' | 'entity',
+  ): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
 
@@ -310,6 +332,12 @@ export interface WriteTx {
   updateApparel(apparelId: string, expectedVersion: number, patch: EquipmentPatch): Promise<Apparel | null>;
   deactivateApparel(apparelId: string, expectedVersion: number): Promise<Apparel | null>;
   setApparelStatus(apparelId: string, expectedVersion: number, status: string): Promise<Apparel | null>;
+
+  // ── S48 entities (direct-audited) ─────────────────────────────────────────
+  insertEntity(entityId: string, row: NewEntityRow): Promise<Entity>;
+  getEntity(entityId: string): Promise<Entity | null>;
+  updateEntity(entityId: string, expectedVersion: number, patch: EntityPatch): Promise<Entity | null>;
+  deactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null>;
 
   // ── Sprint 39 missions ─────────────────────────────────────────────────────
   insertMission(missionId: string, row: NewMissionRow): Promise<Mission>;

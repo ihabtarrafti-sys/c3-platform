@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -65,6 +65,7 @@ export function toAgreementDto(a: AgreementView): AgreementDto {
   return {
     agreementId: a.agreementId,
     personId: a.personId,
+    entityId: a.entityId,
     agreementCode: a.agreementCode,
     agreementType: a.agreementType,
     linkedAgreementId: a.linkedAgreementId,
@@ -130,11 +131,25 @@ export function toPersonDto(p: Person): PersonDto {
     currentTeam: p.currentTeam,
     currentGameTitle: p.currentGameTitle,
     primaryDepartment: p.primaryDepartment,
+    entityId: p.entityId,
     notes: p.notes,
     isActive: p.isActive,
     version: p.version,
     createdAt: p.createdAt,
     updatedAt: p.updatedAt,
+  };
+}
+
+export function toEntityDto(e: Entity): EntityDto {
+  return {
+    entityId: e.entityId,
+    name: e.name,
+    jurisdiction: e.jurisdiction,
+    registrationId: e.registrationId,
+    isActive: e.isActive,
+    version: e.version,
+    createdAt: e.createdAt,
+    updatedAt: e.updatedAt,
   };
 }
 

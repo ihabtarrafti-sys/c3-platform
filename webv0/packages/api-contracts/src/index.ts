@@ -25,6 +25,8 @@ import {
   changeRolePayloadSchema,
   deactivateCredentialInputSchema,
   deactivateMemberPayloadSchema,
+  entityCreateInputSchema,
+  entityUpdateInputSchema,
   equipmentCreateInputSchema,
   equipmentUpdateInputSchema,
   initiateJourneyInputSchema,
@@ -64,6 +66,7 @@ export const personSchema = z.object({
   currentTeam: z.string().nullable(),
   currentGameTitle: z.string().nullable(),
   primaryDepartment: z.string().nullable(),
+  entityId: z.string().nullable(),
   notes: z.string().nullable(),
   isActive: z.boolean(),
   version: z.number().int(),
@@ -294,6 +297,7 @@ export type SubmitRemoveMissionParticipantRequest = z.infer<typeof submitRemoveM
 export const agreementSchema = z.object({
   agreementId: z.string(),
   personId: z.string(),
+  entityId: z.string().nullable(),
   agreementCode: z.string().nullable(),
   agreementType: z.string(),
   linkedAgreementId: z.string().nullable(),
@@ -310,6 +314,23 @@ export type AgreementDto = z.infer<typeof agreementSchema>;
 export const agreementsListSchema = z.object({ agreements: z.array(agreementSchema) });
 export const agreementResponseSchema = z.object({ agreement: agreementSchema });
 export const agreementIdParamSchema = z.object({ agreementId: z.string().regex(/^AGR-\d{4,}$/) });
+
+// ── entities (S48): the tenant's legal operating entities ─────────────────────
+export const entitySchema = z.object({
+  entityId: z.string(),
+  name: z.string(),
+  jurisdiction: z.string(),
+  registrationId: z.string().nullable(),
+  isActive: z.boolean(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type EntityDto = z.infer<typeof entitySchema>;
+export const entitiesListSchema = z.object({ entities: z.array(entitySchema) });
+export const entityResponseSchema = z.object({ entity: entitySchema });
+export const entityIdParamSchema = z.object({ entityId: z.string().regex(/^ENT-\d{4,}$/) });
+export { entityCreateInputSchema, entityUpdateInputSchema };
 
 /** The domain schema IS the wire schema for the direct patch — one validator, no drift. */
 export { agreementUpdateInputSchema };
@@ -435,6 +456,7 @@ export const capabilityViewSchema = z.object({
   canManageKit: z.boolean(),
   canManageApparel: z.boolean(),
   canManageMissions: z.boolean(),
+  canManageEntities: z.boolean(),
   canReadAgreements: z.boolean(),
   canViewFinancials: z.boolean(),
 });

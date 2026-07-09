@@ -1,0 +1,129 @@
+/**
+ * entityOps — the Entity use-cases (S48). Pure DIRECT-BUT-AUDITED CRUD in the
+ * mission-shell mould: create / update (partial patch) / deactivate, role-gated
+ * (canManageEntities: owner/operations), version-guarded, audit in the SAME
+ * transaction, update audit images restricted to exactly the changed fields.
+ *
+ * An Entity is one of the tenant company's own legal operating entities per
+ * jurisdiction (e.g. a UAE company, a KSA company). People are assigned to the
+ * one they signed with; agreements sit under one. Finance specifics (banking,
+ * per-diem, money) are out of scope here by design.
+ */
+import {
+  type Actor,
+  type Entity,
+  type EntityCreateInput,
+  type EntityUpdateInput,
+  entityCreateInputSchema,
+  entityUpdateInputSchema,
+  formatEntityId,
+  ConcurrencyError,
+  ConflictError,
+  NotFoundError,
+} from '@c3web/domain';
+import { assertManageEntities } from '@c3web/authz';
+import type { EntityPatch, Persistence } from '../ports';
+
+const EDITABLE = ['name', 'jurisdiction', 'registrationId'] as const;
+
+export async function createEntity(p: Persistence, actor: Actor, input: EntityCreateInput): Promise<Entity> {
+  assertManageEntities(actor);
+  const parsed = entityCreateInputSchema.parse(input);
+
+  return p.writes.transaction(actor, async (tx) => {
+    const seq = await tx.allocateSequence('entity');
+    const entityId = formatEntityId(seq);
+    const entity = await tx.insertEntity(entityId, {
+      name: parsed.name,
+      jurisdiction: parsed.jurisdiction,
+      registrationId: parsed.registrationId,
+    });
+    await tx.appendAuditEvent({
+      entityType: 'Entity',
+      entityId,
+      action: 'EntityCreated',
+      actor: actor.identity,
+      before: null,
+      after: { name: parsed.name, jurisdiction: parsed.jurisdiction, registrationId: parsed.registrationId },
+    });
+    return entity;
+  });
+}
+
+export async function updateEntity(
+  p: Persistence,
+  actor: Actor,
+  entityId: string,
+  input: EntityUpdateInput,
+): Promise<Entity> {
+  assertManageEntities(actor);
+  const parsed = entityUpdateInputSchema.parse(input);
+
+  return p.writes.transaction(actor, async (tx) => {
+    const current = await tx.getEntity(entityId);
+    if (!current) throw new NotFoundError('Entity', entityId);
+
+    const patch: Record<string, unknown> = {};
+    const before: Record<string, unknown> = {};
+    const after: Record<string, unknown> = {};
+    for (const key of EDITABLE) {
+      if (key in parsed && parsed[key] !== undefined) {
+        const next = parsed[key] as unknown;
+        const prev = (current as unknown as Record<string, unknown>)[key] ?? null;
+        if (next !== prev) {
+          patch[key] = next;
+          before[key] = prev;
+          after[key] = next;
+        }
+      }
+    }
+    if (Object.keys(patch).length === 0) return current; // no-op patch
+
+    const updated = await tx.updateEntity(entityId, parsed.expectedVersion, patch as EntityPatch);
+    if (!updated) throw new ConcurrencyError('Entity', entityId);
+
+    await tx.appendAuditEvent({
+      entityType: 'Entity',
+      entityId,
+      action: 'EntityUpdated',
+      actor: actor.identity,
+      before,
+      after,
+    });
+    return updated;
+  });
+}
+
+export async function deactivateEntity(
+  p: Persistence,
+  actor: Actor,
+  entityId: string,
+  expectedVersion: number,
+): Promise<Entity> {
+  assertManageEntities(actor);
+  return p.writes.transaction(actor, async (tx) => {
+    const current = await tx.getEntity(entityId);
+    if (!current) throw new NotFoundError('Entity', entityId);
+    if (!current.isActive) throw new ConflictError('The entity is already inactive.');
+
+    const updated = await tx.deactivateEntity(entityId, expectedVersion);
+    if (!updated) throw new ConcurrencyError('Entity', entityId);
+
+    // People/agreements that reference this entity are untouched: their
+    // membership is a historical fact. The FK is by tenant+entity id, which
+    // still resolves — deactivation is a soft retire, not a delete.
+    await tx.appendAuditEvent({
+      entityType: 'Entity',
+      entityId,
+      action: 'EntityDeactivated',
+      actor: actor.identity,
+      before: { isActive: true },
+      after: { isActive: false },
+    });
+    return updated;
+  });
+}
+
+export async function listEntities(p: Persistence, actor: Actor): Promise<Entity[]> {
+  return p.reads.forActor(actor).listEntities();
+}

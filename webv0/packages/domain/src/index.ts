@@ -12,6 +12,7 @@ export * from './audit';
 export * from './agreement';
 export * from './businessIds';
 export * from './credential';
+export * from './entity';
 export * from './equipment';
 export * from './errors';
 export * from './identity';

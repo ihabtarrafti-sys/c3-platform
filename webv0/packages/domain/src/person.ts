@@ -9,6 +9,7 @@
  */
 
 import { z } from 'zod';
+import { entityIdOptional } from './entity';
 
 /** A Person as the domain reasons about it (surrogate UUID lives in persistence). */
 export interface Person {
@@ -23,6 +24,8 @@ export interface Person {
   readonly currentTeam: string | null;
   readonly currentGameTitle: string | null;
   readonly primaryDepartment: string | null;
+  /** S48: the tenant legal entity this person signed with (one primary). */
+  readonly entityId: string | null;
   readonly notes: string | null;
   readonly isActive: boolean;
   /** Optimistic-concurrency token (monotonic integer). */
@@ -58,6 +61,7 @@ export const addPersonInputSchema = z
     currentTeam: trimmedOptional(120),
     currentGameTitle: trimmedOptional(120),
     primaryDepartment: trimmedOptional(120),
+    entityId: entityIdOptional,
     notes: trimmedOptional(2000),
   })
   .strict();

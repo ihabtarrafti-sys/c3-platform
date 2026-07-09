@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { agreementRenewalStateOn, type AgreementRenewalState } from '@c3web/domain';
-import { useAgreements, usePeople } from '../queries';
+import { useAgreements, useEntities, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -52,12 +52,15 @@ export function AgreementsPage() {
   const showValue = me?.capabilities.canViewFinancials ?? false;
   const { data, isLoading, isError, error } = useAgreements(canRead);
   const people = usePeople(canRead && canSubmit);
+  const entities = useEntities(canRead && canSubmit);
   const today = localTodayIso();
 
   const [filter, setFilter] = useState<'all' | AgreementRenewalState>('all');
   const [showForm, setShowForm] = useState(false);
   const [personId, setPersonId] = useState('');
   const [personLabel, setPersonLabel] = useState('');
+  const [entityId, setEntityId] = useState('');
+  const [entityLabel, setEntityLabel] = useState('');
   const [agreementType, setAgreementType] = useState('');
   const [agreementCode, setAgreementCode] = useState('');
   const [startsOn, setStartsOn] = useState('');
@@ -65,6 +68,12 @@ export function AgreementsPage() {
   const [valueUsd, setValueUsd] = useState('');
   const [linkedId, setLinkedId] = useState('');
   const [linkedLabel, setLinkedLabel] = useState('');
+  const activeEntities = (entities.data?.entities ?? []).filter((e) => e.isActive);
+  const entityName = (id: string | null): string => {
+    if (!id) return '—';
+    const e = (entities.data?.entities ?? []).find((x) => x.entityId === id);
+    return e ? e.name : id;
+  };
 
   const rows = useMemo(() => {
     const all = (data?.agreements ?? []).map((a) => ({ ...a, renewalState: agreementRenewalStateOn(a, today) }));
@@ -85,6 +94,7 @@ export function AgreementsPage() {
       const cents = valueUsd.trim() === '' ? undefined : Math.round(Number(valueUsd) * 100);
       const res = await api.submitAddAgreement({
         personId,
+        entityId: entityId || undefined,
         agreementType: agreementType.trim(),
         agreementCode: agreementCode.trim() || undefined,
         linkedAgreementId: linkedId || undefined,
@@ -94,7 +104,7 @@ export function AgreementsPage() {
       } as Parameters<typeof api.submitAddAgreement>[0]);
       notify('success', `Submitted ${res.approval.approvalId} for approval. The agreement is not created until an owner executes it.`);
       setShowForm(false);
-      setPersonId(''); setPersonLabel(''); setAgreementType(''); setAgreementCode('');
+      setPersonId(''); setPersonLabel(''); setEntityId(''); setEntityLabel(''); setAgreementType(''); setAgreementCode('');
       setStartsOn(''); setEndsOn(''); setValueUsd(''); setLinkedId(''); setLinkedLabel('');
       void qc.invalidateQueries({ queryKey: ['approvals'] });
     } catch (err) {
@@ -161,6 +171,30 @@ export function AgreementsPage() {
               ))}
             </Dropdown>
           </Field>
+          {activeEntities.length > 0 && (
+            <Field label="Under entity" hint="Which of your legal entities this agreement sits under.">
+              <Dropdown
+                className={s.personSelect}
+                placeholder="Not assigned"
+                value={entityLabel}
+                selectedOptions={entityId ? [entityId] : []}
+                onOptionSelect={(_, d) => {
+                  setEntityId(d.optionValue ?? '');
+                  setEntityLabel(d.optionValue ? (d.optionText ?? '') : '');
+                }}
+                data-testid="add-agreement-entity"
+              >
+                <Option value="" text="Not assigned">
+                  Not assigned
+                </Option>
+                {activeEntities.map((e) => (
+                  <Option key={e.entityId} value={e.entityId} text={`${e.name} (${e.jurisdiction})`}>
+                    {`${e.name} (${e.jurisdiction})`}
+                  </Option>
+                ))}
+              </Dropdown>
+            </Field>
+          )}
           <Field label="Agreement type" required hint='e.g. "Player Contract", "NDA", "Addendum"'>
             <Input value={agreementType} onChange={(_, d) => setAgreementType(d.value)} data-testid="add-agreement-type" />
           </Field>
@@ -245,6 +279,7 @@ export function AgreementsPage() {
                 <th className={r.th}>Agreement</th>
                 <th className={r.th}>Code</th>
                 <th className={r.th}>Person</th>
+                <th className={r.th}>Entity</th>
                 <th className={r.th}>Type</th>
                 <th className={r.th}>Ends</th>
                 {showValue && <th className={r.th}>Value</th>}
@@ -267,6 +302,7 @@ export function AgreementsPage() {
                         {a.personId}
                       </Link>
                     </td>
+                    <td className={r.td} data-testid={`agreement-entity-${a.agreementId}`}>{entityName(a.entityId)}</td>
                     <td className={`${r.td} ${r.name}`}>{a.agreementType}</td>
                     <td className={r.td}>{a.endsOn}</td>
                     {showValue && (

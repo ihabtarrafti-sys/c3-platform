@@ -72,6 +72,11 @@ export const AUDIT_ACTIONS = [
   'AgreementRenewed',
   'AgreementTerminated',
   'AgreementUpdated',
+  // S48 (2026-07-10): Entities — the tenant's legal operating entities.
+  // Direct-audited CRUD (the mission-shell pattern).
+  'EntityCreated',
+  'EntityUpdated',
+  'EntityDeactivated',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

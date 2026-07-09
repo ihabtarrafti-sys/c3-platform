@@ -21,6 +21,7 @@
 
 import { z } from 'zod';
 import { isoDateSchema } from './credential';
+import { entityIdOptional } from './entity';
 
 export const AGREEMENT_STATUSES = ['Active', 'Terminated'] as const;
 export type AgreementStatus = (typeof AGREEMENT_STATUSES)[number];
@@ -32,6 +33,12 @@ export interface Agreement {
   readonly tenantId: string;
   /** The owning person's canonical id (PER-XXXX). */
   readonly personId: string;
+  /**
+   * S48: the tenant legal entity this agreement sits UNDER (ENT-XXXX), e.g. the
+   * UAE company. Optional for now (existing agreements pre-date entities);
+   * person-less entity-level agreements are a documented fast-follow.
+   */
+  readonly entityId: string | null;
   /** Optional human canonical code (the CP convention, e.g. "GKE-PL-2026-001"). */
   readonly agreementCode: string | null;
   /** Free-text kind: "Player Contract", "NDA", "Addendum", "MOU", … */
@@ -113,6 +120,7 @@ const centsField = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 export const addAgreementInputSchema = z
   .object({
     personId: personIdField,
+    entityId: entityIdOptional,
     agreementCode: trimmedOptional(60),
     agreementType: z.string().trim().min(1, 'Agreement type is required').max(120),
     linkedAgreementId: linkedAgreementOptional,

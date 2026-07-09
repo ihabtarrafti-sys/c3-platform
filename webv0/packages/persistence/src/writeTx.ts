@@ -16,6 +16,7 @@ import {
   type Approval,
   type C3Role,
   type Credential,
+  type Entity,
   type Journey,
   type JourneyStatus,
   type Kit,
@@ -24,10 +25,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, EquipmentPatch, MissionPatch, NewAgreementRow, NewApprovalRow, NewCredentialRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, EntityPatch, EquipmentPatch, MissionPatch, NewAgreementRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapApparel, mapApproval, mapCredential, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapApparel, mapApproval, mapCredential, mapEntity, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -186,6 +187,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           currentTeam: row.currentTeam,
           currentGameTitle: row.currentGameTitle,
           primaryDepartment: row.primaryDepartment,
+          entityId: row.entityId,
           notes: row.notes,
           createdByApprovalId: row.createdByApprovalId,
         })
@@ -423,6 +425,35 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion)))
         .returning();
       return rows[0] ? mapApparel(rows[0]) : null;
+    },
+
+    // ── S48 entities (direct-audited; the tenant's legal operating entities) ──
+    async insertEntity(entityId: string, row: NewEntityRow): Promise<Entity> {
+      const [r] = await db.insert(schema.entity).values({ tenantId, entityId, ...row }).returning();
+      return mapEntity(r);
+    },
+
+    async getEntity(entityId: string): Promise<Entity | null> {
+      const rows = await db.select().from(schema.entity).where(eq(schema.entity.entityId, entityId)).limit(1);
+      return rows[0] ? mapEntity(rows[0]) : null;
+    },
+
+    async updateEntity(entityId: string, expectedVersion: number, patch: EntityPatch): Promise<Entity | null> {
+      const rows = await db
+        .update(schema.entity)
+        .set({ ...patch, version: sql`${schema.entity.version} + 1` })
+        .where(and(eq(schema.entity.entityId, entityId), eq(schema.entity.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapEntity(rows[0]) : null;
+    },
+
+    async deactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null> {
+      const rows = await db
+        .update(schema.entity)
+        .set({ isActive: false, version: sql`${schema.entity.version} + 1` })
+        .where(and(eq(schema.entity.entityId, entityId), eq(schema.entity.version, expectedVersion), eq(schema.entity.isActive, true)))
+        .returning();
+      return rows[0] ? mapEntity(rows[0]) : null;
     },
 
     // ── Sprint 39 missions (shell = drizzle-only; participants joined with the

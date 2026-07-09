@@ -149,6 +149,9 @@
                         "canManageMissions": {
                           "type": "boolean"
                         },
+                        "canManageEntities": {
+                          "type": "boolean"
+                        },
                         "canReadAgreements": {
                           "type": "boolean"
                         },
@@ -167,6 +170,7 @@
                         "canManageKit",
                         "canManageApparel",
                         "canManageMissions",
+                        "canManageEntities",
                         "canReadAgreements",
                         "canViewFinancials"
                       ],
@@ -237,6 +241,10 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "entityId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "notes": {
                             "type": "string",
                             "nullable": true
@@ -264,6 +272,7 @@
                           "currentTeam",
                           "currentGameTitle",
                           "primaryDepartment",
+                          "entityId",
                           "notes",
                           "isActive",
                           "version",
@@ -343,6 +352,10 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "entityId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "notes": {
                           "type": "string",
                           "nullable": true
@@ -370,6 +383,7 @@
                         "currentTeam",
                         "currentGameTitle",
                         "primaryDepartment",
+                        "entityId",
                         "notes",
                         "isActive",
                         "version",
@@ -577,6 +591,11 @@
                                       "primaryDepartment": {
                                         "type": "string",
                                         "maxLength": 120,
+                                        "nullable": true
+                                      },
+                                      "entityId": {
+                                        "type": "string",
+                                        "pattern": "^ENT-\\d{4,}$",
                                         "nullable": true
                                       },
                                       "notes": {
@@ -1026,6 +1045,11 @@
                                         "type": "string",
                                         "pattern": "^PER-\\d{4,}$"
                                       },
+                                      "entityId": {
+                                        "type": "string",
+                                        "pattern": "^ENT-\\d{4,}$",
+                                        "nullable": true
+                                      },
                                       "agreementCode": {
                                         "type": "string",
                                         "maxLength": 60,
@@ -1267,6 +1291,11 @@
                         "maxLength": 120,
                         "nullable": true
                       },
+                      "entityId": {
+                        "type": "string",
+                        "pattern": "^ENT-\\d{4,}$",
+                        "nullable": true
+                      },
                       "notes": {
                         "type": "string",
                         "maxLength": 2000,
@@ -1398,6 +1427,11 @@
                                     "primaryDepartment": {
                                       "type": "string",
                                       "maxLength": 120,
+                                      "nullable": true
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
                                       "nullable": true
                                     },
                                     "notes": {
@@ -1846,6 +1880,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -2159,6 +2198,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -2605,6 +2649,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -2938,6 +2987,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -3384,6 +3438,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -3717,6 +3776,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -4163,6 +4227,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -4502,6 +4571,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -4948,6 +5022,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -5281,6 +5360,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -5727,6 +5811,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -5943,6 +6032,10 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "entityId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "notes": {
                           "type": "string",
                           "nullable": true
@@ -5970,6 +6063,7 @@
                         "currentTeam",
                         "currentGameTitle",
                         "primaryDepartment",
+                        "entityId",
                         "notes",
                         "isActive",
                         "version",
@@ -6143,6 +6237,10 @@
                         "personId": {
                           "type": "string"
                         },
+                        "entityId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "agreementCode": {
                           "type": "string",
                           "nullable": true
@@ -6188,6 +6286,7 @@
                       "required": [
                         "agreementId",
                         "personId",
+                        "entityId",
                         "agreementCode",
                         "agreementType",
                         "linkedAgreementId",
@@ -6363,6 +6462,11 @@
                                     "primaryDepartment": {
                                       "type": "string",
                                       "maxLength": 120,
+                                      "nullable": true
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
                                       "nullable": true
                                     },
                                     "notes": {
@@ -6811,6 +6915,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -7507,6 +7616,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -7953,6 +8067,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -8293,6 +8412,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -8739,6 +8863,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -9278,6 +9407,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -9724,6 +9858,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -11275,6 +11414,368 @@
         }
       }
     },
+    "/api/v1/entities": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entities": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entityId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "jurisdiction": {
+                            "type": "string"
+                          },
+                          "registrationId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "entityId",
+                          "name",
+                          "jurisdiction",
+                          "registrationId",
+                          "isActive",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "entities"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "jurisdiction": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "registrationId": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "jurisdiction"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entity": {
+                      "type": "object",
+                      "properties": {
+                        "entityId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "jurisdiction": {
+                          "type": "string"
+                        },
+                        "registrationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "entityId",
+                        "name",
+                        "jurisdiction",
+                        "registrationId",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "entity"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entities/{entityId}": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 200
+                  },
+                  "jurisdiction": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "registrationId": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^ENT-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "entityId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entity": {
+                      "type": "object",
+                      "properties": {
+                        "entityId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "jurisdiction": {
+                          "type": "string"
+                        },
+                        "registrationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "entityId",
+                        "name",
+                        "jurisdiction",
+                        "registrationId",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "entity"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/entities/{entityId}/deactivate": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^ENT-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "entityId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "entity": {
+                      "type": "object",
+                      "properties": {
+                        "entityId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "jurisdiction": {
+                          "type": "string"
+                        },
+                        "registrationId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "entityId",
+                        "name",
+                        "jurisdiction",
+                        "registrationId",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "entity"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/missions": {
       "get": {
         "responses": {
@@ -12080,6 +12581,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -12526,6 +13032,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -12866,6 +13377,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -13312,6 +13828,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -13861,6 +14382,11 @@
                                         "maxLength": 120,
                                         "nullable": true
                                       },
+                                      "entityId": {
+                                        "type": "string",
+                                        "pattern": "^ENT-\\d{4,}$",
+                                        "nullable": true
+                                      },
                                       "notes": {
                                         "type": "string",
                                         "maxLength": 2000,
@@ -14308,6 +14834,11 @@
                                         "type": "string",
                                         "pattern": "^PER-\\d{4,}$"
                                       },
+                                      "entityId": {
+                                        "type": "string",
+                                        "pattern": "^ENT-\\d{4,}$",
+                                        "nullable": true
+                                      },
                                       "agreementCode": {
                                         "type": "string",
                                         "maxLength": 60,
@@ -14520,6 +15051,10 @@
                           "personId": {
                             "type": "string"
                           },
+                          "entityId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "agreementCode": {
                             "type": "string",
                             "nullable": true
@@ -14565,6 +15100,7 @@
                         "required": [
                           "agreementId",
                           "personId",
+                          "entityId",
                           "agreementCode",
                           "agreementType",
                           "linkedAgreementId",
@@ -14621,6 +15157,10 @@
                         "personId": {
                           "type": "string"
                         },
+                        "entityId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "agreementCode": {
                           "type": "string",
                           "nullable": true
@@ -14666,6 +15206,7 @@
                       "required": [
                         "agreementId",
                         "personId",
+                        "entityId",
                         "agreementCode",
                         "agreementType",
                         "linkedAgreementId",
@@ -14759,6 +15300,10 @@
                         "personId": {
                           "type": "string"
                         },
+                        "entityId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "agreementCode": {
                           "type": "string",
                           "nullable": true
@@ -14804,6 +15349,7 @@
                       "required": [
                         "agreementId",
                         "personId",
+                        "entityId",
                         "agreementCode",
                         "agreementType",
                         "linkedAgreementId",
@@ -14861,6 +15407,10 @@
                           "personId": {
                             "type": "string"
                           },
+                          "entityId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "agreementCode": {
                             "type": "string",
                             "nullable": true
@@ -14906,6 +15456,7 @@
                         "required": [
                           "agreementId",
                           "personId",
+                          "entityId",
                           "agreementCode",
                           "agreementType",
                           "linkedAgreementId",
@@ -15023,6 +15574,11 @@
                       "personId": {
                         "type": "string",
                         "pattern": "^PER-\\d{4,}$"
+                      },
+                      "entityId": {
+                        "type": "string",
+                        "pattern": "^ENT-\\d{4,}$",
+                        "nullable": true
                       },
                       "agreementCode": {
                         "type": "string",
@@ -15187,6 +15743,11 @@
                                     "primaryDepartment": {
                                       "type": "string",
                                       "maxLength": 120,
+                                      "nullable": true
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
                                       "nullable": true
                                     },
                                     "notes": {
@@ -15635,6 +16196,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -15975,6 +16541,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -16421,6 +16992,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -16762,6 +17338,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -17208,6 +17789,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",
@@ -17801,6 +18387,11 @@
                                       "maxLength": 120,
                                       "nullable": true
                                     },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
+                                    },
                                     "notes": {
                                       "type": "string",
                                       "maxLength": 2000,
@@ -18247,6 +18838,11 @@
                                     "personId": {
                                       "type": "string",
                                       "pattern": "^PER-\\d{4,}$"
+                                    },
+                                    "entityId": {
+                                      "type": "string",
+                                      "pattern": "^ENT-\\d{4,}$",
+                                      "nullable": true
                                     },
                                     "agreementCode": {
                                       "type": "string",

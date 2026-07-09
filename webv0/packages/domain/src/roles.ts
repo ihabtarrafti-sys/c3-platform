@@ -80,6 +80,12 @@ export interface C3Capabilities {
    */
   readonly canManageMissions: boolean;
   /**
+   * S48: may manage the tenant's legal operating entities (create/edit/
+   * deactivate) — owner, operations. A deliberate grant mirroring missions;
+   * entities are operational reference data agreements/people point at.
+   */
+  readonly canManageEntities: boolean;
+  /**
    * Sprint 41: may read the Agreements domain (contracts, NDAs, addendums)
    * AT ALL — owner, operations, legal, finance, management. HR and visitor
    * are DENIED entirely (the CP Set-E ACL boundary: agreements are sensitive
@@ -108,6 +114,7 @@ const READ_ONLY = {
   canManageKit: false,
   canManageApparel: false,
   canManageMissions: false,
+  canManageEntities: false,
   canReadAgreements: false,
   canViewFinancials: false,
   isReadOnly: true,
@@ -125,6 +132,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageKit: true,
     canManageApparel: true,
     canManageMissions: true,
+    canManageEntities: true,
     canReadAgreements: true,
     canViewFinancials: true,
     isReadOnly: false,
@@ -140,6 +148,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageKit: true,
     canManageApparel: true,
     canManageMissions: true,
+    canManageEntities: true,
     canReadAgreements: true,
     canViewFinancials: true,
     isReadOnly: false,

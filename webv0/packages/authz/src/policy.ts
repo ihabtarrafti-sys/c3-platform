@@ -37,6 +37,7 @@ export const canOperateJourneys = (role: C3Role): boolean => capabilitiesFor(rol
 export const canManageKit = (role: C3Role): boolean => capabilitiesFor(role).canManageKit;
 export const canManageApparel = (role: C3Role): boolean => capabilitiesFor(role).canManageApparel;
 export const canManageMissions = (role: C3Role): boolean => capabilitiesFor(role).canManageMissions;
+export const canManageEntities = (role: C3Role): boolean => capabilitiesFor(role).canManageEntities;
 export const canReadAgreements = (role: C3Role): boolean => capabilitiesFor(role).canReadAgreements;
 export const canViewFinancials = (role: C3Role): boolean => capabilitiesFor(role).canViewFinancials;
 
@@ -145,6 +146,13 @@ export function assertManageMissions(actor: Actor): void {
   }
 }
 
+/** Guard managing the tenant's legal operating entities (S48 — owner/operations). */
+export function assertManageEntities(actor: Actor): void {
+  if (!canManageEntities(actor.role)) {
+    throw new ForbiddenError('Your role may not manage entities.', { role: actor.role });
+  }
+}
+
 /**
  * Guard reading the Agreements domain (Sprint 41 — the CP Set-E boundary:
  * commercial data; hr and visitor are denied entirely, fail closed).
@@ -167,6 +175,7 @@ export interface CapabilityView {
   readonly canManageKit: boolean;
   readonly canManageApparel: boolean;
   readonly canManageMissions: boolean;
+  readonly canManageEntities: boolean;
   readonly canReadAgreements: boolean;
   readonly canViewFinancials: boolean;
 }
@@ -184,6 +193,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canManageKit: c.canManageKit,
     canManageApparel: c.canManageApparel,
     canManageMissions: c.canManageMissions,
+    canManageEntities: c.canManageEntities,
     canReadAgreements: c.canReadAgreements,
     canViewFinancials: c.canViewFinancials,
   };

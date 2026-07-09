@@ -340,6 +340,7 @@ export async function executeApproval(
           const agreement = await tx.insertAgreement({
             agreementId,
             personId: input.personId,
+            entityId: input.entityId ?? null,
             agreementCode: input.agreementCode,
             agreementType: input.agreementType,
             linkedAgreementId: input.linkedAgreementId,
@@ -633,6 +634,7 @@ export async function executeApproval(
         currentTeam: input.currentTeam,
         currentGameTitle: input.currentGameTitle,
         primaryDepartment: input.primaryDepartment,
+        entityId: input.entityId ?? null,
         notes: input.notes,
         createdByApprovalId: approvalId,
       });

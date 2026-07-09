@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Field, Input } from '@fluentui/react-components';
-import { usePeople } from '../queries';
+import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
+import { usePeople, useEntities } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -19,22 +19,31 @@ export function PeoplePage() {
   const { notify } = useNotify();
   const qc = useQueryClient();
   const { data, isLoading, isError, error } = usePeople();
+  const canSubmit = me?.capabilities.canSubmitApproval ?? false;
+  const entities = useEntities(canSubmit);
   const [showForm, setShowForm] = useState(false);
   const [fullName, setFullName] = useState('');
   const [ign, setIgn] = useState('');
   const [team, setTeam] = useState('');
+  const [entityId, setEntityId] = useState('');
+  const [entityLabel, setEntityLabel] = useState('');
   const [busy, setBusy] = useState(false);
-
-  const canSubmit = me?.capabilities.canSubmitApproval ?? false;
 
   async function submit() {
     setBusy(true);
     try {
-      const res = await api.submitAddPerson({ fullName, ign: ign || undefined, currentTeam: team || undefined });
+      const res = await api.submitAddPerson({
+        fullName,
+        ign: ign || undefined,
+        currentTeam: team || undefined,
+        entityId: entityId || undefined,
+      });
       notify('success', `Submitted ${res.approval.approvalId} for approval. A person is not created until an owner executes it.`);
       setFullName('');
       setIgn('');
       setTeam('');
+      setEntityId('');
+      setEntityLabel('');
       setShowForm(false);
       void qc.invalidateQueries({ queryKey: ['approvals'] });
     } catch (err) {
@@ -43,6 +52,8 @@ export function PeoplePage() {
       setBusy(false);
     }
   }
+
+  const activeEntities = (entities.data?.entities ?? []).filter((e) => e.isActive);
 
   const addAction = canSubmit ? (
     <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-person-toggle">
@@ -87,6 +98,29 @@ export function PeoplePage() {
           <Field label="Team">
             <Input value={team} onChange={(_, d) => setTeam(d.value)} data-testid="add-person-team" />
           </Field>
+          {activeEntities.length > 0 && (
+            <Field label="Signed with (entity)" hint="Which of your legal entities this person signed with.">
+              <Dropdown
+                placeholder="Not assigned"
+                value={entityLabel}
+                selectedOptions={entityId ? [entityId] : []}
+                onOptionSelect={(_, d) => {
+                  setEntityId(d.optionValue ?? '');
+                  setEntityLabel(d.optionValue ? (d.optionText ?? '') : '');
+                }}
+                data-testid="add-person-entity"
+              >
+                <Option value="" text="Not assigned">
+                  Not assigned
+                </Option>
+                {activeEntities.map((e) => (
+                  <Option key={e.entityId} value={e.entityId} text={`${e.name} (${e.jurisdiction})`}>
+                    {`${e.name} (${e.jurisdiction})`}
+                  </Option>
+                ))}
+              </Dropdown>
+            </Field>
+          )}
         </FormDrawer>
       )}
 

@@ -19,6 +19,7 @@ import type {
   ApparelDto,
   ApprovalDto,
   CredentialDto,
+  EntityDto,
   JourneyDto,
   KitDto,
   MeResponse,
@@ -48,6 +49,15 @@ export interface EquipmentCreateBody {
   notes?: string | null;
 }
 export interface EquipmentUpdateBody extends Partial<EquipmentCreateBody> {
+  expectedVersion: number;
+}
+
+export interface EntityCreateBody {
+  name: string;
+  jurisdiction: string;
+  registrationId?: string | null;
+}
+export interface EntityUpdateBody extends Partial<EntityCreateBody> {
   expectedVersion: number;
 }
 
@@ -197,6 +207,13 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/terminations', { input, ...(reason ? { reason } : {}) }),
     updateAgreement: (agreementId: string, body: AgreementUpdateBody) =>
       request<{ agreement: AgreementDto }>('POST', `/api/v1/agreements/${agreementId}`, body),
+    // S48: entities (direct-audited).
+    listEntities: () => request<{ entities: EntityDto[] }>('GET', '/api/v1/entities'),
+    createEntity: (body: EntityCreateBody) => request<{ entity: EntityDto }>('POST', '/api/v1/entities', body),
+    updateEntity: (entityId: string, body: EntityUpdateBody) =>
+      request<{ entity: EntityDto }>('POST', `/api/v1/entities/${entityId}`, body),
+    deactivateEntity: (entityId: string, expectedVersion: number) =>
+      request<{ entity: EntityDto }>('POST', `/api/v1/entities/${entityId}/deactivate`, { expectedVersion }),
     listApparel: () => request<{ apparel: ApparelDto[] }>('GET', '/api/v1/apparel'),
     createApparel: (body: EquipmentCreateBody) => request<{ apparel: ApparelDto }>('POST', '/api/v1/apparel', body),
     updateApparel: (apparelId: string, body: EquipmentUpdateBody) =>

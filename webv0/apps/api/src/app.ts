@@ -32,6 +32,11 @@ import {
   apparelResponseSchema,
   apparelTransitionParamSchema,
   kitTransitionParamSchema,
+  entitiesListSchema,
+  entityResponseSchema,
+  entityIdParamSchema,
+  entityCreateInputSchema,
+  entityUpdateInputSchema,
   credentialsListSchema,
   equipmentCreateInputSchema,
   equipmentUpdateInputSchema,
@@ -87,11 +92,15 @@ import {
   submitRenewAgreement,
   submitTerminateAgreement,
   updateAgreement,
+  createEntity,
   deactivateApparel,
+  deactivateEntity,
   deactivateKit,
   deactivateMission,
+  listEntities,
   transitionApparel,
   transitionKit,
+  updateEntity,
   executeApproval,
   getApproval,
   getMission,
@@ -131,7 +140,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
+import { toAgreementDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -602,6 +611,37 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { expectedVersion } = req.body as { expectedVersion: number };
       const apparel = await transitionApparel(P, actorOf(req), apparelId, action, expectedVersion);
       return { apparel: toApparelDto(apparel) };
+    },
+  );
+
+  // ── entities (S48): direct-audited CRUD, the tenant's legal operating entities ──
+  r.get('/api/v1/entities', { schema: { response: { 200: entitiesListSchema } } }, async (req) => {
+    return { entities: (await listEntities(P, actorOf(req))).map(toEntityDto) };
+  });
+
+  r.post('/api/v1/entities', { schema: { body: entityCreateInputSchema, response: { 201: entityResponseSchema } } }, async (req, reply) => {
+    const entity = await createEntity(P, actorOf(req), req.body as import('@c3web/domain').EntityCreateInput);
+    return reply.status(201).send({ entity: toEntityDto(entity) });
+  });
+
+  r.post(
+    '/api/v1/entities/:entityId',
+    { schema: { params: entityIdParamSchema, body: entityUpdateInputSchema, response: { 200: entityResponseSchema } } },
+    async (req) => {
+      const { entityId } = req.params as { entityId: string };
+      const entity = await updateEntity(P, actorOf(req), entityId, req.body as import('@c3web/domain').EntityUpdateInput);
+      return { entity: toEntityDto(entity) };
+    },
+  );
+
+  r.post(
+    '/api/v1/entities/:entityId/deactivate',
+    { schema: { params: entityIdParamSchema, body: versionedRequestSchema, response: { 200: entityResponseSchema } } },
+    async (req) => {
+      const { entityId } = req.params as { entityId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const entity = await deactivateEntity(P, actorOf(req), entityId, expectedVersion);
+      return { entity: toEntityDto(entity) };
     },
   );
 

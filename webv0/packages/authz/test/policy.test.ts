@@ -102,6 +102,7 @@ describe('capabilityView (UX hint)', () => {
       canManageKit: true,
       canManageApparel: true,
       canManageMissions: true,
+      canManageEntities: true,
       canReadAgreements: true,
       canViewFinancials: true,
     });
