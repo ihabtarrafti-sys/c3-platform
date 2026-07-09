@@ -402,6 +402,21 @@ export const missionPnlResponseSchema = z.object({
   pnl: missionPnlSchema,
 });
 
+// ── global search (S3): role-aware, identity fields only ─────────────────────
+export const SEARCH_RESULT_KINDS = ['person', 'mission', 'agreement', 'entity', 'credential', 'journey', 'kit', 'apparel', 'approval'] as const;
+export const searchQuerySchema = z.object({ q: z.string().max(80) });
+export const searchResultsSchema = z.object({
+  results: z.array(
+    z.object({
+      kind: z.enum(SEARCH_RESULT_KINDS),
+      id: z.string(),
+      title: z.string(),
+      subtitle: z.string().nullable(),
+    }),
+  ),
+});
+export type SearchResultsDto = z.infer<typeof searchResultsSchema>;
+
 /** S2: the all-missions finance dashboard row. */
 export const missionFinanceSummarySchema = z.object({
   missions: z.array(

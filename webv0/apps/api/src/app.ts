@@ -56,6 +56,8 @@ import {
   missionFinanceStageInputSchema,
   missionFinanceSummarySchema,
   missionPnlResponseSchema,
+  searchQuerySchema,
+  searchResultsSchema,
   setMissionBudgetInputSchema,
   participantPerDiemBodySchema,
   credentialsListSchema,
@@ -119,6 +121,7 @@ import {
   updateAgreement,
   getMissionPnl,
   getMissionsFinanceSummary,
+  globalSearch,
   addMissionLine,
   updateMissionLine,
   removeMissionLine,
@@ -889,6 +892,13 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   );
 
   // ── the Situation Room (Sprint 43): the operational cockpit read ──────────
+  // ── global search (S3): role-aware — denied domains are simply absent. ────
+  r.get('/api/v1/search', { schema: { querystring: searchQuerySchema, response: { 200: searchResultsSchema } } }, async (req) => {
+    const { q } = req.query as { q: string };
+    const results = await globalSearch(P, actorOf(req), q);
+    return { results: results.map((r0) => ({ ...r0 })) };
+  });
+
   r.get('/api/v1/situation', { schema: { response: { 200: situationResponseSchema } } }, async (req) => {
     const view = await getSituation(P, actorOf(req));
     return {

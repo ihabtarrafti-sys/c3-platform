@@ -34,6 +34,7 @@ import type {
   MissionParticipantDto,
   PersonDto,
   PersonMissionMembershipDto,
+  SearchResultsDto,
   SituationResponse,
   SubmitAddAgreementRequest,
   SubmitAddCredentialRequest,
@@ -285,6 +286,8 @@ export function createApiClient(deps: ApiClientDeps) {
     personApprovals: (personId: string) => request<{ approvals: ApprovalDto[] }>('GET', `/api/v1/people/${personId}/approvals`),
     // Sprint 43: the Situation Room.
     situation: () => request<SituationResponse>('GET', '/api/v1/situation'),
+    // S3: global search (role-aware; denied domains simply absent).
+    search: (q: string) => request<SearchResultsDto>('GET', `/api/v1/search?q=${encodeURIComponent(q)}`),
     submitAddAgreement: (input: SubmitAddAgreementRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/requests', { input, ...(reason ? { reason } : {}) }),
     submitRenewAgreement: (input: SubmitRenewAgreementRequest['input'], reason?: string) =>

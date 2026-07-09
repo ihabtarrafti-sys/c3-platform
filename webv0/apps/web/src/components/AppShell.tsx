@@ -10,6 +10,7 @@ import {
 } from '@fluentui/react-components';
 import { useSession, useNotify } from '../session';
 import { useThemeMode } from '../theme/mode';
+import { GlobalSearch } from './GlobalSearch';
 import { IS_ENTRA } from '../auth';
 import { LoginGate } from '../pages/LoginGate';
 import { EntraSignIn, AccessNotProvisioned } from '../pages/EntraSignIn';
@@ -389,6 +390,7 @@ export function AppShell() {
           </span>
         )}
         <div className={s.spacer} />
+        <GlobalSearch />
         {SHOW_ENV && (
           <span className={s.envBadge} data-testid="env-badge">
             {ENV_LABEL}
