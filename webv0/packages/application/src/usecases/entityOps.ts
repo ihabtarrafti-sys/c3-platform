@@ -27,17 +27,26 @@ import {
 import { assertManageEntities } from '@c3web/authz';
 import type { EntityPatch, Persistence } from '../ports';
 
-const EDITABLE = ['name', 'jurisdiction', 'registrationId', 'localCurrency'] as const;
+const EDITABLE = ['name', 'code', 'jurisdiction', 'registrationId', 'localCurrency'] as const;
+
+/** S2: friendly duplicate-entity-code check (the partial unique index is the last line). */
+async function assertEntityCodeAvailable(p: Persistence, actor: Actor, code: string | null, exceptEntityId?: string): Promise<void> {
+  if (!code) return;
+  const taken = (await p.reads.forActor(actor).listEntities()).some((e) => e.code === code && e.entityId !== exceptEntityId);
+  if (taken) throw new ConflictError('That entity code is already in use.', { code });
+}
 
 export async function createEntity(p: Persistence, actor: Actor, input: EntityCreateInput): Promise<Entity> {
   assertManageEntities(actor);
   const parsed = entityCreateInputSchema.parse(input);
+  await assertEntityCodeAvailable(p, actor, parsed.code);
 
   return p.writes.transaction(actor, async (tx) => {
     const seq = await tx.allocateSequence('entity');
     const entityId = formatEntityId(seq);
     const entity = await tx.insertEntity(entityId, {
       name: parsed.name,
+      code: parsed.code,
       jurisdiction: parsed.jurisdiction,
       registrationId: parsed.registrationId,
       localCurrency: parsed.localCurrency,
@@ -48,7 +57,7 @@ export async function createEntity(p: Persistence, actor: Actor, input: EntityCr
       action: 'EntityCreated',
       actor: actor.identity,
       before: null,
-      after: { name: parsed.name, jurisdiction: parsed.jurisdiction, registrationId: parsed.registrationId, localCurrency: parsed.localCurrency },
+      after: { name: parsed.name, code: parsed.code, jurisdiction: parsed.jurisdiction, registrationId: parsed.registrationId, localCurrency: parsed.localCurrency },
     });
     return entity;
   });
@@ -62,6 +71,7 @@ export async function updateEntity(
 ): Promise<Entity> {
   assertManageEntities(actor);
   const parsed = entityUpdateInputSchema.parse(input);
+  if ('code' in parsed && parsed.code) await assertEntityCodeAvailable(p, actor, parsed.code, entityId);
 
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.getEntity(entityId);

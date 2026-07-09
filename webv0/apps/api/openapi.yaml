@@ -757,6 +757,7 @@ paths:
                                     personId:
                                       type: string
                                       pattern: ^PER-\d{4,}$
+                                      nullable: true
                                     entityId:
                                       type: string
                                       pattern: ^ENT-\d{4,}$
@@ -789,7 +790,6 @@ paths:
                                       maxLength: 2000
                                       nullable: true
                                   required:
-                                    - personId
                                     - agreementType
                                     - startsOn
                                     - endsOn
@@ -1489,6 +1489,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -1521,7 +1522,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -2170,6 +2170,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -2202,7 +2203,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -2864,6 +2864,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -2896,7 +2897,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -3558,6 +3558,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -3590,7 +3591,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -4257,6 +4257,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -4289,7 +4290,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -4951,6 +4951,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -4983,7 +4984,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -5400,6 +5400,7 @@ paths:
                         type: string
                       personId:
                         type: string
+                        nullable: true
                       entityId:
                         type: string
                         nullable: true
@@ -5896,6 +5897,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -5928,7 +5930,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -6847,6 +6848,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -6879,7 +6881,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -7547,6 +7548,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -7579,7 +7581,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -8389,6 +8390,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -8421,7 +8423,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -9639,6 +9640,9 @@ paths:
                           type: string
                         name:
                           type: string
+                        code:
+                          type: string
+                          nullable: true
                         jurisdiction:
                           type: string
                         registrationId:
@@ -9663,6 +9667,7 @@ paths:
                       required:
                         - entityId
                         - name
+                        - code
                         - jurisdiction
                         - registrationId
                         - localCurrency
@@ -9686,6 +9691,12 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 200
+                code:
+                  allOf:
+                    - type: string
+                    - type: string
+                      pattern: ^[A-Z0-9]{2,8}$
+                  nullable: true
                 jurisdiction:
                   type: string
                   minLength: 1
@@ -9722,6 +9733,9 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
                       jurisdiction:
                         type: string
                       registrationId:
@@ -9746,6 +9760,7 @@ paths:
                     required:
                       - entityId
                       - name
+                      - code
                       - jurisdiction
                       - registrationId
                       - localCurrency
@@ -9773,6 +9788,12 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 200
+                code:
+                  allOf:
+                    - type: string
+                    - type: string
+                      pattern: ^[A-Z0-9]{2,8}$
+                  nullable: true
                 jurisdiction:
                   type: string
                   minLength: 1
@@ -9814,6 +9835,9 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
                       jurisdiction:
                         type: string
                       registrationId:
@@ -9838,6 +9862,7 @@ paths:
                     required:
                       - entityId
                       - name
+                      - code
                       - jurisdiction
                       - registrationId
                       - localCurrency
@@ -9886,6 +9911,9 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
                       jurisdiction:
                         type: string
                       registrationId:
@@ -9910,6 +9938,7 @@ paths:
                     required:
                       - entityId
                       - name
+                      - code
                       - jurisdiction
                       - registrationId
                       - localCurrency
@@ -9958,6 +9987,9 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
                       jurisdiction:
                         type: string
                       registrationId:
@@ -9982,6 +10014,7 @@ paths:
                     required:
                       - entityId
                       - name
+                      - code
                       - jurisdiction
                       - registrationId
                       - localCurrency
@@ -10103,6 +10136,15 @@ paths:
                           type: string
                         name:
                           type: string
+                        code:
+                          type: string
+                          nullable: true
+                        organizer:
+                          type: string
+                          nullable: true
+                        city:
+                          type: string
+                          nullable: true
                         gameTitle:
                           type: string
                           nullable: true
@@ -10114,6 +10156,15 @@ paths:
                         notes:
                           type: string
                           nullable: true
+                        financeStage:
+                          type: string
+                          enum:
+                            - Planning
+                            - FinancePending
+                            - Confirmed
+                            - Active
+                            - PostMission
+                            - Settled
                         isActive:
                           type: boolean
                         version:
@@ -10125,10 +10176,14 @@ paths:
                       required:
                         - missionId
                         - name
+                        - code
+                        - organizer
+                        - city
                         - gameTitle
                         - startsOn
                         - endsOn
                         - notes
+                        - financeStage
                         - isActive
                         - version
                         - createdAt
@@ -10149,6 +10204,18 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 160
+                code:
+                  type: string
+                  maxLength: 60
+                  nullable: true
+                organizer:
+                  type: string
+                  maxLength: 160
+                  nullable: true
+                city:
+                  type: string
+                  maxLength: 120
+                  nullable: true
                 gameTitle:
                   type: string
                   maxLength: 120
@@ -10183,6 +10250,15 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
+                      organizer:
+                        type: string
+                        nullable: true
+                      city:
+                        type: string
+                        nullable: true
                       gameTitle:
                         type: string
                         nullable: true
@@ -10194,6 +10270,15 @@ paths:
                       notes:
                         type: string
                         nullable: true
+                      financeStage:
+                        type: string
+                        enum:
+                          - Planning
+                          - FinancePending
+                          - Confirmed
+                          - Active
+                          - PostMission
+                          - Settled
                       isActive:
                         type: boolean
                       version:
@@ -10205,10 +10290,14 @@ paths:
                     required:
                       - missionId
                       - name
+                      - code
+                      - organizer
+                      - city
                       - gameTitle
                       - startsOn
                       - endsOn
                       - notes
+                      - financeStage
                       - isActive
                       - version
                       - createdAt
@@ -10241,6 +10330,15 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
+                      organizer:
+                        type: string
+                        nullable: true
+                      city:
+                        type: string
+                        nullable: true
                       gameTitle:
                         type: string
                         nullable: true
@@ -10252,6 +10350,15 @@ paths:
                       notes:
                         type: string
                         nullable: true
+                      financeStage:
+                        type: string
+                        enum:
+                          - Planning
+                          - FinancePending
+                          - Confirmed
+                          - Active
+                          - PostMission
+                          - Settled
                       isActive:
                         type: boolean
                       version:
@@ -10263,10 +10370,14 @@ paths:
                     required:
                       - missionId
                       - name
+                      - code
+                      - organizer
+                      - city
                       - gameTitle
                       - startsOn
                       - endsOn
                       - notes
+                      - financeStage
                       - isActive
                       - version
                       - createdAt
@@ -10290,6 +10401,18 @@ paths:
                   type: string
                   minLength: 1
                   maxLength: 160
+                code:
+                  type: string
+                  maxLength: 60
+                  nullable: true
+                organizer:
+                  type: string
+                  maxLength: 160
+                  nullable: true
+                city:
+                  type: string
+                  maxLength: 120
+                  nullable: true
                 gameTitle:
                   type: string
                   maxLength: 120
@@ -10330,6 +10453,15 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
+                      organizer:
+                        type: string
+                        nullable: true
+                      city:
+                        type: string
+                        nullable: true
                       gameTitle:
                         type: string
                         nullable: true
@@ -10341,6 +10473,15 @@ paths:
                       notes:
                         type: string
                         nullable: true
+                      financeStage:
+                        type: string
+                        enum:
+                          - Planning
+                          - FinancePending
+                          - Confirmed
+                          - Active
+                          - PostMission
+                          - Settled
                       isActive:
                         type: boolean
                       version:
@@ -10352,10 +10493,14 @@ paths:
                     required:
                       - missionId
                       - name
+                      - code
+                      - organizer
+                      - city
                       - gameTitle
                       - startsOn
                       - endsOn
                       - notes
+                      - financeStage
                       - isActive
                       - version
                       - createdAt
@@ -10564,6 +10709,90 @@ paths:
                 required:
                   - events
                 additionalProperties: false
+  /api/v1/missions/finance-summary:
+    get:
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  missions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        missionId:
+                          type: string
+                        name:
+                          type: string
+                        code:
+                          type: string
+                          nullable: true
+                        organizer:
+                          type: string
+                          nullable: true
+                        financeStage:
+                          type: string
+                          enum:
+                            - Planning
+                            - FinancePending
+                            - Confirmed
+                            - Active
+                            - PostMission
+                            - Settled
+                        isActive:
+                          type: boolean
+                        startsOn:
+                          type: string
+                        endsOn:
+                          type: string
+                          nullable: true
+                        outstandingIncomeCount:
+                          type: integer
+                        blended:
+                          type: object
+                          properties:
+                            incomeUsdMinor:
+                              type: integer
+                            expenseUsdMinor:
+                              type: integer
+                            profitUsdMinor:
+                              type: integer
+                          required:
+                            - incomeUsdMinor
+                            - expenseUsdMinor
+                            - profitUsdMinor
+                          additionalProperties: false
+                          nullable: true
+                        missingRates:
+                          type: array
+                          items:
+                            type: string
+                            enum:
+                              - USD
+                              - AED
+                              - SAR
+                              - EUR
+                              - GBP
+                      required:
+                        - missionId
+                        - name
+                        - code
+                        - organizer
+                        - financeStage
+                        - isActive
+                        - startsOn
+                        - endsOn
+                        - outstandingIncomeCount
+                        - blended
+                        - missingRates
+                      additionalProperties: false
+                required:
+                  - missions
+                additionalProperties: false
   /api/v1/missions/{missionId}/pnl:
     get:
       parameters:
@@ -10595,6 +10824,8 @@ paths:
                           enum:
                             - Income
                             - Expense
+                        category:
+                          type: string
                         label:
                           type: string
                         amountMinor:
@@ -10607,6 +10838,25 @@ paths:
                             - SAR
                             - EUR
                             - GBP
+                        paymentStatus:
+                          type: string
+                          enum:
+                            - Expected
+                            - Invoiced
+                            - Received
+                          nullable: true
+                        receivedAmountMinor:
+                          type: integer
+                          nullable: true
+                        receivedUsdPerUnit:
+                          type: number
+                          nullable: true
+                        paymentSourceLabel:
+                          type: string
+                          nullable: true
+                        refNo:
+                          type: string
+                          nullable: true
                         isActive:
                           type: boolean
                         version:
@@ -10619,12 +10869,52 @@ paths:
                         - lineId
                         - missionId
                         - direction
+                        - category
                         - label
                         - amountMinor
                         - currency
+                        - paymentStatus
+                        - receivedAmountMinor
+                        - receivedUsdPerUnit
+                        - paymentSourceLabel
+                        - refNo
                         - isActive
                         - version
                         - createdAt
+                        - updatedAt
+                      additionalProperties: false
+                  budgets:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        missionId:
+                          type: string
+                        direction:
+                          type: string
+                          enum:
+                            - Income
+                            - Expense
+                        category:
+                          type: string
+                        currency:
+                          type: string
+                          enum:
+                            - USD
+                            - AED
+                            - SAR
+                            - EUR
+                            - GBP
+                        amountMinor:
+                          type: integer
+                        updatedAt:
+                          type: string
+                      required:
+                        - missionId
+                        - direction
+                        - category
+                        - currency
+                        - amountMinor
                         - updatedAt
                       additionalProperties: false
                   pnl:
@@ -10694,6 +10984,85 @@ paths:
                           - entries
                           - openEnded
                         additionalProperties: false
+                      perCategory:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            direction:
+                              type: string
+                              enum:
+                                - Income
+                                - Expense
+                            category:
+                              type: string
+                            actual:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  currency:
+                                    type: string
+                                    enum:
+                                      - USD
+                                      - AED
+                                      - SAR
+                                      - EUR
+                                      - GBP
+                                  amountMinor:
+                                    type: integer
+                                required:
+                                  - currency
+                                  - amountMinor
+                                additionalProperties: false
+                            budget:
+                              type: array
+                              items:
+                                type: object
+                                properties:
+                                  currency:
+                                    type: string
+                                    enum:
+                                      - USD
+                                      - AED
+                                      - SAR
+                                      - EUR
+                                      - GBP
+                                  amountMinor:
+                                    type: integer
+                                required:
+                                  - currency
+                                  - amountMinor
+                                additionalProperties: false
+                            actualUsdMinor:
+                              type: integer
+                              nullable: true
+                            budgetUsdMinor:
+                              type: integer
+                              nullable: true
+                            varianceUsdMinor:
+                              type: integer
+                              nullable: true
+                          required:
+                            - direction
+                            - category
+                            - actual
+                            - budget
+                            - actualUsdMinor
+                            - budgetUsdMinor
+                            - varianceUsdMinor
+                          additionalProperties: false
+                      settlement:
+                        type: object
+                        properties:
+                          outstandingIncomeCount:
+                            type: integer
+                          incomeComplete:
+                            type: boolean
+                        required:
+                          - outstandingIncomeCount
+                          - incomeComplete
+                        additionalProperties: false
                       blended:
                         type: object
                         properties:
@@ -10722,12 +11091,343 @@ paths:
                     required:
                       - perCurrency
                       - perDiem
+                      - perCategory
+                      - settlement
                       - blended
                       - missingRates
                     additionalProperties: false
                 required:
                   - lines
+                  - budgets
                   - pnl
+                additionalProperties: false
+  /api/v1/missions/{missionId}/lines/{lineId}/payment:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+                paymentStatus:
+                  type: string
+                  enum:
+                    - Expected
+                    - Invoiced
+                    - Received
+                receivedAmountMinor:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 9007199254740991
+                  nullable: true
+                receivedUsdPerUnit:
+                  type: number
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 1000000
+                  nullable: true
+                paymentSourceLabel:
+                  type: string
+                  maxLength: 60
+                  nullable: true
+                refNo:
+                  type: string
+                  maxLength: 60
+                  nullable: true
+              required:
+                - expectedVersion
+                - paymentStatus
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+        - schema:
+            type: string
+            pattern: ^PNL-\d{4,}$
+          in: path
+          name: lineId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  line:
+                    type: object
+                    properties:
+                      lineId:
+                        type: string
+                      missionId:
+                        type: string
+                      direction:
+                        type: string
+                        enum:
+                          - Income
+                          - Expense
+                      category:
+                        type: string
+                      label:
+                        type: string
+                      amountMinor:
+                        type: integer
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      paymentStatus:
+                        type: string
+                        enum:
+                          - Expected
+                          - Invoiced
+                          - Received
+                        nullable: true
+                      receivedAmountMinor:
+                        type: integer
+                        nullable: true
+                      receivedUsdPerUnit:
+                        type: number
+                        nullable: true
+                      paymentSourceLabel:
+                        type: string
+                        nullable: true
+                      refNo:
+                        type: string
+                        nullable: true
+                      isActive:
+                        type: boolean
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - lineId
+                      - missionId
+                      - direction
+                      - category
+                      - label
+                      - amountMinor
+                      - currency
+                      - paymentStatus
+                      - receivedAmountMinor
+                      - receivedUsdPerUnit
+                      - paymentSourceLabel
+                      - refNo
+                      - isActive
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - line
+                additionalProperties: false
+  /api/v1/missions/{missionId}/budgets:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                direction:
+                  type: string
+                  enum:
+                    - Income
+                    - Expense
+                category:
+                  type: string
+                  minLength: 1
+                currency:
+                  type: string
+                  enum:
+                    - USD
+                    - AED
+                    - SAR
+                    - EUR
+                    - GBP
+                amountMinor:
+                  type: integer
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 9007199254740991
+                  nullable: true
+              required:
+                - direction
+                - category
+                - currency
+                - amountMinor
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  budget:
+                    type: object
+                    properties:
+                      missionId:
+                        type: string
+                      direction:
+                        type: string
+                        enum:
+                          - Income
+                          - Expense
+                      category:
+                        type: string
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      amountMinor:
+                        type: integer
+                      updatedAt:
+                        type: string
+                    required:
+                      - missionId
+                      - direction
+                      - category
+                      - currency
+                      - amountMinor
+                      - updatedAt
+                    additionalProperties: false
+                    nullable: true
+                required:
+                  - budget
+                additionalProperties: false
+  /api/v1/missions/{missionId}/finance-stage:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+                stage:
+                  type: string
+                  enum:
+                    - Planning
+                    - FinancePending
+                    - Confirmed
+                    - Active
+                    - PostMission
+                    - Settled
+              required:
+                - expectedVersion
+                - stage
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  mission:
+                    type: object
+                    properties:
+                      missionId:
+                        type: string
+                      name:
+                        type: string
+                      code:
+                        type: string
+                        nullable: true
+                      organizer:
+                        type: string
+                        nullable: true
+                      city:
+                        type: string
+                        nullable: true
+                      gameTitle:
+                        type: string
+                        nullable: true
+                      startsOn:
+                        type: string
+                      endsOn:
+                        type: string
+                        nullable: true
+                      notes:
+                        type: string
+                        nullable: true
+                      financeStage:
+                        type: string
+                        enum:
+                          - Planning
+                          - FinancePending
+                          - Confirmed
+                          - Active
+                          - PostMission
+                          - Settled
+                      isActive:
+                        type: boolean
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - missionId
+                      - name
+                      - code
+                      - organizer
+                      - city
+                      - gameTitle
+                      - startsOn
+                      - endsOn
+                      - notes
+                      - financeStage
+                      - isActive
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - mission
                 additionalProperties: false
   /api/v1/missions/{missionId}/lines:
     post:
@@ -10743,6 +11443,9 @@ paths:
                   enum:
                     - Income
                     - Expense
+                category:
+                  type: string
+                  minLength: 1
                 label:
                   type: string
                   minLength: 1
@@ -10762,6 +11465,7 @@ paths:
                     - GBP
               required:
                 - direction
+                - category
                 - label
                 - amountMinor
                 - currency
@@ -10793,6 +11497,8 @@ paths:
                         enum:
                           - Income
                           - Expense
+                      category:
+                        type: string
                       label:
                         type: string
                       amountMinor:
@@ -10805,6 +11511,25 @@ paths:
                           - SAR
                           - EUR
                           - GBP
+                      paymentStatus:
+                        type: string
+                        enum:
+                          - Expected
+                          - Invoiced
+                          - Received
+                        nullable: true
+                      receivedAmountMinor:
+                        type: integer
+                        nullable: true
+                      receivedUsdPerUnit:
+                        type: number
+                        nullable: true
+                      paymentSourceLabel:
+                        type: string
+                        nullable: true
+                      refNo:
+                        type: string
+                        nullable: true
                       isActive:
                         type: boolean
                       version:
@@ -10817,9 +11542,15 @@ paths:
                       - lineId
                       - missionId
                       - direction
+                      - category
                       - label
                       - amountMinor
                       - currency
+                      - paymentStatus
+                      - receivedAmountMinor
+                      - receivedUsdPerUnit
+                      - paymentSourceLabel
+                      - refNo
                       - isActive
                       - version
                       - createdAt
@@ -10893,6 +11624,8 @@ paths:
                         enum:
                           - Income
                           - Expense
+                      category:
+                        type: string
                       label:
                         type: string
                       amountMinor:
@@ -10905,6 +11638,25 @@ paths:
                           - SAR
                           - EUR
                           - GBP
+                      paymentStatus:
+                        type: string
+                        enum:
+                          - Expected
+                          - Invoiced
+                          - Received
+                        nullable: true
+                      receivedAmountMinor:
+                        type: integer
+                        nullable: true
+                      receivedUsdPerUnit:
+                        type: number
+                        nullable: true
+                      paymentSourceLabel:
+                        type: string
+                        nullable: true
+                      refNo:
+                        type: string
+                        nullable: true
                       isActive:
                         type: boolean
                       version:
@@ -10917,9 +11669,15 @@ paths:
                       - lineId
                       - missionId
                       - direction
+                      - category
                       - label
                       - amountMinor
                       - currency
+                      - paymentStatus
+                      - receivedAmountMinor
+                      - receivedUsdPerUnit
+                      - paymentSourceLabel
+                      - refNo
                       - isActive
                       - version
                       - createdAt
@@ -10976,6 +11734,8 @@ paths:
                         enum:
                           - Income
                           - Expense
+                      category:
+                        type: string
                       label:
                         type: string
                       amountMinor:
@@ -10988,6 +11748,25 @@ paths:
                           - SAR
                           - EUR
                           - GBP
+                      paymentStatus:
+                        type: string
+                        enum:
+                          - Expected
+                          - Invoiced
+                          - Received
+                        nullable: true
+                      receivedAmountMinor:
+                        type: integer
+                        nullable: true
+                      receivedUsdPerUnit:
+                        type: number
+                        nullable: true
+                      paymentSourceLabel:
+                        type: string
+                        nullable: true
+                      refNo:
+                        type: string
+                        nullable: true
                       isActive:
                         type: boolean
                       version:
@@ -11000,9 +11779,15 @@ paths:
                       - lineId
                       - missionId
                       - direction
+                      - category
                       - label
                       - amountMinor
                       - currency
+                      - paymentStatus
+                      - receivedAmountMinor
+                      - receivedUsdPerUnit
+                      - paymentSourceLabel
+                      - refNo
                       - isActive
                       - version
                       - createdAt
@@ -11048,6 +11833,15 @@ paths:
                         type: string
                       name:
                         type: string
+                      code:
+                        type: string
+                        nullable: true
+                      organizer:
+                        type: string
+                        nullable: true
+                      city:
+                        type: string
+                        nullable: true
                       gameTitle:
                         type: string
                         nullable: true
@@ -11059,6 +11853,15 @@ paths:
                       notes:
                         type: string
                         nullable: true
+                      financeStage:
+                        type: string
+                        enum:
+                          - Planning
+                          - FinancePending
+                          - Confirmed
+                          - Active
+                          - PostMission
+                          - Settled
                       isActive:
                         type: boolean
                       version:
@@ -11070,10 +11873,14 @@ paths:
                     required:
                       - missionId
                       - name
+                      - code
+                      - organizer
+                      - city
                       - gameTitle
                       - startsOn
                       - endsOn
                       - notes
+                      - financeStage
                       - isActive
                       - version
                       - createdAt
@@ -11530,6 +12337,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -11562,7 +12370,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -12230,6 +13037,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -12262,7 +13070,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -13078,6 +13885,7 @@ paths:
                                     personId:
                                       type: string
                                       pattern: ^PER-\d{4,}$
+                                      nullable: true
                                     entityId:
                                       type: string
                                       pattern: ^ENT-\d{4,}$
@@ -13110,7 +13918,6 @@ paths:
                                       maxLength: 2000
                                       nullable: true
                                   required:
-                                    - personId
                                     - agreementType
                                     - startsOn
                                     - endsOn
@@ -13354,6 +14161,7 @@ paths:
                           type: string
                         personId:
                           type: string
+                          nullable: true
                         entityId:
                           type: string
                           nullable: true
@@ -13428,6 +14236,7 @@ paths:
                         type: string
                       personId:
                         type: string
+                        nullable: true
                       entityId:
                         type: string
                         nullable: true
@@ -13530,6 +14339,7 @@ paths:
                         type: string
                       personId:
                         type: string
+                        nullable: true
                       entityId:
                         type: string
                         nullable: true
@@ -13606,6 +14416,7 @@ paths:
                           type: string
                         personId:
                           type: string
+                          nullable: true
                         entityId:
                           type: string
                           nullable: true
@@ -13723,6 +14534,7 @@ paths:
                     personId:
                       type: string
                       pattern: ^PER-\d{4,}$
+                      nullable: true
                     entityId:
                       type: string
                       pattern: ^ENT-\d{4,}$
@@ -13755,7 +14567,6 @@ paths:
                       maxLength: 2000
                       nullable: true
                   required:
-                    - personId
                     - agreementType
                     - startsOn
                     - endsOn
@@ -14181,6 +14992,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -14213,7 +15025,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -14881,6 +15692,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -14913,7 +15725,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -15582,6 +16393,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -15614,7 +16426,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -16384,6 +17195,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -16416,7 +17228,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -17108,6 +17919,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -17140,7 +17952,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -17808,6 +18619,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -17840,7 +18652,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn
@@ -18689,6 +19500,7 @@ paths:
                                   personId:
                                     type: string
                                     pattern: ^PER-\d{4,}$
+                                    nullable: true
                                   entityId:
                                     type: string
                                     pattern: ^ENT-\d{4,}$
@@ -18721,7 +19533,6 @@ paths:
                                     maxLength: 2000
                                     nullable: true
                                 required:
-                                  - personId
                                   - agreementType
                                   - startsOn
                                   - endsOn

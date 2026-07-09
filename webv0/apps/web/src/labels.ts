@@ -96,6 +96,9 @@ const AUDIT_ACTION: Record<string, string> = {
   MissionLineAdded: 'P&L line added',
   MissionLineUpdated: 'P&L line updated',
   MissionLineRemoved: 'P&L line removed',
+  MissionLinePaymentSet: 'Payment status set',
+  MissionBudgetSet: 'Budget set',
+  MissionFinanceStageChanged: 'Finance stage advanced',
   AgreementCreated: 'Agreement created',
   AgreementRenewed: 'Agreement renewed',
   AgreementTerminated: 'Agreement terminated',
@@ -181,6 +184,53 @@ export function formatTermValue(term: Pick<AgreementTermDto, 'amountMinor' | 'cu
   if (term.percentBps != null) return formatPercentBps(term.percentBps);
   if (term.amountMinor != null && term.currency) return formatMoney(term.amountMinor, term.currency);
   return '—';
+}
+
+/** S2 — mission finance stage → label + StatusBadge variant. */
+const MISSION_FINANCE_STAGE: Record<string, { label: string; variant: StatusVariant }> = {
+  Planning: { label: 'Planning', variant: 'neutral' },
+  FinancePending: { label: 'Finance pending', variant: 'pending' },
+  Confirmed: { label: 'Confirmed', variant: 'info' },
+  Active: { label: 'Active', variant: 'ready' },
+  PostMission: { label: 'Post-mission', variant: 'pending' },
+  Settled: { label: 'Settled', variant: 'ready' },
+};
+export function missionFinanceStageOf(stage: string): { label: string; variant: StatusVariant } {
+  return MISSION_FINANCE_STAGE[stage] ?? { label: stage, variant: 'neutral' };
+}
+
+/** S2 — income payment status → label + StatusBadge variant. */
+const PAYMENT_STATUS: Record<string, { label: string; variant: StatusVariant }> = {
+  Expected: { label: 'Expected', variant: 'pending' },
+  Invoiced: { label: 'Invoiced', variant: 'info' },
+  Received: { label: 'Received', variant: 'ready' },
+};
+export function paymentStatusOf(status: string): { label: string; variant: StatusVariant } {
+  return PAYMENT_STATUS[status] ?? { label: status, variant: 'neutral' };
+}
+
+/** S2 — line/budget category → human label (ids stay canonical on the wire). */
+const LINE_CATEGORY: Record<string, string> = {
+  PrizeMoney: 'Prize money',
+  AppearanceFee: 'Appearance fee',
+  Support: 'Support',
+  Sponsorship: 'Sponsorship',
+  RevenueShare: 'Revenue share',
+  Buyout: 'Buyout',
+  Campaign: 'Campaign',
+  TravelReimbursement: 'Travel reimbursement',
+  RegistrationFee: 'Registration fee',
+  Travel: 'Travel',
+  Accommodation: 'Accommodation',
+  PlayerFee: 'Player fee',
+  Equipment: 'Equipment',
+  Logistics: 'Logistics',
+  Contingency: 'Contingency',
+  PerDiem: 'Per-diem',
+  Other: 'Other',
+};
+export function lineCategoryOf(category: string): string {
+  return LINE_CATEGORY[category] ?? category;
 }
 export function auditActionOf(action: string): string {
   return AUDIT_ACTION[action] ?? action;

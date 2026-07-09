@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { AgreementTerm, Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -101,10 +101,14 @@ export function toMissionDto(m: Mission): MissionDto {
   return {
     missionId: m.missionId,
     name: m.name,
+    code: m.code,
+    organizer: m.organizer,
+    city: m.city,
     gameTitle: m.gameTitle,
     startsOn: m.startsOn,
     endsOn: m.endsOn,
     notes: m.notes,
+    financeStage: m.financeStage,
     isActive: m.isActive,
     version: m.version,
     createdAt: m.createdAt,
@@ -112,19 +116,37 @@ export function toMissionDto(m: Mission): MissionDto {
   };
 }
 
-/** Mission income/expense line → wire (Finance S4; only reached by canViewFinancials). */
+/** Mission income/expense line → wire (Finance S4 + S2; only reached by canViewFinancials). */
 export function toMissionLineDto(l: MissionLine): MissionLineDto {
   return {
     lineId: l.lineId,
     missionId: l.missionId,
     direction: l.direction,
+    category: l.category,
     label: l.label,
     amountMinor: l.amountMinor,
     currency: l.currency,
+    paymentStatus: l.paymentStatus,
+    receivedAmountMinor: l.receivedAmountMinor,
+    receivedUsdPerUnit: l.receivedUsdPerUnit,
+    paymentSourceLabel: l.paymentSourceLabel,
+    refNo: l.refNo,
     isActive: l.isActive,
     version: l.version,
     createdAt: l.createdAt,
     updatedAt: l.updatedAt,
+  };
+}
+
+/** Mission budget cell → wire (S2). */
+export function toMissionBudgetDto(b: MissionBudget): MissionBudgetDto {
+  return {
+    missionId: b.missionId,
+    direction: b.direction,
+    category: b.category,
+    currency: b.currency,
+    amountMinor: b.amountMinor,
+    updatedAt: b.updatedAt,
   };
 }
 
@@ -133,6 +155,16 @@ export function toMissionPnlDto(pnl: MissionPnl): MissionPnlDto {
   return {
     perCurrency: pnl.perCurrency.map((t) => ({ ...t })),
     perDiem: { entries: pnl.perDiem.entries.map((e) => ({ ...e })), openEnded: pnl.perDiem.openEnded },
+    perCategory: pnl.perCategory.map((c) => ({
+      direction: c.direction,
+      category: c.category,
+      actual: c.actual.map((a) => ({ ...a })),
+      budget: c.budget.map((b) => ({ ...b })),
+      actualUsdMinor: c.actualUsdMinor,
+      budgetUsdMinor: c.budgetUsdMinor,
+      varianceUsdMinor: c.varianceUsdMinor,
+    })),
+    settlement: { ...pnl.settlement },
     blended: pnl.blended ? { ...pnl.blended } : null,
     missingRates: [...pnl.missingRates],
   };
@@ -188,6 +220,7 @@ export function toEntityDto(e: Entity): EntityDto {
   return {
     entityId: e.entityId,
     name: e.name,
+    code: e.code,
     jurisdiction: e.jurisdiction,
     registrationId: e.registrationId,
     localCurrency: e.localCurrency,

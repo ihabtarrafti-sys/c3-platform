@@ -23,18 +23,49 @@ import { z } from 'zod';
 import { isoDateSchema } from './credential';
 import { amountMinorSchema, currencyCodeSchema, type CurrencyCode } from './money';
 
+/**
+ * The mission FINANCIAL lifecycle (S2, absorbing SP-era TD-26 "confirmation"):
+ * Planning → FinancePending → Confirmed → Active → PostMission → Settled.
+ * Forward one step at a time; Settled is terminal and REQUIRES settlement
+ * completeness (every income line Received — enforced by the use-case).
+ * Orthogonal to isActive (the shell's existence flag): deactivation freezes
+ * whatever stage the mission was in.
+ */
+export const MISSION_FINANCE_STAGES = ['Planning', 'FinancePending', 'Confirmed', 'Active', 'PostMission', 'Settled'] as const;
+export type MissionFinanceStage = (typeof MISSION_FINANCE_STAGES)[number];
+
+/** The legal next step per stage (single forward steps; Settled terminal). */
+export function nextMissionFinanceStage(stage: MissionFinanceStage): MissionFinanceStage | null {
+  const i = MISSION_FINANCE_STAGES.indexOf(stage);
+  return i >= 0 && i < MISSION_FINANCE_STAGES.length - 1 ? MISSION_FINANCE_STAGES[i + 1]! : null;
+}
+
 /** A Mission as the domain reasons about it (surrogate UUID lives in persistence). */
 export interface Mission {
   /** Canonical business identity, e.g. "MSN-0001". */
   readonly missionId: string;
   readonly tenantId: string;
   readonly name: string;
+  /**
+   * S2: the TOURNAMENT CODE — the org's universal join key (e.g.
+   * "SATR/2024/0001", "TR/2025/004") threading budgets, invoices, payouts and
+   * the ledger. Optional, unique per tenant when present. Independent of the
+   * entity code (tournament codes derive from organizer/series; the ENTITY
+   * code feeds invoice series instead — answered by the GK-Core data).
+   */
+  readonly code: string | null;
+  /** S2: the organizing counterparty, e.g. "Saudi Esports Federation", "VSPN". */
+  readonly organizer: string | null;
+  /** S2: host city/region, e.g. "Riyadh". */
+  readonly city: string | null;
   readonly gameTitle: string | null;
   /** ISO calendar date, YYYY-MM-DD. */
   readonly startsOn: string;
   /** Optional planned end; same-day missions are legal (endsOn >= startsOn). */
   readonly endsOn: string | null;
   readonly notes: string | null;
+  /** S2: the financial lifecycle stage (new missions are born Planning). */
+  readonly financeStage: MissionFinanceStage;
   readonly isActive: boolean;
   /** Optimistic-concurrency token (the ETag-parity guard). */
   readonly version: number;
@@ -104,6 +135,9 @@ const datesCoherent = (startsOn: string | undefined, endsOn: string | null | und
 export const missionCreateInputSchema = z
   .object({
     name: z.string().trim().min(1, 'Name is required').max(160),
+    code: trimmedOptional(60),
+    organizer: trimmedOptional(160),
+    city: trimmedOptional(120),
     gameTitle: trimmedOptional(120),
     startsOn: isoDateSchema,
     endsOn: isoDateSchema.nullish().transform((v) => v ?? null),
@@ -126,6 +160,9 @@ export const missionUpdateInputSchema = z
   .object({
     expectedVersion: z.number().int().min(0),
     name: z.string().trim().min(1).max(160).optional(),
+    code: trimmedOptional(60).optional(),
+    organizer: trimmedOptional(160).optional(),
+    city: trimmedOptional(120).optional(),
     gameTitle: trimmedOptional(120).optional(),
     startsOn: isoDateSchema.optional(),
     endsOn: isoDateSchema.nullable().optional(),
@@ -133,13 +170,22 @@ export const missionUpdateInputSchema = z
   })
   .strict()
   .refine(
-    (v) => ['name', 'gameTitle', 'startsOn', 'endsOn', 'notes'].some((k) => k in v && v[k as keyof typeof v] !== undefined),
+    (v) => ['name', 'code', 'organizer', 'city', 'gameTitle', 'startsOn', 'endsOn', 'notes'].some((k) => k in v && v[k as keyof typeof v] !== undefined),
     { message: 'An update must change at least one field' },
   )
   .refine((v) => datesCoherent(v.startsOn, v.endsOn), {
     message: 'End date must be on or after the start date',
   });
 export type MissionUpdateInput = z.infer<typeof missionUpdateInputSchema>;
+
+/** SetMissionFinanceStage (S2) — direct-audited single forward step. */
+export const missionFinanceStageInputSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    stage: z.enum(MISSION_FINANCE_STAGES),
+  })
+  .strict();
+export type MissionFinanceStageInput = z.infer<typeof missionFinanceStageInputSchema>;
 
 /**
  * AddMissionParticipant — the governed membership request. Both targets are

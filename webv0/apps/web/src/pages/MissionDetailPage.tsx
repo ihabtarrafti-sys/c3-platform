@@ -3,7 +3,19 @@ import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
-import { MISSION_LINE_DIRECTIONS, formatMoney, missionDayCount, type CurrencyCode, type MissionLineDirection } from '@c3web/domain';
+import {
+  MISSION_LINE_DIRECTIONS,
+  PAYMENT_STATUSES,
+  budgetCategoriesForDirection,
+  categoriesForDirection,
+  formatMoney,
+  missionDayCount,
+  nextMissionFinanceStage,
+  type CurrencyCode,
+  type MissionFinanceStage,
+  type MissionLineDirection,
+  type PaymentStatus,
+} from '@c3web/domain';
 import { useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople } from '../queries';
 import { ApiError, type MissionLineDto } from '../api';
 import { api } from '../apiClient';
@@ -16,7 +28,7 @@ import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
-import { auditActionOf } from '../labels';
+import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf } from '../labels';
 
 /**
  * MissionDetailPage (Sprint 39) — the operational hub for one mission. The
@@ -55,7 +67,7 @@ export function MissionDetailPage() {
   const audit = useMissionAudit(missionId, canViewHistory);
   const people = usePeople(canSubmit);
 
-  const [edit, setEdit] = useState<{ name: string; gameTitle: string; startsOn: string; endsOn: string } | null>(null);
+  const [edit, setEdit] = useState<{ name: string; code: string; organizer: string; city: string; gameTitle: string; startsOn: string; endsOn: string } | null>(null);
   const [addPersonId, setAddPersonId] = useState('');
   const [addPersonLabel, setAddPersonLabel] = useState('');
   const [addRole, setAddRole] = useState('');
@@ -86,6 +98,9 @@ export function MissionDetailPage() {
   const title = m?.name ?? (isLoading ? 'Loading…' : missionId);
   const editState = edit ?? {
     name: m?.name ?? '',
+    code: m?.code ?? '',
+    organizer: m?.organizer ?? '',
+    city: m?.city ?? '',
     gameTitle: m?.gameTitle ?? '',
     startsOn: m?.startsOn ?? '',
     endsOn: m?.endsOn ?? '',
@@ -124,6 +139,15 @@ export function MissionDetailPage() {
               <Field label="Name" required>
                 <Input value={editState.name} onChange={(_, d) => setEdit({ ...editState, name: d.value })} data-testid={`edit-mission-name-${m.missionId}`} />
               </Field>
+              <Field label="Tournament code">
+                <Input value={editState.code} onChange={(_, d) => setEdit({ ...editState, code: d.value })} data-testid={`edit-mission-code-${m.missionId}`} />
+              </Field>
+              <Field label="Organizer">
+                <Input value={editState.organizer} onChange={(_, d) => setEdit({ ...editState, organizer: d.value })} />
+              </Field>
+              <Field label="City">
+                <Input value={editState.city} onChange={(_, d) => setEdit({ ...editState, city: d.value })} />
+              </Field>
               <Field label="Game title">
                 <Input value={editState.gameTitle} onChange={(_, d) => setEdit({ ...editState, gameTitle: d.value })} />
               </Field>
@@ -143,6 +167,9 @@ export function MissionDetailPage() {
                 api.updateMission(m.missionId, {
                   expectedVersion: m.version,
                   name: editState.name.trim(),
+                  code: editState.code.trim() === '' ? null : editState.code.trim(),
+                  organizer: editState.organizer.trim() === '' ? null : editState.organizer.trim(),
+                  city: editState.city.trim() === '' ? null : editState.city.trim(),
                   gameTitle: editState.gameTitle.trim() === '' ? null : editState.gameTitle.trim(),
                   startsOn: editState.startsOn,
                   endsOn: editState.endsOn === '' ? null : editState.endsOn,
@@ -179,9 +206,52 @@ export function MissionDetailPage() {
           <DefinitionList
             items={[
               { label: 'Mission ID', value: m.missionId, mono: true, testId: 'mission-id' },
+              { label: 'Tournament code', value: m.code ? <span data-testid="mission-code">{m.code}</span> : null, mono: true },
+              { label: 'Organizer', value: m.organizer ?? null },
+              { label: 'City', value: m.city ?? null },
               { label: 'Game title', value: m.gameTitle ?? null },
               { label: 'Starts on', value: m.startsOn },
               { label: 'Ends on', value: m.endsOn ?? null },
+              ...(me?.capabilities.canViewFinancials
+                ? [
+                    {
+                      label: 'Finance stage',
+                      value: (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', columnGap: '8px' }}>
+                          <StatusBadge variant={missionFinanceStageOf(m.financeStage).variant} data-testid="mission-finance-stage">
+                            {missionFinanceStageOf(m.financeStage).label}
+                          </StatusBadge>
+                          {canManage &&
+                            m.isActive &&
+                            (() => {
+                              const next = nextMissionFinanceStage(m.financeStage as MissionFinanceStage);
+                              if (!next) return null;
+                              return (
+                                <GovernedAction
+                                  triggerLabel={`Advance to ${missionFinanceStageOf(next).label}…`}
+                                  triggerTestId="advance-finance-stage"
+                                  triggerAppearance="secondary"
+                                  title={`Advance ${m.missionId} to ${missionFinanceStageOf(next).label}?`}
+                                  description={
+                                    next === 'Settled'
+                                      ? 'Settling closes the mission’s money story. It requires every income line to be Received — the request is refused otherwise.'
+                                      : 'The financial lifecycle moves one step forward. This takes effect immediately and is recorded.'
+                                  }
+                                  confirmLabel={`Advance to ${missionFinanceStageOf(next).label}`}
+                                  onConfirm={() =>
+                                    run(
+                                      () => api.setMissionFinanceStage(m.missionId, m.version, next),
+                                      () => `${m.missionId} is now ${missionFinanceStageOf(next).label}.`,
+                                    )
+                                  }
+                                />
+                              );
+                            })()}
+                        </span>
+                      ),
+                    },
+                  ]
+                : []),
               {
                 label: 'Status',
                 value: (
@@ -395,9 +465,14 @@ export function MissionDetailPage() {
 
 // ── Finance S4: the mission's profit & loss ──────────────────────────────────
 
-type LineForm = { direction: MissionLineDirection; label: string; amount: string; currency: CurrencyCode };
+type LineForm = { direction: MissionLineDirection; category: string; label: string; amount: string; currency: CurrencyCode };
 
-const EMPTY_LINE: LineForm = { direction: 'Income', label: '', amount: '', currency: 'USD' };
+const EMPTY_LINE: LineForm = { direction: 'Income', category: 'Other', label: '', amount: '', currency: 'USD' };
+
+type PaymentForm = { status: PaymentStatus; received: string; rate: string; source: string; refNo: string };
+type BudgetForm = { direction: MissionLineDirection; category: string; currency: CurrencyCode; amount: string };
+
+const EMPTY_BUDGET: BudgetForm = { direction: 'Expense', category: 'Other', currency: 'USD', amount: '' };
 
 /** Major-units string → integer minor units; null when not a positive number. */
 function lineAmountToMinor(input: string): number | null {
@@ -428,6 +503,8 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
 
   const [add, setAdd] = useState<LineForm>(EMPTY_LINE);
   const [edits, setEdits] = useState<Record<string, LineForm>>({});
+  const [payments, setPayments] = useState<Record<string, PaymentForm>>({});
+  const [budget, setBudget] = useState<BudgetForm>(EMPTY_BUDGET);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['missionPnl', missionId] });
@@ -453,12 +530,32 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
             <Dropdown
               value={form.direction}
               selectedOptions={[form.direction]}
-              onOptionSelect={(_, d) => setForm({ ...form, direction: (d.optionValue ?? 'Income') as MissionLineDirection })}
+              onOptionSelect={(_, d) => {
+                const direction = (d.optionValue ?? 'Income') as MissionLineDirection;
+                // Category lists differ per direction — reset to the honest bucket.
+                setForm({ ...form, direction, category: 'Other' });
+              }}
               data-testid={`${idPrefix}-direction`}
             >
               {MISSION_LINE_DIRECTIONS.map((d) => (
                 <Option key={d} value={d} text={d}>
                   {d}
+                </Option>
+              ))}
+            </Dropdown>
+          </Field>
+        )}
+        {directionEditable && (
+          <Field label="Category" required>
+            <Dropdown
+              value={lineCategoryOf(form.category)}
+              selectedOptions={[form.category]}
+              onOptionSelect={(_, d) => setForm({ ...form, category: d.optionValue ?? 'Other' })}
+              data-testid={`${idPrefix}-category`}
+            >
+              {categoriesForDirection(form.direction).map((c) => (
+                <Option key={c} value={c} text={lineCategoryOf(c)}>
+                  {lineCategoryOf(c)}
                 </Option>
               ))}
             </Dropdown>
@@ -490,9 +587,18 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
 
   const formFromLine = (l: MissionLineDto): LineForm => ({
     direction: l.direction,
+    category: l.category,
     label: l.label,
     amount: String(l.amountMinor / 100),
     currency: l.currency,
+  });
+
+  const paymentFromLine = (l: MissionLineDto): PaymentForm => ({
+    status: (l.paymentStatus ?? 'Expected') as PaymentStatus,
+    received: l.receivedAmountMinor != null ? String(l.receivedAmountMinor / 100) : '',
+    rate: l.receivedUsdPerUnit != null ? String(l.receivedUsdPerUnit) : '',
+    source: l.paymentSourceLabel ?? '',
+    refNo: l.refNo ?? '',
   });
 
   const perDiemEntries = pnl?.perDiem.entries ?? [];
@@ -502,28 +608,101 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
       <div className={s.h2Row}>
         <h2 className={s.h2}>Profit &amp; loss</h2>
         {canManage && (
-          <GovernedAction
-            triggerLabel="Add line…"
-            triggerTestId="add-line"
-            triggerAppearance="secondary"
-            title="Add an income or expense line"
-            description="Lines record the mission's money — prize income, org support, travel costs. They take effect immediately and are recorded in the mission's history."
-            extra={lineFields(add, setAdd, 'add-line', true)}
-            confirmLabel="Add line"
-            confirmDisabled={lineFormInvalid(add)}
-            onConfirm={() =>
-              run(
-                () =>
-                  api.addMissionLine(missionId, {
-                    direction: add.direction,
-                    label: add.label.trim(),
-                    amountMinor: lineAmountToMinor(add.amount)!,
-                    currency: add.currency,
-                  }),
-                'Line added and recorded.',
-              ).then(() => setAdd(EMPTY_LINE))
-            }
-          />
+          <div className={s.headerActions}>
+            <GovernedAction
+              triggerLabel="Set budget…"
+              triggerTestId="set-budget"
+              triggerAppearance="secondary"
+              title="Set a budget cell"
+              description="One planned amount per type + category + currency (the tournament budget template). Leave the amount empty to clear the cell. Takes effect immediately and is recorded."
+              extra={
+                <div className={s.fields}>
+                  <Field label="Type" required>
+                    <Dropdown
+                      value={budget.direction}
+                      selectedOptions={[budget.direction]}
+                      onOptionSelect={(_, d) => setBudget({ ...budget, direction: (d.optionValue ?? 'Expense') as MissionLineDirection, category: 'Other' })}
+                      data-testid="set-budget-direction"
+                    >
+                      {MISSION_LINE_DIRECTIONS.map((d) => (
+                        <Option key={d} value={d} text={d}>
+                          {d}
+                        </Option>
+                      ))}
+                    </Dropdown>
+                  </Field>
+                  <Field label="Category" required>
+                    <Dropdown
+                      value={lineCategoryOf(budget.category)}
+                      selectedOptions={[budget.category]}
+                      onOptionSelect={(_, d) => setBudget({ ...budget, category: d.optionValue ?? 'Other' })}
+                      data-testid="set-budget-category"
+                    >
+                      {budgetCategoriesForDirection(budget.direction).map((c) => (
+                        <Option key={c} value={c} text={lineCategoryOf(c)}>
+                          {lineCategoryOf(c)}
+                        </Option>
+                      ))}
+                    </Dropdown>
+                  </Field>
+                  <Field label="Currency" required>
+                    <Dropdown
+                      value={budget.currency}
+                      selectedOptions={[budget.currency]}
+                      onOptionSelect={(_, d) => setBudget({ ...budget, currency: (d.optionValue ?? 'USD') as CurrencyCode })}
+                      data-testid="set-budget-currency"
+                    >
+                      {CURRENCY_CODES.map((c) => (
+                        <Option key={c} value={c} text={c}>
+                          {c}
+                        </Option>
+                      ))}
+                    </Dropdown>
+                  </Field>
+                  <Field label="Planned amount (empty clears)">
+                    <Input type="number" value={budget.amount} onChange={(_, d) => setBudget({ ...budget, amount: d.value })} data-testid="set-budget-amount" />
+                  </Field>
+                </div>
+              }
+              confirmLabel="Save budget"
+              confirmDisabled={budget.amount.trim() !== '' && lineAmountToMinor(budget.amount) == null}
+              onConfirm={() =>
+                run(
+                  () =>
+                    api.setMissionBudget(missionId, {
+                      direction: budget.direction,
+                      category: budget.category,
+                      currency: budget.currency,
+                      amountMinor: budget.amount.trim() === '' ? null : lineAmountToMinor(budget.amount)!,
+                    }),
+                  budget.amount.trim() === '' ? 'Budget cell cleared and recorded.' : 'Budget saved and recorded.',
+                ).then(() => setBudget(EMPTY_BUDGET))
+              }
+            />
+            <GovernedAction
+              triggerLabel="Add line…"
+              triggerTestId="add-line"
+              triggerAppearance="secondary"
+              title="Add an income or expense line"
+              description="Lines record the mission's money — prize income, org support, travel costs. They take effect immediately and are recorded in the mission's history."
+              extra={lineFields(add, setAdd, 'add-line', true)}
+              confirmLabel="Add line"
+              confirmDisabled={lineFormInvalid(add)}
+              onConfirm={() =>
+                run(
+                  () =>
+                    api.addMissionLine(missionId, {
+                      direction: add.direction,
+                      category: add.category,
+                      label: add.label.trim(),
+                      amountMinor: lineAmountToMinor(add.amount)!,
+                      currency: add.currency,
+                    }),
+                  'Line added and recorded.',
+                ).then(() => setAdd(EMPTY_LINE))
+              }
+            />
+          </div>
         )}
       </div>
 
@@ -537,8 +716,10 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
           <thead>
             <tr>
               <th className={r.th}>Type</th>
+              <th className={r.th}>Category</th>
               <th className={r.th}>Label</th>
               <th className={r.th}>Amount</th>
+              <th className={r.th}>Payment</th>
               {canManage && <th className={r.th} aria-label="Actions" />}
             </tr>
           </thead>
@@ -546,16 +727,99 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
             {lines.map((l) => {
               const ef = edits[l.lineId] ?? formFromLine(l);
               const setEf = (f: LineForm) => setEdits({ ...edits, [l.lineId]: f });
+              const pf = payments[l.lineId] ?? paymentFromLine(l);
+              const setPf = (f: PaymentForm) => setPayments({ ...payments, [l.lineId]: f });
               return (
                 <tr key={l.lineId} className={r.row} data-testid={`pnl-line-${l.lineId}`}>
                   <td className={r.td}>{l.direction}</td>
+                  <td className={r.td} data-testid={`pnl-line-category-${l.lineId}`}>{lineCategoryOf(l.category)}</td>
                   <td className={`${r.td} ${r.name}`}>{l.label}</td>
                   <td className={`${r.td} ${r.mono}`} data-testid={`pnl-line-amount-${l.lineId}`}>
                     {formatMoney(l.amountMinor, l.currency)}
+                    {l.paymentStatus === 'Received' && l.receivedAmountMinor != null && l.receivedAmountMinor !== l.amountMinor && (
+                      <span className={s.pnlSubtle}>{` (received ${formatMoney(l.receivedAmountMinor, l.currency)})`}</span>
+                    )}
+                  </td>
+                  <td className={r.td}>
+                    {l.paymentStatus ? (
+                      <StatusBadge variant={paymentStatusOf(l.paymentStatus).variant} data-testid={`pnl-line-payment-${l.lineId}`}>
+                        {paymentStatusOf(l.paymentStatus).label}
+                      </StatusBadge>
+                    ) : (
+                      '—'
+                    )}
+                    {l.refNo && <span className={s.pnlSubtle}>{` · ${l.refNo}`}</span>}
                   </td>
                   {canManage && (
                     <td className={r.td}>
                       <div className={s.headerActions}>
+                        {l.direction === 'Income' && (
+                          <GovernedAction
+                            triggerLabel="Payment…"
+                            triggerTestId={`payment-line-${l.lineId}`}
+                            triggerAppearance="secondary"
+                            title={`Update payment for ${l.lineId}?`}
+                            description="Expected → Invoiced → Received (corrections are legal; the audit trail is the truth). Received may carry the actual amount landed, the FX rate at receipt, the bank label, and the bank reference. Never account numbers."
+                            extra={
+                              <div className={s.fields}>
+                                <Field label="Status" required>
+                                  <Dropdown
+                                    value={paymentStatusOf(pf.status).label}
+                                    selectedOptions={[pf.status]}
+                                    onOptionSelect={(_, d) => setPf({ ...pf, status: (d.optionValue ?? 'Expected') as PaymentStatus })}
+                                    data-testid={`payment-status-${l.lineId}`}
+                                  >
+                                    {PAYMENT_STATUSES.map((ps) => (
+                                      <Option key={ps} value={ps} text={paymentStatusOf(ps).label}>
+                                        {paymentStatusOf(ps).label}
+                                      </Option>
+                                    ))}
+                                  </Dropdown>
+                                </Field>
+                                {pf.status === 'Received' && (
+                                  <>
+                                    <Field label={`Received amount (${l.currency}; empty = as expected)`}>
+                                      <Input type="number" value={pf.received} onChange={(_, d) => setPf({ ...pf, received: d.value })} data-testid={`payment-received-${l.lineId}`} />
+                                    </Field>
+                                    <Field label="FX rate at receipt (USD per 1 unit; optional)">
+                                      <Input type="number" value={pf.rate} onChange={(_, d) => setPf({ ...pf, rate: d.value })} data-testid={`payment-rate-${l.lineId}`} />
+                                    </Field>
+                                  </>
+                                )}
+                                <Field label="Payment source (bank LABEL only)">
+                                  <Input value={pf.source} onChange={(_, d) => setPf({ ...pf, source: d.value })} data-testid={`payment-source-${l.lineId}`} />
+                                </Field>
+                                <Field label="Bank reference">
+                                  <Input value={pf.refNo} onChange={(_, d) => setPf({ ...pf, refNo: d.value })} data-testid={`payment-ref-${l.lineId}`} />
+                                </Field>
+                              </div>
+                            }
+                            confirmLabel="Save payment"
+                            confirmDisabled={
+                              (pf.received.trim() !== '' && lineAmountToMinor(pf.received) == null) ||
+                              (pf.rate.trim() !== '' && !(Number.parseFloat(pf.rate) > 0))
+                            }
+                            onConfirm={() =>
+                              run(
+                                () =>
+                                  api.setMissionLinePayment(missionId, l.lineId, {
+                                    expectedVersion: l.version,
+                                    paymentStatus: pf.status,
+                                    receivedAmountMinor: pf.status === 'Received' && pf.received.trim() !== '' ? lineAmountToMinor(pf.received) : null,
+                                    receivedUsdPerUnit: pf.status === 'Received' && pf.rate.trim() !== '' ? Number.parseFloat(pf.rate) : null,
+                                    paymentSourceLabel: pf.source.trim() === '' ? null : pf.source.trim(),
+                                    refNo: pf.refNo.trim() === '' ? null : pf.refNo.trim(),
+                                  }),
+                                'Payment updated and recorded.',
+                              ).then(() =>
+                                setPayments((prev) => {
+                                  const { [l.lineId]: _drop, ...rest } = prev;
+                                  return rest;
+                                }),
+                              )
+                            }
+                          />
+                        )}
                         <GovernedAction
                           triggerLabel="Edit…"
                           triggerTestId={`edit-line-${l.lineId}`}
@@ -601,13 +865,44 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
             {perDiemEntries.map((e) => (
               <tr key={`pd-${e.personId}`} className={r.row} data-testid={`pnl-perdiem-${e.personId}`}>
                 <td className={r.td}>Expense</td>
+                <td className={r.td}>Per-diem</td>
                 <td className={`${r.td} ${r.name}`}>{`Per-diem — ${e.personName}`}</td>
                 <td className={`${r.td} ${r.mono}`}>
                   {e.totalMinor != null && e.days != null
                     ? `${formatMoney(e.amountMinor, e.currency)}/day × ${e.days}d = ${formatMoney(e.totalMinor, e.currency)}`
                     : `${formatMoney(e.amountMinor, e.currency)}/day`}
                 </td>
+                <td className={r.td}>—</td>
                 {canManage && <td className={r.td} />}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {pnl && pnl.perCategory.length > 0 && (
+        <table className={r.table} data-testid="pnl-categories" aria-label="Budget vs actual by category" style={{ marginTop: '16px' }}>
+          <thead>
+            <tr>
+              <th className={r.th}>Type</th>
+              <th className={r.th}>Category</th>
+              <th className={r.th}>Budget ≈</th>
+              <th className={r.th}>Actual ≈</th>
+              <th className={r.th}>Δ ≈</th>
+            </tr>
+          </thead>
+          <tbody>
+            {pnl.perCategory.map((c) => (
+              <tr key={`${c.direction}-${c.category}`} className={r.row} data-testid={`pnl-category-${c.direction}-${c.category}`}>
+                <td className={r.td}>{c.direction}</td>
+                <td className={r.td}>{lineCategoryOf(c.category)}</td>
+                <td className={`${r.td} ${r.mono}`}>{c.budgetUsdMinor != null ? formatMoney(c.budgetUsdMinor, 'USD') : '—'}</td>
+                <td className={`${r.td} ${r.mono}`} data-testid={`pnl-category-actual-${c.direction}-${c.category}`}>
+                  {c.actualUsdMinor != null ? formatMoney(c.actualUsdMinor, 'USD') : '—'}
+                </td>
+                <td className={`${r.td} ${r.mono}`} data-testid={`pnl-category-variance-${c.direction}-${c.category}`}>
+                  {c.varianceUsdMinor != null && c.budget.length > 0 ? formatMoney(c.varianceUsdMinor, 'USD') : '—'}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -616,6 +911,16 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
 
       {pnl && (lines.length > 0 || perDiemEntries.length > 0) && (
         <div className={s.pnlTotals}>
+          {pnl.settlement.outstandingIncomeCount > 0 && (
+            <span className={s.pnlSubtle} data-testid="pnl-outstanding-income">
+              {`${pnl.settlement.outstandingIncomeCount} income line${pnl.settlement.outstandingIncomeCount === 1 ? '' : 's'} not yet received.`}
+            </span>
+          )}
+          {pnl.settlement.incomeComplete && (
+            <span className={s.pnlSubtle} data-testid="pnl-income-complete">
+              All income received — settlement-ready.
+            </span>
+          )}
           {pnl.perDiem.openEnded && perDiemEntries.length > 0 && (
             <span className={s.pnlSubtle} data-testid="pnl-open-ended-note">
               This mission has no end date — per-diem totals are not included until one is set.

@@ -24,14 +24,15 @@ import {
   type Kit,
   type Member,
   type Mission,
+  type MissionBudget,
   type MissionLine,
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, EntityPatch, EquipmentPatch, MissionLinePatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -611,6 +612,71 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         )
         .returning();
       return rows[0] ? mapMissionLine(rows[0]) : null;
+    },
+
+    // ── S2 mission finance: payment, budgets, lifecycle ───────────────────────
+    async setMissionLinePayment(lineId: string, expectedVersion: number, patch: MissionLinePaymentPatch): Promise<MissionLine | null> {
+      const rows = await db
+        .update(schema.missionLine)
+        .set({
+          paymentStatus: patch.paymentStatus,
+          receivedAmountMinor: patch.receivedAmountMinor,
+          receivedUsdPerUnit: patch.receivedUsdPerUnit === null ? null : String(patch.receivedUsdPerUnit),
+          paymentSourceLabel: patch.paymentSourceLabel,
+          refNo: patch.refNo,
+          version: sql`${schema.missionLine.version} + 1`,
+        })
+        .where(
+          and(
+            eq(schema.missionLine.lineId, lineId),
+            eq(schema.missionLine.version, expectedVersion),
+            eq(schema.missionLine.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapMissionLine(rows[0]) : null;
+    },
+
+    async upsertMissionBudget(missionId: string, direction: string, category: string, currency: string, amountMinor: number): Promise<MissionBudget> {
+      const [r] = await db
+        .insert(schema.missionBudget)
+        .values({ tenantId, missionId, direction, category, currency, amountMinor })
+        .onConflictDoUpdate({
+          target: [
+            schema.missionBudget.tenantId,
+            schema.missionBudget.missionId,
+            schema.missionBudget.direction,
+            schema.missionBudget.category,
+            schema.missionBudget.currency,
+          ],
+          set: { amountMinor, updatedAt: sql`now()` },
+        })
+        .returning();
+      return mapMissionBudget(r);
+    },
+
+    async deleteMissionBudget(missionId: string, direction: string, category: string, currency: string): Promise<boolean> {
+      const rows = await db
+        .delete(schema.missionBudget)
+        .where(
+          and(
+            eq(schema.missionBudget.missionId, missionId),
+            eq(schema.missionBudget.direction, direction),
+            eq(schema.missionBudget.category, category),
+            eq(schema.missionBudget.currency, currency),
+          ),
+        )
+        .returning();
+      return rows.length > 0;
+    },
+
+    async setMissionFinanceStage(missionId: string, expectedVersion: number, stage: string): Promise<Mission | null> {
+      const rows = await db
+        .update(schema.mission)
+        .set({ financeStage: stage, version: sql`${schema.mission.version} + 1` })
+        .where(and(eq(schema.mission.missionId, missionId), eq(schema.mission.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapMission(rows[0]) : null;
     },
 
     // ── Sprint 41 agreements (drizzle-only; mode:'string' dates, cents int) ──

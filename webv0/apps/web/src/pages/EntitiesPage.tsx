@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
+import { suggestEntityCode } from '@c3web/domain';
 import { useEntities } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -23,6 +24,7 @@ import { FormDrawer } from '../components/FormDrawer';
 
 interface EditState {
   name: string;
+  code: string;
   jurisdiction: string;
   registrationId: string;
   localCurrency: string;
@@ -38,6 +40,8 @@ export function EntitiesPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [codeTouched, setCodeTouched] = useState(false);
   const [jurisdiction, setJurisdiction] = useState('');
   const [registrationId, setRegistrationId] = useState('');
   const [localCurrency, setLocalCurrency] = useState('USD');
@@ -58,18 +62,27 @@ export function EntitiesPage() {
 
   async function submitCreate() {
     await run(
-      () => api.createEntity({ name: name.trim(), jurisdiction: jurisdiction.trim(), registrationId: registrationId.trim() || undefined, localCurrency }),
+      () =>
+        api.createEntity({
+          name: name.trim(),
+          code: code.trim() || undefined,
+          jurisdiction: jurisdiction.trim(),
+          registrationId: registrationId.trim() || undefined,
+          localCurrency,
+        }),
       'Entity created and recorded.',
     );
     setShowForm(false);
     setName('');
+    setCode('');
+    setCodeTouched(false);
     setJurisdiction('');
     setRegistrationId('');
     setLocalCurrency('USD');
   }
 
-  function editStateFor(id: string, e: { name: string; jurisdiction: string; registrationId: string | null; localCurrency: string }): EditState {
-    return edit[id] ?? { name: e.name, jurisdiction: e.jurisdiction, registrationId: e.registrationId ?? '', localCurrency: e.localCurrency };
+  function editStateFor(id: string, e: { name: string; code: string | null; jurisdiction: string; registrationId: string | null; localCurrency: string }): EditState {
+    return edit[id] ?? { name: e.name, code: e.code ?? '', jurisdiction: e.jurisdiction, registrationId: e.registrationId ?? '', localCurrency: e.localCurrency };
   }
 
   const ready = name.trim() !== '' && jurisdiction.trim() !== '';
@@ -104,7 +117,25 @@ export function EntitiesPage() {
           }
         >
           <Field label="Name" required hint='e.g. "Geekay Esports FZ-LLC"'>
-            <Input value={name} onChange={(_, d) => setName(d.value)} data-testid="add-entity-name" />
+            <Input
+              value={name}
+              onChange={(_, d) => {
+                setName(d.value);
+                // C3 suggests a code from the name until the owner types their own.
+                if (!codeTouched) setCode(suggestEntityCode(d.value));
+              }}
+              data-testid="add-entity-name"
+            />
+          </Field>
+          <Field label="Code" hint="Short code for invoice series (e.g. GKA → GKA-INV-2026-001). Suggested from the name — type your own to override. 2–8 letters/digits.">
+            <Input
+              value={code}
+              onChange={(_, d) => {
+                setCode(d.value.toUpperCase());
+                setCodeTouched(true);
+              }}
+              data-testid="add-entity-code"
+            />
           </Field>
           <Field label="Jurisdiction" required hint='e.g. "United Arab Emirates" or "KSA · Riyadh"'>
             <Input value={jurisdiction} onChange={(_, d) => setJurisdiction(d.value)} data-testid="add-entity-jurisdiction" />
@@ -155,6 +186,7 @@ export function EntitiesPage() {
             <thead>
               <tr>
                 <th className={r.th}>Entity</th>
+                <th className={r.th}>Code</th>
                 <th className={r.th}>Name</th>
                 <th className={r.th}>Jurisdiction</th>
                 <th className={r.th}>Currency</th>
@@ -171,6 +203,7 @@ export function EntitiesPage() {
                     <td className={r.td}>
                       <span className={r.idLink}>{e.entityId}</span>
                     </td>
+                    <td className={`${r.td} ${r.mono}`} data-testid={`entity-code-${e.entityId}`}>{e.code ?? '—'}</td>
                     <td className={`${r.td} ${r.name}`}>{e.name}</td>
                     <td className={r.td}>{e.jurisdiction}</td>
                     <td className={`${r.td} ${r.mono}`} data-testid={`entity-currency-${e.entityId}`}>{e.localCurrency}</td>
@@ -197,6 +230,13 @@ export function EntitiesPage() {
                                       value={es.name}
                                       onChange={(_, d) => setEdit((c) => ({ ...c, [e.entityId]: { ...editStateFor(e.entityId, e), ...c[e.entityId], name: d.value } }))}
                                       data-testid={`edit-entity-name-${e.entityId}`}
+                                    />
+                                  </Field>
+                                  <Field label="Code (2–8 letters/digits; empty clears)">
+                                    <Input
+                                      value={es.code}
+                                      onChange={(_, d) => setEdit((c) => ({ ...c, [e.entityId]: { ...editStateFor(e.entityId, e), ...c[e.entityId], code: d.value.toUpperCase() } }))}
+                                      data-testid={`edit-entity-code-${e.entityId}`}
                                     />
                                   </Field>
                                   <Field label="Jurisdiction" required>
@@ -234,6 +274,7 @@ export function EntitiesPage() {
                                     api.updateEntity(e.entityId, {
                                       expectedVersion: e.version,
                                       name: es.name.trim(),
+                                      code: es.code.trim() === '' ? null : es.code.trim(),
                                       jurisdiction: es.jurisdiction.trim(),
                                       registrationId: es.registrationId.trim() === '' ? null : es.registrationId.trim(),
                                       localCurrency: es.localCurrency,

@@ -193,6 +193,47 @@ test('Missions capstone workflow, end to end', async ({ page }) => {
     await expect(page.getByTestId('pnl-profit-usd')).toHaveText('Profit ≈ USD 10,000.00');
   });
 
+  await test.step('S2: payment tracking, budget-vs-actual, the finance stage, and the org dashboard', async () => {
+    // The income line is born Expected and counted outstanding.
+    await expect(page.getByTestId('pnl-line-payment-PNL-0001')).toHaveText('Expected');
+    await expect(page.getByTestId('pnl-outstanding-income')).toContainText('1 income line not yet received');
+
+    // Mark it Received — SAR? No: USD line, less landed than expected (fees).
+    await page.getByTestId('payment-line-PNL-0001').click();
+    await page.getByTestId('payment-status-PNL-0001').click();
+    await page.getByRole('option', { name: 'Received', exact: true }).click();
+    await page.getByTestId('payment-received-PNL-0001').fill('9500');
+    await page.getByTestId('payment-source-PNL-0001').fill('ESA');
+    await page.getByTestId('payment-ref-PNL-0001').fill('FT2501475Z6Z');
+    await page.getByTestId('payment-line-PNL-0001-confirm').click();
+    await expect(page.getByTestId('pnl-line-payment-PNL-0001')).toHaveText('Received');
+    // The P&L now carries the RECEIVED truth, and settlement reads complete.
+    await expect(page.getByTestId('pnl-profit-usd')).toHaveText('Profit ≈ USD 9,500.00');
+    await expect(page.getByTestId('pnl-income-complete')).toBeVisible();
+
+    // Budget the income category (the line was created under 'Other') and read the variance.
+    await page.getByTestId('set-budget').click();
+    await page.getByTestId('set-budget-direction').click();
+    await page.getByRole('option', { name: 'Income', exact: true }).click();
+    await page.getByTestId('set-budget-amount').fill('12000');
+    await page.getByTestId('set-budget-confirm').click();
+    await expect(page.getByTestId('pnl-category-variance-Income-Other')).toContainText('2,500.00'); // 9,500 − 12,000
+
+    // The financial lifecycle: born Planning, advances one step at a time.
+    await expect(page.getByTestId('mission-finance-stage')).toHaveText('Planning');
+    await page.getByTestId('advance-finance-stage').click();
+    await page.getByTestId('advance-finance-stage-confirm').click();
+    await expect(page.getByTestId('mission-finance-stage')).toHaveText('Finance pending');
+
+    // The org-wide dashboard carries the mission's money row.
+    await page.goto('/missions/finance');
+    await expect(page.getByTestId('finance-row-MSN-0001')).toBeVisible();
+    await expect(page.getByTestId('finance-profit-MSN-0001')).toHaveText('USD 9,500.00');
+    await expect(page.getByTestId('finance-stage-MSN-0001')).toHaveText('Finance pending');
+    await page.goto('/missions/MSN-0001'); // back for the shell-edit step
+    await expect(page.getByTestId('mission-title')).toHaveText('Spring Invitational');
+  });
+
   await test.step('Shell edit is versioned and immediate; deactivation retires the affordances', async () => {
     await page.getByTestId('edit-mission-MSN-0001').click();
     await page.getByTestId('edit-mission-ends-MSN-0001').fill('2026-08-15');
@@ -223,5 +264,7 @@ test('Missions capstone workflow, end to end', async ({ page }) => {
     await expect(page.getByTestId('remove-participant-PER-0001')).toHaveCount(0);
     await expect(page.getByTestId('edit-mission-MSN-0001')).toHaveCount(0);
     await expect(page.getByTestId('mission-pnl-panel')).toHaveCount(0); // P&L absent for canViewFinancials-denied roles
+    await page.goto('/missions/finance');
+    await expect(page.getByTestId('mission-finance-denied')).toBeVisible(); // the dashboard fails closed too
   });
 });

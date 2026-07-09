@@ -61,13 +61,31 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (err instanceof ApiError && err.status === 403 && err.code === 'ACCESS_NOT_PROVISIONED') {
         // Valid identity, no C3 membership: truthful state, not a login error.
         setStatus('unprovisioned');
-      } else {
-        // The API refused the session (e.g. token rejected). Clear ONLY the
+        return;
+      }
+      if (err instanceof ApiError && err.status === 401) {
+        // The API REJECTED the token: the session is dead. Clear ONLY the
         // local session — never bounce through the provider's logout page —
         // and surface the exact refusal on the sign-in screen.
-        setAuthNotice(err instanceof ApiError ? err.message : 'The service could not be reached.');
+        setAuthNotice(err.message);
         await authClient.clearLocalSession().catch(() => {});
         setStatus('anonymous');
+        return;
+      }
+      // Anything else (network blip, 5xx, a busy server) is TRANSIENT: the
+      // token was never rejected. Retry once; if it still fails, KEEP the
+      // stored session — a later refresh recovers silently. Deleting it here
+      // would sign the user out over a hiccup (a real defect S2's E2E load
+      // exposed: reload → one failed /me → login screen).
+      try {
+        await new Promise((r) => setTimeout(r, 1500));
+        const m = await api.me();
+        setMe(m);
+        setAuthNotice(null);
+        setStatus('authenticated');
+      } catch (retryErr) {
+        setAuthNotice(retryErr instanceof ApiError ? retryErr.message : 'The service could not be reached.');
+        setStatus('anonymous'); // stored session deliberately KEPT
       }
     }
   }, []);

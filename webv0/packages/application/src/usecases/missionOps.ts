@@ -31,17 +31,28 @@ import {
 import { assertManageMissions } from '@c3web/authz';
 import type { MissionPatch, Persistence } from '../ports';
 
-const EDITABLE = ['name', 'gameTitle', 'startsOn', 'endsOn', 'notes'] as const;
+const EDITABLE = ['name', 'code', 'organizer', 'city', 'gameTitle', 'startsOn', 'endsOn', 'notes'] as const;
+
+/** S2: friendly duplicate-tournament-code check (the partial unique index is the last line). */
+async function assertCodeAvailable(p: Persistence, actor: Actor, code: string | null, exceptMissionId?: string): Promise<void> {
+  if (!code) return;
+  const taken = (await p.reads.forActor(actor).listMissions()).some((m) => m.code === code && m.missionId !== exceptMissionId);
+  if (taken) throw new ConflictError('That tournament code is already in use.', { code });
+}
 
 export async function createMission(p: Persistence, actor: Actor, input: MissionCreateInput): Promise<Mission> {
   assertManageMissions(actor);
   const parsed = missionCreateInputSchema.parse(input);
+  await assertCodeAvailable(p, actor, parsed.code);
 
   return p.writes.transaction(actor, async (tx) => {
     const seq = await tx.allocateSequence('mission');
     const missionId = formatMissionId(seq);
     const mission = await tx.insertMission(missionId, {
       name: parsed.name,
+      code: parsed.code,
+      organizer: parsed.organizer,
+      city: parsed.city,
       gameTitle: parsed.gameTitle,
       startsOn: parsed.startsOn,
       endsOn: parsed.endsOn,
@@ -53,7 +64,7 @@ export async function createMission(p: Persistence, actor: Actor, input: Mission
       action: 'MissionCreated',
       actor: actor.identity,
       before: null,
-      after: { name: parsed.name, gameTitle: parsed.gameTitle, startsOn: parsed.startsOn, endsOn: parsed.endsOn },
+      after: { name: parsed.name, code: parsed.code, organizer: parsed.organizer, startsOn: parsed.startsOn, endsOn: parsed.endsOn },
     });
     return mission;
   });
@@ -67,6 +78,7 @@ export async function updateMission(
 ): Promise<Mission> {
   assertManageMissions(actor);
   const parsed = missionUpdateInputSchema.parse(input);
+  if ('code' in parsed && parsed.code) await assertCodeAvailable(p, actor, parsed.code, missionId);
 
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.getMission(missionId);

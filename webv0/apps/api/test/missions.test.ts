@@ -254,12 +254,12 @@ describe('mission P&L over HTTP (Finance S4)', () => {
     expect(pd.statusCode, pd.body).toBe(200);
 
     // Lines: income + expense; a bad line (zero amount) is a 400.
-    const income = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'USD' } });
+    const income = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', category: 'PrizeMoney', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'USD' } });
     expect(income.statusCode, income.body).toBe(201);
     expect(income.json().line).toMatchObject({ lineId: 'PNL-0001', direction: 'Income' });
-    const expense = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Expense', label: 'Flights', amountMinor: 200_000, currency: 'USD' } });
+    const expense = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Expense', category: 'Travel', label: 'Flights', amountMinor: 200_000, currency: 'USD' } });
     expect(expense.statusCode, expense.body).toBe(201);
-    const bad = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', label: 'X', amountMinor: 0, currency: 'USD' } });
+    const bad = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', category: 'Other', label: 'X', amountMinor: 0, currency: 'USD' } });
     expect(bad.statusCode).toBe(400);
 
     // Without a SAR rate the blend is honestly null; set the rate → profit appears.
@@ -287,7 +287,7 @@ describe('mission P&L over HTTP (Finance S4)', () => {
     // Gating: finance reads the P&L but cannot write; legal and visitor get 403 on the read.
     const financeRead = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.finance) });
     expect(financeRead.statusCode).toBe(200);
-    const financeWrite = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.finance), payload: { direction: 'Income', label: 'X', amountMinor: 1, currency: 'USD' } });
+    const financeWrite = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.finance), payload: { direction: 'Income', category: 'Other', label: 'X', amountMinor: 1, currency: 'USD' } });
     expect(financeWrite.statusCode).toBe(403);
     for (const t of [tokens.legal, tokens.visitor]) {
       const denied = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(t) });
@@ -310,5 +310,101 @@ describe('tenant scoping', () => {
     expect(touch.statusCode).toBe(404);
     const roster = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/participants`, headers: auth(tokens.ownerB) });
     expect(roster.statusCode).toBe(404);
+  });
+});
+
+describe('S2 mission finance over HTTP (payments, budgets, lifecycle, dashboard)', () => {
+  it('code/organizer/city land on the shell; payment walk; budget variance; stage walk with the settle guard; summary gated', async () => {
+    // Shell with the tournament identity.
+    const create = await app.inject({
+      method: 'POST',
+      url: '/api/v1/missions',
+      headers: auth(tokens.ops),
+      payload: { name: 'Saudi Throwdown', code: 'SATR/2024/0001', organizer: 'Saudi Esports Federation', city: 'Riyadh', startsOn: '2026-08-01', endsOn: '2026-08-15' },
+    });
+    expect(create.statusCode, create.body).toBe(201);
+    const m = create.json().mission;
+    expect(m).toMatchObject({ code: 'SATR/2024/0001', organizer: 'Saudi Esports Federation', city: 'Riyadh', financeStage: 'Planning' });
+
+    // A duplicate code in the same tenant is a friendly 409; bravo may reuse it.
+    const dup = await app.inject({ method: 'POST', url: '/api/v1/missions', headers: auth(tokens.ops), payload: { name: 'Dup', code: 'SATR/2024/0001', startsOn: '2026-08-01' } });
+    expect(dup.statusCode).toBe(409);
+    const bravoReuse = await app.inject({ method: 'POST', url: '/api/v1/missions', headers: auth(tokens.ownerB), payload: { name: 'Bravo', code: 'SATR/2024/0001', startsOn: '2026-08-01' } });
+    expect(bravoReuse.statusCode, bravoReuse.body).toBe(201);
+
+    // An income line is born Expected; walk it to Received with the mastersheet detail.
+    const income = await app.inject({
+      method: 'POST',
+      url: `/api/v1/missions/${m.missionId}/lines`,
+      headers: auth(tokens.ops),
+      payload: { direction: 'Income', category: 'PrizeMoney', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'SAR' },
+    });
+    expect(income.statusCode, income.body).toBe(201);
+    expect(income.json().line).toMatchObject({ category: 'PrizeMoney', paymentStatus: 'Expected' });
+    // a category from the wrong direction is a 400 at the wire
+    const badCat = await app.inject({
+      method: 'POST',
+      url: `/api/v1/missions/${m.missionId}/lines`,
+      headers: auth(tokens.ops),
+      payload: { direction: 'Income', category: 'Travel', label: 'X', amountMinor: 1, currency: 'USD' },
+    });
+    expect(badCat.statusCode).toBe(400);
+
+    const pay = await app.inject({
+      method: 'POST',
+      url: `/api/v1/missions/${m.missionId}/lines/${income.json().line.lineId}/payment`,
+      headers: auth(tokens.ops),
+      payload: { expectedVersion: 0, paymentStatus: 'Received', receivedAmountMinor: 950_000, receivedUsdPerUnit: 0.265, paymentSourceLabel: 'ESA', refNo: 'FT2501475Z6Z' },
+    });
+    expect(pay.statusCode, pay.body).toBe(200);
+    expect(pay.json().line).toMatchObject({ paymentStatus: 'Received', receivedAmountMinor: 950_000, refNo: 'FT2501475Z6Z' });
+
+    // Budget a cell and read the derived variance: received 950,000 at the
+    // snapshot 0.265 vs a 1,200,000-SAR budget (blended off... no SAR rate
+    // stored -> the BUDGET is unblendable, variance honestly null).
+    const setB = await app.inject({
+      method: 'POST',
+      url: `/api/v1/missions/${m.missionId}/budgets`,
+      headers: auth(tokens.owner),
+      payload: { direction: 'Income', category: 'PrizeMoney', currency: 'SAR', amountMinor: 1_200_000 },
+    });
+    expect(setB.statusCode, setB.body).toBe(200);
+    let pnl = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
+    expect(pnl.statusCode, pnl.body).toBe(200);
+    expect(pnl.json().budgets).toHaveLength(1);
+    let cat = pnl.json().pnl.perCategory.find((c: { category: string }) => c.category === 'PrizeMoney');
+    expect(cat.actualUsdMinor).toBe(Math.round(950_000 * 0.265)); // the snapshot carries the actual
+    expect(cat.budgetUsdMinor).toBeNull(); // no SAR rate for the budget — honest null
+    expect(pnl.json().pnl.blended).toBeNull();
+    expect(pnl.json().pnl.missingRates).toEqual(['SAR']);
+
+    // Set the SAR rate -> variance appears.
+    const rate = await app.inject({ method: 'POST', url: '/api/v1/fx-rates', headers: auth(tokens.ops), payload: { currency: 'SAR', usdPerUnit: 0.2666 } });
+    expect(rate.statusCode, rate.body).toBe(200);
+    pnl = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
+    cat = pnl.json().pnl.perCategory.find((c: { category: string }) => c.category === 'PrizeMoney');
+    expect(cat.budgetUsdMinor).toBe(Math.round(1_200_000 * 0.2666));
+    expect(cat.varianceUsdMinor).toBe(cat.actualUsdMinor - cat.budgetUsdMinor);
+    expect(pnl.json().pnl.settlement).toMatchObject({ outstandingIncomeCount: 0, incomeComplete: true });
+
+    // Finance stage: skipping is 409; the legal walk reaches Settled (income all Received).
+    const skip = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/finance-stage`, headers: auth(tokens.ops), payload: { expectedVersion: m.version, stage: 'Active' } });
+    expect(skip.statusCode).toBe(409);
+    let version = m.version;
+    for (const stage of ['FinancePending', 'Confirmed', 'Active', 'PostMission', 'Settled']) {
+      const step = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/finance-stage`, headers: auth(tokens.ops), payload: { expectedVersion: version, stage } });
+      expect(step.statusCode, step.body).toBe(200);
+      version = step.json().mission.version;
+    }
+
+    // The all-missions dashboard: gated to canViewFinancials; carries the row.
+    const summary = await app.inject({ method: 'GET', url: '/api/v1/missions/finance-summary', headers: auth(tokens.finance) });
+    expect(summary.statusCode, summary.body).toBe(200);
+    const row = summary.json().missions.find((x: { missionId: string }) => x.missionId === m.missionId);
+    expect(row).toMatchObject({ code: 'SATR/2024/0001', financeStage: 'Settled', outstandingIncomeCount: 0 });
+    for (const t of [tokens.legal, tokens.visitor]) {
+      const denied = await app.inject({ method: 'GET', url: '/api/v1/missions/finance-summary', headers: auth(t) });
+      expect(denied.statusCode).toBe(403);
+    }
   });
 });

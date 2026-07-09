@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -208,6 +208,33 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               .where(and(eq(schema.missionLine.missionId, missionId), eq(schema.missionLine.isActive, true)))
               .orderBy(asc(schema.missionLine.createdAt), asc(schema.missionLine.lineId));
             return rows.map(mapMissionLine);
+          }),
+
+        // S2: the mission's budgets; org-wide bulk reads for the finance dashboard.
+        listMissionBudgets: (missionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<MissionBudget[]> => {
+            const rows = await db
+              .select()
+              .from(schema.missionBudget)
+              .where(eq(schema.missionBudget.missionId, missionId))
+              .orderBy(asc(schema.missionBudget.direction), asc(schema.missionBudget.category), asc(schema.missionBudget.currency));
+            return rows.map(mapMissionBudget);
+          }),
+
+        listAllMissionLines: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<MissionLine[]> => {
+            const rows = await db
+              .select()
+              .from(schema.missionLine)
+              .where(eq(schema.missionLine.isActive, true))
+              .orderBy(asc(schema.missionLine.missionId), asc(schema.missionLine.lineId));
+            return rows.map(mapMissionLine);
+          }),
+
+        listAllMissionBudgets: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<MissionBudget[]> => {
+            const rows = await db.select().from(schema.missionBudget).orderBy(asc(schema.missionBudget.missionId));
+            return rows.map(mapMissionBudget);
           }),
 
         // Sprint 41: agreements (drizzle-only; financial omission is the

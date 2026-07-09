@@ -51,7 +51,12 @@ import {
   missionLineParamSchema,
   missionLineRemoveBodySchema,
   missionLineResponseSchema,
+  missionLinePaymentInputSchema,
+  missionBudgetResponseSchema,
+  missionFinanceStageInputSchema,
+  missionFinanceSummarySchema,
   missionPnlResponseSchema,
+  setMissionBudgetInputSchema,
   participantPerDiemBodySchema,
   credentialsListSchema,
   equipmentCreateInputSchema,
@@ -113,9 +118,13 @@ import {
   submitTerminateAgreement,
   updateAgreement,
   getMissionPnl,
+  getMissionsFinanceSummary,
   addMissionLine,
   updateMissionLine,
   removeMissionLine,
+  setMissionLinePayment,
+  setMissionBudget,
+  setMissionFinanceStage,
   createEntity,
   deactivateApparel,
   deactivateEntity,
@@ -168,7 +177,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -745,13 +754,57 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   // ── mission P&L (Finance S4) — lines are direct-audited (owner/ops); the
   //    WHOLE surface is gated to canViewFinancials (the use-cases 403 here).
+  // NOTE: /missions/finance-summary is registered BEFORE /missions/:missionId
+  // routes would swallow it — Fastify matches static segments first anyway,
+  // but keep the intent explicit.
+  r.get('/api/v1/missions/finance-summary', { schema: { response: { 200: missionFinanceSummarySchema } } }, async (req) => {
+    const rows = await getMissionsFinanceSummary(P, actorOf(req));
+    return {
+      missions: rows.map((r0) => ({
+        ...r0,
+        blended: r0.blended ? { ...r0.blended } : null,
+        missingRates: [...r0.missingRates],
+      })),
+    };
+  });
+
   r.get(
     '/api/v1/missions/:missionId/pnl',
     { schema: { params: missionIdParamSchema, response: { 200: missionPnlResponseSchema } } },
     async (req) => {
       const { missionId } = req.params as { missionId: string };
       const view = await getMissionPnl(P, actorOf(req), missionId);
-      return { lines: view.lines.map(toMissionLineDto), pnl: toMissionPnlDto(view.pnl) };
+      return { lines: view.lines.map(toMissionLineDto), budgets: view.budgets.map(toMissionBudgetDto), pnl: toMissionPnlDto(view.pnl) };
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/lines/:lineId/payment',
+    { schema: { params: missionLineParamSchema, body: missionLinePaymentInputSchema, response: { 200: missionLineResponseSchema } } },
+    async (req) => {
+      const { missionId, lineId } = req.params as { missionId: string; lineId: string };
+      const line = await setMissionLinePayment(P, actorOf(req), missionId, lineId, req.body as import('@c3web/domain').MissionLinePaymentInput);
+      return { line: toMissionLineDto(line) };
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/budgets',
+    { schema: { params: missionIdParamSchema, body: setMissionBudgetInputSchema, response: { 200: missionBudgetResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const budget = await setMissionBudget(P, actorOf(req), missionId, req.body as import('@c3web/domain').SetMissionBudgetInput);
+      return { budget: budget ? toMissionBudgetDto(budget) : null };
+    },
+  );
+
+  r.post(
+    '/api/v1/missions/:missionId/finance-stage',
+    { schema: { params: missionIdParamSchema, body: missionFinanceStageInputSchema, response: { 200: missionResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const mission = await setMissionFinanceStage(P, actorOf(req), missionId, req.body as import('@c3web/domain').MissionFinanceStageInput);
+      return { mission: toMissionDto(mission) };
     },
   );
 

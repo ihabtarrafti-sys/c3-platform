@@ -16,6 +16,7 @@ import { MissionsPage } from './pages/MissionsPage';
 import { EntitiesPage } from './pages/EntitiesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
+import { MissionFinancePage } from './pages/MissionFinancePage';
 import { AgreementsPage } from './pages/AgreementsPage';
 import { AgreementDetailPage } from './pages/AgreementDetailPage';
 
@@ -53,6 +54,7 @@ export const router = createBrowserRouter([
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
       { path: 'missions', element: <MissionsPage /> },
+      { path: 'missions/finance', element: <MissionFinancePage /> },
       { path: 'missions/:missionId', element: <MissionDetailPage /> },
       { path: 'agreements', element: <AgreementsPage /> },
       { path: 'agreements/:agreementId', element: <AgreementDetailPage /> },

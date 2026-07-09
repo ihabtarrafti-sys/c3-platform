@@ -1,27 +1,28 @@
 /**
- * missionLine.ts — mission income/expense lines and the P&L derivation
- * (Finance Sprint 4; design: docs/design/FINANCE-S4-mission-pnl.md).
+ * missionLine.ts — mission income/expense lines, budgets, and the P&L
+ * derivation (Finance Sprint 4, upgraded by S2 Mission Finance;
+ * design: docs/design/S2-mission-finance-upgrade.md).
  *
- * A mission's money story: INCOME lines (prize money, org support, partnership
- * fees, …) against EXPENSE lines (travel, hotels, …), each in its NATIVE
- * currency (integer minor units — the money.ts discipline), plus the roster's
- * per-diems rolling in as an expense automatically (rate × inclusive mission
- * days, from Finance S2). Profit = income − expense, blended to USD through
- * the org's editable FX table (Finance S1).
+ * S2 upgrades, straight from Geekay's real mastersheets + the frozen app's
+ * Mission Finance v1 design:
+ *   - every line carries a CATEGORY from the merged taxonomy (per direction);
+ *     'PerDiem' is RESERVED for the roll-in engine — never a manual line, but
+ *     a legal EXPENSE BUDGET category (budget vs rolled-in actual);
+ *   - INCOME lines carry payment tracking: Expected → Invoiced → Received,
+ *     with the received amount (may differ from expected), an optional FX
+ *     snapshot at receipt (usdPerUnit truth on the day the money landed), a
+ *     bank/payment-source LABEL (ESA, ADCB — never account numbers), and the
+ *     external bank reference (e.g. FT2501475Z6Z) for reconciliation;
+ *   - BUDGETS: one planned amount per (direction, category, currency),
+ *     upsert-set like FX rates; the P&L derives budget-vs-actual variance.
  *
- * GOVERNANCE: lines are DIRECT-BUT-AUDITED (the per-diem/mission-shell
- * posture) — they RECORD operational facts, unlike agreement terms which are
- * COMMITMENTS to people and therefore governed (S3.5). Writes owner/operations
- * (canManageMissions + canViewFinancials belt-and-braces); reads are gated to
- * canViewFinancials — the whole P&L surface is financial data (section-level
- * denial; legal/hr/visitor never see it). Direction is immutable (an income
- * line cannot flip to expense — remove and re-add). Removal is a soft
- * `isActive` flip (the data plane grants no DELETE).
- *
- * The P&L itself is a pure READ-SIDE DERIVATION (the credentialStatusOn
- * pattern): nothing is stored, and it is HONEST about what it cannot know —
- * a missing FX rate means "no USD blend" (never an invented number), an
- * open-ended mission means per-diem totals are excluded and flagged.
+ * GOVERNANCE unchanged from S4: lines/budgets are DIRECT-BUT-AUDITED (they
+ * RECORD operational facts; commitments stay governed). Reads are gated to
+ * canViewFinancials. Direction AND category are immutable on a line (remove +
+ * re-add). The P&L stays a PURE derivation — nothing computed is stored — and
+ * keeps the honesty rules: a missing rate = no invented blend; an open-ended
+ * mission excludes per-diem totals and says so. Income lines blend PER LINE:
+ * a Received line with an FX snapshot converts at ITS OWN recorded truth.
  */
 
 import { z } from 'zod';
@@ -30,6 +31,58 @@ import { missionDayCount, type MissionParticipant } from './mission';
 
 export const MISSION_LINE_DIRECTIONS = ['Income', 'Expense'] as const;
 export type MissionLineDirection = (typeof MISSION_LINE_DIRECTIONS)[number];
+
+// ── the category taxonomy (GK-Core income types ∪ frozen-app Mission Finance v1) ──
+
+export const INCOME_CATEGORIES = [
+  'PrizeMoney',
+  'AppearanceFee',
+  'Support',
+  'Sponsorship',
+  'RevenueShare',
+  'Buyout',
+  'Campaign',
+  'TravelReimbursement',
+  'Other',
+] as const;
+export type IncomeCategory = (typeof INCOME_CATEGORIES)[number];
+
+/** Manual expense categories. 'PerDiem' is engine-owned (see PER_DIEM_CATEGORY). */
+export const EXPENSE_CATEGORIES = [
+  'RegistrationFee',
+  'Travel',
+  'Accommodation',
+  'PlayerFee',
+  'Equipment',
+  'Logistics',
+  'Contingency',
+  'Other',
+] as const;
+export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
+
+/**
+ * The per-diem expense category: produced ONLY by the roster roll-in (a manual
+ * 'PerDiem' line would double-count), but a legal BUDGET category — their
+ * tournament budget template budgets per-diems, and the engine supplies the
+ * actual.
+ */
+export const PER_DIEM_CATEGORY = 'PerDiem' as const;
+
+export type MissionLineCategory = IncomeCategory | ExpenseCategory | typeof PER_DIEM_CATEGORY;
+
+export function categoriesForDirection(direction: MissionLineDirection): readonly string[] {
+  return direction === 'Income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+}
+
+/** Budget categories additionally admit the engine-owned PerDiem on the expense side. */
+export function budgetCategoriesForDirection(direction: MissionLineDirection): readonly string[] {
+  return direction === 'Income' ? INCOME_CATEGORIES : [...EXPENSE_CATEGORIES, PER_DIEM_CATEGORY];
+}
+
+// ── payment tracking (income lines only) ─────────────────────────────────────
+
+export const PAYMENT_STATUSES = ['Expected', 'Invoiced', 'Received'] as const;
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
 
 /** One income or expense line on a mission (surrogate UUID lives in persistence). */
 export interface MissionLine {
@@ -40,11 +93,23 @@ export interface MissionLine {
   readonly missionId: string;
   /** Immutable: an income line never flips to expense (remove + re-add). */
   readonly direction: MissionLineDirection;
+  /** Immutable, from the taxonomy for its direction ('Other' = the honest bucket). */
+  readonly category: string;
   /** What this money is, e.g. "Prize — 2nd place", "Flights", "Org support". */
   readonly label: string;
   /** Integer minor units, > 0 (the sign lives in `direction`, never the amount). */
   readonly amountMinor: number;
   readonly currency: CurrencyCode;
+  /** Income only: Expected → Invoiced → Received. Null on expense lines. */
+  readonly paymentStatus: PaymentStatus | null;
+  /** Received only: what actually landed (fees/partials); null = as expected. */
+  readonly receivedAmountMinor: number | null;
+  /** Received only, optional: usdPerUnit truth AT RECEIPT (the FX snapshot). */
+  readonly receivedUsdPerUnit: number | null;
+  /** Bank/payment source LABEL only (ESA, ADCB) — never account numbers. */
+  readonly paymentSourceLabel: string | null;
+  /** External bank reference for reconciliation, e.g. "FT2501475Z6Z". */
+  readonly refNo: string | null;
   readonly isActive: boolean;
   readonly version: number;
   readonly createdAt: string;
@@ -55,21 +120,34 @@ export interface MissionLine {
 
 const labelField = z.string().trim().min(1, 'A label is required').max(200);
 const positiveAmountMinor = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const shortOptional = (max: number) =>
+  z
+    .string()
+    .trim()
+    .max(max)
+    .transform((v) => (v === '' ? null : v))
+    .nullish()
+    .transform((v) => v ?? null);
 
 export const missionLineCreateInputSchema = z
   .object({
     direction: z.enum(MISSION_LINE_DIRECTIONS),
+    category: z.string().min(1),
     label: labelField,
     amountMinor: positiveAmountMinor,
     currency: currencyCodeSchema,
   })
-  .strict();
+  .strict()
+  .refine((v) => categoriesForDirection(v.direction).includes(v.category), {
+    message: 'The category does not belong to this direction (per-diem lines come from the roster roll-in).',
+    path: ['category'],
+  });
 export type MissionLineCreateInput = z.infer<typeof missionLineCreateInputSchema>;
 
 /**
- * Update — a PARTIAL patch plus the mandatory expected version (the
- * direct-audited convention: equipment/mission/agreement-patch). Direction is
- * immutable and not representable here.
+ * Update — a PARTIAL patch plus the mandatory expected version. Direction,
+ * category, and payment tracking are NOT representable here: the first two
+ * are immutable; payment moves through its own audited action.
  */
 export const missionLineUpdateInputSchema = z
   .object({
@@ -83,6 +161,55 @@ export const missionLineUpdateInputSchema = z
     message: 'An update must change at least one field',
   });
 export type MissionLineUpdateInput = z.infer<typeof missionLineUpdateInputSchema>;
+
+/**
+ * SetLinePayment (S2) — the audited income-payment action. Any status is
+ * settable (corrections are legal; the trail is the truth), but received
+ * detail may only accompany Received.
+ */
+export const missionLinePaymentInputSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    paymentStatus: z.enum(PAYMENT_STATUSES),
+    receivedAmountMinor: positiveAmountMinor.nullish().transform((v) => v ?? null),
+    /** usdPerUnit at receipt; a positive rate (USD lines never need one). */
+    receivedUsdPerUnit: z.number().positive().max(1_000_000).nullish().transform((v) => v ?? null),
+    paymentSourceLabel: shortOptional(60),
+    refNo: shortOptional(60),
+  })
+  .strict()
+  .refine((v) => v.paymentStatus === 'Received' || (v.receivedAmountMinor === null && v.receivedUsdPerUnit === null), {
+    message: 'Received amount and FX snapshot only accompany the Received status.',
+  });
+export type MissionLinePaymentInput = z.infer<typeof missionLinePaymentInputSchema>;
+
+// ── budgets (upsert-set per direction+category+currency, like FX rates) ──────
+
+export interface MissionBudget {
+  readonly tenantId: string;
+  readonly missionId: string;
+  readonly direction: MissionLineDirection;
+  readonly category: string;
+  readonly currency: CurrencyCode;
+  /** Integer minor units, > 0 (setting 0/clearing removes the row). */
+  readonly amountMinor: number;
+  readonly updatedAt: string;
+}
+
+export const setMissionBudgetInputSchema = z
+  .object({
+    direction: z.enum(MISSION_LINE_DIRECTIONS),
+    category: z.string().min(1),
+    currency: currencyCodeSchema,
+    /** Null clears the budget row for this key. */
+    amountMinor: positiveAmountMinor.nullable(),
+  })
+  .strict()
+  .refine((v) => budgetCategoriesForDirection(v.direction).includes(v.category), {
+    message: 'The category does not belong to this direction.',
+    path: ['category'],
+  });
+export type SetMissionBudgetInput = z.infer<typeof setMissionBudgetInputSchema>;
 
 // ── the P&L derivation (pure; nothing stored) ────────────────────────────────
 
@@ -105,6 +232,26 @@ export interface MissionPerDiemEntry {
   readonly totalMinor: number | null;
 }
 
+/** S2: budget-vs-actual per (direction, category), natives + blended variance. */
+export interface MissionPnlCategoryRow {
+  readonly direction: MissionLineDirection;
+  readonly category: string;
+  readonly actual: readonly { currency: CurrencyCode; amountMinor: number }[];
+  readonly budget: readonly { currency: CurrencyCode; amountMinor: number }[];
+  /** actualUsd − budgetUsd; null when any needed rate is missing. */
+  readonly actualUsdMinor: number | null;
+  readonly budgetUsdMinor: number | null;
+  readonly varianceUsdMinor: number | null;
+}
+
+/** S2: settlement truth, derived — feeds the →Settled transition guard. */
+export interface MissionSettlement {
+  /** Income lines not yet Received. */
+  readonly outstandingIncomeCount: number;
+  /** True when there is money recorded and every income line is Received. */
+  readonly incomeComplete: boolean;
+}
+
 export interface MissionPnl {
   /** Native subtotals, sorted by currency code (deterministic). */
   readonly perCurrency: readonly MissionPnlCurrencyTotal[];
@@ -113,29 +260,46 @@ export interface MissionPnl {
     /** True when the mission has no end date — per-diem totals are excluded. */
     readonly openEnded: boolean;
   };
+  /** S2: budget-vs-actual rows, income first then expense, category-sorted. */
+  readonly perCategory: readonly MissionPnlCategoryRow[];
+  readonly settlement: MissionSettlement;
   /**
-   * USD blend via the FX table; NULL when any needed rate is missing (the
-   * honest answer — never an invented number). Converted per currency-subtotal
-   * to minimize rounding.
+   * USD blend; NULL when any needed rate is missing (the honest answer).
+   * INCOME blends PER LINE: Received lines use their received amount, and a
+   * recorded FX snapshot beats the live table (the truth at receipt).
+   * Expenses and per-diems blend per currency-subtotal off the live table.
    */
   readonly blended: {
     readonly incomeUsdMinor: number;
     readonly expenseUsdMinor: number;
     readonly profitUsdMinor: number;
   } | null;
-  /** Currencies present in the P&L that have no stored rate, sorted. */
+  /** Currencies present in the P&L that have no usable rate, sorted. */
   readonly missingRates: readonly CurrencyCode[];
+}
+
+type PnlLine = Pick<
+  MissionLine,
+  'direction' | 'category' | 'amountMinor' | 'currency' | 'paymentStatus' | 'receivedAmountMinor' | 'receivedUsdPerUnit'
+>;
+
+/** The amount a line truly contributes: received truth when it landed, else the expectation. */
+function effectiveAmountMinor(line: PnlLine): number {
+  return line.paymentStatus === 'Received' && line.receivedAmountMinor != null ? line.receivedAmountMinor : line.amountMinor;
 }
 
 export function computeMissionPnl(args: {
   startsOn: string;
   endsOn: string | null;
-  lines: readonly Pick<MissionLine, 'direction' | 'amountMinor' | 'currency'>[];
+  lines: readonly PnlLine[];
+  budgets?: readonly Pick<MissionBudget, 'direction' | 'category' | 'currency' | 'amountMinor'>[];
   participants: readonly Pick<MissionParticipant, 'personId' | 'personName' | 'isActive' | 'perDiemAmountMinor' | 'perDiemCurrency'>[];
   rates: readonly FxRate[];
 }): MissionPnl {
+  const budgets = args.budgets ?? [];
   const days = missionDayCount(args.startsOn, args.endsOn);
   const openEnded = args.endsOn === null;
+  const map = usdPerUnitMap(args.rates);
 
   // Per-diem roll-in: ACTIVE participants with a rate. Removed participants'
   // rates are dormant history, not a live cost.
@@ -150,7 +314,7 @@ export function computeMissionPnl(args: {
       totalMinor: days != null ? p.perDiemAmountMinor! * days : null,
     }));
 
-  // Native subtotals: lines by direction + computable per-diem totals as expense.
+  // Native subtotals (income at its EFFECTIVE amount) + computable per-diems as expense.
   const byCurrency = new Map<CurrencyCode, { incomeMinor: number; expenseMinor: number }>();
   const bucket = (currency: CurrencyCode) => {
     let b = byCurrency.get(currency);
@@ -162,7 +326,7 @@ export function computeMissionPnl(args: {
   };
   for (const line of args.lines) {
     const b = bucket(line.currency);
-    if (line.direction === 'Income') b.incomeMinor += line.amountMinor;
+    if (line.direction === 'Income') b.incomeMinor += effectiveAmountMinor(line);
     else b.expenseMinor += line.amountMinor;
   }
   for (const e of entries) {
@@ -172,24 +336,109 @@ export function computeMissionPnl(args: {
     .map(([currency, t]) => ({ currency, ...t }))
     .sort((a, b) => a.currency.localeCompare(b.currency));
 
-  // USD blend — all-or-nothing per the honesty rule: one missing rate means no
-  // blended figure at all (a partial sum would silently misstate profit).
-  const map = usdPerUnitMap(args.rates);
-  const missingRates = perCurrency
-    .map((t) => t.currency)
-    .filter((c) => !map[c])
-    .sort((a, b) => a.localeCompare(b));
-
-  let blended: MissionPnl['blended'] = null;
-  if (missingRates.length === 0) {
-    let incomeUsdMinor = 0;
-    let expenseUsdMinor = 0;
-    for (const t of perCurrency) {
-      incomeUsdMinor += convertMinor(t.incomeMinor, t.currency, PIVOT_CURRENCY, map) ?? 0;
-      expenseUsdMinor += convertMinor(t.expenseMinor, t.currency, PIVOT_CURRENCY, map) ?? 0;
+  // A currency is UNBLENDABLE when some contribution needs the live table and
+  // the table has no rate. An income line with its own snapshot never does.
+  const missing = new Set<CurrencyCode>();
+  const lineUsd = (line: PnlLine): number | null => {
+    const amount = effectiveAmountMinor(line);
+    if (line.direction === 'Income' && line.paymentStatus === 'Received' && line.receivedUsdPerUnit != null) {
+      return Math.round(amount * line.receivedUsdPerUnit);
     }
-    blended = { incomeUsdMinor, expenseUsdMinor, profitUsdMinor: incomeUsdMinor - expenseUsdMinor };
+    const usd = convertMinor(amount, line.currency, PIVOT_CURRENCY, map);
+    if (usd === null) missing.add(line.currency);
+    return usd;
+  };
+
+  let incomeUsdMinor = 0;
+  let expenseUsdMinor = 0;
+  for (const line of args.lines) {
+    const usd = lineUsd(line);
+    if (usd === null) continue;
+    if (line.direction === 'Income') incomeUsdMinor += usd;
+    else expenseUsdMinor += usd;
+  }
+  for (const e of entries) {
+    if (e.totalMinor == null) continue;
+    const usd = convertMinor(e.totalMinor, e.currency, PIVOT_CURRENCY, map);
+    if (usd === null) missing.add(e.currency);
+    else expenseUsdMinor += usd;
   }
 
-  return { perCurrency, perDiem: { entries, openEnded }, blended, missingRates };
+  // S2: budget-vs-actual per (direction, category). Budgets blend off the live
+  // table (planning money has no receipt truth).
+  const keyOf = (d: MissionLineDirection, c: string) => `${d}:${c}`;
+  const catActual = new Map<string, Map<CurrencyCode, number>>();
+  const catActualUsd = new Map<string, number | null>();
+  const addCat = (mapM: Map<string, Map<CurrencyCode, number>>, key: string, currency: CurrencyCode, amount: number) => {
+    let m = mapM.get(key);
+    if (!m) {
+      m = new Map();
+      mapM.set(key, m);
+    }
+    m.set(currency, (m.get(currency) ?? 0) + amount);
+  };
+  const addCatUsd = (key: string, usd: number | null) => {
+    const cur = catActualUsd.has(key) ? catActualUsd.get(key)! : 0;
+    catActualUsd.set(key, cur === null || usd === null ? null : cur + usd);
+  };
+  for (const line of args.lines) {
+    const key = keyOf(line.direction, line.category);
+    addCat(catActual, key, line.currency, effectiveAmountMinor(line));
+    addCatUsd(key, lineUsd(line));
+  }
+  for (const e of entries) {
+    if (e.totalMinor == null) continue;
+    const key = keyOf('Expense', PER_DIEM_CATEGORY);
+    addCat(catActual, key, e.currency, e.totalMinor);
+    addCatUsd(key, convertMinor(e.totalMinor, e.currency, PIVOT_CURRENCY, map));
+  }
+  const catBudget = new Map<string, Map<CurrencyCode, number>>();
+  const catBudgetUsd = new Map<string, number | null>();
+  for (const b of budgets) {
+    const key = keyOf(b.direction, b.category);
+    addCat(catBudget, key, b.currency, b.amountMinor);
+    const usd = convertMinor(b.amountMinor, b.currency, PIVOT_CURRENCY, map);
+    if (usd === null) missing.add(b.currency);
+    const cur = catBudgetUsd.has(key) ? catBudgetUsd.get(key)! : 0;
+    catBudgetUsd.set(key, cur === null || usd === null ? null : cur + usd);
+  }
+
+  const allKeys = [...new Set([...catActual.keys(), ...catBudget.keys()])];
+  const perCategory: MissionPnlCategoryRow[] = allKeys
+    .map((key) => {
+      const [direction, category] = key.split(':') as [MissionLineDirection, string];
+      const toList = (m: Map<CurrencyCode, number> | undefined) =>
+        [...(m ?? new Map<CurrencyCode, number>()).entries()]
+          .map(([currency, amountMinor]) => ({ currency, amountMinor }))
+          .sort((a, b) => a.currency.localeCompare(b.currency));
+      // Preserve the honest null (unblendable) — never coalesce it into a 0.
+      const actualUsdMinor = catActual.has(key) ? catActualUsd.get(key)! : 0;
+      const budgetUsdMinor = catBudget.has(key) ? catBudgetUsd.get(key)! : 0;
+      return {
+        direction,
+        category,
+        actual: toList(catActual.get(key)),
+        budget: toList(catBudget.get(key)),
+        actualUsdMinor,
+        budgetUsdMinor,
+        varianceUsdMinor: actualUsdMinor === null || budgetUsdMinor === null ? null : actualUsdMinor - budgetUsdMinor,
+      };
+    })
+    .sort((a, b) => (a.direction === b.direction ? a.category.localeCompare(b.category) : a.direction === 'Income' ? -1 : 1));
+
+  // Settlement truth: every income line Received (and there IS money recorded).
+  const incomeLines = args.lines.filter((l) => l.direction === 'Income');
+  const outstandingIncomeCount = incomeLines.filter((l) => l.paymentStatus !== 'Received').length;
+  const settlement: MissionSettlement = {
+    outstandingIncomeCount,
+    incomeComplete: incomeLines.length > 0 && outstandingIncomeCount === 0,
+  };
+
+  const missingRates = [...missing].sort((a, b) => a.localeCompare(b));
+  const blended =
+    missingRates.length === 0
+      ? { incomeUsdMinor, expenseUsdMinor, profitUsdMinor: incomeUsdMinor - expenseUsdMinor }
+      : null;
+
+  return { perCurrency, perDiem: { entries, openEnded }, perCategory, settlement, blended, missingRates };
 }

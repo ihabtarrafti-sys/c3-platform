@@ -20,6 +20,7 @@ import {
   type JourneyStatus,
   type Kit,
   type Mission,
+  type MissionBudget,
   type MissionLine,
   type MissionLineDirection,
   type MissionParticipant,
@@ -126,6 +127,7 @@ export function mapEntity(row: any): Entity {
     entityId: row.entityId ?? row.entity_id,
     tenantId: row.tenantId ?? row.tenant_id,
     name: row.name,
+    code: row.code ?? null,
     jurisdiction: row.jurisdiction,
     registrationId: row.registrationId ?? row.registration_id ?? null,
     localCurrency: (row.localCurrency ?? row.local_currency ?? 'USD') as Entity['localCurrency'],
@@ -198,10 +200,14 @@ export function mapMission(row: any): Mission {
     missionId: row.missionId ?? row.mission_id,
     tenantId: row.tenantId ?? row.tenant_id,
     name: row.name,
+    code: row.code ?? null,
+    organizer: row.organizer ?? null,
+    city: row.city ?? null,
     gameTitle: row.gameTitle ?? row.game_title ?? null,
     startsOn: plainDate(row.startsOn ?? row.starts_on)!,
     endsOn: plainDate(row.endsOn ?? row.ends_on),
     notes: row.notes ?? null,
+    financeStage: (row.financeStage ?? row.finance_stage) as Mission['financeStage'],
     isActive: row.isActive ?? row.is_active,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
@@ -211,18 +217,40 @@ export function mapMission(row: any): Mission {
 
 export function mapMissionLine(row: any): MissionLine {
   const amount = row.amountMinor ?? row.amount_minor;
+  const received = row.receivedAmountMinor ?? row.received_amount_minor ?? null;
+  const snapshot = row.receivedUsdPerUnit ?? row.received_usd_per_unit ?? null;
   return {
     lineId: row.lineId ?? row.line_id,
     tenantId: row.tenantId ?? row.tenant_id,
     missionId: row.missionId ?? row.mission_id,
     direction: (row.direction) as MissionLineDirection,
+    category: row.category ?? 'Other',
     label: row.label,
     // bigint may arrive as a string on raw paths; amounts are integers ≪ 2^53.
     amountMinor: Number(amount),
     currency: (row.currency) as MissionLine['currency'],
+    paymentStatus: (row.paymentStatus ?? row.payment_status ?? null) as MissionLine['paymentStatus'],
+    receivedAmountMinor: received === null ? null : Number(received),
+    // numeric arrives as a string (exactness); the domain wants a number.
+    receivedUsdPerUnit: snapshot === null ? null : Number(snapshot),
+    paymentSourceLabel: row.paymentSourceLabel ?? row.payment_source_label ?? null,
+    refNo: row.refNo ?? row.ref_no ?? null,
     isActive: row.isActive ?? row.is_active,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapMissionBudget(row: any): MissionBudget {
+  const amount = row.amountMinor ?? row.amount_minor;
+  return {
+    tenantId: row.tenantId ?? row.tenant_id,
+    missionId: row.missionId ?? row.mission_id,
+    direction: (row.direction) as MissionLineDirection,
+    category: row.category,
+    currency: (row.currency) as MissionBudget['currency'],
+    amountMinor: Number(amount),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };
 }

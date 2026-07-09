@@ -225,6 +225,8 @@ export const entity = pgTable('entity', {
   tenantId: uuid('tenant_id').notNull(),
   entityId: text('entity_id').notNull(),
   name: text('name').notNull(),
+  // S2 rider: short code (GKA, GKEC) — unique per tenant, feeds invoice series.
+  code: text('code'),
   jurisdiction: text('jurisdiction').notNull(),
   registrationId: text('registration_id'),
   localCurrency: text('local_currency').notNull().default('USD'),
@@ -248,11 +250,17 @@ export const mission = pgTable('mission', {
   tenantId: uuid('tenant_id').notNull(),
   missionId: text('mission_id').notNull(),
   name: text('name').notNull(),
+  // S2: tournament code (the org's join key), organizer, city.
+  code: text('code'),
+  organizer: text('organizer'),
+  city: text('city'),
   gameTitle: text('game_title'),
   // mode 'string' — the Credentials date discipline (never driver-parsed).
   startsOn: date('starts_on', { mode: 'string' }).notNull(),
   endsOn: date('ends_on', { mode: 'string' }),
   notes: text('notes'),
+  // S2: the financial lifecycle (legacy rows backfilled 'Active'; born 'Planning').
+  financeStage: text('finance_stage').notNull().default('Planning'),
   isActive: boolean('is_active').notNull().default(true),
   version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -265,13 +273,33 @@ export const missionLine = pgTable('mission_line', {
   lineId: text('line_id').notNull(),
   missionId: text('mission_id').notNull(),
   direction: text('direction').notNull(),
+  // S2: category from the merged taxonomy (existing rows backfilled 'Other').
+  category: text('category').notNull().default('Other'),
   label: text('label').notNull(),
   // Integer minor units ≪ 2^53, so mode number is safe.
   amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
   currency: text('currency').notNull(),
+  // S2: income payment tracking (null on expense lines — DB CHECK enforced).
+  paymentStatus: text('payment_status'),
+  receivedAmountMinor: bigint('received_amount_minor', { mode: 'number' }),
+  // numeric → string in Drizzle (exactness); parsed to number at the mapper.
+  receivedUsdPerUnit: numeric('received_usd_per_unit', { precision: 18, scale: 8 }),
+  paymentSourceLabel: text('payment_source_label'),
+  refNo: text('ref_no'),
   isActive: boolean('is_active').notNull().default(true),
   version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const missionBudget = pgTable('mission_budget', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  missionId: text('mission_id').notNull(),
+  direction: text('direction').notNull(),
+  category: text('category').notNull(),
+  currency: text('currency').notNull(),
+  amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

@@ -39,6 +39,8 @@ test('Entities register + person assignment threading, end to end', async ({ pag
 
     await page.getByTestId('add-entity-toggle').click();
     await page.getByTestId('add-entity-name').fill('Geekay UAE');
+    // S2: C3 suggests a short code from the name — editable, feeds invoice series.
+    await expect(page.getByTestId('add-entity-code')).toHaveValue('GU');
     await page.getByTestId('add-entity-jurisdiction').fill('United Arab Emirates');
     await page.getByTestId('add-entity-currency').click();
     await page.getByRole('option', { name: 'AED', exact: true }).click();
@@ -49,6 +51,7 @@ test('Entities register + person assignment threading, end to end', async ({ pag
     await expect(page.getByTestId('entity-row-ENT-0001')).toBeVisible();
     await expect(page.getByTestId('entity-status-ENT-0001')).toHaveText('Active');
     await expect(page.getByTestId('entity-currency-ENT-0001')).toHaveText('AED');
+    await expect(page.getByTestId('entity-code-ENT-0001')).toHaveText('GU');
   });
 
   await test.step('The active entity is offered as "signed with" when adding a person', async () => {

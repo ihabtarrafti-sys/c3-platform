@@ -29,6 +29,9 @@ export function MissionsPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [organizer, setOrganizer] = useState('');
+  const [city, setCity] = useState('');
   const [gameTitle, setGameTitle] = useState('');
   const [startsOn, setStartsOn] = useState('');
   const [endsOn, setEndsOn] = useState('');
@@ -37,6 +40,9 @@ export function MissionsPage() {
     try {
       const res = await api.createMission({
         name: name.trim(),
+        code: code.trim() || undefined,
+        organizer: organizer.trim() || undefined,
+        city: city.trim() || undefined,
         gameTitle: gameTitle.trim() || undefined,
         startsOn,
         endsOn: endsOn || undefined,
@@ -44,6 +50,9 @@ export function MissionsPage() {
       notify('success', `${res.mission.missionId} created and recorded.`);
       setShowForm(false);
       setName('');
+      setCode('');
+      setOrganizer('');
+      setCity('');
       setGameTitle('');
       setStartsOn('');
       setEndsOn('');
@@ -56,11 +65,21 @@ export function MissionsPage() {
 
   const ready = name.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(startsOn) && (endsOn === '' || endsOn >= startsOn);
 
-  const addAction = canManage ? (
-    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-mission-toggle">
-      Add Mission
-    </Button>
-  ) : undefined;
+  const canViewFinancials = me?.capabilities.canViewFinancials ?? false;
+  const addAction = (
+    <>
+      {canViewFinancials && (
+        <Link to="/missions/finance" data-testid="missions-finance-link" style={{ marginRight: '8px' }}>
+          <Button appearance="secondary">Finance view</Button>
+        </Link>
+      )}
+      {canManage && (
+        <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-mission-toggle">
+          Add Mission
+        </Button>
+      )}
+    </>
+  );
 
   return (
     <div>
@@ -87,6 +106,15 @@ export function MissionsPage() {
         >
           <Field label="Name" required>
             <Input value={name} onChange={(_, d) => setName(d.value)} data-testid="add-mission-name" />
+          </Field>
+          <Field label="Tournament code" hint='The org’s join key across budgets, invoices and payouts — e.g. "SATR/2024/0001". Unique when set.'>
+            <Input value={code} onChange={(_, d) => setCode(d.value)} data-testid="add-mission-code" />
+          </Field>
+          <Field label="Organizer" hint='e.g. "Saudi Esports Federation", "VSPN"'>
+            <Input value={organizer} onChange={(_, d) => setOrganizer(d.value)} data-testid="add-mission-organizer" />
+          </Field>
+          <Field label="City">
+            <Input value={city} onChange={(_, d) => setCity(d.value)} data-testid="add-mission-city" />
           </Field>
           <Field label="Game title">
             <Input value={gameTitle} onChange={(_, d) => setGameTitle(d.value)} data-testid="add-mission-game" />
@@ -126,6 +154,7 @@ export function MissionsPage() {
             <thead>
               <tr>
                 <th className={r.th}>Mission</th>
+                <th className={r.th}>Code</th>
                 <th className={r.th}>Name</th>
                 <th className={r.th}>Game</th>
                 <th className={r.th}>Starts</th>
@@ -141,6 +170,7 @@ export function MissionsPage() {
                       {m.missionId}
                     </Link>
                   </td>
+                  <td className={`${r.td} ${r.mono}`} data-testid={`mission-code-${m.missionId}`}>{m.code ?? '—'}</td>
                   <td className={`${r.td} ${r.name}`}>{m.name}</td>
                   <td className={r.td}>{m.gameTitle ?? '—'}</td>
                   <td className={r.td}>{m.startsOn}</td>

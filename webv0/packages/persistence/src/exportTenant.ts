@@ -111,6 +111,7 @@ function tableExports(): TableExport[] {
     },
     { name: 'agreement_term', sql: `SELECT * FROM agreement_term WHERE tenant_id = $1 ORDER BY term_id` },
     { name: 'mission_line', sql: `SELECT * FROM mission_line WHERE tenant_id = $1 ORDER BY line_id` },
+    { name: 'mission_budget', sql: `SELECT * FROM mission_budget WHERE tenant_id = $1 ORDER BY mission_id, direction, category, currency` },
     { name: 'mission_participant', sql: `SELECT * FROM mission_participant WHERE tenant_id = $1 ORDER BY mission_id, person_id` },
     { name: 'approval_event', sql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id` },
     { name: 'audit_event', sql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id` },

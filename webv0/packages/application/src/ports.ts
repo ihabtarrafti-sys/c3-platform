@@ -26,6 +26,7 @@ import type {
   Kit,
   Member,
   Mission,
+  MissionBudget,
   MissionLine,
   MissionParticipant,
   Person,
@@ -61,6 +62,10 @@ export interface ReadStore {
   getMissionParticipant(missionId: string, personId: string): Promise<MissionParticipant | null>;
   // Finance S4: a mission's ACTIVE income/expense lines (the P&L raw material).
   listMissionLines(missionId: string): Promise<MissionLine[]>;
+  // S2: budgets for one mission; bulk lines for the all-missions finance dashboard.
+  listMissionBudgets(missionId: string): Promise<MissionBudget[]>;
+  listAllMissionLines(): Promise<MissionLine[]>;
+  listAllMissionBudgets(): Promise<MissionBudget[]>;
   // Sprint 41: agreements. Financial-field omission happens in the
   // APPLICATION query layer (per-actor); the store returns full rows.
   listAgreements(): Promise<Agreement[]>;
@@ -158,6 +163,9 @@ export interface EquipmentPatch {
 /** Fields written when creating a mission (Sprint 39, direct CRUD shell). */
 export interface NewMissionRow {
   readonly name: string;
+  readonly code: string | null;
+  readonly organizer: string | null;
+  readonly city: string | null;
   readonly gameTitle: string | null;
   readonly startsOn: string; // plain ISO YYYY-MM-DD
   readonly endsOn: string | null;
@@ -167,6 +175,9 @@ export interface NewMissionRow {
 /** Editable-field patch for a mission update (only provided keys change). */
 export interface MissionPatch {
   readonly name?: string;
+  readonly code?: string | null;
+  readonly organizer?: string | null;
+  readonly city?: string | null;
   readonly gameTitle?: string | null;
   readonly startsOn?: string;
   readonly endsOn?: string | null;
@@ -190,21 +201,33 @@ export interface NewAgreementRow {
   readonly createdByApprovalId: string;
 }
 
-/** Fields written when creating a mission income/expense line (Finance S4). */
+/** Fields written when creating a mission income/expense line (Finance S4 + S2). */
 export interface NewMissionLineRow {
   readonly lineId: string;
   readonly missionId: string;
   readonly direction: string;
+  readonly category: string;
   readonly label: string;
   readonly amountMinor: number;
   readonly currency: string;
+  /** 'Expected' for income lines; null for expense lines (DB CHECK). */
+  readonly paymentStatus: string | null;
 }
 
-/** Editable-field patch for a line update (direction is immutable). */
+/** Editable-field patch for a line update (direction/category/payment immutable here). */
 export interface MissionLinePatch {
   readonly label?: string;
   readonly amountMinor?: number;
   readonly currency?: string;
+}
+
+/** S2: the audited income-payment update (whole value set, replaced together). */
+export interface MissionLinePaymentPatch {
+  readonly paymentStatus: string;
+  readonly receivedAmountMinor: number | null;
+  readonly receivedUsdPerUnit: number | null;
+  readonly paymentSourceLabel: string | null;
+  readonly refNo: string | null;
 }
 
 /** Fields written when creating an agreement financial term (Finance S3). */
@@ -229,6 +252,7 @@ export interface AgreementTermPatch {
 /** Fields written when creating an Entity (S48, direct-audited). */
 export interface NewEntityRow {
   readonly name: string;
+  readonly code: string | null;
   readonly jurisdiction: string;
   readonly registrationId: string | null;
   readonly localCurrency: string;
@@ -237,6 +261,7 @@ export interface NewEntityRow {
 /** Editable-field patch for an entity update (only provided keys change). */
 export interface EntityPatch {
   readonly name?: string;
+  readonly code?: string | null;
   readonly jurisdiction?: string;
   readonly registrationId?: string | null;
   readonly localCurrency?: string;
@@ -424,6 +449,14 @@ export interface WriteTx {
   updateMissionLine(lineId: string, expectedVersion: number, patch: MissionLinePatch): Promise<MissionLine | null>;
   /** Version-guarded soft removal iff currently active; null = stale/missing/inactive. */
   deactivateMissionLine(lineId: string, expectedVersion: number): Promise<MissionLine | null>;
+  /** S2: version-guarded income-payment set; null = stale/missing/inactive. */
+  setMissionLinePayment(lineId: string, expectedVersion: number, patch: MissionLinePaymentPatch): Promise<MissionLine | null>;
+  /** S2: upsert one budget cell (mission, direction, category, currency). */
+  upsertMissionBudget(missionId: string, direction: string, category: string, currency: string, amountMinor: number): Promise<MissionBudget>;
+  /** S2: clear one budget cell; false when no row existed. */
+  deleteMissionBudget(missionId: string, direction: string, category: string, currency: string): Promise<boolean>;
+  /** S2: version-guarded finance-stage set; legality is the use-case's job. */
+  setMissionFinanceStage(missionId: string, expectedVersion: number, stage: string): Promise<Mission | null>;
 
   // ── Sprint 41 agreements ───────────────────────────────────────────────────
   insertAgreement(row: NewAgreementRow): Promise<Agreement>;

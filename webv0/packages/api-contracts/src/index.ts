@@ -17,8 +17,10 @@ import {
   EQUIPMENT_STATUSES,
   EQUIPMENT_TRANSITIONS,
   JOURNEY_TRANSITIONS,
+  MISSION_FINANCE_STAGES,
   MISSION_LINE_DIRECTIONS,
   OPERATION_TYPES,
+  PAYMENT_STATUSES,
   currencyCodeSchema,
   setFxRateInputSchema,
   addAgreementInputSchema,
@@ -40,9 +42,12 @@ import {
   initiateJourneyInputSchema,
   journeyTransitionRequestSchema,
   missionCreateInputSchema,
+  missionFinanceStageInputSchema,
   missionLineCreateInputSchema,
+  missionLinePaymentInputSchema,
   missionLineUpdateInputSchema,
   missionUpdateInputSchema,
+  setMissionBudgetInputSchema,
   provisionMemberPayloadSchema,
   reactivateMemberPayloadSchema,
   removeMissionParticipantInputSchema,
@@ -258,10 +263,15 @@ export const apparelTransitionParamSchema = z.object({
 export const missionSchema = z.object({
   missionId: z.string(),
   name: z.string(),
+  // S2: tournament code (the org's join key), organizer, city, finance stage.
+  code: z.string().nullable(),
+  organizer: z.string().nullable(),
+  city: z.string().nullable(),
   gameTitle: z.string().nullable(),
   startsOn: z.string(), // plain ISO date, YYYY-MM-DD
   endsOn: z.string().nullable(),
   notes: z.string().nullable(),
+  financeStage: z.enum(MISSION_FINANCE_STAGES),
   isActive: z.boolean(),
   version: z.number().int(),
   createdAt: z.string(),
@@ -312,9 +322,16 @@ export const missionLineSchema = z.object({
   lineId: z.string(),
   missionId: z.string(),
   direction: z.enum(MISSION_LINE_DIRECTIONS),
+  category: z.string(),
   label: z.string(),
   amountMinor: z.number().int(),
   currency: currencyCodeSchema,
+  // S2: income payment tracking (null on expense lines).
+  paymentStatus: z.enum(PAYMENT_STATUSES).nullable(),
+  receivedAmountMinor: z.number().int().nullable(),
+  receivedUsdPerUnit: z.number().nullable(),
+  paymentSourceLabel: z.string().nullable(),
+  refNo: z.string().nullable(),
   isActive: z.boolean(),
   version: z.number().int(),
   createdAt: z.string(),
@@ -322,13 +339,25 @@ export const missionLineSchema = z.object({
 });
 export type MissionLineDto = z.infer<typeof missionLineSchema>;
 export const missionLineResponseSchema = z.object({ line: missionLineSchema });
-export { missionLineCreateInputSchema, missionLineUpdateInputSchema };
+export { missionLineCreateInputSchema, missionLineUpdateInputSchema, missionLinePaymentInputSchema, setMissionBudgetInputSchema, missionFinanceStageInputSchema };
 export const missionLineParamSchema = z.object({
   missionId: z.string().regex(/^MSN-\d{4,}$/),
   lineId: z.string().regex(/^PNL-\d{4,}$/),
 });
 /** Soft removal carries the expected version (version-guarded). */
 export const missionLineRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
+
+export const missionBudgetSchema = z.object({
+  missionId: z.string(),
+  direction: z.enum(MISSION_LINE_DIRECTIONS),
+  category: z.string(),
+  currency: currencyCodeSchema,
+  amountMinor: z.number().int(),
+  updatedAt: z.string(),
+});
+export type MissionBudgetDto = z.infer<typeof missionBudgetSchema>;
+/** Set/clear returns the cell or null (cleared). */
+export const missionBudgetResponseSchema = z.object({ budget: missionBudgetSchema.nullable() });
 
 /** The derived P&L — honest by construction: blended is NULL when a rate is missing. */
 export const missionPnlSchema = z.object({
@@ -348,13 +377,52 @@ export const missionPnlSchema = z.object({
     ),
     openEnded: z.boolean(),
   }),
+  // S2: budget-vs-actual per (direction, category); USD figures null when unblendable.
+  perCategory: z.array(
+    z.object({
+      direction: z.enum(MISSION_LINE_DIRECTIONS),
+      category: z.string(),
+      actual: z.array(z.object({ currency: currencyCodeSchema, amountMinor: z.number().int() })),
+      budget: z.array(z.object({ currency: currencyCodeSchema, amountMinor: z.number().int() })),
+      actualUsdMinor: z.number().int().nullable(),
+      budgetUsdMinor: z.number().int().nullable(),
+      varianceUsdMinor: z.number().int().nullable(),
+    }),
+  ),
+  settlement: z.object({ outstandingIncomeCount: z.number().int(), incomeComplete: z.boolean() }),
   blended: z
     .object({ incomeUsdMinor: z.number().int(), expenseUsdMinor: z.number().int(), profitUsdMinor: z.number().int() })
     .nullable(),
   missingRates: z.array(currencyCodeSchema),
 });
 export type MissionPnlDto = z.infer<typeof missionPnlSchema>;
-export const missionPnlResponseSchema = z.object({ lines: z.array(missionLineSchema), pnl: missionPnlSchema });
+export const missionPnlResponseSchema = z.object({
+  lines: z.array(missionLineSchema),
+  budgets: z.array(missionBudgetSchema),
+  pnl: missionPnlSchema,
+});
+
+/** S2: the all-missions finance dashboard row. */
+export const missionFinanceSummarySchema = z.object({
+  missions: z.array(
+    z.object({
+      missionId: z.string(),
+      name: z.string(),
+      code: z.string().nullable(),
+      organizer: z.string().nullable(),
+      financeStage: z.enum(MISSION_FINANCE_STAGES),
+      isActive: z.boolean(),
+      startsOn: z.string(),
+      endsOn: z.string().nullable(),
+      outstandingIncomeCount: z.number().int(),
+      blended: z
+        .object({ incomeUsdMinor: z.number().int(), expenseUsdMinor: z.number().int(), profitUsdMinor: z.number().int() })
+        .nullable(),
+      missingRates: z.array(currencyCodeSchema),
+    }),
+  ),
+});
+export type MissionFinanceSummaryDto = z.infer<typeof missionFinanceSummarySchema>;
 
 export const submitAddMissionParticipantRequestSchema = z.object({
   input: addMissionParticipantInputSchema,
@@ -429,6 +497,7 @@ export type SubmitRemoveAgreementTermRequest = z.infer<typeof submitRemoveAgreem
 export const entitySchema = z.object({
   entityId: z.string(),
   name: z.string(),
+  code: z.string().nullable(),
   jurisdiction: z.string(),
   registrationId: z.string().nullable(),
   localCurrency: currencyCodeSchema,

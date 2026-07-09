@@ -72,6 +72,10 @@ export const AUDIT_ACTIONS = [
   'MissionLineAdded',
   'MissionLineUpdated',
   'MissionLineRemoved',
+  // S2 Mission Finance: income payment tracking, budgets, the financial lifecycle.
+  'MissionLinePaymentSet',
+  'MissionBudgetSet',
+  'MissionFinanceStageChanged',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

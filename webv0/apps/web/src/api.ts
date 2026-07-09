@@ -26,7 +26,9 @@ import type {
   KitDto,
   MeResponse,
   MemberDto,
+  MissionBudgetDto,
   MissionDto,
+  MissionFinanceSummaryDto,
   MissionLineDto,
   MissionPnlDto,
   MissionParticipantDto,
@@ -43,7 +45,7 @@ import type {
   SubmitRenewAgreementRequest,
   SubmitTerminateAgreementRequest,
 } from '@c3web/api-contracts';
-import type { AgreementTermKind, EquipmentTransition, MissionLineDirection } from '@c3web/domain';
+import type { AgreementTermKind, EquipmentTransition, MissionFinanceStage, MissionLineDirection, PaymentStatus } from '@c3web/domain';
 
 export interface EquipmentCreateBody {
   name: string;
@@ -58,6 +60,7 @@ export interface EquipmentUpdateBody extends Partial<EquipmentCreateBody> {
 
 export interface EntityCreateBody {
   name: string;
+  code?: string | null;
   jurisdiction: string;
   registrationId?: string | null;
   localCurrency: string;
@@ -68,6 +71,9 @@ export interface EntityUpdateBody extends Partial<EntityCreateBody> {
 
 export interface MissionCreateBody {
   name: string;
+  code?: string | null;
+  organizer?: string | null;
+  city?: string | null;
   gameTitle?: string | null;
   startsOn: string; // plain ISO date
   endsOn?: string | null;
@@ -77,9 +83,10 @@ export interface MissionUpdateBody extends Partial<MissionCreateBody> {
   expectedVersion: number;
 }
 
-/** Finance S4: mission income/expense lines (direction immutable on update). */
+/** Finance S4 + S2: mission income/expense lines (direction+category immutable on update). */
 export interface MissionLineCreateBody {
   direction: MissionLineDirection;
+  category: string;
   label: string;
   amountMinor: number;
   currency: string;
@@ -89,6 +96,22 @@ export interface MissionLineUpdateBody {
   label?: string;
   amountMinor?: number;
   currency?: string;
+}
+/** S2: the audited income-payment update. */
+export interface MissionLinePaymentBody {
+  expectedVersion: number;
+  paymentStatus: PaymentStatus;
+  receivedAmountMinor?: number | null;
+  receivedUsdPerUnit?: number | null;
+  paymentSourceLabel?: string | null;
+  refNo?: string | null;
+}
+/** S2: set/clear one budget cell (null amount clears). */
+export interface MissionBudgetBody {
+  direction: MissionLineDirection;
+  category: string;
+  currency: string;
+  amountMinor: number | null;
 }
 
 /** NON-MATERIAL agreement patch (material terms move through governed ops). */
@@ -229,9 +252,16 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/requests', { input, ...(reason ? { reason } : {}) }),
     submitRemoveMissionParticipant: (input: SubmitRemoveMissionParticipantRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/removals', { input, ...(reason ? { reason } : {}) }),
-    // Finance S4: mission P&L (canViewFinancials; lines direct-audited).
+    // Finance S4 + S2: mission P&L (canViewFinancials; lines direct-audited).
     missionPnl: (missionId: string) =>
-      request<{ lines: MissionLineDto[]; pnl: MissionPnlDto }>('GET', `/api/v1/missions/${missionId}/pnl`),
+      request<{ lines: MissionLineDto[]; budgets: MissionBudgetDto[]; pnl: MissionPnlDto }>('GET', `/api/v1/missions/${missionId}/pnl`),
+    missionsFinanceSummary: () => request<MissionFinanceSummaryDto>('GET', '/api/v1/missions/finance-summary'),
+    setMissionLinePayment: (missionId: string, lineId: string, body: MissionLinePaymentBody) =>
+      request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines/${lineId}/payment`, body),
+    setMissionBudget: (missionId: string, body: MissionBudgetBody) =>
+      request<{ budget: MissionBudgetDto | null }>('POST', `/api/v1/missions/${missionId}/budgets`, body),
+    setMissionFinanceStage: (missionId: string, expectedVersion: number, stage: MissionFinanceStage) =>
+      request<{ mission: MissionDto }>('POST', `/api/v1/missions/${missionId}/finance-stage`, { expectedVersion, stage }),
     addMissionLine: (missionId: string, body: MissionLineCreateBody) =>
       request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines`, body),
     updateMissionLine: (missionId: string, lineId: string, body: MissionLineUpdateBody) =>
@@ -316,4 +346,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse };
+export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionFinanceSummaryDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse };
