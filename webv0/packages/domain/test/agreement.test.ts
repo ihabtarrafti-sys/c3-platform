@@ -62,6 +62,24 @@ describe('addAgreementInputSchema (governed creation)', () => {
     expect(() => addAgreementInputSchema.parse({ ...valid, personId: 'person-1' })).toThrow(/PER id/);
     expect(() => addAgreementInputSchema.parse({ ...valid, extra: 'x' })).toThrow();
   });
+
+  it('THE ANCHOR RULE (Tier-0 S1): entity-level agreements need no person, but never neither', () => {
+    // entity-only: valid — the person-less org-to-org agreement
+    const entityLevel = addAgreementInputSchema.parse({
+      entityId: 'ENT-0001',
+      agreementType: 'Sponsorship',
+      startsOn: '2026-08-01',
+      endsOn: '2027-07-31',
+    });
+    expect(entityLevel.personId).toBeNull();
+    expect(entityLevel.entityId).toBe('ENT-0001');
+    // both anchors: valid (a person's contract under an entity, the S48 shape)
+    expect(addAgreementInputSchema.parse({ ...valid, entityId: 'ENT-0001' }).entityId).toBe('ENT-0001');
+    // NEITHER anchor: refused
+    expect(() =>
+      addAgreementInputSchema.parse({ agreementType: 'Floating', startsOn: '2026-08-01', endsOn: '2027-07-31' }),
+    ).toThrow(/anchor/);
+  });
 });
 
 describe('renew / terminate agreements (governed material ops)', () => {

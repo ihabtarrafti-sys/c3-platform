@@ -93,7 +93,7 @@ export function AgreementsPage() {
     try {
       const cents = valueUsd.trim() === '' ? undefined : Math.round(Number(valueUsd) * 100);
       const res = await api.submitAddAgreement({
-        personId,
+        personId: personId || undefined,
         entityId: entityId || undefined,
         agreementType: agreementType.trim(),
         agreementCode: agreementCode.trim() || undefined,
@@ -113,8 +113,9 @@ export function AgreementsPage() {
     }
   }
 
+  // THE ANCHOR RULE: a person, an entity, or both — never neither.
   const ready =
-    personId !== '' &&
+    (personId !== '' || entityId !== '') &&
     agreementType.trim() !== '' &&
     /^\d{4}-\d{2}-\d{2}$/.test(startsOn) &&
     /^\d{4}-\d{2}-\d{2}$/.test(endsOn) &&
@@ -150,20 +151,21 @@ export function AgreementsPage() {
             />
           }
         >
-          <Field label="Person" required>
+          <Field label="Person" hint="Optional for entity-level agreements (sponsorships, partnership fees) — anchor to an entity below instead.">
             <Dropdown
               className={s.personSelect}
               placeholder="Select a person"
               value={personLabel}
               selectedOptions={personId ? [personId] : []}
               onOptionSelect={(_, d) => {
-                if (d.optionValue) {
-                  setPersonId(d.optionValue);
-                  setPersonLabel(d.optionText ?? d.optionValue);
-                }
+                setPersonId(d.optionValue ?? '');
+                setPersonLabel(d.optionValue ? (d.optionText ?? '') : '');
               }}
               data-testid="add-agreement-person"
             >
+              <Option value="" text="No person — entity-level">
+                No person — entity-level
+              </Option>
               {(people.data?.people ?? []).map((p) => (
                 <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>
                   {`${p.fullName} (${p.personId})`}
@@ -172,7 +174,7 @@ export function AgreementsPage() {
             </Dropdown>
           </Field>
           {activeEntities.length > 0 && (
-            <Field label="Under entity" hint="Which of your legal entities this agreement sits under.">
+            <Field label="Under entity" hint="Which of your legal entities this agreement sits under. Required when no person is selected.">
               <Dropdown
                 className={s.personSelect}
                 placeholder="Not assigned"
@@ -297,10 +299,14 @@ export function AgreementsPage() {
                       </Link>
                     </td>
                     <td className={r.td}>{a.agreementCode ?? '—'}</td>
-                    <td className={r.td}>
-                      <Link className={r.idLink} to={`/people/${a.personId}`}>
-                        {a.personId}
-                      </Link>
+                    <td className={r.td} data-testid={`agreement-person-${a.agreementId}`}>
+                      {a.personId ? (
+                        <Link className={r.idLink} to={`/people/${a.personId}`}>
+                          {a.personId}
+                        </Link>
+                      ) : (
+                        '—'
+                      )}
                     </td>
                     <td className={r.td} data-testid={`agreement-entity-${a.agreementId}`}>{entityName(a.entityId)}</td>
                     <td className={`${r.td} ${r.name}`}>{a.agreementType}</td>

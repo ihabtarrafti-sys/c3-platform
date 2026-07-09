@@ -28,6 +28,7 @@ import {
   renewAgreementInputSchema,
   terminateAgreementInputSchema,
   ConflictError,
+  ENTITY_AGREEMENT_TARGET,
   formatApprovalId,
   NotFoundError,
 } from '@c3web/domain';
@@ -59,8 +60,11 @@ export async function submitAddAgreement(
   const input = addAgreementInputSchema.parse(command.input);
   const reads = p.reads.forActor(actor);
 
-  const person = await reads.getPersonById(input.personId);
-  if (!person) throw new NotFoundError('Person', input.personId);
+  // The anchor rule is schema-enforced; here each GIVEN anchor must exist.
+  if (input.personId) {
+    const person = await reads.getPersonById(input.personId);
+    if (!person) throw new NotFoundError('Person', input.personId);
+  }
 
   if (input.entityId) {
     const entity = await reads.getEntityById(input.entityId);
@@ -86,7 +90,9 @@ export async function submitAddAgreement(
     const approval = await tx.insertApproval({
       approvalId,
       operationType: 'AddAgreement',
-      targetPersonId: input.personId,
+      // Entity-level agreements have no owning person: the sentinel keeps the
+      // column truthful and person-scoped approval reads never match it.
+      targetPersonId: input.personId ?? ENTITY_AGREEMENT_TARGET,
       targetId: null, // the AGR id does not exist until execution
       reason,
       payload: { operationType: 'AddAgreement', input },
@@ -97,7 +103,7 @@ export async function submitAddAgreement(
       fromStatus: null,
       toStatus: 'Submitted',
       actor: actor.identity,
-      note: `AddAgreement request submitted: ${input.agreementType} for ${input.personId}`,
+      note: `AddAgreement request submitted: ${input.agreementType} for ${input.personId ?? input.entityId}`,
     });
     await tx.appendAuditEvent({
       entityType: 'Approval',
@@ -136,7 +142,7 @@ async function submitTargetedAgreementOp(
     const approval = await tx.insertApproval({
       approvalId,
       operationType: op,
-      targetPersonId: agreement.personId,
+      targetPersonId: agreement.personId ?? ENTITY_AGREEMENT_TARGET,
       targetId: agreementId,
       reason,
       payload: { operationType: op, input: payloadInput },

@@ -183,7 +183,8 @@ export const agreement = pgTable('agreement', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),
   agreementId: text('agreement_id').notNull(),
-  personId: text('person_id').notNull(),
+  // Nullable since 0022: entity-level agreements have no person (anchor CHECK).
+  personId: text('person_id'),
   entityId: text('entity_id'),
   agreementCode: text('agreement_code'),
   agreementType: text('agreement_type').notNull(),

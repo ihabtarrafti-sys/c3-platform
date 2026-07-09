@@ -144,6 +144,32 @@ describe('entity threading (person + agreement)', () => {
       submitAddPerson(p, alphaOps, { input: { fullName: 'Nobody', entityId: 'ENT-9999' } as AddPersonInput }),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
+
+  it('an ENTITY-LEVEL agreement (no person) rides the governed pipeline end-to-end (Tier-0 S1)', async () => {
+    const e = await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE', localCurrency: 'AED' });
+    const sub = await submitAddAgreement(p, alphaOps, {
+      input: { entityId: e.entityId, agreementType: 'Sponsorship', startsOn: '2026-01-01', endsOn: '2027-01-01' } as never,
+    });
+    // The approval's target person is the truthful sentinel, never a fake PER id.
+    expect(sub.targetPersonId).toBe('N/A-ENTITY');
+
+    const inReview = await beginReview(p, alphaOwner, sub.approvalId, sub.version);
+    const approved = await approveApproval(p, alphaOwner, inReview.approvalId, inReview.version);
+    const res = await executeApproval(p, alphaOwner, approved.approvalId, approved.version);
+    expect(res.agreement).toMatchObject({ personId: null, entityId: e.entityId, agreementType: 'Sponsorship', status: 'Active' });
+
+    // Person-scoped reads never see it; the register does.
+    const all = await p.reads.forActor(alphaOwner).listAgreements();
+    expect(all.some((a) => a.agreementId === res.agreement!.agreementId)).toBe(true);
+  });
+
+  it('an agreement anchored to NOTHING is refused at the schema boundary', async () => {
+    await expect(
+      submitAddAgreement(p, alphaOps, {
+        input: { agreementType: 'Floating', startsOn: '2026-01-01', endsOn: '2027-01-01' } as never,
+      }),
+    ).rejects.toThrow(/anchor/);
+  });
 });
 
 describe('FX rates (Finance S1, tenant-scoped, owner/ops)', () => {

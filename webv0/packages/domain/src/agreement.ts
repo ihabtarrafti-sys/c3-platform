@@ -26,13 +26,25 @@ import { entityIdOptional } from './entity';
 export const AGREEMENT_STATUSES = ['Active', 'Terminated'] as const;
 export type AgreementStatus = (typeof AGREEMENT_STATUSES)[number];
 
+/**
+ * Sentinel written to Approval.targetPersonId for ENTITY-LEVEL agreement
+ * operations (no owning person — the MEMBER_OP_TARGET precedent). Never a
+ * valid PER id; person-scoped approval reads never match it.
+ */
+export const ENTITY_AGREEMENT_TARGET = 'N/A-ENTITY';
+
 /** An Agreement as the domain reasons about it (surrogate UUID lives in persistence). */
 export interface Agreement {
   /** Canonical business identity, e.g. "AGR-0001". */
   readonly agreementId: string;
   readonly tenantId: string;
-  /** The owning person's canonical id (PER-XXXX). */
-  readonly personId: string;
+  /**
+   * The owning person's canonical id (PER-XXXX), or NULL for an ENTITY-LEVEL
+   * agreement (Tier-0 S1, the S48 fast-follow): org-to-org paper — sponsorships,
+   * partnership fees — anchored to a tenant entity instead of a person. THE
+   * ANCHOR RULE: personId or entityId, at least one (schema + DB CHECK).
+   */
+  readonly personId: string | null;
   /**
    * S48: the tenant legal entity this agreement sits UNDER (ENT-XXXX), e.g. the
    * UAE company. Optional for now (existing agreements pre-date entities);
@@ -116,10 +128,14 @@ const linkedAgreementOptional = z
 /** Integer US cents, non-negative, safely representable. */
 const centsField = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
 
-/** AddAgreement — the governed creation request. */
+/**
+ * AddAgreement — the governed creation request. personId is OPTIONAL (an
+ * entity-level agreement has none), but THE ANCHOR RULE holds: a person or an
+ * entity, at least one — an agreement anchored to nothing is meaningless.
+ */
 export const addAgreementInputSchema = z
   .object({
-    personId: personIdField,
+    personId: personIdField.nullish().transform((v) => v ?? null),
     entityId: entityIdOptional,
     agreementCode: trimmedOptional(60),
     agreementType: z.string().trim().min(1, 'Agreement type is required').max(120),
@@ -133,6 +149,10 @@ export const addAgreementInputSchema = z
   .refine((v) => v.endsOn >= v.startsOn, {
     message: 'End date must be on or after the start date',
     path: ['endsOn'],
+  })
+  .refine((v) => v.personId !== null || v.entityId !== null, {
+    message: 'An agreement needs an anchor: a person, an entity, or both.',
+    path: ['personId'],
   });
 export type AddAgreementInput = z.infer<typeof addAgreementInputSchema>;
 

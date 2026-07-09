@@ -13,7 +13,7 @@ import {
   type AgreementTermKind,
   type CurrencyCode,
 } from '@c3web/domain';
-import { useAgreement, useAgreementAudit, useAgreements, useAgreementTerms } from '../queries';
+import { useAgreement, useAgreementAudit, useAgreements, useAgreementTerms, useEntities } from '../queries';
 import { ApiError, type AgreementTermDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -61,6 +61,7 @@ export function AgreementDetailPage() {
   const canViewHistory = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
   const { data, isLoading, isError, error } = useAgreement(agreementId, canRead);
   const siblings = useAgreements(canRead);
+  const entities = useEntities(canRead);
   const audit = useAgreementAudit(agreementId, canRead && canViewHistory);
 
   const [renewEndsOn, setRenewEndsOn] = useState('');
@@ -247,11 +248,21 @@ export function AgreementDetailPage() {
               { label: 'Code', value: a.agreementCode ?? null },
               {
                 label: 'Person',
-                value: (
+                value: a.personId ? (
                   <Link className={r.idLink} to={`/people/${a.personId}`}>
                     {a.personId}
                   </Link>
+                ) : (
+                  <span data-testid="agreement-no-person">— (entity-level)</span>
                 ),
+              },
+              {
+                label: 'Entity',
+                value: a.entityId ? (
+                  <span data-testid="agreement-entity">
+                    {(entities.data?.entities ?? []).find((e) => e.entityId === a.entityId)?.name ?? a.entityId}
+                  </span>
+                ) : null,
               },
               { label: 'Type', value: a.agreementType },
               {

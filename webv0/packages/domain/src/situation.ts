@@ -40,7 +40,8 @@ export interface SituationSnapshot {
   /** Financial-free by design: signals never need the value. */
   readonly agreements: ReadonlyArray<{
     agreementId: string;
-    personId: string;
+    /** Null = entity-level agreement (no owning person). */
+    personId: string | null;
     agreementType: string;
     endsOn: string;
     status: 'Active' | 'Terminated';
@@ -281,12 +282,15 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
   }
 
   // 3 — Agreement windows (the CP Renewals center, reasoned and actionable).
+  // Entity-level agreements (no person) get an org-voice headline and no
+  // roster reasoning — there is no person to be rostered.
   for (const a of snapshot.agreements) {
     const state = agreementRenewalStateOn({ status: a.status, endsOn: a.endsOn }, today);
     if (state === 'Active' || state === 'Terminated') continue;
     const days = daysUntil(today, a.endsOn);
-    const name = snapshot.people.find((p) => p.personId === a.personId)?.fullName ?? a.personId;
-    const missions = activeMissionsOf(a.personId);
+    const name = a.personId === null ? null : (snapshot.people.find((p) => p.personId === a.personId)?.fullName ?? a.personId);
+    const subject = name === null ? `The ${a.agreementType} (${a.agreementId})` : `${name}'s ${a.agreementType} (${a.agreementId})`;
+    const missions = a.personId === null ? [] : activeMissionsOf(a.personId);
     const inMotion = open.some(
       (o) => (o.operationType === 'RenewAgreement' || o.operationType === 'TerminateAgreement') && o.targetId === a.agreementId,
     );
@@ -296,8 +300,8 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
         kind: 'AgreementWindow',
         headline:
           state === 'Expired'
-            ? `${name}'s ${a.agreementType} (${a.agreementId}) has expired`
-            : `${name}'s ${a.agreementType} (${a.agreementId}) ends in ${days} day${days === 1 ? '' : 's'}`,
+            ? `${subject} has expired`
+            : `${subject} ends in ${days} day${days === 1 ? '' : 's'}`,
         reasons: [
           state === 'Expired' ? `Ended ${-days} day${-days === 1 ? '' : 's'} ago` : `Renewal window: ${state.replace('Due', 'due within ')} days`,
           ...missions.map((m) => `${name} is on the active roster of ${m.missionId} "${m.name}"`),
@@ -307,7 +311,7 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
         urgency: state === 'Expired' ? 3 : urgencyFromDays(days),
         inMotion,
         actions: [
-          { kind: 'RenewAgreement', agreementId: a.agreementId, personId: a.personId },
+          { kind: 'RenewAgreement', agreementId: a.agreementId, ...(a.personId !== null ? { personId: a.personId } : {}) },
           { kind: 'ViewAgreement', agreementId: a.agreementId },
         ],
       }),

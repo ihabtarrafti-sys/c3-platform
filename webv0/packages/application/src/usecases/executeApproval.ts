@@ -363,7 +363,7 @@ export async function executeApproval(
             fromStatus: approval.status,
             toStatus: 'Executed',
             actor: actor.identity,
-            note: `Executed: created ${agreementId} (${input.agreementType}) for ${input.personId}`,
+            note: `Executed: created ${agreementId} (${input.agreementType}) for ${input.personId ?? input.entityId}`,
           });
           await tx.appendAuditEvent({
             entityType: 'Agreement',

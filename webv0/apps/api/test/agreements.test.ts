@@ -124,6 +124,37 @@ describe('the governed material lifecycle over HTTP', () => {
     const forPerson = await app.inject({ method: 'GET', url: `/api/v1/people/${personId}/agreements`, headers: auth(tokens.owner) });
     expect(forPerson.json().agreements).toHaveLength(2);
   });
+
+  it('an ENTITY-LEVEL agreement (Tier-0 S1): no person, anchored to an entity; neither anchor is a 400', async () => {
+    const ent = await app.inject({
+      method: 'POST',
+      url: '/api/v1/entities',
+      headers: auth(tokens.ops),
+      payload: { name: 'Geekay UAE', jurisdiction: 'UAE', localCurrency: 'AED' },
+    });
+    expect(ent.statusCode, ent.body).toBe(201);
+    const entityId = ent.json().entity.entityId as string;
+
+    const sub = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/requests',
+      headers: auth(tokens.ops),
+      payload: { input: { entityId, agreementType: 'Sponsorship', startsOn: '2026-08-01', endsOn: '2027-07-31', valueUsdCents: 5_000_000 } },
+    });
+    expect(sub.statusCode, sub.body).toBe(201);
+    expect(sub.json().approval.targetPersonId).toBe('N/A-ENTITY'); // truthful sentinel, no fake person
+    const exec = await governedExecute(sub.json().approval.approvalId, sub.json().approval.version);
+    expect(exec.agreement).toMatchObject({ personId: null, entityId, agreementType: 'Sponsorship', status: 'Active' });
+
+    // The anchor rule at the wire: an agreement anchored to nothing is a 400.
+    const floating = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/requests',
+      headers: auth(tokens.ops),
+      payload: { input: { agreementType: 'Floating', startsOn: '2026-08-01', endsOn: '2027-07-31' } },
+    });
+    expect(floating.statusCode).toBe(400);
+  });
 });
 
 describe('role-differentiated reads (the Set-E boundary at the wire)', () => {

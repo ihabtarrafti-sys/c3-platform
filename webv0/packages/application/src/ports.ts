@@ -176,7 +176,8 @@ export interface MissionPatch {
 /** Fields written when creating an Agreement during AddAgreement execution. */
 export interface NewAgreementRow {
   readonly agreementId: string;
-  readonly personId: string;
+  /** Null = entity-level agreement (the anchor rule guarantees entityId is set). */
+  readonly personId: string | null;
   readonly entityId: string | null;
   readonly agreementCode: string | null;
   readonly agreementType: string;

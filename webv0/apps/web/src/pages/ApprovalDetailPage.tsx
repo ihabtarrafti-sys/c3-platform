@@ -118,7 +118,7 @@ export function ApprovalDetailPage() {
                   : a.payload.operationType === 'RemoveMissionParticipant'
                     ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`Remove ${a.payload.input.personId} from ${a.payload.input.missionId}`}</span> }]
                     : a.payload.operationType === 'AddAgreement'
-                      ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`${a.payload.input.agreementType} for ${a.payload.input.personId}`}</span> }]
+                      ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`${a.payload.input.agreementType} for ${a.payload.input.personId ?? a.payload.input.entityId}`}</span> }]
                       : a.payload.operationType === 'RenewAgreement'
                         ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Renew ${a.payload.input.agreementId} to ${a.payload.input.newEndsOn}`}</span> }]
                         : a.payload.operationType === 'TerminateAgreement'

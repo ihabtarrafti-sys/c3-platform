@@ -1,11 +1,13 @@
 import { test, expect, type Page } from '@playwright/test';
 
 /**
- * End-to-end evidence for the Entities domain (S48). Direct-audited CRUD for the
- * tenant's legal operating entities, the owner/operations management gate, and
- * the threading: an active entity is offered as "signed with" when adding a
- * person. Runs alphabetically after credentials, before equipment; the entity
- * it creates is deactivated at the end so later specs see no active entity.
+ * End-to-end evidence for the Entities domain (S48) + ENTITY-LEVEL agreements
+ * (Tier-0 S1). Direct-audited CRUD for the tenant's legal operating entities,
+ * the owner/operations management gate, the "signed with" threading on Add
+ * Person, and the person-less agreement: a sponsorship anchored to the entity
+ * alone rides the governed pipeline (the anchor rule visible in the browser).
+ * Runs alphabetically after agreements (AGR-0001/0002 exist), before equipment;
+ * the entity is deactivated at the end so later specs see no active entity.
  */
 
 async function login(page: Page, email: string, role: string): Promise<void> {
@@ -26,6 +28,10 @@ async function login(page: Page, email: string, role: string): Promise<void> {
 }
 
 test('Entities register + person assignment threading, end to end', async ({ page }) => {
+  // Tier-0 S1 adds a governed entity-level agreement round-trip (requester ≠
+  // approver logins) on top of the CRUD walk — triple the budget.
+  test.slow();
+
   await test.step('Operations creates a legal operating entity (immediate, recorded)', async () => {
     await login(page, 'ops@alpha.com', 'operations');
     await page.getByTestId('nav-entities').click();
@@ -74,8 +80,48 @@ test('Entities register + person assignment threading, end to end', async ({ pag
     await page.getByTestId('reactivate-entity-ENT-0001-confirm').click();
     await expect(page.getByTestId('entity-status-ENT-0001')).toHaveText('Active');
     await expect(page.getByTestId('edit-entity-ENT-0001')).toBeVisible(); // actions return
+  });
 
-    // Leave it inactive so later specs see no active entity (dropdown stays clean).
+  await test.step('An ENTITY-LEVEL agreement: no person, anchored to the entity alone (Tier-0 S1)', async () => {
+    // Ops requests a sponsorship with NO person. The submit stays disabled
+    // while the request is anchored to nothing — the anchor rule in the UI.
+    await page.getByTestId('nav-agreements').click();
+    await page.getByTestId('add-agreement-toggle').click();
+    await page.getByTestId('add-agreement-type').fill('Sponsorship');
+    await page.getByTestId('add-agreement-starts').fill('2026-08-01');
+    await page.getByTestId('add-agreement-ends').fill('2027-07-31');
+    await expect(page.getByTestId('add-agreement-submit')).toBeDisabled(); // anchored to nothing
+    await page.getByTestId('add-agreement-entity').click();
+    await page.getByRole('option', { name: /Geekay Esports/ }).click();
+    await page.getByTestId('add-agreement-submit').click();
+    await page.getByTestId('add-agreement-submit-confirm').click();
+    await expect(page.getByTestId('notifications')).toContainText('not created until an owner executes');
+    const all = (await page.getByTestId('notifications').textContent())?.match(/APR-\d{4,}/g);
+    const entApr = all![all!.length - 1]!;
+
+    // Owner executes; the approval subject names the ENTITY, never a fake person.
+    await login(page, 'owner@alpha.com', 'owner');
+    await page.goto(`/approvals/${entApr}`);
+    await expect(page.getByTestId('approval-agreement-subject')).toHaveText('Sponsorship for ENT-0001');
+    await page.getByTestId('begin-review').click();
+    await page.getByTestId('approve').click();
+    await page.getByTestId('approve-confirm').click();
+    await page.getByTestId('execute').click();
+    await page.getByTestId('execute-confirm').click();
+    await expect(page.getByTestId('approval-detail-status')).toHaveText('Executed');
+
+    // The register shows the person-less row honestly; the detail names the entity.
+    await page.getByTestId('nav-agreements').click();
+    await expect(page.getByTestId('agreement-row-AGR-0003')).toBeVisible();
+    await expect(page.getByTestId('agreement-person-AGR-0003')).toHaveText('—');
+    await expect(page.getByTestId('agreement-entity-AGR-0003')).toHaveText('Geekay Esports FZ-LLC');
+    await page.getByTestId('agreement-link-AGR-0003').click();
+    await expect(page.getByTestId('agreement-no-person')).toHaveText('— (entity-level)');
+    await expect(page.getByTestId('agreement-entity')).toHaveText('Geekay Esports FZ-LLC');
+  });
+
+  await test.step('The entity is retired again so later specs see no active entity', async () => {
+    await page.getByTestId('nav-entities').click();
     await page.getByTestId('deactivate-entity-ENT-0001').click();
     await page.getByTestId('deactivate-entity-ENT-0001-confirm').click();
     await expect(page.getByTestId('entity-status-ENT-0001')).toHaveText('Inactive');

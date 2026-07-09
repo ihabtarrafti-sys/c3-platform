@@ -157,7 +157,7 @@ export function mapAgreement(row: any): Agreement {
   return {
     agreementId: row.agreementId ?? row.agreement_id,
     tenantId: row.tenantId ?? row.tenant_id,
-    personId: row.personId ?? row.person_id,
+    personId: row.personId ?? row.person_id ?? null,
     entityId: row.entityId ?? row.entity_id ?? null,
     agreementCode: row.agreementCode ?? row.agreement_code ?? null,
     agreementType: row.agreementType ?? row.agreement_type,

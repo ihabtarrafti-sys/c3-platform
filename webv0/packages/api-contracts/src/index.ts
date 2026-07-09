@@ -376,7 +376,8 @@ export type SubmitRemoveMissionParticipantRequest = z.infer<typeof submitRemoveM
  */
 export const agreementSchema = z.object({
   agreementId: z.string(),
-  personId: z.string(),
+  // Null = entity-level agreement (no owning person; entityId is the anchor).
+  personId: z.string().nullable(),
   entityId: z.string().nullable(),
   agreementCode: z.string().nullable(),
   agreementType: z.string(),
