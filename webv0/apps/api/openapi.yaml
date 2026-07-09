@@ -8531,6 +8531,78 @@ paths:
                 required:
                   - entity
                 additionalProperties: false
+  /api/v1/entities/{entityId}/reactivate:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+              required:
+                - expectedVersion
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^ENT-\d{4,}$
+          in: path
+          name: entityId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entity:
+                    type: object
+                    properties:
+                      entityId:
+                        type: string
+                      name:
+                        type: string
+                      jurisdiction:
+                        type: string
+                      registrationId:
+                        type: string
+                        nullable: true
+                      localCurrency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      isActive:
+                        type: boolean
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - entityId
+                      - name
+                      - jurisdiction
+                      - registrationId
+                      - localCurrency
+                      - isActive
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - entity
+                additionalProperties: false
   /api/v1/fx-rates:
     get:
       responses:

@@ -457,6 +457,15 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapEntity(rows[0]) : null;
     },
 
+    async reactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null> {
+      const rows = await db
+        .update(schema.entity)
+        .set({ isActive: true, version: sql`${schema.entity.version} + 1` })
+        .where(and(eq(schema.entity.entityId, entityId), eq(schema.entity.version, expectedVersion), eq(schema.entity.isActive, false)))
+        .returning();
+      return rows[0] ? mapEntity(rows[0]) : null;
+    },
+
     async upsertFxRate(currency: string, usdPerUnit: number): Promise<FxRate> {
       const [r] = await db
         .insert(schema.fxRate)

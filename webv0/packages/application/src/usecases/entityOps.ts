@@ -128,6 +128,33 @@ export async function deactivateEntity(
   });
 }
 
+export async function reactivateEntity(
+  p: Persistence,
+  actor: Actor,
+  entityId: string,
+  expectedVersion: number,
+): Promise<Entity> {
+  assertManageEntities(actor);
+  return p.writes.transaction(actor, async (tx) => {
+    const current = await tx.getEntity(entityId);
+    if (!current) throw new NotFoundError('Entity', entityId);
+    if (current.isActive) throw new ConflictError('The entity is already active.');
+
+    const updated = await tx.reactivateEntity(entityId, expectedVersion);
+    if (!updated) throw new ConcurrencyError('Entity', entityId);
+
+    await tx.appendAuditEvent({
+      entityType: 'Entity',
+      entityId,
+      action: 'EntityReactivated',
+      actor: actor.identity,
+      before: { isActive: false },
+      after: { isActive: true },
+    });
+    return updated;
+  });
+}
+
 export async function listEntities(p: Persistence, actor: Actor): Promise<Entity[]> {
   return p.reads.forActor(actor).listEntities();
 }

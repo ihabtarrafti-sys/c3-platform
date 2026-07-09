@@ -68,6 +68,19 @@ test('Entities register + person assignment threading, end to end', async ({ pag
     await expect(page.getByTestId('edit-entity-ENT-0001')).toHaveCount(0); // retired rows offer nothing
   });
 
+  await test.step('An inactive entity can be reactivated', async () => {
+    await expect(page.getByTestId('reactivate-entity-ENT-0001')).toBeVisible();
+    await page.getByTestId('reactivate-entity-ENT-0001').click();
+    await page.getByTestId('reactivate-entity-ENT-0001-confirm').click();
+    await expect(page.getByTestId('entity-status-ENT-0001')).toHaveText('Active');
+    await expect(page.getByTestId('edit-entity-ENT-0001')).toBeVisible(); // actions return
+
+    // Leave it inactive so later specs see no active entity (dropdown stays clean).
+    await page.getByTestId('deactivate-entity-ENT-0001').click();
+    await page.getByTestId('deactivate-entity-ENT-0001-confirm').click();
+    await expect(page.getByTestId('entity-status-ENT-0001')).toHaveText('Inactive');
+  });
+
   await test.step('A read-only identity sees no Entities nav (management is gated)', async () => {
     await login(page, 'visitor@alpha.com', 'visitor');
     await expect(page.getByTestId('nav-entities')).toHaveCount(0);

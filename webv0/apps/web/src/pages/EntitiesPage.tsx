@@ -253,6 +253,19 @@ export function EntitiesPage() {
                             />
                           </div>
                         )}
+                        {!e.isActive && (
+                          <div style={{ display: 'flex', columnGap: '8px', flexWrap: 'wrap' }}>
+                            <GovernedAction
+                              triggerLabel="Reactivate…"
+                              triggerTestId={`reactivate-entity-${e.entityId}`}
+                              triggerAppearance="secondary"
+                              title={`Reactivate ${e.entityId}?`}
+                              description="This takes effect immediately and is recorded. The entity becomes available for new assignments again."
+                              confirmLabel="Reactivate"
+                              onConfirm={() => run(() => api.reactivateEntity(e.entityId, e.version), `${e.entityId} reactivated and recorded.`)}
+                            />
+                          </div>
+                        )}
                       </td>
                     )}
                   </tr>

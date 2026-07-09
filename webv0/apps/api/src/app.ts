@@ -102,6 +102,7 @@ import {
   deactivateMission,
   listEntities,
   listFxRates,
+  reactivateEntity,
   setFxRate,
   transitionApparel,
   transitionKit,
@@ -646,6 +647,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { entityId } = req.params as { entityId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       const entity = await deactivateEntity(P, actorOf(req), entityId, expectedVersion);
+      return { entity: toEntityDto(entity) };
+    },
+  );
+
+  r.post(
+    '/api/v1/entities/:entityId/reactivate',
+    { schema: { params: entityIdParamSchema, body: versionedRequestSchema, response: { 200: entityResponseSchema } } },
+    async (req) => {
+      const { entityId } = req.params as { entityId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      const entity = await reactivateEntity(P, actorOf(req), entityId, expectedVersion);
       return { entity: toEntityDto(entity) };
     },
   );

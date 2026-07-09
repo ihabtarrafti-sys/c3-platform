@@ -343,6 +343,8 @@ export interface WriteTx {
   getEntity(entityId: string): Promise<Entity | null>;
   updateEntity(entityId: string, expectedVersion: number, patch: EntityPatch): Promise<Entity | null>;
   deactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null>;
+  /** Version-guarded reactivate iff currently INACTIVE; null = stale/missing/active. */
+  reactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null>;
   /** Finance S1: set/replace the tenant's rate for a currency (value of 1 unit in USD). */
   upsertFxRate(currency: string, usdPerUnit: number): Promise<FxRate>;
 

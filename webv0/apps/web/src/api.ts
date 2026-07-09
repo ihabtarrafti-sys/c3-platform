@@ -216,6 +216,8 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ entity: EntityDto }>('POST', `/api/v1/entities/${entityId}`, body),
     deactivateEntity: (entityId: string, expectedVersion: number) =>
       request<{ entity: EntityDto }>('POST', `/api/v1/entities/${entityId}/deactivate`, { expectedVersion }),
+    reactivateEntity: (entityId: string, expectedVersion: number) =>
+      request<{ entity: EntityDto }>('POST', `/api/v1/entities/${entityId}/reactivate`, { expectedVersion }),
     // Finance S1: FX rates.
     listFxRates: () => request<{ rates: FxRateDto[] }>('GET', '/api/v1/fx-rates'),
     setFxRate: (currency: string, usdPerUnit: number) =>

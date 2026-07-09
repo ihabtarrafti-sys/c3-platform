@@ -11,6 +11,7 @@ import {
   createEntity,
   updateEntity,
   deactivateEntity,
+  reactivateEntity,
   listEntities,
   setFxRate,
   listFxRates,
@@ -101,6 +102,20 @@ describe('entity lifecycle (direct-audited)', () => {
     await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE', localCurrency: 'AED' });
     expect(await listEntities(p, alphaOwner)).toHaveLength(1);
     expect(await listEntities(p, bravoOwner)).toHaveLength(0);
+  });
+
+  it('deactivate → reactivate brings the entity back (audited); reactivating an active one conflicts', async () => {
+    const e = await createEntity(p, alphaOps, { name: 'Geekay KSA', jurisdiction: 'KSA', localCurrency: 'SAR' });
+    const off = await deactivateEntity(p, alphaOps, e.entityId, e.version);
+    expect(off.isActive).toBe(false);
+
+    const on = await reactivateEntity(p, alphaOps, off.entityId, off.version);
+    expect(on.isActive).toBe(true);
+
+    await expect(reactivateEntity(p, alphaOps, on.entityId, on.version)).rejects.toThrow(/already active/i);
+
+    const audit = await p.reads.forActor(alphaOwner).listAuditEventsForEntity('Entity', e.entityId);
+    expect(audit.map((a) => a.action)).toEqual(['EntityCreated', 'EntityDeactivated', 'EntityReactivated']);
   });
 });
 
