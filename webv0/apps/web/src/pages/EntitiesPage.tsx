@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Field, Input } from '@fluentui/react-components';
+import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
+import { CURRENCY_CODES } from '@c3web/api-contracts';
 import { useEntities } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -24,6 +25,7 @@ interface EditState {
   name: string;
   jurisdiction: string;
   registrationId: string;
+  localCurrency: string;
 }
 
 export function EntitiesPage() {
@@ -38,6 +40,7 @@ export function EntitiesPage() {
   const [name, setName] = useState('');
   const [jurisdiction, setJurisdiction] = useState('');
   const [registrationId, setRegistrationId] = useState('');
+  const [localCurrency, setLocalCurrency] = useState('USD');
   const [edit, setEdit] = useState<Record<string, EditState>>({});
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: ['entities'] });
@@ -55,17 +58,18 @@ export function EntitiesPage() {
 
   async function submitCreate() {
     await run(
-      () => api.createEntity({ name: name.trim(), jurisdiction: jurisdiction.trim(), registrationId: registrationId.trim() || undefined }),
+      () => api.createEntity({ name: name.trim(), jurisdiction: jurisdiction.trim(), registrationId: registrationId.trim() || undefined, localCurrency }),
       'Entity created and recorded.',
     );
     setShowForm(false);
     setName('');
     setJurisdiction('');
     setRegistrationId('');
+    setLocalCurrency('USD');
   }
 
-  function editStateFor(id: string, e: { name: string; jurisdiction: string; registrationId: string | null }): EditState {
-    return edit[id] ?? { name: e.name, jurisdiction: e.jurisdiction, registrationId: e.registrationId ?? '' };
+  function editStateFor(id: string, e: { name: string; jurisdiction: string; registrationId: string | null; localCurrency: string }): EditState {
+    return edit[id] ?? { name: e.name, jurisdiction: e.jurisdiction, registrationId: e.registrationId ?? '', localCurrency: e.localCurrency };
   }
 
   const ready = name.trim() !== '' && jurisdiction.trim() !== '';
@@ -105,6 +109,20 @@ export function EntitiesPage() {
           <Field label="Jurisdiction" required hint='e.g. "United Arab Emirates" or "KSA · Riyadh"'>
             <Input value={jurisdiction} onChange={(_, d) => setJurisdiction(d.value)} data-testid="add-entity-jurisdiction" />
           </Field>
+          <Field label="Local currency" required hint="The entity's base currency — the default for money booked under it.">
+            <Dropdown
+              value={localCurrency}
+              selectedOptions={[localCurrency]}
+              onOptionSelect={(_, d) => d.optionValue && setLocalCurrency(d.optionValue)}
+              data-testid="add-entity-currency"
+            >
+              {CURRENCY_CODES.map((c) => (
+                <Option key={c} value={c}>
+                  {c}
+                </Option>
+              ))}
+            </Dropdown>
+          </Field>
           <Field label="Registration / licence no.">
             <Input value={registrationId} onChange={(_, d) => setRegistrationId(d.value)} data-testid="add-entity-registration" />
           </Field>
@@ -139,6 +157,7 @@ export function EntitiesPage() {
                 <th className={r.th}>Entity</th>
                 <th className={r.th}>Name</th>
                 <th className={r.th}>Jurisdiction</th>
+                <th className={r.th}>Currency</th>
                 <th className={r.th}>Registration</th>
                 <th className={r.th}>Status</th>
                 {canManage && <th className={r.th}>Actions</th>}
@@ -154,6 +173,7 @@ export function EntitiesPage() {
                     </td>
                     <td className={`${r.td} ${r.name}`}>{e.name}</td>
                     <td className={r.td}>{e.jurisdiction}</td>
+                    <td className={`${r.td} ${r.mono}`} data-testid={`entity-currency-${e.entityId}`}>{e.localCurrency}</td>
                     <td className={r.td}>{e.registrationId ?? '—'}</td>
                     <td className={r.td}>
                       <StatusBadge variant={e.isActive ? 'ready' : 'neutral'} data-testid={`entity-status-${e.entityId}`}>
@@ -185,6 +205,19 @@ export function EntitiesPage() {
                                       onChange={(_, d) => setEdit((c) => ({ ...c, [e.entityId]: { ...editStateFor(e.entityId, e), ...c[e.entityId], jurisdiction: d.value } }))}
                                     />
                                   </Field>
+                                  <Field label="Local currency">
+                                    <Dropdown
+                                      value={es.localCurrency}
+                                      selectedOptions={[es.localCurrency]}
+                                      onOptionSelect={(_, d) => d.optionValue && setEdit((c) => ({ ...c, [e.entityId]: { ...editStateFor(e.entityId, e), ...c[e.entityId], localCurrency: d.optionValue! } }))}
+                                    >
+                                      {CURRENCY_CODES.map((c) => (
+                                        <Option key={c} value={c}>
+                                          {c}
+                                        </Option>
+                                      ))}
+                                    </Dropdown>
+                                  </Field>
                                   <Field label="Registration / licence no.">
                                     <Input
                                       value={es.registrationId}
@@ -203,6 +236,7 @@ export function EntitiesPage() {
                                       name: es.name.trim(),
                                       jurisdiction: es.jurisdiction.trim(),
                                       registrationId: es.registrationId.trim() === '' ? null : es.registrationId.trim(),
+                                      localCurrency: es.localCurrency,
                                     }),
                                   `${e.entityId} updated and recorded.`,
                                 )

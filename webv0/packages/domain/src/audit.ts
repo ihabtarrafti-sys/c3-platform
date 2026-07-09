@@ -77,6 +77,8 @@ export const AUDIT_ACTIONS = [
   'EntityCreated',
   'EntityUpdated',
   'EntityDeactivated',
+  // Finance Sprint 1: the org's editable FX rate for a currency was set.
+  'FxRateSet',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

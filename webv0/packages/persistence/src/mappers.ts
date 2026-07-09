@@ -13,6 +13,7 @@ import {
   type AuditAction,
   type Credential,
   type Entity,
+  type FxRate,
   type Journey,
   type JourneyStatus,
   type Kit,
@@ -123,9 +124,18 @@ export function mapEntity(row: any): Entity {
     name: row.name,
     jurisdiction: row.jurisdiction,
     registrationId: row.registrationId ?? row.registration_id ?? null,
+    localCurrency: (row.localCurrency ?? row.local_currency ?? 'USD') as Entity['localCurrency'],
     isActive: row.isActive ?? row.is_active,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapFxRate(row: any): FxRate {
+  return {
+    currency: (row.currency) as FxRate['currency'],
+    usdPerUnit: Number(row.usdPerUnit ?? row.usd_per_unit),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };
 }

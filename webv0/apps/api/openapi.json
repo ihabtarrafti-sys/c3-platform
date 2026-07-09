@@ -11442,6 +11442,16 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "localCurrency": {
+                            "type": "string",
+                            "enum": [
+                              "USD",
+                              "AED",
+                              "SAR",
+                              "EUR",
+                              "GBP"
+                            ]
+                          },
                           "isActive": {
                             "type": "boolean"
                           },
@@ -11460,6 +11470,7 @@
                           "name",
                           "jurisdiction",
                           "registrationId",
+                          "localCurrency",
                           "isActive",
                           "version",
                           "createdAt",
@@ -11501,11 +11512,22 @@
                     "type": "string",
                     "maxLength": 120,
                     "nullable": true
+                  },
+                  "localCurrency": {
+                    "type": "string",
+                    "enum": [
+                      "USD",
+                      "AED",
+                      "SAR",
+                      "EUR",
+                      "GBP"
+                    ]
                   }
                 },
                 "required": [
                   "name",
-                  "jurisdiction"
+                  "jurisdiction",
+                  "localCurrency"
                 ],
                 "additionalProperties": false
               }
@@ -11536,6 +11558,16 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "localCurrency": {
+                          "type": "string",
+                          "enum": [
+                            "USD",
+                            "AED",
+                            "SAR",
+                            "EUR",
+                            "GBP"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -11554,6 +11586,7 @@
                         "name",
                         "jurisdiction",
                         "registrationId",
+                        "localCurrency",
                         "isActive",
                         "version",
                         "createdAt",
@@ -11600,6 +11633,16 @@
                     "type": "string",
                     "maxLength": 120,
                     "nullable": true
+                  },
+                  "localCurrency": {
+                    "type": "string",
+                    "enum": [
+                      "USD",
+                      "AED",
+                      "SAR",
+                      "EUR",
+                      "GBP"
+                    ]
                   }
                 },
                 "required": [
@@ -11645,6 +11688,16 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "localCurrency": {
+                          "type": "string",
+                          "enum": [
+                            "USD",
+                            "AED",
+                            "SAR",
+                            "EUR",
+                            "GBP"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -11663,6 +11716,7 @@
                         "name",
                         "jurisdiction",
                         "registrationId",
+                        "localCurrency",
                         "isActive",
                         "version",
                         "createdAt",
@@ -11739,6 +11793,16 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "localCurrency": {
+                          "type": "string",
+                          "enum": [
+                            "USD",
+                            "AED",
+                            "SAR",
+                            "EUR",
+                            "GBP"
+                          ]
+                        },
                         "isActive": {
                           "type": "boolean"
                         },
@@ -11757,6 +11821,7 @@
                         "name",
                         "jurisdiction",
                         "registrationId",
+                        "localCurrency",
                         "isActive",
                         "version",
                         "createdAt",
@@ -11767,6 +11832,138 @@
                   },
                   "required": [
                     "entity"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/fx-rates": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rates": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "currency": {
+                            "type": "string",
+                            "enum": [
+                              "USD",
+                              "AED",
+                              "SAR",
+                              "EUR",
+                              "GBP"
+                            ]
+                          },
+                          "usdPerUnit": {
+                            "type": "number"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "currency",
+                          "usdPerUnit",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "rates"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currency": {
+                    "type": "string",
+                    "enum": [
+                      "USD",
+                      "AED",
+                      "SAR",
+                      "EUR",
+                      "GBP"
+                    ]
+                  },
+                  "usdPerUnit": {
+                    "type": "number",
+                    "exclusiveMinimum": true,
+                    "minimum": 0,
+                    "maximum": 1000000
+                  }
+                },
+                "required": [
+                  "currency",
+                  "usdPerUnit"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "rate": {
+                      "type": "object",
+                      "properties": {
+                        "currency": {
+                          "type": "string",
+                          "enum": [
+                            "USD",
+                            "AED",
+                            "SAR",
+                            "EUR",
+                            "GBP"
+                          ]
+                        },
+                        "usdPerUnit": {
+                          "type": "number"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "currency",
+                        "usdPerUnit",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "rate"
                   ],
                   "additionalProperties": false
                 }

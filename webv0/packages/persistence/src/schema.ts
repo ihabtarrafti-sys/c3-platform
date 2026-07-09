@@ -12,6 +12,7 @@ import {
   boolean,
   integer,
   bigint,
+  numeric,
   timestamp,
   date,
   jsonb,
@@ -207,9 +208,19 @@ export const entity = pgTable('entity', {
   name: text('name').notNull(),
   jurisdiction: text('jurisdiction').notNull(),
   registrationId: text('registration_id'),
+  localCurrency: text('local_currency').notNull().default('USD'),
   isActive: boolean('is_active').notNull().default(true),
   version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const fxRate = pgTable('fx_rate', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  currency: text('currency').notNull(),
+  // numeric → string in Drizzle, to preserve exactness; parsed to number at the edge.
+  usdPerUnit: numeric('usd_per_unit', { precision: 18, scale: 8 }).notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

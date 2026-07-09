@@ -15,6 +15,7 @@
  */
 
 import { z } from 'zod';
+import { currencyCodeSchema, type CurrencyCode } from './money';
 
 /** An Entity as the domain reasons about it (surrogate UUID lives in persistence). */
 export interface Entity {
@@ -26,6 +27,8 @@ export interface Entity {
   readonly jurisdiction: string;
   /** Optional trade licence / registration number. */
   readonly registrationId: string | null;
+  /** The entity's local/base currency (Finance S1) — the default for money under it. */
+  readonly localCurrency: CurrencyCode;
   readonly isActive: boolean;
   /** Optimistic-concurrency token (the ETag-parity guard). */
   readonly version: number;
@@ -53,6 +56,7 @@ export const entityCreateInputSchema = z
     name: z.string().trim().min(1, 'Name is required').max(200),
     jurisdiction: z.string().trim().min(1, 'Jurisdiction is required').max(160),
     registrationId: trimmedOptional(120),
+    localCurrency: currencyCodeSchema,
   })
   .strict();
 export type EntityCreateInput = z.infer<typeof entityCreateInputSchema>;
@@ -64,10 +68,11 @@ export const entityUpdateInputSchema = z
     name: z.string().trim().min(1).max(200).optional(),
     jurisdiction: z.string().trim().min(1).max(160).optional(),
     registrationId: trimmedOptional(120).optional(),
+    localCurrency: currencyCodeSchema.optional(),
   })
   .strict()
   .refine(
-    (v) => ['name', 'jurisdiction', 'registrationId'].some((k) => k in v && v[k as keyof typeof v] !== undefined),
+    (v) => ['name', 'jurisdiction', 'registrationId', 'localCurrency'].some((k) => k in v && v[k as keyof typeof v] !== undefined),
     { message: 'An update must change at least one field' },
   );
 export type EntityUpdateInput = z.infer<typeof entityUpdateInputSchema>;

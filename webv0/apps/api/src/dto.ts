@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionDto, MissionParticipantDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -146,11 +146,16 @@ export function toEntityDto(e: Entity): EntityDto {
     name: e.name,
     jurisdiction: e.jurisdiction,
     registrationId: e.registrationId,
+    localCurrency: e.localCurrency,
     isActive: e.isActive,
     version: e.version,
     createdAt: e.createdAt,
     updatedAt: e.updatedAt,
   };
+}
+
+export function toFxRateDto(r: FxRate): FxRateDto {
+  return { currency: r.currency, usdPerUnit: r.usdPerUnit, updatedAt: r.updatedAt };
 }
 
 export function toApprovalDto(a: Approval): ApprovalDto {

@@ -57,6 +57,9 @@ export const useSituation = (enabled = true) =>
 export const useEntities = (enabled = true) =>
   useQuery({ queryKey: ['entities'], queryFn: () => api.listEntities(), enabled });
 
+export const useFxRates = (enabled = true) =>
+  useQuery({ queryKey: ['fxRates'], queryFn: () => api.listFxRates(), enabled });
+
 export const useMissions = () => useQuery({ queryKey: ['missions'], queryFn: () => api.listMissions() });
 export const useMission = (missionId: string) =>
   useQuery({ queryKey: ['mission', missionId], queryFn: () => api.getMission(missionId) });

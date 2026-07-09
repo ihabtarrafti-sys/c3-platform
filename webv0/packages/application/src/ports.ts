@@ -19,6 +19,7 @@ import type {
   C3Role,
   Credential,
   Entity,
+  FxRate,
   Journey,
   JourneyStatus,
   Kit,
@@ -64,6 +65,8 @@ export interface ReadStore {
   // S48: entities (the tenant's legal operating entities).
   listEntities(): Promise<Entity[]>;
   getEntityById(entityId: string): Promise<Entity | null>;
+  // Finance S1: the tenant's editable FX rates.
+  listFxRates(): Promise<FxRate[]>;
   // Sprint 42: the person hub's read side.
   listMissionMembershipsForPerson(personId: string): Promise<PersonMissionMembership[]>;
   listApprovalsForPerson(personId: string): Promise<Approval[]>;
@@ -185,6 +188,7 @@ export interface NewEntityRow {
   readonly name: string;
   readonly jurisdiction: string;
   readonly registrationId: string | null;
+  readonly localCurrency: string;
 }
 
 /** Editable-field patch for an entity update (only provided keys change). */
@@ -192,6 +196,7 @@ export interface EntityPatch {
   readonly name?: string;
   readonly jurisdiction?: string;
   readonly registrationId?: string | null;
+  readonly localCurrency?: string;
 }
 
 /** A person's mission membership, enriched with the mission's identity (Sprint 42). */
@@ -338,6 +343,8 @@ export interface WriteTx {
   getEntity(entityId: string): Promise<Entity | null>;
   updateEntity(entityId: string, expectedVersion: number, patch: EntityPatch): Promise<Entity | null>;
   deactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null>;
+  /** Finance S1: set/replace the tenant's rate for a currency (value of 1 unit in USD). */
+  upsertFxRate(currency: string, usdPerUnit: number): Promise<FxRate>;
 
   // ── Sprint 39 missions ─────────────────────────────────────────────────────
   insertMission(missionId: string, row: NewMissionRow): Promise<Mission>;

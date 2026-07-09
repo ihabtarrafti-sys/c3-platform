@@ -277,6 +277,15 @@ function MissionsIcon({ className }: { className?: string }) {
   );
 }
 
+function SettingsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <circle cx="10" cy="10" r="2.5" />
+      <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4" />
+    </svg>
+  );
+}
+
 function EntitiesIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -471,6 +480,14 @@ export function AppShell() {
               to="/members"
               label="Members"
               icon={<MembersIcon className={s.navIcon} />}
+              onNavigate={() => setNavOpen(false)}
+            />
+          )}
+          {me?.capabilities.canManageEntities && (
+            <NavItem
+              to="/settings"
+              label="Settings"
+              icon={<SettingsIcon className={s.navIcon} />}
               onNavigate={() => setNavOpen(false)}
             />
           )}

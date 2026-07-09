@@ -14,8 +14,11 @@ import {
   type Entity,
   type EntityCreateInput,
   type EntityUpdateInput,
+  type FxRate,
+  type SetFxRateInput,
   entityCreateInputSchema,
   entityUpdateInputSchema,
+  setFxRateInputSchema,
   formatEntityId,
   ConcurrencyError,
   ConflictError,
@@ -24,7 +27,7 @@ import {
 import { assertManageEntities } from '@c3web/authz';
 import type { EntityPatch, Persistence } from '../ports';
 
-const EDITABLE = ['name', 'jurisdiction', 'registrationId'] as const;
+const EDITABLE = ['name', 'jurisdiction', 'registrationId', 'localCurrency'] as const;
 
 export async function createEntity(p: Persistence, actor: Actor, input: EntityCreateInput): Promise<Entity> {
   assertManageEntities(actor);
@@ -37,6 +40,7 @@ export async function createEntity(p: Persistence, actor: Actor, input: EntityCr
       name: parsed.name,
       jurisdiction: parsed.jurisdiction,
       registrationId: parsed.registrationId,
+      localCurrency: parsed.localCurrency,
     });
     await tx.appendAuditEvent({
       entityType: 'Entity',
@@ -44,7 +48,7 @@ export async function createEntity(p: Persistence, actor: Actor, input: EntityCr
       action: 'EntityCreated',
       actor: actor.identity,
       before: null,
-      after: { name: parsed.name, jurisdiction: parsed.jurisdiction, registrationId: parsed.registrationId },
+      after: { name: parsed.name, jurisdiction: parsed.jurisdiction, registrationId: parsed.registrationId, localCurrency: parsed.localCurrency },
     });
     return entity;
   });
@@ -126,4 +130,27 @@ export async function deactivateEntity(
 
 export async function listEntities(p: Persistence, actor: Actor): Promise<Entity[]> {
   return p.reads.forActor(actor).listEntities();
+}
+
+// ── Finance S1: FX rates (org settings; owner/operations manage) ──────────────
+
+export async function listFxRates(p: Persistence, actor: Actor): Promise<FxRate[]> {
+  return p.reads.forActor(actor).listFxRates();
+}
+
+export async function setFxRate(p: Persistence, actor: Actor, input: SetFxRateInput): Promise<FxRate> {
+  assertManageEntities(actor);
+  const parsed = setFxRateInputSchema.parse(input);
+  return p.writes.transaction(actor, async (tx) => {
+    const rate = await tx.upsertFxRate(parsed.currency, parsed.usdPerUnit);
+    await tx.appendAuditEvent({
+      entityType: 'FxRate',
+      entityId: parsed.currency,
+      action: 'FxRateSet',
+      actor: actor.identity,
+      before: null,
+      after: { currency: parsed.currency, usdPerUnit: parsed.usdPerUnit },
+    });
+    return rate;
+  });
 }

@@ -12,12 +12,15 @@ import {
   updateEntity,
   deactivateEntity,
   listEntities,
+  setFxRate,
+  listFxRates,
   submitAddPerson,
   submitAddAgreement,
   beginReview,
   approveApproval,
   executeApproval,
 } from '@c3web/application';
+import { usdPerUnitMap, convertMinor } from '@c3web/domain';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
 
@@ -71,8 +74,8 @@ beforeEach(async () => {
 
 describe('entity lifecycle (direct-audited)', () => {
   it('create → update (changed-fields-only audit) → deactivate, all audited same-tx', async () => {
-    const e = await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'United Arab Emirates' });
-    expect(e).toMatchObject({ entityId: 'ENT-0001', name: 'Geekay UAE', jurisdiction: 'United Arab Emirates', isActive: true, version: 0 });
+    const e = await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'United Arab Emirates', localCurrency: 'AED' });
+    expect(e).toMatchObject({ entityId: 'ENT-0001', name: 'Geekay UAE', jurisdiction: 'United Arab Emirates', localCurrency: 'AED', isActive: true, version: 0 });
 
     const updated = await updateEntity(p, alphaOps, e.entityId, { expectedVersion: e.version, registrationId: 'DED-123456' });
     expect(updated.registrationId).toBe('DED-123456');
@@ -89,13 +92,13 @@ describe('entity lifecycle (direct-audited)', () => {
 
   it('only owner/operations may manage; a stale version is refused', async () => {
     await expect(createEntity(p, alphaVisitor, { name: 'X', jurisdiction: 'Y' })).rejects.toBeInstanceOf(ForbiddenError);
-    const e = await createEntity(p, alphaOps, { name: 'Geekay KSA', jurisdiction: 'Saudi Arabia' });
+    const e = await createEntity(p, alphaOps, { name: 'Geekay KSA', jurisdiction: 'Saudi Arabia', localCurrency: 'SAR' });
     await updateEntity(p, alphaOps, e.entityId, { expectedVersion: e.version, name: 'Geekay KSA v2' });
     await expect(updateEntity(p, alphaOps, e.entityId, { expectedVersion: 0, name: 'stale' })).rejects.toThrow();
   });
 
   it('is tenant-isolated (RLS): bravo cannot see alpha entities', async () => {
-    await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE' });
+    await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE', localCurrency: 'AED' });
     expect(await listEntities(p, alphaOwner)).toHaveLength(1);
     expect(await listEntities(p, bravoOwner)).toHaveLength(0);
   });
@@ -103,14 +106,14 @@ describe('entity lifecycle (direct-audited)', () => {
 
 describe('entity threading (person + agreement)', () => {
   it('a person is created assigned to the entity they signed with', async () => {
-    const e = await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE' });
+    const e = await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE', localCurrency: 'AED' });
     const personId = await addPerson('Kairo Mendes', e.entityId);
     const person = await p.reads.forActor(alphaOwner).getPersonById(personId);
     expect(person!.entityId).toBe(e.entityId);
   });
 
   it('an agreement is created under an entity', async () => {
-    const e = await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE' });
+    const e = await createEntity(p, alphaOps, { name: 'Geekay UAE', jurisdiction: 'UAE', localCurrency: 'AED' });
     const personId = await addPerson('Player One');
     const sub = await submitAddAgreement(p, alphaOps, {
       input: { personId, entityId: e.entityId, agreementType: 'Player Contract', startsOn: '2026-01-01', endsOn: '2027-01-01' } as never,
@@ -125,5 +128,31 @@ describe('entity threading (person + agreement)', () => {
     await expect(
       submitAddPerson(p, alphaOps, { input: { fullName: 'Nobody', entityId: 'ENT-9999' } as AddPersonInput }),
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+});
+
+describe('FX rates (Finance S1, tenant-scoped, owner/ops)', () => {
+  it('owner/ops set rates (upsert replaces); visitor is refused; RLS isolates', async () => {
+    await setFxRate(p, alphaOps, { currency: 'AED', usdPerUnit: 0.2723 });
+    await setFxRate(p, alphaOps, { currency: 'SAR', usdPerUnit: 0.2666 });
+    // upsert: setting AED again replaces, not duplicates
+    await setFxRate(p, alphaOwner, { currency: 'AED', usdPerUnit: 0.27 });
+
+    const rates = await listFxRates(p, alphaOwner);
+    expect(rates).toHaveLength(2);
+    expect(rates.find((r) => r.currency === 'AED')!.usdPerUnit).toBeCloseTo(0.27, 5);
+
+    await expect(setFxRate(p, alphaVisitor, { currency: 'EUR', usdPerUnit: 1.08 })).rejects.toBeInstanceOf(ForbiddenError);
+
+    // tenant isolation: bravo sees none of alpha's rates
+    expect(await listFxRates(p, bravoOwner)).toHaveLength(0);
+  });
+
+  it('the stored rates drive a correct cross-rate (AED → SAR)', async () => {
+    await setFxRate(p, alphaOps, { currency: 'AED', usdPerUnit: 0.2723 });
+    await setFxRate(p, alphaOps, { currency: 'SAR', usdPerUnit: 0.2666 });
+    const map = usdPerUnitMap(await listFxRates(p, alphaOwner));
+    // 100.00 AED → SAR
+    expect(convertMinor(10_000, 'AED', 'SAR', map)).toBe(10_214);
   });
 });

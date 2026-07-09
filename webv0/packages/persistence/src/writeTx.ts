@@ -17,6 +17,7 @@ import {
   type C3Role,
   type Credential,
   type Entity,
+  type FxRate,
   type Journey,
   type JourneyStatus,
   type Kit,
@@ -28,7 +29,7 @@ import {
 import type { AgreementPatch, EntityPatch, EquipmentPatch, MissionPatch, NewAgreementRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapApparel, mapApproval, mapCredential, mapEntity, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -454,6 +455,18 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.entity.entityId, entityId), eq(schema.entity.version, expectedVersion), eq(schema.entity.isActive, true)))
         .returning();
       return rows[0] ? mapEntity(rows[0]) : null;
+    },
+
+    async upsertFxRate(currency: string, usdPerUnit: number): Promise<FxRate> {
+      const [r] = await db
+        .insert(schema.fxRate)
+        .values({ tenantId, currency, usdPerUnit: String(usdPerUnit) })
+        .onConflictDoUpdate({
+          target: [schema.fxRate.tenantId, schema.fxRate.currency],
+          set: { usdPerUnit: String(usdPerUnit), updatedAt: sql`now()` },
+        })
+        .returning();
+      return mapFxRate(r);
     },
 
     // ── Sprint 39 missions (shell = drizzle-only; participants joined with the

@@ -11,11 +11,14 @@ import {
   AGREEMENT_STATUSES,
   APPROVAL_STATUSES,
   C3_ROLES,
+  CURRENCY_CODES,
   JOURNEY_STATUSES,
   EQUIPMENT_STATUSES,
   EQUIPMENT_TRANSITIONS,
   JOURNEY_TRANSITIONS,
   OPERATION_TYPES,
+  currencyCodeSchema,
+  setFxRateInputSchema,
   addAgreementInputSchema,
   addCredentialInputSchema,
   addMissionParticipantInputSchema,
@@ -321,6 +324,7 @@ export const entitySchema = z.object({
   name: z.string(),
   jurisdiction: z.string(),
   registrationId: z.string().nullable(),
+  localCurrency: currencyCodeSchema,
   isActive: z.boolean(),
   version: z.number().int(),
   createdAt: z.string(),
@@ -331,6 +335,17 @@ export const entitiesListSchema = z.object({ entities: z.array(entitySchema) });
 export const entityResponseSchema = z.object({ entity: entitySchema });
 export const entityIdParamSchema = z.object({ entityId: z.string().regex(/^ENT-\d{4,}$/) });
 export { entityCreateInputSchema, entityUpdateInputSchema };
+
+// ── FX rates (Finance S1): the org's editable rate per currency (value in USD) ──
+export const fxRateSchema = z.object({
+  currency: currencyCodeSchema,
+  usdPerUnit: z.number(),
+  updatedAt: z.string(),
+});
+export type FxRateDto = z.infer<typeof fxRateSchema>;
+export const fxRatesListSchema = z.object({ rates: z.array(fxRateSchema) });
+export const fxRateResponseSchema = z.object({ rate: fxRateSchema });
+export { setFxRateInputSchema, currencyCodeSchema, CURRENCY_CODES };
 
 /** The domain schema IS the wire schema for the direct patch — one validator, no drift. */
 export { agreementUpdateInputSchema };

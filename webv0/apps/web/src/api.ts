@@ -20,6 +20,7 @@ import type {
   ApprovalDto,
   CredentialDto,
   EntityDto,
+  FxRateDto,
   JourneyDto,
   KitDto,
   MeResponse,
@@ -56,6 +57,7 @@ export interface EntityCreateBody {
   name: string;
   jurisdiction: string;
   registrationId?: string | null;
+  localCurrency: string;
 }
 export interface EntityUpdateBody extends Partial<EntityCreateBody> {
   expectedVersion: number;
@@ -214,6 +216,10 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ entity: EntityDto }>('POST', `/api/v1/entities/${entityId}`, body),
     deactivateEntity: (entityId: string, expectedVersion: number) =>
       request<{ entity: EntityDto }>('POST', `/api/v1/entities/${entityId}/deactivate`, { expectedVersion }),
+    // Finance S1: FX rates.
+    listFxRates: () => request<{ rates: FxRateDto[] }>('GET', '/api/v1/fx-rates'),
+    setFxRate: (currency: string, usdPerUnit: number) =>
+      request<{ rate: FxRateDto }>('POST', '/api/v1/fx-rates', { currency, usdPerUnit }),
     listApparel: () => request<{ apparel: ApparelDto[] }>('GET', '/api/v1/apparel'),
     createApparel: (body: EquipmentCreateBody) => request<{ apparel: ApparelDto }>('POST', '/api/v1/apparel', body),
     updateApparel: (apparelId: string, body: EquipmentUpdateBody) =>

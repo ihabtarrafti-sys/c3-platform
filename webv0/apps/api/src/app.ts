@@ -37,6 +37,9 @@ import {
   entityIdParamSchema,
   entityCreateInputSchema,
   entityUpdateInputSchema,
+  fxRatesListSchema,
+  fxRateResponseSchema,
+  setFxRateInputSchema,
   credentialsListSchema,
   equipmentCreateInputSchema,
   equipmentUpdateInputSchema,
@@ -98,6 +101,8 @@ import {
   deactivateKit,
   deactivateMission,
   listEntities,
+  listFxRates,
+  setFxRate,
   transitionApparel,
   transitionKit,
   updateEntity,
@@ -140,7 +145,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
+import { toAgreementDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionDto, toMissionParticipantDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -644,6 +649,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return { entity: toEntityDto(entity) };
     },
   );
+
+  // ── FX rates (Finance S1): the org's editable currency rates ──────────────
+  r.get('/api/v1/fx-rates', { schema: { response: { 200: fxRatesListSchema } } }, async (req) => {
+    return { rates: (await listFxRates(P, actorOf(req))).map(toFxRateDto) };
+  });
+
+  r.post('/api/v1/fx-rates', { schema: { body: setFxRateInputSchema, response: { 200: fxRateResponseSchema } } }, async (req) => {
+    const rate = await setFxRate(P, actorOf(req), req.body as import('@c3web/domain').SetFxRateInput);
+    return { rate: toFxRateDto(rate) };
+  });
 
   // ── missions (Sprint 39): direct-audited shell + governed participants ────
   r.get('/api/v1/missions', { schema: { response: { 200: missionsListSchema } } }, async (req) => {

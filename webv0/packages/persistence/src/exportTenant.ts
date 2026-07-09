@@ -94,6 +94,7 @@ function tableExports(): TableExport[] {
     { name: 'kit', sql: `SELECT * FROM kit WHERE tenant_id = $1 ORDER BY kit_id` },
     { name: 'apparel', sql: `SELECT * FROM apparel WHERE tenant_id = $1 ORDER BY apparel_id` },
     { name: 'entity', sql: `SELECT * FROM entity WHERE tenant_id = $1 ORDER BY entity_id` },
+    { name: 'fx_rate', sql: `SELECT * FROM fx_rate WHERE tenant_id = $1 ORDER BY currency` },
     {
       name: 'mission',
       sql: `SELECT id, tenant_id, mission_id, name, game_title,

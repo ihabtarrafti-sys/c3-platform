@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -234,6 +234,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Entity | null> => {
             const rows = await db.select().from(schema.entity).where(eq(schema.entity.entityId, entityId)).limit(1);
             return rows[0] ? mapEntity(rows[0]) : null;
+          }),
+
+        // Finance S1: the tenant's editable FX rates (value of 1 unit in USD).
+        listFxRates: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<FxRate[]> => {
+            const rows = await db.select().from(schema.fxRate).orderBy(asc(schema.fxRate.currency));
+            return rows.map(mapFxRate);
           }),
 
         // Sprint 42: the person hub — memberships joined with the mission's

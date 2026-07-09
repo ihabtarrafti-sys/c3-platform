@@ -59,6 +59,8 @@ const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
 const TENANT_TABLES = [
   'audit_event',
   'approval_event',
+  'fx_rate', // Finance S1: references only tenant, no dependents
+
   'credential', // FK → person AND approval, so credential first (Sprint 36)
   'journey', // FK → person AND approval (Sprint 37)
   'agreement', // FK → person AND approval AND itself (Sprint 41; one DELETE clears parent+child)
