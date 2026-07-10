@@ -4,7 +4,7 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
@@ -405,6 +405,27 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
                ORDER BY ds.amount_minor DESC, ds.person_id ASC
             `);
             return res.rows.map(mapDistributionShare);
+          }),
+
+        // S10: the actor's own inbox (newest first, capped).
+        listNotifications: (identity: string, limit: number) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<C3Notification[]> => {
+            const rows = await db
+              .select()
+              .from(schema.notification)
+              .where(eq(schema.notification.userIdentity, identity))
+              .orderBy(desc(schema.notification.emittedAt))
+              .limit(limit);
+            return rows.map((r0) => ({
+              tenantId: r0.tenantId,
+              userIdentity: r0.userIdentity,
+              signalKey: r0.signalKey,
+              kind: r0.kind,
+              title: r0.title,
+              link: r0.link,
+              emittedAt: r0.emittedAt.toISOString(),
+              readAt: r0.readAt ? r0.readAt.toISOString() : null,
+            }));
           }),
 
         // S9: claims (per-actor scoping is the use-case's job).

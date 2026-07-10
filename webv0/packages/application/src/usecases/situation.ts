@@ -11,6 +11,7 @@
  */
 import { composeSituation, PENDING_STATUSES, SITUATION_CHECKS, type Actor, type Signal } from '@c3web/domain';
 import { assertReadAgreements, assertViewApprovals } from '@c3web/authz';
+import { sweepSignalNotifications } from './notificationOps';
 import type { Persistence } from '../ports';
 
 export interface SituationCounts {
@@ -130,6 +131,11 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
     liveAgreements: agreements.filter((a) => a.status === 'Active').length,
     openApprovals: approvals.filter((a) => (PENDING_STATUSES as readonly string[]).includes(a.status)).length,
   };
+
+  // S10: the crossing sweep — every operational member gets the attention
+  // row ONCE per condition (dedupe by signal key). Best-effort by design.
+  const operationalRecipients = members.filter((m) => m.isActive && (m.role === 'owner' || m.role === 'operations')).map((m) => m.email);
+  await sweepSignalNotifications(p, actor, signals, operationalRecipients);
 
   return { todayIso, signals, checks: SITUATION_CHECKS, counts };
 }

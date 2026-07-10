@@ -11,6 +11,7 @@ import { createDevAuthAdapter } from './auth/devIdp';
 import { createEntraAuthAdapter } from './auth/entra';
 import { createAdminDirectory, type AdminDirectory } from './auth/directory';
 import { createDocumentStorage, type DocumentStorage } from './storage';
+import { createMailer, type Mailer } from './mailer';
 
 export interface Deps {
   env: Env;
@@ -18,6 +19,8 @@ export interface Deps {
   authAdapter: AuthAdapter;
   directory?: AdminDirectory;
   documentStorage: DocumentStorage;
+  /** S10 email channel; null = not configured (rows-only). */
+  mailer: Mailer | null;
   logger: Logger;
   ready(): Promise<boolean>;
   close(): Promise<void>;
@@ -26,6 +29,7 @@ export interface Deps {
 export function buildDeps(env: Env, logger: Logger): Deps {
   const persistence = createPersistence({ appConnectionString: env.databaseUrl });
   const documentStorage = createDocumentStorage(env.documents);
+  const mailer = createMailer(env, logger);
 
   // Membership resolution: production Entra uses the SELECT-only c3_auth role.
   // The dev IdP needs the privileged directory (it provisions memberships) and
@@ -48,6 +52,7 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     authAdapter,
     directory,
     documentStorage,
+    mailer,
     logger,
     async ready() {
       try {

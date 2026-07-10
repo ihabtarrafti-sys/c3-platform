@@ -37,6 +37,7 @@ import type {
   Distribution,
   DistributionShare,
   Claim,
+  C3Notification,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -116,6 +117,8 @@ export interface ReadStore {
   listClaims(): Promise<Claim[]>;
   listClaimsForSubmitter(identity: string): Promise<Claim[]>;
   getClaimById(claimId: string): Promise<Claim | null>;
+  // S10: the actor's own notification inbox (newest first, capped).
+  listNotifications(identity: string, limit: number): Promise<C3Notification[]>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -637,6 +640,14 @@ export interface WriteTx {
   voidInvoice(invoiceId: string, expectedVersion: number, reason: string): Promise<Invoice | null>;
   /** Version-guarded PDF attach (the stored artifact's DOC id); null = stale/missing. */
   setInvoiceDocument(invoiceId: string, expectedVersion: number, documentId: string): Promise<Invoice | null>;
+
+  // ── S10 notifications (L2 rows; UNIQUE dedupe; no deletes) ────────────────
+  /** Insert-if-first-crossing: ON CONFLICT (tenant,user,signal_key) DO NOTHING. Returns true when a NEW row landed. */
+  insertNotification(row: { userIdentity: string; signalKey: string; kind: string; title: string; link: string }): Promise<boolean>;
+  /** Flip one of the actor's rows read (idempotent); false when no row matched. */
+  markNotificationRead(identity: string, signalKey: string): Promise<boolean>;
+  /** Flip all of the actor's unread rows; returns the count flipped. */
+  markAllNotificationsRead(identity: string): Promise<number>;
 
   // ── S9 expense claims (lifecycle record; no deletes) ──────────────────────
   insertClaim(row: NewClaimRow): Promise<Claim>;

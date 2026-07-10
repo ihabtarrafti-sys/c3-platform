@@ -44,6 +44,12 @@ const rawSchema = z.object({
   R2_BUCKET_DOCUMENTS: z.string().optional(),
   /** Local blob directory for the fs driver (dev/test only). */
   DOCUMENTS_DIR: z.string().optional(),
+  // S10 email channel: all five together, or none (rows-only, fails closed).
+  SMTP_HOST: z.string().optional(),
+  SMTP_PORT: z.coerce.number().int().optional(),
+  SMTP_USER: z.string().optional(),
+  SMTP_PASS: z.string().optional(),
+  SMTP_FROM: z.string().optional(),
 });
 
 export type Env = {
@@ -65,6 +71,8 @@ export type Env = {
   documents:
     | { driver: 'r2'; endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string }
     | { driver: 'fs'; dir: string };
+  /** S10 email channel; null = not configured (rows-only, honest). */
+  smtp: { host: string; port: number; user: string; pass: string; from: string } | null;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -149,6 +157,13 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   if (isProduction && r2Given === 0) {
     throw new Error('Production requires the documents R2 configuration (the fs driver is dev/test only).');
   }
+  // ── S10 email channel: all-or-none; absent = rows-only (fails closed). ────
+  const smtpGiven = [e.SMTP_HOST, e.SMTP_PORT, e.SMTP_USER, e.SMTP_PASS, e.SMTP_FROM].filter((v) => v !== undefined).length;
+  if (smtpGiven > 0 && smtpGiven < 5) {
+    throw new Error('SMTP config is partial: set ALL of SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM — or none.');
+  }
+  const smtp: Env['smtp'] = smtpGiven === 5 ? { host: e.SMTP_HOST!, port: e.SMTP_PORT!, user: e.SMTP_USER!, pass: e.SMTP_PASS!, from: e.SMTP_FROM! } : null;
+
   const documents: Env['documents'] =
     r2Given === 4
       ? { driver: 'r2', endpoint: e.R2_ENDPOINT!, accessKeyId: e.R2_ACCESS_KEY_ID!, secretAccessKey: e.R2_SECRET_ACCESS_KEY!, bucket: e.R2_BUCKET_DOCUMENTS! }
@@ -168,5 +183,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     devAuthSecret: e.DEV_AUTH_SECRET,
     entra,
     documents,
+    smtp,
   };
 }

@@ -85,6 +85,21 @@ describe('production fail-closed guarantees', () => {
       } as NodeJS.ProcessEnv),
     ).toThrow(/partial/);
   });
+
+  it('S10 fail-closed: no SMTP config → smtp null (rows-only); partial SMTP refuses', () => {
+    expect(loadEnv({ ...base, ...entraVars } as NodeJS.ProcessEnv).smtp).toBeNull();
+    expect(() => loadEnv({ ...base, ...entraVars, SMTP_HOST: 'smtp.example.com' } as NodeJS.ProcessEnv)).toThrow(/partial/i);
+    const full = loadEnv({
+      ...base,
+      ...entraVars,
+      SMTP_HOST: 'smtp.example.com',
+      SMTP_PORT: '587',
+      SMTP_USER: 'mailer',
+      SMTP_PASS: 'secret',
+      SMTP_FROM: 'c3@example.com',
+    } as NodeJS.ProcessEnv);
+    expect(full.smtp).toEqual({ host: 'smtp.example.com', port: 587, user: 'mailer', pass: 'secret', from: 'c3@example.com' });
+  });
 });
 
 describe('provider configuration guards', () => {

@@ -352,6 +352,19 @@ export const teamMembership = pgTable('team_membership', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// S10: notifications — L2 attention rows (delivery + ack only; signals stay derived).
+export const notification = pgTable('notification', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  userIdentity: text('user_identity').notNull(),
+  signalKey: text('signal_key').notNull(),
+  kind: text('kind').notNull(),
+  title: text('title').notNull(),
+  link: text('link').notNull(),
+  emittedAt: timestamp('emitted_at', { withTimezone: true }).notNull().defaultNow(),
+  readAt: timestamp('read_at', { withTimezone: true }),
+});
+
 // S9: expense claims — the Finance Intelligence Hub as a record.
 export const claim = pgTable('claim', {
   id: uuid('id').primaryKey().defaultRandom(),

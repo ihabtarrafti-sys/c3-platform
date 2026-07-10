@@ -2,7 +2,7 @@
  * writeTx.ts — WriteTx implementation bound to a single tenant transaction.
  * All statements run under the transaction's `app.tenant_id` (RLS enforced).
  */
-import { and, eq, inArray, lt, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNull, lt, sql } from 'drizzle-orm';
 import {
   type Agreement,
   type AgreementTerm,
@@ -224,6 +224,33 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         actor: evt.actor,
         note: evt.note ?? null,
       });
+
+      // S10: pipeline notifications fan out IN THIS TRANSACTION — atomic with
+      // the event itself. New submissions notify every ACTIVE owner (except
+      // the actor); every later transition notifies the submitter (except
+      // when they caused it). ON CONFLICT DO NOTHING = dedupe on retries.
+      const link = `/approvals/${evt.approvalId}`;
+      const key = `${evt.approvalId}:${evt.toStatus}`;
+      const notify = async (identity: string, title: string) => {
+        await db.execute(sql`
+          INSERT INTO notification (tenant_id, user_identity, signal_key, kind, title, link)
+          VALUES (${tenantId}, ${identity}, ${key}, 'pipeline', ${title}, ${link})
+          ON CONFLICT (tenant_id, user_identity, signal_key) DO NOTHING
+        `);
+      };
+      if (evt.toStatus === 'Submitted') {
+        const owners = await db.execute(sql`SELECT email FROM member_list() WHERE role = 'owner' AND is_active = true`);
+        for (const row of owners.rows as Array<{ email: string }>) {
+          if (row.email.toLowerCase() === evt.actor.toLowerCase()) continue;
+          await notify(row.email, `${evt.approvalId} awaits review`);
+        }
+      } else {
+        const res = await db.execute(sql`SELECT submitted_by FROM approval WHERE approval_id = ${evt.approvalId} LIMIT 1`);
+        const submitter = (res.rows[0] as { submitted_by?: string } | undefined)?.submitted_by;
+        if (submitter && submitter.toLowerCase() !== evt.actor.toLowerCase()) {
+          await notify(submitter, `${evt.approvalId} is now ${evt.toStatus}`);
+        }
+      }
     },
 
     async appendAuditEvent(evt): Promise<void> {
@@ -806,6 +833,41 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.invoice.invoiceId, invoiceId), eq(schema.invoice.version, expectedVersion)))
         .returning();
       return rows[0] ? mapInvoice(rows[0]) : null;
+    },
+
+    // ── S10 notifications (L2 rows; UNIQUE dedupe; no deletes) ───────────────
+    async insertNotification(row: { userIdentity: string; signalKey: string; kind: string; title: string; link: string }): Promise<boolean> {
+      const res = await db.execute(sql`
+        INSERT INTO notification (tenant_id, user_identity, signal_key, kind, title, link)
+        VALUES (${tenantId}, ${row.userIdentity}, ${row.signalKey}, ${row.kind}, ${row.title}, ${row.link})
+        ON CONFLICT (tenant_id, user_identity, signal_key) DO NOTHING
+        RETURNING id
+      `);
+      return res.rows.length > 0;
+    },
+
+    async markNotificationRead(identity: string, signalKey: string): Promise<boolean> {
+      const rows = await db
+        .update(schema.notification)
+        .set({ readAt: new Date() })
+        .where(
+          and(
+            eq(schema.notification.userIdentity, identity),
+            eq(schema.notification.signalKey, signalKey),
+            isNull(schema.notification.readAt),
+          ),
+        )
+        .returning();
+      return rows.length > 0;
+    },
+
+    async markAllNotificationsRead(identity: string): Promise<number> {
+      const rows = await db
+        .update(schema.notification)
+        .set({ readAt: new Date() })
+        .where(and(eq(schema.notification.userIdentity, identity), isNull(schema.notification.readAt)))
+        .returning();
+      return rows.length;
     },
 
     // ── S9 expense claims (lifecycle record; no deletes) ─────────────────────

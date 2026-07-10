@@ -40,6 +40,7 @@ import type {
   DistributionDto,
   DistributionShareDto,
   ClaimDto,
+  NotificationDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -373,6 +374,10 @@ export function createApiClient(deps: ApiClientDeps) {
     distributionSeed: (missionId: string) => request<{ rows: Array<{ personId: string; personName: string; suggestedBps: number | null; sourceTermId: string | null }> }>('GET', `/api/v1/distributions/seed?missionId=${missionId}`),
     createDistribution: (input: { missionId: string; lineId: string; orgShareBps: number; shares: Array<{ personId: string; shareBps: number }>; notes?: string | null }) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', '/api/v1/distributions', input),
     revokeDistribution: (distributionId: string, reason: string, expectedVersion: number) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', `/api/v1/distributions/${distributionId}/revoke`, { reason, expectedVersion }),
+    // S10: notifications — the bell.
+    listNotifications: () => request<{ notifications: NotificationDto[]; unreadCount: number }>('GET', '/api/v1/notifications'),
+    markNotificationRead: (signalKey: string) => request<{ ok: true }>('POST', '/api/v1/notifications/read', { signalKey }),
+    markAllNotificationsRead: () => request<{ ok: true }>('POST', '/api/v1/notifications/read-all', {}),
     // S9: expense claims.
     listClaims: () => request<{ claims: ClaimDto[] }>('GET', '/api/v1/claims'),
     getClaim: (claimId: string) => request<{ claim: ClaimDto }>('GET', `/api/v1/claims/${claimId}`),

@@ -507,6 +507,20 @@ export const teamMemberRemoveParamSchema = z.object({
 });
 export const flipVersionBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 
+// ── notifications (S10): the L2 inbox ────────────────────────────────────────
+export const notificationSchema = z.object({
+  signalKey: z.string(),
+  kind: z.string(),
+  title: z.string(),
+  link: z.string(),
+  emittedAt: z.string(),
+  readAt: z.string().nullable(),
+});
+export type NotificationDto = z.infer<typeof notificationSchema>;
+export const notificationsInboxSchema = z.object({ notifications: z.array(notificationSchema), unreadCount: z.number().int() });
+export const markNotificationReadRequestSchema = z.object({ signalKey: z.string().min(1) }).strict();
+export const okResponseSchema = z.object({ ok: z.literal(true) });
+
 // ── claims (S9): the Finance Intelligence Hub as a record ────────────────────
 export const CLAIM_STATUSES = ['Submitted', 'InReview', 'Approved', 'Rejected', 'Paid'] as const;
 export const claimSchema = z.object({

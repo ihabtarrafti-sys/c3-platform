@@ -90,6 +90,9 @@ import {
   submitClaimRequestSchema,
   decideClaimRequestSchema,
   payClaimRequestSchema,
+  notificationsInboxSchema,
+  markNotificationReadRequestSchema,
+  okResponseSchema,
   claimIdParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
@@ -188,6 +191,9 @@ import {
   submitClaim,
   decideClaim,
   payClaim,
+  listNotifications,
+  markNotificationRead,
+  markAllNotificationsRead,
   voidInvoice,
   listInvoices,
   getInvoice,
@@ -505,6 +511,18 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req: FastifyRequest, reply: FastifyReply) => {
       const { approvalId } = req.params as { approvalId: string };
       const result = await fn(approvalId, req);
+      // S10: email = a delivery channel of the L2 row the transaction already
+      // wrote. Post-commit, fire-and-forget; the requester hears about
+      // decisions on their request, never about their own actions. V1 scope:
+      // transition emails only — submission alerts stay in-app (cockpit+bell).
+      const approval = (result as { approval?: { approvalId: string; status: string; submittedBy: string } }).approval;
+      if (deps.mailer && approval && approval.submittedBy.toLowerCase() !== actorOf(req).identity.toLowerCase()) {
+        deps.mailer.send(
+          approval.submittedBy,
+          `[C3] ${approval.approvalId} is now ${approval.status}`,
+          `Your request ${approval.approvalId} moved to ${approval.status}.\n\nOpen it in C3: /approvals/${approval.approvalId}`,
+        );
+      }
       return reply.send(result);
     };
 
@@ -1149,6 +1167,26 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return { claim: toClaimDto(await payClaim(P, actorOf(req), claimId, req.body as import('@c3web/domain').PayClaimInput)) };
     },
   );
+
+  // ── notifications (S10): the bell — per-user rows, ack, never delete ───────
+  r.get('/api/v1/notifications', { schema: { response: { 200: notificationsInboxSchema } } }, async (req) => {
+    const inbox = await listNotifications(P, actorOf(req));
+    return {
+      notifications: inbox.notifications.map((n) => ({ signalKey: n.signalKey, kind: n.kind, title: n.title, link: n.link, emittedAt: n.emittedAt, readAt: n.readAt })),
+      unreadCount: inbox.unreadCount,
+    };
+  });
+
+  r.post('/api/v1/notifications/read', { schema: { body: markNotificationReadRequestSchema, response: { 200: okResponseSchema } } }, async (req) => {
+    const { signalKey } = req.body as { signalKey: string };
+    await markNotificationRead(P, actorOf(req), signalKey);
+    return { ok: true as const };
+  });
+
+  r.post('/api/v1/notifications/read-all', { schema: { response: { 200: okResponseSchema } } }, async (req) => {
+    await markAllNotificationsRead(P, actorOf(req));
+    return { ok: true as const };
+  });
 
   // ── distributions (S8): the payout list — allocate, mark paid, revoke ──────
   r.get(

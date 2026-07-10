@@ -11,6 +11,7 @@ import {
 import { useSession, useNotify } from '../session';
 import { useThemeMode } from '../theme/mode';
 import { GlobalSearch } from './GlobalSearch';
+import { NotificationBell } from './NotificationBell';
 import { IS_ENTRA } from '../auth';
 import { LoginGate } from '../pages/LoginGate';
 import { EntraSignIn, AccessNotProvisioned } from '../pages/EntraSignIn';
@@ -445,6 +446,7 @@ export function AppShell() {
         >
           ✦
         </Button>
+        <NotificationBell />
         <div className={s.identity}>
           <Avatar name={me?.displayName ?? undefined} size={28} color="neutral" />
           <div className={s.identityText}>
