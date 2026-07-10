@@ -180,6 +180,39 @@ describe('delegations over HTTP (Tier 0.5)', () => {
     expect(after.signals.find((s: { kind: string }) => s.kind === 'DelegationActive')).toBeUndefined();
   });
 
+  it('H-01: delegation grants standing to DECIDE, never wider disclosure — payloads are role-projected', async () => {
+    // a person + a governed identity change carrying PII (DOB)
+    const ap = (await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'Disclosure Probe' } }, 201)).approval;
+    const r1 = (await post(tokens.owner, `/api/v1/approvals/${ap.approvalId}/begin-review`, { expectedVersion: ap.version })).approval;
+    const r2 = (await post(tokens.owner, `/api/v1/approvals/${ap.approvalId}/approve`, { expectedVersion: r1.version })).approval;
+    const ex = await post(tokens.owner, `/api/v1/approvals/${ap.approvalId}/execute`, { expectedVersion: r2.version });
+    const personId = ex.person.personId as string;
+    const idReq = (
+      await post(tokens.ops, `/api/v1/people/${personId}/identity-request`, { patch: { firstName: 'Dee', dateOfBirth: '1990-01-01' } }, 201)
+    ).approval;
+
+    // delegate the VISITOR (no PII, no financial standing by role)
+    const dlg = (
+      await post(tokens.owner, '/api/v1/delegations', { granteeIdentity: 'visitor@alpha.com', startsOn: today(), endsOn: plusDays(3), reason: 'Disclosure probe' }, 201)
+    ).delegation;
+
+    // the register opens to the delegate but carries NO payloads at all
+    const list = await get(tokens.visitor, '/api/v1/approvals');
+    expect(list.approvals.length).toBeGreaterThan(0);
+    for (const row of list.approvals) expect('payload' in row, 'register must be payload-free').toBe(false);
+
+    // the detail view projects by ROLE: the identity patch reaches the
+    // delegate WITHOUT dateOfBirth; the owner sees it in full
+    const seenByDelegate = (await get(tokens.visitor, `/api/v1/approvals/${idReq.approvalId}`)).approval;
+    expect(seenByDelegate.payload.input.patch.firstName).toBe('Dee');
+    expect('dateOfBirth' in seenByDelegate.payload.input.patch, 'DOB must be withheld from a non-PII delegate').toBe(false);
+    const seenByOwner = (await get(tokens.owner, `/api/v1/approvals/${idReq.approvalId}`)).approval;
+    expect(seenByOwner.payload.input.patch.dateOfBirth).toBe('1990-01-01');
+
+    // clean up the delegation so later assertions see role-pure state
+    await post(tokens.owner, `/api/v1/delegations/${dlg.delegationId}/revoke`, { expectedVersion: dlg.version, reason: 'Probe done' });
+  });
+
   it('backup-status: owner-only, honest not-configured in this environment', async () => {
     expect((await app.inject({ method: 'GET', url: '/api/v1/settings/backup-status', headers: auth(tokens.ops) })).statusCode).toBe(403);
     const status = await get(tokens.owner, '/api/v1/settings/backup-status');

@@ -113,14 +113,18 @@ export type PersonDto = z.infer<typeof personSchema>;
 export const peopleListSchema = z.object({ people: z.array(personSchema) });
 
 // ── approval ────────────────────────────────────────────────────────────────
-export const approvalSchema = z.object({
+// HARDEN-0 (H-01): the wire payload is a ROLE-PROJECTED view of the immutable
+// domain payload — fields beyond the caller's PII/financial standing are
+// omitted. The response schema is therefore structural (record), while the
+// full domain union type stays exported for the web's rendering narrowing
+// (cast once at the page boundary; absent keys are the projection working).
+export const approvalSummarySchema = z.object({
   approvalId: z.string(),
   operationType: operationTypeSchema,
   targetPersonId: z.string(),
   targetId: z.string().nullable(),
   reason: z.string().nullable(),
   status: approvalStatusSchema,
-  payload: approvalPayloadSchema,
   submittedBy: z.string(),
   submittedAt: z.string(),
   reviewedBy: z.string().nullable(),
@@ -132,9 +136,17 @@ export const approvalSchema = z.object({
   createdAt: z.string(),
   updatedAt: z.string(),
 });
-export type ApprovalDto = z.infer<typeof approvalSchema>;
+export type ApprovalSummaryDto = z.infer<typeof approvalSummarySchema>;
 
-export const approvalsListSchema = z.object({ approvals: z.array(approvalSchema) });
+export const approvalSchema = approvalSummarySchema.extend({
+  payload: z.record(z.unknown()),
+});
+export type ApprovalDto = z.infer<typeof approvalSchema>;
+/** The FULL domain payload union — for web-side narrowing after the one cast. */
+export type ApprovalPayloadDto = z.infer<typeof approvalPayloadSchema>;
+
+// H-01: the register is payload-free — disclosure happens on the detail view.
+export const approvalsListSchema = z.object({ approvals: z.array(approvalSummarySchema) });
 
 export const approvalEventSchema = z.object({
   approvalId: z.string(),

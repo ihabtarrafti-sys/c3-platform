@@ -1,0 +1,134 @@
+/**
+ * tenantTables.ts — HARDEN-0 (audit H-03): the ONE authoritative registry of
+ * tenant-keyed tables, consumed by BOTH ceremonies:
+ *
+ *   - exportTenant: every registered table exports (in registry order,
+ *     parents before children, with date columns cast ::text so the bundle
+ *     carries ISO strings, never driver-parsed Dates);
+ *   - exitTenant: every registered table is erased (in exitRank order,
+ *     children before parents), so the final `DELETE FROM tenant` cannot
+ *     hit a surviving FK and roll the ceremony back.
+ *
+ * THE LAW: db.test.ts compares this registry against pg_catalog — every
+ * table in the live schema carrying a tenant_id column MUST be registered
+ * (and nothing extra may be). Adding a domain table without registering it
+ * here fails the gate; forgetting is unrepresentable.
+ *
+ * Directory tables (app_user, external_identity, tenant itself) are NOT
+ * tenant-keyed and keep their bespoke handling in the ceremonies.
+ */
+
+export interface TenantTableSpec {
+  /** Table name in the public schema. */
+  readonly name: string;
+  /** Export SELECT with $1 = tenant id. Dates cast ::text. */
+  readonly exportSql: string;
+  /** Exit deletion order: LOWER deletes first (children before parents). */
+  readonly exitRank: number;
+}
+
+export const TENANT_TABLES: readonly TenantTableSpec[] = [
+  // ── governance + directory-adjacent ─────────────────────────────────────
+  { name: 'tenant_membership', exportSql: `SELECT * FROM tenant_membership WHERE tenant_id = $1 ORDER BY user_id`, exitRank: 90 },
+  { name: 'role_assignment', exportSql: `SELECT * FROM role_assignment WHERE tenant_id = $1 ORDER BY user_id, role`, exitRank: 89 },
+  { name: 'business_id_counter', exportSql: `SELECT * FROM business_id_counter WHERE tenant_id = $1 ORDER BY kind`, exitRank: 80 },
+  { name: 'approval', exportSql: `SELECT * FROM approval WHERE tenant_id = $1 ORDER BY approval_id`, exitRank: 70 },
+  { name: 'approval_event', exportSql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 5 },
+  { name: 'audit_event', exportSql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 4 },
+
+  // ── people + person-adjacent ─────────────────────────────────────────────
+  { name: 'person', exportSql: `SELECT * FROM person WHERE tenant_id = $1 ORDER BY person_id`, exitRank: 60 },
+  {
+    name: 'credential',
+    exportSql: `SELECT id, tenant_id, credential_id, person_id, credential_type, issuer,
+                       issued_on::text AS issued_on, expires_on::text AS expires_on,
+                       notes, is_active, created_by_approval_id, version, created_at, updated_at
+                  FROM credential WHERE tenant_id = $1 ORDER BY credential_id`,
+    exitRank: 20,
+  },
+  {
+    name: 'journey',
+    exportSql: `SELECT id, tenant_id, journey_id, person_id, journey_type, title,
+                       started_on::text AS started_on, ended_on::text AS ended_on,
+                       status, notes, created_by_approval_id, version, created_at, updated_at
+                  FROM journey WHERE tenant_id = $1 ORDER BY journey_id`,
+    exitRank: 21,
+  },
+  { name: 'kit', exportSql: `SELECT * FROM kit WHERE tenant_id = $1 ORDER BY kit_id`, exitRank: 22 },
+  { name: 'apparel', exportSql: `SELECT * FROM apparel WHERE tenant_id = $1 ORDER BY apparel_id`, exitRank: 23 },
+
+  // ── org structure + finance reference ────────────────────────────────────
+  { name: 'entity', exportSql: `SELECT * FROM entity WHERE tenant_id = $1 ORDER BY entity_id`, exitRank: 65 },
+  { name: 'fx_rate', exportSql: `SELECT * FROM fx_rate WHERE tenant_id = $1 ORDER BY currency`, exitRank: 10 },
+  { name: 'team', exportSql: `SELECT * FROM team WHERE tenant_id = $1 ORDER BY team_id`, exitRank: 45 },
+  { name: 'team_membership', exportSql: `SELECT * FROM team_membership WHERE tenant_id = $1 ORDER BY team_id, person_id`, exitRank: 15 },
+
+  // ── missions + finance ───────────────────────────────────────────────────
+  {
+    // H-03 repair: the projection was five columns behind the live schema —
+    // code, organizer, city, finance_stage, team_id now export.
+    name: 'mission',
+    exportSql: `SELECT id, tenant_id, mission_id, name, code, organizer, city, game_title, team_id,
+                       starts_on::text AS starts_on, ends_on::text AS ends_on,
+                       finance_stage, notes, is_active, version, created_at, updated_at
+                  FROM mission WHERE tenant_id = $1 ORDER BY mission_id`,
+    exitRank: 40,
+  },
+  {
+    name: 'agreement',
+    exportSql: `SELECT id, tenant_id, agreement_id, person_id, entity_id, agreement_code, agreement_type,
+                       linked_agreement_id, starts_on::text AS starts_on, ends_on::text AS ends_on,
+                       value_usd_cents, notes, status, created_by_approval_id, version, created_at, updated_at
+                  FROM agreement WHERE tenant_id = $1 ORDER BY agreement_id`,
+    exitRank: 30,
+  },
+  { name: 'agreement_term', exportSql: `SELECT * FROM agreement_term WHERE tenant_id = $1 ORDER BY term_id`, exitRank: 25 },
+  { name: 'mission_line', exportSql: `SELECT * FROM mission_line WHERE tenant_id = $1 ORDER BY line_id`, exitRank: 35 },
+  { name: 'mission_budget', exportSql: `SELECT * FROM mission_budget WHERE tenant_id = $1 ORDER BY mission_id, direction, category, currency`, exitRank: 34 },
+  { name: 'mission_participant', exportSql: `SELECT * FROM mission_participant WHERE tenant_id = $1 ORDER BY mission_id, person_id`, exitRank: 33 },
+  {
+    name: 'invoice',
+    exportSql: `SELECT id, tenant_id, invoice_id, invoice_number, mission_id, entity_id, line_id,
+                       billed_to_name, billed_to_details, income_category, description, currency,
+                       subtotal_minor, vat_rate_bps, vat_minor, total_minor, status,
+                       issued_on::text AS issued_on, issued_by, voided_reason, document_id,
+                       version, created_at, updated_at
+                  FROM invoice WHERE tenant_id = $1 ORDER BY invoice_id`,
+    exitRank: 32,
+  },
+  { name: 'distribution', exportSql: `SELECT * FROM distribution WHERE tenant_id = $1 ORDER BY distribution_id`, exitRank: 31 },
+  { name: 'distribution_share', exportSql: `SELECT * FROM distribution_share WHERE tenant_id = $1 ORDER BY distribution_id, person_id`, exitRank: 14 },
+  {
+    name: 'claim',
+    exportSql: `SELECT id, tenant_id, claim_id, submitted_by, person_id, mission_id, category, description,
+                       amount_minor, currency, expense_on::text AS expense_on, status, reviewed_by,
+                       rejection_reason, paid_on::text AS paid_on, payment_source_label, ref_no,
+                       version, created_at, updated_at
+                  FROM claim WHERE tenant_id = $1 ORDER BY claim_id`,
+    exitRank: 24,
+  },
+
+  // ── documents + delivery + delegation ────────────────────────────────────
+  {
+    // Rows only: the object BYTES live in storage. The export manifest lists
+    // every storage_key so the blob bundle is enumerable; streamed object
+    // export + exit-time object deletion are the HARDEN-1 follow-up.
+    name: 'document',
+    exportSql: `SELECT * FROM document WHERE tenant_id = $1 ORDER BY document_id`,
+    exitRank: 12,
+  },
+  { name: 'notification', exportSql: `SELECT * FROM notification WHERE tenant_id = $1 ORDER BY emitted_at, id`, exitRank: 11 },
+  {
+    name: 'delegation',
+    exportSql: `SELECT id, tenant_id, delegation_id, grantee_identity, granted_by,
+                       starts_on::text AS starts_on, ends_on::text AS ends_on,
+                       reason, revoked_at, revoked_by, revoke_reason, version, created_at, updated_at
+                  FROM delegation WHERE tenant_id = $1 ORDER BY delegation_id`,
+    exitRank: 13,
+  },
+];
+
+/** Exit deletion order: children before parents, deterministic. */
+export function tenantTablesInExitOrder(): readonly string[] {
+  return [...TENANT_TABLES].sort((a, b) => a.exitRank - b.exitRank).map((t) => t.name);
+}

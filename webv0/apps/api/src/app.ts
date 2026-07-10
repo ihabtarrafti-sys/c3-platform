@@ -152,7 +152,7 @@ import {
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
 import { DOCUMENT_MAX_BYTES, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
-import { capabilityView, canViewPerDiem, canViewPersonPII, assertManageDelegations } from '@c3web/authz';
+import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
 import {
   approveApproval,
@@ -280,7 +280,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -499,6 +499,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // S11: the PII tier resolves per request — owner/ops/hr get the block,
   // everyone else gets structural omission (absence, not masking).
   const piiOf = (req: FastifyRequest) => canViewPersonPII(actorOf(req).role);
+  // H-01: payload disclosure is ROLE-derived — delegation never widens it.
+  const discOf = (req: FastifyRequest) => disclosureOf(actorOf(req).role);
 
   r.get('/api/v1/people', { schema: { response: { 200: peopleListSchema } } }, async (req) => {
     const people = await listPeople(P, actorOf(req));
@@ -533,7 +535,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         input: { personId, patch: body.patch } as import('@c3web/domain').UpdatePersonIdentityInput,
         reason: body.reason ?? null,
       });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -544,7 +546,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { personId } = req.params as { personId: string };
       const { reason } = req.body as { reason: string };
       const approval = await submitDeactivatePerson(P, actorOf(req), { input: { personId, reason } });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -555,7 +557,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { personId } = req.params as { personId: string };
       const { reason } = req.body as { reason: string };
       const approval = await submitReactivatePerson(P, actorOf(req), { input: { personId, reason } });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -568,18 +570,18 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── approvals ──────────────────────────────────────────────────────────────
   r.get('/api/v1/approvals', { schema: { response: { 200: approvalsListSchema } } }, async (req) => {
     const approvals = await listApprovals(P, actorOf(req));
-    return { approvals: approvals.map(toApprovalDto) };
+    return { approvals: approvals.map(toApprovalSummaryDto) };
   });
 
   r.post('/api/v1/approvals', { schema: { body: submitAddPersonRequestSchema, response: { 201: approvalResponseSchema } } }, async (req, reply) => {
     const body = req.body as { input: import('@c3web/domain').AddPersonInput; reason?: string };
     const approval = await submitAddPerson(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-    return reply.status(201).send({ approval: toApprovalDto(approval) });
+    return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
   });
 
   r.get('/api/v1/approvals/:approvalId', { schema: { params: approvalIdParamSchema, response: { 200: approvalResponseSchema } } }, async (req) => {
     const { approvalId } = req.params as { approvalId: string };
-    return { approval: toApprovalDto(await getApproval(P, actorOf(req), approvalId)) };
+    return { approval: toApprovalDto(await getApproval(P, actorOf(req), approvalId), discOf(req)) };
   });
 
   const versionedAction =
@@ -607,7 +609,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { params: approvalIdParamSchema, body: versionedRequestSchema, response: { 200: approvalResponseSchema } } },
     versionedAction(async (approvalId, req) => {
       const { expectedVersion } = req.body as { expectedVersion: number };
-      return { approval: toApprovalDto(await beginReview(P, actorOf(req), approvalId, expectedVersion)) };
+      return { approval: toApprovalDto(await beginReview(P, actorOf(req), approvalId, expectedVersion), discOf(req)) };
     }),
   );
 
@@ -616,7 +618,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { params: approvalIdParamSchema, body: versionedRequestSchema, response: { 200: approvalResponseSchema } } },
     versionedAction(async (approvalId, req) => {
       const { expectedVersion } = req.body as { expectedVersion: number };
-      return { approval: toApprovalDto(await approveApproval(P, actorOf(req), approvalId, expectedVersion)) };
+      return { approval: toApprovalDto(await approveApproval(P, actorOf(req), approvalId, expectedVersion), discOf(req)) };
     }),
   );
 
@@ -625,7 +627,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { params: approvalIdParamSchema, body: rejectRequestSchema, response: { 200: approvalResponseSchema } } },
     versionedAction(async (approvalId, req) => {
       const { expectedVersion, reason } = req.body as { expectedVersion: number; reason: string };
-      return { approval: toApprovalDto(await rejectApproval(P, actorOf(req), approvalId, expectedVersion, reason)) };
+      return { approval: toApprovalDto(await rejectApproval(P, actorOf(req), approvalId, expectedVersion, reason), discOf(req)) };
     }),
   );
 
@@ -636,7 +638,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { expectedVersion } = req.body as { expectedVersion: number };
       const res = await executeApproval(P, actorOf(req), approvalId, expectedVersion);
       return {
-        approval: toApprovalDto(res.approval),
+        approval: toApprovalDto(res.approval, discOf(req)),
         person: res.person ? toPersonDto(res.person, piiOf(req)) : null,
         credential: res.credential ? toCredentialDto(res.credential) : null,
         journey: res.journey ? toJourneyDto(res.journey) : null,
@@ -654,7 +656,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { params: approvalIdParamSchema, body: versionedRequestSchema, response: { 200: approvalResponseSchema } } },
     versionedAction(async (approvalId, req) => {
       const { expectedVersion } = req.body as { expectedVersion: number };
-      return { approval: toApprovalDto(await withdrawApproval(P, actorOf(req), approvalId, expectedVersion)) };
+      return { approval: toApprovalDto(await withdrawApproval(P, actorOf(req), approvalId, expectedVersion), discOf(req)) };
     }),
   );
 
@@ -694,7 +696,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').AddCredentialInput; reason?: string };
       const approval = await submitAddCredential(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -704,7 +706,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').DeactivateCredentialInput; reason?: string };
       const approval = await submitDeactivateCredential(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -731,7 +733,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').InitiateJourneyInput; reason?: string };
       const approval = await submitInitiateJourney(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1054,7 +1056,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').AddMissionParticipantInput; reason?: string };
       const approval = await submitAddMissionParticipant(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1064,7 +1066,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').RemoveMissionParticipantInput; reason?: string };
       const approval = await submitRemoveMissionParticipant(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1097,7 +1099,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
           rows: result.errors.slice(0, 100),
         });
       }
-      return reply.status(201).send({ approval: toApprovalDto(result.approval), domain: result.domain, rowCount: result.rowCount });
+      return reply.status(201).send({ approval: toApprovalDto(result.approval, discOf(req)), domain: result.domain, rowCount: result.rowCount });
     },
   );
 
@@ -1608,7 +1610,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { params: personIdParamSchema, response: { 200: approvalsListSchema } } },
     async (req) => {
       const { personId } = req.params as { personId: string };
-      return { approvals: (await listApprovalsForPerson(P, actorOf(req), personId)).map(toApprovalDto) };
+      return { approvals: (await listApprovalsForPerson(P, actorOf(req), personId)).map(toApprovalSummaryDto) };
     },
   );
 
@@ -1655,7 +1657,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').AddAgreementInput; reason?: string };
       const approval = await submitAddAgreement(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1665,7 +1667,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').RenewAgreementInput; reason?: string };
       const approval = await submitRenewAgreement(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1675,7 +1677,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').TerminateAgreementInput; reason?: string };
       const approval = await submitTerminateAgreement(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1709,7 +1711,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').SubmitAddAgreementTermInput; reason?: string };
       const approval = await submitAddAgreementTerm(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1719,7 +1721,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').SubmitUpdateAgreementTermInput; reason?: string };
       const approval = await submitUpdateAgreementTerm(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1729,7 +1731,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { input: import('@c3web/domain').SubmitRemoveAgreementTermInput; reason?: string };
       const approval = await submitRemoveAgreementTerm(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 
@@ -1747,7 +1749,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const body = req.body as { payload: SubmitMemberChangeCommand['payload']; reason?: string };
       const approval = await submitMemberChange(P, actorOf(req), { payload: body.payload, reason: body.reason ?? null });
-      return reply.status(201).send({ approval: toApprovalDto(approval) });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
     },
   );
 }

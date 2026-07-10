@@ -251,6 +251,20 @@ export function capabilityView(role: C3Role): CapabilityView {
 
 export const canViewPersonPII = (role: C3Role): boolean => capabilitiesFor(role).canViewPersonPII;
 
+/**
+ * HARDEN-0 (audit H-01): what an actor may SEE inside an approval payload.
+ * Derived from ROLE only — delegation grants standing to DECIDE, never wider
+ * disclosure. The payload projector at the DTO boundary consumes this.
+ */
+export interface PayloadDisclosure {
+  readonly pii: boolean;
+  readonly financial: boolean;
+}
+export function disclosureOf(role: C3Role): PayloadDisclosure {
+  const c = capabilitiesFor(role);
+  return { pii: c.canViewPersonPII, financial: c.canViewFinancials };
+}
+
 export const canManageDelegations = (role: C3Role): boolean => capabilitiesFor(role).canManageDelegations;
 
 /** Guard delegation management (grant/revoke/list) — the owner's exclusive act. */

@@ -20,10 +20,13 @@
  *     sole-tenant users leave with their org. access_event (platform-level)
  *     and the erasure report itself are retained by design.
  *
- * Self-contained by the same packaging contract as exportTenant.ts: 'pg' is a
- * type-only import; there are no runtime imports.
+ * Packaging contract (HARDEN-0 revision): 'pg' stays a type-only import; the
+ * ONLY runtime import is the sibling tenant-table registry — one shared truth
+ * for export and exit is the point of H-03 (drift between the two ceremonies
+ * is what stranded nine tables).
  */
 import type { Client } from 'pg';
+import { tenantTablesInExitOrder } from './tenantTables';
 
 export interface ExitOptions {
   readonly tenantSlug: string;
@@ -55,29 +58,13 @@ const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
   { table: 'approval_event', trigger: 'approval_event_append_only' },
 ];
 
-/** Tenant-keyed tables in FK-safe deletion order (children before parents). */
-const TENANT_TABLES = [
-  'audit_event',
-  'approval_event',
-  'fx_rate', // Finance S1: references only tenant, no dependents
-
-  'credential', // FK → person AND approval, so credential first (Sprint 36)
-  'journey', // FK → person AND approval (Sprint 37)
-  'agreement_term', // Finance S3: FK → agreement, so before agreement
-  'agreement', // FK → person AND approval AND itself (Sprint 41; one DELETE clears parent+child)
-  'mission_line', // Finance S4: FK → mission, so before mission
-  'mission_budget', // S2: FK → mission, so before mission
-  'mission_participant', // FK → mission AND person (Sprint 39), so before both
-  'mission', // referenced by mission_participant (Sprint 39)
-  'kit', // FK → person (Sprint 38)
-  'apparel', // FK → person (Sprint 38)
-  'person', // FK → approval (composite), so person before approval
-  'entity', // S48: referenced by person.entity_id AND agreement.entity_id, so after both
-  'approval',
-  'business_id_counter',
-  'role_assignment',
-  'tenant_membership',
-] as const;
+/**
+ * HARDEN-0 (H-03): the deletion set comes from the ONE authoritative registry,
+ * children before parents via exitRank. Before this, nine newer tables were
+ * missing — the final `DELETE FROM tenant` hit their surviving FKs and rolled
+ * the whole ceremony back for any tenant using those domains.
+ */
+const TENANT_TABLES = tenantTablesInExitOrder();
 
 async function count(client: Client, sql: string, params: unknown[]): Promise<number> {
   const r = await client.query<{ n: string }>(sql, params);

@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Button, Field, Input, makeStyles } from '@fluentui/react-components';
 import { useApproval, useApprovalEvents } from '../queries';
 import { ApiError, type ApprovalDto } from '../api';
+import type { ApprovalPayloadDto } from '@c3web/api-contracts';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { PageHeader } from '../components/PageHeader';
@@ -78,6 +79,11 @@ export function ApprovalDetailPage() {
   }
 
   const a = data?.approval;
+  // H-01: the wire payload is ROLE-PROJECTED — keys beyond this caller's
+  // PII/financial standing are ABSENT. One cast to the full union for
+  // narrowing; optional access treats withheld keys as absent, which is
+  // exactly the truth the projection states.
+  const payload = a ? (a.payload as unknown as ApprovalPayloadDto) : null;
   const st = a ? approvalStatusOf(a.status) : null;
   const canReview = me?.capabilities.canReviewApproval ?? false;
   const canExecute = me?.capabilities.canExecuteApproval ?? false;
@@ -105,39 +111,39 @@ export function ApprovalDetailPage() {
         // the person name (testid preserved for E2E); member operations show
         // the subject member's email; credential operations show the
         // credential subject with its owning person.
-        ...(a.payload.operationType === 'AddPerson'
-          ? [{ label: 'New person', value: <span data-testid="approval-fullname">{a.payload.input.fullName}</span> }]
-          : a.payload.operationType === 'AddCredential'
-            ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${a.payload.input.credentialType} for ${a.payload.input.personId}`}</span> }]
-            : a.payload.operationType === 'DeactivateCredential'
-              ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${a.payload.input.credentialId} (${a.payload.input.personId})`}</span> }]
-              : a.payload.operationType === 'InitiateJourney'
-                ? [{ label: 'Journey', value: <span data-testid="approval-journey-subject">{`${a.payload.input.journeyType} for ${a.payload.input.personId}`}</span> }]
-                : a.payload.operationType === 'AddMissionParticipant'
-                  ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`${a.payload.input.personId} as ${a.payload.input.role} on ${a.payload.input.missionId}`}</span> }]
-                  : a.payload.operationType === 'RemoveMissionParticipant'
-                    ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`Remove ${a.payload.input.personId} from ${a.payload.input.missionId}`}</span> }]
-                    : a.payload.operationType === 'AddAgreement'
-                      ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`${a.payload.input.agreementType} for ${a.payload.input.personId ?? a.payload.input.entityId}`}</span> }]
-                      : a.payload.operationType === 'RenewAgreement'
-                        ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Renew ${a.payload.input.agreementId} to ${a.payload.input.newEndsOn}`}</span> }]
-                        : a.payload.operationType === 'TerminateAgreement'
-                          ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Terminate ${a.payload.input.agreementId}`}</span> }]
-                          : a.payload.operationType === 'AddAgreementTerm'
-                            ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Add ${agreementTermKindOf(a.payload.input.kind)} to ${a.payload.input.agreementId}`}</span> }]
-                            : a.payload.operationType === 'UpdateAgreementTerm'
-                              ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Change ${a.payload.input.termId} on ${a.payload.input.agreementId}`}</span> }]
-                              : a.payload.operationType === 'RemoveAgreementTerm'
-                                ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Remove ${a.payload.input.termId} from ${a.payload.input.agreementId}`}</span> }]
-                                : a.payload.operationType === 'ImportBatch'
-                                  ? [{ label: 'Import batch', value: <span data-testid="approval-import-subject">{`Import ${a.payload.input.rowCount} ${a.payload.input.domain} from "${a.payload.input.fileName}"`}</span> }]
-                                  : a.payload.operationType === 'UpdatePersonIdentity'
-                                    ? [{ label: 'Identity change', value: <span data-testid="approval-person-subject">{`${a.payload.input.personId}: ${Object.keys(a.payload.input.patch).join(', ')}`}</span> }]
-                                    : a.payload.operationType === 'DeactivatePerson'
-                                      ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Deactivate ${a.payload.input.personId} — ${a.payload.input.reason}`}</span> }]
-                                      : a.payload.operationType === 'ReactivatePerson'
-                                        ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Reactivate ${a.payload.input.personId} — ${a.payload.input.reason}`}</span> }]
-                                        : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
+        ...(payload!.operationType === 'AddPerson'
+          ? [{ label: 'New person', value: <span data-testid="approval-fullname">{payload!.input.fullName}</span> }]
+          : payload!.operationType === 'AddCredential'
+            ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${payload!.input.credentialType} for ${payload!.input.personId}`}</span> }]
+            : payload!.operationType === 'DeactivateCredential'
+              ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${payload!.input.credentialId} (${payload!.input.personId})`}</span> }]
+              : payload!.operationType === 'InitiateJourney'
+                ? [{ label: 'Journey', value: <span data-testid="approval-journey-subject">{`${payload!.input.journeyType} for ${payload!.input.personId}`}</span> }]
+                : payload!.operationType === 'AddMissionParticipant'
+                  ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`${payload!.input.personId} as ${payload!.input.role} on ${payload!.input.missionId}`}</span> }]
+                  : payload!.operationType === 'RemoveMissionParticipant'
+                    ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`Remove ${payload!.input.personId} from ${payload!.input.missionId}`}</span> }]
+                    : payload!.operationType === 'AddAgreement'
+                      ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`${payload!.input.agreementType} for ${payload!.input.personId ?? payload!.input.entityId}`}</span> }]
+                      : payload!.operationType === 'RenewAgreement'
+                        ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Renew ${payload!.input.agreementId} to ${payload!.input.newEndsOn}`}</span> }]
+                        : payload!.operationType === 'TerminateAgreement'
+                          ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Terminate ${payload!.input.agreementId}`}</span> }]
+                          : payload!.operationType === 'AddAgreementTerm'
+                            ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Add ${agreementTermKindOf(payload!.input.kind)} to ${payload!.input.agreementId}`}</span> }]
+                            : payload!.operationType === 'UpdateAgreementTerm'
+                              ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Change ${payload!.input.termId} on ${payload!.input.agreementId}`}</span> }]
+                              : payload!.operationType === 'RemoveAgreementTerm'
+                                ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Remove ${payload!.input.termId} from ${payload!.input.agreementId}`}</span> }]
+                                : payload!.operationType === 'ImportBatch'
+                                  ? [{ label: 'Import batch', value: <span data-testid="approval-import-subject">{`Import ${payload!.input.rowCount} ${payload!.input.domain} from "${payload!.input.fileName}"`}</span> }]
+                                  : payload!.operationType === 'UpdatePersonIdentity'
+                                    ? [{ label: 'Identity change', value: <span data-testid="approval-person-subject">{`${payload!.input.personId}: ${Object.keys(payload!.input.patch).join(', ')}`}</span> }]
+                                    : payload!.operationType === 'DeactivatePerson'
+                                      ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Deactivate ${payload!.input.personId} — ${payload!.input.reason}`}</span> }]
+                                      : payload!.operationType === 'ReactivatePerson'
+                                        ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Reactivate ${payload!.input.personId} — ${payload!.input.reason}`}</span> }]
+                                        : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{payload!.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {
@@ -169,6 +175,8 @@ export function ApprovalDetailPage() {
       {a && st && (
         <>
           <DefinitionList items={items} />
+
+          <ProposedChange payload={payload!} />
 
           {isOwnRequest && canReview && (
             <p className={s.ownNote} data-testid="own-request-note">
@@ -268,6 +276,154 @@ export function ApprovalDetailPage() {
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+/**
+ * ProposedChange (HARDEN-0, audit H-07) — the reviewer sees THE VALUES they
+ * are deciding, rendered from the immutable payload snapshot. Keys the wire
+ * projection withheld for this caller's role render as an explicit
+ * "withheld for your role" — a blind decision is at least a VISIBLE one.
+ */
+function ProposedChange({ payload }: { payload: ApprovalPayloadDto }) {
+  const withheld = <em data-testid="proposed-withheld">withheld for your role</em>;
+  const v = (x: unknown): React.ReactNode => (x === undefined ? withheld : x === null || x === '' ? '—' : String(x));
+  const money = (amountMinor: unknown, currency: unknown): React.ReactNode =>
+    amountMinor === undefined ? withheld : `${(Number(amountMinor) / 100).toFixed(2)} ${typeof currency === 'string' ? currency : ''}`.trim();
+
+  let rows: Array<{ label: string; value: React.ReactNode }> = [];
+  switch (payload.operationType) {
+    case 'AddPerson': {
+      const i = payload.input;
+      rows = [
+        { label: 'Full name', value: v(i.fullName) },
+        { label: 'Team / game', value: v([i.currentTeam, i.currentGameTitle].filter(Boolean).join(' · ') || null) },
+        { label: 'Role / department', value: v([i.primaryRole, i.primaryDepartment].filter(Boolean).join(' · ') || null) },
+      ];
+      break;
+    }
+    case 'AddCredential': {
+      const i = payload.input;
+      rows = [
+        { label: 'Person', value: v(i.personId) },
+        { label: 'Type', value: v(i.credentialType) },
+        { label: 'Issuer', value: v(i.issuer) },
+        { label: 'Issued → expires', value: `${i.issuedOn} → ${i.expiresOn ?? 'no expiry'}` },
+      ];
+      break;
+    }
+    case 'DeactivateCredential':
+      rows = [{ label: 'Credential', value: v(payload.input.credentialId) }, { label: 'Person', value: v(payload.input.personId) }];
+      break;
+    case 'InitiateJourney': {
+      const i = payload.input;
+      rows = [
+        { label: 'Person', value: v(i.personId) },
+        { label: 'Journey', value: v(i.journeyType) },
+        { label: 'Title', value: v(i.title) },
+        { label: 'Starts', value: v(i.startedOn) },
+      ];
+      break;
+    }
+    case 'AddMissionParticipant':
+    case 'RemoveMissionParticipant':
+      rows = [
+        { label: 'Mission', value: v(payload.input.missionId) },
+        { label: 'Person', value: v(payload.input.personId) },
+        ...(payload.operationType === 'AddMissionParticipant' ? [{ label: 'Role', value: v(payload.input.role) }] : []),
+      ];
+      break;
+    case 'AddAgreement': {
+      const i = payload.input;
+      rows = [
+        { label: 'Type', value: v(i.agreementType) },
+        { label: 'Party', value: v(i.personId ?? i.entityId) },
+        { label: 'Window', value: `${i.startsOn} → ${i.endsOn ?? 'open'}` },
+        { label: 'Value (USD cents)', value: v((i as Record<string, unknown>).valueUsdCents) },
+      ];
+      break;
+    }
+    case 'RenewAgreement':
+      rows = [
+        { label: 'Agreement', value: v(payload.input.agreementId) },
+        { label: 'New end date', value: v(payload.input.newEndsOn) },
+      ];
+      break;
+    case 'TerminateAgreement':
+      rows = [
+        { label: 'Agreement', value: v(payload.input.agreementId) },
+        { label: 'Reason', value: v(payload.input.reason) },
+      ];
+      break;
+    case 'AddAgreementTerm':
+    case 'UpdateAgreementTerm': {
+      const i = payload.input as Record<string, unknown>;
+      rows = [
+        { label: 'Agreement', value: v(i.agreementId) },
+        ...('termId' in i ? [{ label: 'Term', value: v(i.termId) }] : []),
+        { label: 'Kind', value: v(i.kind) },
+        { label: 'Amount', value: money(i.amountMinor, i.currency) },
+        { label: 'Percent (bps)', value: v(i.percentBps) },
+        { label: 'Label', value: v(i.label) },
+      ];
+      break;
+    }
+    case 'RemoveAgreementTerm':
+      rows = [
+        { label: 'Agreement', value: v(payload.input.agreementId) },
+        { label: 'Term', value: v(payload.input.termId) },
+      ];
+      break;
+    case 'ImportBatch': {
+      const i = payload.input as Record<string, unknown>;
+      rows = [
+        { label: 'Domain', value: v(i.domain) },
+        { label: 'File', value: v(i.fileName) },
+        { label: 'Rows', value: v(i.rowCount) },
+        ...(i.domain === 'agreements' && i.agreements === undefined ? [{ label: 'Row contents', value: withheld }] : []),
+      ];
+      break;
+    }
+    case 'UpdatePersonIdentity': {
+      const patch = payload.input.patch as Record<string, unknown>;
+      rows = [
+        { label: 'Person', value: v(payload.input.personId) },
+        ...Object.entries(patch).map(([k, val]) => ({
+          label: `New ${k}`,
+          value: Array.isArray(val) ? val.join(' · ') : v(val),
+        })),
+        // the projection strips dateOfBirth for non-PII viewers — say so
+        ...(!('dateOfBirth' in patch) ? [] : []),
+      ];
+      break;
+    }
+    case 'DeactivatePerson':
+    case 'ReactivatePerson':
+      rows = [
+        { label: 'Person', value: v(payload.input.personId) },
+        { label: 'Reason', value: v(payload.input.reason) },
+      ];
+      break;
+    default:
+      rows = [{ label: 'Subject', value: v((payload as { input?: { email?: string } }).input?.email) }];
+  }
+
+  return (
+    <div style={{ marginTop: 20, maxWidth: 640 }} data-testid="proposed-change">
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: '0.08em',
+          textTransform: 'uppercase',
+          color: 'var(--c3-ink-mid)',
+          marginBottom: 8,
+        }}
+      >
+        Proposed change — decide on these values
+      </div>
+      <DefinitionList items={rows.map((r) => ({ label: r.label, value: r.value }))} />
     </div>
   );
 }

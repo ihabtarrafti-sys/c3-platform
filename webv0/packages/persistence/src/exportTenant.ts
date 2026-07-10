@@ -13,9 +13,14 @@
  *     (external_identity) is withheld — it is not this org's to take.
  *   - access_event is platform-level (no tenant key) and is never part of a
  *     tenant bundle; platform logs are out of scope by definition.
+ *   - Packaging (HARDEN-0): the sibling tenant-table registry is the only
+ *     runtime import — one shared truth for export AND exit (H-03).
+ *   - document.jsonl carries rows incl. storage keys; the object BYTES are a
+ *     HARDEN-1 follow-up (streamed blob bundle + exit-time object deletion).
  */
 import type { Client } from 'pg';
 import { createHash } from 'node:crypto';
+import { TENANT_TABLES } from './tenantTables';
 
 export interface ExportSpec {
   readonly tenantSlug: string;
@@ -71,50 +76,10 @@ function tableExports(): TableExport[] {
            AND (SELECT count(*) FROM tenant_membership m2 WHERE m2.user_id = ei.user_id) = 1
          ORDER BY ei.id`,
     },
-    { name: 'tenant_membership', sql: `SELECT * FROM tenant_membership WHERE tenant_id = $1 ORDER BY user_id` },
-    { name: 'role_assignment', sql: `SELECT * FROM role_assignment WHERE tenant_id = $1 ORDER BY user_id, role` },
-    { name: 'business_id_counter', sql: `SELECT * FROM business_id_counter WHERE tenant_id = $1 ORDER BY kind` },
-    { name: 'approval', sql: `SELECT * FROM approval WHERE tenant_id = $1 ORDER BY approval_id` },
-    { name: 'person', sql: `SELECT * FROM person WHERE tenant_id = $1 ORDER BY person_id` },
-    // Dates export as ISO date strings (::text) — never driver-parsed Dates.
-    {
-      name: 'credential',
-      sql: `SELECT id, tenant_id, credential_id, person_id, credential_type, issuer,
-                   issued_on::text AS issued_on, expires_on::text AS expires_on,
-                   notes, is_active, created_by_approval_id, version, created_at, updated_at
-              FROM credential WHERE tenant_id = $1 ORDER BY credential_id`,
-    },
-    {
-      name: 'journey',
-      sql: `SELECT id, tenant_id, journey_id, person_id, journey_type, title,
-                   started_on::text AS started_on, ended_on::text AS ended_on,
-                   status, notes, created_by_approval_id, version, created_at, updated_at
-              FROM journey WHERE tenant_id = $1 ORDER BY journey_id`,
-    },
-    { name: 'kit', sql: `SELECT * FROM kit WHERE tenant_id = $1 ORDER BY kit_id` },
-    { name: 'apparel', sql: `SELECT * FROM apparel WHERE tenant_id = $1 ORDER BY apparel_id` },
-    { name: 'entity', sql: `SELECT * FROM entity WHERE tenant_id = $1 ORDER BY entity_id` },
-    { name: 'fx_rate', sql: `SELECT * FROM fx_rate WHERE tenant_id = $1 ORDER BY currency` },
-    {
-      name: 'mission',
-      sql: `SELECT id, tenant_id, mission_id, name, game_title,
-                   starts_on::text AS starts_on, ends_on::text AS ends_on,
-                   notes, is_active, version, created_at, updated_at
-              FROM mission WHERE tenant_id = $1 ORDER BY mission_id`,
-    },
-    {
-      name: 'agreement',
-      sql: `SELECT id, tenant_id, agreement_id, person_id, entity_id, agreement_code, agreement_type,
-                   linked_agreement_id, starts_on::text AS starts_on, ends_on::text AS ends_on,
-                   value_usd_cents, notes, status, created_by_approval_id, version, created_at, updated_at
-              FROM agreement WHERE tenant_id = $1 ORDER BY agreement_id`,
-    },
-    { name: 'agreement_term', sql: `SELECT * FROM agreement_term WHERE tenant_id = $1 ORDER BY term_id` },
-    { name: 'mission_line', sql: `SELECT * FROM mission_line WHERE tenant_id = $1 ORDER BY line_id` },
-    { name: 'mission_budget', sql: `SELECT * FROM mission_budget WHERE tenant_id = $1 ORDER BY mission_id, direction, category, currency` },
-    { name: 'mission_participant', sql: `SELECT * FROM mission_participant WHERE tenant_id = $1 ORDER BY mission_id, person_id` },
-    { name: 'approval_event', sql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id` },
-    { name: 'audit_event', sql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id` },
+    // HARDEN-0 (H-03): every tenant-keyed table comes from the ONE registry —
+    // the catalog gate test proves the registry covers the live schema, so a
+    // new domain table cannot silently drop out of the bundle again.
+    ...TENANT_TABLES.map((t) => ({ name: t.name, sql: t.exportSql })),
   ];
 }
 

@@ -3,7 +3,15 @@
  * and ensure the least-privileged application role exists (separate from the
  * admin/migration connection). Migrations are tracked in `_migrations` and
  * applied at most once, each in its own transaction.
+ *
+ * HARDEN-0 (audit H-08): the ledger stores a SHA-256 of each applied file.
+ * A previously applied migration whose file content later changes FAILS the
+ * run loudly — applied migrations are FROZEN; corrections ship as NEW files.
+ * Rows applied before checksums existed (or inserted manually by the staging
+ * paste choreography) carry NULL and are adopted with the current hash on the
+ * next run — the freeze protects from that moment forward.
  */
+import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
@@ -74,30 +82,62 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
         applied_at timestamptz NOT NULL DEFAULT now()
       )
     `);
-    const done = new Set(
-      (await client.query('SELECT id FROM _migrations')).rows.map((r: { id: string }) => r.id),
+    // H-08: the checksum column arrives idempotently (the ledger predates it).
+    await client.query('ALTER TABLE _migrations ADD COLUMN IF NOT EXISTS checksum text');
+    const ledger = new Map<string, string | null>(
+      (await client.query('SELECT id, checksum FROM _migrations')).rows.map(
+        (r: { id: string; checksum: string | null }) => [r.id, r.checksum] as const,
+      ),
     );
     const files = readdirSync(MIGRATIONS_DIR)
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
     for (const file of files) {
-      if (done.has(file)) {
-        log(`↳ skip ${file} (already applied)`);
+      const sqlText = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+      // Normalize line endings before hashing: git may check the same file out
+      // as LF or CRLF depending on platform; the CONTENT is what is frozen.
+      const checksum = createHash('sha256').update(sqlText.replace(/\r\n/g, '\n')).digest('hex');
+
+      if (ledger.has(file)) {
+        const stored = ledger.get(file);
+        if (stored === null || stored === undefined) {
+          // Applied before checksums existed (or via the manual staging paste):
+          // adopt the current content as the frozen truth.
+          await client.query('UPDATE _migrations SET checksum = $2 WHERE id = $1 AND checksum IS NULL', [file, checksum]);
+          log(`↳ skip ${file} (already applied; checksum adopted)`);
+        } else if (stored !== checksum) {
+          throw new Error(
+            `Migration ${file} was EDITED after being applied (ledger ${stored.slice(0, 12)}… ≠ file ${checksum.slice(0, 12)}…). ` +
+              'Applied migrations are frozen — ship the correction as a NEW migration file.',
+          );
+        } else {
+          log(`↳ skip ${file} (already applied)`);
+        }
         continue;
       }
-      const sqlText = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
+
       log(`↳ apply ${file}`);
       await client.query('BEGIN');
       try {
         await client.query(sqlText);
-        await client.query('INSERT INTO _migrations (id) VALUES ($1)', [file]);
+        await client.query('INSERT INTO _migrations (id, checksum) VALUES ($1, $2)', [file, checksum]);
         await client.query('COMMIT');
         applied.push(file);
       } catch (err) {
         await client.query('ROLLBACK');
         throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
       }
+    }
+
+    // Rerun idempotence: ensureRestrictedRole clamps NOBYPASSRLS on every run
+    // as defense in depth, but 0006 deliberately grants the backup role its
+    // single documented BYPASSRLS exception. On a rerun (0006 already applied,
+    // so it never re-grants) the clamp would silently strip it — re-assert it.
+    if (ledger.has('0006_backup_role_grants.sql')) {
+      const backupRole = config.backupRole ?? 'c3_backup';
+      if (!ROLE_RE.test(backupRole)) throw new Error(`Unsafe role name: ${backupRole}`);
+      await client.query(`ALTER ROLE ${backupRole} BYPASSRLS`);
     }
     return applied;
   } finally {

@@ -10,6 +10,8 @@ import { Client } from 'pg';
 import type { Actor } from '@c3web/domain';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
+import { runMigrations } from '../src/migrate';
+import { TENANT_TABLES, tenantTablesInExitOrder } from '../src/tenantTables';
 
 let db: TestDatabase;
 let p: PersistenceHandle;
@@ -78,6 +80,68 @@ describe('migrations & schema', () => {
       for (const t of ['tenant', 'app_user', 'tenant_membership', 'role_assignment', 'business_id_counter', 'person', 'approval', 'approval_event', 'audit_event']) {
         expect(names).toContain(t);
       }
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('H-03: the tenant-table registry covers the LIVE catalog exactly — export/exit cannot silently lag the schema', async () => {
+    const client = new Client({ connectionString: db.adminUrl });
+    await client.connect();
+    try {
+      const res = await client.query(`
+        SELECT c.table_name
+          FROM information_schema.columns c
+          JOIN information_schema.tables t
+            ON t.table_schema = c.table_schema AND t.table_name = c.table_name
+         WHERE c.table_schema = 'public' AND c.column_name = 'tenant_id'
+           AND t.table_type = 'BASE TABLE'
+         ORDER BY c.table_name
+      `);
+      const catalog = res.rows.map((r: { table_name: string }) => r.table_name).sort();
+      const registry = [...TENANT_TABLES.map((t) => t.name)].sort();
+      expect(registry, 'registry must equal every live table carrying tenant_id').toEqual(catalog);
+      // exit order is a permutation of the registry (nothing dropped in sorting)
+      expect([...tenantTablesInExitOrder()].sort()).toEqual(registry);
+      // every export projection actually runs against the live schema
+      const t0 = await client.query(`SELECT id FROM tenant LIMIT 1`);
+      const anyTenant = (t0.rows[0]?.id as string) ?? '00000000-0000-0000-0000-000000000000';
+      for (const spec of TENANT_TABLES) {
+        await client.query(spec.exportSql, [anyTenant]); // throws on a stale column list
+      }
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('H-08: the ledger freezes applied migrations — an in-place edit fails the rerun', async () => {
+    const client = new Client({ connectionString: db.adminUrl });
+    await client.connect();
+    try {
+      // every applied row carries a checksum after the run
+      const rows = await client.query('SELECT id, checksum FROM _migrations');
+      for (const r of rows.rows as Array<{ id: string; checksum: string | null }>) {
+        expect(r.checksum, r.id).toMatch(/^[0-9a-f]{64}$/);
+      }
+      // The rerun must reuse the passwords the embedded harness provisioned —
+      // runMigrations ALTERs the roles' passwords on every run.
+      const pwOf = (url: string) => decodeURIComponent(new URL(url).password);
+      const rerun = () =>
+        runMigrations({
+          adminConnectionString: db.adminUrl,
+          appRole: 'c3_app',
+          appPassword: pwOf(db.appUrl),
+          authPassword: pwOf(db.authUrl),
+          backupPassword: pwOf(db.backupUrl),
+        });
+      // simulate an in-place edit: corrupt one stored checksum, rerun → loud refusal
+      await client.query(`UPDATE _migrations SET checksum = repeat('0', 64) WHERE id = '0001_schema.sql'`);
+      await expect(rerun()).rejects.toThrow(/EDITED after being applied|frozen/i);
+      // restore the truthful hash so later suites can rerun migrations cleanly
+      await client.query(`UPDATE _migrations SET checksum = NULL WHERE id = '0001_schema.sql'`);
+      await rerun();
+      const fixed = await client.query(`SELECT checksum FROM _migrations WHERE id = '0001_schema.sql'`);
+      expect(fixed.rows[0].checksum).toMatch(/^[0-9a-f]{64}$/);
     } finally {
       await client.end();
     }

@@ -3,9 +3,10 @@
  * on the wire; canonical business ids are the external identity.
  */
 import { delegationState } from '@c3web/domain';
+import type { PayloadDisclosure } from '@c3web/authz';
 import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -405,7 +406,42 @@ export function toFxRateDto(r: FxRate): FxRateDto {
   return { currency: r.currency, usdPerUnit: r.usdPerUnit, updatedAt: r.updatedAt };
 }
 
-export function toApprovalDto(a: Approval): ApprovalDto {
+/**
+ * HARDEN-0 (audit H-01): the approval payload is projected BY ROLE at this one
+ * boundary. Delegation grants standing to decide, never wider disclosure —
+ * fields beyond the actor's PII/financial standing are OMITTED (absence, not
+ * masking; the H-07 panel names withheld fields honestly). The immutable
+ * payload in the database is untouched; this shapes the WIRE view only.
+ */
+export function projectApprovalPayload(payload: Approval['payload'], d: PayloadDisclosure): Record<string, unknown> {
+  switch (payload.operationType) {
+    case 'UpdatePersonIdentity': {
+      if (d.pii) return payload as unknown as Record<string, unknown>;
+      const { dateOfBirth: _dob, ...patch } = payload.input.patch;
+      return { operationType: payload.operationType, input: { personId: payload.input.personId, patch } };
+    }
+    case 'AddAgreement': {
+      if (d.financial) return payload as unknown as Record<string, unknown>;
+      const { valueUsdCents: _v, ...input } = payload.input as Record<string, unknown>;
+      return { operationType: payload.operationType, input };
+    }
+    case 'AddAgreementTerm':
+    case 'UpdateAgreementTerm': {
+      if (d.financial) return payload as unknown as Record<string, unknown>;
+      const { amountMinor: _a, currency: _c, percentBps: _p, ...input } = payload.input as Record<string, unknown>;
+      return { operationType: payload.operationType, input };
+    }
+    case 'ImportBatch': {
+      if (d.financial) return payload as unknown as Record<string, unknown>;
+      const { agreements: _rows, ...input } = payload.input as Record<string, unknown>;
+      return { operationType: payload.operationType, input };
+    }
+    default:
+      return payload as unknown as Record<string, unknown>;
+  }
+}
+
+export function toApprovalDto(a: Approval, d: PayloadDisclosure): ApprovalDto {
   return {
     approvalId: a.approvalId,
     operationType: a.operationType,
@@ -413,7 +449,29 @@ export function toApprovalDto(a: Approval): ApprovalDto {
     targetId: a.targetId,
     reason: a.reason,
     status: a.status,
-    payload: a.payload,
+    payload: projectApprovalPayload(a.payload, d) as ApprovalDto['payload'],
+    submittedBy: a.submittedBy,
+    submittedAt: a.submittedAt,
+    reviewedBy: a.reviewedBy,
+    reviewedAt: a.reviewedAt,
+    rejectionReason: a.rejectionReason,
+    executedAt: a.executedAt,
+    executionError: a.executionError,
+    version: a.version,
+    createdAt: a.createdAt,
+    updatedAt: a.updatedAt,
+  };
+}
+
+/** H-01: the REGISTER view — no payload at all. Detail is where disclosure happens. */
+export function toApprovalSummaryDto(a: Approval): ApprovalSummaryDto {
+  return {
+    approvalId: a.approvalId,
+    operationType: a.operationType,
+    targetPersonId: a.targetPersonId,
+    targetId: a.targetId,
+    reason: a.reason,
+    status: a.status,
     submittedBy: a.submittedBy,
     submittedAt: a.submittedAt,
     reviewedBy: a.reviewedBy,
