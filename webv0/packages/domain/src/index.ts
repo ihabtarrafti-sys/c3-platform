@@ -18,6 +18,7 @@ export * from './entity';
 export * from './equipment';
 export * from './errors';
 export * from './identity';
+export * from './importExport';
 export * from './journey';
 export * from './lifecycle';
 export * from './member';

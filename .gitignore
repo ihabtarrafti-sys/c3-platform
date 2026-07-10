@@ -57,6 +57,8 @@ webv0/apps/api/dist/
 playwright-report/
 test-results/
 .turbo/
+# S4 fs-driver document blobs (local dev only; staging/production use R2)
+webv0/.data/
 
 # Intentionally untracked owner handoff material (never commit)
 docs/Handoff v2/

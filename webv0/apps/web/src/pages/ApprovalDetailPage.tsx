@@ -129,7 +129,9 @@ export function ApprovalDetailPage() {
                               ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Change ${a.payload.input.termId} on ${a.payload.input.agreementId}`}</span> }]
                               : a.payload.operationType === 'RemoveAgreementTerm'
                                 ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Remove ${a.payload.input.termId} from ${a.payload.input.agreementId}`}</span> }]
-                                : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
+                                : a.payload.operationType === 'ImportBatch'
+                                  ? [{ label: 'Import batch', value: <span data-testid="approval-import-subject">{`Import ${a.payload.input.rowCount} ${a.payload.input.domain} from "${a.payload.input.fileName}"`}</span> }]
+                                  : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {
@@ -240,7 +242,11 @@ export function ApprovalDetailPage() {
                     onConfirm={() =>
                       run(async () => {
                         const res = await api.execute(a.approvalId, a.version);
-                        notify('info', res.idempotent ? 'Already executed (idempotent).' : `Created ${res.person?.personId}.`);
+                        // Only name a created person when there is one — most
+                        // operations (imports, agreements, journeys…) create
+                        // something else or nothing; "Created undefined" lies.
+                        if (res.idempotent) notify('info', 'Already executed (idempotent).');
+                        else if (res.person) notify('info', `Created ${res.person.personId}.`);
                         return res;
                       }, 'Execution complete.')
                     }

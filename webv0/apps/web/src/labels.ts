@@ -53,6 +53,7 @@ const OPERATION: Record<string, string> = {
   AddAgreementTerm: 'Add Financial Term',
   UpdateAgreementTerm: 'Change Financial Term',
   RemoveAgreementTerm: 'Remove Financial Term',
+  ImportBatch: 'Import Batch',
 };
 export function operationOf(op: string): string {
   return OPERATION[op] ?? op;

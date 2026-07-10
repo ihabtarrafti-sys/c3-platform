@@ -57,6 +57,8 @@ import {
   missionFinanceStageInputSchema,
   missionFinanceSummarySchema,
   missionPnlResponseSchema,
+  importDomainParamSchema,
+  exportDomainParamSchema,
   documentsListSchema,
   documentResponseSchema,
   documentIdParamSchema,
@@ -129,6 +131,10 @@ import {
   getMissionPnl,
   getMissionsFinanceSummary,
   globalSearch,
+  stageImport,
+  exportDomainCsv,
+  exportAuditCsv,
+  templateCsv,
   attachDocument,
   listDocuments,
   getDocumentForDownload,
@@ -908,6 +914,56 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   );
 
   // ── the Situation Room (Sprint 43): the operational cockpit read ──────────
+  // ── import/export (S5): the locked design — export IS the template; a clean
+  //    file stages ONE ImportBatch approval; errors ride the envelope (422). ──
+  r.post(
+    '/api/v1/imports',
+    { bodyLimit: 8 * 1024 * 1024, schema: { response: { 201: z.object({ approval: approvalResponseSchema.shape.approval, domain: z.enum(['people', 'credentials', 'agreements']), rowCount: z.number().int() }) } } },
+    async (req, reply) => {
+      const actor = actorOf(req);
+      const file = await req.file();
+      if (!file) return sendError(req, reply, 400, 'VALIDATION', 'A CSV file is required.');
+      const fields = file.fields as Record<string, unknown>;
+      const domainRaw = ((fields['domain'] as { value?: unknown } | undefined)?.value ?? '') as string;
+      if (!['people', 'credentials', 'agreements'].includes(domainRaw)) {
+        return sendError(req, reply, 400, 'VALIDATION', 'domain must be people, credentials, or agreements.');
+      }
+      let text: string;
+      try {
+        text = (await file.toBuffer()).toString('utf8');
+      } catch {
+        return sendError(req, reply, 413, 'TOO_LARGE', 'The file is too large.');
+      }
+      const result = await stageImport(P, actor, domainRaw as import('@c3web/domain').ImportDomain, file.filename || 'import.csv', text);
+      if (!result.ok) {
+        // ALL-OR-NOTHING: the complete per-row report, capped for the wire.
+        return sendError(req, reply, 422, 'IMPORT_INVALID', 'The file has validation errors — nothing was imported.', {
+          errorCount: result.errors.length,
+          rows: result.errors.slice(0, 100),
+        });
+      }
+      return reply.status(201).send({ approval: toApprovalDto(result.approval), domain: result.domain, rowCount: result.rowCount });
+    },
+  );
+
+  r.get('/api/v1/imports/templates/:domain', { schema: { params: importDomainParamSchema } }, async (req, reply) => {
+    const actor = actorOf(req);
+    void actor; // authenticated route; templates carry no data
+    const { domain } = req.params as { domain: import('@c3web/domain').ImportDomain };
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    reply.header('content-disposition', `attachment; filename="c3-${domain}-template.csv"`);
+    return reply.send(templateCsv(domain));
+  });
+
+  r.get('/api/v1/exports/:domain', { schema: { params: exportDomainParamSchema } }, async (req, reply) => {
+    const actor = actorOf(req);
+    const { domain } = req.params as { domain: 'people' | 'credentials' | 'agreements' | 'audit' };
+    const csv = domain === 'audit' ? await exportAuditCsv(P, actor) : await exportDomainCsv(P, actor, domain);
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    reply.header('content-disposition', `attachment; filename="c3-${domain}-export.csv"`);
+    return reply.send(csv);
+  });
+
   // ── documents (S4): metadata + bytes through the API — never public. ──────
   r.get(
     '/api/v1/documents',

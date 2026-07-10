@@ -76,6 +76,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return rows.map(mapApprovalEvent);
           }),
 
+        // S5: the whole tenant audit stream (the audit-trail export), oldest first.
+        listAllAuditEvents: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<AuditEvent[]> => {
+            const rows = await db.select().from(schema.auditEvent).orderBy(asc(schema.auditEvent.at));
+            return rows.map(mapAuditEvent);
+          }),
+
         listAuditEventsForEntity: (entityType: string, entityId: string) =>
           withTenantTx(pool, actor, 'read', async (db): Promise<AuditEvent[]> => {
             const rows = await db

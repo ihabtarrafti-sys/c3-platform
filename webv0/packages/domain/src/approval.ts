@@ -25,6 +25,7 @@ import {
   provisionMemberInputSchema,
   reactivateMemberInputSchema,
 } from './member';
+import { importBatchInputSchema } from './importExport';
 import type { ApprovalStatus } from './lifecycle';
 
 export const OPERATION_TYPES = [
@@ -54,6 +55,9 @@ export const OPERATION_TYPES = [
   'AddAgreementTerm',
   'UpdateAgreementTerm',
   'RemoveAgreementTerm',
+  // S5: one governed approval per VALIDATED import file — ops stages the
+  // batch, the owner executes it (requester ≠ approver at batch scale).
+  'ImportBatch',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -178,6 +182,11 @@ export const removeAgreementTermPayloadSchema = z
   .strict();
 export type RemoveAgreementTermApprovalPayload = z.infer<typeof removeAgreementTermPayloadSchema>;
 
+export const importBatchPayloadSchema = z
+  .object({ operationType: z.literal('ImportBatch'), input: importBatchInputSchema })
+  .strict();
+export type ImportBatchApprovalPayload = z.infer<typeof importBatchPayloadSchema>;
+
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
   provisionMemberPayloadSchema,
@@ -195,6 +204,7 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addAgreementTermPayloadSchema,
   updateAgreementTermPayloadSchema,
   removeAgreementTermPayloadSchema,
+  importBatchPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 

@@ -482,6 +482,117 @@ export async function executeApproval(
           return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement, idempotent: false };
         }
 
+        // ── S5: ImportBatch — every row lands in THIS one transaction, or none ──
+        // (atomicity IS the idempotency story: a mid-batch fault rolls back
+        // wholly to a truthful ExecutionFailed; re-execute re-runs the batch.)
+        if (approval.payload.operationType === 'ImportBatch') {
+          const { input } = approval.payload;
+          let count = 0;
+
+          if (input.domain === 'people') {
+            for (const row of input.people ?? []) {
+              const seq = await tx.allocateSequence('person');
+              const personId = formatPersonId(seq);
+              await tx.insertPerson({
+                personId,
+                fullName: row.fullName,
+                ign: row.ign,
+                nationality: row.nationality,
+                primaryRole: row.primaryRole,
+                personnelCode: row.personnelCode,
+                currentTeam: row.currentTeam,
+                currentGameTitle: row.currentGameTitle,
+                primaryDepartment: row.primaryDepartment,
+                entityId: row.entityId,
+                notes: row.notes,
+                createdByApprovalId: null, // provenance = the batch approval (audited below)
+                isActive: row.isActive,
+              });
+              await tx.appendAuditEvent({
+                entityType: 'Person',
+                entityId: personId,
+                action: 'PersonCreated',
+                actor: actor.identity,
+                before: null,
+                after: { personId, fullName: row.fullName, importedBy: approvalId },
+              });
+              count += 1;
+            }
+          } else if (input.domain === 'credentials') {
+            for (const row of input.credentials ?? []) {
+              const seq = await tx.allocateSequence('credential');
+              const credentialId = formatCredentialId(seq);
+              await tx.insertCredential({
+                credentialId,
+                personId: row.personId,
+                credentialType: row.credentialType,
+                issuer: row.issuer,
+                issuedOn: row.issuedOn,
+                expiresOn: row.expiresOn,
+                notes: row.notes,
+                createdByApprovalId: null,
+                isActive: row.isActive,
+              });
+              await tx.appendAuditEvent({
+                entityType: 'Credential',
+                entityId: credentialId,
+                action: 'CredentialCreated',
+                actor: actor.identity,
+                before: null,
+                after: { credentialId, personId: row.personId, credentialType: row.credentialType, importedBy: approvalId },
+              });
+              count += 1;
+            }
+          } else {
+            for (const row of input.agreements ?? []) {
+              const seq = await tx.allocateSequence('agreement');
+              const agreementId = formatAgreementId(seq);
+              await tx.insertAgreement({
+                agreementId,
+                personId: row.personId,
+                entityId: row.entityId ?? null,
+                agreementCode: row.agreementCode,
+                agreementType: row.agreementType,
+                linkedAgreementId: row.linkedAgreementId,
+                startsOn: row.startsOn,
+                endsOn: row.endsOn,
+                valueUsdCents: row.valueUsdCents,
+                notes: row.notes,
+                createdByApprovalId: null,
+                status: row.status,
+              });
+              await tx.appendAuditEvent({
+                entityType: 'Agreement',
+                entityId: agreementId,
+                action: 'AgreementCreated',
+                actor: actor.identity,
+                before: null,
+                after: { agreementId, personId: row.personId, agreementType: row.agreementType, status: row.status, importedBy: approvalId },
+              });
+              count += 1;
+            }
+          }
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, { status: 'Executed', executedAt: new Date().toISOString(), executionError: null });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: imported ${count} ${input.domain} from "${input.fileName}"`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'ImportBatch', domain: input.domain, imported: count },
+          });
+          return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
         // ── Sprint 3.5: agreement financial terms — the governed money change ──
         // The submit guards were friendly; THIS is authoritative, in-transaction.
         // A terminated agreement or a vanished term is a truthful ExecutionFailed,

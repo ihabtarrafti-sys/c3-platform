@@ -84,6 +84,8 @@ export interface ReadStore {
   // Sprint 42: the person hub's read side.
   listMissionMembershipsForPerson(personId: string): Promise<PersonMissionMembership[]>;
   listApprovalsForPerson(personId: string): Promise<Approval[]>;
+  // S5: the whole tenant audit stream (the audit-trail export).
+  listAllAuditEvents(): Promise<AuditEvent[]>;
   // Sprint 43: the Situation Room snapshot (bulk, slim, one pass).
   listAllMissionParticipants(): Promise<Array<{ missionId: string; personId: string; role: string; isActive: boolean }>>;
 }
@@ -101,8 +103,10 @@ export interface NewPersonRow {
   readonly primaryDepartment: string | null;
   readonly entityId: string | null;
   readonly notes: string | null;
-  /** The approval whose execution created this person (idempotency boundary). */
-  readonly createdByApprovalId: string;
+  /** The approval whose execution created this person; NULL for batch imports (provenance = the batch approval, audit-carried). */
+  readonly createdByApprovalId: string | null;
+  /** S5 imports may create historical (inactive) rows. Default true. */
+  readonly isActive?: boolean;
 }
 
 /** Fields written when submitting a new approval. */
@@ -129,8 +133,10 @@ export interface NewCredentialRow {
   readonly issuedOn: string; // plain ISO YYYY-MM-DD
   readonly expiresOn: string | null;
   readonly notes: string | null;
-  /** The approval whose execution created this credential (idempotency boundary). */
-  readonly createdByApprovalId: string;
+  /** NULL for batch imports (provenance = the batch approval, audit-carried). */
+  readonly createdByApprovalId: string | null;
+  /** S5 imports may create historical (inactive) rows. Default true. */
+  readonly isActive?: boolean;
 }
 
 /** Fields written when creating a Journey during InitiateJourney execution. */
@@ -200,8 +206,10 @@ export interface NewAgreementRow {
   readonly endsOn: string;
   readonly valueUsdCents: number | null;
   readonly notes: string | null;
-  /** The approval whose execution created this agreement (idempotency boundary). */
-  readonly createdByApprovalId: string;
+  /** NULL for batch imports (provenance = the batch approval, audit-carried). */
+  readonly createdByApprovalId: string | null;
+  /** S5 imports may carry history. Default Active. */
+  readonly status?: string;
 }
 
 /** Fields written when creating a mission income/expense line (Finance S4 + S2). */

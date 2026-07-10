@@ -403,6 +403,13 @@ export const missionPnlResponseSchema = z.object({
   pnl: missionPnlSchema,
 });
 
+// ── import/export (S5): staging returns the batch approval; errors ride the
+//    structured envelope (422 IMPORT_INVALID with details.rows). Exports and
+//    templates are text/csv streams, not JSON.
+export const IMPORT_DOMAINS = ['people', 'credentials', 'agreements'] as const;
+export const importDomainParamSchema = z.object({ domain: z.enum(IMPORT_DOMAINS) });
+export const exportDomainParamSchema = z.object({ domain: z.enum([...IMPORT_DOMAINS, 'audit']) });
+
 // ── documents (S4): metadata on the wire; bytes stream separately ────────────
 export const documentSchema = z.object({
   documentId: z.string(),

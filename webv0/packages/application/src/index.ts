@@ -6,6 +6,7 @@ export * from './ports';
 export * from './usecases/submitAddPerson';
 export * from './usecases/submitCredentialOps';
 export * from './usecases/documentOps';
+export * from './usecases/importExportOps';
 export * from './usecases/equipmentOps';
 export * from './usecases/journeyOps';
 export * from './usecases/missionOps';

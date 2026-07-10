@@ -195,6 +195,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           entityId: row.entityId,
           notes: row.notes,
           createdByApprovalId: row.createdByApprovalId,
+          ...(row.isActive !== undefined ? { isActive: row.isActive } : {}),
         })
         .returning();
       return mapPerson(r);
@@ -282,6 +283,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           expiresOn: row.expiresOn,
           notes: row.notes,
           createdByApprovalId: row.createdByApprovalId,
+          ...(row.isActive !== undefined ? { isActive: row.isActive } : {}),
         })
         .returning();
       return mapCredential(r);

@@ -153,6 +153,8 @@ export class ApiError extends Error {
     public readonly code: string,
     message: string,
     public readonly correlationId?: string,
+    /** Structured details from the error envelope (e.g. S5 per-row import errors). */
+    public readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }
@@ -183,7 +185,7 @@ export function createApiClient(deps: ApiClientDeps) {
     const json = text ? JSON.parse(text) : null;
     if (!res.ok) {
       const err = json?.error;
-      const apiError = new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, json?.correlationId);
+      const apiError = new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, json?.correlationId, err?.details);
       if (res.status === 401) {
         // Expired/invalid session: hand off to the approved reauthentication
         // path exactly once. The request itself is NOT retried.
@@ -207,7 +209,7 @@ export function createApiClient(deps: ApiClientDeps) {
     const json = text ? JSON.parse(text) : null;
     if (!res.ok) {
       const err = json?.error;
-      throw new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, json?.correlationId);
+      throw new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, json?.correlationId, err?.details);
     }
     return json as T;
   }
@@ -328,6 +330,15 @@ export function createApiClient(deps: ApiClientDeps) {
     situation: () => request<SituationResponse>('GET', '/api/v1/situation'),
     // S3: global search (role-aware; denied domains simply absent).
     search: (q: string) => request<SearchResultsDto>('GET', `/api/v1/search?q=${encodeURIComponent(q)}`),
+    // S5: import/export — export IS the template; staging returns the batch approval.
+    stageImport: (domain: string, file: File) => {
+      const form = new FormData();
+      form.append('domain', domain);
+      form.append('file', file, file.name);
+      return upload<{ approval: ApprovalDto; domain: string; rowCount: number }>('/api/v1/imports', form);
+    },
+    downloadExport: (domain: string) => download(`/api/v1/exports/${encodeURIComponent(domain)}`),
+    downloadTemplate: (domain: string) => download(`/api/v1/imports/templates/${encodeURIComponent(domain)}`),
     // S4: documents — metadata via JSON, bytes via multipart/binary.
     listDocuments: (ownerType: string, ownerId: string) =>
       request<{ documents: DocumentDto[] }>('GET', `/api/v1/documents?ownerType=${encodeURIComponent(ownerType)}&ownerId=${encodeURIComponent(ownerId)}`),
