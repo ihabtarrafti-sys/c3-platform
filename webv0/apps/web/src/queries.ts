@@ -68,6 +68,17 @@ export const useDataQuality = (enabled = true) =>
 export const useInvoices = (enabled = true) =>
   useQuery({ queryKey: ['invoices'], queryFn: () => api.listInvoices(), enabled });
 
+export const useTeams = (enabled = true) => useQuery({ queryKey: ['teams'], queryFn: () => api.listTeams(), enabled });
+export const useTeam = (teamId: string) => useQuery({ queryKey: ['team', teamId], queryFn: () => api.getTeam(teamId) });
+export const useTeamMembers = (teamId: string) =>
+  useQuery({ queryKey: ['teamMembers', teamId], queryFn: () => api.listTeamMembers(teamId) });
+export const useTeamFinance = (teamId: string, enabled = true) =>
+  useQuery({ queryKey: ['teamFinance', teamId], queryFn: () => api.teamFinance(teamId), enabled });
+export const useTeamAudit = (teamId: string) =>
+  useQuery({ queryKey: ['teamAudit', teamId], queryFn: () => api.teamAudit(teamId) });
+export const usePersonTeams = (personId: string) =>
+  useQuery({ queryKey: ['personTeams', personId], queryFn: () => api.personTeams(personId) });
+
 export const useMissions = () => useQuery({ queryKey: ['missions'], queryFn: () => api.listMissions() });
 export const useMission = (missionId: string) =>
   useQuery({ queryKey: ['mission', missionId], queryFn: () => api.getMission(missionId) });

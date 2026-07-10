@@ -26,6 +26,8 @@ function snapshot(overrides: Partial<SituationSnapshot> = {}): SituationSnapshot
     missions: [],
     missionLines: [],
     invoices: [],
+    teams: [],
+    teamMemberships: [],
     participants: [],
     approvals: [],
     journeys: [],
@@ -233,6 +235,28 @@ describe('journey drift + ordering + the honest all-clear', () => {
     expect(composeSituation(snapshot())).toHaveLength(0);
     expect(SITUATION_CHECKS.length).toBeGreaterThanOrEqual(7);
     expect(SITUATION_CHECKS.join(' ')).toMatch(/wedge/i);
+  });
+});
+
+describe('team hygiene (S7): unstaffed game divisions', () => {
+  const team = (kind: string, isActive = true) => ({ teamId: 'TEAM-0001', name: 'Rainbow Six', code: 'R6', kind, isActive });
+
+  it('an active GameDivision with no active members is a watch signal; departments and staffed teams are quiet', () => {
+    const unstaffed = composeSituation(snapshot({ teams: [team('GameDivision')] }));
+    expect(unstaffed).toHaveLength(1);
+    expect(unstaffed[0]).toMatchObject({ kind: 'TeamUnstaffed', impact: 1, urgency: 1, band: 'watch' });
+    expect(unstaffed[0]!.headline).toBe('R6 "Rainbow Six" has no active members');
+
+    // Staffed → quiet; inactive member only → still unstaffed.
+    expect(
+      composeSituation(snapshot({ teams: [team('GameDivision')], teamMemberships: [{ teamId: 'TEAM-0001', personId: 'PER-0001', isActive: true }] })),
+    ).toHaveLength(0);
+    expect(
+      composeSituation(snapshot({ teams: [team('GameDivision')], teamMemberships: [{ teamId: 'TEAM-0001', personId: 'PER-0001', isActive: false }] })),
+    ).toHaveLength(1);
+    // Departments and deactivated divisions are exempt.
+    expect(composeSituation(snapshot({ teams: [team('Department')] }))).toHaveLength(0);
+    expect(composeSituation(snapshot({ teams: [team('GameDivision', false)] }))).toHaveLength(0);
   });
 });
 

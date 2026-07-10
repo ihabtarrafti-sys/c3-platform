@@ -58,6 +58,8 @@ export interface Mission {
   readonly organizer: string | null;
   /** S2: host city/region, e.g. "Riyadh". */
   readonly city: string | null;
+  /** S7: the game division that fielded the event (TEAM-XXXX; per-team P&L key). */
+  readonly teamId: string | null;
   readonly gameTitle: string | null;
   /** ISO calendar date, YYYY-MM-DD. */
   readonly startsOn: string;
@@ -127,6 +129,13 @@ const trimmedOptional = (max: number) =>
 const missionIdField = z.string().regex(/^MSN-\d{4,}$/, 'missionId must be a canonical MSN id');
 const personIdField = z.string().regex(/^PER-\d{4,}$/, 'personId must be a canonical PER id');
 
+/** S7: optional team tag (explicit null clears; existence is the use-case's check). */
+const teamIdOptional = z
+  .string()
+  .regex(/^TEAM-\d{4,}$/, 'teamId must be a canonical TEAM id')
+  .nullish()
+  .transform((v) => v ?? null);
+
 /** Same-day missions are legal; an end BEFORE the start is not (string compare is safe for ISO dates). */
 const datesCoherent = (startsOn: string | undefined, endsOn: string | null | undefined): boolean =>
   startsOn === undefined || endsOn === undefined || endsOn === null || endsOn >= startsOn;
@@ -138,6 +147,7 @@ export const missionCreateInputSchema = z
     code: trimmedOptional(60),
     organizer: trimmedOptional(160),
     city: trimmedOptional(120),
+    teamId: teamIdOptional,
     gameTitle: trimmedOptional(120),
     startsOn: isoDateSchema,
     endsOn: isoDateSchema.nullish().transform((v) => v ?? null),
@@ -163,6 +173,7 @@ export const missionUpdateInputSchema = z
     code: trimmedOptional(60).optional(),
     organizer: trimmedOptional(160).optional(),
     city: trimmedOptional(120).optional(),
+    teamId: z.string().regex(/^TEAM-\d{4,}$/, 'teamId must be a canonical TEAM id').nullable().optional(),
     gameTitle: trimmedOptional(120).optional(),
     startsOn: isoDateSchema.optional(),
     endsOn: isoDateSchema.nullable().optional(),
@@ -170,7 +181,7 @@ export const missionUpdateInputSchema = z
   })
   .strict()
   .refine(
-    (v) => ['name', 'code', 'organizer', 'city', 'gameTitle', 'startsOn', 'endsOn', 'notes'].some((k) => k in v && v[k as keyof typeof v] !== undefined),
+    (v) => ['name', 'code', 'organizer', 'city', 'teamId', 'gameTitle', 'startsOn', 'endsOn', 'notes'].some((k) => k in v && v[k as keyof typeof v] !== undefined),
     { message: 'An update must change at least one field' },
   )
   .refine((v) => datesCoherent(v.startsOn, v.endsOn), {

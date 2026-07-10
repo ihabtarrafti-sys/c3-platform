@@ -54,6 +54,9 @@ import {
   removeMissionParticipantInputSchema,
   renewAgreementInputSchema,
   setParticipantPerDiemInputSchema,
+  teamCreateInputSchema,
+  teamMemberInputSchema,
+  teamUpdateInputSchema,
   terminateAgreementInputSchema,
 } from '@c3web/domain';
 
@@ -268,6 +271,7 @@ export const missionSchema = z.object({
   code: z.string().nullable(),
   organizer: z.string().nullable(),
   city: z.string().nullable(),
+  teamId: z.string().nullable(),
   gameTitle: z.string().nullable(),
   startsOn: z.string(), // plain ISO date, YYYY-MM-DD
   endsOn: z.string().nullable(),
@@ -448,6 +452,60 @@ export const searchResultsSchema = z.object({
   ),
 });
 export type SearchResultsDto = z.infer<typeof searchResultsSchema>;
+
+// ── teams (S7): divisions/departments, roster, per-team P&L + ROI% ───────────
+export const TEAM_KINDS = ['GameDivision', 'Department'] as const;
+export const teamSchema = z.object({
+  teamId: z.string(),
+  name: z.string(),
+  code: z.string(),
+  kind: z.enum(TEAM_KINDS),
+  gameTitle: z.string().nullable(),
+  notes: z.string().nullable(),
+  isActive: z.boolean(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type TeamDto = z.infer<typeof teamSchema>;
+export const teamsListSchema = z.object({ teams: z.array(teamSchema) });
+export const teamResponseSchema = z.object({ team: teamSchema });
+export const teamMembershipSchema = z.object({
+  teamId: z.string(),
+  personId: z.string(),
+  personName: z.string(),
+  role: z.string(),
+  isActive: z.boolean(),
+  version: z.number().int(),
+});
+export type TeamMembershipDto = z.infer<typeof teamMembershipSchema>;
+export const teamMembersListSchema = z.object({ members: z.array(teamMembershipSchema) });
+export const teamFinanceSchema = z.object({
+  finance: z.object({
+    missions: z.array(
+      z.object({
+        missionId: z.string(),
+        name: z.string(),
+        code: z.string().nullable(),
+        financeStage: z.string(),
+        isActive: z.boolean(),
+        blended: z.object({ incomeUsdMinor: z.number().int(), expenseUsdMinor: z.number().int(), profitUsdMinor: z.number().int() }).nullable(),
+        missingRates: z.array(z.string()),
+      }),
+    ),
+    totals: z.object({ incomeUsdMinor: z.number().int(), expenseUsdMinor: z.number().int(), profitUsdMinor: z.number().int() }).nullable(),
+    unblendableMissions: z.array(z.string()),
+    roiBps: z.number().int().nullable(),
+  }),
+});
+export { teamCreateInputSchema, teamUpdateInputSchema, teamMemberInputSchema };
+export type TeamFinanceResponse = z.infer<typeof teamFinanceSchema>;
+export const teamIdParamSchema = z.object({ teamId: z.string().regex(/^TEAM-\d{4,}$/) });
+export const teamMemberRemoveParamSchema = z.object({
+  teamId: z.string().regex(/^TEAM-\d{4,}$/),
+  personId: z.string().regex(/^PER-\d{4,}$/),
+});
+export const flipVersionBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 
 // ── invoices (S6): per-entity series, one income line each, VAT, PDF ─────────
 export const INVOICE_STATUSES = ['Issued', 'Voided'] as const;
@@ -684,7 +742,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),

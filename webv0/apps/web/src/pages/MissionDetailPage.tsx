@@ -16,7 +16,7 @@ import {
   type MissionLineDirection,
   type PaymentStatus,
 } from '@c3web/domain';
-import { useEntities, useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople } from '../queries';
+import { useEntities, useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople, useTeams } from '../queries';
 import { ApiError, type MissionLineDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -67,8 +67,9 @@ export function MissionDetailPage() {
   const canViewHistory = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
   const audit = useMissionAudit(missionId, canViewHistory);
   const people = usePeople(canSubmit);
+  const allTeams = useTeams();
 
-  const [edit, setEdit] = useState<{ name: string; code: string; organizer: string; city: string; gameTitle: string; startsOn: string; endsOn: string } | null>(null);
+  const [edit, setEdit] = useState<{ name: string; code: string; organizer: string; city: string; teamId: string; gameTitle: string; startsOn: string; endsOn: string } | null>(null);
   const [addPersonId, setAddPersonId] = useState('');
   const [addPersonLabel, setAddPersonLabel] = useState('');
   const [addRole, setAddRole] = useState('');
@@ -102,6 +103,7 @@ export function MissionDetailPage() {
     code: m?.code ?? '',
     organizer: m?.organizer ?? '',
     city: m?.city ?? '',
+    teamId: m?.teamId ?? '',
     gameTitle: m?.gameTitle ?? '',
     startsOn: m?.startsOn ?? '',
     endsOn: m?.endsOn ?? '',
@@ -149,6 +151,29 @@ export function MissionDetailPage() {
               <Field label="City">
                 <Input value={editState.city} onChange={(_, d) => setEdit({ ...editState, city: d.value })} />
               </Field>
+              <Field label="Team (division)">
+                <Dropdown
+                  value={
+                    editState.teamId
+                      ? ((x) => (x ? `${x.code} · ${x.name}` : editState.teamId))(allTeams.data?.teams.find((x) => x.teamId === editState.teamId))
+                      : '— none —'
+                  }
+                  selectedOptions={[editState.teamId]}
+                  onOptionSelect={(_, d) => setEdit({ ...editState, teamId: d.optionValue ?? '' })}
+                  data-testid={`edit-mission-team-${m.missionId}`}
+                >
+                  <Option value="" text="— none —">
+                    — none —
+                  </Option>
+                  {(allTeams.data?.teams ?? [])
+                    .filter((x) => x.isActive && x.kind === 'GameDivision')
+                    .map((x) => (
+                      <Option key={x.teamId} value={x.teamId} text={`${x.code} · ${x.name}`}>
+                        {`${x.code} · ${x.name}`}
+                      </Option>
+                    ))}
+                </Dropdown>
+              </Field>
               <Field label="Game title">
                 <Input value={editState.gameTitle} onChange={(_, d) => setEdit({ ...editState, gameTitle: d.value })} />
               </Field>
@@ -171,6 +196,7 @@ export function MissionDetailPage() {
                   code: editState.code.trim() === '' ? null : editState.code.trim(),
                   organizer: editState.organizer.trim() === '' ? null : editState.organizer.trim(),
                   city: editState.city.trim() === '' ? null : editState.city.trim(),
+                  teamId: editState.teamId === '' ? null : editState.teamId,
                   gameTitle: editState.gameTitle.trim() === '' ? null : editState.gameTitle.trim(),
                   startsOn: editState.startsOn,
                   endsOn: editState.endsOn === '' ? null : editState.endsOn,
@@ -210,6 +236,14 @@ export function MissionDetailPage() {
               { label: 'Tournament code', value: m.code ? <span data-testid="mission-code">{m.code}</span> : null, mono: true },
               { label: 'Organizer', value: m.organizer ?? null },
               { label: 'City', value: m.city ?? null },
+              {
+                label: 'Team',
+                value: m.teamId ? (
+                  <Link className={r.idLink} to={`/teams/${m.teamId}`} data-testid='mission-team-link'>
+                    {((x) => (x ? `${x.code} · ${x.name}` : m.teamId))(allTeams.data?.teams.find((x) => x.teamId === m.teamId))}
+                  </Link>
+                ) : null,
+              },
               { label: 'Game title', value: m.gameTitle ?? null },
               { label: 'Starts on', value: m.startsOn },
               { label: 'Ends on', value: m.endsOn ?? null },

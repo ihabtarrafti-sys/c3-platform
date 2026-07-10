@@ -31,7 +31,14 @@ import {
 import { assertManageMissions } from '@c3web/authz';
 import type { MissionPatch, Persistence } from '../ports';
 
-const EDITABLE = ['name', 'code', 'organizer', 'city', 'gameTitle', 'startsOn', 'endsOn', 'notes'] as const;
+const EDITABLE = ['name', 'code', 'organizer', 'city', 'teamId', 'gameTitle', 'startsOn', 'endsOn', 'notes'] as const;
+
+/** S7: a mission's team tag must name a real, ACTIVE division. */
+async function assertTeamTaggable(tx: { getTeam(id: string): Promise<{ isActive: boolean } | null> }, teamId: string): Promise<void> {
+  const team = await tx.getTeam(teamId);
+  if (!team) throw new NotFoundError('Team', teamId);
+  if (!team.isActive) throw new ConflictError('This team is deactivated — reactivate it before tagging missions.', { teamId });
+}
 
 /** S2: friendly duplicate-tournament-code check (the partial unique index is the last line). */
 async function assertCodeAvailable(p: Persistence, actor: Actor, code: string | null, exceptMissionId?: string): Promise<void> {
@@ -46,6 +53,7 @@ export async function createMission(p: Persistence, actor: Actor, input: Mission
   await assertCodeAvailable(p, actor, parsed.code);
 
   return p.writes.transaction(actor, async (tx) => {
+    if (parsed.teamId) await assertTeamTaggable(tx, parsed.teamId);
     const seq = await tx.allocateSequence('mission');
     const missionId = formatMissionId(seq);
     const mission = await tx.insertMission(missionId, {
@@ -53,6 +61,7 @@ export async function createMission(p: Persistence, actor: Actor, input: Mission
       code: parsed.code,
       organizer: parsed.organizer,
       city: parsed.city,
+      teamId: parsed.teamId,
       gameTitle: parsed.gameTitle,
       startsOn: parsed.startsOn,
       endsOn: parsed.endsOn,
@@ -64,7 +73,7 @@ export async function createMission(p: Persistence, actor: Actor, input: Mission
       action: 'MissionCreated',
       actor: actor.identity,
       before: null,
-      after: { name: parsed.name, code: parsed.code, organizer: parsed.organizer, startsOn: parsed.startsOn, endsOn: parsed.endsOn },
+      after: { name: parsed.name, code: parsed.code, organizer: parsed.organizer, teamId: parsed.teamId, startsOn: parsed.startsOn, endsOn: parsed.endsOn },
     });
     return mission;
   });
@@ -83,6 +92,7 @@ export async function updateMission(
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.getMission(missionId);
     if (!current) throw new NotFoundError('Mission', missionId);
+    if ('teamId' in parsed && parsed.teamId) await assertTeamTaggable(tx, parsed.teamId);
 
     // Final date coherence against the stored row (the boundary cannot see it).
     const effectiveStart = parsed.startsOn ?? current.startsOn;

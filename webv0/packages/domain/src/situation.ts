@@ -74,6 +74,9 @@ export interface SituationSnapshot {
   }>;
   /** Live invoices, for naming the paper in payment-chase reasons. */
   readonly invoices: ReadonlyArray<{ invoiceNumber: string; lineId: string; status: string }>;
+  /** S7 teams: game divisions must field a roster; departments are exempt. */
+  readonly teams: ReadonlyArray<{ teamId: string; name: string; code: string; kind: string; isActive: boolean }>;
+  readonly teamMemberships: ReadonlyArray<{ teamId: string; personId: string; isActive: boolean }>;
   readonly participants: ReadonlyArray<{ missionId: string; personId: string; role: string; isActive: boolean }>;
   readonly approvals: ReadonlyArray<{
     approvalId: string;
@@ -99,6 +102,7 @@ export const SIGNAL_KINDS = [
   'JourneyStalled',
   'IncomeNotInvoiced',
   'PaymentOutstanding',
+  'TeamUnstaffed',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -463,7 +467,27 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     }
   }
 
-  // 6 — Journey drift: suspended and untouched for 14+ days.
+  // 6 — Team hygiene (S7): an ACTIVE game division with no active members is
+  //     a structure that fields nothing — watch-band, never noisy. Departments
+  //     are exempt (staff structure isn't "fielded").
+  for (const team of snapshot.teams.filter((t) => t.isActive && t.kind === 'GameDivision')) {
+    const roster = snapshot.teamMemberships.filter((m) => m.teamId === team.teamId && m.isActive);
+    if (roster.length > 0) continue;
+    signals.push(
+      make({
+        key: `TeamUnstaffed:${team.teamId}`,
+        kind: 'TeamUnstaffed',
+        headline: `${team.code} "${team.name}" has no active members`,
+        reasons: ['An active game division with an empty roster', 'Add members, or deactivate the division if it is not being fielded'],
+        impact: 1,
+        urgency: 1,
+        inMotion: false,
+        actions: [],
+      }),
+    );
+  }
+
+  // 7 — Journey drift: suspended and untouched for 14+ days.
   for (const j of snapshot.journeys.filter((j) => j.status === 'Suspended')) {
     const idleDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(j.updatedAt)) / 86_400_000);
     if (idleDays < 14) continue;
@@ -504,6 +528,7 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Journeys suspended for 14+ days',
   'Post-mission income not yet invoiced (settlement blocker)',
   'Invoiced payments still outstanding post-mission (settlement blocker)',
+  'Active game divisions with no active roster',
 ];
 
 /**
@@ -522,4 +547,5 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'JourneyStalled',
   'IncomeNotInvoiced',
   'PaymentOutstanding',
+  'TeamUnstaffed',
 ];

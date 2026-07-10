@@ -30,3 +30,4 @@ export * from './money';
 export * from './person';
 export * from './roles';
 export * from './situation';
+export * from './team';

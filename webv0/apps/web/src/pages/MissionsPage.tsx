@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Field, Input } from '@fluentui/react-components';
-import { useMissions } from '../queries';
+import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
+import { useMissions, useTeams } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -25,6 +25,7 @@ export function MissionsPage() {
   const { notify } = useNotify();
   const qc = useQueryClient();
   const { data, isLoading, isError, error } = useMissions();
+  const teams = useTeams();
   const canManage = me?.capabilities.canManageMissions ?? false;
 
   const [showForm, setShowForm] = useState(false);
@@ -33,6 +34,7 @@ export function MissionsPage() {
   const [organizer, setOrganizer] = useState('');
   const [city, setCity] = useState('');
   const [gameTitle, setGameTitle] = useState('');
+  const [teamId, setTeamId] = useState('');
   const [startsOn, setStartsOn] = useState('');
   const [endsOn, setEndsOn] = useState('');
 
@@ -44,6 +46,7 @@ export function MissionsPage() {
         organizer: organizer.trim() || undefined,
         city: city.trim() || undefined,
         gameTitle: gameTitle.trim() || undefined,
+        teamId: teamId || undefined,
         startsOn,
         endsOn: endsOn || undefined,
       });
@@ -118,6 +121,22 @@ export function MissionsPage() {
           </Field>
           <Field label="Game title">
             <Input value={gameTitle} onChange={(_, d) => setGameTitle(d.value)} data-testid="add-mission-game" />
+          </Field>
+          <Field label="Team (the division fielding this event)" hint="Optional — powers the per-team P&L">
+            <Dropdown
+              value={teamId ? (teams.data?.teams.find((x) => x.teamId === teamId)?.name ?? teamId) : ''}
+              selectedOptions={teamId ? [teamId] : []}
+              onOptionSelect={(_, d) => setTeamId(d.optionValue ?? '')}
+              data-testid="add-mission-team"
+            >
+              {(teams.data?.teams ?? [])
+                .filter((x) => x.isActive && x.kind === 'GameDivision')
+                .map((x) => (
+                  <Option key={x.teamId} value={x.teamId} text={`${x.code} · ${x.name}`}>
+                    {`${x.code} · ${x.name}`}
+                  </Option>
+                ))}
+            </Dropdown>
           </Field>
           <Field label="Starts on" required>
             <Input type="date" value={startsOn} onChange={(_, d) => setStartsOn(d.value)} data-testid="add-mission-starts" />

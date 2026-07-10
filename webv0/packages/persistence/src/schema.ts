@@ -273,6 +273,8 @@ export const mission = pgTable('mission', {
   code: text('code'),
   organizer: text('organizer'),
   city: text('city'),
+  // S7: the game division that fielded the event (nullable; per-team P&L key).
+  teamId: text('team_id'),
   gameTitle: text('game_title'),
   // mode 'string' — the Credentials date discipline (never driver-parsed).
   startsOn: date('starts_on', { mode: 'string' }).notNull(),
@@ -319,6 +321,34 @@ export const missionBudget = pgTable('mission_budget', {
   category: text('category').notNull(),
   currency: text('currency').notNull(),
   amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// S7: teams — game divisions + departments; the per-team reporting spine.
+export const team = pgTable('team', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  teamId: text('team_id').notNull(),
+  name: text('name').notNull(),
+  code: text('code').notNull(),
+  kind: text('kind').notNull(),
+  gameTitle: text('game_title'),
+  notes: text('notes'),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const teamMembership = pgTable('team_membership', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  teamId: text('team_id').notNull(),
+  personId: text('person_id').notNull(),
+  role: text('role').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 

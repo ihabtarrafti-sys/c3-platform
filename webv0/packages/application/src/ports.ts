@@ -32,6 +32,8 @@ import type {
   MissionLine,
   MissionParticipant,
   Person,
+  Team,
+  TeamMembership,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -92,6 +94,13 @@ export interface ReadStore {
   // S6: invoices (newest first). Gating is the use-case's job (finance read).
   listInvoices(): Promise<Invoice[]>;
   getInvoiceById(invoiceId: string): Promise<Invoice | null>;
+  // S7: teams + memberships (memberships join the person's display name).
+  listTeams(): Promise<Team[]>;
+  getTeamById(teamId: string): Promise<Team | null>;
+  listTeamMembers(teamId: string): Promise<TeamMembership[]>;
+  listTeamMembershipsForPerson(personId: string): Promise<TeamMembership[]>;
+  /** Slim bulk read for the Situation Room snapshot. */
+  listAllTeamMemberships(): Promise<Array<{ teamId: string; personId: string; isActive: boolean }>>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -179,6 +188,7 @@ export interface NewMissionRow {
   readonly code: string | null;
   readonly organizer: string | null;
   readonly city: string | null;
+  readonly teamId: string | null;
   readonly gameTitle: string | null;
   readonly startsOn: string; // plain ISO YYYY-MM-DD
   readonly endsOn: string | null;
@@ -191,9 +201,27 @@ export interface MissionPatch {
   readonly code?: string | null;
   readonly organizer?: string | null;
   readonly city?: string | null;
+  readonly teamId?: string | null;
   readonly gameTitle?: string | null;
   readonly startsOn?: string;
   readonly endsOn?: string | null;
+  readonly notes?: string | null;
+}
+
+/** S7: team CRUD rows/patches (direct-audited org structure). */
+export interface NewTeamRow {
+  readonly teamId: string;
+  readonly name: string;
+  readonly code: string;
+  readonly kind: string;
+  readonly gameTitle: string | null;
+  readonly notes: string | null;
+}
+
+export interface TeamPatch {
+  readonly name?: string;
+  readonly code?: string;
+  readonly gameTitle?: string | null;
   readonly notes?: string | null;
 }
 
@@ -355,6 +383,7 @@ export interface WriteTx {
       | 'agreementTerm'
       | 'entity'
       | 'invoice'
+      | 'team'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -558,6 +587,25 @@ export interface WriteTx {
   voidInvoice(invoiceId: string, expectedVersion: number, reason: string): Promise<Invoice | null>;
   /** Version-guarded PDF attach (the stored artifact's DOC id); null = stale/missing. */
   setInvoiceDocument(invoiceId: string, expectedVersion: number, documentId: string): Promise<Invoice | null>;
+
+  // ── S7 teams (direct-audited org structure; the entity-register pattern) ──
+  insertTeam(row: NewTeamRow): Promise<Team>;
+  /** Read one team inside the transaction, any status. */
+  getTeam(teamId: string): Promise<Team | null>;
+  /** Version-guarded field patch; null = stale/missing/inactive. */
+  updateTeam(teamId: string, expectedVersion: number, patch: TeamPatch): Promise<Team | null>;
+  /** Version-guarded active→inactive flip; null = stale/missing/inactive. */
+  deactivateTeam(teamId: string, expectedVersion: number): Promise<Team | null>;
+  /** Version-guarded inactive→active flip; null = stale/missing/active. */
+  reactivateTeam(teamId: string, expectedVersion: number): Promise<Team | null>;
+  /** The (team, person) membership row, any status (the reactivation guard). */
+  getTeamMembership(teamId: string, personId: string): Promise<TeamMembership | null>;
+  /** First-ever membership for the pair; the UNIQUE constraint backs it. */
+  insertTeamMembership(teamId: string, personId: string, role: string): Promise<TeamMembership>;
+  /** Flip an INACTIVE pair back to active with a (possibly new) role; null when no inactive row matched. */
+  reactivateTeamMembership(teamId: string, personId: string, role: string): Promise<TeamMembership | null>;
+  /** Flip an ACTIVE pair to inactive; null when no active row matched. */
+  deactivateTeamMembership(teamId: string, personId: string): Promise<TeamMembership | null>;
 
   // ── Finance S3 agreement terms (direct-audited; soft removal) ─────────────
   insertAgreementTerm(row: NewAgreementTermRow): Promise<AgreementTerm>;

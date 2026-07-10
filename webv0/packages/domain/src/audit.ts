@@ -82,6 +82,13 @@ export const AUDIT_ACTIONS = [
   // S6: invoices (direct-audited; the line flip audits as MissionLinePaymentSet).
   'InvoiceIssued',
   'InvoiceVoided',
+  // S7: teams — org structure (direct-audited, the entity-register standing).
+  'TeamCreated',
+  'TeamUpdated',
+  'TeamDeactivated',
+  'TeamReactivated',
+  'TeamMemberAdded',
+  'TeamMemberRemoved',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

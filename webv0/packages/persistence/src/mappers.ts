@@ -29,6 +29,8 @@ import {
   type MissionParticipant,
   type OperationType,
   type Person,
+  type Team,
+  type TeamMembership,
   parseApprovalPayload,
 } from '@c3web/domain';
 
@@ -179,6 +181,37 @@ export function mapAgreement(row: any): Agreement {
   };
 }
 
+export function mapTeam(row: any): Team {
+  return {
+    teamId: row.teamId ?? row.team_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    name: row.name,
+    code: row.code,
+    kind: (row.kind ?? 'GameDivision') as Team['kind'],
+    gameTitle: row.gameTitle ?? row.game_title ?? null,
+    notes: row.notes ?? null,
+    isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+/** Membership rows arrive joined with the person's display name. */
+export function mapTeamMembership(row: any): TeamMembership {
+  return {
+    tenantId: row.tenantId ?? row.tenant_id,
+    teamId: row.teamId ?? row.team_id,
+    personId: row.personId ?? row.person_id,
+    personName: row.personName ?? row.person_name ?? (row.personId ?? row.person_id),
+    role: row.role,
+    isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
 export function mapInvoice(row: any): Invoice {
   return {
     invoiceId: row.invoiceId ?? row.invoice_id,
@@ -255,6 +288,7 @@ export function mapMission(row: any): Mission {
     code: row.code ?? null,
     organizer: row.organizer ?? null,
     city: row.city ?? null,
+    teamId: row.teamId ?? row.team_id ?? null,
     gameTitle: row.gameTitle ?? row.game_title ?? null,
     startsOn: plainDate(row.startsOn ?? row.starts_on)!,
     endsOn: plainDate(row.endsOn ?? row.ends_on),

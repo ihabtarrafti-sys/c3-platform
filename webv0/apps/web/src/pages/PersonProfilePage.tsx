@@ -9,6 +9,7 @@ import {
   usePersonCredentials,
   usePersonJourneys,
   usePersonMissionMemberships,
+  usePersonTeams,
 } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
@@ -49,6 +50,7 @@ export function PersonProfilePage() {
   const agreements = usePersonAgreements(personId, canReadAgreements);
   const missions = usePersonMissionMemberships(personId);
   const approvals = usePersonApprovals(personId, canViewApprovals);
+  const teams = usePersonTeams(personId);
   const today = localTodayIso();
 
   if (isError) {
@@ -86,7 +88,26 @@ export function PersonProfilePage() {
             items={[
               { label: 'Person ID', value: data.person.personId, mono: true, testId: 'person-id' },
               { label: 'In-game name', value: data.person.ign ?? null },
-              { label: 'Team', value: data.person.currentTeam ?? null },
+              { label: 'Team (display)', value: data.person.currentTeam ?? null },
+              {
+                label: 'Teams',
+                value:
+                  (teams.data?.members.filter((m) => m.isActive).length ?? 0) > 0 ? (
+                    <span data-testid="person-teams">
+                      {teams
+                        .data!.members.filter((m) => m.isActive)
+                        .map((m, i) => (
+                          <span key={m.teamId}>
+                            {i > 0 && ' · '}
+                            <Link className={r.idLink} to={`/teams/${m.teamId}`}>
+                              {m.teamId}
+                            </Link>
+                            {` (${m.role})`}
+                          </span>
+                        ))}
+                    </span>
+                  ) : null,
+              },
               {
                 label: 'Status',
                 value: (

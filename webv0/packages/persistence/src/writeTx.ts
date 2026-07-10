@@ -22,6 +22,8 @@ import {
   type FxRate,
   type Invoice,
   type Journey,
+  type Team,
+  type TeamMembership,
   type JourneyStatus,
   type Kit,
   type Member,
@@ -31,10 +33,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -801,6 +803,92 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.invoice.invoiceId, invoiceId), eq(schema.invoice.version, expectedVersion)))
         .returning();
       return rows[0] ? mapInvoice(rows[0]) : null;
+    },
+
+    // ── S7 teams (direct-audited org structure; the entity-register pattern) ──
+    async insertTeam(row: NewTeamRow): Promise<Team> {
+      const [r] = await db.insert(schema.team).values({ tenantId, ...row }).returning();
+      return mapTeam(r);
+    },
+
+    async getTeam(teamId: string): Promise<Team | null> {
+      const rows = await db.select().from(schema.team).where(eq(schema.team.teamId, teamId)).limit(1);
+      return rows[0] ? mapTeam(rows[0]) : null;
+    },
+
+    async updateTeam(teamId: string, expectedVersion: number, patch: TeamPatch): Promise<Team | null> {
+      const rows = await db
+        .update(schema.team)
+        .set({ ...patch, version: sql`${schema.team.version} + 1` })
+        .where(and(eq(schema.team.teamId, teamId), eq(schema.team.version, expectedVersion), eq(schema.team.isActive, true)))
+        .returning();
+      return rows[0] ? mapTeam(rows[0]) : null;
+    },
+
+    async deactivateTeam(teamId: string, expectedVersion: number): Promise<Team | null> {
+      const rows = await db
+        .update(schema.team)
+        .set({ isActive: false, version: sql`${schema.team.version} + 1` })
+        .where(and(eq(schema.team.teamId, teamId), eq(schema.team.version, expectedVersion), eq(schema.team.isActive, true)))
+        .returning();
+      return rows[0] ? mapTeam(rows[0]) : null;
+    },
+
+    async reactivateTeam(teamId: string, expectedVersion: number): Promise<Team | null> {
+      const rows = await db
+        .update(schema.team)
+        .set({ isActive: true, version: sql`${schema.team.version} + 1` })
+        .where(and(eq(schema.team.teamId, teamId), eq(schema.team.version, expectedVersion), eq(schema.team.isActive, false)))
+        .returning();
+      return rows[0] ? mapTeam(rows[0]) : null;
+    },
+
+    async getTeamMembership(teamId: string, personId: string): Promise<TeamMembership | null> {
+      const res = await db.execute(sql`
+        SELECT tm.*, p.full_name AS person_name
+          FROM team_membership tm
+          JOIN person p ON p.tenant_id = tm.tenant_id AND p.person_id = tm.person_id
+         WHERE tm.team_id = ${teamId} AND tm.person_id = ${personId}
+      `);
+      const row = res.rows[0];
+      return row ? mapTeamMembership(row) : null;
+    },
+
+    async insertTeamMembership(teamId: string, personId: string, role: string): Promise<TeamMembership> {
+      await db.insert(schema.teamMembership).values({ tenantId, teamId, personId, role });
+      const created = await this.getTeamMembership(teamId, personId);
+      if (!created) throw new Error('team membership insert did not read back');
+      return created;
+    },
+
+    async reactivateTeamMembership(teamId: string, personId: string, role: string): Promise<TeamMembership | null> {
+      const rows = await db
+        .update(schema.teamMembership)
+        .set({ role, isActive: true, version: sql`${schema.teamMembership.version} + 1` })
+        .where(
+          and(
+            eq(schema.teamMembership.teamId, teamId),
+            eq(schema.teamMembership.personId, personId),
+            eq(schema.teamMembership.isActive, false),
+          ),
+        )
+        .returning();
+      return rows[0] ? this.getTeamMembership(teamId, personId) : null;
+    },
+
+    async deactivateTeamMembership(teamId: string, personId: string): Promise<TeamMembership | null> {
+      const rows = await db
+        .update(schema.teamMembership)
+        .set({ isActive: false, version: sql`${schema.teamMembership.version} + 1` })
+        .where(
+          and(
+            eq(schema.teamMembership.teamId, teamId),
+            eq(schema.teamMembership.personId, personId),
+            eq(schema.teamMembership.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? this.getTeamMembership(teamId, personId) : null;
     },
 
     // ── Finance S3 agreement terms (direct-audited; the DB CHECK backstops shape) ──

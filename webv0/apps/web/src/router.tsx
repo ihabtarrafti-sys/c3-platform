@@ -18,6 +18,8 @@ import { SettingsPage } from './pages/SettingsPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
+import { TeamsPage } from './pages/TeamsPage';
+import { TeamDetailPage } from './pages/TeamDetailPage';
 import { AgreementsPage } from './pages/AgreementsPage';
 import { AgreementDetailPage } from './pages/AgreementDetailPage';
 
@@ -58,6 +60,8 @@ export const router = createBrowserRouter([
       { path: 'missions/finance', element: <MissionFinancePage /> },
       { path: 'missions/:missionId', element: <MissionDetailPage /> },
       { path: 'invoices', element: <InvoicesPage /> },
+      { path: 'teams', element: <TeamsPage /> },
+      { path: 'teams/:teamId', element: <TeamDetailPage /> },
       { path: 'agreements', element: <AgreementsPage /> },
       { path: 'agreements/:agreementId', element: <AgreementDetailPage /> },
       { path: 'entities', element: <EntitiesPage /> },

@@ -20,6 +20,7 @@ export * from './usecases/agreementTermOps';
 export * from './usecases/submitAgreementOps';
 export * from './usecases/submitAgreementTermOps';
 export * from './usecases/search';
+export * from './usecases/teamOps';
 export * from './usecases/situation';
 export * from './usecases/submitMemberChange';
 export * from './usecases/reviewApproval';

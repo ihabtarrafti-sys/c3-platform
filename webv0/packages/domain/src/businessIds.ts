@@ -27,7 +27,8 @@ export type BusinessIdKind =
   | 'agreement'
   | 'agreementTerm'
   | 'entity'
-  | 'invoice';
+  | 'invoice'
+  | 'team';
 
 const PREFIX: Record<BusinessIdKind, string> = {
   person: 'PER',
@@ -43,6 +44,7 @@ const PREFIX: Record<BusinessIdKind, string> = {
   agreementTerm: 'TRM',
   entity: 'ENT',
   invoice: 'INV',
+  team: 'TEAM',
 };
 
 const PATTERN: Record<BusinessIdKind, RegExp> = {
@@ -59,6 +61,7 @@ const PATTERN: Record<BusinessIdKind, RegExp> = {
   agreementTerm: /^TRM-\d{4,}$/,
   entity: /^ENT-\d{4,}$/,
   invoice: /^INV-\d{4,}$/,
+  team: /^TEAM-\d{4,}$/,
 };
 
 /** Format an allocated sequence number into a canonical business ID. */
@@ -82,6 +85,7 @@ export const formatAgreementId = (sequence: number): string => formatBusinessId(
 export const formatAgreementTermId = (sequence: number): string => formatBusinessId('agreementTerm', sequence);
 export const formatEntityId = (sequence: number): string => formatBusinessId('entity', sequence);
 export const formatInvoiceId = (sequence: number): string => formatBusinessId('invoice', sequence);
+export const formatTeamId = (sequence: number): string => formatBusinessId('team', sequence);
 
 export function isBusinessId(kind: BusinessIdKind, value: unknown): value is string {
   return typeof value === 'string' && PATTERN[kind].test(value);

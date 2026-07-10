@@ -14787,6 +14787,10 @@
                             "type": "string",
                             "nullable": true
                           },
+                          "teamId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "gameTitle": {
                             "type": "string",
                             "nullable": true
@@ -14832,6 +14836,7 @@
                           "code",
                           "organizer",
                           "city",
+                          "teamId",
                           "gameTitle",
                           "startsOn",
                           "endsOn",
@@ -14882,6 +14887,11 @@
                   "city": {
                     "type": "string",
                     "maxLength": 120,
+                    "nullable": true
+                  },
+                  "teamId": {
+                    "type": "string",
+                    "pattern": "^TEAM-\\d{4,}$",
                     "nullable": true
                   },
                   "gameTitle": {
@@ -14942,6 +14952,10 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "teamId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "gameTitle": {
                           "type": "string",
                           "nullable": true
@@ -14987,6 +15001,7 @@
                         "code",
                         "organizer",
                         "city",
+                        "teamId",
                         "gameTitle",
                         "startsOn",
                         "endsOn",
@@ -15053,6 +15068,10 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "teamId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "gameTitle": {
                           "type": "string",
                           "nullable": true
@@ -15098,6 +15117,7 @@
                         "code",
                         "organizer",
                         "city",
+                        "teamId",
                         "gameTitle",
                         "startsOn",
                         "endsOn",
@@ -15151,6 +15171,11 @@
                   "city": {
                     "type": "string",
                     "maxLength": 120,
+                    "nullable": true
+                  },
+                  "teamId": {
+                    "type": "string",
+                    "pattern": "^TEAM-\\d{4,}$",
                     "nullable": true
                   },
                   "gameTitle": {
@@ -15221,6 +15246,10 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "teamId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "gameTitle": {
                           "type": "string",
                           "nullable": true
@@ -15266,6 +15295,7 @@
                         "code",
                         "organizer",
                         "city",
+                        "teamId",
                         "gameTitle",
                         "startsOn",
                         "endsOn",
@@ -16501,6 +16531,10 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "teamId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "gameTitle": {
                           "type": "string",
                           "nullable": true
@@ -16546,6 +16580,7 @@
                         "code",
                         "organizer",
                         "city",
+                        "teamId",
                         "gameTitle",
                         "startsOn",
                         "endsOn",
@@ -17141,6 +17176,10 @@
                           "type": "string",
                           "nullable": true
                         },
+                        "teamId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "gameTitle": {
                           "type": "string",
                           "nullable": true
@@ -17186,6 +17225,7 @@
                         "code",
                         "organizer",
                         "city",
+                        "teamId",
                         "gameTitle",
                         "startsOn",
                         "endsOn",
@@ -20667,6 +20707,1156 @@
         }
       }
     },
+    "/api/v1/teams": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "teams": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "teamId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "code": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "GameDivision",
+                              "Department"
+                            ]
+                          },
+                          "gameTitle": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "teamId",
+                          "name",
+                          "code",
+                          "kind",
+                          "gameTitle",
+                          "notes",
+                          "isActive",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "teams"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "code": {
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z0-9]{2,8}$"
+                      }
+                    ]
+                  },
+                  "kind": {
+                    "type": "string",
+                    "enum": [
+                      "GameDivision",
+                      "Department"
+                    ]
+                  },
+                  "gameTitle": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "name",
+                  "code",
+                  "kind"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team": {
+                      "type": "object",
+                      "properties": {
+                        "teamId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "GameDivision",
+                            "Department"
+                          ]
+                        },
+                        "gameTitle": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "teamId",
+                        "name",
+                        "code",
+                        "kind",
+                        "gameTitle",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "team"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{teamId}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team": {
+                      "type": "object",
+                      "properties": {
+                        "teamId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "GameDivision",
+                            "Department"
+                          ]
+                        },
+                        "gameTitle": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "teamId",
+                        "name",
+                        "code",
+                        "kind",
+                        "gameTitle",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "team"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "name": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 160
+                  },
+                  "code": {
+                    "allOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": "string",
+                        "pattern": "^[A-Z0-9]{2,8}$"
+                      }
+                    ]
+                  },
+                  "gameTitle": {
+                    "type": "string",
+                    "maxLength": 120,
+                    "nullable": true
+                  },
+                  "notes": {
+                    "type": "string",
+                    "maxLength": 2000,
+                    "nullable": true
+                  }
+                },
+                "required": [
+                  "expectedVersion",
+                  "name",
+                  "code"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team": {
+                      "type": "object",
+                      "properties": {
+                        "teamId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "GameDivision",
+                            "Department"
+                          ]
+                        },
+                        "gameTitle": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "teamId",
+                        "name",
+                        "code",
+                        "kind",
+                        "gameTitle",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "team"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{teamId}/deactivate": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team": {
+                      "type": "object",
+                      "properties": {
+                        "teamId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "GameDivision",
+                            "Department"
+                          ]
+                        },
+                        "gameTitle": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "teamId",
+                        "name",
+                        "code",
+                        "kind",
+                        "gameTitle",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "team"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{teamId}/reactivate": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  }
+                },
+                "required": [
+                  "expectedVersion"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "team": {
+                      "type": "object",
+                      "properties": {
+                        "teamId": {
+                          "type": "string"
+                        },
+                        "name": {
+                          "type": "string"
+                        },
+                        "code": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "GameDivision",
+                            "Department"
+                          ]
+                        },
+                        "gameTitle": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "teamId",
+                        "name",
+                        "code",
+                        "kind",
+                        "gameTitle",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "team"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{teamId}/members": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "teamId": {
+                            "type": "string"
+                          },
+                          "personId": {
+                            "type": "string"
+                          },
+                          "personName": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "teamId",
+                          "personId",
+                          "personName",
+                          "role",
+                          "isActive",
+                          "version"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "members"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "personId": {
+                    "type": "string",
+                    "pattern": "^PER-\\d{4,}$"
+                  },
+                  "role": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 80
+                  }
+                },
+                "required": [
+                  "personId",
+                  "role"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "member": {
+                      "type": "object",
+                      "properties": {
+                        "teamId": {
+                          "type": "string"
+                        },
+                        "personId": {
+                          "type": "string"
+                        },
+                        "personName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "teamId",
+                        "personId",
+                        "personName",
+                        "role",
+                        "isActive",
+                        "version"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "member"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{teamId}/members/{personId}/remove": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PER-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "personId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "member": {
+                      "type": "object",
+                      "properties": {
+                        "teamId": {
+                          "type": "string"
+                        },
+                        "personId": {
+                          "type": "string"
+                        },
+                        "personName": {
+                          "type": "string"
+                        },
+                        "role": {
+                          "type": "string"
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "teamId",
+                        "personId",
+                        "personName",
+                        "role",
+                        "isActive",
+                        "version"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "member"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{teamId}/finance": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "finance": {
+                      "type": "object",
+                      "properties": {
+                        "missions": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "missionId": {
+                                "type": "string"
+                              },
+                              "name": {
+                                "type": "string"
+                              },
+                              "code": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "financeStage": {
+                                "type": "string"
+                              },
+                              "isActive": {
+                                "type": "boolean"
+                              },
+                              "blended": {
+                                "type": "object",
+                                "properties": {
+                                  "incomeUsdMinor": {
+                                    "type": "integer"
+                                  },
+                                  "expenseUsdMinor": {
+                                    "type": "integer"
+                                  },
+                                  "profitUsdMinor": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "incomeUsdMinor",
+                                  "expenseUsdMinor",
+                                  "profitUsdMinor"
+                                ],
+                                "additionalProperties": false,
+                                "nullable": true
+                              },
+                              "missingRates": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                }
+                              }
+                            },
+                            "required": [
+                              "missionId",
+                              "name",
+                              "code",
+                              "financeStage",
+                              "isActive",
+                              "blended",
+                              "missingRates"
+                            ],
+                            "additionalProperties": false
+                          }
+                        },
+                        "totals": {
+                          "type": "object",
+                          "properties": {
+                            "incomeUsdMinor": {
+                              "type": "integer"
+                            },
+                            "expenseUsdMinor": {
+                              "type": "integer"
+                            },
+                            "profitUsdMinor": {
+                              "type": "integer"
+                            }
+                          },
+                          "required": [
+                            "incomeUsdMinor",
+                            "expenseUsdMinor",
+                            "profitUsdMinor"
+                          ],
+                          "additionalProperties": false,
+                          "nullable": true
+                        },
+                        "unblendableMissions": {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        },
+                        "roiBps": {
+                          "type": "integer",
+                          "nullable": true
+                        }
+                      },
+                      "required": [
+                        "missions",
+                        "totals",
+                        "unblendableMissions",
+                        "roiBps"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "finance"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/teams/{teamId}/audit": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^TEAM-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "teamId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "entityType": {
+                            "type": "string"
+                          },
+                          "entityId": {
+                            "type": "string"
+                          },
+                          "action": {
+                            "type": "string"
+                          },
+                          "actor": {
+                            "type": "string"
+                          },
+                          "at": {
+                            "type": "string"
+                          },
+                          "before": {
+                            "type": "object",
+                            "additionalProperties": {},
+                            "nullable": true
+                          },
+                          "after": {
+                            "type": "object",
+                            "additionalProperties": {},
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "entityType",
+                          "entityId",
+                          "action",
+                          "actor",
+                          "at",
+                          "before",
+                          "after"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "events"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{personId}/teams": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PER-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "personId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "members": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "teamId": {
+                            "type": "string"
+                          },
+                          "personId": {
+                            "type": "string"
+                          },
+                          "personName": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string"
+                          },
+                          "isActive": {
+                            "type": "boolean"
+                          },
+                          "version": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "teamId",
+                          "personId",
+                          "personName",
+                          "role",
+                          "isActive",
+                          "version"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "members"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/invoices": {
       "get": {
         "responses": {
@@ -21880,7 +23070,8 @@
                               "OwnerWedge",
                               "JourneyStalled",
                               "IncomeNotInvoiced",
-                              "PaymentOutstanding"
+                              "PaymentOutstanding",
+                              "TeamUnstaffed"
                             ]
                           },
                           "headline": {

@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -327,6 +327,55 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Invoice | null> => {
             const rows = await db.select().from(schema.invoice).where(eq(schema.invoice.invoiceId, invoiceId)).limit(1);
             return rows[0] ? mapInvoice(rows[0]) : null;
+          }),
+
+        // S7: teams + memberships (memberships join the person's display name).
+        listTeams: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Team[]> => {
+            const rows = await db.select().from(schema.team).orderBy(asc(schema.team.teamId));
+            return rows.map(mapTeam);
+          }),
+
+        getTeamById: (teamId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Team | null> => {
+            const rows = await db.select().from(schema.team).where(eq(schema.team.teamId, teamId)).limit(1);
+            return rows[0] ? mapTeam(rows[0]) : null;
+          }),
+
+        listTeamMembers: (teamId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<TeamMembership[]> => {
+            const res = await db.execute(sql`
+              SELECT tm.*, p.full_name AS person_name
+                FROM team_membership tm
+                JOIN person p ON p.tenant_id = tm.tenant_id AND p.person_id = tm.person_id
+               WHERE tm.team_id = ${teamId}
+               ORDER BY tm.is_active DESC, p.full_name ASC
+            `);
+            return res.rows.map(mapTeamMembership);
+          }),
+
+        listTeamMembershipsForPerson: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<TeamMembership[]> => {
+            const res = await db.execute(sql`
+              SELECT tm.*, p.full_name AS person_name
+                FROM team_membership tm
+                JOIN person p ON p.tenant_id = tm.tenant_id AND p.person_id = tm.person_id
+               WHERE tm.person_id = ${personId}
+               ORDER BY tm.team_id ASC
+            `);
+            return res.rows.map(mapTeamMembership);
+          }),
+
+        listAllTeamMemberships: () =>
+          withTenantTx(pool, actor, 'read', async (db) => {
+            const rows = await db
+              .select({
+                teamId: schema.teamMembership.teamId,
+                personId: schema.teamMembership.personId,
+                isActive: schema.teamMembership.isActive,
+              })
+              .from(schema.teamMembership);
+            return rows;
           }),
 
         // Sprint 42: the person hub — memberships joined with the mission's

@@ -68,6 +68,17 @@ import {
   searchResultsSchema,
   dataQualityReportSchema,
   invoicesListSchema,
+  teamsListSchema,
+  teamResponseSchema,
+  teamMembersListSchema,
+  teamMembershipSchema,
+  teamFinanceSchema,
+  teamIdParamSchema,
+  teamMemberRemoveParamSchema,
+  flipVersionBodySchema,
+  teamCreateInputSchema,
+  teamUpdateInputSchema,
+  teamMemberInputSchema,
   invoiceResponseSchema,
   issueInvoiceRequestSchema,
   voidInvoiceRequestSchema,
@@ -140,6 +151,17 @@ import {
   globalSearch,
   getDataQualityReport,
   issueInvoice,
+  listTeams,
+  getTeam,
+  createTeam,
+  updateTeam,
+  deactivateTeam,
+  reactivateTeam,
+  listTeamMembers,
+  addTeamMember,
+  removeTeamMember,
+  listTeamMembershipsForPerson,
+  getTeamFinance,
   voidInvoice,
   listInvoices,
   getInvoice,
@@ -210,7 +232,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1056,6 +1078,110 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { documentId } = req.params as { documentId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       return { document: toDocumentDto(await removeDocument(P, actorOf(req), documentId, expectedVersion)) };
+    },
+  );
+
+  // ── teams (S7): divisions/departments, roster, per-team P&L + ROI% ─────────
+  r.get('/api/v1/teams', { schema: { response: { 200: teamsListSchema } } }, async (req) => {
+    return { teams: (await listTeams(P, actorOf(req))).map(toTeamDto) };
+  });
+
+  r.post('/api/v1/teams', { schema: { body: teamCreateInputSchema, response: { 201: teamResponseSchema } } }, async (req, reply) => {
+    const team = await createTeam(P, actorOf(req), req.body as import('@c3web/domain').TeamCreateInput);
+    return reply.status(201).send({ team: toTeamDto(team) });
+  });
+
+  r.get('/api/v1/teams/:teamId', { schema: { params: teamIdParamSchema, response: { 200: teamResponseSchema } } }, async (req) => {
+    const { teamId } = req.params as { teamId: string };
+    return { team: toTeamDto(await getTeam(P, actorOf(req), teamId)) };
+  });
+
+  r.post('/api/v1/teams/:teamId', { schema: { params: teamIdParamSchema, body: teamUpdateInputSchema, response: { 200: teamResponseSchema } } }, async (req) => {
+    const { teamId } = req.params as { teamId: string };
+    return { team: toTeamDto(await updateTeam(P, actorOf(req), teamId, req.body as import('@c3web/domain').TeamUpdateInput)) };
+  });
+
+  r.post(
+    '/api/v1/teams/:teamId/deactivate',
+    { schema: { params: teamIdParamSchema, body: flipVersionBodySchema, response: { 200: teamResponseSchema } } },
+    async (req) => {
+      const { teamId } = req.params as { teamId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      return { team: toTeamDto(await deactivateTeam(P, actorOf(req), teamId, expectedVersion)) };
+    },
+  );
+
+  r.post(
+    '/api/v1/teams/:teamId/reactivate',
+    { schema: { params: teamIdParamSchema, body: flipVersionBodySchema, response: { 200: teamResponseSchema } } },
+    async (req) => {
+      const { teamId } = req.params as { teamId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      return { team: toTeamDto(await reactivateTeam(P, actorOf(req), teamId, expectedVersion)) };
+    },
+  );
+
+  r.get(
+    '/api/v1/teams/:teamId/members',
+    { schema: { params: teamIdParamSchema, response: { 200: teamMembersListSchema } } },
+    async (req) => {
+      const { teamId } = req.params as { teamId: string };
+      return { members: (await listTeamMembers(P, actorOf(req), teamId)).map(toTeamMembershipDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/teams/:teamId/members',
+    { schema: { params: teamIdParamSchema, body: teamMemberInputSchema, response: { 201: z.object({ member: teamMembershipSchema }) } } },
+    async (req, reply) => {
+      const { teamId } = req.params as { teamId: string };
+      const member = await addTeamMember(P, actorOf(req), teamId, req.body as import('@c3web/domain').TeamMemberInput);
+      return reply.status(201).send({ member: toTeamMembershipDto(member) });
+    },
+  );
+
+  r.post(
+    '/api/v1/teams/:teamId/members/:personId/remove',
+    { schema: { params: teamMemberRemoveParamSchema, response: { 200: z.object({ member: teamMembershipSchema }) } } },
+    async (req) => {
+      const { teamId, personId } = req.params as { teamId: string; personId: string };
+      return { member: toTeamMembershipDto(await removeTeamMember(P, actorOf(req), teamId, personId)) };
+    },
+  );
+
+  r.get(
+    '/api/v1/teams/:teamId/finance',
+    { schema: { params: teamIdParamSchema, response: { 200: teamFinanceSchema } } },
+    async (req) => {
+      const { teamId } = req.params as { teamId: string };
+      const fin = await getTeamFinance(P, actorOf(req), teamId);
+      return {
+        finance: {
+          missions: fin.missions.map((m) => ({ ...m, missingRates: [...m.missingRates], blended: m.blended ? { ...m.blended } : null })),
+          totals: fin.totals ? { ...fin.totals } : null,
+          unblendableMissions: [...fin.unblendableMissions],
+          roiBps: fin.roiBps,
+        },
+      };
+    },
+  );
+
+  r.get(
+    '/api/v1/teams/:teamId/audit',
+    { schema: { params: teamIdParamSchema, response: { 200: auditEventsListSchema } } },
+    async (req) => {
+      const { teamId } = req.params as { teamId: string };
+      const events = await listAuditEvents(P, actorOf(req), 'Team', teamId);
+      return { events: events.map(toAuditEventDto) };
+    },
+  );
+
+  r.get(
+    '/api/v1/people/:personId/teams',
+    { schema: { params: personIdParamSchema, response: { 200: teamMembersListSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      return { members: (await listTeamMembershipsForPerson(P, actorOf(req), personId)).map(toTeamMembershipDto) };
     },
   );
 

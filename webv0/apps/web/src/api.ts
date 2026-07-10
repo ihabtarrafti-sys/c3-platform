@@ -35,6 +35,8 @@ import type {
   MissionParticipantDto,
   DataQualityReportDto,
   InvoiceDto,
+  TeamDto,
+  TeamMembershipDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -78,6 +80,7 @@ export interface MissionCreateBody {
   code?: string | null;
   organizer?: string | null;
   city?: string | null;
+  teamId?: string | null;
   gameTitle?: string | null;
   startsOn: string; // plain ISO date
   endsOn?: string | null;
@@ -343,6 +346,25 @@ export function createApiClient(deps: ApiClientDeps) {
     downloadTemplate: (domain: string) => download(`/api/v1/imports/templates/${encodeURIComponent(domain)}`),
     // S5 riders: the data-quality report (duplicates + review lists).
     dataQuality: () => request<DataQualityReportDto>('GET', '/api/v1/data-quality'),
+    // S7: teams — org structure (direct-audited) + the finance-gated money view.
+    listTeams: () => request<{ teams: TeamDto[] }>('GET', '/api/v1/teams'),
+    getTeam: (teamId: string) => request<{ team: TeamDto }>('GET', `/api/v1/teams/${teamId}`),
+    createTeam: (input: { name: string; code: string; kind: string; gameTitle?: string | null; notes?: string | null }) =>
+      request<{ team: TeamDto }>('POST', '/api/v1/teams', input),
+    updateTeam: (teamId: string, input: { expectedVersion: number; name: string; code: string; gameTitle?: string | null; notes?: string | null }) =>
+      request<{ team: TeamDto }>('POST', `/api/v1/teams/${teamId}`, input),
+    deactivateTeam: (teamId: string, expectedVersion: number) =>
+      request<{ team: TeamDto }>('POST', `/api/v1/teams/${teamId}/deactivate`, { expectedVersion }),
+    reactivateTeam: (teamId: string, expectedVersion: number) =>
+      request<{ team: TeamDto }>('POST', `/api/v1/teams/${teamId}/reactivate`, { expectedVersion }),
+    listTeamMembers: (teamId: string) => request<{ members: TeamMembershipDto[] }>('GET', `/api/v1/teams/${teamId}/members`),
+    addTeamMember: (teamId: string, personId: string, role: string) =>
+      request<{ member: TeamMembershipDto }>('POST', `/api/v1/teams/${teamId}/members`, { personId, role }),
+    removeTeamMember: (teamId: string, personId: string) =>
+      request<{ member: TeamMembershipDto }>('POST', `/api/v1/teams/${teamId}/members/${personId}/remove`),
+    teamFinance: (teamId: string) => request<TeamFinanceResponse>('GET', `/api/v1/teams/${teamId}/finance`),
+    teamAudit: (teamId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/teams/${teamId}/audit`),
+    personTeams: (personId: string) => request<{ members: TeamMembershipDto[] }>('GET', `/api/v1/people/${personId}/teams`),
     // S6: invoices — issue against an income line; void with a reason; the PDF
     // artifact downloads through the S4 document path (Invoice owner gate).
     listInvoices: () => request<{ invoices: InvoiceDto[] }>('GET', '/api/v1/invoices'),
@@ -417,6 +439,8 @@ export interface ApprovalEventDto {
   at: string;
   note: string | null;
 }
+export type TeamFinanceResponse = import('@c3web/api-contracts').TeamFinanceResponse;
+
 export interface AuditEventDto {
   entityType: string;
   entityId: string;
@@ -428,4 +452,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, DocumentDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionFinanceSummaryDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse };
+export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, DocumentDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionFinanceSummaryDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse, TeamDto, TeamMembershipDto };
