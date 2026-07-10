@@ -808,6 +808,101 @@ export async function executeApproval(
           return { approval: executed, person: null, credential: null, journey: null, participant, agreement: null, idempotent: false };
         }
 
+        // ── S11: governed person mutations ───────────────────────────────────
+        if (approval.payload.operationType === 'UpdatePersonIdentity') {
+          const { input } = approval.payload;
+          const current = await tx.lockPerson(input.personId);
+          if (!current) throw new NotFoundError('Person', input.personId);
+
+          const patch = input.patch;
+          const before: Record<string, unknown> = {};
+          const after: Record<string, unknown> = {};
+          for (const key of Object.keys(patch) as Array<keyof typeof patch>) {
+            before[key] = current[key as keyof typeof current] ?? null;
+            after[key] = patch[key] ?? null;
+          }
+
+          const person = await tx.updatePersonFields(input.personId, current.version, patch);
+          if (!person) throw new ConcurrencyError('Person', input.personId);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: identity updated for ${input.personId} (${Object.keys(patch).join(', ')})`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Person',
+            entityId: input.personId,
+            action: 'PersonIdentityUpdated',
+            actor: actor.identity,
+            before,
+            after,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'UpdatePersonIdentity', personId: input.personId },
+          });
+          return { approval: executed, person, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
+        if (approval.payload.operationType === 'DeactivatePerson' || approval.payload.operationType === 'ReactivatePerson') {
+          const deactivating = approval.payload.operationType === 'DeactivatePerson';
+          const { input } = approval.payload;
+          const current = await tx.lockPerson(input.personId);
+          if (!current) throw new NotFoundError('Person', input.personId);
+          if (current.isActive !== deactivating) {
+            throw new ConflictError(`The person is already ${deactivating ? 'inactive' : 'active'}.`, {
+              personId: input.personId,
+            });
+          }
+
+          const person = await tx.setPersonActive(input.personId, current.version, !deactivating);
+          if (!person) throw new ConcurrencyError('Person', input.personId);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: ${deactivating ? 'deactivated' : 'reactivated'} ${input.personId} — ${input.reason}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Person',
+            entityId: input.personId,
+            action: deactivating ? 'PersonDeactivated' : 'PersonReactivated',
+            actor: actor.identity,
+            before: { isActive: current.isActive },
+            after: { isActive: !deactivating, reason: input.reason },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: approval.payload.operationType, personId: input.personId },
+          });
+          return { approval: executed, person, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
         // ── Sprint 35: member operations ───────────────────────────────────
         // Exhaustiveness is compile-enforced: after the credential branches,
         // the payload narrows to exactly the member-operation union that

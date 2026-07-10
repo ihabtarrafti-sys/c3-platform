@@ -1,5 +1,7 @@
 # S9 — Expense Claims (Track A)
 
+> **OWNER RATIFIED 2026-07-10: claims stay CORE finance (Open-Q2 closed).**
+
 **Status: BUILT + CERTIFIED, not yet deployed** (deploys batch at the owner's
 return) · migration `0029` · retires the Power Automate "Finance
 Intelligence Hub"

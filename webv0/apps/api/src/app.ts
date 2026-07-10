@@ -93,6 +93,9 @@ import {
   notificationsInboxSchema,
   markNotificationReadRequestSchema,
   okResponseSchema,
+  submitPersonIdentityRequestSchema,
+  personLifecycleRequestSchema,
+  updatePersonOperationalRequestSchema,
   delegationsListSchema,
   delegationResponseSchema,
   createDelegationRequestSchema,
@@ -149,7 +152,7 @@ import {
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
 import { DOCUMENT_MAX_BYTES, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
-import { capabilityView, canViewPerDiem, assertManageDelegations } from '@c3web/authz';
+import { capabilityView, canViewPerDiem, canViewPersonPII, assertManageDelegations } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
 import {
   approveApproval,
@@ -203,6 +206,10 @@ import {
   createDelegation,
   revokeDelegation,
   hasEffectiveReviewStanding,
+  submitUpdatePersonIdentity,
+  submitDeactivatePerson,
+  submitReactivatePerson,
+  updatePersonOperational,
   voidInvoice,
   listInvoices,
   getInvoice,
@@ -489,15 +496,68 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   });
 
   // ── people ───────────────────────────────────────────────────────────────
+  // S11: the PII tier resolves per request — owner/ops/hr get the block,
+  // everyone else gets structural omission (absence, not masking).
+  const piiOf = (req: FastifyRequest) => canViewPersonPII(actorOf(req).role);
+
   r.get('/api/v1/people', { schema: { response: { 200: peopleListSchema } } }, async (req) => {
     const people = await listPeople(P, actorOf(req));
-    return { people: people.map(toPersonDto) };
+    const pii = piiOf(req);
+    return { people: people.map((p) => toPersonDto(p, pii)) };
   });
 
   r.get('/api/v1/people/:personId', { schema: { params: personIdParamSchema, response: { 200: personResponseSchema } } }, async (req) => {
     const { personId } = req.params as { personId: string };
-    return { person: toPersonDto(await getPerson(P, actorOf(req), personId)) };
+    return { person: toPersonDto(await getPerson(P, actorOf(req), personId), piiOf(req)) };
   });
+
+  // S11: operational facts move fast — direct-but-audited, version-guarded.
+  r.patch(
+    '/api/v1/people/:personId',
+    { schema: { params: personIdParamSchema, body: updatePersonOperationalRequestSchema, response: { 200: personResponseSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      const person = await updatePersonOperational(P, actorOf(req), personId, req.body as import('@c3web/domain').UpdatePersonOperationalInput);
+      return { person: toPersonDto(person, piiOf(req)) };
+    },
+  );
+
+  // S11: identity-material + lifecycle are GOVERNED — these submit requests.
+  r.post(
+    '/api/v1/people/:personId/identity-request',
+    { schema: { params: personIdParamSchema, body: submitPersonIdentityRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const { personId } = req.params as { personId: string };
+      const body = req.body as { patch: Record<string, unknown>; reason?: string };
+      const approval = await submitUpdatePersonIdentity(P, actorOf(req), {
+        input: { personId, patch: body.patch } as import('@c3web/domain').UpdatePersonIdentityInput,
+        reason: body.reason ?? null,
+      });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  r.post(
+    '/api/v1/people/:personId/deactivate-request',
+    { schema: { params: personIdParamSchema, body: personLifecycleRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const { personId } = req.params as { personId: string };
+      const { reason } = req.body as { reason: string };
+      const approval = await submitDeactivatePerson(P, actorOf(req), { input: { personId, reason } });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
+
+  r.post(
+    '/api/v1/people/:personId/reactivate-request',
+    { schema: { params: personIdParamSchema, body: personLifecycleRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const { personId } = req.params as { personId: string };
+      const { reason } = req.body as { reason: string };
+      const approval = await submitReactivatePerson(P, actorOf(req), { input: { personId, reason } });
+      return reply.status(201).send({ approval: toApprovalDto(approval) });
+    },
+  );
 
   r.get('/api/v1/people/:personId/audit', { schema: { params: personIdParamSchema, response: { 200: auditEventsListSchema } } }, async (req) => {
     const { personId } = req.params as { personId: string };
@@ -577,7 +637,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const res = await executeApproval(P, actorOf(req), approvalId, expectedVersion);
       return {
         approval: toApprovalDto(res.approval),
-        person: res.person ? toPersonDto(res.person) : null,
+        person: res.person ? toPersonDto(res.person, piiOf(req)) : null,
         credential: res.credential ? toCredentialDto(res.credential) : null,
         journey: res.journey ? toJourneyDto(res.journey) : null,
         participant: res.participant ? toMissionParticipantDto(res.participant) : null,

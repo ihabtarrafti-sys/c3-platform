@@ -16,7 +16,7 @@ moment, fully audited.
   as direct-audited — routing the grant through the approval pipeline would
   wedge single-owner tenants (no second approver exists to approve the
   delegation that creates the second approver). Same posture as member/role
-  management, which this is a species of. Flagged for owner ratification.
+  management, which this is a species of. **OWNER RATIFIED 2026-07-10: direct-audited as built.**
 - **Window**: `starts_on..ends_on` (dates, inclusive). Active =
   not revoked AND today within window. Expiry is automatic — nothing to clean up.
 - **One unrevoked delegation per grantee** (partial unique index, friendly 409).

@@ -109,6 +109,12 @@ export interface C3Capabilities {
    * review power is a species of role management, the owner's exclusive act.
    */
   readonly canManageDelegations: boolean;
+  /**
+   * S11 (owner-ratified C1): may read the person PII tier (DOB, address,
+   * phone, email; document numbers join in S12) — owner, operations, hr.
+   * Everyone else gets STRUCTURAL OMISSION (absence, not masking).
+   */
+  readonly canViewPersonPII: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
@@ -129,6 +135,7 @@ const READ_ONLY = {
   canViewFinancials: false,
     canViewPerDiem: false,
   canManageDelegations: false,
+  canViewPersonPII: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
 
@@ -149,6 +156,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canViewFinancials: true,
     canViewPerDiem: true,
     canManageDelegations: true,
+    canViewPersonPII: true,
     isReadOnly: false,
   },
   operations: {
@@ -167,6 +175,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canViewFinancials: true,
     canViewPerDiem: true,
     canManageDelegations: false,
+    canViewPersonPII: true,
     isReadOnly: false,
   },
   // Sprint 41 (CP Set-E parity): legal reads contracts WITHOUT financial
@@ -175,7 +184,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
   legal: { ...READ_ONLY, canReadAgreements: true },
   finance: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true },
   // Sprint 38 (CP-parity): HR manages Apparel — no longer fully read-only.
-  hr: { ...READ_ONLY, canManageApparel: true, isReadOnly: false },
+  hr: { ...READ_ONLY, canManageApparel: true, canViewPersonPII: true, isReadOnly: false },
   management: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true },
   visitor: READ_ONLY,
 };

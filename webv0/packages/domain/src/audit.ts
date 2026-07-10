@@ -101,6 +101,11 @@ export const AUDIT_ACTIONS = [
   'ClaimPaid',
   'DelegationGranted',
   'DelegationRevoked',
+  // S11: People v2 — governed identity/lifecycle + direct-audited operational.
+  'PersonIdentityUpdated',
+  'PersonOperationalUpdated',
+  'PersonDeactivated',
+  'PersonReactivated',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

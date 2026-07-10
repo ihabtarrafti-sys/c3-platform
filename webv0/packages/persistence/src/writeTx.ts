@@ -37,7 +37,7 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
 import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapDelegation, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
@@ -214,6 +214,54 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       );
       const row = res.rows[0];
       return row ? mapPerson(row) : null;
+    },
+
+    // ── S11 People v2: governed identity / direct operational mutations ──────
+    async lockPerson(personId: string): Promise<Person | null> {
+      const res = await db.execute(sql`SELECT * FROM person WHERE person_id = ${personId} FOR UPDATE`);
+      return res.rows[0] ? mapPerson(res.rows[0]) : null;
+    },
+
+    async updatePersonFields(personId: string, expectedVersion: number, patch: PersonFieldsPatch): Promise<Person | null> {
+      const rows = await db
+        .update(schema.person)
+        .set({
+          ...(patch.fullName !== undefined ? { fullName: patch.fullName } : {}),
+          ...(patch.firstName !== undefined ? { firstName: patch.firstName } : {}),
+          ...(patch.lastName !== undefined ? { lastName: patch.lastName } : {}),
+          ...(patch.dateOfBirth !== undefined ? { dateOfBirth: patch.dateOfBirth } : {}),
+          ...(patch.nationality !== undefined ? { nationality: patch.nationality } : {}),
+          ...(patch.otherNationalities !== undefined ? { otherNationalities: [...patch.otherNationalities] } : {}),
+          ...(patch.ign !== undefined ? { ign: patch.ign } : {}),
+          ...(patch.primaryRole !== undefined ? { primaryRole: patch.primaryRole } : {}),
+          ...(patch.personnelCode !== undefined ? { personnelCode: patch.personnelCode } : {}),
+          ...(patch.currentTeam !== undefined ? { currentTeam: patch.currentTeam } : {}),
+          ...(patch.currentGameTitle !== undefined ? { currentGameTitle: patch.currentGameTitle } : {}),
+          ...(patch.primaryDepartment !== undefined ? { primaryDepartment: patch.primaryDepartment } : {}),
+          ...(patch.entityId !== undefined ? { entityId: patch.entityId } : {}),
+          ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
+          ...(patch.position !== undefined ? { position: patch.position } : {}),
+          ...(patch.dateOfJoining !== undefined ? { dateOfJoining: patch.dateOfJoining } : {}),
+          ...(patch.addressLine1 !== undefined ? { addressLine1: patch.addressLine1 } : {}),
+          ...(patch.addressLine2 !== undefined ? { addressLine2: patch.addressLine2 } : {}),
+          ...(patch.addressCity !== undefined ? { addressCity: patch.addressCity } : {}),
+          ...(patch.addressCountry !== undefined ? { addressCountry: patch.addressCountry } : {}),
+          ...(patch.phone !== undefined ? { phone: patch.phone } : {}),
+          ...(patch.email !== undefined ? { email: patch.email } : {}),
+          version: expectedVersion + 1,
+        })
+        .where(and(eq(schema.person.personId, personId), eq(schema.person.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapPerson(rows[0]) : null;
+    },
+
+    async setPersonActive(personId: string, expectedVersion: number, isActive: boolean): Promise<Person | null> {
+      const rows = await db
+        .update(schema.person)
+        .set({ isActive, version: expectedVersion + 1 })
+        .where(and(eq(schema.person.personId, personId), eq(schema.person.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapPerson(rows[0]) : null;
     },
 
     async appendApprovalEvent(evt): Promise<void> {

@@ -19,6 +19,7 @@ import { DefinitionList } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { DocumentsSection } from '../components/DocumentsSection';
+import { PersonV2Sections } from '../components/PersonV2Sections';
 import { ErrorState, LoadingState } from '../components/states';
 import { PersonActions } from '../components/PersonActions';
 import { useRegisterStyles } from '../components/registerStyles';
@@ -118,6 +119,7 @@ export function PersonProfilePage() {
               },
             ]}
           />
+          <PersonV2Sections person={data.person} />
           <PersonActions personId={data.person.personId} personName={data.person.fullName} />
           {(credentials.data?.credentials.length ?? 0) > 0 && (
             <div className={s.section}>

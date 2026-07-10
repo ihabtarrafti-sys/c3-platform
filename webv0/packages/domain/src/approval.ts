@@ -9,7 +9,12 @@
  */
 
 import { z } from 'zod';
-import { addPersonInputSchema } from './person';
+import {
+  addPersonInputSchema,
+  updatePersonIdentityInputSchema,
+  deactivatePersonInputSchema,
+  reactivatePersonInputSchema,
+} from './person';
 import { addCredentialInputSchema, deactivateCredentialInputSchema } from './credential';
 import { initiateJourneyInputSchema } from './journey';
 import { addMissionParticipantInputSchema, removeMissionParticipantInputSchema } from './mission';
@@ -58,6 +63,11 @@ export const OPERATION_TYPES = [
   // S5: one governed approval per VALIDATED import file — ops stages the
   // batch, the owner executes it (requester ≠ approver at batch scale).
   'ImportBatch',
+  // S11: identity-material person facts + lifecycle are governed (owner-
+  // ratified C2); operational person facts stay direct-audited.
+  'UpdatePersonIdentity',
+  'DeactivatePerson',
+  'ReactivatePerson',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -187,6 +197,23 @@ export const importBatchPayloadSchema = z
   .strict();
 export type ImportBatchApprovalPayload = z.infer<typeof importBatchPayloadSchema>;
 
+// S11: governed person mutations — the payload snapshots INTENT at submission;
+// the current record is re-read and validated at execute time.
+export const updatePersonIdentityPayloadSchema = z
+  .object({ operationType: z.literal('UpdatePersonIdentity'), input: updatePersonIdentityInputSchema })
+  .strict();
+export type UpdatePersonIdentityApprovalPayload = z.infer<typeof updatePersonIdentityPayloadSchema>;
+
+export const deactivatePersonPayloadSchema = z
+  .object({ operationType: z.literal('DeactivatePerson'), input: deactivatePersonInputSchema })
+  .strict();
+export type DeactivatePersonApprovalPayload = z.infer<typeof deactivatePersonPayloadSchema>;
+
+export const reactivatePersonPayloadSchema = z
+  .object({ operationType: z.literal('ReactivatePerson'), input: reactivatePersonInputSchema })
+  .strict();
+export type ReactivatePersonApprovalPayload = z.infer<typeof reactivatePersonPayloadSchema>;
+
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
   provisionMemberPayloadSchema,
@@ -205,6 +232,9 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   updateAgreementTermPayloadSchema,
   removeAgreementTermPayloadSchema,
   importBatchPayloadSchema,
+  updatePersonIdentityPayloadSchema,
+  deactivatePersonPayloadSchema,
+  reactivatePersonPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 

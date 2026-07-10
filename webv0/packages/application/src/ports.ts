@@ -128,6 +128,33 @@ export interface ReadStore {
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
+/** S11: one sparse patch type for BOTH identity and operational writes (the
+ *  gate that decides WHICH keys are allowed lives in the usecases). */
+export interface PersonFieldsPatch {
+  fullName?: string;
+  firstName?: string | null;
+  lastName?: string | null;
+  dateOfBirth?: string | null;
+  nationality?: string | null;
+  otherNationalities?: readonly string[];
+  ign?: string | null;
+  primaryRole?: string | null;
+  personnelCode?: string | null;
+  currentTeam?: string | null;
+  currentGameTitle?: string | null;
+  primaryDepartment?: string | null;
+  entityId?: string | null;
+  notes?: string | null;
+  position?: string | null;
+  dateOfJoining?: string | null;
+  addressLine1?: string | null;
+  addressLine2?: string | null;
+  addressCity?: string | null;
+  addressCountry?: string | null;
+  phone?: string | null;
+  email?: string | null;
+}
+
 export interface NewPersonRow {
   readonly personId: string;
   readonly fullName: string;
@@ -472,6 +499,13 @@ export interface WriteTx {
   ): Promise<Approval | null>;
 
   insertPerson(row: NewPersonRow): Promise<Person>;
+
+  /** S11: row-lock a person for governed/direct mutation. */
+  lockPerson(personId: string): Promise<Person | null>;
+  /** S11: sparse UPDATE with version guard — null clears, undefined leaves untouched. */
+  updatePersonFields(personId: string, expectedVersion: number, patch: PersonFieldsPatch): Promise<Person | null>;
+  /** S11: lifecycle flip with version guard. */
+  setPersonActive(personId: string, expectedVersion: number, isActive: boolean): Promise<Person | null>;
 
   /** Return the person an approval already created (idempotent execute path). */
   getPersonByCreatingApproval(approvalId: string): Promise<Person | null>;

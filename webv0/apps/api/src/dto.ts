@@ -345,7 +345,12 @@ export function toMemberDto(m: Member): MemberDto {
   };
 }
 
-export function toPersonDto(p: Person): PersonDto {
+/**
+ * S11: the PII tier is enforced HERE — structural omission (the keys are not
+ * present at all without standing), never masking. Callers pass the actor's
+ * canViewPersonPII; there is no PII-bearing overload without the flag.
+ */
+export function toPersonDto(p: Person, includePii: boolean): PersonDto {
   return {
     personId: p.personId,
     fullName: p.fullName,
@@ -358,6 +363,22 @@ export function toPersonDto(p: Person): PersonDto {
     primaryDepartment: p.primaryDepartment,
     entityId: p.entityId,
     notes: p.notes,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    otherNationalities: [...p.otherNationalities],
+    position: p.position,
+    dateOfJoining: p.dateOfJoining,
+    ...(includePii
+      ? {
+          dateOfBirth: p.dateOfBirth,
+          addressLine1: p.addressLine1,
+          addressLine2: p.addressLine2,
+          addressCity: p.addressCity,
+          addressCountry: p.addressCountry,
+          phone: p.phone,
+          email: p.email,
+        }
+      : {}),
     isActive: p.isActive,
     version: p.version,
     createdAt: p.createdAt,

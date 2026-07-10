@@ -131,7 +131,13 @@ export function ApprovalDetailPage() {
                                 ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Remove ${a.payload.input.termId} from ${a.payload.input.agreementId}`}</span> }]
                                 : a.payload.operationType === 'ImportBatch'
                                   ? [{ label: 'Import batch', value: <span data-testid="approval-import-subject">{`Import ${a.payload.input.rowCount} ${a.payload.input.domain} from "${a.payload.input.fileName}"`}</span> }]
-                                  : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
+                                  : a.payload.operationType === 'UpdatePersonIdentity'
+                                    ? [{ label: 'Identity change', value: <span data-testid="approval-person-subject">{`${a.payload.input.personId}: ${Object.keys(a.payload.input.patch).join(', ')}`}</span> }]
+                                    : a.payload.operationType === 'DeactivatePerson'
+                                      ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Deactivate ${a.payload.input.personId} — ${a.payload.input.reason}`}</span> }]
+                                      : a.payload.operationType === 'ReactivatePerson'
+                                        ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Reactivate ${a.payload.input.personId} — ${a.payload.input.reason}`}</span> }]
+                                        : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{a.payload.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {

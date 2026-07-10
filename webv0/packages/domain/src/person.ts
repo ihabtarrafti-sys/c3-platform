@@ -27,12 +27,37 @@ export interface Person {
   /** S48: the tenant legal entity this person signed with (one primary). */
   readonly entityId: string | null;
   readonly notes: string | null;
+  // ── S11 People v2: the PIF field model ────────────────────────────────────
+  // Identity-material (change ONLY through the governed pipeline):
+  readonly firstName: string | null;
+  readonly lastName: string | null;
+  /** PII tier. YYYY-MM-DD. */
+  readonly dateOfBirth: string | null;
+  readonly otherNationalities: readonly string[];
+  // PII contact block (operational to WRITE per C2; PII to READ per C1):
+  readonly addressLine1: string | null;
+  readonly addressLine2: string | null;
+  readonly addressCity: string | null;
+  readonly addressCountry: string | null;
+  readonly phone: string | null;
+  readonly email: string | null;
+  // Operational:
+  /** YYYY-MM-DD. */
+  readonly dateOfJoining: string | null;
+  readonly position: string | null;
   readonly isActive: boolean;
   /** Optimistic-concurrency token (monotonic integer). */
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
+
+/**
+ * The PII tier (S11, owner-ratified C1): these Person fields are STRUCTURALLY
+ * OMITTED from read models unless the caller holds canViewPersonPII
+ * (owner/operations/hr) — absence, not masking (the S41 financials law).
+ */
+export const PERSON_PII_FIELDS = ['dateOfBirth', 'addressLine1', 'addressLine2', 'addressCity', 'addressCountry', 'phone', 'email'] as const;
 
 const trimmedOptional = (max: number) =>
   z
@@ -67,3 +92,83 @@ export const addPersonInputSchema = z
   .strict();
 
 export type AddPersonInput = z.infer<typeof addPersonInputSchema>;
+
+const dateOnly = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+  .nullish()
+  .transform((v) => v ?? null);
+
+/**
+ * UpdatePersonIdentity (S11, GOVERNED — owner-ratified C2): identity-material
+ * facts are compliance facts; a quiet edit could fake an age or nationality.
+ * The patch is a sparse set — only provided keys change; at least one is
+ * required. The FIRST fill of an empty field is governed too (no side doors).
+ */
+export const updatePersonIdentityInputSchema = z
+  .object({
+    personId: z.string().regex(/^PER-\d{4,}$/),
+    patch: z
+      .object({
+        fullName: z.string().trim().min(1).max(200).optional(),
+        firstName: trimmedOptional(120).optional(),
+        lastName: trimmedOptional(120).optional(),
+        dateOfBirth: dateOnly.optional(),
+        nationality: trimmedOptional(120).optional(),
+        otherNationalities: z.array(z.string().trim().min(1).max(120)).max(8).optional(),
+      })
+      .strict()
+      .refine((p) => Object.keys(p).length > 0, { message: 'The identity patch must change at least one field.' }),
+  })
+  .strict();
+export type UpdatePersonIdentityInput = z.infer<typeof updatePersonIdentityInputSchema>;
+
+/**
+ * Operational update (S11, DIRECT-audited — owner-ratified C2): the facts that
+ * move fast. Version-guarded (412 on stale); every change lands before/after
+ * in the audit stream (PersonOperationalUpdated).
+ */
+export const updatePersonOperationalSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    patch: z
+      .object({
+        ign: trimmedOptional(120).optional(),
+        primaryRole: trimmedOptional(120).optional(),
+        personnelCode: trimmedOptional(60).optional(),
+        currentTeam: trimmedOptional(120).optional(),
+        currentGameTitle: trimmedOptional(120).optional(),
+        primaryDepartment: trimmedOptional(120).optional(),
+        entityId: entityIdOptional.optional(),
+        notes: trimmedOptional(2000).optional(),
+        position: trimmedOptional(120).optional(),
+        dateOfJoining: dateOnly.optional(),
+        addressLine1: trimmedOptional(200).optional(),
+        addressLine2: trimmedOptional(200).optional(),
+        addressCity: trimmedOptional(120).optional(),
+        addressCountry: trimmedOptional(120).optional(),
+        phone: trimmedOptional(60).optional(),
+        email: z.string().trim().toLowerCase().email().max(200).nullish().transform((v) => v ?? null).optional(),
+      })
+      .strict()
+      .refine((p) => Object.keys(p).length > 0, { message: 'The operational patch must change at least one field.' }),
+  })
+  .strict();
+export type UpdatePersonOperationalInput = z.infer<typeof updatePersonOperationalSchema>;
+
+/**
+ * DeactivatePerson / ReactivatePerson (S11, GOVERNED): a person leaving is a
+ * governance event, not an edit — reason mandatory; feeds the future
+ * Departure workflow. No cascade: rosters/journeys/agreements keep their own
+ * lifecycles and their own signals.
+ */
+export const deactivatePersonInputSchema = z
+  .object({
+    personId: z.string().regex(/^PER-\d{4,}$/),
+    reason: z.string().trim().min(1, 'A reason is mandatory.').max(500),
+  })
+  .strict();
+export type DeactivatePersonInput = z.infer<typeof deactivatePersonInputSchema>;
+
+export const reactivatePersonInputSchema = deactivatePersonInputSchema;
+export type ReactivatePersonInput = z.infer<typeof reactivatePersonInputSchema>;

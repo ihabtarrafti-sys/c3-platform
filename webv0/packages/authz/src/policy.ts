@@ -220,6 +220,8 @@ export interface CapabilityView {
   readonly canManageDelegations: boolean;
   /** Cockpit access is ROLE-pure (owner/ops) — delegation never widens financial visibility. */
   readonly canViewSituation: boolean;
+  /** S11: person PII tier (owner/ops/hr) — structural omission for others. */
+  readonly canViewPersonPII: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -243,8 +245,11 @@ export function capabilityView(role: C3Role): CapabilityView {
     canDecideClaim: c.canViewFinancials && c.canSubmitApproval,
     canManageDelegations: c.canManageDelegations,
     canViewSituation: c.canSubmitApproval || c.canReviewApproval,
+    canViewPersonPII: c.canViewPersonPII,
   };
 }
+
+export const canViewPersonPII = (role: C3Role): boolean => capabilitiesFor(role).canViewPersonPII;
 
 export const canManageDelegations = (role: C3Role): boolean => capabilitiesFor(role).canManageDelegations;
 

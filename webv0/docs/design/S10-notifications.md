@@ -48,8 +48,7 @@ notification is ever deleted (no DELETE grant, same as everything else).
 - **V1 scope: transition emails to the requester only** ("your request moved
   to X"). Submission alerts stay in-app (cockpit + bell) — owners live in the
   cockpit; flooding their mailbox with every submission is noise, not signal.
-  Flagged for owner review; widening to submission emails is one small change
-  at the same choke point.
+  **OWNER RATIFIED 2026-07-10: transition-emails-only stays.** Widening remains one small change at the same choke point if ever wanted.
 
 ## Read surface
 

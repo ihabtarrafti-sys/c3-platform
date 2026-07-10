@@ -132,7 +132,13 @@ describe('capabilityView (UX hint)', () => {
       canDecideClaim: true,
       canManageDelegations: false,
       canViewSituation: true,
+      canViewPersonPII: true,
     });
+  });
+
+  it('S11: the person-PII tier is owner/operations/hr exactly (owner-ratified C1)', () => {
+    for (const role of ['owner', 'operations', 'hr'] as const) expect(capabilityView(role).canViewPersonPII, role).toBe(true);
+    for (const role of ['legal', 'finance', 'management', 'visitor'] as const) expect(capabilityView(role).canViewPersonPII, role).toBe(false);
   });
 
   it('reserves delegation management for the owner alone', () => {

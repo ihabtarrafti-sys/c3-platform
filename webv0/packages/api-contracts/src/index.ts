@@ -88,6 +88,21 @@ export const personSchema = z.object({
   primaryDepartment: z.string().nullable(),
   entityId: z.string().nullable(),
   notes: z.string().nullable(),
+  // S11 identity-material (visible to all; GOVERNED to change):
+  firstName: z.string().nullable(),
+  lastName: z.string().nullable(),
+  otherNationalities: z.array(z.string()),
+  // S11 operational:
+  position: z.string().nullable(),
+  dateOfJoining: z.string().nullable(),
+  // S11 PII tier — STRUCTURALLY OMITTED without canViewPersonPII:
+  dateOfBirth: z.string().nullable().optional(),
+  addressLine1: z.string().nullable().optional(),
+  addressLine2: z.string().nullable().optional(),
+  addressCity: z.string().nullable().optional(),
+  addressCountry: z.string().nullable().optional(),
+  phone: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
   isActive: z.boolean(),
   version: z.number().int(),
   createdAt: z.string(),
@@ -506,6 +521,47 @@ export const teamMemberRemoveParamSchema = z.object({
   personId: z.string().regex(/^PER-\d{4,}$/),
 });
 export const flipVersionBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
+
+// ── people v2 (S11): governed identity/lifecycle + direct operational ────────
+const personIdentityPatchSchema = z
+  .object({
+    fullName: z.string().min(1).max(200).optional(),
+    firstName: z.string().max(120).nullable().optional(),
+    lastName: z.string().max(120).nullable().optional(),
+    dateOfBirth: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    nationality: z.string().max(120).nullable().optional(),
+    otherNationalities: z.array(z.string().min(1).max(120)).max(8).optional(),
+  })
+  .strict();
+export const submitPersonIdentityRequestSchema = z
+  .object({ patch: personIdentityPatchSchema, reason: z.string().max(500).optional() })
+  .strict();
+export const personLifecycleRequestSchema = z.object({ reason: z.string().min(1).max(500) }).strict();
+export const updatePersonOperationalRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    patch: z
+      .object({
+        ign: z.string().max(120).nullable().optional(),
+        primaryRole: z.string().max(120).nullable().optional(),
+        personnelCode: z.string().max(60).nullable().optional(),
+        currentTeam: z.string().max(120).nullable().optional(),
+        currentGameTitle: z.string().max(120).nullable().optional(),
+        primaryDepartment: z.string().max(120).nullable().optional(),
+        entityId: z.string().nullable().optional(),
+        notes: z.string().max(2000).nullable().optional(),
+        position: z.string().max(120).nullable().optional(),
+        dateOfJoining: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+        addressLine1: z.string().max(200).nullable().optional(),
+        addressLine2: z.string().max(200).nullable().optional(),
+        addressCity: z.string().max(120).nullable().optional(),
+        addressCountry: z.string().max(120).nullable().optional(),
+        phone: z.string().max(60).nullable().optional(),
+        email: z.string().email().max(200).nullable().optional(),
+      })
+      .strict(),
+  })
+  .strict();
 
 // ── delegations (Tier 0.5): owner-granted approver standing ──────────────────
 export const delegationSchema = z.object({
@@ -996,6 +1052,7 @@ export const capabilityViewSchema = z.object({
   canDecideClaim: z.boolean(),
   canManageDelegations: z.boolean(),
   canViewSituation: z.boolean(),
+  canViewPersonPII: z.boolean(),
 });
 export const meResponseSchema = z.object({
   identity: z.string(),
