@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import {
   composeSituation,
   daysUntil,
+  formatMoney,
   missionReadinessOn,
   SITUATION_CHECKS,
   type SituationSnapshot,
@@ -23,6 +24,8 @@ function snapshot(overrides: Partial<SituationSnapshot> = {}): SituationSnapshot
     credentials: [],
     agreements: [],
     missions: [],
+    missionLines: [],
+    invoices: [],
     participants: [],
     approvals: [],
     journeys: [],
@@ -39,7 +42,7 @@ describe('daysUntil', () => {
 });
 
 describe('missionReadinessOn', () => {
-  const mission = { missionId: 'MSN-0001', name: 'Spring Invitational', startsOn: '2026-08-13', endsOn: '2026-08-20', isActive: true };
+  const mission = { missionId: 'MSN-0001', name: 'Spring Invitational', startsOn: '2026-08-13', endsOn: '2026-08-20', isActive: true, financeStage: 'Planning' };
 
   it('ready when the roster is active and coverage spans the window; absence of records is never a gap', () => {
     const s = snapshot({
@@ -48,6 +51,12 @@ describe('missionReadinessOn', () => {
       // No credentials and no agreements AT ALL: nothing lapses → no gap claimed.
     });
     expect(missionReadinessOn(mission, s)).toEqual({ ready: true, gaps: [] });
+  });
+
+  it('a mission whose window already closed is out of readiness scope (settlement signals own that phase)', () => {
+    const ended = { ...mission, startsOn: '2026-07-01', endsOn: '2026-07-20', financeStage: 'PostMission' };
+    // Empty roster would be a gap — but the event is over; readiness is moot.
+    expect(composeSituation(snapshot({ missions: [ended] })).filter((s) => s.kind === 'MissionReadiness')).toHaveLength(0);
   });
 
   it('gaps: empty roster; credential lapsing before mission end (exact-day reason); uncovered agreement window', () => {
@@ -72,7 +81,7 @@ describe('missionReadinessOn', () => {
 
 describe('the flagship cross-domain story', () => {
   const base = snapshot({
-    missions: [{ missionId: 'MSN-0001', name: 'Spring Invitational', startsOn: '2026-08-13', endsOn: '2026-08-20', isActive: true }],
+    missions: [{ missionId: 'MSN-0001', name: 'Spring Invitational', startsOn: '2026-08-13', endsOn: '2026-08-20', isActive: true, financeStage: 'Planning' }],
     participants: [{ missionId: 'MSN-0001', personId: 'PER-0001', role: 'Player', isActive: true }],
     credentials: [{ credentialId: 'CRED-0001', personId: 'PER-0001', credentialType: 'Coaching License', expiresOn: '2026-08-10', isActive: true }],
   });
@@ -224,5 +233,71 @@ describe('journey drift + ordering + the honest all-clear', () => {
     expect(composeSituation(snapshot())).toHaveLength(0);
     expect(SITUATION_CHECKS.length).toBeGreaterThanOrEqual(7);
     expect(SITUATION_CHECKS.join(' ')).toMatch(/wedge/i);
+  });
+});
+
+describe('settlement blockers (S6): post-mission money signals', () => {
+  const pastMission = (financeStage: string, endedDaysAgo: number) => ({
+    missionId: 'MSN-0007',
+    name: 'Summer Cup',
+    startsOn: '2026-07-01',
+    endsOn: new Date(Date.parse(TODAY + 'T00:00:00Z') - endedDaysAgo * 86_400_000).toISOString().slice(0, 10),
+    isActive: true,
+    financeStage,
+  });
+  const incomeLine = (paymentStatus: string, over: Partial<{ direction: string; isActive: boolean; lineId: string }> = {}) => ({
+    lineId: over.lineId ?? 'PNL-0001',
+    missionId: 'MSN-0007',
+    direction: over.direction ?? 'Income',
+    category: 'PrizeMoney',
+    label: 'Prize — 2nd place',
+    amountMinor: 800000,
+    currency: 'USD',
+    paymentStatus,
+    isActive: over.isActive ?? true,
+  });
+
+  it('IncomeNotInvoiced fires ONLY in PostMission, immediate, with the amount printed', () => {
+    // Active stage: the mission is running — no nagging yet.
+    expect(composeSituation(snapshot({ missions: [pastMission('Active', 2)], missionLines: [incomeLine('Expected')] }))).toHaveLength(0);
+
+    const signals = composeSituation(snapshot({ missions: [pastMission('PostMission', 3)], missionLines: [incomeLine('Expected')] }));
+    expect(signals).toHaveLength(1);
+    expect(signals[0]).toMatchObject({ kind: 'IncomeNotInvoiced', impact: 2, urgency: 3, score: 6, band: 'immediate', inMotion: false });
+    expect(signals[0]!.headline).toBe('MSN-0007 "Summer Cup" ended 3 days ago with 1 income line not yet invoiced');
+    expect(signals[0]!.reasons[0]).toBe(`PrizeMoney — Prize — 2nd place: ${formatMoney(800000, 'USD')} still Expected`);
+    expect(signals[0]!.actions[0]).toEqual({ kind: 'ViewMission', missionId: 'MSN-0007' });
+  });
+
+  it('PaymentOutstanding names the live invoice; the chase escalates at 14 days past mission end', () => {
+    const fresh = composeSituation(
+      snapshot({
+        missions: [pastMission('PostMission', 3)],
+        missionLines: [incomeLine('Invoiced')],
+        invoices: [{ invoiceNumber: 'GKA-INV-2026-001', lineId: 'PNL-0001', status: 'Issued' }],
+      }),
+    );
+    expect(fresh[0]).toMatchObject({ kind: 'PaymentOutstanding', impact: 2, urgency: 2, band: 'attention' });
+    expect(fresh[0]!.reasons[0]).toBe(`PrizeMoney — Prize — 2nd place: ${formatMoney(800000, 'USD')} invoiced (GKA-INV-2026-001), not received`);
+
+    const stale = composeSituation(snapshot({ missions: [pastMission('PostMission', 20)], missionLines: [incomeLine('Invoiced')] }));
+    expect(stale[0]).toMatchObject({ kind: 'PaymentOutstanding', urgency: 3, score: 6, band: 'immediate' });
+    expect(stale[0]!.reasons[0]).toBe(`PrizeMoney — Prize — 2nd place: ${formatMoney(800000, 'USD')} invoiced, not received`); // no live invoice known — no number claimed
+    expect(stale[0]!.reasons[1]).toMatch(/chase the counterparty/);
+  });
+
+  it('quiet cases: Received lines, expense lines, removed lines, inactive missions', () => {
+    expect(composeSituation(snapshot({ missions: [pastMission('PostMission', 3)], missionLines: [incomeLine('Received')] }))).toHaveLength(0);
+    expect(
+      composeSituation(snapshot({ missions: [pastMission('PostMission', 3)], missionLines: [incomeLine('Expected', { direction: 'Expense' })] })),
+    ).toHaveLength(0);
+    expect(
+      composeSituation(snapshot({ missions: [pastMission('PostMission', 3)], missionLines: [incomeLine('Expected', { isActive: false })] })),
+    ).toHaveLength(0);
+    expect(
+      composeSituation(
+        snapshot({ missions: [{ ...pastMission('PostMission', 3), isActive: false }], missionLines: [incomeLine('Expected')] }),
+      ),
+    ).toHaveLength(0);
   });
 });

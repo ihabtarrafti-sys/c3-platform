@@ -17,6 +17,7 @@ import { EntitiesPage } from './pages/EntitiesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
+import { InvoicesPage } from './pages/InvoicesPage';
 import { AgreementsPage } from './pages/AgreementsPage';
 import { AgreementDetailPage } from './pages/AgreementDetailPage';
 
@@ -56,6 +57,7 @@ export const router = createBrowserRouter([
       { path: 'missions', element: <MissionsPage /> },
       { path: 'missions/finance', element: <MissionFinancePage /> },
       { path: 'missions/:missionId', element: <MissionDetailPage /> },
+      { path: 'invoices', element: <InvoicesPage /> },
       { path: 'agreements', element: <AgreementsPage /> },
       { path: 'agreements/:agreementId', element: <AgreementDetailPage /> },
       { path: 'entities', element: <EntitiesPage /> },

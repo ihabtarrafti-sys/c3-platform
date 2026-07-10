@@ -21,6 +21,7 @@
 import { agreementRenewalStateOn } from './agreement';
 import { credentialStatusOn } from './credential';
 import { PENDING_STATUSES, type ApprovalStatus } from './lifecycle';
+import { formatMoney, type CurrencyCode } from './money';
 import type { OperationType } from './approval';
 
 // ── snapshot input (slim picks; the read model assembles these) ─────────────
@@ -52,7 +53,27 @@ export interface SituationSnapshot {
     startsOn: string;
     endsOn: string | null;
     isActive: boolean;
+    /** S2 finance stage — the money signals fire in PostMission only. */
+    financeStage: string;
   }>;
+  /**
+   * S6 settlement signals. Amounts ARE printed in these reasons — the money
+   * is the signal's subject, and the cockpit is owner/operations-gated (both
+   * hold financial visibility). Lines ride slim: income lines only matter.
+   */
+  readonly missionLines: ReadonlyArray<{
+    lineId: string;
+    missionId: string;
+    direction: string;
+    category: string;
+    label: string;
+    amountMinor: number;
+    currency: string;
+    paymentStatus: string | null;
+    isActive: boolean;
+  }>;
+  /** Live invoices, for naming the paper in payment-chase reasons. */
+  readonly invoices: ReadonlyArray<{ invoiceNumber: string; lineId: string; status: string }>;
   readonly participants: ReadonlyArray<{ missionId: string; personId: string; role: string; isActive: boolean }>;
   readonly approvals: ReadonlyArray<{
     approvalId: string;
@@ -76,6 +97,8 @@ export const SIGNAL_KINDS = [
   'ExecutionFailedRecovery',
   'OwnerWedge',
   'JourneyStalled',
+  'IncomeNotInvoiced',
+  'PaymentOutstanding',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -212,7 +235,12 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
 
   // 1 — Mission readiness (active, upcoming-or-running missions only).
+  //     A mission whose window already CLOSED is out of readiness scope —
+  //     rosters and coverage are moot once the event is over (S6: ended
+  //     missions live on in PostMission for settlement; the money signals
+  //     below own that phase).
   for (const mission of snapshot.missions.filter((m) => m.isActive)) {
+    if (mission.endsOn !== null && mission.endsOn < today) continue;
     const { ready, gaps } = missionReadinessOn(mission, snapshot);
     if (ready) continue;
     const startsIn = daysUntil(today, mission.startsOn);
@@ -377,7 +405,65 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
   }
 
-  // 5 — Journey drift: suspended and untouched for 14+ days.
+  // 5 — Settlement blockers (S6, per the signals-ship-with-features law).
+  //     Both fire ONLY in PostMission: the event ended, the money is
+  //     unfinished, and →Settled demands every income line Received. These
+  //     are the two blocker kinds, enumerated: not yet invoiced, and
+  //     invoiced-but-unpaid. Invoicing is direct (no approval), so neither
+  //     ever demotes to in-motion.
+  for (const mission of snapshot.missions.filter((m) => m.isActive && m.financeStage === 'PostMission')) {
+    const income = snapshot.missionLines.filter((l) => l.missionId === mission.missionId && l.isActive && l.direction === 'Income');
+    const endedDays = mission.endsOn ? -daysUntil(today, mission.endsOn) : null;
+    const endedText = endedDays !== null && endedDays > 0 ? `ended ${endedDays} day${endedDays === 1 ? '' : 's'} ago` : 'is post-mission';
+
+    const notInvoiced = income.filter((l) => l.paymentStatus === 'Expected');
+    if (notInvoiced.length > 0) {
+      signals.push(
+        make({
+          key: `IncomeNotInvoiced:${mission.missionId}`,
+          kind: 'IncomeNotInvoiced',
+          headline: `${mission.missionId} "${mission.name}" ${endedText} with ${notInvoiced.length} income line${notInvoiced.length === 1 ? '' : 's'} not yet invoiced`,
+          reasons: [
+            ...notInvoiced.map((l) => `${l.category} — ${l.label}: ${formatMoney(l.amountMinor, l.currency as CurrencyCode)} still Expected`),
+            'The mission cannot settle until every income line is Received — invoice first, then chase.',
+          ],
+          impact: 2,
+          urgency: 3,
+          inMotion: false,
+          actions: [{ kind: 'ViewMission', missionId: mission.missionId }],
+        }),
+      );
+    }
+
+    const outstanding = income.filter((l) => l.paymentStatus === 'Invoiced');
+    if (outstanding.length > 0) {
+      const liveInvoiceOf = (lineId: string): string | null =>
+        snapshot.invoices.find((i) => i.lineId === lineId && i.status === 'Issued')?.invoiceNumber ?? null;
+      const chaseUrgency = endedDays !== null && endedDays >= 14 ? 3 : 2;
+      signals.push(
+        make({
+          key: `PaymentOutstanding:${mission.missionId}`,
+          kind: 'PaymentOutstanding',
+          headline: `${mission.missionId} "${mission.name}" has ${outstanding.length} invoiced payment${outstanding.length === 1 ? '' : 's'} outstanding`,
+          reasons: [
+            ...outstanding.map((l) => {
+              const inv = liveInvoiceOf(l.lineId);
+              return `${l.category} — ${l.label}: ${formatMoney(l.amountMinor, l.currency as CurrencyCode)} invoiced${inv ? ` (${inv})` : ''}, not received`;
+            }),
+            endedDays !== null && endedDays >= 14
+              ? `The mission ${endedText} — chase the counterparty.`
+              : 'Record the receipt on the line when the money lands.',
+          ],
+          impact: 2,
+          urgency: chaseUrgency,
+          inMotion: false,
+          actions: [{ kind: 'ViewMission', missionId: mission.missionId }],
+        }),
+      );
+    }
+  }
+
+  // 6 — Journey drift: suspended and untouched for 14+ days.
   for (const j of snapshot.journeys.filter((j) => j.status === 'Suspended')) {
     const idleDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(j.updatedAt)) / 86_400_000);
     if (idleDays < 14) continue;
@@ -416,6 +502,8 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Failed executions awaiting recovery',
   'Sole-owner governance wedges',
   'Journeys suspended for 14+ days',
+  'Post-mission income not yet invoiced (settlement blocker)',
+  'Invoiced payments still outstanding post-mission (settlement blocker)',
 ];
 
 /**
@@ -432,4 +520,6 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'ExecutionFailedRecovery',
   'OwnerWedge',
   'JourneyStalled',
+  'IncomeNotInvoiced',
+  'PaymentOutstanding',
 ];

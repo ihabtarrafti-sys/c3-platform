@@ -107,7 +107,23 @@ const AUDIT_ACTION: Record<string, string> = {
   AgreementTermAdded: 'Financial term added',
   AgreementTermUpdated: 'Financial term updated',
   AgreementTermRemoved: 'Financial term removed',
+  InvoiceIssued: 'Invoice issued',
+  InvoiceVoided: 'Invoice voided',
 };
+
+/** S6 — invoice status → label + StatusBadge variant. */
+const INVOICE_STATUS: Record<string, { label: string; variant: StatusVariant }> = {
+  Issued: { label: 'Issued', variant: 'ready' },
+  Voided: { label: 'Voided', variant: 'neutral' },
+};
+export function invoiceStatusOf(status: string): { label: string; variant: StatusVariant } {
+  return INVOICE_STATUS[status] ?? { label: status, variant: 'neutral' };
+}
+
+/** Money in its native currency (integer minor units; formatMoney does the honest work). */
+export function formatMinor(amountMinor: number, currency: string): string {
+  return formatMoney(amountMinor, currency as Parameters<typeof formatMoney>[1]);
+}
 
 /** D-7 — equipment fulfillment status → label + StatusBadge variant. */
 const EQUIPMENT_STATUS: Record<string, { label: string; variant: StatusVariant }> = {

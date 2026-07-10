@@ -16,7 +16,7 @@ import {
   type MissionLineDirection,
   type PaymentStatus,
 } from '@c3web/domain';
-import { useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople } from '../queries';
+import { useEntities, useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople } from '../queries';
 import { ApiError, type MissionLineDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -449,7 +449,7 @@ export function MissionDetailPage() {
           </div>
 
           {(me?.capabilities.canViewFinancials ?? false) && (
-            <MissionPnlSection missionId={m.missionId} canManage={canManage && m.isActive} />
+            <MissionPnlSection missionId={m.missionId} canManage={canManage && m.isActive} organizer={m.organizer} />
           )}
 
           <DocumentsSection ownerType="Mission" ownerId={m.missionId} canManage={canManage && m.isActive} />
@@ -473,6 +473,18 @@ type LineForm = { direction: MissionLineDirection; category: string; label: stri
 const EMPTY_LINE: LineForm = { direction: 'Income', category: 'Other', label: '', amount: '', currency: 'USD' };
 
 type PaymentForm = { status: PaymentStatus; received: string; rate: string; source: string; refNo: string };
+
+/** S6: the issue-invoice dialog per income line. */
+type InvoiceForm = { entityId: string; billedTo: string; details: string; vatPct: string; description: string };
+
+/** "15" → 1500 bps; decimals legal ("5.5" → 550); null = not a valid 0..100 percent. */
+function vatPctToBps(v: string): number | null {
+  const t = v.trim();
+  if (t === '') return null;
+  const n = Number(t);
+  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
+  return Math.round(n * 100);
+}
 type BudgetForm = { direction: MissionLineDirection; category: string; currency: CurrencyCode; amount: string };
 
 const EMPTY_BUDGET: BudgetForm = { direction: 'Expense', category: 'Other', currency: 'USD', amount: '' };
@@ -495,7 +507,7 @@ function lineFormInvalid(f: LineForm): boolean {
  * an expense automatically; profit blends to USD through the org's FX table —
  * honestly: a missing rate means "no blended figure", never an invented one.
  */
-function MissionPnlSection({ missionId, canManage }: { missionId: string; canManage: boolean }) {
+function MissionPnlSection({ missionId, canManage, organizer }: { missionId: string; canManage: boolean; organizer: string | null }) {
   const s = useStyles();
   const r = useRegisterStyles();
   const { notify } = useNotify();
@@ -508,10 +520,15 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
   const [edits, setEdits] = useState<Record<string, LineForm>>({});
   const [payments, setPayments] = useState<Record<string, PaymentForm>>({});
   const [budget, setBudget] = useState<BudgetForm>(EMPTY_BUDGET);
+  // S6: per-line issue-invoice forms (entity series, billed-to, VAT %).
+  const [invoiceForms, setInvoiceForms] = useState<Record<string, InvoiceForm>>({});
+  const { data: entitiesData } = useEntities(canManage);
+  const invoiceEntities = (entitiesData?.entities ?? []).filter((e) => e.isActive);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['missionPnl', missionId] });
     void qc.invalidateQueries({ queryKey: ['missionAudit', missionId] });
+    void qc.invalidateQueries({ queryKey: ['invoices'] });
   };
 
   async function run(fn: () => Promise<unknown>, message: string): Promise<void> {
@@ -756,6 +773,79 @@ function MissionPnlSection({ missionId, canManage }: { missionId: string; canMan
                   {canManage && (
                     <td className={r.td}>
                       <div className={s.headerActions}>
+                        {l.direction === 'Income' && l.paymentStatus === 'Expected' && (
+                          <GovernedAction
+                            triggerLabel="Invoice…"
+                            triggerTestId={`invoice-line-${l.lineId}`}
+                            title={`Issue an invoice for ${l.lineId}?`}
+                            description="One income line, one invoice. The number comes from the issuing entity's yearly series and is never reused; the line flips to Invoiced; the PDF is stored as evidence. All immediate and recorded."
+                            extra={(() => {
+                              const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
+                              const setF = (n: InvoiceForm) => setInvoiceForms((c) => ({ ...c, [l.lineId]: n }));
+                              const chosen = invoiceEntities.find((e) => e.entityId === f.entityId);
+                              return (
+                                <div className={s.fields}>
+                                  <Field label="Issuing entity (its code numbers the series)" required hint={chosen && !chosen.code ? 'This entity has no code — set one on the Entities register first.' : undefined}>
+                                    <Dropdown
+                                      value={chosen ? `${chosen.code ?? '—'} · ${chosen.name}` : ''}
+                                      selectedOptions={f.entityId ? [f.entityId] : []}
+                                      onOptionSelect={(_, d) => d.optionValue && setF({ ...f, entityId: d.optionValue })}
+                                      data-testid={`invoice-entity-${l.lineId}`}
+                                    >
+                                      {invoiceEntities.map((e) => (
+                                        <Option key={e.entityId} value={e.entityId} text={`${e.code ?? '—'} · ${e.name}`}>
+                                          {`${e.code ?? '—'} · ${e.name}`}
+                                        </Option>
+                                      ))}
+                                    </Dropdown>
+                                  </Field>
+                                  <Field label="Billed to" required>
+                                    <Input value={f.billedTo} onChange={(_, d) => setF({ ...f, billedTo: d.value })} data-testid={`invoice-billed-to-${l.lineId}`} />
+                                  </Field>
+                                  <Field label="Billed-to details (address block, optional)">
+                                    <Input value={f.details} onChange={(_, d) => setF({ ...f, details: d.value })} />
+                                  </Field>
+                                  <Field label="VAT %" required hint="Entered per invoice — C3 states no tax law. 0 for none.">
+                                    <Input type="number" value={f.vatPct} onChange={(_, d) => setF({ ...f, vatPct: d.value })} data-testid={`invoice-vat-${l.lineId}`} />
+                                  </Field>
+                                  <Field label="Description (appears on the PDF; optional)">
+                                    <Input value={f.description} onChange={(_, d) => setF({ ...f, description: d.value })} data-testid={`invoice-description-${l.lineId}`} />
+                                  </Field>
+                                </div>
+                              );
+                            })()}
+                            confirmLabel="Issue invoice"
+                            confirmDisabled={(() => {
+                              const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
+                              const chosen = invoiceEntities.find((e) => e.entityId === f.entityId);
+                              return !chosen || !chosen.code || f.billedTo.trim() === '' || vatPctToBps(f.vatPct) === null;
+                            })()}
+                            onConfirm={async () => {
+                              const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
+                              try {
+                                const res = await api.issueInvoice({
+                                  missionId,
+                                  lineId: l.lineId,
+                                  entityId: f.entityId,
+                                  billedToName: f.billedTo.trim(),
+                                  billedToDetails: f.details.trim() === '' ? null : f.details.trim(),
+                                  vatRateBps: vatPctToBps(f.vatPct)!,
+                                  description: f.description.trim() === '' ? null : f.description.trim(),
+                                });
+                                notify('success', `Issued ${res.invoice.invoiceNumber} — the line is now Invoiced.`);
+                                if (res.pdfError) notify('error', res.pdfError);
+                                invalidate();
+                                setInvoiceForms((prev) => {
+                                  const { [l.lineId]: _drop, ...rest } = prev;
+                                  return rest;
+                                });
+                              } catch (err) {
+                                notify('error', err instanceof ApiError ? err.message : 'The invoice could not be issued.');
+                                throw err instanceof Error ? err : new Error('failed');
+                              }
+                            }}
+                          />
+                        )}
                         {l.direction === 'Income' && (
                           <GovernedAction
                             triggerLabel="Payment…"

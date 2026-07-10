@@ -39,7 +39,7 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
   assertReadAgreements(actor); // both operational roles hold it; fail closed regardless
   const reads = p.reads.forActor(actor);
 
-  const [people, credentials, agreements, missions, participants, approvals, journeys, members] = await Promise.all([
+  const [people, credentials, agreements, missions, participants, approvals, journeys, members, missionLines, invoices] = await Promise.all([
     reads.listPeople(),
     reads.listCredentials(),
     reads.listAgreements(),
@@ -48,6 +48,8 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
     reads.listApprovals(),
     reads.listJourneys(),
     reads.listMembers(),
+    reads.listAllMissionLines(),
+    reads.listInvoices(),
   ]);
 
   const todayIso = utcTodayIso();
@@ -75,7 +77,22 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
       startsOn: m.startsOn,
       endsOn: m.endsOn,
       isActive: m.isActive,
+      financeStage: m.financeStage,
     })),
+    // S6 settlement signals: slim income-line + live-invoice views. The
+    // cockpit is owner/ops-gated, so the printed amounts stay within rights.
+    missionLines: missionLines.map((l) => ({
+      lineId: l.lineId,
+      missionId: l.missionId,
+      direction: l.direction,
+      category: l.category,
+      label: l.label,
+      amountMinor: l.amountMinor,
+      currency: l.currency,
+      paymentStatus: l.paymentStatus,
+      isActive: l.isActive,
+    })),
+    invoices: invoices.map((i) => ({ invoiceNumber: i.invoiceNumber, lineId: i.lineId, status: i.status })),
     participants,
     approvals: approvals.map((a) => ({
       approvalId: a.approvalId,

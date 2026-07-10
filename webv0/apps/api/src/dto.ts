@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -139,6 +139,34 @@ export function toMissionLineDto(l: MissionLine): MissionLineDto {
 }
 
 /** Document metadata → wire (S4; the storage key NEVER leaves the server). */
+/** Invoice → wire (S6). 1:1 — the record IS the outward claim. */
+export function toInvoiceDto(i: Invoice): InvoiceDto {
+  return {
+    invoiceId: i.invoiceId,
+    invoiceNumber: i.invoiceNumber,
+    entityId: i.entityId,
+    missionId: i.missionId,
+    lineId: i.lineId,
+    billedToName: i.billedToName,
+    billedToDetails: i.billedToDetails,
+    incomeCategory: i.incomeCategory,
+    description: i.description,
+    currency: i.currency,
+    subtotalMinor: i.subtotalMinor,
+    vatRateBps: i.vatRateBps,
+    vatMinor: i.vatMinor,
+    totalMinor: i.totalMinor,
+    status: i.status,
+    issuedOn: i.issuedOn,
+    issuedBy: i.issuedBy,
+    voidedReason: i.voidedReason,
+    documentId: i.documentId,
+    version: i.version,
+    createdAt: i.createdAt,
+    updatedAt: i.updatedAt,
+  };
+}
+
 export function toDocumentDto(d: C3Document): DocumentDto {
   return {
     documentId: d.documentId,

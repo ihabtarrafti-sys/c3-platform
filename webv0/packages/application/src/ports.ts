@@ -22,6 +22,7 @@ import type {
   Credential,
   Entity,
   FxRate,
+  Invoice,
   Journey,
   JourneyStatus,
   Kit,
@@ -88,6 +89,9 @@ export interface ReadStore {
   listAllAuditEvents(): Promise<AuditEvent[]>;
   // Sprint 43: the Situation Room snapshot (bulk, slim, one pass).
   listAllMissionParticipants(): Promise<Array<{ missionId: string; personId: string; role: string; isActive: boolean }>>;
+  // S6: invoices (newest first). Gating is the use-case's job (finance read).
+  listInvoices(): Promise<Invoice[]>;
+  getInvoiceById(invoiceId: string): Promise<Invoice | null>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -274,6 +278,26 @@ export interface NewDocumentRow {
   readonly uploadedBy: string;
 }
 
+/** Fields written when issuing an Invoice (S6). Status is always 'Issued'. */
+export interface NewInvoiceRow {
+  readonly invoiceId: string;
+  readonly invoiceNumber: string;
+  readonly entityId: string;
+  readonly missionId: string;
+  readonly lineId: string;
+  readonly billedToName: string;
+  readonly billedToDetails: string | null;
+  readonly incomeCategory: string;
+  readonly description: string | null;
+  readonly currency: string;
+  readonly subtotalMinor: number;
+  readonly vatRateBps: number;
+  readonly vatMinor: number;
+  readonly totalMinor: number;
+  readonly issuedOn: string;
+  readonly issuedBy: string;
+}
+
 /** Fields written when creating an Entity (S48, direct-audited). */
 export interface NewEntityRow {
   readonly name: string;
@@ -310,9 +334,28 @@ export interface AgreementPatch {
 }
 
 export interface WriteTx {
-  /** Atomic, server-controlled business-ID allocation (never MAX+1). */
+  /**
+   * Atomic, server-controlled business-ID allocation (never MAX+1). Beyond
+   * the canonical kinds, S6 allocates per-(entity, year) invoice series via
+   * `invoice-series:ENT-XXXX:YYYY` composite kinds (the DB CHECK admits the
+   * pattern; numbers are never reused).
+   */
   allocateSequence(
-    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'missionLine' | 'document' | 'agreement' | 'agreementTerm' | 'entity',
+    kind:
+      | 'person'
+      | 'approval'
+      | 'credential'
+      | 'journey'
+      | 'kit'
+      | 'apparel'
+      | 'mission'
+      | 'missionLine'
+      | 'document'
+      | 'agreement'
+      | 'agreementTerm'
+      | 'entity'
+      | 'invoice'
+      | `invoice-series:${string}`,
   ): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
@@ -506,6 +549,15 @@ export interface WriteTx {
   getDocument(documentId: string): Promise<C3Document | null>;
   /** Version-guarded soft removal iff currently active; null = stale/missing/inactive. */
   deactivateDocument(documentId: string, expectedVersion: number): Promise<C3Document | null>;
+
+  // ── S6 invoices (direct-audited; numbers NEVER reused — voids leave gaps) ──
+  insertInvoice(row: NewInvoiceRow): Promise<Invoice>;
+  /** Read one invoice inside the transaction, any status. */
+  getInvoice(invoiceId: string): Promise<Invoice | null>;
+  /** Version-guarded Issued→Voided flip with the mandatory reason; null = stale/missing/not-Issued. */
+  voidInvoice(invoiceId: string, expectedVersion: number, reason: string): Promise<Invoice | null>;
+  /** Version-guarded PDF attach (the stored artifact's DOC id); null = stale/missing. */
+  setInvoiceDocument(invoiceId: string, expectedVersion: number, documentId: string): Promise<Invoice | null>;
 
   // ── Finance S3 agreement terms (direct-audited; soft removal) ─────────────
   insertAgreementTerm(row: NewAgreementTermRow): Promise<AgreementTerm>;

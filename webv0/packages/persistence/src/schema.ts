@@ -322,6 +322,35 @@ export const missionBudget = pgTable('mission_budget', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// S6: invoices — the outward claim for a mission income line. Numbers are a
+// per-entity, per-year series and are never reused (voids leave gaps).
+export const invoice = pgTable('invoice', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  invoiceId: text('invoice_id').notNull(),
+  invoiceNumber: text('invoice_number').notNull(),
+  entityId: text('entity_id').notNull(),
+  missionId: text('mission_id').notNull(),
+  lineId: text('line_id').notNull(),
+  billedToName: text('billed_to_name').notNull(),
+  billedToDetails: text('billed_to_details'),
+  incomeCategory: text('income_category').notNull(),
+  description: text('description'),
+  currency: text('currency').notNull(),
+  subtotalMinor: bigint('subtotal_minor', { mode: 'number' }).notNull(),
+  vatRateBps: integer('vat_rate_bps').notNull(),
+  vatMinor: bigint('vat_minor', { mode: 'number' }).notNull(),
+  totalMinor: bigint('total_minor', { mode: 'number' }).notNull(),
+  status: text('status').notNull(),
+  issuedOn: date('issued_on', { mode: 'string' }).notNull(),
+  issuedBy: text('issued_by').notNull(),
+  voidedReason: text('voided_reason'),
+  documentId: text('document_id'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const missionParticipant = pgTable('mission_participant', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

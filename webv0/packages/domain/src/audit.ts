@@ -79,6 +79,9 @@ export const AUDIT_ACTIONS = [
   // S4: registered evidence — audit lands on the OWNER record's trail.
   'DocumentAttached',
   'DocumentRemoved',
+  // S6: invoices (direct-audited; the line flip audits as MissionLinePaymentSet).
+  'InvoiceIssued',
+  'InvoiceVoided',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

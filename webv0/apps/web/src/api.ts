@@ -34,6 +34,7 @@ import type {
   MissionPnlDto,
   MissionParticipantDto,
   DataQualityReportDto,
+  InvoiceDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -342,6 +343,15 @@ export function createApiClient(deps: ApiClientDeps) {
     downloadTemplate: (domain: string) => download(`/api/v1/imports/templates/${encodeURIComponent(domain)}`),
     // S5 riders: the data-quality report (duplicates + review lists).
     dataQuality: () => request<DataQualityReportDto>('GET', '/api/v1/data-quality'),
+    // S6: invoices — issue against an income line; void with a reason; the PDF
+    // artifact downloads through the S4 document path (Invoice owner gate).
+    listInvoices: () => request<{ invoices: InvoiceDto[] }>('GET', '/api/v1/invoices'),
+    getInvoice: (invoiceId: string) => request<{ invoice: InvoiceDto }>('GET', `/api/v1/invoices/${invoiceId}`),
+    issueInvoice: (input: { missionId: string; lineId: string; entityId: string; billedToName: string; billedToDetails?: string | null; vatRateBps: number; description?: string | null }) =>
+      request<{ invoice: InvoiceDto; pdfError?: string }>('POST', '/api/v1/invoices', input),
+    voidInvoice: (invoiceId: string, reason: string, expectedVersion: number) =>
+      request<{ invoice: InvoiceDto }>('POST', `/api/v1/invoices/${invoiceId}/void`, { reason, expectedVersion }),
+    retryInvoicePdf: (invoiceId: string) => request<{ invoice: InvoiceDto }>('POST', `/api/v1/invoices/${invoiceId}/document`),
     // S4: documents — metadata via JSON, bytes via multipart/binary.
     listDocuments: (ownerType: string, ownerId: string) =>
       request<{ documents: DocumentDto[] }>('GET', `/api/v1/documents?ownerType=${encodeURIComponent(ownerType)}&ownerId=${encodeURIComponent(ownerId)}`),

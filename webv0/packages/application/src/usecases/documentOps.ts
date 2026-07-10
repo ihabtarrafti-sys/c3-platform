@@ -20,12 +20,14 @@ import {
   formatDocumentId,
   NotFoundError,
 } from '@c3web/domain';
-import { assertReadAgreements, assertReadPeople, assertSubmitApproval } from '@c3web/authz';
+import { assertReadAgreements, assertReadPeople, assertSubmitApproval, assertViewFinancials } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
-/** The read gate follows the OWNING record (an agreement's PDF is agreement data). */
+/** The read gate follows the OWNING record (an agreement's PDF is agreement
+ *  data; an invoice's PDF carries money — the finance gate applies). */
 function assertReadOwner(actor: Actor, ownerType: DocumentOwnerType): void {
   if (ownerType === 'Agreement') assertReadAgreements(actor);
+  else if (ownerType === 'Invoice') assertViewFinancials(actor);
   else assertReadPeople(actor);
 }
 
@@ -41,7 +43,9 @@ async function requireOwner(p: Persistence, actor: Actor, ownerType: DocumentOwn
           ? await reads.getPersonById(ownerId)
           : ownerType === 'Credential'
             ? await reads.getCredentialById(ownerId)
-            : await reads.getEntityById(ownerId);
+            : ownerType === 'Invoice'
+              ? await reads.getInvoiceById(ownerId)
+              : await reads.getEntityById(ownerId);
   if (!found) throw new NotFoundError(ownerType, ownerId);
 }
 

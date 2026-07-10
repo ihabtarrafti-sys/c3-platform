@@ -201,6 +201,8 @@ const KIND_LABEL: Record<SignalDto['kind'], string> = {
   ExecutionFailedRecovery: 'Execution recovery',
   OwnerWedge: 'Governance wedge',
   JourneyStalled: 'Journey stalled',
+  IncomeNotInvoiced: 'Income not invoiced',
+  PaymentOutstanding: 'Payment outstanding',
 };
 
 function actionTarget(a: SignalDto['actions'][number]): { label: string; to: string } | null {
@@ -344,7 +346,7 @@ export function SituationRoomPage() {
     <div className={s.ledger} data-testid="situation-checks">
       <div className={s.ledgerHead}>
         <span className={s.ledgerTitle}>Checked just now, across the whole organization</span>
-        <span className={s.ledgerMeta}>7 checks · engine-derived</span>
+        <span className={s.ledgerMeta}>{data.checks.length} checks · engine-derived</span>
       </div>
       {ledger.map((row, i) => (
         <div key={i} className={s.ledgerRow}>

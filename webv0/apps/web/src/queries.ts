@@ -65,6 +65,9 @@ export const useFxRates = (enabled = true) =>
 export const useDataQuality = (enabled = true) =>
   useQuery({ queryKey: ['dataQuality'], queryFn: () => api.dataQuality(), enabled });
 
+export const useInvoices = (enabled = true) =>
+  useQuery({ queryKey: ['invoices'], queryFn: () => api.listInvoices(), enabled });
+
 export const useMissions = () => useQuery({ queryKey: ['missions'], queryFn: () => api.listMissions() });
 export const useMission = (missionId: string) =>
   useQuery({ queryKey: ['mission', missionId], queryFn: () => api.getMission(missionId) });

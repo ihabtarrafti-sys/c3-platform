@@ -67,6 +67,11 @@ import {
   searchQuerySchema,
   searchResultsSchema,
   dataQualityReportSchema,
+  invoicesListSchema,
+  invoiceResponseSchema,
+  issueInvoiceRequestSchema,
+  voidInvoiceRequestSchema,
+  invoiceIdParamSchema,
   setMissionBudgetInputSchema,
   participantPerDiemBodySchema,
   credentialsListSchema,
@@ -111,6 +116,7 @@ import {
 // (withdrawApproval imported with the application use-cases below)
 import { DOCUMENT_MAX_BYTES, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
 import { capabilityView, canViewPerDiem } from '@c3web/authz';
+import { buildInvoicePdf } from './invoicePdf';
 import {
   approveApproval,
   beginReview,
@@ -133,6 +139,11 @@ import {
   getMissionsFinanceSummary,
   globalSearch,
   getDataQualityReport,
+  issueInvoice,
+  voidInvoice,
+  listInvoices,
+  getInvoice,
+  linkInvoiceDocument,
   stageImport,
   exportDomainCsv,
   exportAuditCsv,
@@ -199,7 +210,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1045,6 +1056,100 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { documentId } = req.params as { documentId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       return { document: toDocumentDto(await removeDocument(P, actorOf(req), documentId, expectedVersion)) };
+    },
+  );
+
+  // ── invoices (S6): the outward claim — issue, PDF artifact, void, register ─
+  // The PDF is generated AFTER the issue transaction (external I/O never rides
+  // a DB tx): build → put bytes → register document (compensated) → link. A
+  // failed artifact leaves an HONEST invoice with documentId=null plus a
+  // retry endpoint — never a lie, never an orphan blob.
+  async function generateAndAttachInvoicePdf(actor: ReturnType<typeof actorOf>, invoice: import('@c3web/domain').Invoice) {
+    const reads = P.reads.forActor(actor);
+    const [entity, mission] = await Promise.all([reads.getEntityById(invoice.entityId), reads.getMissionById(invoice.missionId)]);
+    const pdf = await buildInvoicePdf({
+      invoice,
+      entity: { name: entity?.name ?? invoice.entityId, jurisdiction: entity?.jurisdiction ?? '', registrationId: entity?.registrationId ?? null },
+      mission: { name: mission?.name ?? invoice.missionId, code: mission?.code ?? null },
+    });
+    const body = Buffer.from(pdf);
+    const storageKey = `${actor.tenantId}/${randomUUID()}`;
+    await deps.documentStorage.put(storageKey, body, 'application/pdf');
+    try {
+      const doc = await attachDocument(P, actor, {
+        ownerType: 'Invoice',
+        ownerId: invoice.invoiceId,
+        fileName: `${invoice.invoiceNumber}.pdf`,
+        contentType: 'application/pdf',
+        sizeBytes: body.length,
+        sha256: createHash('sha256').update(body).digest('hex'),
+        storageKey,
+        label: null,
+      });
+      return await linkInvoiceDocument(P, actor, invoice.invoiceId, invoice.version, doc.documentId);
+    } catch (err) {
+      await deps.documentStorage.delete(storageKey).catch(() => {});
+      throw err;
+    }
+  }
+
+  r.get('/api/v1/invoices', { schema: { response: { 200: invoicesListSchema } } }, async (req) => {
+    return { invoices: (await listInvoices(P, actorOf(req))).map(toInvoiceDto) };
+  });
+
+  r.get('/api/v1/invoices/:invoiceId', { schema: { params: invoiceIdParamSchema, response: { 200: invoiceResponseSchema } } }, async (req) => {
+    const { invoiceId } = req.params as { invoiceId: string };
+    return { invoice: toInvoiceDto(await getInvoice(P, actorOf(req), invoiceId)) };
+  });
+
+  r.get(
+    '/api/v1/invoices/:invoiceId/audit',
+    { schema: { params: invoiceIdParamSchema, response: { 200: auditEventsListSchema } } },
+    async (req) => {
+      const { invoiceId } = req.params as { invoiceId: string };
+      const events = await listAuditEvents(P, actorOf(req), 'Invoice', invoiceId);
+      return { events: events.map(toAuditEventDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/invoices',
+    { schema: { body: issueInvoiceRequestSchema, response: { 201: invoiceResponseSchema.extend({ pdfError: z.string().optional() }) } } },
+    async (req, reply) => {
+      const actor = actorOf(req);
+      const issued = await issueInvoice(P, actor, req.body as import('@c3web/domain').IssueInvoiceInput);
+      try {
+        const linked = await generateAndAttachInvoicePdf(actor, issued);
+        return reply.status(201).send({ invoice: toInvoiceDto(linked) });
+      } catch (err) {
+        req.log.error({ err, invoiceId: issued.invoiceId }, 'invoice PDF artifact failed after issue');
+        return reply.status(201).send({
+          invoice: toInvoiceDto(issued),
+          pdfError: 'The invoice was issued, but its PDF could not be stored — retry from the invoice register.',
+        });
+      }
+    },
+  );
+
+  r.post(
+    '/api/v1/invoices/:invoiceId/document',
+    { schema: { params: invoiceIdParamSchema, response: { 200: invoiceResponseSchema } } },
+    async (req) => {
+      const actor = actorOf(req);
+      const { invoiceId } = req.params as { invoiceId: string };
+      const current = await getInvoice(P, actor, invoiceId);
+      if (current.documentId) return { invoice: toInvoiceDto(current) }; // idempotent: the artifact exists
+      return { invoice: toInvoiceDto(await generateAndAttachInvoicePdf(actor, current)) };
+    },
+  );
+
+  r.post(
+    '/api/v1/invoices/:invoiceId/void',
+    { schema: { params: invoiceIdParamSchema, body: voidInvoiceRequestSchema, response: { 200: invoiceResponseSchema } } },
+    async (req) => {
+      const { invoiceId } = req.params as { invoiceId: string };
+      const { reason, expectedVersion } = req.body as { reason: string; expectedVersion: number };
+      return { invoice: toInvoiceDto(await voidInvoice(P, actorOf(req), invoiceId, reason, expectedVersion)) };
     },
   );
 

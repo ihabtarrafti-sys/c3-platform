@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -314,6 +314,19 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<FxRate[]> => {
             const rows = await db.select().from(schema.fxRate).orderBy(asc(schema.fxRate.currency));
             return rows.map(mapFxRate);
+          }),
+
+        // S6: invoices — the register (newest first; voided rows ride along, honestly labeled).
+        listInvoices: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Invoice[]> => {
+            const rows = await db.select().from(schema.invoice).orderBy(desc(schema.invoice.createdAt), desc(schema.invoice.invoiceId));
+            return rows.map(mapInvoice);
+          }),
+
+        getInvoiceById: (invoiceId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Invoice | null> => {
+            const rows = await db.select().from(schema.invoice).where(eq(schema.invoice.invoiceId, invoiceId)).limit(1);
+            return rows[0] ? mapInvoice(rows[0]) : null;
           }),
 
         // Sprint 42: the person hub — memberships joined with the mission's

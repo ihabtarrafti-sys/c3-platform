@@ -14706,6 +14706,7 @@ paths:
               - Person
               - Credential
               - Entity
+              - Invoice
           in: query
           name: ownerType
           required: true
@@ -14738,6 +14739,7 @@ paths:
                             - Person
                             - Credential
                             - Entity
+                            - Invoice
                         ownerId:
                           type: string
                         fileName:
@@ -14795,6 +14797,7 @@ paths:
                           - Person
                           - Credential
                           - Entity
+                          - Invoice
                       ownerId:
                         type: string
                       fileName:
@@ -14885,6 +14888,7 @@ paths:
                           - Person
                           - Credential
                           - Entity
+                          - Invoice
                       ownerId:
                         type: string
                       fileName:
@@ -14919,6 +14923,624 @@ paths:
                     additionalProperties: false
                 required:
                   - document
+                additionalProperties: false
+  /api/v1/invoices:
+    get:
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoices:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        invoiceId:
+                          type: string
+                        invoiceNumber:
+                          type: string
+                        entityId:
+                          type: string
+                        missionId:
+                          type: string
+                        lineId:
+                          type: string
+                        billedToName:
+                          type: string
+                        billedToDetails:
+                          type: string
+                          nullable: true
+                        incomeCategory:
+                          type: string
+                        description:
+                          type: string
+                          nullable: true
+                        currency:
+                          type: string
+                          enum:
+                            - USD
+                            - AED
+                            - SAR
+                            - EUR
+                            - GBP
+                        subtotalMinor:
+                          type: integer
+                        vatRateBps:
+                          type: integer
+                        vatMinor:
+                          type: integer
+                        totalMinor:
+                          type: integer
+                        status:
+                          type: string
+                          enum:
+                            - Issued
+                            - Voided
+                        issuedOn:
+                          type: string
+                        issuedBy:
+                          type: string
+                        voidedReason:
+                          type: string
+                          nullable: true
+                        documentId:
+                          type: string
+                          nullable: true
+                        version:
+                          type: integer
+                        createdAt:
+                          type: string
+                        updatedAt:
+                          type: string
+                      required:
+                        - invoiceId
+                        - invoiceNumber
+                        - entityId
+                        - missionId
+                        - lineId
+                        - billedToName
+                        - billedToDetails
+                        - incomeCategory
+                        - description
+                        - currency
+                        - subtotalMinor
+                        - vatRateBps
+                        - vatMinor
+                        - totalMinor
+                        - status
+                        - issuedOn
+                        - issuedBy
+                        - voidedReason
+                        - documentId
+                        - version
+                        - createdAt
+                        - updatedAt
+                      additionalProperties: false
+                required:
+                  - invoices
+                additionalProperties: false
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                missionId:
+                  type: string
+                  pattern: ^MSN-\d{4,}$
+                lineId:
+                  type: string
+                  pattern: ^PNL-\d{4,}$
+                entityId:
+                  type: string
+                  pattern: ^ENT-\d{4,}$
+                billedToName:
+                  type: string
+                  minLength: 1
+                  maxLength: 200
+                billedToDetails:
+                  type: string
+                  maxLength: 600
+                  nullable: true
+                vatRateBps:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                description:
+                  type: string
+                  maxLength: 300
+                  nullable: true
+              required:
+                - missionId
+                - lineId
+                - entityId
+                - billedToName
+                - vatRateBps
+              additionalProperties: false
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    type: object
+                    properties:
+                      invoiceId:
+                        type: string
+                      invoiceNumber:
+                        type: string
+                      entityId:
+                        type: string
+                      missionId:
+                        type: string
+                      lineId:
+                        type: string
+                      billedToName:
+                        type: string
+                      billedToDetails:
+                        type: string
+                        nullable: true
+                      incomeCategory:
+                        type: string
+                      description:
+                        type: string
+                        nullable: true
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      subtotalMinor:
+                        type: integer
+                      vatRateBps:
+                        type: integer
+                      vatMinor:
+                        type: integer
+                      totalMinor:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - Issued
+                          - Voided
+                      issuedOn:
+                        type: string
+                      issuedBy:
+                        type: string
+                      voidedReason:
+                        type: string
+                        nullable: true
+                      documentId:
+                        type: string
+                        nullable: true
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - invoiceId
+                      - invoiceNumber
+                      - entityId
+                      - missionId
+                      - lineId
+                      - billedToName
+                      - billedToDetails
+                      - incomeCategory
+                      - description
+                      - currency
+                      - subtotalMinor
+                      - vatRateBps
+                      - vatMinor
+                      - totalMinor
+                      - status
+                      - issuedOn
+                      - issuedBy
+                      - voidedReason
+                      - documentId
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                  pdfError:
+                    type: string
+                required:
+                  - invoice
+                additionalProperties: false
+  /api/v1/invoices/{invoiceId}:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^INV-\d{4,}$
+          in: path
+          name: invoiceId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    type: object
+                    properties:
+                      invoiceId:
+                        type: string
+                      invoiceNumber:
+                        type: string
+                      entityId:
+                        type: string
+                      missionId:
+                        type: string
+                      lineId:
+                        type: string
+                      billedToName:
+                        type: string
+                      billedToDetails:
+                        type: string
+                        nullable: true
+                      incomeCategory:
+                        type: string
+                      description:
+                        type: string
+                        nullable: true
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      subtotalMinor:
+                        type: integer
+                      vatRateBps:
+                        type: integer
+                      vatMinor:
+                        type: integer
+                      totalMinor:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - Issued
+                          - Voided
+                      issuedOn:
+                        type: string
+                      issuedBy:
+                        type: string
+                      voidedReason:
+                        type: string
+                        nullable: true
+                      documentId:
+                        type: string
+                        nullable: true
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - invoiceId
+                      - invoiceNumber
+                      - entityId
+                      - missionId
+                      - lineId
+                      - billedToName
+                      - billedToDetails
+                      - incomeCategory
+                      - description
+                      - currency
+                      - subtotalMinor
+                      - vatRateBps
+                      - vatMinor
+                      - totalMinor
+                      - status
+                      - issuedOn
+                      - issuedBy
+                      - voidedReason
+                      - documentId
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - invoice
+                additionalProperties: false
+  /api/v1/invoices/{invoiceId}/audit:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^INV-\d{4,}$
+          in: path
+          name: invoiceId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                        entityId:
+                          type: string
+                        action:
+                          type: string
+                        actor:
+                          type: string
+                        at:
+                          type: string
+                        before:
+                          type: object
+                          additionalProperties: {}
+                          nullable: true
+                        after:
+                          type: object
+                          additionalProperties: {}
+                          nullable: true
+                      required:
+                        - entityType
+                        - entityId
+                        - action
+                        - actor
+                        - at
+                        - before
+                        - after
+                      additionalProperties: false
+                required:
+                  - events
+                additionalProperties: false
+  /api/v1/invoices/{invoiceId}/document:
+    post:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^INV-\d{4,}$
+          in: path
+          name: invoiceId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    type: object
+                    properties:
+                      invoiceId:
+                        type: string
+                      invoiceNumber:
+                        type: string
+                      entityId:
+                        type: string
+                      missionId:
+                        type: string
+                      lineId:
+                        type: string
+                      billedToName:
+                        type: string
+                      billedToDetails:
+                        type: string
+                        nullable: true
+                      incomeCategory:
+                        type: string
+                      description:
+                        type: string
+                        nullable: true
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      subtotalMinor:
+                        type: integer
+                      vatRateBps:
+                        type: integer
+                      vatMinor:
+                        type: integer
+                      totalMinor:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - Issued
+                          - Voided
+                      issuedOn:
+                        type: string
+                      issuedBy:
+                        type: string
+                      voidedReason:
+                        type: string
+                        nullable: true
+                      documentId:
+                        type: string
+                        nullable: true
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - invoiceId
+                      - invoiceNumber
+                      - entityId
+                      - missionId
+                      - lineId
+                      - billedToName
+                      - billedToDetails
+                      - incomeCategory
+                      - description
+                      - currency
+                      - subtotalMinor
+                      - vatRateBps
+                      - vatMinor
+                      - totalMinor
+                      - status
+                      - issuedOn
+                      - issuedBy
+                      - voidedReason
+                      - documentId
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - invoice
+                additionalProperties: false
+  /api/v1/invoices/{invoiceId}/void:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+              required:
+                - reason
+                - expectedVersion
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^INV-\d{4,}$
+          in: path
+          name: invoiceId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  invoice:
+                    type: object
+                    properties:
+                      invoiceId:
+                        type: string
+                      invoiceNumber:
+                        type: string
+                      entityId:
+                        type: string
+                      missionId:
+                        type: string
+                      lineId:
+                        type: string
+                      billedToName:
+                        type: string
+                      billedToDetails:
+                        type: string
+                        nullable: true
+                      incomeCategory:
+                        type: string
+                      description:
+                        type: string
+                        nullable: true
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      subtotalMinor:
+                        type: integer
+                      vatRateBps:
+                        type: integer
+                      vatMinor:
+                        type: integer
+                      totalMinor:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - Issued
+                          - Voided
+                      issuedOn:
+                        type: string
+                      issuedBy:
+                        type: string
+                      voidedReason:
+                        type: string
+                        nullable: true
+                      documentId:
+                        type: string
+                        nullable: true
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                      updatedAt:
+                        type: string
+                    required:
+                      - invoiceId
+                      - invoiceNumber
+                      - entityId
+                      - missionId
+                      - lineId
+                      - billedToName
+                      - billedToDetails
+                      - incomeCategory
+                      - description
+                      - currency
+                      - subtotalMinor
+                      - vatRateBps
+                      - vatMinor
+                      - totalMinor
+                      - status
+                      - issuedOn
+                      - issuedBy
+                      - voidedReason
+                      - documentId
+                      - version
+                      - createdAt
+                      - updatedAt
+                    additionalProperties: false
+                required:
+                  - invoice
                 additionalProperties: false
   /api/v1/search:
     get:
@@ -15176,6 +15798,8 @@ paths:
                             - ExecutionFailedRecovery
                             - OwnerWedge
                             - JourneyStalled
+                            - IncomeNotInvoiced
+                            - PaymentOutstanding
                         headline:
                           type: string
                         reasons:

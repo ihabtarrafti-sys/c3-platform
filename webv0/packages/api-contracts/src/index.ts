@@ -449,6 +449,51 @@ export const searchResultsSchema = z.object({
 });
 export type SearchResultsDto = z.infer<typeof searchResultsSchema>;
 
+// ── invoices (S6): per-entity series, one income line each, VAT, PDF ─────────
+export const INVOICE_STATUSES = ['Issued', 'Voided'] as const;
+export const invoiceSchema = z.object({
+  invoiceId: z.string(),
+  invoiceNumber: z.string(),
+  entityId: z.string(),
+  missionId: z.string(),
+  lineId: z.string(),
+  billedToName: z.string(),
+  billedToDetails: z.string().nullable(),
+  incomeCategory: z.string(),
+  description: z.string().nullable(),
+  currency: z.enum(CURRENCY_CODES),
+  subtotalMinor: z.number().int(),
+  vatRateBps: z.number().int(),
+  vatMinor: z.number().int(),
+  totalMinor: z.number().int(),
+  status: z.enum(INVOICE_STATUSES),
+  issuedOn: z.string(),
+  issuedBy: z.string(),
+  voidedReason: z.string().nullable(),
+  documentId: z.string().nullable(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type InvoiceDto = z.infer<typeof invoiceSchema>;
+export const invoiceResponseSchema = z.object({ invoice: invoiceSchema });
+export const invoicesListSchema = z.object({ invoices: z.array(invoiceSchema) });
+export const issueInvoiceRequestSchema = z
+  .object({
+    missionId: z.string().regex(/^MSN-\d{4,}$/),
+    lineId: z.string().regex(/^PNL-\d{4,}$/),
+    entityId: z.string().regex(/^ENT-\d{4,}$/),
+    billedToName: z.string().trim().min(1).max(200),
+    billedToDetails: z.string().max(600).nullish(),
+    vatRateBps: z.number().int().min(0).max(10000),
+    description: z.string().max(300).nullish(),
+  })
+  .strict();
+export const voidInvoiceRequestSchema = z
+  .object({ reason: z.string().trim().min(1).max(500), expectedVersion: z.number().int().min(0) })
+  .strict();
+export const invoiceIdParamSchema = z.object({ invoiceId: z.string().regex(/^INV-\d{4,}$/) });
+
 // ── data quality (S5 riders): duplicate detection + the review report ────────
 const dqPersonRefSchema = z.object({ personId: z.string(), fullName: z.string() });
 export const dataQualityReportSchema = z.object({
@@ -639,7 +684,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),

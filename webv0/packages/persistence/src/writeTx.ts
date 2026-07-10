@@ -20,6 +20,7 @@ import {
   type Credential,
   type Entity,
   type FxRate,
+  type Invoice,
   type Journey,
   type JourneyStatus,
   type Kit,
@@ -30,10 +31,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -765,6 +766,41 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         )
         .returning();
       return rows[0] ? mapDocument(rows[0]) : null;
+    },
+
+    // ── S6 invoices (direct-audited; numbers never reused) ───────────────────
+    async insertInvoice(row: NewInvoiceRow): Promise<Invoice> {
+      const [r] = await db.insert(schema.invoice).values({ tenantId, status: 'Issued', ...row }).returning();
+      return mapInvoice(r);
+    },
+
+    async getInvoice(invoiceId: string): Promise<Invoice | null> {
+      const rows = await db.select().from(schema.invoice).where(eq(schema.invoice.invoiceId, invoiceId)).limit(1);
+      return rows[0] ? mapInvoice(rows[0]) : null;
+    },
+
+    async voidInvoice(invoiceId: string, expectedVersion: number, reason: string): Promise<Invoice | null> {
+      const rows = await db
+        .update(schema.invoice)
+        .set({ status: 'Voided', voidedReason: reason, version: sql`${schema.invoice.version} + 1` })
+        .where(
+          and(
+            eq(schema.invoice.invoiceId, invoiceId),
+            eq(schema.invoice.version, expectedVersion),
+            eq(schema.invoice.status, 'Issued'),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapInvoice(rows[0]) : null;
+    },
+
+    async setInvoiceDocument(invoiceId: string, expectedVersion: number, documentId: string): Promise<Invoice | null> {
+      const rows = await db
+        .update(schema.invoice)
+        .set({ documentId, version: sql`${schema.invoice.version} + 1` })
+        .where(and(eq(schema.invoice.invoiceId, invoiceId), eq(schema.invoice.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapInvoice(rows[0]) : null;
     },
 
     // ── Finance S3 agreement terms (direct-audited; the DB CHECK backstops shape) ──
