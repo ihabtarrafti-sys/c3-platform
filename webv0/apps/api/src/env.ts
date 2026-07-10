@@ -35,6 +35,15 @@ const rawSchema = z.object({
   ENTRA_JWKS_URI: z.string().optional(),
   ENTRA_AUDIENCE: z.string().optional(),
   ENTRA_SCOPE: z.string().default('C3.Access'),
+
+  // S4 documents: private R2 (S3-compatible). All four together, or none —
+  // dev/test falls back to a local filesystem driver; production REQUIRES R2.
+  R2_ENDPOINT: z.string().optional(),
+  R2_ACCESS_KEY_ID: z.string().optional(),
+  R2_SECRET_ACCESS_KEY: z.string().optional(),
+  R2_BUCKET_DOCUMENTS: z.string().optional(),
+  /** Local blob directory for the fs driver (dev/test only). */
+  DOCUMENTS_DIR: z.string().optional(),
 });
 
 export type Env = {
@@ -53,6 +62,9 @@ export type Env = {
   entra:
     | { issuer: string; audience: string; jwksUri: string; tenantId: string; scope: string; clientId?: string }
     | undefined;
+  documents:
+    | { driver: 'r2'; endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string }
+    | { driver: 'fs'; dir: string };
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -129,6 +141,19 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
   }
 
+  // ── S4 documents storage: all-or-none R2 config; production fails closed. ──
+  const r2Given = [e.R2_ENDPOINT, e.R2_ACCESS_KEY_ID, e.R2_SECRET_ACCESS_KEY, e.R2_BUCKET_DOCUMENTS].filter(Boolean).length;
+  if (r2Given > 0 && r2Given < 4) {
+    throw new Error('Documents R2 config is partial: set ALL of R2_ENDPOINT, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY, R2_BUCKET_DOCUMENTS — or none.');
+  }
+  if (isProduction && r2Given === 0) {
+    throw new Error('Production requires the documents R2 configuration (the fs driver is dev/test only).');
+  }
+  const documents: Env['documents'] =
+    r2Given === 4
+      ? { driver: 'r2', endpoint: e.R2_ENDPOINT!, accessKeyId: e.R2_ACCESS_KEY_ID!, secretAccessKey: e.R2_SECRET_ACCESS_KEY!, bucket: e.R2_BUCKET_DOCUMENTS! }
+      : { driver: 'fs', dir: e.DOCUMENTS_DIR ?? '.data/documents' };
+
   return {
     nodeEnv: e.NODE_ENV,
     port: e.API_PORT,
@@ -142,5 +167,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     authProvider: e.AUTH_PROVIDER,
     devAuthSecret: e.DEV_AUTH_SECRET,
     entra,
+    documents,
   };
 }

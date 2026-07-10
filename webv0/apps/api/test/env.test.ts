@@ -49,16 +49,41 @@ describe('production fail-closed guarantees', () => {
     ).toThrow(/DATABASE_ADMIN_URL must not be provided to the production API/);
   });
 
+  // S4: production also requires the documents R2 configuration.
+  const r2Vars = {
+    R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
+    R2_ACCESS_KEY_ID: 'key',
+    R2_SECRET_ACCESS_KEY: 'secret',
+    R2_BUCKET_DOCUMENTS: 'c3-docs',
+  };
+
   it('accepts a correct production entra configuration', () => {
     const env = loadEnv({
       ...base,
       ...entraVars,
+      ...r2Vars,
       NODE_ENV: 'production',
       CORS_ORIGIN: 'https://staging.c3hq.org',
     } as NodeJS.ProcessEnv);
     expect(env.authProvider).toBe('entra');
     expect(env.databaseAdminUrl).toBeUndefined();
     expect(env.databaseAuthUrl).toContain('c3_auth');
+    expect(env.documents.driver).toBe('r2');
+  });
+
+  it('S4 fail-closed: production without R2 refuses; partial R2 config refuses anywhere', () => {
+    expect(() =>
+      loadEnv({ ...base, ...entraVars, NODE_ENV: 'production', CORS_ORIGIN: 'https://staging.c3hq.org' } as NodeJS.ProcessEnv),
+    ).toThrow(/documents R2 configuration/);
+    expect(() =>
+      loadEnv({
+        ...base,
+        ...entraVars,
+        NODE_ENV: 'production',
+        CORS_ORIGIN: 'https://staging.c3hq.org',
+        R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
+      } as NodeJS.ProcessEnv),
+    ).toThrow(/partial/);
   });
 });
 

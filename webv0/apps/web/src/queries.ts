@@ -71,5 +71,7 @@ export const useMissionAudit = (missionId: string, enabled = true) =>
   useQuery({ queryKey: ['missionAudit', missionId], queryFn: () => api.missionAudit(missionId), enabled });
 export const useMissionPnl = (missionId: string, enabled = true) =>
   useQuery({ queryKey: ['missionPnl', missionId], queryFn: () => api.missionPnl(missionId), enabled });
+export const useDocuments = (ownerType: string, ownerId: string, enabled = true) =>
+  useQuery({ queryKey: ['documents', ownerType, ownerId], queryFn: () => api.listDocuments(ownerType, ownerId), enabled });
 export const useMissionsFinanceSummary = (enabled = true) =>
   useQuery({ queryKey: ['missionsFinanceSummary'], queryFn: () => api.missionsFinanceSummary(), enabled });

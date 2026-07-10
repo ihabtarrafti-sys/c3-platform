@@ -20,6 +20,7 @@ import type {
   ApparelDto,
   ApprovalDto,
   CredentialDto,
+  DocumentDto,
   EntityDto,
   FxRateDto,
   JourneyDto,
@@ -194,6 +195,45 @@ export function createApiClient(deps: ApiClientDeps) {
     return json as T;
   }
 
+  /** Multipart upload (S4): the browser sets the boundary; auth header only. */
+  async function upload<T>(path: string, form: FormData): Promise<T> {
+    const token = await deps.getToken();
+    const res = await doFetch(deps.baseUrl + path, {
+      method: 'POST',
+      headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
+      body: form,
+    });
+    const text = await res.text();
+    const json = text ? JSON.parse(text) : null;
+    if (!res.ok) {
+      const err = json?.error;
+      throw new ApiError(res.status, err?.code ?? 'ERROR', err?.message ?? res.statusText, json?.correlationId);
+    }
+    return json as T;
+  }
+
+  /** Binary download (S4): bytes + the server-stated filename. */
+  async function download(path: string): Promise<{ blob: Blob; fileName: string }> {
+    const token = await deps.getToken();
+    const res = await doFetch(deps.baseUrl + path, {
+      method: 'GET',
+      headers: { ...(token ? { authorization: `Bearer ${token}` } : {}) },
+    });
+    if (!res.ok) {
+      let message = res.statusText;
+      try {
+        const json = await res.json();
+        message = json?.error?.message ?? message;
+      } catch {
+        /* non-JSON error body */
+      }
+      throw new ApiError(res.status, 'ERROR', message);
+    }
+    const disposition = res.headers.get('content-disposition') ?? '';
+    const fileName = /filename="([^"]+)"/.exec(disposition)?.[1] ?? 'download';
+    return { blob: await res.blob(), fileName };
+  }
+
   return {
     request,
     me: () => request<MeResponse>('GET', '/api/v1/me'),
@@ -288,6 +328,21 @@ export function createApiClient(deps: ApiClientDeps) {
     situation: () => request<SituationResponse>('GET', '/api/v1/situation'),
     // S3: global search (role-aware; denied domains simply absent).
     search: (q: string) => request<SearchResultsDto>('GET', `/api/v1/search?q=${encodeURIComponent(q)}`),
+    // S4: documents — metadata via JSON, bytes via multipart/binary.
+    listDocuments: (ownerType: string, ownerId: string) =>
+      request<{ documents: DocumentDto[] }>('GET', `/api/v1/documents?ownerType=${encodeURIComponent(ownerType)}&ownerId=${encodeURIComponent(ownerId)}`),
+    uploadDocument: (ownerType: string, ownerId: string, file: File, label?: string) => {
+      const form = new FormData();
+      // Fields BEFORE the file: @fastify/multipart exposes them on the file part.
+      form.append('ownerType', ownerType);
+      form.append('ownerId', ownerId);
+      if (label) form.append('label', label);
+      form.append('file', file, file.name);
+      return upload<{ document: DocumentDto }>('/api/v1/documents', form);
+    },
+    downloadDocument: (documentId: string) => download(`/api/v1/documents/${documentId}/content`),
+    removeDocument: (documentId: string, expectedVersion: number) =>
+      request<{ document: DocumentDto }>('POST', `/api/v1/documents/${documentId}/remove`, { expectedVersion }),
     submitAddAgreement: (input: SubmitAddAgreementRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/agreements/requests', { input, ...(reason ? { reason } : {}) }),
     submitRenewAgreement: (input: SubmitRenewAgreementRequest['input'], reason?: string) =>
@@ -349,4 +404,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionFinanceSummaryDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse };
+export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, DocumentDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionFinanceSummaryDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse };

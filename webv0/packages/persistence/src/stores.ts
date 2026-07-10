@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -283,6 +283,23 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Entity | null> => {
             const rows = await db.select().from(schema.entity).where(eq(schema.entity.entityId, entityId)).limit(1);
             return rows[0] ? mapEntity(rows[0]) : null;
+          }),
+
+        // S4: documents attached to an owning record (ACTIVE rows, newest first).
+        listDocuments: (ownerType: string, ownerId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<C3Document[]> => {
+            const rows = await db
+              .select()
+              .from(schema.document)
+              .where(
+                and(
+                  eq(schema.document.ownerType, ownerType),
+                  eq(schema.document.ownerId, ownerId),
+                  eq(schema.document.isActive, true),
+                ),
+              )
+              .orderBy(desc(schema.document.createdAt), desc(schema.document.documentId));
+            return rows.map(mapDocument);
           }),
 
         // Finance S1: the tenant's editable FX rates (value of 1 unit in USD).

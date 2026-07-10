@@ -23,6 +23,7 @@ export type BusinessIdKind =
   | 'apparel'
   | 'mission'
   | 'missionLine'
+  | 'document'
   | 'agreement'
   | 'agreementTerm'
   | 'entity';
@@ -36,6 +37,7 @@ const PREFIX: Record<BusinessIdKind, string> = {
   apparel: 'APL',
   mission: 'MSN',
   missionLine: 'PNL',
+  document: 'DOC',
   agreement: 'AGR',
   agreementTerm: 'TRM',
   entity: 'ENT',
@@ -50,6 +52,7 @@ const PATTERN: Record<BusinessIdKind, RegExp> = {
   apparel: /^APL-\d{4,}$/,
   mission: /^MSN-\d{4,}$/,
   missionLine: /^PNL-\d{4,}$/,
+  document: /^DOC-\d{4,}$/,
   agreement: /^AGR-\d{4,}$/,
   agreementTerm: /^TRM-\d{4,}$/,
   entity: /^ENT-\d{4,}$/,
@@ -71,6 +74,7 @@ export const formatKitId = (sequence: number): string => formatBusinessId('kit',
 export const formatApparelId = (sequence: number): string => formatBusinessId('apparel', sequence);
 export const formatMissionId = (sequence: number): string => formatBusinessId('mission', sequence);
 export const formatMissionLineId = (sequence: number): string => formatBusinessId('missionLine', sequence);
+export const formatDocumentId = (sequence: number): string => formatBusinessId('document', sequence);
 export const formatAgreementId = (sequence: number): string => formatBusinessId('agreement', sequence);
 export const formatAgreementTermId = (sequence: number): string => formatBusinessId('agreementTerm', sequence);
 export const formatEntityId = (sequence: number): string => formatBusinessId('entity', sequence);
@@ -87,6 +91,7 @@ export const isKitId = (value: unknown): value is string => isBusinessId('kit', 
 export const isApparelId = (value: unknown): value is string => isBusinessId('apparel', value);
 export const isMissionId = (value: unknown): value is string => isBusinessId('mission', value);
 export const isMissionLineId = (value: unknown): value is string => isBusinessId('missionLine', value);
+export const isDocumentId = (value: unknown): value is string => isBusinessId('document', value);
 export const isAgreementId = (value: unknown): value is string => isBusinessId('agreement', value);
 export const isAgreementTermId = (value: unknown): value is string => isBusinessId('agreementTerm', value);
 export const isEntityId = (value: unknown): value is string => isBusinessId('entity', value);

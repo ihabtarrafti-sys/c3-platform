@@ -5,11 +5,12 @@
  * schemas, and answered with a structured error envelope carrying the
  * correlation id.
  */
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import swagger from '@fastify/swagger';
 import {
   serializerCompiler,
@@ -56,6 +57,11 @@ import {
   missionFinanceStageInputSchema,
   missionFinanceSummarySchema,
   missionPnlResponseSchema,
+  documentsListSchema,
+  documentResponseSchema,
+  documentIdParamSchema,
+  documentsQuerySchema,
+  documentRemoveBodySchema,
   searchQuerySchema,
   searchResultsSchema,
   setMissionBudgetInputSchema,
@@ -100,6 +106,7 @@ import {
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
+import { DOCUMENT_MAX_BYTES, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
 import { capabilityView, canViewPerDiem } from '@c3web/authz';
 import {
   approveApproval,
@@ -122,6 +129,10 @@ import {
   getMissionPnl,
   getMissionsFinanceSummary,
   globalSearch,
+  attachDocument,
+  listDocuments,
+  getDocumentForDownload,
+  removeDocument,
   addMissionLine,
   updateMissionLine,
   removeMissionLine,
@@ -180,7 +191,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -207,8 +218,13 @@ export function buildApp(deps: Deps): FastifyInstance {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  // Bearer-token auth: no cookies, so no credentialed CORS.
-  app.register(cors, { origin: deps.env.corsOrigin });
+  // Bearer-token auth: no cookies, so no credentialed CORS. content-disposition
+  // must be EXPOSED for the S4 download filename to survive cross-origin fetch.
+  app.register(cors, { origin: deps.env.corsOrigin, exposedHeaders: ['content-disposition'] });
+
+  // S4 documents: multipart uploads, hard-capped at the domain ceiling and a
+  // single file per request. Attach-then-register handles the rest.
+  app.register(multipart, { limits: { fileSize: DOCUMENT_MAX_BYTES, files: 1, fields: 4 } });
 
   // F-1: per-client request ceiling (keyed by IP; trustProxy governs req.ip at
   // the deployment boundary). Health/readiness are exempt (platform probes).
@@ -892,6 +908,88 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   );
 
   // ── the Situation Room (Sprint 43): the operational cockpit read ──────────
+  // ── documents (S4): metadata + bytes through the API — never public. ──────
+  r.get(
+    '/api/v1/documents',
+    { schema: { querystring: documentsQuerySchema, response: { 200: documentsListSchema } } },
+    async (req) => {
+      const { ownerType, ownerId } = req.query as { ownerType: DocumentOwnerType; ownerId: string };
+      return { documents: (await listDocuments(P, actorOf(req), ownerType, ownerId)).map(toDocumentDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/documents',
+    // Multipart: the plugin's limits govern the stream; the route bodyLimit
+    // covers the envelope overhead above the 25 MB file ceiling.
+    { bodyLimit: DOCUMENT_MAX_BYTES + 1024 * 1024, schema: { response: { 201: documentResponseSchema } } },
+    async (req, reply) => {
+      const actor = actorOf(req);
+      const file = await req.file();
+      if (!file) return sendError(req, reply, 400, 'VALIDATION', 'A file is required.');
+      const fields = file.fields as Record<string, unknown>;
+      const fieldVal = (name: string): string => {
+        const f = fields[name] as { value?: unknown } | undefined;
+        return f && typeof f.value === 'string' ? f.value : '';
+      };
+      const contentType = file.mimetype;
+      if (!isAllowedDocumentContentType(contentType)) {
+        return sendError(req, reply, 415, 'UNSUPPORTED_TYPE', 'This file type is not allowed.');
+      }
+      let body: Buffer;
+      try {
+        body = await file.toBuffer();
+      } catch {
+        return sendError(req, reply, 413, 'TOO_LARGE', `The file exceeds the ${Math.round(DOCUMENT_MAX_BYTES / (1024 * 1024))} MB limit.`);
+      }
+      if (body.length === 0) return sendError(req, reply, 400, 'VALIDATION', 'The file is empty.');
+
+      const sha256 = createHash('sha256').update(body).digest('hex');
+      // Tenant-scoped, server-generated — never derived from user input.
+      const storageKey = `${actor.tenantId}/${randomUUID()}`;
+      await deps.documentStorage.put(storageKey, body, contentType);
+      try {
+        const doc = await attachDocument(P, actor, {
+          ownerType: fieldVal('ownerType') as DocumentOwnerType,
+          ownerId: fieldVal('ownerId'),
+          fileName: file.filename || 'file',
+          contentType,
+          sizeBytes: body.length,
+          sha256,
+          storageKey,
+          label: fieldVal('label') || null,
+        });
+        return reply.status(201).send({ document: toDocumentDto(doc) });
+      } catch (err) {
+        // Compensation: the blob landed but registration failed — remove it.
+        await deps.documentStorage.delete(storageKey).catch(() => {});
+        throw err;
+      }
+    },
+  );
+
+  r.get('/api/v1/documents/:documentId/content', { schema: { params: documentIdParamSchema } }, async (req, reply) => {
+    const { documentId } = req.params as { documentId: string };
+    const doc = await getDocumentForDownload(P, actorOf(req), documentId);
+    const body = await deps.documentStorage.get(doc.storageKey);
+    if (!body) return sendError(req, reply, 404, 'NOT_FOUND', 'The stored file could not be found.');
+    const safeName = doc.fileName.replace(/[^\w. -]/g, '_');
+    reply.header('content-type', doc.contentType);
+    reply.header('content-disposition', `attachment; filename="${safeName}"`);
+    reply.header('content-length', String(body.length));
+    return reply.send(body);
+  });
+
+  r.post(
+    '/api/v1/documents/:documentId/remove',
+    { schema: { params: documentIdParamSchema, body: documentRemoveBodySchema, response: { 200: documentResponseSchema } } },
+    async (req) => {
+      const { documentId } = req.params as { documentId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      return { document: toDocumentDto(await removeDocument(P, actorOf(req), documentId, expectedVersion)) };
+    },
+  );
+
   // ── global search (S3): role-aware — denied domains are simply absent. ────
   r.get('/api/v1/search', { schema: { querystring: searchQuerySchema, response: { 200: searchResultsSchema } } }, async (req) => {
     const { q } = req.query as { q: string };

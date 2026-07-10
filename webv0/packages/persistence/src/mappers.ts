@@ -13,6 +13,7 @@ import {
   type ApprovalStatus,
   type AuditEvent,
   type AuditAction,
+  type C3Document,
   type Credential,
   type Entity,
   type FxRate,
@@ -170,6 +171,27 @@ export function mapAgreement(row: any): Agreement {
     valueUsdCents: cents === null ? null : Number(cents),
     notes: row.notes ?? null,
     status: (row.status) as AgreementStatus,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapDocument(row: any): C3Document {
+  const size = row.sizeBytes ?? row.size_bytes;
+  return {
+    documentId: row.documentId ?? row.document_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    ownerType: (row.ownerType ?? row.owner_type) as C3Document['ownerType'],
+    ownerId: row.ownerId ?? row.owner_id,
+    fileName: row.fileName ?? row.file_name,
+    contentType: row.contentType ?? row.content_type,
+    sizeBytes: Number(size),
+    sha256: row.sha256,
+    label: row.label ?? null,
+    storageKey: row.storageKey ?? row.storage_key,
+    uploadedBy: row.uploadedBy ?? row.uploaded_by,
+    isActive: row.isActive ?? row.is_active,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

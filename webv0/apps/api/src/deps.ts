@@ -10,12 +10,14 @@ import type { AuthAdapter } from './auth/types';
 import { createDevAuthAdapter } from './auth/devIdp';
 import { createEntraAuthAdapter } from './auth/entra';
 import { createAdminDirectory, type AdminDirectory } from './auth/directory';
+import { createDocumentStorage, type DocumentStorage } from './storage';
 
 export interface Deps {
   env: Env;
   persistence: PersistenceHandle;
   authAdapter: AuthAdapter;
   directory?: AdminDirectory;
+  documentStorage: DocumentStorage;
   logger: Logger;
   ready(): Promise<boolean>;
   close(): Promise<void>;
@@ -23,6 +25,7 @@ export interface Deps {
 
 export function buildDeps(env: Env, logger: Logger): Deps {
   const persistence = createPersistence({ appConnectionString: env.databaseUrl });
+  const documentStorage = createDocumentStorage(env.documents);
 
   // Membership resolution: production Entra uses the SELECT-only c3_auth role.
   // The dev IdP needs the privileged directory (it provisions memberships) and
@@ -44,6 +47,7 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     persistence,
     authAdapter,
     directory,
+    documentStorage,
     logger,
     async ready() {
       try {

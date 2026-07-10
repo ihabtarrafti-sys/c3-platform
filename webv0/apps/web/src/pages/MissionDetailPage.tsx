@@ -28,6 +28,7 @@ import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { DocumentsSection } from '../components/DocumentsSection';
 import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf } from '../labels';
 
 /**
@@ -450,6 +451,8 @@ export function MissionDetailPage() {
           {(me?.capabilities.canViewFinancials ?? false) && (
             <MissionPnlSection missionId={m.missionId} canManage={canManage && m.isActive} />
           )}
+
+          <DocumentsSection ownerType="Mission" ownerId={m.missionId} canManage={canManage && m.isActive} />
 
           {canViewHistory && (
             <div className={s.section}>

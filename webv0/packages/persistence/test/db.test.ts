@@ -70,7 +70,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );

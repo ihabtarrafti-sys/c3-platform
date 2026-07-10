@@ -10,6 +10,7 @@ import { z } from 'zod';
 import {
   AGREEMENT_STATUSES,
   AGREEMENT_TERM_KINDS,
+  DOCUMENT_OWNER_TYPES,
   APPROVAL_STATUSES,
   C3_ROLES,
   CURRENCY_CODES,
@@ -401,6 +402,30 @@ export const missionPnlResponseSchema = z.object({
   budgets: z.array(missionBudgetSchema),
   pnl: missionPnlSchema,
 });
+
+// ── documents (S4): metadata on the wire; bytes stream separately ────────────
+export const documentSchema = z.object({
+  documentId: z.string(),
+  ownerType: z.enum(DOCUMENT_OWNER_TYPES),
+  ownerId: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int(),
+  sha256: z.string(),
+  label: z.string().nullable(),
+  uploadedBy: z.string(),
+  version: z.number().int(),
+  createdAt: z.string(),
+});
+export type DocumentDto = z.infer<typeof documentSchema>;
+export const documentsListSchema = z.object({ documents: z.array(documentSchema) });
+export const documentResponseSchema = z.object({ document: documentSchema });
+export const documentIdParamSchema = z.object({ documentId: z.string().regex(/^DOC-\d{4,}$/) });
+export const documentsQuerySchema = z.object({
+  ownerType: z.enum(DOCUMENT_OWNER_TYPES),
+  ownerId: z.string().regex(/^(AGR|MSN|PER|CRED|ENT)-\d{4,}$/),
+});
+export const documentRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 
 // ── global search (S3): role-aware, identity fields only ─────────────────────
 export const SEARCH_RESULT_KINDS = ['person', 'mission', 'agreement', 'entity', 'credential', 'journey', 'kit', 'apparel', 'approval'] as const;

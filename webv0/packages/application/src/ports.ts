@@ -15,6 +15,7 @@ import type {
   Apparel,
   Approval,
   ApprovalEvent,
+  C3Document,
   ApprovalStatus,
   AuditEvent,
   C3Role,
@@ -76,6 +77,8 @@ export interface ReadStore {
   // S48: entities (the tenant's legal operating entities).
   listEntities(): Promise<Entity[]>;
   getEntityById(entityId: string): Promise<Entity | null>;
+  // S4: documents attached to an owning record (ACTIVE rows, newest first).
+  listDocuments(ownerType: string, ownerId: string): Promise<C3Document[]>;
   // Finance S1: the tenant's editable FX rates.
   listFxRates(): Promise<FxRate[]>;
   // Sprint 42: the person hub's read side.
@@ -249,6 +252,20 @@ export interface AgreementTermPatch {
   readonly label: string | null;
 }
 
+/** Fields written when registering a Document at attach time (S4). */
+export interface NewDocumentRow {
+  readonly documentId: string;
+  readonly ownerType: string;
+  readonly ownerId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly sizeBytes: number;
+  readonly sha256: string;
+  readonly label: string | null;
+  readonly storageKey: string;
+  readonly uploadedBy: string;
+}
+
 /** Fields written when creating an Entity (S48, direct-audited). */
 export interface NewEntityRow {
   readonly name: string;
@@ -287,7 +304,7 @@ export interface AgreementPatch {
 export interface WriteTx {
   /** Atomic, server-controlled business-ID allocation (never MAX+1). */
   allocateSequence(
-    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'missionLine' | 'agreement' | 'agreementTerm' | 'entity',
+    kind: 'person' | 'approval' | 'credential' | 'journey' | 'kit' | 'apparel' | 'mission' | 'missionLine' | 'document' | 'agreement' | 'agreementTerm' | 'entity',
   ): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
@@ -474,6 +491,13 @@ export interface WriteTx {
   terminateAgreement(agreementId: string): Promise<Agreement | null>;
   /** Version-guarded NON-MATERIAL patch; null = stale/missing. */
   updateAgreement(agreementId: string, expectedVersion: number, patch: AgreementPatch): Promise<Agreement | null>;
+
+  // ── S4 documents (metadata; bytes live in object storage) ─────────────────
+  insertDocument(row: NewDocumentRow): Promise<C3Document>;
+  /** Read one ACTIVE document inside the transaction (for the remove guard). */
+  getDocument(documentId: string): Promise<C3Document | null>;
+  /** Version-guarded soft removal iff currently active; null = stale/missing/inactive. */
+  deactivateDocument(documentId: string, expectedVersion: number): Promise<C3Document | null>;
 
   // ── Finance S3 agreement terms (direct-audited; soft removal) ─────────────
   insertAgreementTerm(row: NewAgreementTermRow): Promise<AgreementTerm>;

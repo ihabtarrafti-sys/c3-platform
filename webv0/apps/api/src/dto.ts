@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { AgreementTerm, Apparel, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Journey, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -135,6 +135,23 @@ export function toMissionLineDto(l: MissionLine): MissionLineDto {
     version: l.version,
     createdAt: l.createdAt,
     updatedAt: l.updatedAt,
+  };
+}
+
+/** Document metadata → wire (S4; the storage key NEVER leaves the server). */
+export function toDocumentDto(d: C3Document): DocumentDto {
+  return {
+    documentId: d.documentId,
+    ownerType: d.ownerType,
+    ownerId: d.ownerId,
+    fileName: d.fileName,
+    contentType: d.contentType,
+    sizeBytes: d.sizeBytes,
+    sha256: d.sha256,
+    label: d.label,
+    uploadedBy: d.uploadedBy,
+    version: d.version,
+    createdAt: d.createdAt,
   };
 }
 

@@ -6,6 +6,7 @@ import { and, eq, inArray, lt, sql } from 'drizzle-orm';
 import {
   type Agreement,
   type AgreementTerm,
+  type C3Document,
   ConflictError,
   IdentityAlreadyBoundError,
   LastOwnerProtectionError,
@@ -29,10 +30,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -732,6 +733,36 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.agreement.agreementId, agreementId), eq(schema.agreement.version, expectedVersion)))
         .returning();
       return rows[0] ? mapAgreement(rows[0]) : null;
+    },
+
+    // ── S4 documents (metadata; bytes live in object storage) ────────────────
+    async insertDocument(row: NewDocumentRow): Promise<C3Document> {
+      const [r] = await db.insert(schema.document).values({ tenantId, ...row }).returning();
+      return mapDocument(r);
+    },
+
+    async getDocument(documentId: string): Promise<C3Document | null> {
+      const rows = await db
+        .select()
+        .from(schema.document)
+        .where(and(eq(schema.document.documentId, documentId), eq(schema.document.isActive, true)))
+        .limit(1);
+      return rows[0] ? mapDocument(rows[0]) : null;
+    },
+
+    async deactivateDocument(documentId: string, expectedVersion: number): Promise<C3Document | null> {
+      const rows = await db
+        .update(schema.document)
+        .set({ isActive: false, version: sql`${schema.document.version} + 1` })
+        .where(
+          and(
+            eq(schema.document.documentId, documentId),
+            eq(schema.document.version, expectedVersion),
+            eq(schema.document.isActive, true),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapDocument(rows[0]) : null;
     },
 
     // ── Finance S3 agreement terms (direct-audited; the DB CHECK backstops shape) ──

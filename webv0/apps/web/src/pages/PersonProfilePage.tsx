@@ -17,6 +17,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs';
 import { DefinitionList } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
+import { DocumentsSection } from '../components/DocumentsSection';
 import { ErrorState, LoadingState } from '../components/states';
 import { PersonActions } from '../components/PersonActions';
 import { useRegisterStyles } from '../components/registerStyles';
@@ -256,6 +257,8 @@ export function PersonProfilePage() {
               </table>
             </div>
           )}
+          <DocumentsSection ownerType="Person" ownerId={personId} canManage={me?.capabilities.canSubmitApproval ?? false} />
+
           <div className={s.section}>
             <h2 className={s.h2}>History</h2>
             <AuditTimeline entries={entries} testId="person-audit" />

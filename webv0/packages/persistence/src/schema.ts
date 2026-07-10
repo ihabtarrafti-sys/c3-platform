@@ -220,6 +220,25 @@ export const agreementTerm = pgTable('agreement_term', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const document = pgTable('document', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  documentId: text('document_id').notNull(),
+  ownerType: text('owner_type').notNull(),
+  ownerId: text('owner_id').notNull(),
+  fileName: text('file_name').notNull(),
+  contentType: text('content_type').notNull(),
+  sizeBytes: bigint('size_bytes', { mode: 'number' }).notNull(),
+  sha256: text('sha256').notNull(),
+  label: text('label'),
+  storageKey: text('storage_key').notNull(),
+  uploadedBy: text('uploaded_by').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 export const entity = pgTable('entity', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),

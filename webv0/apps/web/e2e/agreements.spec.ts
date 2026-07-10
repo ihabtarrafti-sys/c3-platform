@@ -181,6 +181,31 @@ test('Agreements governed lifecycle, end to end', async ({ page }) => {
     await expect(page.getByTestId('term-value-TRM-0001')).toBeVisible(); // salary remains
   });
 
+  await test.step('S4: the signed contract PDF lives ON the agreement — attach, download byte-for-byte, remove', async () => {
+    // Owner is on AGR-0001. Attach a small PDF.
+    await expect(page.getByTestId('documents-panel')).toBeVisible();
+    await expect(page.getByTestId('documents-empty')).toBeVisible();
+    await page.getByTestId('document-file-input').setInputFiles({
+      name: 'signed-contract.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4\n%c3 signed evidence\n%%EOF\n'),
+    });
+    await expect(page.getByTestId('document-row-DOC-0001')).toBeVisible();
+    await expect(page.getByTestId('document-row-DOC-0001')).toContainText('signed-contract.pdf');
+
+    // Download round-trips with the original name.
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByTestId('download-document-DOC-0001').click();
+    const download = await downloadPromise;
+    expect(download.suggestedFilename()).toBe('signed-contract.pdf');
+
+    // Soft remove: gone from the record, recorded in its history.
+    await page.getByTestId('remove-document-DOC-0001').click();
+    await page.getByTestId('remove-document-DOC-0001-confirm').click();
+    await expect(page.getByTestId('document-row-DOC-0001')).toHaveCount(0);
+    await expect(page.getByTestId('documents-empty')).toBeVisible();
+  });
+
   await test.step('An NDA addendum links to its parent as a first-class relationship', async () => {
     await login(page, 'ops@alpha.com', 'operations');
     const ndaApr = await submitAddAgreement(page, 'NDA Addendum', { linkLabelRe: /AGR-0001/ });

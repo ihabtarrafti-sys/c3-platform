@@ -25,6 +25,7 @@ import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
+import { DocumentsSection } from '../components/DocumentsSection';
 import { agreementRenewalStateOf, agreementTermKindOf, auditActionOf, formatTermValue, formatUsdCents } from '../labels';
 
 /**
@@ -293,6 +294,8 @@ export function AgreementDetailPage() {
           {showValue && (
             <AgreementTermsSection agreementId={a.agreementId} canManage={canSubmit && a.status === 'Active'} />
           )}
+
+          <DocumentsSection ownerType="Agreement" ownerId={a.agreementId} canManage={canSubmit && a.status === 'Active'} />
 
           {addendums.length > 0 && (
             <div className={s.section}>

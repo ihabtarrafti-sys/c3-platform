@@ -13294,6 +13294,231 @@ paths:
                 required:
                   - approval
                 additionalProperties: false
+  /api/v1/documents:
+    get:
+      parameters:
+        - schema:
+            type: string
+            enum:
+              - Agreement
+              - Mission
+              - Person
+              - Credential
+              - Entity
+          in: query
+          name: ownerType
+          required: true
+        - schema:
+            type: string
+            pattern: ^(AGR|MSN|PER|CRED|ENT)-\d{4,}$
+          in: query
+          name: ownerId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  documents:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        documentId:
+                          type: string
+                        ownerType:
+                          type: string
+                          enum:
+                            - Agreement
+                            - Mission
+                            - Person
+                            - Credential
+                            - Entity
+                        ownerId:
+                          type: string
+                        fileName:
+                          type: string
+                        contentType:
+                          type: string
+                        sizeBytes:
+                          type: integer
+                        sha256:
+                          type: string
+                        label:
+                          type: string
+                          nullable: true
+                        uploadedBy:
+                          type: string
+                        version:
+                          type: integer
+                        createdAt:
+                          type: string
+                      required:
+                        - documentId
+                        - ownerType
+                        - ownerId
+                        - fileName
+                        - contentType
+                        - sizeBytes
+                        - sha256
+                        - label
+                        - uploadedBy
+                        - version
+                        - createdAt
+                      additionalProperties: false
+                required:
+                  - documents
+                additionalProperties: false
+    post:
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document:
+                    type: object
+                    properties:
+                      documentId:
+                        type: string
+                      ownerType:
+                        type: string
+                        enum:
+                          - Agreement
+                          - Mission
+                          - Person
+                          - Credential
+                          - Entity
+                      ownerId:
+                        type: string
+                      fileName:
+                        type: string
+                      contentType:
+                        type: string
+                      sizeBytes:
+                        type: integer
+                      sha256:
+                        type: string
+                      label:
+                        type: string
+                        nullable: true
+                      uploadedBy:
+                        type: string
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                    required:
+                      - documentId
+                      - ownerType
+                      - ownerId
+                      - fileName
+                      - contentType
+                      - sizeBytes
+                      - sha256
+                      - label
+                      - uploadedBy
+                      - version
+                      - createdAt
+                    additionalProperties: false
+                required:
+                  - document
+                additionalProperties: false
+  /api/v1/documents/{documentId}/content:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^DOC-\d{4,}$
+          in: path
+          name: documentId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+  /api/v1/documents/{documentId}/remove:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+              required:
+                - expectedVersion
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^DOC-\d{4,}$
+          in: path
+          name: documentId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  document:
+                    type: object
+                    properties:
+                      documentId:
+                        type: string
+                      ownerType:
+                        type: string
+                        enum:
+                          - Agreement
+                          - Mission
+                          - Person
+                          - Credential
+                          - Entity
+                      ownerId:
+                        type: string
+                      fileName:
+                        type: string
+                      contentType:
+                        type: string
+                      sizeBytes:
+                        type: integer
+                      sha256:
+                        type: string
+                      label:
+                        type: string
+                        nullable: true
+                      uploadedBy:
+                        type: string
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                    required:
+                      - documentId
+                      - ownerType
+                      - ownerId
+                      - fileName
+                      - contentType
+                      - sizeBytes
+                      - sha256
+                      - label
+                      - uploadedBy
+                      - version
+                      - createdAt
+                    additionalProperties: false
+                required:
+                  - document
+                additionalProperties: false
   /api/v1/search:
     get:
       parameters:

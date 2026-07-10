@@ -76,6 +76,9 @@ export const AUDIT_ACTIONS = [
   'MissionLinePaymentSet',
   'MissionBudgetSet',
   'MissionFinanceStageChanged',
+  // S4: registered evidence — audit lands on the OWNER record's trail.
+  'DocumentAttached',
+  'DocumentRemoved',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',
