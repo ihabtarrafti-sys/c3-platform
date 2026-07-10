@@ -93,6 +93,12 @@ export const AUDIT_ACTIONS = [
   'DistributionCreated',
   'DistributionRevoked',
   'PayoutMarked',
+  // S9: expense claims — the Finance Intelligence Hub, made a record.
+  'ClaimSubmitted',
+  'ClaimReviewStarted',
+  'ClaimApproved',
+  'ClaimRejected',
+  'ClaimPaid',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

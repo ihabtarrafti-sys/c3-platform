@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -405,6 +405,29 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
                ORDER BY ds.amount_minor DESC, ds.person_id ASC
             `);
             return res.rows.map(mapDistributionShare);
+          }),
+
+        // S9: claims (per-actor scoping is the use-case's job).
+        listClaims: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Claim[]> => {
+            const rows = await db.select().from(schema.claim).orderBy(desc(schema.claim.createdAt), desc(schema.claim.claimId));
+            return rows.map(mapClaim);
+          }),
+
+        listClaimsForSubmitter: (identity: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Claim[]> => {
+            const rows = await db
+              .select()
+              .from(schema.claim)
+              .where(eq(schema.claim.submittedBy, identity))
+              .orderBy(desc(schema.claim.createdAt), desc(schema.claim.claimId));
+            return rows.map(mapClaim);
+          }),
+
+        getClaimById: (claimId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Claim | null> => {
+            const rows = await db.select().from(schema.claim).where(eq(schema.claim.claimId, claimId)).limit(1);
+            return rows[0] ? mapClaim(rows[0]) : null;
           }),
 
         listDistributionsWithPending: () =>

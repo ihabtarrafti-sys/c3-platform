@@ -288,6 +288,16 @@ function TeamsIcon({ className }: { className?: string }) {
   );
 }
 
+function ClaimsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <rect x="3.5" y="4.5" width="13" height="11" rx="1.5" />
+      <path d="M6.5 8h7M6.5 11h4" />
+      <circle cx="14" cy="12.5" r="1" />
+    </svg>
+  );
+}
+
 function InvoicesIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -482,6 +492,9 @@ export function AppShell() {
               icon={<InvoicesIcon className={s.navIcon} />}
               onNavigate={() => setNavOpen(false)}
             />
+          )}
+          {me?.capabilities.canSubmitClaim && (
+            <NavItem to='/claims' label='Claims' icon={<ClaimsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           )}
           {me?.capabilities.canReadAgreements && (
             <NavItem

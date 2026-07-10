@@ -39,6 +39,7 @@ import type {
   TeamMembershipDto,
   DistributionDto,
   DistributionShareDto,
+  ClaimDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -372,6 +373,13 @@ export function createApiClient(deps: ApiClientDeps) {
     distributionSeed: (missionId: string) => request<{ rows: Array<{ personId: string; personName: string; suggestedBps: number | null; sourceTermId: string | null }> }>('GET', `/api/v1/distributions/seed?missionId=${missionId}`),
     createDistribution: (input: { missionId: string; lineId: string; orgShareBps: number; shares: Array<{ personId: string; shareBps: number }>; notes?: string | null }) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', '/api/v1/distributions', input),
     revokeDistribution: (distributionId: string, reason: string, expectedVersion: number) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', `/api/v1/distributions/${distributionId}/revoke`, { reason, expectedVersion }),
+    // S9: expense claims.
+    listClaims: () => request<{ claims: ClaimDto[] }>('GET', '/api/v1/claims'),
+    getClaim: (claimId: string) => request<{ claim: ClaimDto }>('GET', `/api/v1/claims/${claimId}`),
+    claimAudit: (claimId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/claims/${claimId}/audit`),
+    submitClaim: (input: { category: string; description: string; amountMinor: number; currency: string; expenseOn: string; personId?: string | null; missionId?: string | null }) => request<{ claim: ClaimDto }>('POST', '/api/v1/claims', input),
+    decideClaim: (claimId: string, input: { expectedVersion: number; decision: 'beginReview' | 'approve' | 'reject'; reason?: string | null }) => request<{ claim: ClaimDto }>('POST', `/api/v1/claims/${claimId}/decide`, input),
+    payClaim: (claimId: string, input: { expectedVersion: number; paymentSourceLabel: string; refNo?: string | null }) => request<{ claim: ClaimDto }>('POST', `/api/v1/claims/${claimId}/pay`, input),
     markPayout: (distributionId: string, personId: string, input: { expectedVersion: number; paid: boolean; paymentSourceLabel?: string | null; refNo?: string | null }) => request<{ share: DistributionShareDto }>('POST', `/api/v1/distributions/${distributionId}/payouts/${personId}`, input),
     // S6: invoices — issue against an income line; void with a reason; the PDF
     // artifact downloads through the S4 document path (Invoice owner gate).

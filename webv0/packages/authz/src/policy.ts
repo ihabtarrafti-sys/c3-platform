@@ -176,6 +176,29 @@ export function assertViewFinancials(actor: Actor): void {
   }
 }
 
+// ── S9 expense claims ────────────────────────────────────────────────────────
+
+/** Any non-read-only role submits claims — staff get their money back. */
+export const canSubmitClaim = (role: C3Role): boolean => !capabilitiesFor(role).isReadOnly;
+
+export function assertSubmitClaim(actor: Actor): void {
+  if (!canSubmitClaim(actor.role)) {
+    throw new ForbiddenError('Your role may not submit expense claims.', { role: actor.role });
+  }
+}
+
+/** Deciding claims = financial visibility + operational standing (owner/operations). */
+export const canDecideClaim = (role: C3Role): boolean => canViewFinancials(role) && canSubmitApproval(role);
+
+/** The submitter may NEVER decide their own claim (the pipeline's separation law). */
+export function assertDecideClaim(actor: Actor, submitterIdentity: string): void {
+  if (!canDecideClaim(actor.role)) {
+    throw new ForbiddenError('Your role may not decide expense claims.', { role: actor.role });
+  }
+  const check = checkSelfReview(actor.identity, submitterIdentity);
+  if (check.blocked) throw new SelfReviewError(check.reason);
+}
+
 /** Non-throwing summary for building UX-only capability hints served to the web app. */
 export interface CapabilityView {
   readonly canReadPeople: boolean;
@@ -192,6 +215,8 @@ export interface CapabilityView {
   readonly canReadAgreements: boolean;
   readonly canViewFinancials: boolean;
   readonly canViewPerDiem: boolean;
+  readonly canSubmitClaim: boolean;
+  readonly canDecideClaim: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -211,5 +236,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canReadAgreements: c.canReadAgreements,
     canViewFinancials: c.canViewFinancials,
     canViewPerDiem: c.canViewPerDiem,
+    canSubmitClaim: !c.isReadOnly,
+    canDecideClaim: c.canViewFinancials && c.canSubmitApproval,
   };
 }

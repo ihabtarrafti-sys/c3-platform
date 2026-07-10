@@ -39,7 +39,7 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
   assertReadAgreements(actor); // both operational roles hold it; fail closed regardless
   const reads = p.reads.forActor(actor);
 
-  const [people, credentials, agreements, missions, participants, approvals, journeys, members, missionLines, invoices, teams, teamMemberships, distributions] = await Promise.all([
+  const [people, credentials, agreements, missions, participants, approvals, journeys, members, missionLines, invoices, teams, teamMemberships, distributions, claims] = await Promise.all([
     reads.listPeople(),
     reads.listCredentials(),
     reads.listAgreements(),
@@ -53,6 +53,7 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
     reads.listTeams(),
     reads.listAllTeamMemberships(),
     reads.listDistributionsWithPending(),
+    reads.listClaims(),
   ]);
 
   const todayIso = utcTodayIso();
@@ -99,6 +100,7 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
     teams: teams.map((t) => ({ teamId: t.teamId, name: t.name, code: t.code, kind: t.kind, isActive: t.isActive })),
     teamMemberships,
     distributions,
+    claims: claims.map((c) => ({ claimId: c.claimId, submittedBy: c.submittedBy, status: c.status, createdAt: c.createdAt })),
     participants,
     approvals: approvals.map((a) => ({
       approvalId: a.approvalId,

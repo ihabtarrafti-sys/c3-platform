@@ -36,6 +36,7 @@ import type {
   TeamMembership,
   Distribution,
   DistributionShare,
+  Claim,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -111,6 +112,10 @@ export interface ReadStore {
   listDistributionsWithPending(): Promise<
     Array<{ distributionId: string; missionId: string; status: string; createdAt: string; pendingCount: number; pendingAmountMinor: number; currency: string }>
   >;
+  // S9: claims. Per-actor scoping is the use-case's job (own vs finance-all).
+  listClaims(): Promise<Claim[]>;
+  listClaimsForSubmitter(identity: string): Promise<Claim[]>;
+  getClaimById(claimId: string): Promise<Claim | null>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -216,6 +221,19 @@ export interface MissionPatch {
   readonly startsOn?: string;
   readonly endsOn?: string | null;
   readonly notes?: string | null;
+}
+
+/** S9: claim rows (born Submitted). */
+export interface NewClaimRow {
+  readonly claimId: string;
+  readonly submittedBy: string;
+  readonly personId: string | null;
+  readonly missionId: string | null;
+  readonly category: string;
+  readonly description: string;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly expenseOn: string;
 }
 
 /** S8: distribution rows (amounts pre-computed by the domain allocator). */
@@ -415,6 +433,7 @@ export interface WriteTx {
       | 'invoice'
       | 'team'
       | 'distribution'
+      | 'claim'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -618,6 +637,24 @@ export interface WriteTx {
   voidInvoice(invoiceId: string, expectedVersion: number, reason: string): Promise<Invoice | null>;
   /** Version-guarded PDF attach (the stored artifact's DOC id); null = stale/missing. */
   setInvoiceDocument(invoiceId: string, expectedVersion: number, documentId: string): Promise<Invoice | null>;
+
+  // ── S9 expense claims (lifecycle record; no deletes) ──────────────────────
+  insertClaim(row: NewClaimRow): Promise<Claim>;
+  /** Read one claim inside the transaction, any status. */
+  getClaim(claimId: string): Promise<Claim | null>;
+  /** Version-guarded status patch; null = stale/missing. */
+  updateClaim(
+    claimId: string,
+    expectedVersion: number,
+    patch: {
+      status: string;
+      reviewedBy?: string | null;
+      rejectionReason?: string | null;
+      paidOn?: string | null;
+      paymentSourceLabel?: string | null;
+      refNo?: string | null;
+    },
+  ): Promise<Claim | null>;
 
   // ── S8 distributions (direct-audited; one LIVE per line; no deletes) ──────
   insertDistribution(row: NewDistributionRow): Promise<Distribution>;

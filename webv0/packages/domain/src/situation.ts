@@ -87,6 +87,8 @@ export interface SituationSnapshot {
     pendingAmountMinor: number;
     currency: string;
   }>;
+  /** S9: claims waiting on a decision are someone's money in limbo. */
+  readonly claims: ReadonlyArray<{ claimId: string; submittedBy: string; status: string; createdAt: string }>;
   readonly participants: ReadonlyArray<{ missionId: string; personId: string; role: string; isActive: boolean }>;
   readonly approvals: ReadonlyArray<{
     approvalId: string;
@@ -114,6 +116,7 @@ export const SIGNAL_KINDS = [
   'PaymentOutstanding',
   'TeamUnstaffed',
   'PayoutsOutstanding',
+  'ClaimsAwaitingReview',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -521,7 +524,26 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
   }
 
-  // 8 — Journey drift: suspended and untouched for 14+ days.
+  // 8 — Claims waiting (S9): a Submitted/InReview claim ≥3 days old is
+  //     someone's own money in limbo (the ApprovalStale doctrine, applied).
+  for (const c of snapshot.claims.filter((x) => x.status === 'Submitted' || x.status === 'InReview')) {
+    const ageDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(c.createdAt)) / 86_400_000);
+    if (ageDays < 3) continue;
+    signals.push(
+      make({
+        key: `ClaimsAwaitingReview:${c.claimId}`,
+        kind: 'ClaimsAwaitingReview',
+        headline: `${c.claimId} has waited ${ageDays} days for a decision`,
+        reasons: [`Submitted ${ageDays} days ago by ${c.submittedBy}`, `Status: ${c.status}`, 'Approve, reject with a reason, or pay it out.'],
+        impact: 2,
+        urgency: ageDays >= 7 ? 3 : 2,
+        inMotion: false,
+        actions: [],
+      }),
+    );
+  }
+
+  // 9 — Journey drift: suspended and untouched for 14+ days.
   for (const j of snapshot.journeys.filter((j) => j.status === 'Suspended')) {
     const idleDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(j.updatedAt)) / 86_400_000);
     if (idleDays < 14) continue;
@@ -564,6 +586,7 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Invoiced payments still outstanding post-mission (settlement blocker)',
   'Active game divisions with no active roster',
   'Prize distributions with payouts still pending',
+  'Expense claims awaiting a decision for 3+ days',
 ];
 
 /**
@@ -584,4 +607,5 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'PaymentOutstanding',
   'TeamUnstaffed',
   'PayoutsOutstanding',
+  'ClaimsAwaitingReview',
 ];

@@ -109,7 +109,33 @@ const AUDIT_ACTION: Record<string, string> = {
   AgreementTermRemoved: 'Financial term removed',
   InvoiceIssued: 'Invoice issued',
   InvoiceVoided: 'Invoice voided',
+  TeamCreated: 'Team created',
+  TeamUpdated: 'Team updated',
+  TeamDeactivated: 'Team deactivated',
+  TeamReactivated: 'Team reactivated',
+  TeamMemberAdded: 'Member added',
+  TeamMemberRemoved: 'Member removed',
+  DistributionCreated: 'Distribution created',
+  DistributionRevoked: 'Distribution revoked',
+  PayoutMarked: 'Payout updated',
+  ClaimSubmitted: 'Claim submitted',
+  ClaimReviewStarted: 'Claim review started',
+  ClaimApproved: 'Claim approved',
+  ClaimRejected: 'Claim rejected',
+  ClaimPaid: 'Claim paid',
 };
+
+/** S9 — claim status → label + StatusBadge variant. */
+const CLAIM_STATUS: Record<string, { label: string; variant: StatusVariant }> = {
+  Submitted: { label: 'Submitted', variant: 'pending' },
+  InReview: { label: 'In review', variant: 'pending' },
+  Approved: { label: 'Approved', variant: 'info' },
+  Rejected: { label: 'Rejected', variant: 'blocked' },
+  Paid: { label: 'Paid', variant: 'ready' },
+};
+export function claimStatusOf(status: string): { label: string; variant: StatusVariant } {
+  return CLAIM_STATUS[status] ?? { label: status, variant: 'neutral' };
+}
 
 /** S6 — invoice status → label + StatusBadge variant. */
 const INVOICE_STATUS: Record<string, { label: string; variant: StatusVariant }> = {

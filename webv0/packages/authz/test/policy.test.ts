@@ -128,6 +128,8 @@ describe('capabilityView (UX hint)', () => {
       canReadAgreements: true,
       canViewFinancials: true,
       canViewPerDiem: true,
+      canSubmitClaim: true,
+      canDecideClaim: true,
     });
   });
 

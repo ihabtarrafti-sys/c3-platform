@@ -507,6 +507,57 @@ export const teamMemberRemoveParamSchema = z.object({
 });
 export const flipVersionBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 
+// ── claims (S9): the Finance Intelligence Hub as a record ────────────────────
+export const CLAIM_STATUSES = ['Submitted', 'InReview', 'Approved', 'Rejected', 'Paid'] as const;
+export const claimSchema = z.object({
+  claimId: z.string(),
+  submittedBy: z.string(),
+  personId: z.string().nullable(),
+  missionId: z.string().nullable(),
+  category: z.string(),
+  description: z.string(),
+  amountMinor: z.number().int(),
+  currency: z.enum(CURRENCY_CODES),
+  expenseOn: z.string(),
+  status: z.enum(CLAIM_STATUSES),
+  reviewedBy: z.string().nullable(),
+  rejectionReason: z.string().nullable(),
+  paidOn: z.string().nullable(),
+  paymentSourceLabel: z.string().nullable(),
+  refNo: z.string().nullable(),
+  version: z.number().int(),
+  createdAt: z.string(),
+});
+export type ClaimDto = z.infer<typeof claimSchema>;
+export const claimsListSchema = z.object({ claims: z.array(claimSchema) });
+export const claimResponseSchema = z.object({ claim: claimSchema });
+export const submitClaimRequestSchema = z
+  .object({
+    category: z.string().min(1),
+    description: z.string().trim().min(1).max(500),
+    amountMinor: z.number().int().positive(),
+    currency: z.enum(CURRENCY_CODES),
+    expenseOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    personId: z.string().regex(/^PER-\d{4,}$/).nullish(),
+    missionId: z.string().regex(/^MSN-\d{4,}$/).nullish(),
+  })
+  .strict();
+export const decideClaimRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    decision: z.enum(['beginReview', 'approve', 'reject']),
+    reason: z.string().max(500).nullish(),
+  })
+  .strict();
+export const payClaimRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    paymentSourceLabel: z.string().trim().min(1).max(60),
+    refNo: z.string().max(60).nullish(),
+  })
+  .strict();
+export const claimIdParamSchema = z.object({ claimId: z.string().regex(/^CLM-\d{4,}$/) });
+
 // ── distributions (S8): org cut + shares == pool EXACTLY; payout list ────────
 export const distributionShareSchema = z.object({
   distributionId: z.string(),
@@ -803,7 +854,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),
@@ -888,6 +939,8 @@ export const capabilityViewSchema = z.object({
   canReadAgreements: z.boolean(),
   canViewFinancials: z.boolean(),
   canViewPerDiem: z.boolean(),
+  canSubmitClaim: z.boolean(),
+  canDecideClaim: z.boolean(),
 });
 export const meResponseSchema = z.object({
   identity: z.string(),

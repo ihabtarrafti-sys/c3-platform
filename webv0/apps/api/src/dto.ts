@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -164,6 +164,29 @@ export function toTeamMembershipDto(m: TeamMembership): TeamMembershipDto {
     role: m.role,
     isActive: m.isActive,
     version: m.version,
+  };
+}
+
+/** Claim → wire (S9; per-actor scoping happens in the use-case). */
+export function toClaimDto(c: Claim): ClaimDto {
+  return {
+    claimId: c.claimId,
+    submittedBy: c.submittedBy,
+    personId: c.personId,
+    missionId: c.missionId,
+    category: c.category,
+    description: c.description,
+    amountMinor: c.amountMinor,
+    currency: c.currency,
+    expenseOn: c.expenseOn,
+    status: c.status,
+    reviewedBy: c.reviewedBy,
+    rejectionReason: c.rejectionReason,
+    paidOn: c.paidOn,
+    paymentSourceLabel: c.paymentSourceLabel,
+    refNo: c.refNo,
+    version: c.version,
+    createdAt: c.createdAt,
   };
 }
 

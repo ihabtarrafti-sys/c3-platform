@@ -21,7 +21,7 @@
 import { z } from 'zod';
 
 /** What a document may attach to. V1 UI mounts Agreement/Mission/Person. */
-export const DOCUMENT_OWNER_TYPES = ['Agreement', 'Mission', 'Person', 'Credential', 'Entity', 'Invoice'] as const;
+export const DOCUMENT_OWNER_TYPES = ['Agreement', 'Mission', 'Person', 'Credential', 'Entity', 'Invoice', 'Claim'] as const;
 export type DocumentOwnerType = (typeof DOCUMENT_OWNER_TYPES)[number];
 
 /** Server-enforced upload ceiling (bytes). */
@@ -73,7 +73,7 @@ export interface C3Document {
 
 const ownerIdField = z
   .string()
-  .regex(/^(AGR|MSN|PER|CRED|ENT|INV)-\d{4,}$/, 'ownerId must be a canonical business id');
+  .regex(/^(AGR|MSN|PER|CRED|ENT|INV|CLM)-\d{4,}$/, 'ownerId must be a canonical business id');
 
 /** The attach metadata the API supplies after receiving + hashing the bytes. */
 export const documentAttachInputSchema = z
@@ -101,7 +101,8 @@ export const documentAttachInputSchema = z
       (v.ownerType === 'Person' && v.ownerId.startsWith('PER-')) ||
       (v.ownerType === 'Credential' && v.ownerId.startsWith('CRED-')) ||
       (v.ownerType === 'Entity' && v.ownerId.startsWith('ENT-')) ||
-      (v.ownerType === 'Invoice' && v.ownerId.startsWith('INV-')),
+      (v.ownerType === 'Invoice' && v.ownerId.startsWith('INV-')) ||
+      (v.ownerType === 'Claim' && v.ownerId.startsWith('CLM-')),
     { message: 'The owner id does not match the owner type.', path: ['ownerId'] },
   );
 export type DocumentAttachInput = z.infer<typeof documentAttachInputSchema>;

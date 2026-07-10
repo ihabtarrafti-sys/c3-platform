@@ -6,6 +6,7 @@ export * from './ports';
 export * from './usecases/submitAddPerson';
 export * from './usecases/submitCredentialOps';
 export * from './usecases/dataQualityOps';
+export * from './usecases/claimOps';
 export * from './usecases/distributionOps';
 export * from './usecases/documentOps';
 export * from './usecases/importExportOps';

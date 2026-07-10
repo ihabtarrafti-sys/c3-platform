@@ -352,6 +352,30 @@ export const teamMembership = pgTable('team_membership', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// S9: expense claims — the Finance Intelligence Hub as a record.
+export const claim = pgTable('claim', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  claimId: text('claim_id').notNull(),
+  submittedBy: text('submitted_by').notNull(),
+  personId: text('person_id'),
+  missionId: text('mission_id'),
+  category: text('category').notNull(),
+  description: text('description').notNull(),
+  amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
+  currency: text('currency').notNull(),
+  expenseOn: date('expense_on', { mode: 'string' }).notNull(),
+  status: text('status').notNull().default('Submitted'),
+  reviewedBy: text('reviewed_by'),
+  rejectionReason: text('rejection_reason'),
+  paidOn: date('paid_on', { mode: 'string' }),
+  paymentSourceLabel: text('payment_source_label'),
+  refNo: text('ref_no'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // S8: distributions — the payout list; org cut + shares == pool EXACTLY.
 export const distribution = pgTable('distribution', {
   id: uuid('id').primaryKey().defaultRandom(),

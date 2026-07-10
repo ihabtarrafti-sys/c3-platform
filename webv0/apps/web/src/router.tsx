@@ -20,6 +20,8 @@ import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
+import { ClaimsPage } from './pages/ClaimsPage';
+import { ClaimDetailPage } from './pages/ClaimDetailPage';
 import { AgreementsPage } from './pages/AgreementsPage';
 import { AgreementDetailPage } from './pages/AgreementDetailPage';
 
@@ -62,6 +64,8 @@ export const router = createBrowserRouter([
       { path: 'invoices', element: <InvoicesPage /> },
       { path: 'teams', element: <TeamsPage /> },
       { path: 'teams/:teamId', element: <TeamDetailPage /> },
+      { path: 'claims', element: <ClaimsPage /> },
+      { path: 'claims/:claimId', element: <ClaimDetailPage /> },
       { path: 'agreements', element: <AgreementsPage /> },
       { path: 'agreements/:agreementId', element: <AgreementDetailPage /> },
       { path: 'entities', element: <EntitiesPage /> },

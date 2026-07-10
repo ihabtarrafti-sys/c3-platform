@@ -21,6 +21,7 @@ import {
   NotFoundError,
 } from '@c3web/domain';
 import { assertReadAgreements, assertReadPeople, assertSubmitApproval, assertViewFinancials } from '@c3web/authz';
+import { claimReadGuard } from './claimOps';
 import type { Persistence } from '../ports';
 
 /** The read gate follows the OWNING record (an agreement's PDF is agreement
@@ -28,6 +29,7 @@ import type { Persistence } from '../ports';
 function assertReadOwner(actor: Actor, ownerType: DocumentOwnerType): void {
   if (ownerType === 'Agreement') assertReadAgreements(actor);
   else if (ownerType === 'Invoice') assertViewFinancials(actor);
+  else if (ownerType === 'Claim') return; // record-scoped: claimReadGuard runs where the ownerId is known
   else assertReadPeople(actor);
 }
 
@@ -45,14 +47,19 @@ async function requireOwner(p: Persistence, actor: Actor, ownerType: DocumentOwn
             ? await reads.getCredentialById(ownerId)
             : ownerType === 'Invoice'
               ? await reads.getInvoiceById(ownerId)
-              : await reads.getEntityById(ownerId);
+              : ownerType === 'Claim'
+                ? await reads.getClaimById(ownerId)
+                : await reads.getEntityById(ownerId);
   if (!found) throw new NotFoundError(ownerType, ownerId);
 }
 
 /** List an owner record's ACTIVE documents (newest first). */
 export async function listDocuments(p: Persistence, actor: Actor, ownerType: DocumentOwnerType, ownerId: string): Promise<C3Document[]> {
   assertReadOwner(actor, ownerType);
-  await requireOwner(p, actor, ownerType, ownerId);
+  // Claim receipts are RECORD-scoped: the submitter or finance standing —
+  // the guard both 404s missing claims and forbids other submitters' claims.
+  if (ownerType === 'Claim') await claimReadGuard(p, actor, ownerId);
+  else await requireOwner(p, actor, ownerType, ownerId);
   return p.reads.forActor(actor).listDocuments(ownerType, ownerId);
 }
 
@@ -62,6 +69,7 @@ export async function getDocumentForDownload(p: Persistence, actor: Actor, docum
   const doc = await p.writes.transaction(actor, (tx) => tx.getDocument(documentId));
   if (!doc) throw new NotFoundError('Document', documentId);
   assertReadOwner(actor, doc.ownerType);
+  if (doc.ownerType === 'Claim') await claimReadGuard(p, actor, doc.ownerId);
   return doc;
 }
 

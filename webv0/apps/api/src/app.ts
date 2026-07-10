@@ -85,6 +85,12 @@ import {
   markPayoutRequestSchema,
   distributionIdParamSchema,
   payoutParamSchema,
+  claimsListSchema,
+  claimResponseSchema,
+  submitClaimRequestSchema,
+  decideClaimRequestSchema,
+  payClaimRequestSchema,
+  claimIdParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
   teamMemberInputSchema,
@@ -177,6 +183,11 @@ import {
   createDistribution,
   revokeDistribution,
   markPayout,
+  listClaims,
+  getClaim,
+  submitClaim,
+  decideClaim,
+  payClaim,
   voidInvoice,
   listInvoices,
   getInvoice,
@@ -247,7 +258,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1093,6 +1104,49 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { documentId } = req.params as { documentId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       return { document: toDocumentDto(await removeDocument(P, actorOf(req), documentId, expectedVersion)) };
+    },
+  );
+
+  // ── claims (S9): submit, decide (separation law), pay (label only) ─────────
+  r.get('/api/v1/claims', { schema: { response: { 200: claimsListSchema } } }, async (req) => {
+    return { claims: (await listClaims(P, actorOf(req))).map(toClaimDto) };
+  });
+
+  r.post('/api/v1/claims', { schema: { body: submitClaimRequestSchema, response: { 201: claimResponseSchema } } }, async (req, reply) => {
+    const claim = await submitClaim(P, actorOf(req), req.body as import('@c3web/domain').SubmitClaimInput);
+    return reply.status(201).send({ claim: toClaimDto(claim) });
+  });
+
+  r.get('/api/v1/claims/:claimId', { schema: { params: claimIdParamSchema, response: { 200: claimResponseSchema } } }, async (req) => {
+    const { claimId } = req.params as { claimId: string };
+    return { claim: toClaimDto(await getClaim(P, actorOf(req), claimId)) };
+  });
+
+  r.get(
+    '/api/v1/claims/:claimId/audit',
+    { schema: { params: claimIdParamSchema, response: { 200: auditEventsListSchema } } },
+    async (req) => {
+      const { claimId } = req.params as { claimId: string };
+      const events = await listAuditEvents(P, actorOf(req), 'Claim', claimId);
+      return { events: events.map(toAuditEventDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/claims/:claimId/decide',
+    { schema: { params: claimIdParamSchema, body: decideClaimRequestSchema, response: { 200: claimResponseSchema } } },
+    async (req) => {
+      const { claimId } = req.params as { claimId: string };
+      return { claim: toClaimDto(await decideClaim(P, actorOf(req), claimId, req.body as import('@c3web/domain').DecideClaimInput)) };
+    },
+  );
+
+  r.post(
+    '/api/v1/claims/:claimId/pay',
+    { schema: { params: claimIdParamSchema, body: payClaimRequestSchema, response: { 200: claimResponseSchema } } },
+    async (req) => {
+      const { claimId } = req.params as { claimId: string };
+      return { claim: toClaimDto(await payClaim(P, actorOf(req), claimId, req.body as import('@c3web/domain').PayClaimInput)) };
     },
   );
 

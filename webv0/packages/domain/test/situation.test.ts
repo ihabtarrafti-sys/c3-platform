@@ -29,6 +29,7 @@ function snapshot(overrides: Partial<SituationSnapshot> = {}): SituationSnapshot
     teams: [],
     teamMemberships: [],
     distributions: [],
+    claims: [],
     participants: [],
     approvals: [],
     journeys: [],
@@ -258,6 +259,28 @@ describe('team hygiene (S7): unstaffed game divisions', () => {
     // Departments and deactivated divisions are exempt.
     expect(composeSituation(snapshot({ teams: [team('Department')] }))).toHaveLength(0);
     expect(composeSituation(snapshot({ teams: [team('GameDivision', false)] }))).toHaveLength(0);
+  });
+});
+
+describe('claims waiting (S9)', () => {
+  const claim = (status: string, ageDays: number) => ({
+    claimId: 'CLM-0001',
+    submittedBy: 'hr@a.com',
+    status,
+    createdAt: new Date(Date.parse(TODAY + 'T00:00:00Z') - ageDays * 86_400_000).toISOString(),
+  });
+
+  it('a Submitted/InReview claim ≥3 days old fires; fresh and decided claims stay quiet', () => {
+    expect(composeSituation(snapshot({ claims: [claim('Submitted', 4)] }))[0]).toMatchObject({
+      kind: 'ClaimsAwaitingReview',
+      impact: 2,
+      urgency: 2,
+      band: 'attention',
+    });
+    expect(composeSituation(snapshot({ claims: [claim('InReview', 8)] }))[0]).toMatchObject({ urgency: 3, band: 'immediate' });
+    expect(composeSituation(snapshot({ claims: [claim('Submitted', 1)] }))).toHaveLength(0);
+    expect(composeSituation(snapshot({ claims: [claim('Approved', 30)] }))).toHaveLength(0);
+    expect(composeSituation(snapshot({ claims: [claim('Rejected', 30)] }))).toHaveLength(0);
   });
 });
 

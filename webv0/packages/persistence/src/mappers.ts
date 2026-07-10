@@ -33,6 +33,7 @@ import {
   type TeamMembership,
   type Distribution,
   type DistributionShare,
+  type Claim,
   parseApprovalPayload,
 } from '@c3web/domain';
 
@@ -208,6 +209,30 @@ export function mapTeamMembership(row: any): TeamMembership {
     personName: row.personName ?? row.person_name ?? (row.personId ?? row.person_id),
     role: row.role,
     isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapClaim(row: any): Claim {
+  return {
+    claimId: row.claimId ?? row.claim_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    submittedBy: row.submittedBy ?? row.submitted_by,
+    personId: row.personId ?? row.person_id ?? null,
+    missionId: row.missionId ?? row.mission_id ?? null,
+    category: row.category,
+    description: row.description,
+    amountMinor: Number(row.amountMinor ?? row.amount_minor),
+    currency: row.currency as Claim['currency'],
+    expenseOn: row.expenseOn ?? row.expense_on,
+    status: (row.status ?? 'Submitted') as Claim['status'],
+    reviewedBy: row.reviewedBy ?? row.reviewed_by ?? null,
+    rejectionReason: row.rejectionReason ?? row.rejection_reason ?? null,
+    paidOn: row.paidOn ?? row.paid_on ?? null,
+    paymentSourceLabel: row.paymentSourceLabel ?? row.payment_source_label ?? null,
+    refNo: row.refNo ?? row.ref_no ?? null,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

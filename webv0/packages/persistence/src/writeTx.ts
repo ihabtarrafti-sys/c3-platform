@@ -26,6 +26,7 @@ import {
   type TeamMembership,
   type Distribution,
   type DistributionShare,
+  type Claim,
   type JourneyStatus,
   type Kit,
   type Member,
@@ -35,10 +36,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -805,6 +806,37 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.invoice.invoiceId, invoiceId), eq(schema.invoice.version, expectedVersion)))
         .returning();
       return rows[0] ? mapInvoice(rows[0]) : null;
+    },
+
+    // ── S9 expense claims (lifecycle record; no deletes) ─────────────────────
+    async insertClaim(row: NewClaimRow): Promise<Claim> {
+      const [r] = await db.insert(schema.claim).values({ tenantId, status: 'Submitted', ...row }).returning();
+      return mapClaim(r);
+    },
+
+    async getClaim(claimId: string): Promise<Claim | null> {
+      const rows = await db.select().from(schema.claim).where(eq(schema.claim.claimId, claimId)).limit(1);
+      return rows[0] ? mapClaim(rows[0]) : null;
+    },
+
+    async updateClaim(
+      claimId: string,
+      expectedVersion: number,
+      patch: {
+        status: string;
+        reviewedBy?: string | null;
+        rejectionReason?: string | null;
+        paidOn?: string | null;
+        paymentSourceLabel?: string | null;
+        refNo?: string | null;
+      },
+    ): Promise<Claim | null> {
+      const rows = await db
+        .update(schema.claim)
+        .set({ ...patch, version: sql`${schema.claim.version} + 1` })
+        .where(and(eq(schema.claim.claimId, claimId), eq(schema.claim.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapClaim(rows[0]) : null;
     },
 
     // ── S8 distributions (direct-audited; one LIVE per line; no deletes) ─────
