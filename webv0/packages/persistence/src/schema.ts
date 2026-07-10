@@ -365,6 +365,24 @@ export const notification = pgTable('notification', {
   readAt: timestamp('read_at', { withTimezone: true }),
 });
 
+// Tier 0.5: approver delegation — owner-granted review+execute standing.
+export const delegation = pgTable('delegation', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  delegationId: text('delegation_id').notNull(),
+  granteeIdentity: text('grantee_identity').notNull(),
+  grantedBy: text('granted_by').notNull(),
+  startsOn: date('starts_on', { mode: 'string' }).notNull(),
+  endsOn: date('ends_on', { mode: 'string' }).notNull(),
+  reason: text('reason').notNull(),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  revokedBy: text('revoked_by'),
+  revokeReason: text('revoke_reason'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // S9: expense claims — the Finance Intelligence Hub as a record.
 export const claim = pgTable('claim', {
   id: uuid('id').primaryKey().defaultRandom(),

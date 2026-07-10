@@ -11,6 +11,7 @@ import {
   formatMoney,
   missionReadinessOn,
   SITUATION_CHECKS,
+  SITUATION_CHECK_KINDS,
   type SituationSnapshot,
 } from '../src/index';
 
@@ -30,6 +31,7 @@ function snapshot(overrides: Partial<SituationSnapshot> = {}): SituationSnapshot
     teamMemberships: [],
     distributions: [],
     claims: [],
+    delegations: [],
     participants: [],
     approvals: [],
     journeys: [],
@@ -237,6 +239,12 @@ describe('journey drift + ordering + the honest all-clear', () => {
     expect(composeSituation(snapshot())).toHaveLength(0);
     expect(SITUATION_CHECKS.length).toBeGreaterThanOrEqual(7);
     expect(SITUATION_CHECKS.join(' ')).toMatch(/wedge/i);
+  });
+
+  it('the check ledger stays index-aligned: one description per check kind', () => {
+    // The cockpit zips SITUATION_CHECKS with SITUATION_CHECK_KINDS by index —
+    // a new kind without its description silently drops off the ledger.
+    expect(SITUATION_CHECKS.length).toBe(SITUATION_CHECK_KINDS.length);
   });
 });
 

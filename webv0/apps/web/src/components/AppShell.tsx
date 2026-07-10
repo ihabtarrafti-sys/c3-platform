@@ -467,7 +467,7 @@ export function AppShell() {
           className={navOpen ? `${s.navRail} ${s.navRailOpen}` : s.navRail}
           aria-label="Primary"
         >
-          {(me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) && (
+          {me?.capabilities.canViewSituation && (
             <NavItem to="/situation" label="Situation" icon={<SituationIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           )}
           <NavItem to="/people" label="People" icon={<PeopleIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />

@@ -93,6 +93,11 @@ import {
   notificationsInboxSchema,
   markNotificationReadRequestSchema,
   okResponseSchema,
+  delegationsListSchema,
+  delegationResponseSchema,
+  createDelegationRequestSchema,
+  revokeDelegationRequestSchema,
+  backupStatusSchema,
   claimIdParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
@@ -144,7 +149,7 @@ import {
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
 import { DOCUMENT_MAX_BYTES, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
-import { capabilityView, canViewPerDiem } from '@c3web/authz';
+import { capabilityView, canViewPerDiem, assertManageDelegations } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
 import {
   approveApproval,
@@ -194,6 +199,10 @@ import {
   listNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  listDelegations,
+  createDelegation,
+  revokeDelegation,
+  hasEffectiveReviewStanding,
   voidInvoice,
   listInvoices,
   getInvoice,
@@ -264,7 +273,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -469,7 +478,14 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     } catch (auditErr) {
       req.log.error({ err: auditErr }, 'session-established audit write failed');
     }
-    return { identity: pr.identity, displayName: pr.displayName, role: pr.role, tenantSlug: pr.tenantSlug, capabilities: capabilityView(pr.role) };
+    // Tier 0.5: /me stays truthful for active delegates — the buttons a
+    // delegate sees are buttons the API accepts. Role view first; one
+    // indexed lookup only when the role itself has no review standing.
+    let capabilities = capabilityView(pr.role);
+    if (!capabilities.canReviewApproval && (await hasEffectiveReviewStanding(P, actorOf(req)))) {
+      capabilities = { ...capabilities, canReviewApproval: true, canExecuteApproval: true };
+    }
+    return { identity: pr.identity, displayName: pr.displayName, role: pr.role, tenantSlug: pr.tenantSlug, capabilities };
   });
 
   // ── people ───────────────────────────────────────────────────────────────
@@ -1186,6 +1202,33 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   r.post('/api/v1/notifications/read-all', { schema: { response: { 200: okResponseSchema } } }, async (req) => {
     await markAllNotificationsRead(P, actorOf(req));
     return { ok: true as const };
+  });
+
+  // ── delegations (Tier 0.5): owner grants approver standing for a window ────
+  r.get('/api/v1/delegations', { schema: { response: { 200: delegationsListSchema } } }, async (req) => {
+    const rows = await listDelegations(P, actorOf(req));
+    return { delegations: rows.map(toDelegationDto) };
+  });
+
+  r.post('/api/v1/delegations', { schema: { body: createDelegationRequestSchema, response: { 201: delegationResponseSchema } } }, async (req, reply) => {
+    const d = await createDelegation(P, actorOf(req), req.body as import('@c3web/domain').CreateDelegationInput);
+    return reply.status(201).send({ delegation: toDelegationDto(d) });
+  });
+
+  r.post(
+    '/api/v1/delegations/:delegationId/revoke',
+    { schema: { params: z.object({ delegationId: z.string().regex(/^DLG-\d{4,}$/) }), body: revokeDelegationRequestSchema, response: { 200: delegationResponseSchema } } },
+    async (req) => {
+      const { delegationId } = req.params as { delegationId: string };
+      const d = await revokeDelegation(P, actorOf(req), delegationId, req.body as { expectedVersion: number; reason: string });
+      return { delegation: toDelegationDto(d) };
+    },
+  );
+
+  // ── backup status (Tier 0.5): the Settings tile's one honest question ──────
+  r.get('/api/v1/settings/backup-status', { schema: { response: { 200: backupStatusSchema } } }, async (req) => {
+    assertManageDelegations(actorOf(req)); // owner-only, same standing as delegations
+    return deps.backupStatus();
   });
 
   // ── distributions (S8): the payout list — allocate, mark paid, revoke ──────

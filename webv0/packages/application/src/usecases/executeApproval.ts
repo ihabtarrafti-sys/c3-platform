@@ -34,8 +34,11 @@ import {
   type Person,
   ApprovalNotApprovedError,
   canApply,
+  checkSelfReview,
   ConcurrencyError,
   ConflictError,
+  ForbiddenError,
+  SelfReviewError,
   formatAgreementId,
   formatAgreementTermId,
   formatCredentialId,
@@ -45,7 +48,7 @@ import {
   NotFoundError,
   ParticipantConflictError,
 } from '@c3web/domain';
-import { assertExecuteApproval, assertTenantMatch } from '@c3web/authz';
+import { assertExecuteApproval, assertTenantMatch, canExecuteApproval } from '@c3web/authz';
 import type { Persistence, WriteTx } from '../ports';
 
 export interface ExecuteResult {
@@ -150,7 +153,19 @@ export async function executeApproval(
       if (!approval) throw new NotFoundError('Approval', approvalId);
 
       // Role (owner) + separation of duties (submitter may not execute).
-      assertExecuteApproval(actor, approval.submittedBy);
+      // Tier 0.5: an ACTIVE delegation substitutes for the ROLE half only —
+      // the self-review separation is NOT delegable.
+      if (canExecuteApproval(actor.role)) {
+        assertExecuteApproval(actor, approval.submittedBy);
+      } else {
+        const today = new Date().toISOString().slice(0, 10);
+        const delegated = await tx.hasActiveDelegation(actor.identity.toLowerCase(), today);
+        if (!delegated) {
+          throw new ForbiddenError('Your role may not execute approvals.', { role: actor.role, action: 'execute' });
+        }
+        const check = checkSelfReview(actor.identity, approval.submittedBy);
+        if (check.blocked) throw new SelfReviewError(check.reason);
+      }
       assertTenantMatch(actor.tenantId, approval.tenantId);
 
       // Idempotent: already executed -> return what it created. Participant

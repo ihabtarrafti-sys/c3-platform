@@ -50,6 +50,10 @@ const rawSchema = z.object({
   SMTP_USER: z.string().optional(),
   SMTP_PASS: z.string().optional(),
   SMTP_FROM: z.string().optional(),
+  BACKUP_STATUS_R2_ENDPOINT: z.string().optional(),
+  BACKUP_STATUS_R2_ACCESS_KEY_ID: z.string().optional(),
+  BACKUP_STATUS_R2_SECRET_ACCESS_KEY: z.string().optional(),
+  BACKUP_STATUS_R2_BUCKET: z.string().optional(),
 });
 
 export type Env = {
@@ -73,6 +77,8 @@ export type Env = {
     | { driver: 'fs'; dir: string };
   /** S10 email channel; null = not configured (rows-only, honest). */
   smtp: { host: string; port: number; user: string; pass: string; from: string } | null;
+  /** Tier 0.5 backup-status tile: read-only marker lookup; null = not configured. */
+  backupStatus: { endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string } | null;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -164,6 +170,15 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   }
   const smtp: Env['smtp'] = smtpGiven === 5 ? { host: e.SMTP_HOST!, port: e.SMTP_PORT!, user: e.SMTP_USER!, pass: e.SMTP_PASS!, from: e.SMTP_FROM! } : null;
 
+  // ── Tier 0.5 backup-status tile: all-or-none; absent = 'not configured'. ──
+  const bkGiven = [e.BACKUP_STATUS_R2_ENDPOINT, e.BACKUP_STATUS_R2_ACCESS_KEY_ID, e.BACKUP_STATUS_R2_SECRET_ACCESS_KEY, e.BACKUP_STATUS_R2_BUCKET].filter((v) => v !== undefined).length;
+  if (bkGiven > 0 && bkGiven < 4) {
+    throw new Error('Backup-status config is partial: set ALL of BACKUP_STATUS_R2_ENDPOINT, BACKUP_STATUS_R2_ACCESS_KEY_ID, BACKUP_STATUS_R2_SECRET_ACCESS_KEY, BACKUP_STATUS_R2_BUCKET — or none.');
+  }
+  const backupStatus: Env['backupStatus'] = bkGiven === 4
+    ? { endpoint: e.BACKUP_STATUS_R2_ENDPOINT!, accessKeyId: e.BACKUP_STATUS_R2_ACCESS_KEY_ID!, secretAccessKey: e.BACKUP_STATUS_R2_SECRET_ACCESS_KEY!, bucket: e.BACKUP_STATUS_R2_BUCKET! }
+    : null;
+
   const documents: Env['documents'] =
     r2Given === 4
       ? { driver: 'r2', endpoint: e.R2_ENDPOINT!, accessKeyId: e.R2_ACCESS_KEY_ID!, secretAccessKey: e.R2_SECRET_ACCESS_KEY!, bucket: e.R2_BUCKET_DOCUMENTS! }
@@ -184,5 +199,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     entra,
     documents,
     smtp,
+    backupStatus,
   };
 }

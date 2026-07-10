@@ -35,6 +35,7 @@ import {
   type DistributionShare,
   type Claim,
   parseApprovalPayload,
+  Delegation,
 } from '@c3web/domain';
 
 const iso = (v: Date | string | null): string | null =>
@@ -236,6 +237,23 @@ export function mapClaim(row: any): Claim {
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapDelegation(row: any): Delegation {
+  return {
+    tenantId: row.tenantId ?? row.tenant_id,
+    delegationId: row.delegationId ?? row.delegation_id,
+    granteeIdentity: row.granteeIdentity ?? row.grantee_identity,
+    grantedBy: row.grantedBy ?? row.granted_by,
+    startsOn: row.startsOn ?? row.starts_on,
+    endsOn: row.endsOn ?? row.ends_on,
+    reason: row.reason,
+    revokedAt: iso(row.revokedAt ?? row.revoked_at ?? null),
+    revokedBy: row.revokedBy ?? row.revoked_by ?? null,
+    revokeReason: row.revokeReason ?? row.revoke_reason ?? null,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
   };
 }
 

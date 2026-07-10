@@ -41,6 +41,7 @@ import type {
   DistributionShareDto,
   ClaimDto,
   NotificationDto,
+  DelegationDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -374,6 +375,11 @@ export function createApiClient(deps: ApiClientDeps) {
     distributionSeed: (missionId: string) => request<{ rows: Array<{ personId: string; personName: string; suggestedBps: number | null; sourceTermId: string | null }> }>('GET', `/api/v1/distributions/seed?missionId=${missionId}`),
     createDistribution: (input: { missionId: string; lineId: string; orgShareBps: number; shares: Array<{ personId: string; shareBps: number }>; notes?: string | null }) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', '/api/v1/distributions', input),
     revokeDistribution: (distributionId: string, reason: string, expectedVersion: number) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', `/api/v1/distributions/${distributionId}/revoke`, { reason, expectedVersion }),
+    // Tier 0.5: delegations + backup status (Settings).
+    listDelegations: () => request<{ delegations: DelegationDto[] }>('GET', '/api/v1/delegations'),
+    createDelegation: (input: { granteeIdentity: string; startsOn: string; endsOn: string; reason: string }) => request<{ delegation: DelegationDto }>('POST', '/api/v1/delegations', input),
+    revokeDelegation: (delegationId: string, input: { expectedVersion: number; reason: string }) => request<{ delegation: DelegationDto }>('POST', `/api/v1/delegations/${delegationId}/revoke`, input),
+    backupStatus: () => request<{ configured: boolean; healthy: boolean | null; lastSuccessUtc: string | null; ageHours: number | null; reason: string | null }>('GET', '/api/v1/settings/backup-status'),
     // S10: notifications — the bell.
     listNotifications: () => request<{ notifications: NotificationDto[]; unreadCount: number }>('GET', '/api/v1/notifications'),
     markNotificationRead: (signalKey: string) => request<{ ok: true }>('POST', '/api/v1/notifications/read', { signalKey }),

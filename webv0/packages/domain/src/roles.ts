@@ -104,6 +104,11 @@ export interface C3Capabilities {
    * finance, management. Others get the field OMITTED (absence, not masking).
    */
   readonly canViewPerDiem: boolean;
+  /**
+   * Tier 0.5: may grant/revoke approver delegations — owner ONLY. Granting
+   * review power is a species of role management, the owner's exclusive act.
+   */
+  readonly canManageDelegations: boolean;
   /** True when the role has no write/governance affordance at all. */
   readonly isReadOnly: boolean;
 }
@@ -123,6 +128,7 @@ const READ_ONLY = {
   canReadAgreements: false,
   canViewFinancials: false,
     canViewPerDiem: false,
+  canManageDelegations: false,
   isReadOnly: true,
 } as const satisfies C3Capabilities;
 
@@ -142,6 +148,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canReadAgreements: true,
     canViewFinancials: true,
     canViewPerDiem: true,
+    canManageDelegations: true,
     isReadOnly: false,
   },
   operations: {
@@ -159,6 +166,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canReadAgreements: true,
     canViewFinancials: true,
     canViewPerDiem: true,
+    canManageDelegations: false,
     isReadOnly: false,
   },
   // Sprint 41 (CP Set-E parity): legal reads contracts WITHOUT financial

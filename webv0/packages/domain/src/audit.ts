@@ -99,6 +99,8 @@ export const AUDIT_ACTIONS = [
   'ClaimApproved',
   'ClaimRejected',
   'ClaimPaid',
+  'DelegationGranted',
+  'DelegationRevoked',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

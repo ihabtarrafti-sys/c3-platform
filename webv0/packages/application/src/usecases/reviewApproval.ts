@@ -16,8 +16,10 @@ import {
   NotFoundError,
   ValidationError,
   type AuditAction,
+  checkSelfReview,
+  SelfReviewError,
 } from '@c3web/domain';
-import { assertReviewApproval, assertTenantMatch, type ReviewAction } from '@c3web/authz';
+import { assertReviewApproval, assertTenantMatch, canReviewApproval, type ReviewAction } from '@c3web/authz';
 import type { Persistence, WriteTx } from '../ports';
 
 const AUDIT_FOR: Record<ReviewAction, AuditAction> = {
@@ -45,7 +47,19 @@ async function transition(
     if (!approval) throw new NotFoundError('Approval', approvalId);
 
     // Role + separation of duties (fail closed on indeterminate identity).
-    assertReviewApproval(actor, approval.submittedBy, action);
+    // Tier 0.5: an ACTIVE delegation substitutes for the ROLE half only —
+    // the self-review separation is NOT delegable and runs on every path.
+    if (canReviewApproval(actor.role)) {
+      assertReviewApproval(actor, approval.submittedBy, action);
+    } else {
+      const today = new Date().toISOString().slice(0, 10);
+      const delegated = await tx.hasActiveDelegation(actor.identity.toLowerCase(), today);
+      if (!delegated) {
+        throw new ForbiddenError('Your role may not review approvals.', { role: actor.role, action });
+      }
+      const check = checkSelfReview(actor.identity, approval.submittedBy);
+      if (check.blocked) throw new SelfReviewError(check.reason);
+    }
     assertTenantMatch(actor.tenantId, approval.tenantId);
 
     const lifecycleAction = LIFECYCLE_FOR[action];

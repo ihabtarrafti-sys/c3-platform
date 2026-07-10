@@ -54,6 +54,10 @@ export class FakePersistence implements Persistence {
           s.approvalEvents.filter((e) => e.approvalId === approvalId),
         listAuditEventsForEntity: async (entityType, entityId) =>
           s.auditEvents.filter((e) => e.entityType === entityType && e.entityId === entityId),
+        // Tier 0.5: the fake tenant has no delegations — role gates decide alone.
+        listDelegations: async () => [],
+        hasActiveDelegation: async () => false,
+        findUnrevokedDelegationId: async () => null,
       };
     },
   };
@@ -97,6 +101,8 @@ export class FakePersistence implements Persistence {
         return approval;
       },
       lockApproval: async (approvalId) => s.approvals.find((a) => a.approvalId === approvalId) ?? null,
+      // Tier 0.5: no delegations in the fake — the role half of the gate decides.
+      hasActiveDelegation: async () => false,
       updateApprovalStatus: async (approvalId, expectedVersion, patch): Promise<Approval | null> => {
         const idx = s.approvals.findIndex((a) => a.approvalId === approvalId);
         if (idx < 0) return null;

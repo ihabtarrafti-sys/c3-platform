@@ -2,9 +2,10 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import { delegationState } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -168,6 +169,23 @@ export function toTeamMembershipDto(m: TeamMembership): TeamMembershipDto {
 }
 
 /** Claim → wire (S9; per-actor scoping happens in the use-case). */
+export function toDelegationDto(d: Delegation): DelegationDto {
+  return {
+    delegationId: d.delegationId,
+    granteeIdentity: d.granteeIdentity,
+    grantedBy: d.grantedBy,
+    startsOn: d.startsOn,
+    endsOn: d.endsOn,
+    reason: d.reason,
+    revokedAt: d.revokedAt,
+    revokedBy: d.revokedBy,
+    revokeReason: d.revokeReason,
+    state: delegationState(d, new Date().toISOString().slice(0, 10)),
+    version: d.version,
+    createdAt: d.createdAt,
+  };
+}
+
 export function toClaimDto(c: Claim): ClaimDto {
   return {
     claimId: c.claimId,

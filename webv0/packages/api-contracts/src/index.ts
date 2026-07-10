@@ -507,6 +507,45 @@ export const teamMemberRemoveParamSchema = z.object({
 });
 export const flipVersionBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 
+// ── delegations (Tier 0.5): owner-granted approver standing ──────────────────
+export const delegationSchema = z.object({
+  delegationId: z.string(),
+  granteeIdentity: z.string(),
+  grantedBy: z.string(),
+  startsOn: z.string(),
+  endsOn: z.string(),
+  reason: z.string(),
+  revokedAt: z.string().nullable(),
+  revokedBy: z.string().nullable(),
+  revokeReason: z.string().nullable(),
+  state: z.enum(['Scheduled', 'Active', 'Expired', 'Revoked']),
+  version: z.number().int(),
+  createdAt: z.string(),
+});
+export type DelegationDto = z.infer<typeof delegationSchema>;
+export const delegationsListSchema = z.object({ delegations: z.array(delegationSchema) });
+export const delegationResponseSchema = z.object({ delegation: delegationSchema });
+export const createDelegationRequestSchema = z
+  .object({
+    granteeIdentity: z.string().min(3),
+    startsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    endsOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    reason: z.string().min(1).max(500),
+  })
+  .strict();
+export const revokeDelegationRequestSchema = z
+  .object({ expectedVersion: z.number().int().min(0), reason: z.string().min(1).max(500) })
+  .strict();
+
+// ── backup status (Tier 0.5): the Settings tile ──────────────────────────────
+export const backupStatusSchema = z.object({
+  configured: z.boolean(),
+  healthy: z.boolean().nullable(),
+  lastSuccessUtc: z.string().nullable(),
+  ageHours: z.number().int().nullable(),
+  reason: z.string().nullable(),
+});
+
 // ── notifications (S10): the L2 inbox ────────────────────────────────────────
 export const notificationSchema = z.object({
   signalKey: z.string(),
@@ -868,7 +907,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview', 'DelegationActive']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),
@@ -955,6 +994,8 @@ export const capabilityViewSchema = z.object({
   canViewPerDiem: z.boolean(),
   canSubmitClaim: z.boolean(),
   canDecideClaim: z.boolean(),
+  canManageDelegations: z.boolean(),
+  canViewSituation: z.boolean(),
 });
 export const meResponseSchema = z.object({
   identity: z.string(),

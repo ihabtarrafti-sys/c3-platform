@@ -13,6 +13,7 @@ export * from './agreement';
 export * from './agreementTerm';
 export * from './businessIds';
 export * from './claim';
+export * from './delegation';
 export * from './credential';
 export * from './dataQuality';
 export * from './distribution';

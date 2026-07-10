@@ -15,6 +15,7 @@ export * from './usecases/equipmentOps';
 export * from './usecases/journeyOps';
 export * from './usecases/missionOps';
 export * from './usecases/notificationOps';
+export * from './usecases/delegationOps';
 export * from './usecases/missionPnlOps';
 export * from './usecases/entityOps';
 export * from './usecases/submitMissionParticipantOps';

@@ -217,6 +217,9 @@ export interface CapabilityView {
   readonly canViewPerDiem: boolean;
   readonly canSubmitClaim: boolean;
   readonly canDecideClaim: boolean;
+  readonly canManageDelegations: boolean;
+  /** Cockpit access is ROLE-pure (owner/ops) — delegation never widens financial visibility. */
+  readonly canViewSituation: boolean;
 }
 
 export function capabilityView(role: C3Role): CapabilityView {
@@ -238,5 +241,16 @@ export function capabilityView(role: C3Role): CapabilityView {
     canViewPerDiem: c.canViewPerDiem,
     canSubmitClaim: !c.isReadOnly,
     canDecideClaim: c.canViewFinancials && c.canSubmitApproval,
+    canManageDelegations: c.canManageDelegations,
+    canViewSituation: c.canSubmitApproval || c.canReviewApproval,
   };
+}
+
+export const canManageDelegations = (role: C3Role): boolean => capabilitiesFor(role).canManageDelegations;
+
+/** Guard delegation management (grant/revoke/list) — the owner's exclusive act. */
+export function assertManageDelegations(actor: Actor): void {
+  if (!canManageDelegations(actor.role)) {
+    throw new ForbiddenError('Only the owner may manage approver delegations.', { role: actor.role });
+  }
 }

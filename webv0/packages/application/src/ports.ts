@@ -38,6 +38,7 @@ import type {
   DistributionShare,
   Claim,
   C3Notification,
+  Delegation,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -119,6 +120,11 @@ export interface ReadStore {
   getClaimById(claimId: string): Promise<Claim | null>;
   // S10: the actor's own notification inbox (newest first, capped).
   listNotifications(identity: string, limit: number): Promise<C3Notification[]>;
+  listDelegations(): Promise<Delegation[]>;
+  /** Tier 0.5: the unrevoked delegation held by this grantee, if any (its DLG id). */
+  findUnrevokedDelegationId(granteeIdentity: string): Promise<string | null>;
+  /** Tier 0.5: does this identity hold an UNREVOKED delegation whose window covers onDate? */
+  hasActiveDelegation(identity: string, onDate: string): Promise<boolean>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -437,6 +443,7 @@ export interface WriteTx {
       | 'team'
       | 'distribution'
       | 'claim'
+      | 'delegation'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -644,6 +651,10 @@ export interface WriteTx {
   // ── S10 notifications (L2 rows; UNIQUE dedupe; no deletes) ────────────────
   /** Insert-if-first-crossing: ON CONFLICT (tenant,user,signal_key) DO NOTHING. Returns true when a NEW row landed. */
   insertNotification(row: { userIdentity: string; signalKey: string; kind: string; title: string; link: string }): Promise<boolean>;
+  insertDelegation(row: { delegationId: string; granteeIdentity: string; grantedBy: string; startsOn: string; endsOn: string; reason: string }): Promise<Delegation>;
+  lockDelegation(delegationId: string): Promise<Delegation | null>;
+  revokeDelegation(delegationId: string, expectedVersion: number, revokedBy: string, revokeReason: string): Promise<Delegation | null>;
+  hasActiveDelegation(identity: string, onDate: string): Promise<boolean>;
   /** Flip one of the actor's rows read (idempotent); false when no row matched. */
   markNotificationRead(identity: string, signalKey: string): Promise<boolean>;
   /** Flip all of the actor's unread rows; returns the count flipped. */

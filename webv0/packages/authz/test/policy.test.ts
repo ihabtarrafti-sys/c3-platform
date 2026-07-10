@@ -130,7 +130,16 @@ describe('capabilityView (UX hint)', () => {
       canViewPerDiem: true,
       canSubmitClaim: true,
       canDecideClaim: true,
+      canManageDelegations: false,
+      canViewSituation: true,
     });
+  });
+
+  it('reserves delegation management for the owner alone', () => {
+    expect(capabilityView('owner').canManageDelegations).toBe(true);
+    for (const role of ['operations', 'hr', 'legal', 'finance', 'management', 'visitor'] as const) {
+      expect(capabilityView(role).canManageDelegations, role).toBe(false);
+    }
   });
 
   it('withholds member administration from read-only roles', () => {

@@ -166,6 +166,12 @@
                         },
                         "canDecideClaim": {
                           "type": "boolean"
+                        },
+                        "canManageDelegations": {
+                          "type": "boolean"
+                        },
+                        "canViewSituation": {
+                          "type": "boolean"
                         }
                       },
                       "required": [
@@ -184,7 +190,9 @@
                         "canViewFinancials",
                         "canViewPerDiem",
                         "canSubmitClaim",
-                        "canDecideClaim"
+                        "canDecideClaim",
+                        "canManageDelegations",
+                        "canViewSituation"
                       ],
                       "additionalProperties": false
                     }
@@ -21685,6 +21693,386 @@
         }
       }
     },
+    "/api/v1/delegations": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "delegations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "delegationId": {
+                            "type": "string"
+                          },
+                          "granteeIdentity": {
+                            "type": "string"
+                          },
+                          "grantedBy": {
+                            "type": "string"
+                          },
+                          "startsOn": {
+                            "type": "string"
+                          },
+                          "endsOn": {
+                            "type": "string"
+                          },
+                          "reason": {
+                            "type": "string"
+                          },
+                          "revokedAt": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "revokedBy": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "revokeReason": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "state": {
+                            "type": "string",
+                            "enum": [
+                              "Scheduled",
+                              "Active",
+                              "Expired",
+                              "Revoked"
+                            ]
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "delegationId",
+                          "granteeIdentity",
+                          "grantedBy",
+                          "startsOn",
+                          "endsOn",
+                          "reason",
+                          "revokedAt",
+                          "revokedBy",
+                          "revokeReason",
+                          "state",
+                          "version",
+                          "createdAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "delegations"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "granteeIdentity": {
+                    "type": "string",
+                    "minLength": 3
+                  },
+                  "startsOn": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "endsOn": {
+                    "type": "string",
+                    "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "granteeIdentity",
+                  "startsOn",
+                  "endsOn",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "delegation": {
+                      "type": "object",
+                      "properties": {
+                        "delegationId": {
+                          "type": "string"
+                        },
+                        "granteeIdentity": {
+                          "type": "string"
+                        },
+                        "grantedBy": {
+                          "type": "string"
+                        },
+                        "startsOn": {
+                          "type": "string"
+                        },
+                        "endsOn": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "revokedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "revokedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "revokeReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "Scheduled",
+                            "Active",
+                            "Expired",
+                            "Revoked"
+                          ]
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "delegationId",
+                        "granteeIdentity",
+                        "grantedBy",
+                        "startsOn",
+                        "endsOn",
+                        "reason",
+                        "revokedAt",
+                        "revokedBy",
+                        "revokeReason",
+                        "state",
+                        "version",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "delegation"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/delegations/{delegationId}/revoke": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "expectedVersion",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^DLG-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "delegationId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "delegation": {
+                      "type": "object",
+                      "properties": {
+                        "delegationId": {
+                          "type": "string"
+                        },
+                        "granteeIdentity": {
+                          "type": "string"
+                        },
+                        "grantedBy": {
+                          "type": "string"
+                        },
+                        "startsOn": {
+                          "type": "string"
+                        },
+                        "endsOn": {
+                          "type": "string"
+                        },
+                        "reason": {
+                          "type": "string"
+                        },
+                        "revokedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "revokedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "revokeReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "state": {
+                          "type": "string",
+                          "enum": [
+                            "Scheduled",
+                            "Active",
+                            "Expired",
+                            "Revoked"
+                          ]
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "delegationId",
+                        "granteeIdentity",
+                        "grantedBy",
+                        "startsOn",
+                        "endsOn",
+                        "reason",
+                        "revokedAt",
+                        "revokedBy",
+                        "revokeReason",
+                        "state",
+                        "version",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "delegation"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/settings/backup-status": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "configured": {
+                      "type": "boolean"
+                    },
+                    "healthy": {
+                      "type": "boolean",
+                      "nullable": true
+                    },
+                    "lastSuccessUtc": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "ageHours": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "reason": {
+                      "type": "string",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "configured",
+                    "healthy",
+                    "lastSuccessUtc",
+                    "ageHours",
+                    "reason"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/missions/{missionId}/distributions": {
       "get": {
         "parameters": [
@@ -25067,7 +25455,8 @@
                               "PaymentOutstanding",
                               "TeamUnstaffed",
                               "PayoutsOutstanding",
-                              "ClaimsAwaitingReview"
+                              "ClaimsAwaitingReview",
+                              "DelegationActive"
                             ]
                           },
                           "headline": {

@@ -100,6 +100,20 @@ describe('production fail-closed guarantees', () => {
     } as NodeJS.ProcessEnv);
     expect(full.smtp).toEqual({ host: 'smtp.example.com', port: 587, user: 'mailer', pass: 'secret', from: 'c3@example.com' });
   });
+
+  it('Tier 0.5 fail-closed: no BACKUP_STATUS config → null (tile says not configured); partial refuses', () => {
+    expect(loadEnv({ ...base, ...entraVars } as NodeJS.ProcessEnv).backupStatus).toBeNull();
+    expect(() => loadEnv({ ...base, ...entraVars, BACKUP_STATUS_R2_BUCKET: 'c3-backups' } as NodeJS.ProcessEnv)).toThrow(/partial/i);
+    const full = loadEnv({
+      ...base,
+      ...entraVars,
+      BACKUP_STATUS_R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
+      BACKUP_STATUS_R2_ACCESS_KEY_ID: 'ak',
+      BACKUP_STATUS_R2_SECRET_ACCESS_KEY: 'sk',
+      BACKUP_STATUS_R2_BUCKET: 'c3-backups',
+    } as NodeJS.ProcessEnv);
+    expect(full.backupStatus).toEqual({ endpoint: 'https://acct.r2.cloudflarestorage.com', accessKeyId: 'ak', secretAccessKey: 'sk', bucket: 'c3-backups' });
+  });
 });
 
 describe('provider configuration guards', () => {

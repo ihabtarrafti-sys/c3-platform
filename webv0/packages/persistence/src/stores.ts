@@ -4,12 +4,13 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim,
+  mapDelegation, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -426,6 +427,34 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               emittedAt: r0.emittedAt.toISOString(),
               readAt: r0.readAt ? r0.readAt.toISOString() : null,
             }));
+          }),
+
+        // Tier 0.5: delegations (owner reads all; the active-check serves gates).
+        listDelegations: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Delegation[]> => {
+            const rows = await db.select().from(schema.delegation).orderBy(desc(schema.delegation.createdAt));
+            return rows.map(mapDelegation);
+          }),
+
+        findUnrevokedDelegationId: (granteeIdentity: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<string | null> => {
+            const res = await db.execute(sql`
+              SELECT delegation_id FROM delegation
+               WHERE grantee_identity = ${granteeIdentity} AND revoked_at IS NULL
+               LIMIT 1
+            `);
+            return res.rows[0] ? String((res.rows[0] as { delegation_id: string }).delegation_id) : null;
+          }),
+
+        hasActiveDelegation: (identity: string, onDate: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<boolean> => {
+            const res = await db.execute(sql`
+              SELECT 1 FROM delegation
+               WHERE grantee_identity = ${identity} AND revoked_at IS NULL
+                 AND starts_on <= ${onDate} AND ends_on >= ${onDate}
+               LIMIT 1
+            `);
+            return res.rows.length > 0;
           }),
 
         // S9: claims (per-actor scoping is the use-case's job).

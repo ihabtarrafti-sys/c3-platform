@@ -27,6 +27,7 @@ import {
   type Distribution,
   type DistributionShare,
   type Claim,
+  type Delegation,
   type JourneyStatus,
   type Kit,
   type Member,
@@ -39,7 +40,7 @@ import {
 import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapDelegation, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -868,6 +869,49 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.notification.userIdentity, identity), isNull(schema.notification.readAt)))
         .returning();
       return rows.length;
+    },
+
+    // ── Tier 0.5 approver delegation (owner act; rows are history) ───────────
+    async insertDelegation(row: {
+      delegationId: string;
+      granteeIdentity: string;
+      grantedBy: string;
+      startsOn: string;
+      endsOn: string;
+      reason: string;
+    }): Promise<Delegation> {
+      const [r] = await db.insert(schema.delegation).values({ tenantId, ...row }).returning();
+      return mapDelegation(r);
+    },
+
+    async lockDelegation(delegationId: string): Promise<Delegation | null> {
+      const res = await db.execute(sql`SELECT * FROM delegation WHERE delegation_id = ${delegationId} FOR UPDATE`);
+      return res.rows[0] ? mapDelegation(res.rows[0]) : null;
+    },
+
+    async revokeDelegation(delegationId: string, expectedVersion: number, revokedBy: string, revokeReason: string): Promise<Delegation | null> {
+      const rows = await db
+        .update(schema.delegation)
+        .set({ revokedAt: new Date(), revokedBy, revokeReason, version: expectedVersion + 1 })
+        .where(
+          and(
+            eq(schema.delegation.delegationId, delegationId),
+            eq(schema.delegation.version, expectedVersion),
+            isNull(schema.delegation.revokedAt),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapDelegation(rows[0]) : null;
+    },
+
+    async hasActiveDelegation(identity: string, onDate: string): Promise<boolean> {
+      const res = await db.execute(sql`
+        SELECT 1 FROM delegation
+         WHERE grantee_identity = ${identity} AND revoked_at IS NULL
+           AND starts_on <= ${onDate} AND ends_on >= ${onDate}
+         LIMIT 1
+      `);
+      return res.rows.length > 0;
     },
 
     // ── S9 expense claims (lifecycle record; no deletes) ─────────────────────

@@ -89,6 +89,7 @@ export interface SituationSnapshot {
   }>;
   /** S9: claims waiting on a decision are someone's money in limbo. */
   readonly claims: ReadonlyArray<{ claimId: string; submittedBy: string; status: string; createdAt: string }>;
+  readonly delegations: ReadonlyArray<{ delegationId: string; granteeIdentity: string; startsOn: string; endsOn: string; revokedAt: string | null }>;
   readonly participants: ReadonlyArray<{ missionId: string; personId: string; role: string; isActive: boolean }>;
   readonly approvals: ReadonlyArray<{
     approvalId: string;
@@ -117,6 +118,7 @@ export const SIGNAL_KINDS = [
   'TeamUnstaffed',
   'PayoutsOutstanding',
   'ClaimsAwaitingReview',
+  'DelegationActive',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -543,6 +545,28 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
   }
 
+  // 8b — Delegation (Tier 0.5): an ACTIVE delegation is elevated authority
+  //      and stays visible for its whole life — granted review power never
+  //      runs silently. Expiry/revocation silences the check by itself.
+  for (const d of snapshot.delegations.filter((x) => x.revokedAt === null && today >= x.startsOn && today <= x.endsOn)) {
+    signals.push(
+      make({
+        key: `DelegationActive:${d.delegationId}`,
+        kind: 'DelegationActive',
+        headline: `Review authority is delegated to ${d.granteeIdentity} until ${d.endsOn}`,
+        reasons: [
+          `${d.delegationId}: active ${d.startsOn} → ${d.endsOn} (inclusive)`,
+          'The delegate may review and execute approvals (never their own submissions).',
+          'Revoke it in Settings the moment it is no longer needed.',
+        ],
+        impact: 1,
+        urgency: 1,
+        inMotion: false,
+        actions: [],
+      }),
+    );
+  }
+
   // 9 — Journey drift: suspended and untouched for 14+ days.
   for (const j of snapshot.journeys.filter((j) => j.status === 'Suspended')) {
     const idleDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(j.updatedAt)) / 86_400_000);
@@ -587,6 +611,7 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Active game divisions with no active roster',
   'Prize distributions with payouts still pending',
   'Expense claims awaiting a decision for 3+ days',
+  'Delegation active (review authority granted to a member — visible for its whole life)',
 ];
 
 /**
@@ -608,4 +633,5 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'TeamUnstaffed',
   'PayoutsOutstanding',
   'ClaimsAwaitingReview',
+  'DelegationActive',
 ];

@@ -128,9 +128,26 @@ export function listMissionMembershipsForPerson(
   return p.reads.forActor(actor).listMissionMembershipsForPerson(personId);
 }
 
+
+/**
+ * Tier 0.5: the approvals READ surface honors delegation — a delegate must
+ * see the register they are asked to decide. Role standing first (pure,
+ * cheap); otherwise one indexed active-delegation lookup. Fail closed.
+ */
+async function assertViewApprovalsEffective(p: Persistence, actor: Actor): Promise<void> {
+  try {
+    assertViewApprovals(actor);
+    return;
+  } catch (err) {
+    const today = new Date().toISOString().slice(0, 10);
+    const delegated = await p.reads.forActor(actor).hasActiveDelegation(actor.identity.toLowerCase(), today);
+    if (!delegated) throw err;
+  }
+}
+
 /** Person-scoped approval history (approval-viewing roles only). */
-export function listApprovalsForPerson(p: Persistence, actor: Actor, personId: string): Promise<Approval[]> {
-  assertViewApprovals(actor);
+export async function listApprovalsForPerson(p: Persistence, actor: Actor, personId: string): Promise<Approval[]> {
+  await assertViewApprovalsEffective(p, actor);
   return p.reads.forActor(actor).listApprovalsForPerson(personId);
 }
 
@@ -159,24 +176,24 @@ export async function getPerson(p: Persistence, actor: Actor, personId: string):
   return person;
 }
 
-export function listApprovals(
+export async function listApprovals(
   p: Persistence,
   actor: Actor,
   filter?: { statuses?: ApprovalStatus[] },
 ): Promise<Approval[]> {
-  assertViewApprovals(actor);
+  await assertViewApprovalsEffective(p, actor);
   return p.reads.forActor(actor).listApprovals(filter);
 }
 
 export async function getApproval(p: Persistence, actor: Actor, approvalId: string): Promise<Approval> {
-  assertViewApprovals(actor);
+  await assertViewApprovalsEffective(p, actor);
   const approval = await p.reads.forActor(actor).getApprovalById(approvalId);
   if (!approval) throw new NotFoundError('Approval', approvalId);
   return approval;
 }
 
 export async function listApprovalEvents(p: Persistence, actor: Actor, approvalId: string): Promise<ApprovalEvent[]> {
-  assertViewApprovals(actor);
+  await assertViewApprovalsEffective(p, actor);
   // Ensure the approval is visible in this tenant before returning its history.
   const approval = await p.reads.forActor(actor).getApprovalById(approvalId);
   if (!approval) throw new NotFoundError('Approval', approvalId);

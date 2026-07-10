@@ -8,6 +8,7 @@ import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { PageHeader } from '../components/PageHeader';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
+import { BackupStatusSection, DelegationSection } from '../components/SettingsGovernanceSections';
 
 /**
  * Settings (Finance S1) — org configuration. The first real setting worth
@@ -154,6 +155,8 @@ export function SettingsPage() {
 
       <ImportExportSection />
       <DataQualitySection />
+      <DelegationSection />
+      <BackupStatusSection />
     </div>
   );
 }
