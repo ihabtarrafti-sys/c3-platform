@@ -1,6 +1,6 @@
-# S5 — Import / Export (Track A, the locked design)
+# S5 — Import / Export (Track A, the locked design + promoted riders)
 
-**Status: SHIPPED** · gate 478 vitest green · 13/13 E2E · migration `0025`
+**Status: SHIPPED** · gate green · 13/13 E2E · migration `0025`
 
 The decision this sprint implements (C3-CONSOLIDATED-PLAN §0, owner-final):
 no SharePoint connector, ever. Instead: **C3 provides an empty template, the
@@ -95,12 +95,44 @@ source of truth. The domain test suite now pins the **approval snapshot
 law**: `importBatchInputSchema` must accept exactly what `validateImportCsv`
 produces, because the batch is re-parsed from the payload at execution.
 
+## The promoted riders: data-quality report + duplicate detection
+
+The plan of record promoted both into S5 (owner, 2026-07-10: "love all"). The
+split that keeps the locked design honest:
+
+- **Import enforces the HARD rules** — keys unique (personnelCode /
+  agreementCode, in-file and against the DB), references exist,
+  all-or-nothing. These BLOCK.
+- **The report carries the SOFT signals** a strict import must not block on —
+  it names records, it never mutates, and nothing about it is a gate.
+
+`GET /api/v1/data-quality` (owner/ops, same standing as export — agreement
+rows ride in it) → **Settings → Data quality** panel, computed fresh per
+request over the actor's own RLS reads (`buildDataQualityReport` in domain —
+pure, `today` injected, unit-tested):
+
+1. **Potential duplicate people** — exact match after normalization (trim,
+   lowercase, collapse whitespace) on `fullName`, `ign`, or `personnelCode`.
+   No fuzzy matching in V1: every flagged group is a fact, not a guess.
+   Inactive people ARE included (re-importing someone who exists as history
+   is the classic mistake) and marked `(inactive)`.
+2. **Incomplete profiles** — ACTIVE people missing nationality / primary role
+   / personnel code. History is never nagged about.
+3. **Stale dates** — active credentials past expiry (strictly before today),
+   active credentials with no expiry at all, active agreements past their end
+   date.
+4. **Missing codes** — active agreements without an `agreementCode` (S6
+   invoice series will want them).
+
 ## Surfaces
 
 - **Settings → Import & export** (owner/ops): export buttons per register +
   audit trail; domain picker + blank template + upload. Staged banner names
   the APR and says plainly: *"Nothing lands until an owner executes it."*
   Dirty files render the per-row report (first 20 shown, honest count).
+- **Settings → Data quality** (owner/ops): finding counts per check with
+  expandable record lists and a re-run button; "all clear" is stated, not
+  implied.
 - **Approval detail**: `ImportBatch` subject reads
   `Import N {domain} from "{file}"`. Execution notification no longer says
   "Created undefined" for non-person operations (pre-existing defect fixed
@@ -111,10 +143,17 @@ produces, because the batch is re-parsed from the payload at execution.
 - `packages/domain/test/importExport.test.ts` — round-trip law, header
   contract, ids-allocated-by-C3, per-row schema errors, agreements
   anchor/date/duplicate rules, empty-file refusals, the approval snapshot law.
+- `packages/domain/test/dataQuality.test.ts` — duplicate normalization
+  (name/ign/code; inactive included + flagged), active-only nagging, the
+  strictly-before-today boundary, Active-status-only agreement checks.
 - `apps/api/test/imports.test.ts` — over HTTP: template → stage → owner
   executes → rows + `importedBy` audit; 422 report with **no approval
   created**; credentials-need-people cross-check then the fixed file lands;
-  visitor 403s; export header identity; audit export.
+  visitor 403s; export header identity; audit export; a whitespace/case
+  name variant imports fine and surfaces as a duplicate group in
+  `/data-quality` (visitor 403).
 - `apps/web/e2e/settings.spec.ts` — the human walk: template download, clean
   upload → staged APR (register unchanged), owner executes → people appear,
-  dirty upload → report + nothing lands, export contains the imported rows.
+  dirty upload → report + nothing lands, export contains the imported rows,
+  data-quality names the person import let through with a missing
+  nationality.

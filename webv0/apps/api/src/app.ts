@@ -66,6 +66,7 @@ import {
   documentRemoveBodySchema,
   searchQuerySchema,
   searchResultsSchema,
+  dataQualityReportSchema,
   setMissionBudgetInputSchema,
   participantPerDiemBodySchema,
   credentialsListSchema,
@@ -131,6 +132,7 @@ import {
   getMissionPnl,
   getMissionsFinanceSummary,
   globalSearch,
+  getDataQualityReport,
   stageImport,
   exportDomainCsv,
   exportAuditCsv,
@@ -1051,6 +1053,23 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const { q } = req.query as { q: string };
     const results = await globalSearch(P, actorOf(req), q);
     return { results: results.map((r0) => ({ ...r0 })) };
+  });
+
+  // ── data quality (S5 riders): duplicates + the review report — pure read. ──
+  r.get('/api/v1/data-quality', { schema: { response: { 200: dataQualityReportSchema } } }, async (req) => {
+    const report = await getDataQualityReport(P, actorOf(req));
+    return {
+      report: {
+        duplicatePeople: report.duplicatePeople.map((g) => ({ ...g, people: g.people.map((x) => ({ ...x })) })),
+        peopleMissingNationality: report.peopleMissingNationality.map((x) => ({ ...x })),
+        peopleMissingRole: report.peopleMissingRole.map((x) => ({ ...x })),
+        peopleMissingPersonnelCode: report.peopleMissingPersonnelCode.map((x) => ({ ...x })),
+        activeCredentialsPastExpiry: report.activeCredentialsPastExpiry.map((x) => ({ ...x })),
+        credentialsWithoutExpiry: report.credentialsWithoutExpiry.map((x) => ({ ...x })),
+        activeAgreementsPastEnd: report.activeAgreementsPastEnd.map((x) => ({ ...x })),
+        activeAgreementsWithoutCode: report.activeAgreementsWithoutCode.map((x) => ({ ...x })),
+      },
+    };
   });
 
   r.get('/api/v1/situation', { schema: { response: { 200: situationResponseSchema } } }, async (req) => {

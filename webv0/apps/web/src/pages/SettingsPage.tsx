@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Input, Option, makeStyles } from '@fluentui/react-components';
-import { CURRENCY_CODES } from '@c3web/api-contracts';
-import { useFxRates } from '../queries';
+import { CURRENCY_CODES, type DataQualityReportDto } from '@c3web/api-contracts';
+import { useDataQuality, useFxRates } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -153,6 +153,7 @@ export function SettingsPage() {
       )}
 
       <ImportExportSection />
+      <DataQualitySection />
     </div>
   );
 }
@@ -284,6 +285,130 @@ function ImportExportSection() {
               ))}
             </ul>
           </div>
+        )}
+      </div>
+    </>
+  );
+}
+
+// ── S5 riders: data quality — soft signals a strict import must not block on ─
+
+type DqReport = DataQualityReportDto['report'];
+
+const DQ_CHECKS: Array<{
+  key: Exclude<keyof DqReport, 'duplicatePeople'>;
+  label: string;
+  line: (x: { personId?: string; fullName?: string; credentialId?: string; personId2?: string; credentialType?: string; expiresOn?: string | null; agreementId?: string; agreementType?: string; anchor?: string; endsOn?: string }) => string;
+}> = [
+  { key: 'peopleMissingNationality', label: 'Active people missing a nationality', line: (x) => `${x.personId} — ${x.fullName}` },
+  { key: 'peopleMissingRole', label: 'Active people missing a primary role', line: (x) => `${x.personId} — ${x.fullName}` },
+  { key: 'peopleMissingPersonnelCode', label: 'Active people missing a personnel code', line: (x) => `${x.personId} — ${x.fullName}` },
+  {
+    key: 'activeCredentialsPastExpiry',
+    label: 'Active credentials past their expiry date',
+    line: (x) => `${x.credentialId} — ${x.credentialType} for ${x.personId} (expired ${x.expiresOn})`,
+  },
+  {
+    key: 'credentialsWithoutExpiry',
+    label: 'Active credentials without an expiry date',
+    line: (x) => `${x.credentialId} — ${x.credentialType} for ${x.personId}`,
+  },
+  {
+    key: 'activeAgreementsPastEnd',
+    label: 'Active agreements past their end date',
+    line: (x) => `${x.agreementId} — ${x.agreementType} for ${x.anchor} (ended ${x.endsOn})`,
+  },
+  {
+    key: 'activeAgreementsWithoutCode',
+    label: 'Active agreements without a code',
+    line: (x) => `${x.agreementId} — ${x.agreementType} for ${x.anchor}`,
+  },
+];
+
+const DQ_REASON_LABEL: Record<string, string> = { fullName: 'same name', ign: 'same IGN', personnelCode: 'same personnel code' };
+
+function DataQualitySection() {
+  const s = useStyles();
+  const { data, isLoading, isError, error, refetch, isRefetching } = useDataQuality();
+  const [open, setOpen] = useState<string | null>(null);
+
+  const report = data?.report;
+  const total = report
+    ? report.duplicatePeople.length + DQ_CHECKS.reduce((n, c) => n + report[c.key].length, 0)
+    : 0;
+
+  return (
+    <>
+      <p className={s.intro} style={{ marginTop: '32px' }}>
+        Data quality. Import enforces the hard rules; these are the soft signals it must not block on — potential
+        duplicate people (exact match after trimming and casing; no guessing) and records whose basics are missing or
+        whose dates have quietly gone stale. Review and fix in the registers; nothing here changes data.
+      </p>
+      <div className={s.panel} data-testid="dq-panel">
+        <div className={s.head}>
+          <span className={s.title}>Data quality</span>
+          <span className={s.meta} data-testid="dq-total">
+            {report ? (total === 0 ? 'all clear' : `${total} finding${total === 1 ? '' : 's'}`) : '…'}
+          </span>
+          <Button size="small" appearance="secondary" style={{ marginLeft: '12px' }} disabled={isRefetching} onClick={() => void refetch()} data-testid="dq-refresh">
+            {isRefetching ? 'Checking…' : 'Re-run checks'}
+          </Button>
+        </div>
+        {isLoading && <LoadingState label="Running checks…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not run the checks.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {report && (
+          <>
+            <div className={s.row} data-testid="dq-duplicates">
+              <span className={s.eq} style={{ fontWeight: 600 }}>Potential duplicate people</span>
+              <span className={s.meta}>{report.duplicatePeople.length}</span>
+              {report.duplicatePeople.length > 0 && (
+                <Button size="small" appearance="transparent" onClick={() => setOpen(open === 'dup' ? null : 'dup')} data-testid="dq-duplicates-toggle">
+                  {open === 'dup' ? 'Hide' : 'Show'}
+                </Button>
+              )}
+            </div>
+            {open === 'dup' && report.duplicatePeople.length > 0 && (
+              <div style={{ padding: '4px 20px 12px' }} data-testid="dq-duplicates-list">
+                <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  {report.duplicatePeople.map((g, i) => (
+                    <li key={i} className={s.eq}>
+                      “{g.value}” ({DQ_REASON_LABEL[g.reason] ?? g.reason}):{' '}
+                      {g.people.map((p) => `${p.personId}${p.isActive ? '' : ' (inactive)'}`).join(', ')}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {DQ_CHECKS.map((c) => (
+              <div key={c.key}>
+                <div className={s.row} data-testid={`dq-${c.key}`}>
+                  <span className={s.eq}>{c.label}</span>
+                  <span className={s.meta}>{report[c.key].length}</span>
+                  {report[c.key].length > 0 && (
+                    <Button size="small" appearance="transparent" onClick={() => setOpen(open === c.key ? null : c.key)} data-testid={`dq-${c.key}-toggle`}>
+                      {open === c.key ? 'Hide' : 'Show'}
+                    </Button>
+                  )}
+                </div>
+                {open === c.key && report[c.key].length > 0 && (
+                  <div style={{ padding: '4px 20px 12px' }} data-testid={`dq-${c.key}-list`}>
+                    <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                      {report[c.key].map((x, i) => (
+                        <li key={i} className={s.eq}>
+                          {c.line(x as never)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
         )}
       </div>
     </>

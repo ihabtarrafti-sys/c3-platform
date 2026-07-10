@@ -146,5 +146,27 @@ describe('import/export over HTTP (S5)', () => {
     expect(auditExp.statusCode).toBe(200);
     expect(auditExp.body.split('\n')[0]).toBe('at,entityType,entityId,action,actor,before,after');
     expect(auditExp.body).toContain('PersonCreated');
+
+    // ── S5 riders: the data-quality report sees what import let through ──────
+    // A whitespace/case variant of Jordan sails through import (names are not
+    // hard keys — deliberately) and surfaces as a POTENTIAL DUPLICATE here.
+    const dupCsv = toCsv(PEOPLE_COLUMNS, [['', '  jordan   REYES ', '', '', '', '', '', '', '', '', '', 'true']]);
+    const dupStaged = await stage(tokens.ops, 'people', 'second-jordan.csv', dupCsv);
+    expect(dupStaged.statusCode, dupStaged.body).toBe(201);
+    await governedExecute(dupStaged.json().approval.approvalId, dupStaged.json().approval.version);
+
+    const dq = await app.inject({ method: 'GET', url: '/api/v1/data-quality', headers: auth(tokens.ops) });
+    expect(dq.statusCode, dq.body).toBe(200);
+    const report = dq.json().report;
+    const nameGroup = report.duplicatePeople.find((g: { reason: string }) => g.reason === 'fullName');
+    expect(nameGroup, JSON.stringify(report.duplicatePeople)).toBeTruthy();
+    expect(nameGroup.people.map((p: { personId: string }) => p.personId)).toContain('PER-0001');
+    expect(nameGroup.people.map((p: { personId: string }) => p.personId)).toContain('PER-0003');
+    // The variant row has no nationality/role/code — the review lists name it.
+    expect(report.peopleMissingNationality.map((p: { personId: string }) => p.personId)).toContain('PER-0003');
+    // Dana Cole is INACTIVE history — the report does not nag about her basics.
+    expect(report.peopleMissingNationality.map((p: { personId: string }) => p.personId)).not.toContain('PER-0002');
+    // Pure read, gated like the rest of the stewardship tooling.
+    expect((await app.inject({ method: 'GET', url: '/api/v1/data-quality', headers: auth(tokens.visitor) })).statusCode).toBe(403);
   });
 });

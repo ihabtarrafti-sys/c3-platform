@@ -33,6 +33,7 @@ import type {
   MissionLineDto,
   MissionPnlDto,
   MissionParticipantDto,
+  DataQualityReportDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -339,6 +340,8 @@ export function createApiClient(deps: ApiClientDeps) {
     },
     downloadExport: (domain: string) => download(`/api/v1/exports/${encodeURIComponent(domain)}`),
     downloadTemplate: (domain: string) => download(`/api/v1/imports/templates/${encodeURIComponent(domain)}`),
+    // S5 riders: the data-quality report (duplicates + review lists).
+    dataQuality: () => request<DataQualityReportDto>('GET', '/api/v1/data-quality'),
     // S4: documents — metadata via JSON, bytes via multipart/binary.
     listDocuments: (ownerType: string, ownerId: string) =>
       request<{ documents: DocumentDto[] }>('GET', `/api/v1/documents?ownerType=${encodeURIComponent(ownerType)}&ownerId=${encodeURIComponent(ownerId)}`),

@@ -117,4 +117,14 @@ test('Settings → import/export: template → staged batch → owner executes �
     expect(text.split('\n')[0]).toBe(PEOPLE_HEADER); // export IS the template
     expect(text).toContain('Imported Ace');
   });
+
+  await test.step('Data quality flags the soft signals import let through (S5 riders)', async () => {
+    // Imported Beta landed active with no nationality — import is not allowed
+    // to block on that (soft signal); the data-quality report names them.
+    await expect(page.getByTestId('dq-panel')).toBeVisible();
+    await expect(page.getByTestId('dq-total')).not.toHaveText('…');
+    await expect(page.getByTestId('dq-peopleMissingNationality')).toBeVisible();
+    await page.getByTestId('dq-peopleMissingNationality-toggle').click();
+    await expect(page.getByTestId('dq-peopleMissingNationality-list')).toContainText('Imported Beta');
+  });
 });

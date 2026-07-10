@@ -449,6 +449,32 @@ export const searchResultsSchema = z.object({
 });
 export type SearchResultsDto = z.infer<typeof searchResultsSchema>;
 
+// ── data quality (S5 riders): duplicate detection + the review report ────────
+const dqPersonRefSchema = z.object({ personId: z.string(), fullName: z.string() });
+export const dataQualityReportSchema = z.object({
+  report: z.object({
+    duplicatePeople: z.array(
+      z.object({
+        reason: z.enum(['fullName', 'ign', 'personnelCode']),
+        value: z.string(),
+        people: z.array(z.object({ personId: z.string(), fullName: z.string(), isActive: z.boolean() })),
+      }),
+    ),
+    peopleMissingNationality: z.array(dqPersonRefSchema),
+    peopleMissingRole: z.array(dqPersonRefSchema),
+    peopleMissingPersonnelCode: z.array(dqPersonRefSchema),
+    activeCredentialsPastExpiry: z.array(
+      z.object({ credentialId: z.string(), personId: z.string(), credentialType: z.string(), expiresOn: z.string().nullable() }),
+    ),
+    credentialsWithoutExpiry: z.array(
+      z.object({ credentialId: z.string(), personId: z.string(), credentialType: z.string(), expiresOn: z.string().nullable() }),
+    ),
+    activeAgreementsPastEnd: z.array(z.object({ agreementId: z.string(), agreementType: z.string(), anchor: z.string(), endsOn: z.string() })),
+    activeAgreementsWithoutCode: z.array(z.object({ agreementId: z.string(), agreementType: z.string(), anchor: z.string(), endsOn: z.string() })),
+  }),
+});
+export type DataQualityReportDto = z.infer<typeof dataQualityReportSchema>;
+
 /** S2: the all-missions finance dashboard row. */
 export const missionFinanceSummarySchema = z.object({
   missions: z.array(
