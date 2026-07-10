@@ -4,12 +4,12 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -376,6 +376,60 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               })
               .from(schema.teamMembership);
             return rows;
+          }),
+
+        // S8: distributions (shares join the person's display name).
+        listDistributionsForMission: (missionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Distribution[]> => {
+            const rows = await db
+              .select()
+              .from(schema.distribution)
+              .where(eq(schema.distribution.missionId, missionId))
+              .orderBy(desc(schema.distribution.createdAt), desc(schema.distribution.distributionId));
+            return rows.map(mapDistribution);
+          }),
+
+        getDistributionById: (distributionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Distribution | null> => {
+            const rows = await db.select().from(schema.distribution).where(eq(schema.distribution.distributionId, distributionId)).limit(1);
+            return rows[0] ? mapDistribution(rows[0]) : null;
+          }),
+
+        listDistributionShares: (distributionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<DistributionShare[]> => {
+            const res = await db.execute(sql`
+              SELECT ds.*, p.full_name AS person_name
+                FROM distribution_share ds
+                JOIN person p ON p.tenant_id = ds.tenant_id AND p.person_id = ds.person_id
+               WHERE ds.distribution_id = ${distributionId}
+               ORDER BY ds.amount_minor DESC, ds.person_id ASC
+            `);
+            return res.rows.map(mapDistributionShare);
+          }),
+
+        listDistributionsWithPending: () =>
+          withTenantTx(pool, actor, 'read', async (db) => {
+            const res = await db.execute(sql`
+              SELECT d.distribution_id, d.mission_id, d.status, d.created_at, d.currency,
+                     COUNT(ds.id) FILTER (WHERE ds.payout_status = 'Pending')::int AS pending_count,
+                     COALESCE(SUM(ds.amount_minor) FILTER (WHERE ds.payout_status = 'Pending'), 0)::bigint AS pending_amount
+                FROM distribution d
+                LEFT JOIN distribution_share ds
+                  ON ds.tenant_id = d.tenant_id AND ds.distribution_id = d.distribution_id
+               GROUP BY d.distribution_id, d.mission_id, d.status, d.created_at, d.currency
+            `);
+            return res.rows.map((r0) => {
+              const row = r0 as Record<string, unknown>;
+              return {
+                distributionId: String(row.distribution_id),
+                missionId: String(row.mission_id),
+                status: String(row.status),
+                createdAt: row.created_at instanceof Date ? row.created_at.toISOString() : new Date(String(row.created_at)).toISOString(),
+                pendingCount: Number(row.pending_count),
+                pendingAmountMinor: Number(row.pending_amount),
+                currency: String(row.currency),
+              };
+            });
           }),
 
         // Sprint 42: the person hub — memberships joined with the mission's

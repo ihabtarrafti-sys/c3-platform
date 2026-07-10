@@ -89,6 +89,10 @@ export const AUDIT_ACTIONS = [
   'TeamReactivated',
   'TeamMemberAdded',
   'TeamMemberRemoved',
+  // S8: prize distributions — allocation decisions + payment facts.
+  'DistributionCreated',
+  'DistributionRevoked',
+  'PayoutMarked',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

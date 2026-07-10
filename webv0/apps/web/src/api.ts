@@ -37,6 +37,8 @@ import type {
   InvoiceDto,
   TeamDto,
   TeamMembershipDto,
+  DistributionDto,
+  DistributionShareDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -365,6 +367,12 @@ export function createApiClient(deps: ApiClientDeps) {
     teamFinance: (teamId: string) => request<TeamFinanceResponse>('GET', `/api/v1/teams/${teamId}/finance`),
     teamAudit: (teamId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/teams/${teamId}/audit`),
     personTeams: (personId: string) => request<{ members: TeamMembershipDto[] }>('GET', `/api/v1/people/${personId}/teams`),
+    // S8: distributions — allocate received money, mark payouts, revoke.
+    missionDistributions: (missionId: string) => request<{ distributions: Array<{ distribution: DistributionDto; shares: DistributionShareDto[] }> }>('GET', `/api/v1/missions/${missionId}/distributions`),
+    distributionSeed: (missionId: string) => request<{ rows: Array<{ personId: string; personName: string; suggestedBps: number | null; sourceTermId: string | null }> }>('GET', `/api/v1/distributions/seed?missionId=${missionId}`),
+    createDistribution: (input: { missionId: string; lineId: string; orgShareBps: number; shares: Array<{ personId: string; shareBps: number }>; notes?: string | null }) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', '/api/v1/distributions', input),
+    revokeDistribution: (distributionId: string, reason: string, expectedVersion: number) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', `/api/v1/distributions/${distributionId}/revoke`, { reason, expectedVersion }),
+    markPayout: (distributionId: string, personId: string, input: { expectedVersion: number; paid: boolean; paymentSourceLabel?: string | null; refNo?: string | null }) => request<{ share: DistributionShareDto }>('POST', `/api/v1/distributions/${distributionId}/payouts/${personId}`, input),
     // S6: invoices — issue against an income line; void with a reason; the PDF
     // artifact downloads through the S4 document path (Invoice owner gate).
     listInvoices: () => request<{ invoices: InvoiceDto[] }>('GET', '/api/v1/invoices'),

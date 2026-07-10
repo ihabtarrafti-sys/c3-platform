@@ -150,6 +150,25 @@ test('Invoices: issue from the P&L → series number + PDF; cockpit chases; void
     await page.getByTestId(`payment-line-${lineId}-confirm`).click();
     await expect(page.getByTestId(`pnl-line-payment-${lineId}`)).toHaveText('Received');
 
+    // S8: received money can be distributed — allocate 100% to the org (the
+    // allocator's exact-sum law shows on the card), then revoke honestly so
+    // the stack stays quiet.
+    await page.getByTestId('distribute-toggle').click();
+    await page.getByTestId('distribute-line').click();
+    await page.getByRole('option', { name: /Prize — 2nd place/ }).click();
+    await page.getByTestId('distribute-org-pct').fill('100');
+    await expect(page.getByTestId('distribute-share-sum')).toContainText('the org takes 100%');
+    await page.getByTestId('distribute-toggle-confirm').click();
+    await expect(page.getByTestId('notifications')).toContainText('allocated — org USD 8,000.00');
+    const distCard = page.locator('[data-testid^="distribution-DIST-"]').first();
+    await expect(distCard).toContainText('Pool USD 8,000.00');
+    const distId = (await distCard.getAttribute('data-testid'))!.replace('distribution-', '');
+
+    await page.getByTestId(`revoke-${distId}`).click();
+    await page.getByTestId(`revoke-reason-${distId}`).fill('Demo allocation — revoked');
+    await page.getByTestId(`revoke-${distId}-confirm`).click();
+    await expect(page.getByTestId(`distribution-status-${distId}`)).toHaveText('Revoked');
+
     // All income Received → the mission settles; the settlement signals go
     // quiet (the always-on check LEDGER still lists the checks — that's the
     // honest all-clear — so the assertion targets the signal CARDS only).

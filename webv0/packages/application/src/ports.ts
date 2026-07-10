@@ -34,6 +34,8 @@ import type {
   Person,
   Team,
   TeamMembership,
+  Distribution,
+  DistributionShare,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -101,6 +103,14 @@ export interface ReadStore {
   listTeamMembershipsForPerson(personId: string): Promise<TeamMembership[]>;
   /** Slim bulk read for the Situation Room snapshot. */
   listAllTeamMemberships(): Promise<Array<{ teamId: string; personId: string; isActive: boolean }>>;
+  // S8: distributions (shares join the person's display name).
+  listDistributionsForMission(missionId: string): Promise<Distribution[]>;
+  getDistributionById(distributionId: string): Promise<Distribution | null>;
+  listDistributionShares(distributionId: string): Promise<DistributionShare[]>;
+  /** Slim bulk pending-payout view for the Situation Room snapshot. */
+  listDistributionsWithPending(): Promise<
+    Array<{ distributionId: string; missionId: string; status: string; createdAt: string; pendingCount: number; pendingAmountMinor: number; currency: string }>
+  >;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -206,6 +216,26 @@ export interface MissionPatch {
   readonly startsOn?: string;
   readonly endsOn?: string | null;
   readonly notes?: string | null;
+}
+
+/** S8: distribution rows (amounts pre-computed by the domain allocator). */
+export interface NewDistributionRow {
+  readonly distributionId: string;
+  readonly missionId: string;
+  readonly lineId: string;
+  readonly poolMinor: number;
+  readonly currency: string;
+  readonly orgShareBps: number;
+  readonly orgCutMinor: number;
+  readonly notes: string | null;
+  readonly createdBy: string;
+}
+
+export interface NewDistributionShareRow {
+  readonly distributionId: string;
+  readonly personId: string;
+  readonly shareBps: number;
+  readonly amountMinor: number;
 }
 
 /** S7: team CRUD rows/patches (direct-audited org structure). */
@@ -384,6 +414,7 @@ export interface WriteTx {
       | 'entity'
       | 'invoice'
       | 'team'
+      | 'distribution'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -587,6 +618,25 @@ export interface WriteTx {
   voidInvoice(invoiceId: string, expectedVersion: number, reason: string): Promise<Invoice | null>;
   /** Version-guarded PDF attach (the stored artifact's DOC id); null = stale/missing. */
   setInvoiceDocument(invoiceId: string, expectedVersion: number, documentId: string): Promise<Invoice | null>;
+
+  // ── S8 distributions (direct-audited; one LIVE per line; no deletes) ──────
+  insertDistribution(row: NewDistributionRow): Promise<Distribution>;
+  insertDistributionShare(row: NewDistributionShareRow): Promise<void>;
+  /** Read one distribution inside the transaction, any status. */
+  getDistribution(distributionId: string): Promise<Distribution | null>;
+  /** The (distribution, person) share row, joined with the person name. */
+  getDistributionShare(distributionId: string, personId: string): Promise<DistributionShare | null>;
+  /** All share rows of a distribution (the revoke guard reads them in-tx). */
+  listDistributionSharesTx(distributionId: string): Promise<DistributionShare[]>;
+  /** Version-guarded Live→Revoked flip; null = stale/missing/not-Live. */
+  revokeDistribution(distributionId: string, expectedVersion: number, reason: string): Promise<Distribution | null>;
+  /** Version-guarded payout flip; null = stale/missing. */
+  setPayout(
+    distributionId: string,
+    personId: string,
+    expectedVersion: number,
+    patch: { payoutStatus: string; paidOn: string | null; paymentSourceLabel: string | null; refNo: string | null },
+  ): Promise<DistributionShare | null>;
 
   // ── S7 teams (direct-audited org structure; the entity-register pattern) ──
   insertTeam(row: NewTeamRow): Promise<Team>;

@@ -28,6 +28,7 @@ function snapshot(overrides: Partial<SituationSnapshot> = {}): SituationSnapshot
     invoices: [],
     teams: [],
     teamMemberships: [],
+    distributions: [],
     participants: [],
     approvals: [],
     journeys: [],

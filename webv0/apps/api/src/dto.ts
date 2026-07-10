@@ -2,9 +2,9 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -164,6 +164,40 @@ export function toTeamMembershipDto(m: TeamMembership): TeamMembershipDto {
     role: m.role,
     isActive: m.isActive,
     version: m.version,
+  };
+}
+
+/** Distribution + payout rows → wire (S8; finance-gated reads only). */
+export function toDistributionDto(d: Distribution): DistributionDto {
+  return {
+    distributionId: d.distributionId,
+    missionId: d.missionId,
+    lineId: d.lineId,
+    poolMinor: d.poolMinor,
+    currency: d.currency,
+    orgShareBps: d.orgShareBps,
+    orgCutMinor: d.orgCutMinor,
+    status: d.status,
+    revokedReason: d.revokedReason,
+    notes: d.notes,
+    createdBy: d.createdBy,
+    version: d.version,
+    createdAt: d.createdAt,
+  };
+}
+
+export function toDistributionShareDto(s: DistributionShare): DistributionShareDto {
+  return {
+    distributionId: s.distributionId,
+    personId: s.personId,
+    personName: s.personName,
+    shareBps: s.shareBps,
+    amountMinor: s.amountMinor,
+    payoutStatus: s.payoutStatus,
+    paidOn: s.paidOn,
+    paymentSourceLabel: s.paymentSourceLabel,
+    refNo: s.refNo,
+    version: s.version,
   };
 }
 

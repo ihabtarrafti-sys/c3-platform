@@ -14,6 +14,7 @@ export * from './agreementTerm';
 export * from './businessIds';
 export * from './credential';
 export * from './dataQuality';
+export * from './distribution';
 export * from './document';
 export * from './entity';
 export * from './equipment';

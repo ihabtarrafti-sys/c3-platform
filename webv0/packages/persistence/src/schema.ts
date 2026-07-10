@@ -352,6 +352,42 @@ export const teamMembership = pgTable('team_membership', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// S8: distributions — the payout list; org cut + shares == pool EXACTLY.
+export const distribution = pgTable('distribution', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  distributionId: text('distribution_id').notNull(),
+  missionId: text('mission_id').notNull(),
+  lineId: text('line_id').notNull(),
+  poolMinor: bigint('pool_minor', { mode: 'number' }).notNull(),
+  currency: text('currency').notNull(),
+  orgShareBps: integer('org_share_bps').notNull(),
+  orgCutMinor: bigint('org_cut_minor', { mode: 'number' }).notNull(),
+  status: text('status').notNull(),
+  revokedReason: text('revoked_reason'),
+  notes: text('notes'),
+  createdBy: text('created_by').notNull(),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const distributionShare = pgTable('distribution_share', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  distributionId: text('distribution_id').notNull(),
+  personId: text('person_id').notNull(),
+  shareBps: integer('share_bps').notNull(),
+  amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
+  payoutStatus: text('payout_status').notNull().default('Pending'),
+  paidOn: date('paid_on', { mode: 'string' }),
+  paymentSourceLabel: text('payment_source_label'),
+  refNo: text('ref_no'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // S6: invoices — the outward claim for a mission income line. Numbers are a
 // per-entity, per-year series and are never reused (voids leave gaps).
 export const invoice = pgTable('invoice', {

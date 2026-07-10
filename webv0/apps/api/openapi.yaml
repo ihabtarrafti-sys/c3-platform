@@ -14956,6 +14956,729 @@ paths:
                 required:
                   - document
                 additionalProperties: false
+  /api/v1/missions/{missionId}/distributions:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: path
+          name: missionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  distributions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        distribution:
+                          type: object
+                          properties:
+                            distributionId:
+                              type: string
+                            missionId:
+                              type: string
+                            lineId:
+                              type: string
+                            poolMinor:
+                              type: integer
+                            currency:
+                              type: string
+                              enum:
+                                - USD
+                                - AED
+                                - SAR
+                                - EUR
+                                - GBP
+                            orgShareBps:
+                              type: integer
+                            orgCutMinor:
+                              type: integer
+                            status:
+                              type: string
+                              enum:
+                                - Live
+                                - Revoked
+                            revokedReason:
+                              type: string
+                              nullable: true
+                            notes:
+                              type: string
+                              nullable: true
+                            createdBy:
+                              type: string
+                            version:
+                              type: integer
+                            createdAt:
+                              type: string
+                          required:
+                            - distributionId
+                            - missionId
+                            - lineId
+                            - poolMinor
+                            - currency
+                            - orgShareBps
+                            - orgCutMinor
+                            - status
+                            - revokedReason
+                            - notes
+                            - createdBy
+                            - version
+                            - createdAt
+                          additionalProperties: false
+                        shares:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              distributionId:
+                                type: string
+                              personId:
+                                type: string
+                              personName:
+                                type: string
+                              shareBps:
+                                type: integer
+                              amountMinor:
+                                type: integer
+                              payoutStatus:
+                                type: string
+                                enum:
+                                  - Pending
+                                  - Paid
+                              paidOn:
+                                type: string
+                                nullable: true
+                              paymentSourceLabel:
+                                type: string
+                                nullable: true
+                              refNo:
+                                type: string
+                                nullable: true
+                              version:
+                                type: integer
+                            required:
+                              - distributionId
+                              - personId
+                              - personName
+                              - shareBps
+                              - amountMinor
+                              - payoutStatus
+                              - paidOn
+                              - paymentSourceLabel
+                              - refNo
+                              - version
+                            additionalProperties: false
+                      required:
+                        - distribution
+                        - shares
+                      additionalProperties: false
+                required:
+                  - distributions
+                additionalProperties: false
+  /api/v1/distributions/seed:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^MSN-\d{4,}$
+          in: query
+          name: missionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rows:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        personId:
+                          type: string
+                        personName:
+                          type: string
+                        suggestedBps:
+                          type: integer
+                          nullable: true
+                        sourceTermId:
+                          type: string
+                          nullable: true
+                      required:
+                        - personId
+                        - personName
+                        - suggestedBps
+                        - sourceTermId
+                      additionalProperties: false
+                required:
+                  - rows
+                additionalProperties: false
+  /api/v1/distributions/{distributionId}:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^DIST-\d{4,}$
+          in: path
+          name: distributionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  distribution:
+                    type: object
+                    properties:
+                      distributionId:
+                        type: string
+                      missionId:
+                        type: string
+                      lineId:
+                        type: string
+                      poolMinor:
+                        type: integer
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      orgShareBps:
+                        type: integer
+                      orgCutMinor:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - Live
+                          - Revoked
+                      revokedReason:
+                        type: string
+                        nullable: true
+                      notes:
+                        type: string
+                        nullable: true
+                      createdBy:
+                        type: string
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                    required:
+                      - distributionId
+                      - missionId
+                      - lineId
+                      - poolMinor
+                      - currency
+                      - orgShareBps
+                      - orgCutMinor
+                      - status
+                      - revokedReason
+                      - notes
+                      - createdBy
+                      - version
+                      - createdAt
+                    additionalProperties: false
+                  shares:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        distributionId:
+                          type: string
+                        personId:
+                          type: string
+                        personName:
+                          type: string
+                        shareBps:
+                          type: integer
+                        amountMinor:
+                          type: integer
+                        payoutStatus:
+                          type: string
+                          enum:
+                            - Pending
+                            - Paid
+                        paidOn:
+                          type: string
+                          nullable: true
+                        paymentSourceLabel:
+                          type: string
+                          nullable: true
+                        refNo:
+                          type: string
+                          nullable: true
+                        version:
+                          type: integer
+                      required:
+                        - distributionId
+                        - personId
+                        - personName
+                        - shareBps
+                        - amountMinor
+                        - payoutStatus
+                        - paidOn
+                        - paymentSourceLabel
+                        - refNo
+                        - version
+                      additionalProperties: false
+                required:
+                  - distribution
+                  - shares
+                additionalProperties: false
+  /api/v1/distributions/{distributionId}/audit:
+    get:
+      parameters:
+        - schema:
+            type: string
+            pattern: ^DIST-\d{4,}$
+          in: path
+          name: distributionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        entityType:
+                          type: string
+                        entityId:
+                          type: string
+                        action:
+                          type: string
+                        actor:
+                          type: string
+                        at:
+                          type: string
+                        before:
+                          type: object
+                          additionalProperties: {}
+                          nullable: true
+                        after:
+                          type: object
+                          additionalProperties: {}
+                          nullable: true
+                      required:
+                        - entityType
+                        - entityId
+                        - action
+                        - actor
+                        - at
+                        - before
+                        - after
+                      additionalProperties: false
+                required:
+                  - events
+                additionalProperties: false
+  /api/v1/distributions:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                missionId:
+                  type: string
+                  pattern: ^MSN-\d{4,}$
+                lineId:
+                  type: string
+                  pattern: ^PNL-\d{4,}$
+                orgShareBps:
+                  type: integer
+                  minimum: 0
+                  maximum: 10000
+                shares:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      personId:
+                        type: string
+                        pattern: ^PER-\d{4,}$
+                      shareBps:
+                        type: integer
+                        minimum: 1
+                        maximum: 10000
+                    required:
+                      - personId
+                      - shareBps
+                    additionalProperties: false
+                  maxItems: 100
+                notes:
+                  type: string
+                  maxLength: 2000
+                  nullable: true
+              required:
+                - missionId
+                - lineId
+                - orgShareBps
+                - shares
+              additionalProperties: false
+      responses:
+        "201":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  distribution:
+                    type: object
+                    properties:
+                      distributionId:
+                        type: string
+                      missionId:
+                        type: string
+                      lineId:
+                        type: string
+                      poolMinor:
+                        type: integer
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      orgShareBps:
+                        type: integer
+                      orgCutMinor:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - Live
+                          - Revoked
+                      revokedReason:
+                        type: string
+                        nullable: true
+                      notes:
+                        type: string
+                        nullable: true
+                      createdBy:
+                        type: string
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                    required:
+                      - distributionId
+                      - missionId
+                      - lineId
+                      - poolMinor
+                      - currency
+                      - orgShareBps
+                      - orgCutMinor
+                      - status
+                      - revokedReason
+                      - notes
+                      - createdBy
+                      - version
+                      - createdAt
+                    additionalProperties: false
+                  shares:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        distributionId:
+                          type: string
+                        personId:
+                          type: string
+                        personName:
+                          type: string
+                        shareBps:
+                          type: integer
+                        amountMinor:
+                          type: integer
+                        payoutStatus:
+                          type: string
+                          enum:
+                            - Pending
+                            - Paid
+                        paidOn:
+                          type: string
+                          nullable: true
+                        paymentSourceLabel:
+                          type: string
+                          nullable: true
+                        refNo:
+                          type: string
+                          nullable: true
+                        version:
+                          type: integer
+                      required:
+                        - distributionId
+                        - personId
+                        - personName
+                        - shareBps
+                        - amountMinor
+                        - payoutStatus
+                        - paidOn
+                        - paymentSourceLabel
+                        - refNo
+                        - version
+                      additionalProperties: false
+                required:
+                  - distribution
+                  - shares
+                additionalProperties: false
+  /api/v1/distributions/{distributionId}/revoke:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+              required:
+                - reason
+                - expectedVersion
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^DIST-\d{4,}$
+          in: path
+          name: distributionId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  distribution:
+                    type: object
+                    properties:
+                      distributionId:
+                        type: string
+                      missionId:
+                        type: string
+                      lineId:
+                        type: string
+                      poolMinor:
+                        type: integer
+                      currency:
+                        type: string
+                        enum:
+                          - USD
+                          - AED
+                          - SAR
+                          - EUR
+                          - GBP
+                      orgShareBps:
+                        type: integer
+                      orgCutMinor:
+                        type: integer
+                      status:
+                        type: string
+                        enum:
+                          - Live
+                          - Revoked
+                      revokedReason:
+                        type: string
+                        nullable: true
+                      notes:
+                        type: string
+                        nullable: true
+                      createdBy:
+                        type: string
+                      version:
+                        type: integer
+                      createdAt:
+                        type: string
+                    required:
+                      - distributionId
+                      - missionId
+                      - lineId
+                      - poolMinor
+                      - currency
+                      - orgShareBps
+                      - orgCutMinor
+                      - status
+                      - revokedReason
+                      - notes
+                      - createdBy
+                      - version
+                      - createdAt
+                    additionalProperties: false
+                  shares:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        distributionId:
+                          type: string
+                        personId:
+                          type: string
+                        personName:
+                          type: string
+                        shareBps:
+                          type: integer
+                        amountMinor:
+                          type: integer
+                        payoutStatus:
+                          type: string
+                          enum:
+                            - Pending
+                            - Paid
+                        paidOn:
+                          type: string
+                          nullable: true
+                        paymentSourceLabel:
+                          type: string
+                          nullable: true
+                        refNo:
+                          type: string
+                          nullable: true
+                        version:
+                          type: integer
+                      required:
+                        - distributionId
+                        - personId
+                        - personName
+                        - shareBps
+                        - amountMinor
+                        - payoutStatus
+                        - paidOn
+                        - paymentSourceLabel
+                        - refNo
+                        - version
+                      additionalProperties: false
+                required:
+                  - distribution
+                  - shares
+                additionalProperties: false
+  /api/v1/distributions/{distributionId}/payouts/{personId}:
+    post:
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                expectedVersion:
+                  type: integer
+                  minimum: 0
+                paid:
+                  type: boolean
+                paymentSourceLabel:
+                  type: string
+                  maxLength: 60
+                  nullable: true
+                refNo:
+                  type: string
+                  maxLength: 60
+                  nullable: true
+              required:
+                - expectedVersion
+                - paid
+              additionalProperties: false
+      parameters:
+        - schema:
+            type: string
+            pattern: ^DIST-\d{4,}$
+          in: path
+          name: distributionId
+          required: true
+        - schema:
+            type: string
+            pattern: ^PER-\d{4,}$
+          in: path
+          name: personId
+          required: true
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  share:
+                    type: object
+                    properties:
+                      distributionId:
+                        type: string
+                      personId:
+                        type: string
+                      personName:
+                        type: string
+                      shareBps:
+                        type: integer
+                      amountMinor:
+                        type: integer
+                      payoutStatus:
+                        type: string
+                        enum:
+                          - Pending
+                          - Paid
+                      paidOn:
+                        type: string
+                        nullable: true
+                      paymentSourceLabel:
+                        type: string
+                        nullable: true
+                      refNo:
+                        type: string
+                        nullable: true
+                      version:
+                        type: integer
+                    required:
+                      - distributionId
+                      - personId
+                      - personName
+                      - shareBps
+                      - amountMinor
+                      - payoutStatus
+                      - paidOn
+                      - paymentSourceLabel
+                      - refNo
+                      - version
+                    additionalProperties: false
+                required:
+                  - share
+                additionalProperties: false
   /api/v1/teams:
     get:
       responses:
@@ -16617,6 +17340,7 @@ paths:
                             - IncomeNotInvoiced
                             - PaymentOutstanding
                             - TeamUnstaffed
+                            - PayoutsOutstanding
                         headline:
                           type: string
                         reasons:

@@ -31,6 +31,8 @@ import {
   type Person,
   type Team,
   type TeamMembership,
+  type Distribution,
+  type DistributionShare,
   parseApprovalPayload,
 } from '@c3web/domain';
 
@@ -206,6 +208,45 @@ export function mapTeamMembership(row: any): TeamMembership {
     personName: row.personName ?? row.person_name ?? (row.personId ?? row.person_id),
     role: row.role,
     isActive: row.isActive ?? row.is_active,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapDistribution(row: any): Distribution {
+  return {
+    distributionId: row.distributionId ?? row.distribution_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    missionId: row.missionId ?? row.mission_id,
+    lineId: row.lineId ?? row.line_id,
+    poolMinor: Number(row.poolMinor ?? row.pool_minor),
+    currency: row.currency as Distribution['currency'],
+    orgShareBps: row.orgShareBps ?? row.org_share_bps,
+    orgCutMinor: Number(row.orgCutMinor ?? row.org_cut_minor),
+    status: (row.status ?? 'Live') as Distribution['status'],
+    revokedReason: row.revokedReason ?? row.revoked_reason ?? null,
+    notes: row.notes ?? null,
+    createdBy: row.createdBy ?? row.created_by,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+/** Share rows arrive joined with the person's display name. */
+export function mapDistributionShare(row: any): DistributionShare {
+  return {
+    tenantId: row.tenantId ?? row.tenant_id,
+    distributionId: row.distributionId ?? row.distribution_id,
+    personId: row.personId ?? row.person_id,
+    personName: row.personName ?? row.person_name ?? (row.personId ?? row.person_id),
+    shareBps: row.shareBps ?? row.share_bps,
+    amountMinor: Number(row.amountMinor ?? row.amount_minor),
+    payoutStatus: (row.payoutStatus ?? row.payout_status ?? 'Pending') as DistributionShare['payoutStatus'],
+    paidOn: row.paidOn ?? row.paid_on ?? null,
+    paymentSourceLabel: row.paymentSourceLabel ?? row.payment_source_label ?? null,
+    refNo: row.refNo ?? row.ref_no ?? null,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

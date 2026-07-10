@@ -77,6 +77,16 @@ export interface SituationSnapshot {
   /** S7 teams: game divisions must field a roster; departments are exempt. */
   readonly teams: ReadonlyArray<{ teamId: string; name: string; code: string; kind: string; isActive: boolean }>;
   readonly teamMemberships: ReadonlyArray<{ teamId: string; personId: string; isActive: boolean }>;
+  /** S8: live distributions with pending payouts owe people money. */
+  readonly distributions: ReadonlyArray<{
+    distributionId: string;
+    missionId: string;
+    status: string;
+    createdAt: string;
+    pendingCount: number;
+    pendingAmountMinor: number;
+    currency: string;
+  }>;
   readonly participants: ReadonlyArray<{ missionId: string; personId: string; role: string; isActive: boolean }>;
   readonly approvals: ReadonlyArray<{
     approvalId: string;
@@ -103,6 +113,7 @@ export const SIGNAL_KINDS = [
   'IncomeNotInvoiced',
   'PaymentOutstanding',
   'TeamUnstaffed',
+  'PayoutsOutstanding',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -487,7 +498,30 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
   }
 
-  // 7 — Journey drift: suspended and untouched for 14+ days.
+  // 7 — Payouts owed (S8): a LIVE distribution with pending payout rows is
+  //     money the org holds that belongs to people. Attention from day one;
+  //     immediate at 14 days.
+  for (const d of snapshot.distributions.filter((x) => x.status === 'Live' && x.pendingCount > 0)) {
+    const mission = snapshot.missions.find((m) => m.missionId === d.missionId);
+    const ageDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(d.createdAt)) / 86_400_000);
+    signals.push(
+      make({
+        key: `PayoutsOutstanding:${d.distributionId}`,
+        kind: 'PayoutsOutstanding',
+        headline: `${d.distributionId} on ${d.missionId}${mission ? ` "${mission.name}"` : ''} has ${d.pendingCount} payout${d.pendingCount === 1 ? '' : 's'} pending`,
+        reasons: [
+          `${formatMoney(d.pendingAmountMinor, d.currency as CurrencyCode)} allocated ${ageDays} day${ageDays === 1 ? '' : 's'} ago and not yet paid out`,
+          'Mark each payout as paid (bank label + reference) as the money moves.',
+        ],
+        impact: 2,
+        urgency: ageDays >= 14 ? 3 : 2,
+        inMotion: false,
+        actions: [{ kind: 'ViewMission', missionId: d.missionId }],
+      }),
+    );
+  }
+
+  // 8 — Journey drift: suspended and untouched for 14+ days.
   for (const j of snapshot.journeys.filter((j) => j.status === 'Suspended')) {
     const idleDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(j.updatedAt)) / 86_400_000);
     if (idleDays < 14) continue;
@@ -529,6 +563,7 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Post-mission income not yet invoiced (settlement blocker)',
   'Invoiced payments still outstanding post-mission (settlement blocker)',
   'Active game divisions with no active roster',
+  'Prize distributions with payouts still pending',
 ];
 
 /**
@@ -548,4 +583,5 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'IncomeNotInvoiced',
   'PaymentOutstanding',
   'TeamUnstaffed',
+  'PayoutsOutstanding',
 ];

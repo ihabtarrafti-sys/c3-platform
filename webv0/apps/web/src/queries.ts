@@ -76,6 +76,8 @@ export const useTeamFinance = (teamId: string, enabled = true) =>
   useQuery({ queryKey: ['teamFinance', teamId], queryFn: () => api.teamFinance(teamId), enabled });
 export const useTeamAudit = (teamId: string) =>
   useQuery({ queryKey: ['teamAudit', teamId], queryFn: () => api.teamAudit(teamId) });
+export const useMissionDistributions = (missionId: string) =>
+  useQuery({ queryKey: ['missionDistributions', missionId], queryFn: () => api.missionDistributions(missionId) });
 export const usePersonTeams = (personId: string) =>
   useQuery({ queryKey: ['personTeams', personId], queryFn: () => api.personTeams(personId) });
 

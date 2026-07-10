@@ -76,6 +76,15 @@ import {
   teamIdParamSchema,
   teamMemberRemoveParamSchema,
   flipVersionBodySchema,
+  distributionsListSchema,
+  distributionViewSchema,
+  distributionSeedSchema,
+  distributionShareSchema,
+  createDistributionRequestSchema,
+  revokeDistributionRequestSchema,
+  markPayoutRequestSchema,
+  distributionIdParamSchema,
+  payoutParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
   teamMemberInputSchema,
@@ -162,6 +171,12 @@ import {
   removeTeamMember,
   listTeamMembershipsForPerson,
   getTeamFinance,
+  listMissionDistributions,
+  getDistribution,
+  getDistributionSeed,
+  createDistribution,
+  revokeDistribution,
+  markPayout,
   voidInvoice,
   listInvoices,
   getInvoice,
@@ -232,7 +247,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1078,6 +1093,76 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { documentId } = req.params as { documentId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       return { document: toDocumentDto(await removeDocument(P, actorOf(req), documentId, expectedVersion)) };
+    },
+  );
+
+  // ── distributions (S8): the payout list — allocate, mark paid, revoke ──────
+  r.get(
+    '/api/v1/missions/:missionId/distributions',
+    { schema: { params: missionIdParamSchema, response: { 200: distributionsListSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const views = await listMissionDistributions(P, actorOf(req), missionId);
+      return { distributions: views.map((v) => ({ distribution: toDistributionDto(v.distribution), shares: v.shares.map(toDistributionShareDto) })) };
+    },
+  );
+
+  r.get(
+    '/api/v1/distributions/seed',
+    { schema: { querystring: z.object({ missionId: z.string().regex(/^MSN-\d{4,}$/) }), response: { 200: distributionSeedSchema } } },
+    async (req) => {
+      const { missionId } = req.query as { missionId: string };
+      return { rows: (await getDistributionSeed(P, actorOf(req), missionId)).map((r0) => ({ ...r0 })) };
+    },
+  );
+
+  r.get(
+    '/api/v1/distributions/:distributionId',
+    { schema: { params: distributionIdParamSchema, response: { 200: distributionViewSchema } } },
+    async (req) => {
+      const { distributionId } = req.params as { distributionId: string };
+      const view = await getDistribution(P, actorOf(req), distributionId);
+      return { distribution: toDistributionDto(view.distribution), shares: view.shares.map(toDistributionShareDto) };
+    },
+  );
+
+  r.get(
+    '/api/v1/distributions/:distributionId/audit',
+    { schema: { params: distributionIdParamSchema, response: { 200: auditEventsListSchema } } },
+    async (req) => {
+      const { distributionId } = req.params as { distributionId: string };
+      const events = await listAuditEvents(P, actorOf(req), 'Distribution', distributionId);
+      return { events: events.map(toAuditEventDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/distributions',
+    { schema: { body: createDistributionRequestSchema, response: { 201: distributionViewSchema } } },
+    async (req, reply) => {
+      const view = await createDistribution(P, actorOf(req), req.body as import('@c3web/domain').CreateDistributionInput);
+      return reply.status(201).send({ distribution: toDistributionDto(view.distribution), shares: view.shares.map(toDistributionShareDto) });
+    },
+  );
+
+  r.post(
+    '/api/v1/distributions/:distributionId/revoke',
+    { schema: { params: distributionIdParamSchema, body: revokeDistributionRequestSchema, response: { 200: distributionViewSchema } } },
+    async (req) => {
+      const { distributionId } = req.params as { distributionId: string };
+      const { reason, expectedVersion } = req.body as { reason: string; expectedVersion: number };
+      const view = await revokeDistribution(P, actorOf(req), distributionId, reason, expectedVersion);
+      return { distribution: toDistributionDto(view.distribution), shares: view.shares.map(toDistributionShareDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/distributions/:distributionId/payouts/:personId',
+    { schema: { params: payoutParamSchema, body: markPayoutRequestSchema, response: { 200: z.object({ share: distributionShareSchema }) } } },
+    async (req) => {
+      const { distributionId, personId } = req.params as { distributionId: string; personId: string };
+      const share = await markPayout(P, actorOf(req), distributionId, personId, req.body as import('@c3web/domain').MarkPayoutInput);
+      return { share: toDistributionShareDto(share) };
     },
   );
 

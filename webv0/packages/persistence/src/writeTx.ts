@@ -24,6 +24,8 @@ import {
   type Journey,
   type Team,
   type TeamMembership,
+  type Distribution,
+  type DistributionShare,
   type JourneyStatus,
   type Kit,
   type Member,
@@ -33,10 +35,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -803,6 +805,78 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.invoice.invoiceId, invoiceId), eq(schema.invoice.version, expectedVersion)))
         .returning();
       return rows[0] ? mapInvoice(rows[0]) : null;
+    },
+
+    // ── S8 distributions (direct-audited; one LIVE per line; no deletes) ─────
+    async insertDistribution(row: NewDistributionRow): Promise<Distribution> {
+      const [r] = await db.insert(schema.distribution).values({ tenantId, status: 'Live', ...row }).returning();
+      return mapDistribution(r);
+    },
+
+    async insertDistributionShare(row: NewDistributionShareRow): Promise<void> {
+      await db.insert(schema.distributionShare).values({ tenantId, ...row });
+    },
+
+    async getDistribution(distributionId: string): Promise<Distribution | null> {
+      const rows = await db.select().from(schema.distribution).where(eq(schema.distribution.distributionId, distributionId)).limit(1);
+      return rows[0] ? mapDistribution(rows[0]) : null;
+    },
+
+    async getDistributionShare(distributionId: string, personId: string): Promise<DistributionShare | null> {
+      const res = await db.execute(sql`
+        SELECT ds.*, p.full_name AS person_name
+          FROM distribution_share ds
+          JOIN person p ON p.tenant_id = ds.tenant_id AND p.person_id = ds.person_id
+         WHERE ds.distribution_id = ${distributionId} AND ds.person_id = ${personId}
+      `);
+      const row = res.rows[0];
+      return row ? mapDistributionShare(row) : null;
+    },
+
+    async listDistributionSharesTx(distributionId: string): Promise<DistributionShare[]> {
+      const res = await db.execute(sql`
+        SELECT ds.*, p.full_name AS person_name
+          FROM distribution_share ds
+          JOIN person p ON p.tenant_id = ds.tenant_id AND p.person_id = ds.person_id
+         WHERE ds.distribution_id = ${distributionId}
+         ORDER BY ds.amount_minor DESC, ds.person_id ASC
+      `);
+      return res.rows.map(mapDistributionShare);
+    },
+
+    async revokeDistribution(distributionId: string, expectedVersion: number, reason: string): Promise<Distribution | null> {
+      const rows = await db
+        .update(schema.distribution)
+        .set({ status: 'Revoked', revokedReason: reason, version: sql`${schema.distribution.version} + 1` })
+        .where(
+          and(
+            eq(schema.distribution.distributionId, distributionId),
+            eq(schema.distribution.version, expectedVersion),
+            eq(schema.distribution.status, 'Live'),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapDistribution(rows[0]) : null;
+    },
+
+    async setPayout(
+      distributionId: string,
+      personId: string,
+      expectedVersion: number,
+      patch: { payoutStatus: string; paidOn: string | null; paymentSourceLabel: string | null; refNo: string | null },
+    ): Promise<DistributionShare | null> {
+      const rows = await db
+        .update(schema.distributionShare)
+        .set({ ...patch, version: sql`${schema.distributionShare.version} + 1` })
+        .where(
+          and(
+            eq(schema.distributionShare.distributionId, distributionId),
+            eq(schema.distributionShare.personId, personId),
+            eq(schema.distributionShare.version, expectedVersion),
+          ),
+        )
+        .returning();
+      return rows[0] ? this.getDistributionShare(distributionId, personId) : null;
     },
 
     // ── S7 teams (direct-audited org structure; the entity-register pattern) ──

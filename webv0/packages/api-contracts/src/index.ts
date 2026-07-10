@@ -507,6 +507,67 @@ export const teamMemberRemoveParamSchema = z.object({
 });
 export const flipVersionBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 
+// ── distributions (S8): org cut + shares == pool EXACTLY; payout list ────────
+export const distributionShareSchema = z.object({
+  distributionId: z.string(),
+  personId: z.string(),
+  personName: z.string(),
+  shareBps: z.number().int(),
+  amountMinor: z.number().int(),
+  payoutStatus: z.enum(['Pending', 'Paid']),
+  paidOn: z.string().nullable(),
+  paymentSourceLabel: z.string().nullable(),
+  refNo: z.string().nullable(),
+  version: z.number().int(),
+});
+export type DistributionShareDto = z.infer<typeof distributionShareSchema>;
+export const distributionSchema = z.object({
+  distributionId: z.string(),
+  missionId: z.string(),
+  lineId: z.string(),
+  poolMinor: z.number().int(),
+  currency: z.enum(CURRENCY_CODES),
+  orgShareBps: z.number().int(),
+  orgCutMinor: z.number().int(),
+  status: z.enum(['Live', 'Revoked']),
+  revokedReason: z.string().nullable(),
+  notes: z.string().nullable(),
+  createdBy: z.string(),
+  version: z.number().int(),
+  createdAt: z.string(),
+});
+export type DistributionDto = z.infer<typeof distributionSchema>;
+export const distributionViewSchema = z.object({ distribution: distributionSchema, shares: z.array(distributionShareSchema) });
+export const distributionsListSchema = z.object({ distributions: z.array(distributionViewSchema) });
+export const distributionSeedSchema = z.object({
+  rows: z.array(z.object({ personId: z.string(), personName: z.string(), suggestedBps: z.number().int().nullable(), sourceTermId: z.string().nullable() })),
+});
+export const createDistributionRequestSchema = z
+  .object({
+    missionId: z.string().regex(/^MSN-\d{4,}$/),
+    lineId: z.string().regex(/^PNL-\d{4,}$/),
+    orgShareBps: z.number().int().min(0).max(10000),
+    shares: z.array(z.object({ personId: z.string().regex(/^PER-\d{4,}$/), shareBps: z.number().int().min(1).max(10000) }).strict()).max(100),
+    notes: z.string().max(2000).nullish(),
+  })
+  .strict();
+export const revokeDistributionRequestSchema = z
+  .object({ reason: z.string().trim().min(1).max(500), expectedVersion: z.number().int().min(0) })
+  .strict();
+export const markPayoutRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    paid: z.boolean(),
+    paymentSourceLabel: z.string().max(60).nullish(),
+    refNo: z.string().max(60).nullish(),
+  })
+  .strict();
+export const distributionIdParamSchema = z.object({ distributionId: z.string().regex(/^DIST-\d{4,}$/) });
+export const payoutParamSchema = z.object({
+  distributionId: z.string().regex(/^DIST-\d{4,}$/),
+  personId: z.string().regex(/^PER-\d{4,}$/),
+});
+
 // ── invoices (S6): per-entity series, one income line each, VAT, PDF ─────────
 export const INVOICE_STATUSES = ['Issued', 'Voided'] as const;
 export const invoiceSchema = z.object({
@@ -742,7 +803,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),
