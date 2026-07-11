@@ -42,6 +42,7 @@ import type {
   ClaimDto,
   NotificationDto,
   DelegationDto,
+  BeneficiaryDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -375,6 +376,15 @@ export function createApiClient(deps: ApiClientDeps) {
     distributionSeed: (missionId: string) => request<{ rows: Array<{ personId: string; personName: string; suggestedBps: number | null; sourceTermId: string | null }> }>('GET', `/api/v1/distributions/seed?missionId=${missionId}`),
     createDistribution: (input: { missionId: string; lineId: string; orgShareBps: number; shares: Array<{ personId: string; shareBps: number }>; notes?: string | null }) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', '/api/v1/distributions', input),
     revokeDistribution: (distributionId: string, reason: string, expectedVersion: number) => request<{ distribution: DistributionDto; shares: DistributionShareDto[] }>('POST', `/api/v1/distributions/${distributionId}/revoke`, { reason, expectedVersion }),
+    // S12: credentials v2 (facts governed / details direct) + beneficiaries.
+    submitCredentialFacts: (credentialId: string, input: { patch: Record<string, unknown>; reason?: string }) => request<{ approval: ApprovalDto }>('POST', '/api/v1/credentials/' + credentialId + '/facts-request', input),
+    updateCredentialDetails: (credentialId: string, input: { expectedVersion: number; patch: Record<string, unknown> }) => request<{ credential: CredentialDto }>('PATCH', '/api/v1/credentials/' + credentialId, input),
+    listBeneficiaries: () => request<{ beneficiaries: BeneficiaryDto[] }>('GET', '/api/v1/beneficiaries'),
+    personBeneficiaries: (personId: string) => request<{ beneficiaries: BeneficiaryDto[] }>('GET', '/api/v1/people/' + personId + '/beneficiaries'),
+    submitAddBeneficiary: (input: Record<string, unknown>, reason?: string) => request<{ approval: ApprovalDto }>('POST', '/api/v1/beneficiaries/requests', { input, reason }),
+    submitUpdateBeneficiary: (beneficiaryId: string, input: { patch: Record<string, unknown>; reason?: string }) => request<{ approval: ApprovalDto }>('POST', '/api/v1/beneficiaries/' + beneficiaryId + '/update-request', input),
+    submitRetireBeneficiary: (beneficiaryId: string, reason: string) => request<{ approval: ApprovalDto }>('POST', '/api/v1/beneficiaries/' + beneficiaryId + '/retire-request', { reason }),
+    downloadBankForm: (personId: string) => download('/api/v1/people/' + personId + '/beneficiaries/bank-form'),
     // S11: people v2 — governed identity/lifecycle + direct operational.
     updatePersonOperational: (personId: string, input: { expectedVersion: number; patch: Record<string, unknown> }) => request<{ person: PersonDto }>('PATCH', '/api/v1/people/' + personId, input),
     submitPersonIdentity: (personId: string, input: { patch: Record<string, unknown>; reason?: string }) => request<{ approval: ApprovalDto }>('POST', '/api/v1/people/' + personId + '/identity-request', input),

@@ -44,6 +44,7 @@ import {
   formatCredentialId,
   formatJourneyId,
   formatPersonId,
+  formatBeneficiaryId,
   assertTermShape,
   NotFoundError,
   ParticipantConflictError,
@@ -262,6 +263,9 @@ export async function executeApproval(
             credentialId,
             personId: input.personId,
             credentialType: input.credentialType,
+            kind: input.kind,
+            documentNumber: input.documentNumber,
+            issuingCountry: input.issuingCountry,
             issuer: input.issuer,
             issuedOn: input.issuedOn,
             expiresOn: input.expiresOn,
@@ -901,6 +905,176 @@ export async function executeApproval(
             after: { status: 'Executed', operationType: approval.payload.operationType, personId: input.personId },
           });
           return { approval: executed, person, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
+        // ── S12: governed credential facts + the beneficiary registry ────────
+        if (approval.payload.operationType === 'UpdateCredentialFacts') {
+          const { input } = approval.payload;
+          const current = await tx.lockCredential(input.credentialId);
+          if (!current) throw new NotFoundError('Credential', input.credentialId);
+          const patch = input.patch;
+          // date sanity re-checked against the RESULTING pair (sparse patch)
+          const issued = patch.issuedOn ?? current.issuedOn;
+          const expires = patch.expiresOn !== undefined ? patch.expiresOn : current.expiresOn;
+          if (expires !== null && expires <= issued) {
+            throw new ConflictError('Expiry must be after the issue date.', { credentialId: input.credentialId, issued, expires });
+          }
+          const before: Record<string, unknown> = {};
+          const after: Record<string, unknown> = {};
+          for (const key of Object.keys(patch) as Array<keyof typeof patch>) {
+            before[key] = current[key as keyof typeof current] ?? null;
+            after[key] = patch[key] ?? null;
+          }
+          const credential = await tx.updateCredentialFields(input.credentialId, current.version, patch);
+          if (!credential) throw new ConcurrencyError('Credential', input.credentialId);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: credential facts updated for ${input.credentialId} (${Object.keys(patch).join(', ')})`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Credential',
+            entityId: input.credentialId,
+            action: 'CredentialFactsUpdated',
+            actor: actor.identity,
+            before,
+            after,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'UpdateCredentialFacts', credentialId: input.credentialId },
+          });
+          return { approval: executed, person: null, credential, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
+        if (approval.payload.operationType === 'AddBeneficiary') {
+          const { input } = approval.payload;
+          const seq = await tx.allocateSequence('beneficiary');
+          const beneficiaryId = formatBeneficiaryId(seq);
+          try {
+            await tx.insertBeneficiary({
+              beneficiaryId,
+              personId: input.personId,
+              label: input.label,
+              bankName: input.bankName,
+              bankCountry: input.bankCountry,
+              currency: input.currency,
+              paymentType: input.paymentType,
+              registeredWithEntityId: input.registeredWithEntityId,
+              notes: input.notes,
+              createdByApprovalId: approvalId,
+            });
+          } catch (err) {
+            if (isUniqueViolation(err)) {
+              throw new ConflictError(`'${input.label}' is already a live beneficiary label for ${input.personId}.`);
+            }
+            throw err;
+          }
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: beneficiary ${beneficiaryId} "${input.label}" for ${input.personId}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Beneficiary',
+            entityId: beneficiaryId,
+            action: 'BeneficiaryAdded',
+            actor: actor.identity,
+            before: null,
+            after: { personId: input.personId, label: input.label, bankName: input.bankName, currency: input.currency },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'AddBeneficiary', beneficiaryId },
+          });
+          return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
+        if (approval.payload.operationType === 'UpdateBeneficiary' || approval.payload.operationType === 'RetireBeneficiary') {
+          const retiring = approval.payload.operationType === 'RetireBeneficiary';
+          const beneficiaryId = approval.payload.input.beneficiaryId;
+          const current = await tx.lockBeneficiary(beneficiaryId);
+          if (!current) throw new NotFoundError('Beneficiary', beneficiaryId);
+          if (current.status === 'Retired') {
+            throw new ConflictError(`${beneficiaryId} is already retired.`);
+          }
+          const patch = retiring
+            ? { status: 'Retired', statusDate: new Date().toISOString().slice(0, 10), notes: current.notes }
+            : approval.payload.input.patch;
+          const before: Record<string, unknown> = {};
+          const after: Record<string, unknown> = {};
+          for (const key of Object.keys(patch) as Array<keyof typeof patch>) {
+            before[key] = (current as unknown as Record<string, unknown>)[key] ?? null;
+            after[key] = (patch as Record<string, unknown>)[key] ?? null;
+          }
+          let updated;
+          try {
+            updated = await tx.updateBeneficiaryFields(beneficiaryId, current.version, patch);
+          } catch (err) {
+            if (isUniqueViolation(err)) {
+              throw new ConflictError('That label is already live for this person.');
+            }
+            throw err;
+          }
+          if (!updated) throw new ConcurrencyError('Beneficiary', beneficiaryId);
+
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: retiring
+              ? `Executed: retired ${beneficiaryId} — ${approval.payload.input.reason}`
+              : `Executed: beneficiary ${beneficiaryId} updated (${Object.keys(patch).join(', ')})`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Beneficiary',
+            entityId: beneficiaryId,
+            action: retiring ? 'BeneficiaryRetired' : 'BeneficiaryUpdated',
+            actor: actor.identity,
+            before,
+            after: retiring ? { ...after, reason: approval.payload.input.reason } : after,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: approval.payload.operationType, beneficiaryId },
+          });
+          return { approval: executed, person: null, credential: null, journey: null, participant: null, agreement: null, idempotent: false };
         }
 
         // ── Sprint 35: member operations ───────────────────────────────────

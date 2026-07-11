@@ -14,6 +14,7 @@ export * from './agreementTerm';
 export * from './businessIds';
 export * from './claim';
 export * from './delegation';
+export * from './beneficiary';
 export * from './credential';
 export * from './dataQuality';
 export * from './distribution';

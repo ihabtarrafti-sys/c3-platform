@@ -78,6 +78,7 @@ export const useTeamAudit = (teamId: string) =>
   useQuery({ queryKey: ['teamAudit', teamId], queryFn: () => api.teamAudit(teamId) });
 export const useDelegations = (enabled = true) => useQuery({ queryKey: ['delegations'], queryFn: () => api.listDelegations(), enabled });
 export const useBackupStatus = (enabled = true) => useQuery({ queryKey: ['backupStatus'], queryFn: () => api.backupStatus(), enabled });
+export const usePersonBeneficiaries = (personId: string, enabled = true) => useQuery({ queryKey: ['personBeneficiaries', personId], queryFn: () => api.personBeneficiaries(personId), enabled });
 export const useNotifications = () => useQuery({ queryKey: ['notifications'], queryFn: () => api.listNotifications(), refetchInterval: 60_000 });
 export const useClaims = (enabled = true) => useQuery({ queryKey: ['claims'], queryFn: () => api.listClaims(), enabled });
 export const useClaim = (claimId: string) => useQuery({ queryKey: ['claim', claimId], queryFn: () => api.getClaim(claimId) });

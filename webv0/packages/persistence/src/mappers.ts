@@ -36,6 +36,7 @@ import {
   type Claim,
   parseApprovalPayload,
   Delegation,
+  Beneficiary,
 } from '@c3web/domain';
 
 const iso = (v: Date | string | null): string | null =>
@@ -99,6 +100,9 @@ export function mapCredential(row: any): Credential {
     tenantId: row.tenantId ?? row.tenant_id,
     personId: row.personId ?? row.person_id,
     credentialType: row.credentialType ?? row.credential_type,
+    kind: (row.kind ?? 'Other'),
+    documentNumber: row.documentNumber ?? row.document_number ?? null,
+    issuingCountry: row.issuingCountry ?? row.issuing_country ?? null,
     issuer: row.issuer ?? null,
     issuedOn: plainDate(row.issuedOn ?? row.issued_on)!,
     expiresOn: plainDate(row.expiresOn ?? row.expires_on),
@@ -246,6 +250,26 @@ export function mapClaim(row: any): Claim {
     paidOn: row.paidOn ?? row.paid_on ?? null,
     paymentSourceLabel: row.paymentSourceLabel ?? row.payment_source_label ?? null,
     refNo: row.refNo ?? row.ref_no ?? null,
+    version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapBeneficiary(row: any): Beneficiary {
+  return {
+    tenantId: row.tenantId ?? row.tenant_id,
+    beneficiaryId: row.beneficiaryId ?? row.beneficiary_id,
+    personId: row.personId ?? row.person_id,
+    label: row.label,
+    bankName: row.bankName ?? row.bank_name,
+    bankCountry: row.bankCountry ?? row.bank_country,
+    currency: row.currency,
+    paymentType: row.paymentType ?? row.payment_type ?? null,
+    registeredWithEntityId: row.registeredWithEntityId ?? row.registered_with_entity_id ?? null,
+    status: (row.status ?? 'Draft'),
+    statusDate: row.statusDate ?? row.status_date ?? null,
+    notes: row.notes ?? null,
     version: row.version,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

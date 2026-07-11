@@ -26,6 +26,8 @@ import {
   setFxRateInputSchema,
   addAgreementInputSchema,
   addCredentialInputSchema,
+  addBeneficiaryInputSchema,
+  updateBeneficiaryInputSchema,
   addMissionParticipantInputSchema,
   addPersonInputSchema,
   submitAddAgreementTermInputSchema,
@@ -199,6 +201,11 @@ export const credentialSchema = z.object({
   credentialId: z.string(),
   personId: z.string(),
   credentialType: z.string(),
+  // S12: typed taxonomy + issuing country (visible to all).
+  kind: z.enum(['Passport', 'NationalID', 'Visa', 'License', 'Other']),
+  issuingCountry: z.string().nullable(),
+  // S12 PII tier — STRUCTURALLY OMITTED without canViewPersonPII:
+  documentNumber: z.string().nullable().optional(),
   issuer: z.string().nullable(),
   issuedOn: z.string(), // plain ISO date, YYYY-MM-DD
   expiresOn: z.string().nullable(),
@@ -210,6 +217,67 @@ export const credentialSchema = z.object({
 });
 export type CredentialDto = z.infer<typeof credentialSchema>;
 export const credentialsListSchema = z.object({ credentials: z.array(credentialSchema) });
+
+// ── S12: credential facts (governed) + details (direct) + beneficiaries ─────
+export const submitCredentialFactsRequestSchema = z
+  .object({
+    patch: z
+      .object({
+        kind: z.enum(['Passport', 'NationalID', 'Visa', 'License', 'Other']).optional(),
+        documentNumber: z.string().max(120).nullable().optional(),
+        issuingCountry: z.string().max(120).nullable().optional(),
+        issuedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+        expiresOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+      })
+      .strict(),
+    reason: z.string().max(500).optional(),
+  })
+  .strict();
+
+export const updateCredentialDetailsRequestSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    patch: z
+      .object({
+        credentialType: z.string().min(1).max(120).optional(),
+        issuer: z.string().max(160).nullable().optional(),
+        notes: z.string().max(2000).nullable().optional(),
+      })
+      .strict(),
+  })
+  .strict();
+
+export const beneficiarySchema = z.object({
+  beneficiaryId: z.string(),
+  personId: z.string(),
+  label: z.string(),
+  bankName: z.string(),
+  bankCountry: z.string(),
+  currency: z.string(),
+  paymentType: z.string().nullable(),
+  registeredWithEntityId: z.string().nullable(),
+  status: z.enum(['Draft', 'Registered', 'Retired']),
+  statusDate: z.string().nullable(),
+  notes: z.string().nullable(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type BeneficiaryDto = z.infer<typeof beneficiarySchema>;
+export const beneficiariesListSchema = z.object({ beneficiaries: z.array(beneficiarySchema) });
+
+export const submitAddBeneficiaryRequestSchema = z
+  .object({ input: addBeneficiaryInputSchema, reason: z.string().max(500).optional() })
+  .strict();
+export const submitUpdateBeneficiaryRequestSchema = z
+  .object({
+    patch: updateBeneficiaryInputSchema.shape.patch,
+    reason: z.string().max(500).optional(),
+  })
+  .strict();
+export const submitRetireBeneficiaryRequestSchema = z
+  .object({ reason: z.string().min(1).max(500) })
+  .strict();
 
 export const submitAddCredentialRequestSchema = z.object({
   input: addCredentialInputSchema,
@@ -1078,5 +1146,7 @@ export type MeResponse = z.infer<typeof meResponseSchema>;
 // ── path params ─────────────────────────────────────────────────────────────
 export const personIdParamSchema = z.object({ personId: z.string().regex(/^PER-\d{4,}$/) });
 export const approvalIdParamSchema = z.object({ approvalId: z.string().regex(/^APR-\d{4,}$/) });
+export const beneficiaryIdParamSchema = z.object({ beneficiaryId: z.string().regex(/^BEN-\d{4,}$/) });
+export const credentialResponseSchema = z.object({ credential: credentialSchema });
 export const credentialIdParamSchema = z.object({ credentialId: z.string().regex(/^CRED-\d{4,}$/) });
 export const journeyIdParamSchema = z.object({ journeyId: z.string().regex(/^JRN-\d{4,}$/) });

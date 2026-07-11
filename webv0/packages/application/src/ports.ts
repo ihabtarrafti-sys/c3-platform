@@ -39,6 +39,7 @@ import type {
   Claim,
   C3Notification,
   Delegation,
+  Beneficiary,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -121,6 +122,10 @@ export interface ReadStore {
   // S10: the actor's own notification inbox (newest first, capped).
   listNotifications(identity: string, limit: number): Promise<C3Notification[]>;
   listDelegations(): Promise<Delegation[]>;
+  // S12: the beneficiary registry (finance-gated at the usecase).
+  listBeneficiaries(): Promise<Beneficiary[]>;
+  listBeneficiariesForPerson(personId: string): Promise<Beneficiary[]>;
+  getBeneficiaryById(beneficiaryId: string): Promise<Beneficiary | null>;
   /** Tier 0.5: the unrevoked delegation held by this grantee, if any (its DLG id). */
   findUnrevokedDelegationId(granteeIdentity: string): Promise<string | null>;
   /** Tier 0.5: does this identity hold an UNREVOKED delegation whose window covers onDate? */
@@ -153,6 +158,42 @@ export interface PersonFieldsPatch {
   addressCountry?: string | null;
   phone?: string | null;
   email?: string | null;
+}
+
+export interface CredentialFieldsPatch {
+  kind?: string;
+  documentNumber?: string | null;
+  issuingCountry?: string | null;
+  issuedOn?: string;
+  expiresOn?: string | null;
+  credentialType?: string;
+  issuer?: string | null;
+  notes?: string | null;
+}
+
+export interface NewBeneficiaryRow {
+  beneficiaryId: string;
+  personId: string;
+  label: string;
+  bankName: string;
+  bankCountry: string;
+  currency: string;
+  paymentType: string | null;
+  registeredWithEntityId: string | null;
+  notes: string | null;
+  createdByApprovalId: string | null;
+}
+
+export interface BeneficiaryFieldsPatch {
+  label?: string;
+  bankName?: string;
+  bankCountry?: string;
+  currency?: string;
+  paymentType?: string | null;
+  registeredWithEntityId?: string | null;
+  status?: string;
+  statusDate?: string | null;
+  notes?: string | null;
 }
 
 export interface NewPersonRow {
@@ -193,6 +234,9 @@ export interface NewCredentialRow {
   readonly credentialId: string;
   readonly personId: string;
   readonly credentialType: string;
+  readonly kind?: string;
+  readonly documentNumber?: string | null;
+  readonly issuingCountry?: string | null;
   readonly issuer: string | null;
   readonly issuedOn: string; // plain ISO YYYY-MM-DD
   readonly expiresOn: string | null;
@@ -471,6 +515,7 @@ export interface WriteTx {
       | 'distribution'
       | 'claim'
       | 'delegation'
+      | 'beneficiary'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -506,6 +551,13 @@ export interface WriteTx {
   updatePersonFields(personId: string, expectedVersion: number, patch: PersonFieldsPatch): Promise<Person | null>;
   /** S11: lifecycle flip with version guard. */
   setPersonActive(personId: string, expectedVersion: number, isActive: boolean): Promise<Person | null>;
+  // ── S12: credential v2 + the beneficiary registry ─────────────────────────
+  lockCredential(credentialId: string): Promise<Credential | null>;
+  /** Sparse facts/details patch with version guard — null clears, undefined leaves untouched. */
+  updateCredentialFields(credentialId: string, expectedVersion: number, patch: CredentialFieldsPatch): Promise<Credential | null>;
+  insertBeneficiary(row: NewBeneficiaryRow): Promise<Beneficiary>;
+  lockBeneficiary(beneficiaryId: string): Promise<Beneficiary | null>;
+  updateBeneficiaryFields(beneficiaryId: string, expectedVersion: number, patch: BeneficiaryFieldsPatch): Promise<Beneficiary | null>;
 
   /** Return the person an approval already created (idempotent execute path). */
   getPersonByCreatingApproval(approvalId: string): Promise<Person | null>;

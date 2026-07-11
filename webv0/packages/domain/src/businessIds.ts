@@ -31,7 +31,8 @@ export type BusinessIdKind =
   | 'team'
   | 'distribution'
   | 'claim'
-  | 'delegation';
+  | 'delegation'
+  | 'beneficiary';
 
 const PREFIX: Record<BusinessIdKind, string> = {
   person: 'PER',
@@ -51,6 +52,7 @@ const PREFIX: Record<BusinessIdKind, string> = {
   distribution: 'DIST',
   claim: 'CLM',
   delegation: 'DLG',
+  beneficiary: 'BEN',
 };
 
 const PATTERN: Record<BusinessIdKind, RegExp> = {
@@ -71,6 +73,7 @@ const PATTERN: Record<BusinessIdKind, RegExp> = {
   distribution: /^DIST-\d{4,}$/,
   claim: /^CLM-\d{4,}$/,
   delegation: /^DLG-\d{4,}$/,
+  beneficiary: /^BEN-\d{4,}$/,
 };
 
 /** Format an allocated sequence number into a canonical business ID. */
@@ -96,6 +99,7 @@ export const formatEntityId = (sequence: number): string => formatBusinessId('en
 export const formatInvoiceId = (sequence: number): string => formatBusinessId('invoice', sequence);
 export const formatTeamId = (sequence: number): string => formatBusinessId('team', sequence);
 export const formatDistributionId = (sequence: number): string => formatBusinessId('distribution', sequence);
+export const formatBeneficiaryId = (sequence: number): string => formatBusinessId('beneficiary', sequence);
 export const formatDelegationId = (sequence: number): string => formatBusinessId('delegation', sequence);
 export const formatClaimId = (sequence: number): string => formatBusinessId('claim', sequence);
 

@@ -4,9 +4,9 @@
  */
 import { delegationState } from '@c3web/domain';
 import type { PayloadDisclosure } from '@c3web/authz';
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -41,12 +41,19 @@ export function toJourneyDto(j: Journey): JourneyDto {
   };
 }
 
-/** Credential → wire (plain ISO dates pass through untouched). */
-export function toCredentialDto(c: Credential): CredentialDto {
+/**
+ * Credential → wire (plain ISO dates pass through untouched). S12: the
+ * document number is PII — structurally omitted without standing, same law
+ * and same shape as toPersonDto.
+ */
+export function toCredentialDto(c: Credential, includePii: boolean): CredentialDto {
   return {
     credentialId: c.credentialId,
     personId: c.personId,
     credentialType: c.credentialType,
+    kind: c.kind,
+    issuingCountry: c.issuingCountry,
+    ...(includePii ? { documentNumber: c.documentNumber } : {}),
     issuer: c.issuer,
     issuedOn: c.issuedOn,
     expiresOn: c.expiresOn,
@@ -55,6 +62,26 @@ export function toCredentialDto(c: Credential): CredentialDto {
     version: c.version,
     createdAt: c.createdAt,
     updatedAt: c.updatedAt,
+  };
+}
+
+/** S12: beneficiary → wire (names/labels only — no account data exists to map). */
+export function toBeneficiaryDto(b: Beneficiary): BeneficiaryDto {
+  return {
+    beneficiaryId: b.beneficiaryId,
+    personId: b.personId,
+    label: b.label,
+    bankName: b.bankName,
+    bankCountry: b.bankCountry,
+    currency: b.currency,
+    paymentType: b.paymentType,
+    registeredWithEntityId: b.registeredWithEntityId,
+    status: b.status,
+    statusDate: b.statusDate,
+    notes: b.notes,
+    version: b.version,
+    createdAt: b.createdAt,
+    updatedAt: b.updatedAt,
   };
 }
 
@@ -419,6 +446,16 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
       if (d.pii) return payload as unknown as Record<string, unknown>;
       const { dateOfBirth: _dob, ...patch } = payload.input.patch;
       return { operationType: payload.operationType, input: { personId: payload.input.personId, patch } };
+    }
+    case 'UpdateCredentialFacts': {
+      if (d.pii) return payload as unknown as Record<string, unknown>;
+      const { documentNumber: _num, ...patch } = payload.input.patch;
+      return { operationType: payload.operationType, input: { credentialId: payload.input.credentialId, patch } };
+    }
+    case 'AddCredential': {
+      if (d.pii) return payload as unknown as Record<string, unknown>;
+      const { documentNumber: _num, ...input } = payload.input as Record<string, unknown>;
+      return { operationType: payload.operationType, input };
     }
     case 'AddAgreement': {
       if (d.financial) return payload as unknown as Record<string, unknown>;

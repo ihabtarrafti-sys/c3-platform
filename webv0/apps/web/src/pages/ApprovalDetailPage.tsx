@@ -143,7 +143,15 @@ export function ApprovalDetailPage() {
                                       ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Deactivate ${payload!.input.personId} — ${payload!.input.reason}`}</span> }]
                                       : payload!.operationType === 'ReactivatePerson'
                                         ? [{ label: 'Lifecycle', value: <span data-testid="approval-person-subject">{`Reactivate ${payload!.input.personId} — ${payload!.input.reason}`}</span> }]
-                                        : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{payload!.input.email}</span> }]),
+                                        : payload!.operationType === 'UpdateCredentialFacts'
+                                          ? [{ label: 'Credential facts', value: <span data-testid="approval-credential-subject">{`${payload!.input.credentialId}: ${Object.keys(payload!.input.patch).join(', ')}`}</span> }]
+                                          : payload!.operationType === 'AddBeneficiary'
+                                            ? [{ label: 'Beneficiary', value: <span data-testid="approval-beneficiary-subject">{`"${payload!.input.label}" (${payload!.input.bankName}) for ${payload!.input.personId}`}</span> }]
+                                            : payload!.operationType === 'UpdateBeneficiary'
+                                              ? [{ label: 'Beneficiary', value: <span data-testid="approval-beneficiary-subject">{`Change ${payload!.input.beneficiaryId}: ${Object.keys(payload!.input.patch).join(', ')}`}</span> }]
+                                              : payload!.operationType === 'RetireBeneficiary'
+                                                ? [{ label: 'Beneficiary', value: <span data-testid="approval-beneficiary-subject">{`Retire ${payload!.input.beneficiaryId} — ${payload!.input.reason}`}</span> }]
+                                                : [{ label: 'Subject member', value: <span data-testid="approval-member-email">{payload!.input.email}</span> }]),
         { label: 'Submitted by', value: a.submittedBy },
         { label: 'Reviewed by', value: a.reviewedBy ?? null },
         {
@@ -402,6 +410,42 @@ function ProposedChange({ payload }: { payload: ApprovalPayloadDto }) {
     case 'ReactivatePerson':
       rows = [
         { label: 'Person', value: v(payload.input.personId) },
+        { label: 'Reason', value: v(payload.input.reason) },
+      ];
+      break;
+    case 'UpdateCredentialFacts': {
+      const patch = payload.input.patch as Record<string, unknown>;
+      rows = [
+        { label: 'Credential', value: v(payload.input.credentialId) },
+        ...Object.entries(patch).map(([k, val]) => ({ label: `New ${k}`, value: v(val) })),
+        // the projection strips documentNumber for non-PII viewers — name it
+        ...('documentNumber' in patch ? [] : []),
+      ];
+      break;
+    }
+    case 'AddBeneficiary': {
+      const i = payload.input;
+      rows = [
+        { label: 'Person', value: v(i.personId) },
+        { label: 'Label', value: v(i.label) },
+        { label: 'Bank', value: `${i.bankName} (${i.bankCountry})` },
+        { label: 'Currency', value: v(i.currency) },
+        { label: 'Payment type', value: v(i.paymentType) },
+        { label: 'Registered with', value: v(i.registeredWithEntityId) },
+      ];
+      break;
+    }
+    case 'UpdateBeneficiary': {
+      const patch = payload.input.patch as Record<string, unknown>;
+      rows = [
+        { label: 'Beneficiary', value: v(payload.input.beneficiaryId) },
+        ...Object.entries(patch).map(([k, val]) => ({ label: `New ${k}`, value: v(val) })),
+      ];
+      break;
+    }
+    case 'RetireBeneficiary':
+      rows = [
+        { label: 'Beneficiary', value: v(payload.input.beneficiaryId) },
         { label: 'Reason', value: v(payload.input.reason) },
       ];
       break;

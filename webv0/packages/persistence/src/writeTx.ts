@@ -28,6 +28,7 @@ import {
   type DistributionShare,
   type Claim,
   type Delegation,
+  type Beneficiary,
   type JourneyStatus,
   type Kit,
   type Member,
@@ -37,10 +38,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapDelegation, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -264,6 +265,64 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapPerson(rows[0]) : null;
     },
 
+    // ── S12: credential v2 facts/details + the beneficiary registry ──────────
+    async lockCredential(credentialId: string): Promise<Credential | null> {
+      const res = await db.execute(sql`SELECT * FROM credential WHERE credential_id = ${credentialId} FOR UPDATE`);
+      return res.rows[0] ? mapCredential(res.rows[0]) : null;
+    },
+
+    async updateCredentialFields(credentialId: string, expectedVersion: number, patch: CredentialFieldsPatch): Promise<Credential | null> {
+      const rows = await db
+        .update(schema.credential)
+        .set({
+          ...(patch.kind !== undefined ? { kind: patch.kind } : {}),
+          ...(patch.documentNumber !== undefined ? { documentNumber: patch.documentNumber } : {}),
+          ...(patch.issuingCountry !== undefined ? { issuingCountry: patch.issuingCountry } : {}),
+          ...(patch.issuedOn !== undefined ? { issuedOn: patch.issuedOn } : {}),
+          ...(patch.expiresOn !== undefined ? { expiresOn: patch.expiresOn } : {}),
+          ...(patch.credentialType !== undefined ? { credentialType: patch.credentialType } : {}),
+          ...(patch.issuer !== undefined ? { issuer: patch.issuer } : {}),
+          ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
+          version: expectedVersion + 1,
+        })
+        .where(and(eq(schema.credential.credentialId, credentialId), eq(schema.credential.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapCredential(rows[0]) : null;
+    },
+
+    async insertBeneficiary(row: NewBeneficiaryRow): Promise<Beneficiary> {
+      const [r] = await db
+        .insert(schema.beneficiary)
+        .values({ tenantId, status: 'Draft', ...row })
+        .returning();
+      return mapBeneficiary(r);
+    },
+
+    async lockBeneficiary(beneficiaryId: string): Promise<Beneficiary | null> {
+      const res = await db.execute(sql`SELECT * FROM beneficiary WHERE beneficiary_id = ${beneficiaryId} FOR UPDATE`);
+      return res.rows[0] ? mapBeneficiary(res.rows[0]) : null;
+    },
+
+    async updateBeneficiaryFields(beneficiaryId: string, expectedVersion: number, patch: BeneficiaryFieldsPatch): Promise<Beneficiary | null> {
+      const rows = await db
+        .update(schema.beneficiary)
+        .set({
+          ...(patch.label !== undefined ? { label: patch.label } : {}),
+          ...(patch.bankName !== undefined ? { bankName: patch.bankName } : {}),
+          ...(patch.bankCountry !== undefined ? { bankCountry: patch.bankCountry } : {}),
+          ...(patch.currency !== undefined ? { currency: patch.currency } : {}),
+          ...(patch.paymentType !== undefined ? { paymentType: patch.paymentType } : {}),
+          ...(patch.registeredWithEntityId !== undefined ? { registeredWithEntityId: patch.registeredWithEntityId } : {}),
+          ...(patch.status !== undefined ? { status: patch.status } : {}),
+          ...(patch.statusDate !== undefined ? { statusDate: patch.statusDate } : {}),
+          ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
+          version: expectedVersion + 1,
+        })
+        .where(and(eq(schema.beneficiary.beneficiaryId, beneficiaryId), eq(schema.beneficiary.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapBeneficiary(rows[0]) : null;
+    },
+
     async appendApprovalEvent(evt): Promise<void> {
       await db.insert(schema.approvalEvent).values({
         tenantId,
@@ -360,6 +419,9 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           credentialId: row.credentialId,
           personId: row.personId,
           credentialType: row.credentialType,
+          ...(row.kind !== undefined ? { kind: row.kind } : {}),
+          ...(row.documentNumber !== undefined ? { documentNumber: row.documentNumber } : {}),
+          ...(row.issuingCountry !== undefined ? { issuingCountry: row.issuingCountry } : {}),
           issuer: row.issuer,
           issuedOn: row.issuedOn,
           expiresOn: row.expiresOn,

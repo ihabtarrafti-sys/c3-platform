@@ -917,7 +917,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -1086,7 +1090,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -1255,7 +1263,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -1470,7 +1482,11 @@
                               "ImportBatch",
                               "UpdatePersonIdentity",
                               "DeactivatePerson",
-                              "ReactivatePerson"
+                              "ReactivatePerson",
+                              "UpdateCredentialFacts",
+                              "AddBeneficiary",
+                              "UpdateBeneficiary",
+                              "RetireBeneficiary"
                             ]
                           },
                           "targetPersonId": {
@@ -1680,7 +1696,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -1828,7 +1848,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -1996,7 +2020,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -2164,7 +2192,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -2338,7 +2370,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -2506,7 +2542,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -2738,6 +2778,24 @@
                         "credentialType": {
                           "type": "string"
                         },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "Passport",
+                            "NationalID",
+                            "Visa",
+                            "License",
+                            "Other"
+                          ]
+                        },
+                        "issuingCountry": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "documentNumber": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "issuer": {
                           "type": "string",
                           "nullable": true
@@ -2770,6 +2828,8 @@
                         "credentialId",
                         "personId",
                         "credentialType",
+                        "kind",
+                        "issuingCountry",
                         "issuer",
                         "issuedOn",
                         "expiresOn",
@@ -3060,7 +3120,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -3347,6 +3411,24 @@
                           "credentialType": {
                             "type": "string"
                           },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "Passport",
+                              "NationalID",
+                              "Visa",
+                              "License",
+                              "Other"
+                            ]
+                          },
+                          "issuingCountry": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "documentNumber": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "issuer": {
                             "type": "string",
                             "nullable": true
@@ -3379,6 +3461,8 @@
                           "credentialId",
                           "personId",
                           "credentialType",
+                          "kind",
+                          "issuingCountry",
                           "issuer",
                           "issuedOn",
                           "expiresOn",
@@ -3438,6 +3522,24 @@
                           "credentialType": {
                             "type": "string"
                           },
+                          "kind": {
+                            "type": "string",
+                            "enum": [
+                              "Passport",
+                              "NationalID",
+                              "Visa",
+                              "License",
+                              "Other"
+                            ]
+                          },
+                          "issuingCountry": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "documentNumber": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "issuer": {
                             "type": "string",
                             "nullable": true
@@ -3470,6 +3572,8 @@
                           "credentialId",
                           "personId",
                           "credentialType",
+                          "kind",
+                          "issuingCountry",
                           "issuer",
                           "issuedOn",
                           "expiresOn",
@@ -3514,6 +3618,27 @@
                         "type": "string",
                         "minLength": 1,
                         "maxLength": 120
+                      },
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "Passport",
+                          "NationalID",
+                          "Visa",
+                          "License",
+                          "Other"
+                        ],
+                        "default": "Other"
+                      },
+                      "documentNumber": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "issuingCountry": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
                       },
                       "issuer": {
                         "type": "string",
@@ -3591,7 +3716,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -3766,7 +3895,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -3861,6 +3994,1199 @@
                 }
               }
             }
+          }
+        }
+      }
+    },
+    "/api/v1/credentials/{credentialId}/facts-request": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "patch": {
+                    "type": "object",
+                    "properties": {
+                      "kind": {
+                        "type": "string",
+                        "enum": [
+                          "Passport",
+                          "NationalID",
+                          "Visa",
+                          "License",
+                          "Other"
+                        ]
+                      },
+                      "documentNumber": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "issuingCountry": {
+                        "type": "string",
+                        "maxLength": 120,
+                        "nullable": true
+                      },
+                      "issuedOn": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+                      },
+                      "expiresOn": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "nullable": true
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "patch"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^CRED-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "credentialId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson",
+                            "ProvisionMember",
+                            "ChangeRole",
+                            "DeactivateMember",
+                            "ReactivateMember",
+                            "AddCredential",
+                            "DeactivateCredential",
+                            "InitiateJourney",
+                            "AddMissionParticipant",
+                            "RemoveMissionParticipant",
+                            "AddAgreement",
+                            "RenewAgreement",
+                            "TerminateAgreement",
+                            "AddAgreementTerm",
+                            "UpdateAgreementTerm",
+                            "RemoveAgreementTerm",
+                            "ImportBatch",
+                            "UpdatePersonIdentity",
+                            "DeactivatePerson",
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed",
+                            "Withdrawn"
+                          ]
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "payload": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "payload"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/credentials/{credentialId}": {
+      "patch": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "expectedVersion": {
+                    "type": "integer",
+                    "minimum": 0
+                  },
+                  "patch": {
+                    "type": "object",
+                    "properties": {
+                      "credentialType": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      "issuer": {
+                        "type": "string",
+                        "maxLength": 160,
+                        "nullable": true
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "nullable": true
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "expectedVersion",
+                  "patch"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^CRED-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "credentialId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "credential": {
+                      "type": "object",
+                      "properties": {
+                        "credentialId": {
+                          "type": "string"
+                        },
+                        "personId": {
+                          "type": "string"
+                        },
+                        "credentialType": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "Passport",
+                            "NationalID",
+                            "Visa",
+                            "License",
+                            "Other"
+                          ]
+                        },
+                        "issuingCountry": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "documentNumber": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "issuer": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "issuedOn": {
+                          "type": "string"
+                        },
+                        "expiresOn": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "notes": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "isActive": {
+                          "type": "boolean"
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "credentialId",
+                        "personId",
+                        "credentialType",
+                        "kind",
+                        "issuingCountry",
+                        "issuer",
+                        "issuedOn",
+                        "expiresOn",
+                        "notes",
+                        "isActive",
+                        "version",
+                        "createdAt",
+                        "updatedAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "credential"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/beneficiaries": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "beneficiaries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "beneficiaryId": {
+                            "type": "string"
+                          },
+                          "personId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "bankName": {
+                            "type": "string"
+                          },
+                          "bankCountry": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "paymentType": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "registeredWithEntityId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "Draft",
+                              "Registered",
+                              "Retired"
+                            ]
+                          },
+                          "statusDate": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "beneficiaryId",
+                          "personId",
+                          "label",
+                          "bankName",
+                          "bankCountry",
+                          "currency",
+                          "paymentType",
+                          "registeredWithEntityId",
+                          "status",
+                          "statusDate",
+                          "notes",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "beneficiaries"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{personId}/beneficiaries": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PER-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "personId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "beneficiaries": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "beneficiaryId": {
+                            "type": "string"
+                          },
+                          "personId": {
+                            "type": "string"
+                          },
+                          "label": {
+                            "type": "string"
+                          },
+                          "bankName": {
+                            "type": "string"
+                          },
+                          "bankCountry": {
+                            "type": "string"
+                          },
+                          "currency": {
+                            "type": "string"
+                          },
+                          "paymentType": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "registeredWithEntityId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "Draft",
+                              "Registered",
+                              "Retired"
+                            ]
+                          },
+                          "statusDate": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "notes": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "version": {
+                            "type": "integer"
+                          },
+                          "createdAt": {
+                            "type": "string"
+                          },
+                          "updatedAt": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "beneficiaryId",
+                          "personId",
+                          "label",
+                          "bankName",
+                          "bankCountry",
+                          "currency",
+                          "paymentType",
+                          "registeredWithEntityId",
+                          "status",
+                          "statusDate",
+                          "notes",
+                          "version",
+                          "createdAt",
+                          "updatedAt"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "beneficiaries"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/beneficiaries/requests": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "input": {
+                    "type": "object",
+                    "properties": {
+                      "personId": {
+                        "type": "string",
+                        "pattern": "^PER-\\d{4,}$"
+                      },
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "bankName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "bankCountry": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "paymentType": {
+                        "type": "string",
+                        "maxLength": 80,
+                        "nullable": true
+                      },
+                      "registeredWithEntityId": {
+                        "type": "string",
+                        "pattern": "^ENT-\\d{4,}$",
+                        "nullable": true
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "nullable": true
+                      }
+                    },
+                    "required": [
+                      "personId",
+                      "label",
+                      "bankName",
+                      "bankCountry",
+                      "currency"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson",
+                            "ProvisionMember",
+                            "ChangeRole",
+                            "DeactivateMember",
+                            "ReactivateMember",
+                            "AddCredential",
+                            "DeactivateCredential",
+                            "InitiateJourney",
+                            "AddMissionParticipant",
+                            "RemoveMissionParticipant",
+                            "AddAgreement",
+                            "RenewAgreement",
+                            "TerminateAgreement",
+                            "AddAgreementTerm",
+                            "UpdateAgreementTerm",
+                            "RemoveAgreementTerm",
+                            "ImportBatch",
+                            "UpdatePersonIdentity",
+                            "DeactivatePerson",
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed",
+                            "Withdrawn"
+                          ]
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "payload": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "payload"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/beneficiaries/{beneficiaryId}/update-request": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "patch": {
+                    "type": "object",
+                    "properties": {
+                      "label": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "bankName": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 160
+                      },
+                      "bankCountry": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 120
+                      },
+                      "currency": {
+                        "type": "string",
+                        "pattern": "^[A-Z]{3}$"
+                      },
+                      "paymentType": {
+                        "type": "string",
+                        "maxLength": 80,
+                        "nullable": true
+                      },
+                      "registeredWithEntityId": {
+                        "type": "string",
+                        "pattern": "^ENT-\\d{4,}$",
+                        "nullable": true
+                      },
+                      "status": {
+                        "type": "string",
+                        "enum": [
+                          "Draft",
+                          "Registered"
+                        ]
+                      },
+                      "statusDate": {
+                        "type": "string",
+                        "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+                        "nullable": true
+                      },
+                      "notes": {
+                        "type": "string",
+                        "maxLength": 2000,
+                        "nullable": true
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "reason": {
+                    "type": "string",
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "patch"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^BEN-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "beneficiaryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson",
+                            "ProvisionMember",
+                            "ChangeRole",
+                            "DeactivateMember",
+                            "ReactivateMember",
+                            "AddCredential",
+                            "DeactivateCredential",
+                            "InitiateJourney",
+                            "AddMissionParticipant",
+                            "RemoveMissionParticipant",
+                            "AddAgreement",
+                            "RenewAgreement",
+                            "TerminateAgreement",
+                            "AddAgreementTerm",
+                            "UpdateAgreementTerm",
+                            "RemoveAgreementTerm",
+                            "ImportBatch",
+                            "UpdatePersonIdentity",
+                            "DeactivatePerson",
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed",
+                            "Withdrawn"
+                          ]
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "payload": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "payload"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/beneficiaries/{beneficiaryId}/retire-request": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 500
+                  }
+                },
+                "required": [
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^BEN-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "beneficiaryId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "approval": {
+                      "type": "object",
+                      "properties": {
+                        "approvalId": {
+                          "type": "string"
+                        },
+                        "operationType": {
+                          "type": "string",
+                          "enum": [
+                            "AddPerson",
+                            "ProvisionMember",
+                            "ChangeRole",
+                            "DeactivateMember",
+                            "ReactivateMember",
+                            "AddCredential",
+                            "DeactivateCredential",
+                            "InitiateJourney",
+                            "AddMissionParticipant",
+                            "RemoveMissionParticipant",
+                            "AddAgreement",
+                            "RenewAgreement",
+                            "TerminateAgreement",
+                            "AddAgreementTerm",
+                            "UpdateAgreementTerm",
+                            "RemoveAgreementTerm",
+                            "ImportBatch",
+                            "UpdatePersonIdentity",
+                            "DeactivatePerson",
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
+                          ]
+                        },
+                        "targetPersonId": {
+                          "type": "string"
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "Submitted",
+                            "InReview",
+                            "Approved",
+                            "Rejected",
+                            "Executed",
+                            "ExecutionFailed",
+                            "Withdrawn"
+                          ]
+                        },
+                        "submittedBy": {
+                          "type": "string"
+                        },
+                        "submittedAt": {
+                          "type": "string"
+                        },
+                        "reviewedBy": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "reviewedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "rejectionReason": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executedAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "executionError": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "version": {
+                          "type": "integer"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "updatedAt": {
+                          "type": "string"
+                        },
+                        "payload": {
+                          "type": "object",
+                          "additionalProperties": {}
+                        }
+                      },
+                      "required": [
+                        "approvalId",
+                        "operationType",
+                        "targetPersonId",
+                        "targetId",
+                        "reason",
+                        "status",
+                        "submittedBy",
+                        "submittedAt",
+                        "reviewedBy",
+                        "reviewedAt",
+                        "rejectionReason",
+                        "executedAt",
+                        "executionError",
+                        "version",
+                        "createdAt",
+                        "updatedAt",
+                        "payload"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "approval"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/people/{personId}/beneficiaries/bank-form": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^PER-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "personId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response"
           }
         }
       }
@@ -4140,7 +5466,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -8890,7 +10220,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -9065,7 +10399,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -9202,7 +10540,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -14679,7 +16021,11 @@
                               "ImportBatch",
                               "UpdatePersonIdentity",
                               "DeactivatePerson",
-                              "ReactivatePerson"
+                              "ReactivatePerson",
+                              "UpdateCredentialFacts",
+                              "AddBeneficiary",
+                              "UpdateBeneficiary",
+                              "RetireBeneficiary"
                             ]
                           },
                           "targetPersonId": {
@@ -15420,7 +16766,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -15595,7 +16945,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -15771,7 +17125,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -16083,7 +17441,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -16287,7 +17649,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -16462,7 +17828,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {
@@ -16890,7 +18260,11 @@
                             "ImportBatch",
                             "UpdatePersonIdentity",
                             "DeactivatePerson",
-                            "ReactivatePerson"
+                            "ReactivatePerson",
+                            "UpdateCredentialFacts",
+                            "AddBeneficiary",
+                            "UpdateBeneficiary",
+                            "RetireBeneficiary"
                           ]
                         },
                         "targetPersonId": {

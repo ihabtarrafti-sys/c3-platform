@@ -15,6 +15,8 @@ import {
   deactivatePersonInputSchema,
   reactivatePersonInputSchema,
 } from './person';
+import { updateCredentialFactsInputSchema } from './credential';
+import { addBeneficiaryInputSchema, updateBeneficiaryInputSchema, retireBeneficiaryInputSchema } from './beneficiary';
 import { addCredentialInputSchema, deactivateCredentialInputSchema } from './credential';
 import { initiateJourneyInputSchema } from './journey';
 import { addMissionParticipantInputSchema, removeMissionParticipantInputSchema } from './mission';
@@ -68,6 +70,11 @@ export const OPERATION_TYPES = [
   'UpdatePersonIdentity',
   'DeactivatePerson',
   'ReactivatePerson',
+  // S12: credential compliance facts + the beneficiary registry are governed.
+  'UpdateCredentialFacts',
+  'AddBeneficiary',
+  'UpdateBeneficiary',
+  'RetireBeneficiary',
 ] as const;
 export type OperationType = (typeof OPERATION_TYPES)[number];
 
@@ -214,6 +221,27 @@ export const reactivatePersonPayloadSchema = z
   .strict();
 export type ReactivatePersonApprovalPayload = z.infer<typeof reactivatePersonPayloadSchema>;
 
+// S12: credential facts + beneficiary registry payloads.
+export const updateCredentialFactsPayloadSchema = z
+  .object({ operationType: z.literal('UpdateCredentialFacts'), input: updateCredentialFactsInputSchema })
+  .strict();
+export type UpdateCredentialFactsApprovalPayload = z.infer<typeof updateCredentialFactsPayloadSchema>;
+
+export const addBeneficiaryPayloadSchema = z
+  .object({ operationType: z.literal('AddBeneficiary'), input: addBeneficiaryInputSchema })
+  .strict();
+export type AddBeneficiaryApprovalPayload = z.infer<typeof addBeneficiaryPayloadSchema>;
+
+export const updateBeneficiaryPayloadSchema = z
+  .object({ operationType: z.literal('UpdateBeneficiary'), input: updateBeneficiaryInputSchema })
+  .strict();
+export type UpdateBeneficiaryApprovalPayload = z.infer<typeof updateBeneficiaryPayloadSchema>;
+
+export const retireBeneficiaryPayloadSchema = z
+  .object({ operationType: z.literal('RetireBeneficiary'), input: retireBeneficiaryInputSchema })
+  .strict();
+export type RetireBeneficiaryApprovalPayload = z.infer<typeof retireBeneficiaryPayloadSchema>;
+
 export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   addPersonPayloadSchema,
   provisionMemberPayloadSchema,
@@ -235,6 +263,10 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   updatePersonIdentityPayloadSchema,
   deactivatePersonPayloadSchema,
   reactivatePersonPayloadSchema,
+  updateCredentialFactsPayloadSchema,
+  addBeneficiaryPayloadSchema,
+  updateBeneficiaryPayloadSchema,
+  retireBeneficiaryPayloadSchema,
 ]);
 export type ApprovalPayload = z.infer<typeof approvalPayloadSchema>;
 

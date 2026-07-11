@@ -10,6 +10,10 @@
 
 import { z } from 'zod';
 
+/** S12: the typed taxonomy — `credentialType` stays as the display label. */
+export const CREDENTIAL_KINDS = ['Passport', 'NationalID', 'Visa', 'License', 'Other'] as const;
+export type CredentialKind = (typeof CREDENTIAL_KINDS)[number];
+
 /** A Credential as the domain reasons about it (surrogate UUID lives in persistence). */
 export interface Credential {
   /** Canonical business identity, e.g. "CRED-0001". */
@@ -18,7 +22,12 @@ export interface Credential {
   /** The owning person's canonical id (PER-XXXX). */
   readonly personId: string;
   readonly credentialType: string;
+  /** S12 typed taxonomy (legacy rows default 'Other'). */
+  readonly kind: CredentialKind;
   readonly issuer: string | null;
+  /** S12, PII tier (owner/ops/hr; structural omission elsewhere). */
+  readonly documentNumber: string | null;
+  readonly issuingCountry: string | null;
   /** ISO calendar date, YYYY-MM-DD. */
   readonly issuedOn: string;
   /** ISO calendar date or null = non-expiring. */
@@ -59,6 +68,10 @@ export const addCredentialInputSchema = z
   .object({
     personId: z.string().regex(/^PER-\d{4,}$/, 'personId must be a canonical PER id'),
     credentialType: z.string().trim().min(1, 'Credential type is required').max(120),
+    // S12: typed taxonomy + PII document facts, optional at creation.
+    kind: z.enum(CREDENTIAL_KINDS).optional().default('Other'),
+    documentNumber: trimmedOptional(120),
+    issuingCountry: trimmedOptional(120),
     issuer: trimmedOptional(160),
     issuedOn: isoDateSchema,
     expiresOn: isoDateSchema.nullish().transform((v) => v ?? null),
@@ -87,6 +100,45 @@ export type DeactivateCredentialInput = z.infer<typeof deactivateCredentialInput
  * within `soonDays` calendar days of `today` (ISO date string comparison).
  */
 export type CredentialDerivedStatus = 'Inactive' | 'Expired' | 'ExpiresSoon' | 'Active';
+
+/**
+ * UpdateCredentialFacts (S12, GOVERNED — the credential-edit spec law): the
+ * dates, document number, issuing country and kind are compliance facts the
+ * readiness engine depends on — a quiet edit could fake a visa. Sparse patch;
+ * at least one key; snapshot at submission, re-read + validated at execute.
+ */
+export const updateCredentialFactsInputSchema = z
+  .object({
+    credentialId: z.string().regex(/^CRED-\d{4,}$/),
+    patch: z
+      .object({
+        kind: z.enum(CREDENTIAL_KINDS).optional(),
+        documentNumber: trimmedOptional(120).optional(),
+        issuingCountry: trimmedOptional(120).optional(),
+        issuedOn: isoDateSchema.optional(),
+        expiresOn: isoDateSchema.nullable().optional(),
+      })
+      .strict()
+      .refine((p) => Object.keys(p).length > 0, { message: 'The facts patch must change at least one field.' }),
+  })
+  .strict();
+export type UpdateCredentialFactsInput = z.infer<typeof updateCredentialFactsInputSchema>;
+
+/** S12 direct-audited detail patch: issuer / notes / display label move fast. */
+export const updateCredentialDetailsSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    patch: z
+      .object({
+        credentialType: z.string().trim().min(1).max(120).optional(),
+        issuer: trimmedOptional(160).optional(),
+        notes: trimmedOptional(2000).optional(),
+      })
+      .strict()
+      .refine((p) => Object.keys(p).length > 0, { message: 'The details patch must change at least one field.' }),
+  })
+  .strict();
+export type UpdateCredentialDetailsInput = z.infer<typeof updateCredentialDetailsSchema>;
 
 export function credentialStatusOn(c: Pick<Credential, 'isActive' | 'expiresOn'>, todayIso: string, soonDays = 30): CredentialDerivedStatus {
   if (!c.isActive) return 'Inactive';

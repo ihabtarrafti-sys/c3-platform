@@ -125,6 +125,9 @@ export const credential = pgTable('credential', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),
   credentialId: text('credential_id').notNull(),
+  kind: text('kind').notNull().default('Other'),
+  documentNumber: text('document_number'),
+  issuingCountry: text('issuing_country'),
   personId: text('person_id').notNull(),
   credentialType: text('credential_type').notNull(),
   issuer: text('issuer'),
@@ -376,6 +379,27 @@ export const notification = pgTable('notification', {
   link: text('link').notNull(),
   emittedAt: timestamp('emitted_at', { withTimezone: true }).notNull().defaultNow(),
   readAt: timestamp('read_at', { withTimezone: true }),
+});
+
+// S12: the beneficiary registry — payment-ROUTING names, never credentials.
+export const beneficiary = pgTable('beneficiary', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  beneficiaryId: text('beneficiary_id').notNull(),
+  personId: text('person_id').notNull(),
+  label: text('label').notNull(),
+  bankName: text('bank_name').notNull(),
+  bankCountry: text('bank_country').notNull(),
+  currency: text('currency').notNull(),
+  paymentType: text('payment_type'),
+  registeredWithEntityId: text('registered_with_entity_id'),
+  status: text('status').notNull().default('Draft'),
+  statusDate: date('status_date', { mode: 'string' }),
+  notes: text('notes'),
+  createdByApprovalId: text('created_by_approval_id'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // Tier 0.5: approver delegation — owner-granted review+execute standing.

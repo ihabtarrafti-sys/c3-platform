@@ -20,6 +20,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { DocumentsSection } from '../components/DocumentsSection';
 import { PersonV2Sections } from '../components/PersonV2Sections';
+import { BeneficiarySection, CredentialFactsAction } from '../components/PersonS12Sections';
 import { ErrorState, LoadingState } from '../components/states';
 import { PersonActions } from '../components/PersonActions';
 import { useRegisterStyles } from '../components/registerStyles';
@@ -120,6 +121,7 @@ export function PersonProfilePage() {
             ]}
           />
           <PersonV2Sections person={data.person} />
+          <BeneficiarySection personId={data.person.personId} />
           <PersonActions personId={data.person.personId} personName={data.person.fullName} />
           {(credentials.data?.credentials.length ?? 0) > 0 && (
             <div className={s.section}>
@@ -131,6 +133,7 @@ export function PersonProfilePage() {
                     <th className={r.th}>Type</th>
                     <th className={r.th}>Expires</th>
                     <th className={r.th}>Status</th>
+                    <th className={r.th}></th>
                   </tr>
                 </thead>
                 <tbody>
@@ -143,6 +146,9 @@ export function PersonProfilePage() {
                         <td className={r.td}>{c.expiresOn ?? '—'}</td>
                         <td className={r.td}>
                           <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
+                        </td>
+                        <td className={r.td}>
+                          <CredentialFactsAction credential={c} personId={data.person.personId} />
                         </td>
                       </tr>
                     );

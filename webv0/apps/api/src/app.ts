@@ -96,6 +96,15 @@ import {
   submitPersonIdentityRequestSchema,
   personLifecycleRequestSchema,
   updatePersonOperationalRequestSchema,
+  submitCredentialFactsRequestSchema,
+  credentialIdParamSchema,
+  beneficiaryIdParamSchema,
+  credentialResponseSchema,
+  updateCredentialDetailsRequestSchema,
+  beneficiariesListSchema,
+  submitAddBeneficiaryRequestSchema,
+  submitUpdateBeneficiaryRequestSchema,
+  submitRetireBeneficiaryRequestSchema,
   delegationsListSchema,
   delegationResponseSchema,
   createDelegationRequestSchema,
@@ -210,6 +219,13 @@ import {
   submitDeactivatePerson,
   submitReactivatePerson,
   updatePersonOperational,
+  updateCredentialDetails,
+  listBeneficiaries,
+  listPersonBeneficiaries,
+  submitUpdateCredentialFacts,
+  submitAddBeneficiary,
+  submitUpdateBeneficiary,
+  submitRetireBeneficiary,
   voidInvoice,
   listInvoices,
   getInvoice,
@@ -276,11 +292,12 @@ import {
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
+import { buildBankRegistrationForm } from './bankForm';
 import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -640,7 +657,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return {
         approval: toApprovalDto(res.approval, discOf(req)),
         person: res.person ? toPersonDto(res.person, piiOf(req)) : null,
-        credential: res.credential ? toCredentialDto(res.credential) : null,
+        credential: res.credential ? toCredentialDto(res.credential, piiOf(req)) : null,
         journey: res.journey ? toJourneyDto(res.journey) : null,
         participant: res.participant ? toMissionParticipantDto(res.participant) : null,
         agreement: res.agreement ? toAgreementDto(res.agreement) : null,
@@ -675,7 +692,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── credentials (Sprint 36) ────────────────────────────────────────────────
   r.get('/api/v1/credentials', { schema: { response: { 200: credentialsListSchema } } }, async (req) => {
     const credentials = await listCredentials(P, actorOf(req));
-    return { credentials: credentials.map(toCredentialDto) };
+    const pii = piiOf(req);
+    return { credentials: credentials.map((c) => toCredentialDto(c, pii)) };
   });
 
   r.get(
@@ -684,7 +702,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { personId } = req.params as { personId: string };
       const credentials = await listCredentialsForPerson(P, actorOf(req), personId);
-      return { credentials: credentials.map(toCredentialDto) };
+      const pii = piiOf(req);
+      return { credentials: credentials.map((c) => toCredentialDto(c, pii)) };
     },
   );
 
@@ -707,6 +726,99 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const body = req.body as { input: import('@c3web/domain').DeactivateCredentialInput; reason?: string };
       const approval = await submitDeactivateCredential(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
       return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
+    },
+  );
+
+  // ── S12: credential FACTS are governed; DETAILS are direct-audited ─────────
+  r.post(
+    '/api/v1/credentials/:credentialId/facts-request',
+    { schema: { params: credentialIdParamSchema, body: submitCredentialFactsRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const { credentialId } = req.params as { credentialId: string };
+      const body = req.body as { patch: Record<string, unknown>; reason?: string };
+      const approval = await submitUpdateCredentialFacts(P, actorOf(req), {
+        input: { credentialId, patch: body.patch } as import('@c3web/domain').UpdateCredentialFactsInput,
+        reason: body.reason ?? null,
+      });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
+    },
+  );
+
+  r.patch(
+    '/api/v1/credentials/:credentialId',
+    { schema: { params: credentialIdParamSchema, body: updateCredentialDetailsRequestSchema, response: { 200: credentialResponseSchema } } },
+    async (req) => {
+      const { credentialId } = req.params as { credentialId: string };
+      const credential = await updateCredentialDetails(P, actorOf(req), credentialId, req.body as import('@c3web/domain').UpdateCredentialDetailsInput);
+      return { credential: toCredentialDto(credential, piiOf(req)) };
+    },
+  );
+
+  // ── S12: the beneficiary registry (reads finance-gated; writes governed) ───
+  r.get('/api/v1/beneficiaries', { schema: { response: { 200: beneficiariesListSchema } } }, async (req) => {
+    const rows = await listBeneficiaries(P, actorOf(req));
+    return { beneficiaries: rows.map(toBeneficiaryDto) };
+  });
+
+  r.get(
+    '/api/v1/people/:personId/beneficiaries',
+    { schema: { params: personIdParamSchema, response: { 200: beneficiariesListSchema } } },
+    async (req) => {
+      const { personId } = req.params as { personId: string };
+      const rows = await listPersonBeneficiaries(P, actorOf(req), personId);
+      return { beneficiaries: rows.map(toBeneficiaryDto) };
+    },
+  );
+
+  r.post(
+    '/api/v1/beneficiaries/requests',
+    { schema: { body: submitAddBeneficiaryRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const body = req.body as { input: import('@c3web/domain').AddBeneficiaryInput; reason?: string };
+      const approval = await submitAddBeneficiary(P, actorOf(req), { input: body.input, reason: body.reason ?? null });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
+    },
+  );
+
+  r.post(
+    '/api/v1/beneficiaries/:beneficiaryId/update-request',
+    { schema: { params: beneficiaryIdParamSchema, body: submitUpdateBeneficiaryRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const { beneficiaryId } = req.params as { beneficiaryId: string };
+      const body = req.body as { patch: Record<string, unknown>; reason?: string };
+      const approval = await submitUpdateBeneficiary(P, actorOf(req), {
+        input: { beneficiaryId, patch: body.patch } as import('@c3web/domain').UpdateBeneficiaryInput,
+        reason: body.reason ?? null,
+      });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
+    },
+  );
+
+  r.post(
+    '/api/v1/beneficiaries/:beneficiaryId/retire-request',
+    { schema: { params: beneficiaryIdParamSchema, body: submitRetireBeneficiaryRequestSchema, response: { 201: approvalResponseSchema } } },
+    async (req, reply) => {
+      const { beneficiaryId } = req.params as { beneficiaryId: string };
+      const { reason } = req.body as { reason: string };
+      const approval = await submitRetireBeneficiary(P, actorOf(req), { input: { beneficiaryId, reason } });
+      return reply.status(201).send({ approval: toApprovalDto(approval, discOf(req)) });
+    },
+  );
+
+  // S12: the bank registration form — generated from the registry with the
+  // SENSITIVE COLUMNS BLANK (the standing law: account numbers never enter
+  // C3; the form is completed by hand outside the system).
+  r.get(
+    '/api/v1/people/:personId/beneficiaries/bank-form',
+    { schema: { params: personIdParamSchema } },
+    async (req, reply) => {
+      const { personId } = req.params as { personId: string };
+      const rows = await listPersonBeneficiaries(P, actorOf(req), personId);
+      const person = await getPerson(P, actorOf(req), personId);
+      const buffer = await buildBankRegistrationForm(person.fullName, rows);
+      reply.header('content-type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      reply.header('content-disposition', `attachment; filename="bank-registration-${personId}.xlsx"`);
+      return reply.send(buffer);
     },
   );
 

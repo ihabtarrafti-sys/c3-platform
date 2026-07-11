@@ -4,13 +4,13 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
 import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim,
-  mapDelegation, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+  mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -455,6 +455,29 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
                LIMIT 1
             `);
             return res.rows.length > 0;
+          }),
+
+        // S12: the beneficiary registry (finance-gated at the usecase).
+        listBeneficiaries: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Beneficiary[]> => {
+            const rows = await db.select().from(schema.beneficiary).orderBy(asc(schema.beneficiary.beneficiaryId));
+            return rows.map(mapBeneficiary);
+          }),
+
+        listBeneficiariesForPerson: (personId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Beneficiary[]> => {
+            const rows = await db
+              .select()
+              .from(schema.beneficiary)
+              .where(eq(schema.beneficiary.personId, personId))
+              .orderBy(asc(schema.beneficiary.beneficiaryId));
+            return rows.map(mapBeneficiary);
+          }),
+
+        getBeneficiaryById: (beneficiaryId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Beneficiary | null> => {
+            const rows = await db.select().from(schema.beneficiary).where(eq(schema.beneficiary.beneficiaryId, beneficiaryId)).limit(1);
+            return rows[0] ? mapBeneficiary(rows[0]) : null;
           }),
 
         // S9: claims (per-actor scoping is the use-case's job).

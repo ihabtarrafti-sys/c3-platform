@@ -106,6 +106,11 @@ export const AUDIT_ACTIONS = [
   'PersonOperationalUpdated',
   'PersonDeactivated',
   'PersonReactivated',
+  'CredentialFactsUpdated',
+  'CredentialDetailsUpdated',
+  'BeneficiaryAdded',
+  'BeneficiaryUpdated',
+  'BeneficiaryRetired',
   // Sprint 41: Agreements (contracts, NDAs, addendums, …) — three GOVERNED
   // material operations plus the direct-audited non-material edit.
   'AgreementCreated',

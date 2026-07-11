@@ -58,6 +58,10 @@ export class FakePersistence implements Persistence {
         listDelegations: async () => [],
         hasActiveDelegation: async () => false,
         findUnrevokedDelegationId: async () => null,
+        // S12: the fake tenant has no beneficiaries.
+        listBeneficiaries: async () => [],
+        listBeneficiariesForPerson: async () => [],
+        getBeneficiaryById: async () => null,
       };
     },
   };

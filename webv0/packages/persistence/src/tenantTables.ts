@@ -40,7 +40,8 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'person', exportSql: `SELECT * FROM person WHERE tenant_id = $1 ORDER BY person_id`, exitRank: 60 },
   {
     name: 'credential',
-    exportSql: `SELECT id, tenant_id, credential_id, person_id, credential_type, issuer,
+    exportSql: `SELECT id, tenant_id, credential_id, person_id, credential_type, kind, issuer,
+                       document_number, issuing_country,
                        issued_on::text AS issued_on, expires_on::text AS expires_on,
                        notes, is_active, created_by_approval_id, version, created_at, updated_at
                   FROM credential WHERE tenant_id = $1 ORDER BY credential_id`,
@@ -116,6 +117,16 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
     name: 'document',
     exportSql: `SELECT * FROM document WHERE tenant_id = $1 ORDER BY document_id`,
     exitRank: 12,
+  },
+  {
+    // S12: payment-ROUTING names only — no account numbers exist to export.
+    name: 'beneficiary',
+    exportSql: `SELECT id, tenant_id, beneficiary_id, person_id, label, bank_name, bank_country,
+                       currency, payment_type, registered_with_entity_id, status,
+                       status_date::text AS status_date, notes, created_by_approval_id,
+                       version, created_at, updated_at
+                  FROM beneficiary WHERE tenant_id = $1 ORDER BY beneficiary_id`,
+    exitRank: 26,
   },
   { name: 'notification', exportSql: `SELECT * FROM notification WHERE tenant_id = $1 ORDER BY emitted_at, id`, exitRank: 11 },
   {
