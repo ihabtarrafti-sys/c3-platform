@@ -478,6 +478,8 @@ export function createApiClient(deps: ApiClientDeps) {
     markAllNotificationsRead: () => request<{ ok: true }>('POST', '/api/v1/notifications/read-all', {}),
     // S9: expense claims.
     listClaims: () => request<{ claims: ClaimDto[] }>('GET', '/api/v1/claims'),
+    // Track B: payroll export — approved/paid claims as a CSV (finance-gated).
+    downloadPayrollCsv: () => download('/api/v1/claims/payroll-export'),
     getClaim: (claimId: string) => request<{ claim: ClaimDto }>('GET', `/api/v1/claims/${claimId}`),
     claimAudit: (claimId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/claims/${claimId}/audit`),
     submitClaim: (input: { category: string; description: string; amountMinor: number; currency: string; expenseOn: string; personId?: string | null; missionId?: string | null }) => request<{ claim: ClaimDto }>('POST', '/api/v1/claims', input),

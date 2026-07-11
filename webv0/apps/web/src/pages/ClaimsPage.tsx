@@ -29,7 +29,22 @@ export function ClaimsPage() {
   const qc = useQueryClient();
   const canSubmit = me?.capabilities.canSubmitClaim ?? false;
   const canDecide = me?.capabilities.canDecideClaim ?? false;
+  const canViewFinancials = me?.capabilities.canViewFinancials ?? false;
   const { data, isLoading, isError, error } = useClaims(canSubmit);
+
+  async function downloadPayroll(): Promise<void> {
+    try {
+      const { blob, fileName } = await api.downloadPayrollCsv();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      notify('error', err instanceof ApiError ? err.message : 'Payroll export failed.');
+    }
+  }
 
   const [showForm, setShowForm] = useState(false);
   const [category, setCategory] = useState('Travel');
@@ -84,9 +99,16 @@ export function ClaimsPage() {
         title="Claims"
         context={data ? `${data.claims.length} in this view${canDecide ? ' · all submitters' : ' · yours'}` : undefined}
         actions={
-          <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
-            Submit Claim
-          </Button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            {canViewFinancials && (
+              <Button appearance="secondary" onClick={downloadPayroll} data-testid="payroll-export">
+                Payroll export
+              </Button>
+            )}
+            <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
+              Submit Claim
+            </Button>
+          </div>
         }
       />
 

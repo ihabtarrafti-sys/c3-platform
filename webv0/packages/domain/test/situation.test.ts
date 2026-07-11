@@ -47,6 +47,16 @@ describe('daysUntil', () => {
   });
 });
 
+describe('Track B — ClaimsAwaitingPayment signal', () => {
+  it('fires for an approved-but-unpaid claim aged 3+ days; a fresh or paid one is quiet', () => {
+    const fire = composeSituation(snapshot({ claims: [{ claimId: 'CLM-0001', submittedBy: 'ops@a.com', status: 'Approved', createdAt: '2026-07-20' }] }));
+    expect(fire.some((s) => s.kind === 'ClaimsAwaitingPayment' && s.key.includes('CLM-0001'))).toBe(true);
+    // paid → done; submitted → belongs to ClaimsAwaitingReview, not payment
+    expect(composeSituation(snapshot({ claims: [{ claimId: 'CLM-0002', submittedBy: 'ops@a.com', status: 'Paid', createdAt: '2026-07-20' }] })).some((s) => s.kind === 'ClaimsAwaitingPayment')).toBe(false);
+    expect(composeSituation(snapshot({ claims: [{ claimId: 'CLM-0003', submittedBy: 'ops@a.com', status: 'Approved', createdAt: TODAY }] })).some((s) => s.kind === 'ClaimsAwaitingPayment')).toBe(false);
+  });
+});
+
 describe('missionReadinessOn', () => {
   const mission = { missionId: 'MSN-0001', name: 'Spring Invitational', startsOn: '2026-08-13', endsOn: '2026-08-20', isActive: true, financeStage: 'Planning' };
 
@@ -287,7 +297,9 @@ describe('claims waiting (S9)', () => {
     });
     expect(composeSituation(snapshot({ claims: [claim('InReview', 8)] }))[0]).toMatchObject({ urgency: 3, band: 'immediate' });
     expect(composeSituation(snapshot({ claims: [claim('Submitted', 1)] }))).toHaveLength(0);
-    expect(composeSituation(snapshot({ claims: [claim('Approved', 30)] }))).toHaveLength(0);
+    // Approved no longer fires ClaimsAwaitingReview — it moves to ClaimsAwaitingPayment (its own signal).
+    expect(composeSituation(snapshot({ claims: [claim('Approved', 30)] }))).toHaveLength(1);
+    expect(composeSituation(snapshot({ claims: [claim('Approved', 30)] })).filter((s) => s.kind === 'ClaimsAwaitingReview')).toHaveLength(0);
     expect(composeSituation(snapshot({ claims: [claim('Rejected', 30)] }))).toHaveLength(0);
   });
 });

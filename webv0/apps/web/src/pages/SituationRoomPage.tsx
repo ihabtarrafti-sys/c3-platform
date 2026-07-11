@@ -209,6 +209,7 @@ const KIND_LABEL: Record<SignalDto['kind'], string> = {
   DelegationActive: 'Delegation active',
   RejectedAwaitingRevision: 'Rejected, unrevised',
   DepartureIncomplete: 'Departure incomplete',
+  ClaimsAwaitingPayment: 'Claims awaiting payment',
 };
 
 function actionTarget(a: SignalDto['actions'][number]): { label: string; to: string } | null {

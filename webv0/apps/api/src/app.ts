@@ -230,6 +230,7 @@ import {
   initiateDeparture,
   completeDeparture,
   cancelDeparture,
+  exportPayrollCsv,
   listComments,
   postComment,
   createIntakeLink,
@@ -1685,6 +1686,15 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── claims (S9): submit, decide (separation law), pay (label only) ─────────
   r.get('/api/v1/claims', { schema: { response: { 200: claimsListSchema } } }, async (req) => {
     return { claims: (await listClaims(P, actorOf(req))).map(toClaimDto) };
+  });
+
+  // Track B: payroll export — approved/paid claims as a payroll-columns CSV
+  // (finance-gated; EXPORT ONLY, moves no money; payment-source is a label).
+  r.get('/api/v1/claims/payroll-export', {}, async (req, reply) => {
+    const { csv } = await exportPayrollCsv(P, actorOf(req));
+    reply.header('content-type', 'text/csv; charset=utf-8');
+    reply.header('content-disposition', `attachment; filename="payroll-export-${new Date().toISOString().slice(0, 10)}.csv"`);
+    return reply.send(csv);
   });
 
   r.post('/api/v1/claims', { schema: { body: submitClaimRequestSchema, response: { 201: claimResponseSchema } } }, async (req, reply) => {

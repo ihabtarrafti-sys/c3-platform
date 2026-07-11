@@ -127,6 +127,7 @@ export const SIGNAL_KINDS = [
   'DelegationActive',
   'RejectedAwaitingRevision',
   'DepartureIncomplete',
+  'ClaimsAwaitingPayment',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -553,6 +554,25 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
   }
 
+  // 8a — Approved claims awaiting payment: money OWED to staff, ready for the
+  //      next payroll export. The decision is made; only the pay-out remains.
+  for (const c of snapshot.claims.filter((x) => x.status === 'Approved')) {
+    const ageDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(c.createdAt)) / 86_400_000);
+    if (ageDays < 3) continue;
+    signals.push(
+      make({
+        key: `ClaimsAwaitingPayment:${c.claimId}`,
+        kind: 'ClaimsAwaitingPayment',
+        headline: `${c.claimId} is approved and awaiting payment`,
+        reasons: [`Approved and unpaid for ${ageDays} days`, `Owed to ${c.submittedBy}`, 'Include it in the next payroll export, then mark it paid.'],
+        impact: 2,
+        urgency: ageDays >= 14 ? 2 : 1,
+        inMotion: false,
+        actions: [],
+      }),
+    );
+  }
+
   // 8b — Delegation (Tier 0.5): an ACTIVE delegation is elevated authority
   //      and stays visible for its whole life — granted review power never
   //      runs silently. Expiry/revocation silences the check by itself.
@@ -675,6 +695,7 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Delegation active (review authority granted to a member — visible for its whole life)',
   'Rejected requests not yet revised (the fix-and-resend queue, 14-day window)',
   'Departures in progress with agreements, roster spots, or credentials still open',
+  'Approved expense claims awaiting payment (ready for the payroll export)',
 ];
 
 /**
@@ -699,4 +720,5 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'DelegationActive',
   'RejectedAwaitingRevision',
   'DepartureIncomplete',
+  'ClaimsAwaitingPayment',
 ];

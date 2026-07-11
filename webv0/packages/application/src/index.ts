@@ -35,6 +35,7 @@ export * from './usecases/commentOps';
 export * from './usecases/intakeOps';
 export * from './usecases/subscriptionOps';
 export * from './usecases/departureOps';
+export * from './usecases/payrollOps';
 export * from './usecases/teamOps';
 export * from './usecases/situation';
 export * from './usecases/submitMemberChange';

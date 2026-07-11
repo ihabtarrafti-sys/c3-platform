@@ -5603,6 +5603,10 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/claims/payroll-export"
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/comments",
       "querystring": {
         "t": "object",
@@ -16601,6 +16605,7 @@
                     "values": [
                       "AgreementWindow",
                       "ApprovalStale",
+                      "ClaimsAwaitingPayment",
                       "ClaimsAwaitingReview",
                       "CredentialExpiry",
                       "DelegationActive",

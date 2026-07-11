@@ -1300,7 +1300,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview', 'DelegationActive', 'RejectedAwaitingRevision', 'DepartureIncomplete']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview', 'DelegationActive', 'RejectedAwaitingRevision', 'DepartureIncomplete', 'ClaimsAwaitingPayment']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),
