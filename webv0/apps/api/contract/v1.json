@@ -476,6 +476,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -547,6 +550,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -564,6 +573,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -661,6 +676,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -732,6 +750,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -749,6 +773,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -807,6 +837,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -878,6 +911,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -895,6 +934,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -953,6 +998,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -1024,6 +1072,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -1041,6 +1095,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -1137,6 +1197,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -1208,6 +1271,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -1225,6 +1294,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -1314,6 +1389,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -1385,6 +1463,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -1402,6 +1486,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -1904,6 +1994,9 @@
                   "createdAt": {
                     "t": "string"
                   },
+                  "editCount": {
+                    "t": "number"
+                  },
                   "executedAt": {
                     "t": "nullable",
                     "inner": {
@@ -1969,6 +2062,12 @@
                       "t": "string"
                     }
                   },
+                  "revisionOf": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
                   "status": {
                     "t": "enum",
                     "values": [
@@ -1986,6 +2085,12 @@
                   },
                   "submittedBy": {
                     "t": "string"
+                  },
+                  "supersededBy": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "targetId": {
                     "t": "nullable",
@@ -2096,6 +2201,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -2167,6 +2275,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -2184,6 +2298,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -2230,6 +2350,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -2301,6 +2424,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -2318,6 +2447,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -2372,6 +2507,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -2443,6 +2581,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -2460,6 +2604,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -2574,6 +2724,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -2645,6 +2798,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -2662,6 +2821,175 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "targetId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "targetPersonId": {
+                  "t": "string"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/approvals/:approvalId/edit",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expectedVersion": {
+            "t": "number"
+          },
+          "input": {
+            "t": "record",
+            "value": {
+              "t": "unknown"
+            }
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "approvalId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "approval": {
+              "t": "object",
+              "keys": {
+                "approvalId": {
+                  "t": "string"
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "editCount": {
+                  "t": "number"
+                },
+                "executedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "executionError": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "operationType": {
+                  "t": "enum",
+                  "values": [
+                    "AddAgreement",
+                    "AddAgreementTerm",
+                    "AddBeneficiary",
+                    "AddCredential",
+                    "AddMissionParticipant",
+                    "AddPerson",
+                    "ChangeRole",
+                    "DeactivateCredential",
+                    "DeactivateMember",
+                    "DeactivatePerson",
+                    "ImportBatch",
+                    "InitiateJourney",
+                    "ProvisionMember",
+                    "ReactivateMember",
+                    "ReactivatePerson",
+                    "RemoveAgreementTerm",
+                    "RemoveMissionParticipant",
+                    "RenewAgreement",
+                    "RetireBeneficiary",
+                    "TerminateAgreement",
+                    "UpdateAgreementTerm",
+                    "UpdateBeneficiary",
+                    "UpdateCredentialFacts",
+                    "UpdatePersonIdentity"
+                  ]
+                },
+                "payload": {
+                  "t": "record",
+                  "value": {
+                    "t": "unknown"
+                  }
+                },
+                "reason": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "rejectionReason": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Approved",
+                    "Executed",
+                    "ExecutionFailed",
+                    "InReview",
+                    "Rejected",
+                    "Submitted",
+                    "Withdrawn"
+                  ]
+                },
+                "submittedAt": {
+                  "t": "string"
+                },
+                "submittedBy": {
+                  "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -2858,6 +3186,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -2929,6 +3260,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -2946,6 +3283,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -3347,6 +3690,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -3418,6 +3764,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -3436,6 +3788,12 @@
                 "submittedBy": {
                   "t": "string"
                 },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "targetId": {
                   "t": "nullable",
                   "inner": {
@@ -3452,6 +3810,179 @@
                   "t": "number"
                 }
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/approvals/:approvalId/revise",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expectedVersion": {
+            "t": "number"
+          },
+          "input": {
+            "t": "record",
+            "value": {
+              "t": "unknown"
+            }
+          },
+          "reason": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "approvalId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "approval": {
+              "t": "object",
+              "keys": {
+                "approvalId": {
+                  "t": "string"
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "editCount": {
+                  "t": "number"
+                },
+                "executedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "executionError": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "operationType": {
+                  "t": "enum",
+                  "values": [
+                    "AddAgreement",
+                    "AddAgreementTerm",
+                    "AddBeneficiary",
+                    "AddCredential",
+                    "AddMissionParticipant",
+                    "AddPerson",
+                    "ChangeRole",
+                    "DeactivateCredential",
+                    "DeactivateMember",
+                    "DeactivatePerson",
+                    "ImportBatch",
+                    "InitiateJourney",
+                    "ProvisionMember",
+                    "ReactivateMember",
+                    "ReactivatePerson",
+                    "RemoveAgreementTerm",
+                    "RemoveMissionParticipant",
+                    "RenewAgreement",
+                    "RetireBeneficiary",
+                    "TerminateAgreement",
+                    "UpdateAgreementTerm",
+                    "UpdateBeneficiary",
+                    "UpdateCredentialFacts",
+                    "UpdatePersonIdentity"
+                  ]
+                },
+                "payload": {
+                  "t": "record",
+                  "value": {
+                    "t": "unknown"
+                  }
+                },
+                "reason": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "rejectionReason": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Approved",
+                    "Executed",
+                    "ExecutionFailed",
+                    "InReview",
+                    "Rejected",
+                    "Submitted",
+                    "Withdrawn"
+                  ]
+                },
+                "submittedAt": {
+                  "t": "string"
+                },
+                "submittedBy": {
+                  "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "targetId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "targetPersonId": {
+                  "t": "string"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            },
+            "superseded": {
+              "t": "string"
             }
           }
         }
@@ -3489,6 +4020,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -3560,6 +4094,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -3577,6 +4117,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -3724,6 +4270,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -3795,6 +4344,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -3812,6 +4367,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -3924,6 +4485,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -3995,6 +4559,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -4012,6 +4582,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -4097,6 +4673,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -4168,6 +4747,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -4185,6 +4770,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -5164,6 +5755,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -5235,6 +5829,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -5252,6 +5852,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -5310,6 +5916,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -5381,6 +5990,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -5398,6 +6013,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -5499,6 +6120,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -5570,6 +6194,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -5587,6 +6217,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -7539,6 +8175,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -7610,6 +8249,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -7627,6 +8272,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -8549,6 +9200,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -8620,6 +9274,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -8637,6 +9297,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -9413,6 +10079,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -9484,6 +10153,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -9501,6 +10176,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -11706,6 +12387,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -11777,6 +12461,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -11794,6 +12484,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -11855,6 +12551,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -11926,6 +12625,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -11943,6 +12648,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -12809,6 +13520,9 @@
                   "createdAt": {
                     "t": "string"
                   },
+                  "editCount": {
+                    "t": "number"
+                  },
                   "executedAt": {
                     "t": "nullable",
                     "inner": {
@@ -12874,6 +13588,12 @@
                       "t": "string"
                     }
                   },
+                  "revisionOf": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
                   "status": {
                     "t": "enum",
                     "values": [
@@ -12891,6 +13611,12 @@
                   },
                   "submittedBy": {
                     "t": "string"
+                  },
+                  "supersededBy": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "targetId": {
                     "t": "nullable",
@@ -13211,6 +13937,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -13282,6 +14011,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -13299,6 +14034,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -13398,6 +14139,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -13469,6 +14213,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -13486,6 +14236,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -13657,6 +14413,9 @@
                 "createdAt": {
                   "t": "string"
                 },
+                "editCount": {
+                  "t": "number"
+                },
                 "executedAt": {
                   "t": "nullable",
                   "inner": {
@@ -13728,6 +14487,12 @@
                     "t": "string"
                   }
                 },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "status": {
                   "t": "enum",
                   "values": [
@@ -13745,6 +14510,12 @@
                 },
                 "submittedBy": {
                   "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "targetId": {
                   "t": "nullable",
@@ -14142,6 +14913,7 @@
                       "OwnerWedge",
                       "PaymentOutstanding",
                       "PayoutsOutstanding",
+                      "RejectedAwaitingRevision",
                       "TeamUnstaffed"
                     ]
                   },

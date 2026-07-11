@@ -585,6 +585,15 @@ export interface WriteTx {
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
 
+  /** Track B1: edit-before-review — version+Submitted-guarded payload replace, bumps editCount; null = stale/frozen. */
+  updateApprovalPayload(approvalId: string, expectedVersion: number, payload: Approval['payload']): Promise<Approval | null>;
+
+  /** Track B1: write-once supersession link (legal on terminal rows); false when already linked/missing. */
+  setSupersededBy(approvalId: string, supersededBy: string): Promise<boolean>;
+
+  /** Track B1: write-once reverse link on the fresh request; false when already linked/missing. */
+  setRevisionOf(approvalId: string, revisionOf: string): Promise<boolean>;
+
   /** SELECT ... FOR UPDATE — serialises concurrent transitions/executions. */
   lockApproval(approvalId: string): Promise<Approval | null>;
 

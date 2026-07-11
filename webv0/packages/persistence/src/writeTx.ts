@@ -184,6 +184,50 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return mapApproval(r);
     },
 
+    // Track B1: edit-before-review — version-guarded AND Submitted-guarded at
+    // the predicate (the 0038 trigger backstops the same law); every hit bumps
+    // the edit badge.
+    async updateApprovalPayload(approvalId: string, expectedVersion: number, payload: Approval['payload']): Promise<Approval | null> {
+      const rows = await db
+        .update(schema.approval)
+        .set({
+          payload,
+          editCount: sql`${schema.approval.editCount} + 1`,
+          version: sql`${schema.approval.version} + 1`,
+        })
+        .where(
+          and(
+            eq(schema.approval.approvalId, approvalId),
+            eq(schema.approval.version, expectedVersion),
+            eq(schema.approval.status, 'Submitted'),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapApproval(rows[0]) : null;
+    },
+
+    // Track B1: link a superseded request to its revision — write-once
+    // (WHERE superseded_by IS NULL; the trigger refuses rewrites), legal on
+    // terminal rows (linking a Rejected request does not reopen it).
+    async setSupersededBy(approvalId: string, supersededBy: string): Promise<boolean> {
+      const rows = await db
+        .update(schema.approval)
+        .set({ supersededBy })
+        .where(and(eq(schema.approval.approvalId, approvalId), isNull(schema.approval.supersededBy)))
+        .returning();
+      return rows.length > 0;
+    },
+
+    // Track B1: the reverse link on the fresh request — same write-once law.
+    async setRevisionOf(approvalId: string, revisionOf: string): Promise<boolean> {
+      const rows = await db
+        .update(schema.approval)
+        .set({ revisionOf })
+        .where(and(eq(schema.approval.approvalId, approvalId), isNull(schema.approval.revisionOf)))
+        .returning();
+      return rows.length > 0;
+    },
+
     async lockApproval(approvalId: string): Promise<Approval | null> {
       const res = await db.execute(
         sql`SELECT * FROM approval WHERE approval_id = ${approvalId} FOR UPDATE`,

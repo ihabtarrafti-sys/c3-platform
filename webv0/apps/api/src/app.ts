@@ -29,6 +29,9 @@ import {
   submitRemoveAgreementTermRequestSchema,
   approvalIdParamSchema,
   approvalResponseSchema,
+  editApprovalBodySchema,
+  reviseApprovalBodySchema,
+  reviseApprovalResponseSchema,
   approvalsListSchema,
   approvalEventsListSchema,
   auditEventsListSchema,
@@ -293,6 +296,8 @@ import {
   updateKit,
   updateMission,
   withdrawApproval,
+  editApprovalPayload,
+  reviseApproval,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -685,6 +690,32 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { expectedVersion } = req.body as { expectedVersion: number };
       return { approval: toApprovalDto(await withdrawApproval(P, actorOf(req), approvalId, expectedVersion), discOf(req)) };
     }),
+  );
+
+  // Track B1: edit-before-review — the submitter polishes their own Submitted
+  // request in place (same APR id; frozen from review onward).
+  r.post(
+    '/api/v1/approvals/:approvalId/edit',
+    { schema: { params: approvalIdParamSchema, body: editApprovalBodySchema, response: { 200: approvalResponseSchema } } },
+    async (req) => {
+      const { approvalId } = req.params as { approvalId: string };
+      const { expectedVersion, input } = req.body as { expectedVersion: number; input: unknown };
+      const approval = await editApprovalPayload(P, actorOf(req), { approvalId, expectedVersion, input });
+      return { approval: toApprovalDto(approval, discOf(req)) };
+    },
+  );
+
+  // Track B1: revise & resubmit — withdraw-if-open + a fresh linked request
+  // through the op's REAL submit path.
+  r.post(
+    '/api/v1/approvals/:approvalId/revise',
+    { schema: { params: approvalIdParamSchema, body: reviseApprovalBodySchema, response: { 201: reviseApprovalResponseSchema } } },
+    async (req, reply) => {
+      const { approvalId } = req.params as { approvalId: string };
+      const { expectedVersion, input, reason } = req.body as { expectedVersion: number; input: unknown; reason?: string | null };
+      const result = await reviseApproval(P, actorOf(req), { approvalId, expectedVersion, input, reason });
+      return reply.status(201).send({ approval: toApprovalDto(result.revised, discOf(req)), superseded: result.superseded });
+    },
   );
 
   r.get('/api/v1/approvals/:approvalId/events', { schema: { params: approvalIdParamSchema, response: { 200: approvalEventsListSchema } } }, async (req) => {

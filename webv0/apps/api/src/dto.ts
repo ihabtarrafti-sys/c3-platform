@@ -499,6 +499,9 @@ export function toApprovalDto(a: Approval, d: PayloadDisclosure): ApprovalDto {
     executedAt: a.executedAt,
     executionError: a.executionError,
     version: a.version,
+    editCount: a.editCount,
+    revisionOf: a.revisionOf,
+    supersededBy: a.supersededBy,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
   };
@@ -521,6 +524,9 @@ export function toApprovalSummaryDto(a: Approval): ApprovalSummaryDto {
     executedAt: a.executedAt,
     executionError: a.executionError,
     version: a.version,
+    editCount: a.editCount,
+    revisionOf: a.revisionOf,
+    supersededBy: a.supersededBy,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
   };

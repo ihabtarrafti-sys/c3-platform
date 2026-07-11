@@ -1,0 +1,169 @@
+/**
+ * corrections.test.ts (api) — Track B1: request corrections over HTTP.
+ *
+ * "Polish freely until review starts — every change on the record; after
+ * that, frozen; corrections are new requests." Proves: edit-before-review
+ * (submitter-only, Submitted-only, target-locked, on the record); the freeze
+ * at the beginReview boundary; and revise-and-resubmit (withdraw-if-open +
+ * fresh linked request via the op's real submit, with the status gate).
+ */
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import type { FastifyInstance } from 'fastify';
+import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
+import { loadEnv } from '../src/env';
+import { createLogger } from '../src/logger';
+import { buildDeps, type Deps } from '../src/deps';
+import { buildApp } from '../src/app';
+
+let db: TestDatabase;
+let deps: Deps;
+let app: FastifyInstance;
+const tokens = {} as { ops: string; ops2: string; owner: string };
+
+async function login(email: string, role: string, tenantSlug: string): Promise<string> {
+  const res = await app.inject({ method: 'POST', url: '/api/v1/dev/login', payload: { email, displayName: email, role, tenantSlug } });
+  expect(res.statusCode, res.body).toBe(200);
+  return res.json().token as string;
+}
+const auth = (t: string) => ({ authorization: `Bearer ${t}` });
+const post = (t: string, url: string, payload?: unknown) => app.inject({ method: 'POST', url, headers: auth(t), payload: payload ?? {} });
+const get = (t: string, url: string) => app.inject({ method: 'GET', url, headers: auth(t) });
+
+/** Submit an AddPerson request; returns its {approvalId, version}. */
+async function submitPerson(token: string, fullName: string): Promise<{ approvalId: string; version: number }> {
+  const res = await post(token, '/api/v1/approvals', { input: { fullName } });
+  expect(res.statusCode, res.body).toBe(201);
+  return res.json().approval;
+}
+
+beforeAll(async () => {
+  db = await startTestDatabase();
+  const env = loadEnv({
+    NODE_ENV: 'test',
+    AUTH_PROVIDER: 'dev',
+    DEV_AUTH_SECRET: 'corrections-test-secret-00000000',
+    DATABASE_URL: db.appUrl,
+    DATABASE_ADMIN_URL: db.adminUrl,
+  } as NodeJS.ProcessEnv);
+  deps = buildDeps(env, createLogger(env));
+  app = buildApp(deps);
+  await app.ready();
+}, 180_000);
+
+afterAll(async () => {
+  await app?.close();
+  await deps?.close();
+  await db?.stop();
+});
+
+beforeEach(async () => {
+  await db.truncateAll();
+  await db.seedTenant({ slug: 'alpha' });
+  tokens.ops = await login('ops@alpha.com', 'operations', 'alpha');
+  tokens.ops2 = await login('ops2@alpha.com', 'operations', 'alpha');
+  tokens.owner = await login('owner@alpha.com', 'owner', 'alpha');
+});
+
+describe('Track B1 — edit before review', () => {
+  it('the submitter polishes their own Submitted request in place; every edit is on the record', async () => {
+    const a = await submitPerson(tokens.ops, 'Jordn Reyas'); // a typo to fix
+
+    const edit = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/edit`, { expectedVersion: a.version, input: { fullName: 'Jordan Reyes' } });
+    expect(edit.statusCode, edit.body).toBe(200);
+    expect(edit.json().approval).toMatchObject({ status: 'Submitted', editCount: 1 });
+    // same APR id — an edit is not a new request
+    expect(edit.json().approval.approvalId).toBe(a.approvalId);
+
+    // the event names WHICH field changed (never the value — H-01)
+    const events = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}/events`);
+    const editEvent = events.json().events.find((e: { note: string | null }) => e.note?.includes('Request edited'));
+    expect(editEvent.note).toContain('fullName');
+    expect(editEvent.note).not.toContain('Jordan Reyes');
+
+    // a second identical edit is refused (nothing changed)
+    const noop = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/edit`, { expectedVersion: edit.json().approval.version, input: { fullName: 'Jordan Reyes' } });
+    expect(noop.statusCode).toBe(409);
+  });
+
+  it('only the submitter may edit — a colleague is refused', async () => {
+    const a = await submitPerson(tokens.ops, 'Someone');
+    const other = await post(tokens.ops2, `/api/v1/approvals/${a.approvalId}/edit`, { expectedVersion: a.version, input: { fullName: 'Hijacked' } });
+    expect(other.statusCode).toBe(403);
+  });
+
+  it('an edit may not change the TARGET (the one-open-per-target guard would be dodged)', async () => {
+    // AddCredential targets a person: submit for a real one first.
+    const p = await submitPerson(tokens.ops, 'Cred Owner');
+    const rev = await post(tokens.owner, `/api/v1/approvals/${p.approvalId}/begin-review`, { expectedVersion: p.version });
+    const appr = await post(tokens.owner, `/api/v1/approvals/${p.approvalId}/approve`, { expectedVersion: rev.json().approval.version });
+    const exec = await post(tokens.owner, `/api/v1/approvals/${p.approvalId}/execute`, { expectedVersion: appr.json().approval.version });
+    const personId = exec.json().person.personId as string;
+
+    const credSub = await post(tokens.ops, '/api/v1/credentials/requests', { input: { personId, credentialType: 'Passport', kind: 'Passport', issuedOn: '2026-01-01' } });
+    expect(credSub.statusCode, credSub.body).toBe(201);
+    const cred = credSub.json().approval;
+
+    // editing a non-target field is fine…
+    const ok = await post(tokens.ops, `/api/v1/approvals/${cred.approvalId}/edit`, { expectedVersion: cred.version, input: { personId, credentialType: 'National ID Card', kind: 'NationalID', issuedOn: '2026-01-01' } });
+    expect(ok.statusCode, ok.body).toBe(200);
+    // …retargeting personId is refused
+    const retarget = await post(tokens.ops, `/api/v1/approvals/${cred.approvalId}/edit`, { expectedVersion: ok.json().approval.version, input: { personId: 'PER-9999', credentialType: 'National ID Card', kind: 'NationalID', issuedOn: '2026-01-01' } });
+    expect(retarget.statusCode).toBe(409);
+  });
+
+  it('the freeze sits at begin-review: editing an InReview request is refused', async () => {
+    const a = await submitPerson(tokens.ops, 'Freeze Me');
+    const rev = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version });
+    expect(rev.statusCode).toBe(200);
+    const edit = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/edit`, { expectedVersion: rev.json().approval.version, input: { fullName: 'Too Late' } });
+    expect(edit.statusCode).toBe(409);
+  });
+});
+
+describe('Track B1 — revise & resubmit', () => {
+  it('a rejected request is revised into a fresh linked request; both rows carry the tie', async () => {
+    const a = await submitPerson(tokens.ops, 'Rejected One');
+    const rev = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version });
+    const rej = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/reject`, { expectedVersion: rev.json().approval.version, reason: 'wrong name' });
+    expect(rej.statusCode, rej.body).toBe(200);
+
+    const revise = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: rej.json().approval.version, input: { fullName: 'Corrected One' } });
+    expect(revise.statusCode, revise.body).toBe(201);
+    const fresh = revise.json().approval;
+    expect(fresh.approvalId).not.toBe(a.approvalId);
+    expect(fresh).toMatchObject({ status: 'Submitted', revisionOf: a.approvalId });
+    expect(revise.json().superseded).toBe(a.approvalId);
+
+    // the old row now points forward; it stays Rejected (linking never reopens it)
+    const old = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
+    expect(old.json().approval).toMatchObject({ status: 'Rejected', supersededBy: fresh.approvalId });
+  });
+
+  it('revising a still-open request withdraws the old one first', async () => {
+    const a = await submitPerson(tokens.ops, 'Open One');
+    const revise = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: a.version, input: { fullName: 'Open One Fixed' } });
+    expect(revise.statusCode, revise.body).toBe(201);
+    const old = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
+    expect(old.json().approval.status).toBe('Withdrawn');
+    expect(old.json().approval.supersededBy).toBe(revise.json().approval.approvalId);
+  });
+
+  it('an Approved request cannot be revised — it belongs to the reviewers', async () => {
+    const a = await submitPerson(tokens.ops, 'Approved One');
+    const rev = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version });
+    const appr = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/approve`, { expectedVersion: rev.json().approval.version });
+    expect(appr.statusCode).toBe(200);
+    const revise = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: appr.json().approval.version, input: { fullName: 'Nope' } });
+    expect(revise.statusCode).toBe(409);
+  });
+
+  it('a schema-invalid revision refuses WITHOUT touching the old request', async () => {
+    const a = await submitPerson(tokens.ops, 'Keep Me');
+    const bad = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: a.version, input: { fullName: '' } });
+    expect(bad.statusCode).toBe(400);
+    // the old request is untouched — still Submitted, not withdrawn
+    const still = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
+    expect(still.json().approval.status).toBe('Submitted');
+    expect(still.json().approval.supersededBy).toBeNull();
+  });
+});

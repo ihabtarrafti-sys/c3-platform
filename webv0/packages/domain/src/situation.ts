@@ -99,6 +99,10 @@ export interface SituationSnapshot {
     submittedAt: string;
     targetId: string | null;
     targetPersonId: string;
+    /** Track B1: when the decision landed (the revise-window clock). */
+    reviewedAt: string | null;
+    /** Track B1: a superseding revision silences the fix-and-resend nudge. */
+    supersededBy: string | null;
   }>;
   readonly journeys: ReadonlyArray<{ journeyId: string; personId: string; journeyType: string; status: string; updatedAt: string }>;
 }
@@ -119,6 +123,7 @@ export const SIGNAL_KINDS = [
   'PayoutsOutstanding',
   'ClaimsAwaitingReview',
   'DelegationActive',
+  'RejectedAwaitingRevision',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -567,6 +572,30 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
   }
 
+  // 8c — Track B1: rejected requests nobody revised yet — the fix-and-resend
+  //      queue. A superseding revision (or 14 quiet days = considered dropped)
+  //      silences it; the suggested move is Revise & resubmit, prefilled.
+  for (const a of snapshot.approvals.filter((x) => x.status === 'Rejected' && x.supersededBy === null && x.reviewedAt !== null)) {
+    const ageDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(a.reviewedAt!)) / 86_400_000);
+    if (ageDays < 0 || ageDays > 14) continue;
+    signals.push(
+      make({
+        key: `RejectedAwaitingRevision:${a.approvalId}`,
+        kind: 'RejectedAwaitingRevision',
+        headline: `${a.approvalId} (${a.operationType}) was rejected and has no revision yet`,
+        reasons: [
+          `Rejected ${ageDays === 0 ? 'today' : `${ageDays} day${ageDays === 1 ? '' : 's'} ago`}; submitted by ${a.submittedBy}`,
+          'Revise & resubmit from the request page — the original input prefills.',
+          'Quiet for 14 days = treated as dropped and this check goes silent.',
+        ],
+        impact: 1,
+        urgency: 1,
+        inMotion: false,
+        actions: [{ kind: 'ViewApproval', approvalId: a.approvalId }],
+      }),
+    );
+  }
+
   // 9 — Journey drift: suspended and untouched for 14+ days.
   for (const j of snapshot.journeys.filter((j) => j.status === 'Suspended')) {
     const idleDays = Math.floor((Date.parse(today + 'T00:00:00Z') - Date.parse(j.updatedAt)) / 86_400_000);
@@ -612,6 +641,7 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Prize distributions with payouts still pending',
   'Expense claims awaiting a decision for 3+ days',
   'Delegation active (review authority granted to a member — visible for its whole life)',
+  'Rejected requests not yet revised (the fix-and-resend queue, 14-day window)',
 ];
 
 /**
@@ -634,4 +664,5 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'PayoutsOutstanding',
   'ClaimsAwaitingReview',
   'DelegationActive',
+  'RejectedAwaitingRevision',
 ];

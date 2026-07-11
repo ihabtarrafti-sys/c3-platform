@@ -14,6 +14,7 @@ import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { ErrorState, LoadingState } from '../components/states';
 import { GovernedAction } from '../components/GovernedAction';
+import { CorrectionDialog, isCorrectable } from '../components/RequestCorrections';
 import { agreementTermKindOf, approvalStatusOf, operationOf } from '../labels';
 
 const useStyles = makeStyles({
@@ -89,6 +90,7 @@ export function ApprovalDetailPage() {
   const canExecute = me?.capabilities.canExecuteApproval ?? false;
   const isOwnRequest = a ? me?.identity === a.submittedBy : false;
   const actionable = !isOwnRequest;
+  const correctable = a ? isCorrectable(a.operationType) : false;
 
   const entries: TimelineEntry[] = (events.data?.events ?? []).map((e) => {
     const to = approvalStatusOf(e.toStatus).label;
@@ -169,6 +171,33 @@ export function ApprovalDetailPage() {
     : [];
   if (a?.rejectionReason) items.push({ label: 'Rejection reason', value: a.rejectionReason });
   if (a?.executionError) items.push({ label: 'Execution error', value: a.executionError });
+  // Track B1: the corrections record — every pre-review polish is visible.
+  if (a && a.editCount > 0) {
+    items.push({
+      label: 'Corrections',
+      value: <StatusBadge variant="neutral" data-testid="edited-badge">{`Edited ×${a.editCount}`}</StatusBadge>,
+    });
+  }
+  if (a?.revisionOf) {
+    items.push({
+      label: 'Revision of',
+      value: (
+        <Link className={s.idLink} to={`/approvals/${a.revisionOf}`} data-testid="revision-of-link">
+          {a.revisionOf}
+        </Link>
+      ),
+    });
+  }
+  if (a?.supersededBy) {
+    items.push({
+      label: 'Superseded by',
+      value: (
+        <Link className={s.idLink} to={`/approvals/${a.supersededBy}`} data-testid="superseded-by-link">
+          {a.supersededBy}
+        </Link>
+      ),
+    });
+  }
 
   const showDecision =
     !!a &&
@@ -196,10 +225,34 @@ export function ApprovalDetailPage() {
           {isOwnRequest && (a.status === 'Submitted' || a.status === 'InReview') && (
             <div className={s.decision}>
               <div className={s.decisionNote}>
-                Changed your mind? You may withdraw your own request while it awaits a decision — nothing has happened
-                yet, and withdrawal is recorded.
+                {a.status === 'Submitted'
+                  ? 'Your request, before review: polish it freely (every change is recorded and shown to the reviewer), or withdraw it.'
+                  : 'Review has started, so the request is frozen. You may still withdraw it, or revise & resubmit a corrected copy.'}
               </div>
               <div className={s.decisionRow}>
+                {a.status === 'Submitted' && correctable && (
+                  <CorrectionDialog
+                    mode="edit"
+                    operationType={a.operationType}
+                    originalInput={(payload!.input ?? {}) as Record<string, unknown>}
+                    triggerTestId="edit-request"
+                    onSubmit={(input) => run(() => api.editApproval(a.approvalId, a.version, input), 'Request edited — every change is on the record.')}
+                  />
+                )}
+                {a.status === 'InReview' && correctable && (
+                  <CorrectionDialog
+                    mode="revise"
+                    operationType={a.operationType}
+                    originalInput={(payload!.input ?? {}) as Record<string, unknown>}
+                    triggerTestId="revise-request"
+                    onSubmit={(input) =>
+                      run(async () => {
+                        const res = await api.reviseApproval(a.approvalId, a.version, input);
+                        notify('info', `Submitted ${res.approval.approvalId}, superseding ${res.superseded}.`);
+                      }, 'Corrected request submitted.')
+                    }
+                  />
+                )}
                 <GovernedAction
                   triggerLabel="Withdraw my request…"
                   triggerTestId="withdraw"
@@ -208,6 +261,30 @@ export function ApprovalDetailPage() {
                   description="This cancels your request permanently — it will not be reviewed or executed. Withdrawal is recorded in the approval history."
                   confirmLabel="Withdraw request"
                   onConfirm={() => run(() => api.withdrawApproval(a.approvalId, a.version), 'Request withdrawn and recorded.')}
+                />
+              </div>
+            </div>
+          )}
+
+          {isOwnRequest && (a.status === 'Rejected' || a.status === 'Withdrawn') && !a.supersededBy && correctable && (
+            <div className={s.decision}>
+              <div className={s.decisionNote}>
+                {a.status === 'Rejected'
+                  ? 'This request was rejected. Fix it and resend — your original input prefills a fresh linked request.'
+                  : 'You withdrew this request. If that was premature, resubmit a corrected copy — the original input prefills.'}
+              </div>
+              <div className={s.decisionRow}>
+                <CorrectionDialog
+                  mode="revise"
+                  operationType={a.operationType}
+                  originalInput={(payload!.input ?? {}) as Record<string, unknown>}
+                  triggerTestId="revise-request"
+                  onSubmit={(input) =>
+                    run(async () => {
+                      const res = await api.reviseApproval(a.approvalId, a.version, input);
+                      notify('info', `Submitted ${res.approval.approvalId}, superseding ${res.superseded}.`);
+                    }, 'Corrected request submitted.')
+                  }
                 />
               </div>
             </div>

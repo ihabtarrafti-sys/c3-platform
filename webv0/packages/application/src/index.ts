@@ -32,5 +32,6 @@ export * from './usecases/teamOps';
 export * from './usecases/situation';
 export * from './usecases/submitMemberChange';
 export * from './usecases/reviewApproval';
+export * from './usecases/editApproval';
 export * from './usecases/executeApproval';
 export * from './usecases/queries';

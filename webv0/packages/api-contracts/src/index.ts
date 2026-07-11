@@ -136,6 +136,10 @@ export const approvalSummarySchema = z.object({
   executedAt: z.string().nullable(),
   executionError: z.string().nullable(),
   version: z.number().int(),
+  // Track B1: the corrections record + revision links.
+  editCount: z.number().int(),
+  revisionOf: z.string().nullable(),
+  supersededBy: z.string().nullable(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -150,6 +154,15 @@ export type ApprovalPayloadDto = z.infer<typeof approvalPayloadSchema>;
 
 // H-01: the register is payload-free — disclosure happens on the detail view.
 export const approvalsListSchema = z.object({ approvals: z.array(approvalSummarySchema) });
+
+// Track B1: request corrections — edit-before-review + revise-and-resubmit.
+export const editApprovalBodySchema = z
+  .object({ expectedVersion: z.number().int().min(0), input: z.record(z.unknown()) })
+  .strict();
+export const reviseApprovalBodySchema = z
+  .object({ expectedVersion: z.number().int().min(0), input: z.record(z.unknown()), reason: z.string().trim().max(1000).nullish() })
+  .strict();
+export const reviseApprovalResponseSchema = z.object({ approval: approvalSchema, superseded: z.string() });
 
 export const approvalEventSchema = z.object({
   approvalId: z.string(),
@@ -1083,7 +1096,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview', 'DelegationActive']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview', 'DelegationActive', 'RejectedAwaitingRevision']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),

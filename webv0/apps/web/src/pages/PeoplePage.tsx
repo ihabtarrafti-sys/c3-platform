@@ -83,7 +83,7 @@ export function PeoplePage() {
               triggerTestId="add-person-submit"
               triggerDisabled={busy || fullName.trim() === ''}
               title="Submit this request for approval?"
-              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
+              description="It goes to an approver for review; approval and execution are separate steps. You can polish or withdraw it until review starts — after that, corrections become a new request."
               confirmLabel="Submit for approval"
               onConfirm={submit}
             />

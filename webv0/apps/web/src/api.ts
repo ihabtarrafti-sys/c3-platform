@@ -266,6 +266,11 @@ export function createApiClient(deps: ApiClientDeps) {
     approve: (id: string, expectedVersion: number) => request<{ approval: ApprovalDto }>('POST', `/api/v1/approvals/${id}/approve`, { expectedVersion }),
     reject: (id: string, expectedVersion: number, reason: string) => request<{ approval: ApprovalDto }>('POST', `/api/v1/approvals/${id}/reject`, { expectedVersion, reason }),
     withdrawApproval: (id: string, expectedVersion: number) => request<{ approval: ApprovalDto }>('POST', `/api/v1/approvals/${id}/withdraw`, { expectedVersion }),
+    // Track B1: request corrections — polish before review; revise after.
+    editApproval: (id: string, expectedVersion: number, input: Record<string, unknown>) =>
+      request<{ approval: ApprovalDto }>('POST', `/api/v1/approvals/${id}/edit`, { expectedVersion, input }),
+    reviseApproval: (id: string, expectedVersion: number, input: Record<string, unknown>, reason?: string | null) =>
+      request<{ approval: ApprovalDto; superseded: string }>('POST', `/api/v1/approvals/${id}/revise`, { expectedVersion, input, reason }),
     execute: (id: string, expectedVersion: number) => request<{ approval: ApprovalDto; person: PersonDto | null; idempotent: boolean }>('POST', `/api/v1/approvals/${id}/execute`, { expectedVersion }),
     // Sprint 35 tenant-admin: member directory + governed member changes.
     listMembers: () => request<{ members: MemberDto[] }>('GET', '/api/v1/members'),

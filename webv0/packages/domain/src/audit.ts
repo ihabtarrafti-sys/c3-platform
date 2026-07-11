@@ -131,6 +131,9 @@ export const AUDIT_ACTIONS = [
   'FxRateSet',
   // HARDEN-2 (0037): a tenant setting was written (per-diem presets et al.).
   'PerDiemPresetsSet',
+  // Track B1: request corrections — a pre-review edit / a revise-and-resubmit tie.
+  'ApprovalEdited',
+  'ApprovalSuperseded',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

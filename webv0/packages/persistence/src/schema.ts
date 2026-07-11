@@ -83,6 +83,10 @@ export const approval = pgTable('approval', {
   executedAt: timestamp('executed_at', { withTimezone: true }),
   executionError: text('execution_error'),
   version: integer('version').notNull().default(0),
+  // Track B1 (0038): the corrections record + revision links.
+  editCount: integer('edit_count').notNull().default(0),
+  revisionOf: text('revision_of'),
+  supersededBy: text('superseded_by'),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

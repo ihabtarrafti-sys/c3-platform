@@ -77,6 +77,9 @@ export function GovernedAction({
     try {
       await onConfirm();
       setOpen(false);
+    } catch {
+      // A rejecting onConfirm keeps the dialog OPEN (the caller has already
+      // surfaced the error — e.g. an inline validation message or a toast).
     } finally {
       setBusy(false);
     }

@@ -113,6 +113,9 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
       submittedAt: a.submittedAt,
       targetId: a.targetId,
       targetPersonId: a.targetPersonId,
+      // Track B1: the fix-and-resend check's clock + silencer.
+      reviewedAt: a.reviewedAt,
+      supersededBy: a.supersededBy,
     })),
     journeys: journeys.map((j) => ({
       journeyId: j.journeyId,

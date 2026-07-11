@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -532,15 +532,48 @@ describe('constraints & immutability', () => {
     ).rejects.toThrow();
   });
 
-  it('the approval payload is immutable after submission (trigger-enforced)', async () => {
+  it('Track B1 (0038): the payload freeze sits at the beginReview boundary — polish in Submitted, frozen after', async () => {
     const { approvalId } = await submitApprovalIn(actorA);
     const client = new Client({ connectionString: db.adminUrl });
     await client.connect();
     try {
       await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantA]); // not needed for owner but harmless
+
+      // Submitted: the submitter's polish window — a payload change is LEGAL.
+      await client.query(
+        `UPDATE approval SET payload = '{"operationType":"AddPerson","input":{"fullName":"Polished Name"}}'::jsonb, edit_count = edit_count + 1 WHERE approval_id=$1`,
+        [approvalId],
+      );
+
+      // …but an edit can never ride a status transition,
+      await expect(
+        client.query(
+          `UPDATE approval SET status='InReview', payload = '{"operationType":"AddPerson","input":{"fullName":"Smuggled"}}'::jsonb WHERE approval_id=$1`,
+          [approvalId],
+        ),
+      ).rejects.toThrow(/FROZEN from review onward/i);
+
+      // …and from InReview onward the payload is FROZEN (the 0001 promise, moved).
+      await client.query(`UPDATE approval SET status='InReview' WHERE approval_id=$1`, [approvalId]);
       await expect(
         client.query(`UPDATE approval SET payload = '{"operationType":"AddPerson","input":{"fullName":"HACKED"}}'::jsonb WHERE approval_id=$1`, [approvalId]),
+      ).rejects.toThrow(/FROZEN from review onward/i);
+
+      // Identity stays write-once no matter the status…
+      await expect(
+        client.query(`UPDATE approval SET operation_type='AddCredential' WHERE approval_id=$1`, [approvalId]),
       ).rejects.toThrow(/immutable/i);
+      // …the edit badge never counts down…
+      await expect(client.query(`UPDATE approval SET edit_count = 0 WHERE approval_id=$1`, [approvalId])).rejects.toThrow(/monotone/i);
+      // …and the revision links are write-once (self-FK demands a real approval).
+      const { approvalId: other } = await submitApprovalIn(actorA);
+      await client.query(`UPDATE approval SET superseded_by=$2 WHERE approval_id=$1`, [approvalId, other]);
+      await expect(client.query(`UPDATE approval SET superseded_by=$2 WHERE approval_id=$1`, [approvalId, approvalId])).rejects.toThrow(
+        /write-once/i,
+      );
+      await expect(client.query(`UPDATE approval SET revision_of='APR-9999' WHERE approval_id=$1`, [other])).rejects.toThrow(
+        /approval_revision_of_fk|violates foreign key/i,
+      );
     } finally {
       await client.end();
     }

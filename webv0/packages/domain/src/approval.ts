@@ -293,6 +293,12 @@ export interface Approval {
   readonly executionError: string | null;
   /** Optimistic-concurrency token (monotonic integer). */
   readonly version: number;
+  /** Track B1: how many pre-review edits this request took (the "Edited ×N" badge). */
+  readonly editCount: number;
+  /** Track B1: the request this one revises (APR-XXXX), set at submission only. */
+  readonly revisionOf: string | null;
+  /** Track B1: the request that superseded this one (APR-XXXX), write-once. */
+  readonly supersededBy: string | null;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -300,4 +306,84 @@ export interface Approval {
 /** Parse/validate an unknown value as a governed approval payload. */
 export function parseApprovalPayload(value: unknown): ApprovalPayload {
   return approvalPayloadSchema.parse(value);
+}
+
+// ── Track B1: request corrections ────────────────────────────────────────────
+// "Polish freely until review starts — every change on the record; after
+// that, frozen; corrections are new requests."
+
+/**
+ * Ops whose requests cannot be edited/revised through the corrections lanes.
+ * ImportBatch payloads are whole staged FILES — the correction is re-staging.
+ */
+export const CORRECTIONS_EXCLUDED_OPS = ['ImportBatch'] as const satisfies readonly OperationType[];
+
+/**
+ * Per-op TARGET-IDENTIFYING input keys: an EDIT must keep these byte-equal —
+ * the one-open-request-per-target guards ran at submission, and a retargeting
+ * edit would dodge them. Changing the target = withdraw or revise.
+ * (A completeness test asserts every OperationType appears here or in the
+ * exclusion list.)
+ */
+export const EDIT_TARGET_KEYS: Readonly<Record<Exclude<OperationType, (typeof CORRECTIONS_EXCLUDED_OPS)[number]>, readonly string[]>> = {
+  AddPerson: [],
+  ProvisionMember: ['email'],
+  ChangeRole: ['targetUserId', 'email'],
+  DeactivateMember: ['targetUserId', 'email'],
+  ReactivateMember: ['targetUserId', 'email'],
+  AddCredential: ['personId'],
+  DeactivateCredential: ['credentialId'],
+  InitiateJourney: ['personId'],
+  AddMissionParticipant: ['missionId', 'personId'],
+  RemoveMissionParticipant: ['missionId', 'personId'],
+  AddAgreement: ['personId', 'entityId'],
+  RenewAgreement: ['agreementId'],
+  TerminateAgreement: ['agreementId'],
+  AddAgreementTerm: ['agreementId'],
+  UpdateAgreementTerm: ['termId'],
+  RemoveAgreementTerm: ['termId'],
+  UpdatePersonIdentity: ['personId'],
+  DeactivatePerson: ['personId'],
+  ReactivatePerson: ['personId'],
+  UpdateCredentialFacts: ['credentialId'],
+  AddBeneficiary: ['personId'],
+  UpdateBeneficiary: ['beneficiaryId'],
+  RetireBeneficiary: ['beneficiaryId'],
+};
+
+/** Statuses a request may be REVISED from (fresh linked request). Approved
+ * belongs to the reviewers, ExecutionFailed to the owner's re-execute lane,
+ * Executed is done. */
+export const REVISABLE_STATUSES: readonly ApprovalStatus[] = ['Submitted', 'InReview', 'Rejected', 'Withdrawn'];
+
+const approvalIdField = z.string().regex(/^APR-\d{4,}$/);
+
+/** Edit-before-review: replace the payload INPUT of your own Submitted request. */
+export const editApprovalInputSchema = z
+  .object({
+    approvalId: approvalIdField,
+    expectedVersion: z.number().int().min(0),
+    /** The op's input shape — revalidated through approvalPayloadSchema. */
+    input: z.unknown(),
+  })
+  .strict();
+export type EditApprovalInput = z.infer<typeof editApprovalInputSchema>;
+
+/** Revise & resubmit: withdraw-if-open + fresh linked request via the op's REAL submit. */
+export const reviseApprovalInputSchema = z
+  .object({
+    approvalId: approvalIdField,
+    expectedVersion: z.number().int().min(0),
+    input: z.unknown(),
+    reason: z.string().trim().max(1000).nullish(),
+  })
+  .strict();
+export type ReviseApprovalInput = z.infer<typeof reviseApprovalInputSchema>;
+
+/** The field names whose values differ between two op inputs (sorted; for the record). */
+export function changedInputFields(before: unknown, after: unknown): string[] {
+  const a = (before ?? {}) as Record<string, unknown>;
+  const b = (after ?? {}) as Record<string, unknown>;
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  return [...keys].filter((k) => JSON.stringify(a[k]) !== JSON.stringify(b[k])).sort();
 }

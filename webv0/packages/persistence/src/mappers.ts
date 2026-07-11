@@ -500,6 +500,9 @@ export function mapApproval(row: any): Approval {
     executedAt: iso(row.executedAt ?? row.executed_at ?? null),
     executionError: row.executionError ?? row.execution_error ?? null,
     version: row.version,
+    editCount: Number(row.editCount ?? row.edit_count ?? 0),
+    revisionOf: row.revisionOf ?? row.revision_of ?? null,
+    supersededBy: row.supersededBy ?? row.superseded_by ?? null,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };

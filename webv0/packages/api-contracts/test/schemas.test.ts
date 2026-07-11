@@ -39,7 +39,8 @@ describe('wire contracts', () => {
       payload: { operationType: 'AddPerson', input: { fullName: 'A', ign: null, nationality: null, primaryRole: null, personnelCode: null, currentTeam: null, currentGameTitle: null, primaryDepartment: null, notes: null } },
       submittedBy: 'ops@a.com', submittedAt: '2026-07-05T00:00:00.000Z',
       reviewedBy: null, reviewedAt: null, rejectionReason: null, executedAt: null, executionError: null,
-      version: 0, createdAt: '2026-07-05T00:00:00.000Z', updatedAt: '2026-07-05T00:00:00.000Z',
+      version: 0, editCount: 0, revisionOf: null, supersededBy: null,
+      createdAt: '2026-07-05T00:00:00.000Z', updatedAt: '2026-07-05T00:00:00.000Z',
     };
     expect(approvalSchema.safeParse(row).success).toBe(true);
   });
