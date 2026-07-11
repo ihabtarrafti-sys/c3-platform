@@ -169,6 +169,19 @@ export function IntakePage() {
     }
   }
 
+  // Move a promoted submission's quarantined files onto the CREATED person.
+  // Only possible once the AddPerson request has been approved + executed (the
+  // person exists then) — the API 409s otherwise, surfaced truthfully here.
+  async function attachFiles(sub: IntakeSubmissionDto): Promise<void> {
+    try {
+      const res = await api.attachIntakeUploads(sub.id, sub.uploads.map((u) => u.uploadId));
+      notify(res.attachedCount > 0 ? 'success' : 'info', res.attachedCount > 0 ? `${res.attachedCount} file(s) attached to ${res.personId}.` : 'No files remained to attach.');
+      await qc.invalidateQueries({ queryKey: ['intakeSandbox'] });
+    } catch (err) {
+      notify('error', err instanceof ApiError ? err.message : 'Approve and execute the request first, then attach.');
+    }
+  }
+
   const pending = (sandbox.data?.submissions ?? []).filter((x) => x.status === 'Pending');
   const reviewed = (sandbox.data?.submissions ?? []).filter((x) => x.status !== 'Pending');
 
@@ -308,6 +321,14 @@ export function IntakePage() {
                           )}
                           {sub.status === 'Promoted' && sub.promotedApprovalId && (
                             <Link className={s.meta} to={`/approvals/${sub.promotedApprovalId}`}>Open approval {sub.promotedApprovalId} →</Link>
+                          )}
+                          {sub.status === 'Promoted' && sub.uploads.length > 0 && (
+                            <div>
+                              <Button appearance="secondary" size="small" onClick={() => attachFiles(sub)} data-testid={`intake-attach-${sub.id}`}>
+                                Attach {sub.uploads.length} file(s) to the person
+                              </Button>
+                              <span className={s.metaMono} style={{ marginLeft: '8px' }}>(after the request is approved + executed)</span>
+                            </div>
                           )}
                         </div>
                       )}
