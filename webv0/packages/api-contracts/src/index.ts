@@ -57,6 +57,11 @@ import {
   renewAgreementInputSchema,
   COMMENT_SUBJECT_TYPES,
   postCommentInputSchema,
+  INTAKE_KINDS,
+  INTAKE_LINK_STATUSES,
+  INTAKE_SUBMISSION_STATUSES,
+  createIntakeLinkInputSchema,
+  onboardingIntakePayloadSchema,
   RECYCLE_KINDS,
   restoreRecycleInputSchema,
   setParticipantPerDiemInputSchema,
@@ -797,6 +802,72 @@ export type CommentDto = z.infer<typeof commentSchema>;
 export const commentsListSchema = z.object({ comments: z.array(commentSchema) });
 export const commentResponseSchema = z.object({ comment: commentSchema });
 
+// ── guest intake (Track B6): tokenized sandbox submissions ───────────────────
+export { createIntakeLinkInputSchema, onboardingIntakePayloadSchema };
+/** Upload metadata EXPOSED to staff — the internal storageKey is never sent. */
+export const intakeUploadDtoSchema = z.object({
+  uploadId: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number(),
+  sha256: z.string(),
+});
+export const intakeLinkSchema = z.object({
+  id: z.string(),
+  kind: z.enum(INTAKE_KINDS),
+  label: z.string().nullable(),
+  createdBy: z.string(),
+  createdAt: z.string(),
+  expiresAt: z.string(),
+  maxUses: z.number(),
+  usedCount: z.number(),
+  status: z.enum(INTAKE_LINK_STATUSES),
+  consumedAt: z.string().nullable(),
+});
+export type IntakeLinkDto = z.infer<typeof intakeLinkSchema>;
+export const intakeSubmissionSchema = z.object({
+  id: z.string(),
+  linkId: z.string().nullable(),
+  kind: z.enum(INTAKE_KINDS),
+  payload: z.record(z.unknown()).nullable(),
+  uploads: z.array(intakeUploadDtoSchema),
+  status: z.enum(INTAKE_SUBMISSION_STATUSES),
+  submittedAt: z.string(),
+  reviewedBy: z.string().nullable(),
+  reviewedAt: z.string().nullable(),
+  promotedApprovalId: z.string().nullable(),
+  promotedPersonId: z.string().nullable(),
+  decisionNote: z.string().nullable(),
+});
+export type IntakeSubmissionDto = z.infer<typeof intakeSubmissionSchema>;
+
+export const intakeLinksListSchema = z.object({ links: z.array(intakeLinkSchema) });
+/** Mint response — the raw token is returned ONCE (never stored/returned again). */
+export const createIntakeLinkResponseSchema = z.object({ link: intakeLinkSchema, token: z.string() });
+export const intakeLinkResponseSchema = z.object({ link: intakeLinkSchema });
+export const intakeSubmissionsListSchema = z.object({ submissions: z.array(intakeSubmissionSchema) });
+export const intakeSubmissionResponseSchema = z.object({ submission: intakeSubmissionSchema });
+export const promoteSubmissionResponseSchema = z.object({ approval: approvalSchema, submission: intakeSubmissionSchema });
+/** Staff decision body (promote/reject) — an optional note. */
+export const intakeDecisionInputSchema = z.object({ decisionNote: z.string().trim().max(2000).nullish() }).strict();
+/** Attach a promoted submission's quarantined files to the created person. */
+export const intakeAttachInputSchema = z.object({ uploadIds: z.array(z.string()).min(1).max(20) }).strict();
+export const intakeAttachResponseSchema = z.object({ attachedCount: z.number(), personId: z.string() });
+
+/** Public: non-consuming peek for the form load (no tenant, minimal). */
+export const intakePeekResponseSchema = z.object({
+  kind: z.enum(INTAKE_KINDS),
+  open: z.boolean(),
+  status: z.string(),
+  expiresAt: z.string(),
+});
+/** Public: submit acknowledgement — an opaque reference, no tenant/PII echoed. */
+export const intakeSubmitResponseSchema = z.object({ ok: z.literal(true), reference: z.string() });
+export const intakeTokenParamSchema = z.object({ token: z.string().min(20).max(200) });
+export const intakeLinkIdParamSchema = z.object({ linkId: z.string().uuid() });
+export const intakeSubmissionIdParamSchema = z.object({ submissionId: z.string().uuid() });
+export const intakeUploadParamSchema = z.object({ submissionId: z.string().uuid(), uploadId: z.string() });
+
 // ── notifications (S10): the L2 inbox ────────────────────────────────────────
 export const notificationSchema = z.object({
   signalKey: z.string(),
@@ -1240,6 +1311,7 @@ export const capabilityViewSchema = z.object({
   canManageApparel: z.boolean(),
   canManageMissions: z.boolean(),
   canManageEntities: z.boolean(),
+  canManageIntake: z.boolean(),
   canReadAgreements: z.boolean(),
   canViewFinancials: z.boolean(),
   canViewPerDiem: z.boolean(),

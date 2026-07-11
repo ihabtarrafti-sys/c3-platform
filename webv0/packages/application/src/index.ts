@@ -31,6 +31,7 @@ export * from './usecases/settingsOps';
 export * from './usecases/recycleBinOps';
 export * from './usecases/activityOps';
 export * from './usecases/commentOps';
+export * from './usecases/intakeOps';
 export * from './usecases/teamOps';
 export * from './usecases/situation';
 export * from './usecases/submitMemberChange';

@@ -86,6 +86,13 @@ export interface C3Capabilities {
    */
   readonly canManageEntities: boolean;
   /**
+   * Track B6: may mint guest-intake links, review the sandbox, and promote/
+   * reject submissions — owner, operations. Promotion runs through the
+   * AddPerson governed pipeline under the reviewer's own identity, so this
+   * rides the same owner/ops audience that already holds canSubmitApproval.
+   */
+  readonly canManageIntake: boolean;
+  /**
    * Sprint 41: may read the Agreements domain (contracts, NDAs, addendums)
    * AT ALL — owner, operations, legal, finance, management. HR and visitor
    * are DENIED entirely (the CP Set-E ACL boundary: agreements are sensitive
@@ -131,6 +138,7 @@ const READ_ONLY = {
   canManageApparel: false,
   canManageMissions: false,
   canManageEntities: false,
+  canManageIntake: false,
   canReadAgreements: false,
   canViewFinancials: false,
     canViewPerDiem: false,
@@ -152,6 +160,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageApparel: true,
     canManageMissions: true,
     canManageEntities: true,
+    canManageIntake: true,
     canReadAgreements: true,
     canViewFinancials: true,
     canViewPerDiem: true,
@@ -171,6 +180,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageApparel: true,
     canManageMissions: true,
     canManageEntities: true,
+    canManageIntake: true,
     canReadAgreements: true,
     canViewFinancials: true,
     canViewPerDiem: true,

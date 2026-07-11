@@ -22,6 +22,9 @@ const STATUS_BY_CODE: Record<DomainErrorCode, number> = {
   IDENTITY_ALREADY_BOUND: 409,
   // Sprint 39: duplicate-participant refusals are state conflicts.
   PARTICIPANT_CONFLICT: 409,
+  // Track B6: an intake token that is unknown / expired / used / revoked —
+  // 410 Gone (it may once have been valid; it is not now).
+  INTAKE_LINK_UNAVAILABLE: 410,
 };
 
 export interface MappedError {

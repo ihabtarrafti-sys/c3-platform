@@ -8527,6 +8527,958 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/intake/links",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "links": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "consumedAt": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "createdBy": {
+                    "t": "string"
+                  },
+                  "expiresAt": {
+                    "t": "string"
+                  },
+                  "id": {
+                    "t": "string"
+                  },
+                  "kind": {
+                    "t": "enum",
+                    "values": [
+                      "Onboarding"
+                    ]
+                  },
+                  "label": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "maxUses": {
+                    "t": "number"
+                  },
+                  "status": {
+                    "t": "enum",
+                    "values": [
+                      "Active",
+                      "Consumed",
+                      "Expired",
+                      "Revoked"
+                    ]
+                  },
+                  "usedCount": {
+                    "t": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/intake/links",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expiresInHours": {
+            "t": "number"
+          },
+          "kind": {
+            "t": "enum",
+            "values": [
+              "Onboarding"
+            ]
+          },
+          "label": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "link": {
+              "t": "object",
+              "keys": {
+                "consumedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "createdBy": {
+                  "t": "string"
+                },
+                "expiresAt": {
+                  "t": "string"
+                },
+                "id": {
+                  "t": "string"
+                },
+                "kind": {
+                  "t": "enum",
+                  "values": [
+                    "Onboarding"
+                  ]
+                },
+                "label": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "maxUses": {
+                  "t": "number"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Active",
+                    "Consumed",
+                    "Expired",
+                    "Revoked"
+                  ]
+                },
+                "usedCount": {
+                  "t": "number"
+                }
+              }
+            },
+            "token": {
+              "t": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/intake/links/:linkId/revoke",
+      "params": {
+        "t": "object",
+        "keys": {
+          "linkId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "link": {
+              "t": "object",
+              "keys": {
+                "consumedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "createdBy": {
+                  "t": "string"
+                },
+                "expiresAt": {
+                  "t": "string"
+                },
+                "id": {
+                  "t": "string"
+                },
+                "kind": {
+                  "t": "enum",
+                  "values": [
+                    "Onboarding"
+                  ]
+                },
+                "label": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "maxUses": {
+                  "t": "number"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Active",
+                    "Consumed",
+                    "Expired",
+                    "Revoked"
+                  ]
+                },
+                "usedCount": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/intake/public/:token",
+      "params": {
+        "t": "object",
+        "keys": {
+          "token": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "expiresAt": {
+              "t": "string"
+            },
+            "kind": {
+              "t": "enum",
+              "values": [
+                "Onboarding"
+              ]
+            },
+            "open": {
+              "t": "boolean"
+            },
+            "status": {
+              "t": "string"
+            }
+          }
+        },
+        "404": {
+          "t": "object",
+          "keys": {
+            "correlationId": {
+              "t": "string"
+            },
+            "error": {
+              "t": "object",
+              "keys": {
+                "code": {
+                  "t": "string"
+                },
+                "details": {
+                  "t": "record",
+                  "value": {
+                    "t": "unknown"
+                  },
+                  "optional": true
+                },
+                "message": {
+                  "t": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/intake/public/:token",
+      "params": {
+        "t": "object",
+        "keys": {
+          "token": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "ok": {
+              "t": "literal",
+              "value": true
+            },
+            "reference": {
+              "t": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/intake/submissions",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "submissions": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "decisionNote": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "id": {
+                    "t": "string"
+                  },
+                  "kind": {
+                    "t": "enum",
+                    "values": [
+                      "Onboarding"
+                    ]
+                  },
+                  "linkId": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "payload": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "record",
+                      "value": {
+                        "t": "unknown"
+                      }
+                    }
+                  },
+                  "promotedApprovalId": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "promotedPersonId": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "reviewedAt": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "reviewedBy": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "status": {
+                    "t": "enum",
+                    "values": [
+                      "Pending",
+                      "Promoted",
+                      "Rejected"
+                    ]
+                  },
+                  "submittedAt": {
+                    "t": "string"
+                  },
+                  "uploads": {
+                    "t": "array",
+                    "item": {
+                      "t": "object",
+                      "keys": {
+                        "contentType": {
+                          "t": "string"
+                        },
+                        "fileName": {
+                          "t": "string"
+                        },
+                        "sha256": {
+                          "t": "string"
+                        },
+                        "sizeBytes": {
+                          "t": "number"
+                        },
+                        "uploadId": {
+                          "t": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/intake/submissions/:submissionId",
+      "params": {
+        "t": "object",
+        "keys": {
+          "submissionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "submission": {
+              "t": "object",
+              "keys": {
+                "decisionNote": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "id": {
+                  "t": "string"
+                },
+                "kind": {
+                  "t": "enum",
+                  "values": [
+                    "Onboarding"
+                  ]
+                },
+                "linkId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "payload": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "record",
+                    "value": {
+                      "t": "unknown"
+                    }
+                  }
+                },
+                "promotedApprovalId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "promotedPersonId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Pending",
+                    "Promoted",
+                    "Rejected"
+                  ]
+                },
+                "submittedAt": {
+                  "t": "string"
+                },
+                "uploads": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "sha256": {
+                        "t": "string"
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      },
+                      "uploadId": {
+                        "t": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/intake/submissions/:submissionId/attach",
+      "body": {
+        "t": "object",
+        "keys": {
+          "uploadIds": {
+            "t": "array",
+            "item": {
+              "t": "string"
+            }
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "submissionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "attachedCount": {
+              "t": "number"
+            },
+            "personId": {
+              "t": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/intake/submissions/:submissionId/promote",
+      "body": {
+        "t": "object",
+        "keys": {
+          "decisionNote": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "submissionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "approval": {
+              "t": "object",
+              "keys": {
+                "approvalId": {
+                  "t": "string"
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "editCount": {
+                  "t": "number"
+                },
+                "executedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "executionError": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "operationType": {
+                  "t": "enum",
+                  "values": [
+                    "AddAgreement",
+                    "AddAgreementTerm",
+                    "AddBeneficiary",
+                    "AddCredential",
+                    "AddMissionParticipant",
+                    "AddPerson",
+                    "ChangeRole",
+                    "DeactivateCredential",
+                    "DeactivateMember",
+                    "DeactivatePerson",
+                    "ImportBatch",
+                    "InitiateJourney",
+                    "ProvisionMember",
+                    "ReactivateMember",
+                    "ReactivatePerson",
+                    "RemoveAgreementTerm",
+                    "RemoveMissionParticipant",
+                    "RenewAgreement",
+                    "RetireBeneficiary",
+                    "TerminateAgreement",
+                    "UpdateAgreementTerm",
+                    "UpdateBeneficiary",
+                    "UpdateCredentialFacts",
+                    "UpdatePersonIdentity"
+                  ]
+                },
+                "payload": {
+                  "t": "record",
+                  "value": {
+                    "t": "unknown"
+                  }
+                },
+                "reason": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "rejectionReason": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "revisionOf": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Approved",
+                    "Executed",
+                    "ExecutionFailed",
+                    "InReview",
+                    "Rejected",
+                    "Submitted",
+                    "Withdrawn"
+                  ]
+                },
+                "submittedAt": {
+                  "t": "string"
+                },
+                "submittedBy": {
+                  "t": "string"
+                },
+                "supersededBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "targetId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "targetPersonId": {
+                  "t": "string"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            },
+            "submission": {
+              "t": "object",
+              "keys": {
+                "decisionNote": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "id": {
+                  "t": "string"
+                },
+                "kind": {
+                  "t": "enum",
+                  "values": [
+                    "Onboarding"
+                  ]
+                },
+                "linkId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "payload": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "record",
+                    "value": {
+                      "t": "unknown"
+                    }
+                  }
+                },
+                "promotedApprovalId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "promotedPersonId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Pending",
+                    "Promoted",
+                    "Rejected"
+                  ]
+                },
+                "submittedAt": {
+                  "t": "string"
+                },
+                "uploads": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "sha256": {
+                        "t": "string"
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      },
+                      "uploadId": {
+                        "t": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/intake/submissions/:submissionId/reject",
+      "body": {
+        "t": "object",
+        "keys": {
+          "decisionNote": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "submissionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "submission": {
+              "t": "object",
+              "keys": {
+                "decisionNote": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "id": {
+                  "t": "string"
+                },
+                "kind": {
+                  "t": "enum",
+                  "values": [
+                    "Onboarding"
+                  ]
+                },
+                "linkId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "payload": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "record",
+                    "value": {
+                      "t": "unknown"
+                    }
+                  }
+                },
+                "promotedApprovalId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "promotedPersonId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "reviewedBy": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Pending",
+                    "Promoted",
+                    "Rejected"
+                  ]
+                },
+                "submittedAt": {
+                  "t": "string"
+                },
+                "uploads": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "sha256": {
+                        "t": "string"
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      },
+                      "uploadId": {
+                        "t": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/intake/submissions/:submissionId/uploads/:uploadId",
+      "params": {
+        "t": "object",
+        "keys": {
+          "submissionId": {
+            "t": "string"
+          },
+          "uploadId": {
+            "t": "string"
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/invoices",
       "response": {
         "200": {
@@ -10007,6 +10959,9 @@
                   "t": "boolean"
                 },
                 "canManageEntities": {
+                  "t": "boolean"
+                },
+                "canManageIntake": {
                   "t": "boolean"
                 },
                 "canManageKit": {

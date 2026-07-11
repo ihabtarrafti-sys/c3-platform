@@ -47,6 +47,8 @@ import type {
   RecycleItemDto,
   ActivityItemDto,
   CommentDto,
+  IntakeLinkDto,
+  IntakeSubmissionDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -425,6 +427,23 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ comments: CommentDto[] }>('GET', `/api/v1/comments?subjectType=${subjectType}&subjectId=${encodeURIComponent(subjectId)}`),
     postComment: (subjectType: string, subjectId: string, body: string, mentions: string[]) =>
       request<{ comment: CommentDto }>('POST', '/api/v1/comments', { subjectType, subjectId, body, mentions }),
+
+    // Track B6: guest intake (staff side). The public peek/submit are NOT here —
+    // the guest page calls them directly (no bearer token).
+    listIntakeLinks: () => request<{ links: IntakeLinkDto[] }>('GET', '/api/v1/intake/links'),
+    createIntakeLink: (input: { kind: string; label?: string | null; expiresInHours?: number }) =>
+      request<{ link: IntakeLinkDto; token: string }>('POST', '/api/v1/intake/links', input),
+    revokeIntakeLink: (linkId: string) => request<{ link: IntakeLinkDto }>('POST', `/api/v1/intake/links/${linkId}/revoke`),
+    listIntakeSubmissions: () => request<{ submissions: IntakeSubmissionDto[] }>('GET', '/api/v1/intake/submissions'),
+    getIntakeSubmission: (id: string) => request<{ submission: IntakeSubmissionDto }>('GET', `/api/v1/intake/submissions/${id}`),
+    promoteSubmission: (id: string, decisionNote?: string | null) =>
+      request<{ approval: ApprovalDto; submission: IntakeSubmissionDto }>('POST', `/api/v1/intake/submissions/${id}/promote`, { decisionNote: decisionNote ?? null }),
+    rejectSubmission: (id: string, decisionNote?: string | null) =>
+      request<{ submission: IntakeSubmissionDto }>('POST', `/api/v1/intake/submissions/${id}/reject`, { decisionNote: decisionNote ?? null }),
+    attachIntakeUploads: (id: string, uploadIds: string[]) =>
+      request<{ attachedCount: number; personId: string }>('POST', `/api/v1/intake/submissions/${id}/attach`, { uploadIds }),
+    downloadIntakeUpload: (submissionId: string, uploadId: string) =>
+      download(`/api/v1/intake/submissions/${submissionId}/uploads/${uploadId}`),
     restoreRecord: (kind: string, id: string, expectedVersion: number, reason?: string | null) =>
       request<{ outcome: 'restored' | 'approval-submitted'; kind: string; id: string; approvalId: string | null }>(
         'POST',

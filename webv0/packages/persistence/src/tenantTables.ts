@@ -133,6 +133,10 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'tenant_setting', exportSql: `SELECT * FROM tenant_setting WHERE tenant_id = $1 ORDER BY key`, exitRank: 6 },
   // Track B4 (0039): contextual comments (append-only).
   { name: 'comment', exportSql: `SELECT * FROM comment WHERE tenant_id = $1 ORDER BY created_at, id`, exitRank: 7 },
+  // Track B6 (0040): guest intake — the capability link (parent) then the
+  // sandbox submission (child; exits first, before its link FK).
+  { name: 'intake_link', exportSql: `SELECT * FROM intake_link WHERE tenant_id = $1 ORDER BY created_at, id`, exitRank: 9 },
+  { name: 'intake_submission', exportSql: `SELECT * FROM intake_submission WHERE tenant_id = $1 ORDER BY submitted_at, id`, exitRank: 8 },
   {
     name: 'delegation',
     exportSql: `SELECT id, tenant_id, delegation_id, grantee_identity, granted_by,

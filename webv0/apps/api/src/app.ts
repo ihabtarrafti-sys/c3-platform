@@ -124,6 +124,22 @@ import {
   commentsListSchema,
   commentResponseSchema,
   postCommentInputSchema,
+  createIntakeLinkInputSchema,
+  createIntakeLinkResponseSchema,
+  intakeLinksListSchema,
+  intakeLinkResponseSchema,
+  intakeSubmissionsListSchema,
+  intakeSubmissionResponseSchema,
+  promoteSubmissionResponseSchema,
+  intakeDecisionInputSchema,
+  intakeAttachInputSchema,
+  intakeAttachResponseSchema,
+  intakePeekResponseSchema,
+  intakeSubmitResponseSchema,
+  intakeTokenParamSchema,
+  intakeLinkIdParamSchema,
+  intakeSubmissionIdParamSchema,
+  intakeUploadParamSchema,
   claimIdParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
@@ -174,7 +190,8 @@ import {
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { DOCUMENT_MAX_BYTES, documentBytesMatchDeclaredType, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
+import { DOCUMENT_MAX_BYTES, documentBytesMatchDeclaredType, isAllowedDocumentContentType, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
+import { mintIntakeToken, hashIntakeToken } from './intakeToken';
 import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
 import {
@@ -191,6 +208,15 @@ import {
   listActivityFeed,
   listComments,
   postComment,
+  createIntakeLink,
+  listIntakeLinks,
+  revokeIntakeLink,
+  listSandbox,
+  getSubmissionForReview,
+  promoteSubmission,
+  rejectSubmission,
+  submitGuestIntake,
+  resolvePromotedPerson,
   listAgreements,
   listAgreementsForPerson,
   listAgreementTerms,
@@ -320,7 +346,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -357,9 +383,11 @@ export function buildApp(deps: Deps): FastifyInstance {
   // must be EXPOSED for the S4 download filename to survive cross-origin fetch.
   app.register(cors, { origin: deps.env.corsOrigin, exposedHeaders: ['content-disposition'] });
 
-  // S4 documents: multipart uploads, hard-capped at the domain ceiling and a
-  // single file per request. Attach-then-register handles the rest.
-  app.register(multipart, { limits: { fileSize: DOCUMENT_MAX_BYTES, files: 1, fields: 4 } });
+  // S4 documents: multipart uploads, hard-capped at the domain ceiling (each
+  // file). S4 reads exactly one file per request; Track B6 guest intake reads a
+  // few, so the file ceiling is a small bound (6) — the per-file size cap and
+  // the type allowlist still apply to every part.
+  app.register(multipart, { limits: { fileSize: DOCUMENT_MAX_BYTES, files: 6, fields: 6 } });
 
   // F-1: per-client request ceiling (keyed by IP; trustProxy governs req.ip at
   // the deployment boundary). Health/readiness are exempt (platform probes).
@@ -411,7 +439,11 @@ export function buildApp(deps: Deps): FastifyInstance {
   // is already bounded (128 KiB) before parsing, so pre-auth parsing is safe.
   app.addHook('preValidation', async (req, reply) => {
     const url = req.url.split('?')[0] ?? '';
-    if (!url.startsWith('/api/v1/') || url === '/api/v1/dev/login') return;
+    // Track B6: the guest-intake public surface authenticates by the unguessable
+    // token in the PATH, not a bearer — it is the ONLY /api/v1 exemption beyond
+    // the dev login. Everything under this prefix resolves its tenant from the
+    // token server-side; no other /api/v1 route is reachable without a token.
+    if (!url.startsWith('/api/v1/') || url === '/api/v1/dev/login' || url.startsWith('/api/v1/intake/public/')) return;
 
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
@@ -1380,6 +1412,249 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { documentId } = req.params as { documentId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       return { document: toDocumentDto(await removeDocument(P, actorOf(req), documentId, expectedVersion)) };
+    },
+  );
+
+  // ── guest intake (Track B6): staff mint/review + the public token surface ──
+  // Staff (owner/operations, canManageIntake) mint links, review the sandbox,
+  // and promote/reject. Nothing a guest submits reaches live data without a
+  // staff-initiated GOVERNED promotion (AddPerson) under the reviewer's identity.
+  r.post(
+    '/api/v1/intake/links',
+    { schema: { body: createIntakeLinkInputSchema, response: { 201: createIntakeLinkResponseSchema } } },
+    async (req, reply) => {
+      // The token is minted + hashed HERE; persistence only sees the hash. The
+      // raw token is returned ONCE (the web builds the shareable link from it).
+      const { token, tokenHash } = mintIntakeToken();
+      const link = await createIntakeLink(P, actorOf(req), { input: req.body as import('@c3web/domain').CreateIntakeLinkInput, tokenHash });
+      return reply.status(201).send({ link: toIntakeLinkDto(link), token });
+    },
+  );
+
+  r.get('/api/v1/intake/links', { schema: { response: { 200: intakeLinksListSchema } } }, async (req) => {
+    return { links: (await listIntakeLinks(P, actorOf(req))).map(toIntakeLinkDto) };
+  });
+
+  r.post(
+    '/api/v1/intake/links/:linkId/revoke',
+    { schema: { params: intakeLinkIdParamSchema, response: { 200: intakeLinkResponseSchema } } },
+    async (req) => {
+      const { linkId } = req.params as { linkId: string };
+      return { link: toIntakeLinkDto(await revokeIntakeLink(P, actorOf(req), linkId)) };
+    },
+  );
+
+  r.get('/api/v1/intake/submissions', { schema: { response: { 200: intakeSubmissionsListSchema } } }, async (req) => {
+    return { submissions: (await listSandbox(P, actorOf(req))).map(toIntakeSubmissionDto) };
+  });
+
+  r.get(
+    '/api/v1/intake/submissions/:submissionId',
+    { schema: { params: intakeSubmissionIdParamSchema, response: { 200: intakeSubmissionResponseSchema } } },
+    async (req) => {
+      const { submissionId } = req.params as { submissionId: string };
+      return { submission: toIntakeSubmissionDto(await getSubmissionForReview(P, actorOf(req), submissionId)) };
+    },
+  );
+
+  // Download one quarantined file for verification. Re-hashed before serving —
+  // altered quarantine bytes are a refusal, never silently delivered.
+  r.get(
+    '/api/v1/intake/submissions/:submissionId/uploads/:uploadId',
+    { schema: { params: intakeUploadParamSchema } },
+    async (req, reply) => {
+      const { submissionId, uploadId } = req.params as { submissionId: string; uploadId: string };
+      const submission = await getSubmissionForReview(P, actorOf(req), submissionId);
+      const upload = submission.uploads.find((u) => u.uploadId === uploadId);
+      if (!upload) return sendError(req, reply, 404, 'NOT_FOUND', 'No such upload on this submission.');
+      const body = await deps.documentStorage.get(upload.storageKey);
+      if (!body) return sendError(req, reply, 404, 'NOT_FOUND', 'The quarantined file could not be found.');
+      const actualSha = createHash('sha256').update(body).digest('hex');
+      if (actualSha !== upload.sha256) {
+        req.log.error({ submissionId, uploadId }, 'intake upload hash mismatch');
+        return sendError(req, reply, 502, 'INTEGRITY', 'The quarantined file failed its integrity check.');
+      }
+      const safeName = upload.fileName.replace(/[^\w. -]/g, '_');
+      reply.header('content-type', upload.contentType);
+      reply.header('content-disposition', `attachment; filename="${safeName}"`);
+      reply.header('content-length', String(body.length));
+      return reply.send(body);
+    },
+  );
+
+  r.post(
+    '/api/v1/intake/submissions/:submissionId/promote',
+    { schema: { params: intakeSubmissionIdParamSchema, body: intakeDecisionInputSchema, response: { 201: promoteSubmissionResponseSchema } } },
+    async (req, reply) => {
+      const { submissionId } = req.params as { submissionId: string };
+      const { decisionNote } = req.body as { decisionNote?: string | null };
+      const result = await promoteSubmission(P, actorOf(req), submissionId, decisionNote ?? null);
+      return reply.status(201).send({ approval: toApprovalDto(result.approval, discOf(req)), submission: toIntakeSubmissionDto(result.submission) });
+    },
+  );
+
+  r.post(
+    '/api/v1/intake/submissions/:submissionId/reject',
+    { schema: { params: intakeSubmissionIdParamSchema, body: intakeDecisionInputSchema, response: { 200: intakeSubmissionResponseSchema } } },
+    async (req) => {
+      const { submissionId } = req.params as { submissionId: string };
+      const { decisionNote } = req.body as { decisionNote?: string | null };
+      const result = await rejectSubmission(P, actorOf(req), submissionId, decisionNote ?? null);
+      // Wipe-on-reject: the metadata is already scrubbed; delete the blobs too.
+      for (const key of result.wipedStorageKeys) await deps.documentStorage.delete(key).catch(() => {});
+      return { submission: toIntakeSubmissionDto(result.submission) };
+    },
+  );
+
+  // Attach a promoted submission's quarantined files to the CREATED person
+  // (available once its AddPerson approval has executed): copy quarantine→live
+  // via the existing S4 attach, then remove the quarantine blob.
+  r.post(
+    '/api/v1/intake/submissions/:submissionId/attach',
+    { schema: { params: intakeSubmissionIdParamSchema, body: intakeAttachInputSchema, response: { 200: intakeAttachResponseSchema } } },
+    async (req) => {
+      const actor = actorOf(req);
+      const { submissionId } = req.params as { submissionId: string };
+      const { uploadIds } = req.body as { uploadIds: string[] };
+      const { submission, personId } = await resolvePromotedPerson(P, actor, submissionId);
+      let attachedCount = 0;
+      for (const uploadId of uploadIds) {
+        const upload = submission.uploads.find((u) => u.uploadId === uploadId);
+        if (!upload) continue;
+        const body = await deps.documentStorage.get(upload.storageKey);
+        if (!body) continue;
+        const liveKey = `${actor.tenantId}/${randomUUID()}`;
+        await deps.documentStorage.put(liveKey, body, upload.contentType);
+        try {
+          await attachDocument(P, actor, {
+            ownerType: 'Person',
+            ownerId: personId,
+            fileName: upload.fileName,
+            contentType: upload.contentType,
+            sizeBytes: upload.sizeBytes,
+            sha256: upload.sha256,
+            storageKey: liveKey,
+            label: 'From guest intake',
+          });
+          attachedCount += 1;
+          await deps.documentStorage.delete(upload.storageKey).catch(() => {});
+        } catch (err) {
+          await deps.documentStorage.delete(liveKey).catch(() => {});
+          throw err;
+        }
+      }
+      return { attachedCount, personId };
+    },
+  );
+
+  // ── the PUBLIC token surface (unauthenticated; tenant resolved from token) ──
+  // GET peeks (non-consuming) so the guest form knows which door to render;
+  // POST submits (multipart) into the sandbox. Both live under /intake/public/
+  // — the ONLY /api/v1 auth exemption beyond the dev login (see the preValidation
+  // hook). The rate limiter still applies (global, per-IP).
+  r.get(
+    '/api/v1/intake/public/:token',
+    { schema: { params: intakeTokenParamSchema, response: { 200: intakePeekResponseSchema, 404: errorResponseSchema } } },
+    async (req, reply) => {
+      const { token } = req.params as { token: string };
+      const peek = await P.guest.peek(hashIntakeToken(token));
+      if (!peek) return sendError(req, reply, 404, 'NOT_FOUND', 'This intake link was not found.');
+      const open = peek.effectiveStatus === 'Active' && peek.usesLeft > 0;
+      return reply.send({ kind: peek.kind as IntakeKind, open, status: peek.effectiveStatus, expiresAt: peek.expiresAt });
+    },
+  );
+
+  r.post(
+    '/api/v1/intake/public/:token',
+    {
+      // Multipart file bytes are governed by the plugin's per-file ceiling; the
+      // route bodyLimit is generous headroom for the envelope + form field.
+      bodyLimit: (DOCUMENT_MAX_BYTES + 1024 * 1024) * 6,
+      schema: { params: intakeTokenParamSchema, response: { 201: intakeSubmitResponseSchema } },
+    },
+    async (req, reply) => {
+      const { token } = req.params as { token: string };
+      const tokenHash = hashIntakeToken(token);
+      // Cheap pre-check: never buffer files for an obviously-dead token. The
+      // authoritative single-use guard is the atomic claim at submit.
+      const peek = await P.guest.peek(tokenHash);
+      if (!peek || peek.effectiveStatus !== 'Active' || peek.usesLeft <= 0) {
+        return sendError(req, reply, 410, 'INTAKE_LINK_UNAVAILABLE', 'This intake link is no longer available. Ask your contact for a fresh link.');
+      }
+      const kind = peek.kind as IntakeKind;
+      const submissionId = randomUUID();
+
+      // Parse multipart: one 'payload' field (JSON) + files (stored to
+      // quarantine as we go). On any failure we drain the remaining parts and
+      // compensate (delete stored blobs) — no orphans.
+      let payloadRaw: string | null = null;
+      const uploads: IntakeUpload[] = [];
+      const storedKeys: string[] = [];
+      let failure: { status: number; code: string; msg: string } | null = null;
+      try {
+        for await (const part of req.parts()) {
+          if (failure) {
+            if (part.type === 'file') await part.toBuffer().catch(() => {}); // drain
+            continue;
+          }
+          if (part.type === 'file') {
+            let body: Buffer;
+            try {
+              body = await part.toBuffer();
+            } catch {
+              failure = { status: 413, code: 'TOO_LARGE', msg: `A file exceeds the ${Math.round(DOCUMENT_MAX_BYTES / (1024 * 1024))} MB limit.` };
+              continue;
+            }
+            if (body.length === 0) continue;
+            if (!isAllowedDocumentContentType(part.mimetype)) {
+              failure = { status: 415, code: 'UNSUPPORTED_TYPE', msg: 'One of the files is a type that is not allowed.' };
+              continue;
+            }
+            if (!documentBytesMatchDeclaredType(part.mimetype, body)) {
+              failure = { status: 415, code: 'UNSUPPORTED_TYPE', msg: "A file's content does not match its type." };
+              continue;
+            }
+            const sha256 = createHash('sha256').update(body).digest('hex');
+            const uploadId = randomUUID();
+            // Quarantine key: tenant + submission scoped, server-generated.
+            const storageKey = `intake/${peek.tenantId}/${submissionId}/${uploadId}`;
+            await deps.documentStorage.put(storageKey, body, part.mimetype);
+            storedKeys.push(storageKey);
+            uploads.push({ uploadId, fileName: (part.filename || 'file').slice(0, 200), contentType: part.mimetype, sizeBytes: body.length, sha256, storageKey });
+          } else if (part.fieldname === 'payload') {
+            payloadRaw = typeof part.value === 'string' ? part.value : String(part.value);
+          }
+        }
+      } catch (err) {
+        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        if ((err as { code?: string }).code === 'FST_FILES_LIMIT') return sendError(req, reply, 413, 'TOO_LARGE', 'Too many files.');
+        throw err;
+      }
+
+      const fail = async (status: number, code: string, msg: string) => {
+        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        return sendError(req, reply, status, code, msg);
+      };
+      if (failure) return fail(failure.status, failure.code, failure.msg);
+      if (payloadRaw === null) return fail(400, 'VALIDATION', 'The submission form is missing.');
+      let payload: unknown;
+      try {
+        payload = JSON.parse(payloadRaw);
+      } catch {
+        return fail(400, 'VALIDATION', 'The submission form is malformed.');
+      }
+
+      // A coarse, hashed fingerprint (IP + UA) for later abuse triage — never
+      // raw PII, never used to widen access.
+      const fingerprint = createHash('sha256').update(`${req.ip}|${req.headers['user-agent'] ?? ''}`).digest('hex').slice(0, 32);
+      try {
+        const submission = await submitGuestIntake(P, { tokenHash, submissionId, kind, payload, uploads, submitterFingerprint: fingerprint });
+        return reply.status(201).send({ ok: true as const, reference: submission.id.slice(0, 8).toUpperCase() });
+      } catch (err) {
+        // Claim lost the race / payload invalid → wipe the quarantined blobs.
+        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        throw err;
+      }
     },
   );
 

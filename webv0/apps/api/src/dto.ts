@@ -4,9 +4,9 @@
  */
 import { delegationState } from '@c3web/domain';
 import type { PayloadDisclosure } from '@c3web/authz';
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -301,6 +301,45 @@ export function toInvoiceDto(i: Invoice): InvoiceDto {
 }
 
 /** Document metadata → wire (S4; the storage key NEVER leaves the server). */
+// Track B6: guest intake. The internal storageKey is NEVER put on the wire.
+export function toIntakeLinkDto(l: IntakeLink): IntakeLinkDto {
+  return {
+    id: l.id,
+    kind: l.kind,
+    label: l.label,
+    createdBy: l.createdBy,
+    createdAt: l.createdAt,
+    expiresAt: l.expiresAt,
+    maxUses: l.maxUses,
+    usedCount: l.usedCount,
+    status: l.status,
+    consumedAt: l.consumedAt,
+  };
+}
+
+export function toIntakeSubmissionDto(s: IntakeSubmission): IntakeSubmissionDto {
+  return {
+    id: s.id,
+    linkId: s.linkId,
+    kind: s.kind,
+    payload: s.payload,
+    uploads: s.uploads.map((u) => ({
+      uploadId: u.uploadId,
+      fileName: u.fileName,
+      contentType: u.contentType,
+      sizeBytes: u.sizeBytes,
+      sha256: u.sha256,
+    })),
+    status: s.status,
+    submittedAt: s.submittedAt,
+    reviewedBy: s.reviewedBy,
+    reviewedAt: s.reviewedAt,
+    promotedApprovalId: s.promotedApprovalId,
+    promotedPersonId: s.promotedPersonId,
+    decisionNote: s.decisionNote,
+  };
+}
+
 export function toDocumentDto(d: C3Document): DocumentDto {
   return {
     documentId: d.documentId,

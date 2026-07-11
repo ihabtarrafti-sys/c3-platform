@@ -576,3 +576,37 @@ export const tenantSetting = pgTable('tenant_setting', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
+
+// Track B6 (0040): guest intake — the staff-minted capability link (only the
+// token HASH is stored) and the sandbox submission the guest fills.
+export const intakeLink = pgTable('intake_link', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  tokenHash: text('token_hash').notNull(),
+  kind: text('kind').notNull(),
+  label: text('label'),
+  createdBy: text('created_by').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  maxUses: integer('max_uses').notNull().default(1),
+  usedCount: integer('used_count').notNull().default(0),
+  status: text('status').notNull().default('Active'),
+  consumedAt: timestamp('consumed_at', { withTimezone: true }),
+});
+
+export const intakeSubmission = pgTable('intake_submission', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  linkId: uuid('link_id').notNull(),
+  kind: text('kind').notNull(),
+  payload: jsonb('payload'),
+  uploads: jsonb('uploads').notNull().default([]),
+  status: text('status').notNull().default('Pending'),
+  submittedAt: timestamp('submitted_at', { withTimezone: true }).notNull().defaultNow(),
+  submitterFingerprint: text('submitter_fingerprint'),
+  reviewedBy: text('reviewed_by'),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  promotedApprovalId: text('promoted_approval_id'),
+  promotedPersonId: text('promoted_person_id'),
+  decisionNote: text('decision_note'),
+});

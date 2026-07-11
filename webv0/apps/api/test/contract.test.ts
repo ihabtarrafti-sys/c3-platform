@@ -106,7 +106,7 @@ describe('S-03 — the frozen /api/v1 contract', () => {
   it('every /api/v1 route declares a response contract (no undocumented surface)', () => {
     const generated = buildContract(collected);
     const undocumented = generated.routes.filter(
-      (r) => r.url.startsWith('/api/v1') && !r.url.includes('/content') && !r.url.includes('/pdf') && !r.url.includes('bank-form') && !r.url.includes('/export') && !r.url.includes('/imports') && !r.url.includes('/documents') && (!r.response || Object.keys(r.response).length === 0),
+      (r) => r.url.startsWith('/api/v1') && !r.url.includes('/content') && !r.url.includes('/pdf') && !r.url.includes('bank-form') && !r.url.includes('/export') && !r.url.includes('/imports') && !r.url.includes('/documents') && !r.url.includes('/uploads/') && (!r.response || Object.keys(r.response).length === 0),
     );
     expect(undocumented.map((r) => `${r.method} ${r.url}`)).toEqual([]);
   });

@@ -24,7 +24,9 @@ export type DomainErrorCode =
   | 'LAST_OWNER_PROTECTED'
   | 'IDENTITY_ALREADY_BOUND'
   // Sprint 39 missions: the duplicate-participant guard family.
-  | 'PARTICIPANT_CONFLICT';
+  | 'PARTICIPANT_CONFLICT'
+  // Track B6 guest intake: an unclaimable token (unknown/expired/used/revoked).
+  | 'INTAKE_LINK_UNAVAILABLE';
 
 export abstract class DomainError extends Error {
   abstract readonly code: DomainErrorCode;
@@ -120,6 +122,19 @@ export class ConflictError extends DomainError {
   override readonly name = 'ConflictError';
   constructor(message: string, details?: Record<string, unknown>) {
     super(message, details);
+  }
+}
+
+/**
+ * Track B6: a guest-intake token is not (or no longer) claimable — unknown,
+ * expired, revoked, or already used. Deliberately non-specific to the guest
+ * (no oracle: the message never distinguishes "unknown" from "used up").
+ */
+export class IntakeLinkUnavailableError extends DomainError {
+  override readonly code = 'INTAKE_LINK_UNAVAILABLE' as const;
+  override readonly name = 'IntakeLinkUnavailableError';
+  constructor() {
+    super('This intake link is no longer available. Ask your contact for a fresh link.');
   }
 }
 

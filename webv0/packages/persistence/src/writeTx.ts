@@ -28,6 +28,8 @@ import {
   type DistributionShare,
   type Claim,
   type Comment,
+  type IntakeLink,
+  type IntakeSubmission,
   type Delegation,
   type Beneficiary,
   type JourneyStatus,
@@ -42,7 +44,7 @@ import {
 import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -1088,6 +1090,64 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .values({ tenantId, subjectType: row.subjectType, subjectId: row.subjectId, author: row.author, body: row.body, mentions: [...row.mentions] })
         .returning();
       return mapComment(r);
+    },
+
+    // ── Track B6 guest intake (staff side) ───────────────────────────────────
+    async insertIntakeLink(row: { tokenHash: string; kind: string; label: string | null; createdBy: string; expiresAt: string; maxUses: number }): Promise<IntakeLink> {
+      const [r] = await db
+        .insert(schema.intakeLink)
+        .values({ tenantId, tokenHash: row.tokenHash, kind: row.kind, label: row.label, createdBy: row.createdBy, expiresAt: new Date(row.expiresAt), maxUses: row.maxUses })
+        .returning();
+      return mapIntakeLink(r);
+    },
+
+    async getIntakeLink(linkId: string): Promise<IntakeLink | null> {
+      const rows = await db.select().from(schema.intakeLink).where(eq(schema.intakeLink.id, linkId)).limit(1);
+      return rows[0] ? mapIntakeLink(rows[0]) : null;
+    },
+
+    async revokeIntakeLink(linkId: string): Promise<IntakeLink | null> {
+      const rows = await db
+        .update(schema.intakeLink)
+        .set({ status: 'Revoked' })
+        .where(and(eq(schema.intakeLink.id, linkId), eq(schema.intakeLink.status, 'Active')))
+        .returning();
+      return rows[0] ? mapIntakeLink(rows[0]) : null;
+    },
+
+    async getIntakeSubmission(submissionId: string): Promise<IntakeSubmission | null> {
+      const rows = await db.select().from(schema.intakeSubmission).where(eq(schema.intakeSubmission.id, submissionId)).limit(1);
+      return rows[0] ? mapIntakeSubmission(rows[0]) : null;
+    },
+
+    async markIntakeSubmissionPromoted(submissionId: string, reviewedBy: string, approvalId: string, decisionNote: string | null): Promise<IntakeSubmission | null> {
+      const rows = await db
+        .update(schema.intakeSubmission)
+        .set({ status: 'Promoted', reviewedBy, reviewedAt: new Date(), promotedApprovalId: approvalId, decisionNote })
+        .where(and(eq(schema.intakeSubmission.id, submissionId), eq(schema.intakeSubmission.status, 'Pending')))
+        .returning();
+      return rows[0] ? mapIntakeSubmission(rows[0]) : null;
+    },
+
+    async markIntakeSubmissionRejected(submissionId: string, reviewedBy: string, decisionNote: string | null): Promise<IntakeSubmission | null> {
+      const rows = await db
+        .update(schema.intakeSubmission)
+        // Scrub payload AND upload metadata (filenames can be PII) — wipe-on-reject.
+        // The CHECK forbids a Rejected row with a surviving payload; the API
+        // separately deletes the quarantined blobs.
+        .set({ status: 'Rejected', reviewedBy, reviewedAt: new Date(), payload: null, uploads: [], decisionNote })
+        .where(and(eq(schema.intakeSubmission.id, submissionId), eq(schema.intakeSubmission.status, 'Pending')))
+        .returning();
+      return rows[0] ? mapIntakeSubmission(rows[0]) : null;
+    },
+
+    async setIntakeSubmissionPromotedPerson(submissionId: string, personId: string): Promise<IntakeSubmission | null> {
+      const rows = await db
+        .update(schema.intakeSubmission)
+        .set({ promotedPersonId: personId })
+        .where(and(eq(schema.intakeSubmission.id, submissionId), eq(schema.intakeSubmission.status, 'Promoted')))
+        .returning();
+      return rows[0] ? mapIntakeSubmission(rows[0]) : null;
     },
 
     async markNotificationRead(identity: string, signalKey: string): Promise<boolean> {

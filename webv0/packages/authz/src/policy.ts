@@ -38,6 +38,7 @@ export const canManageKit = (role: C3Role): boolean => capabilitiesFor(role).can
 export const canManageApparel = (role: C3Role): boolean => capabilitiesFor(role).canManageApparel;
 export const canManageMissions = (role: C3Role): boolean => capabilitiesFor(role).canManageMissions;
 export const canManageEntities = (role: C3Role): boolean => capabilitiesFor(role).canManageEntities;
+export const canManageIntake = (role: C3Role): boolean => capabilitiesFor(role).canManageIntake;
 export const canReadAgreements = (role: C3Role): boolean => capabilitiesFor(role).canReadAgreements;
 export const canViewFinancials = (role: C3Role): boolean => capabilitiesFor(role).canViewFinancials;
 export const canViewPerDiem = (role: C3Role): boolean => capabilitiesFor(role).canViewPerDiem;
@@ -154,6 +155,15 @@ export function assertManageEntities(actor: Actor): void {
   }
 }
 
+/** Guard the guest-intake staff surface (Track B6 — owner/operations): mint
+ *  links, review the sandbox, promote/reject. NOT a public-guest gate — the
+ *  guest is never an actor; this guards the STAFF side only. */
+export function assertManageIntake(actor: Actor): void {
+  if (!canManageIntake(actor.role)) {
+    throw new ForbiddenError('Your role may not manage guest intake.', { role: actor.role });
+  }
+}
+
 /**
  * Guard reading the Agreements domain (Sprint 41 — the CP Set-E boundary:
  * commercial data; hr and visitor are denied entirely, fail closed).
@@ -212,6 +222,7 @@ export interface CapabilityView {
   readonly canManageApparel: boolean;
   readonly canManageMissions: boolean;
   readonly canManageEntities: boolean;
+  readonly canManageIntake: boolean;
   readonly canReadAgreements: boolean;
   readonly canViewFinancials: boolean;
   readonly canViewPerDiem: boolean;
@@ -238,6 +249,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canManageApparel: c.canManageApparel,
     canManageMissions: c.canManageMissions,
     canManageEntities: c.canManageEntities,
+    canManageIntake: c.canManageIntake,
     canReadAgreements: c.canReadAgreements,
     canViewFinancials: c.canViewFinancials,
     canViewPerDiem: c.canViewPerDiem,

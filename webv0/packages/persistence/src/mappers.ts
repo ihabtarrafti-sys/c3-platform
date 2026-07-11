@@ -35,6 +35,9 @@ import {
   type DistributionShare,
   type Claim,
   type Comment,
+  type IntakeLink,
+  type IntakeSubmission,
+  type IntakeUpload,
   parseApprovalPayload,
   Delegation,
   Beneficiary,
@@ -305,6 +308,47 @@ export function mapComment(row: any): Comment {
     body: row.body,
     mentions: (row.mentions ?? []) as string[],
     createdAt: isoReq(row.createdAt ?? row.created_at),
+  };
+}
+
+export function mapIntakeLink(row: any): IntakeLink {
+  return {
+    id: String(row.id),
+    kind: (row.kind) as IntakeLink['kind'],
+    label: (row.label ?? null) as string | null,
+    createdBy: row.createdBy ?? row.created_by,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    expiresAt: isoReq(row.expiresAt ?? row.expires_at),
+    maxUses: Number(row.maxUses ?? row.max_uses),
+    usedCount: Number(row.usedCount ?? row.used_count),
+    status: (row.status) as IntakeLink['status'],
+    consumedAt: iso(row.consumedAt ?? row.consumed_at ?? null),
+  };
+}
+
+export function mapIntakeSubmission(row: any): IntakeSubmission {
+  const rawUploads = row.uploads ?? [];
+  const uploads: IntakeUpload[] = (Array.isArray(rawUploads) ? rawUploads : []).map((u: any) => ({
+    uploadId: String(u.uploadId ?? u.upload_id),
+    fileName: String(u.fileName ?? u.file_name),
+    contentType: String(u.contentType ?? u.content_type),
+    sizeBytes: Number(u.sizeBytes ?? u.size_bytes),
+    sha256: String(u.sha256),
+    storageKey: String(u.storageKey ?? u.storage_key),
+  }));
+  return {
+    id: String(row.id),
+    linkId: (row.linkId ?? row.link_id ?? null) as string | null,
+    kind: (row.kind) as IntakeSubmission['kind'],
+    payload: (row.payload ?? null) as Record<string, unknown> | null,
+    uploads,
+    status: (row.status) as IntakeSubmission['status'],
+    submittedAt: isoReq(row.submittedAt ?? row.submitted_at),
+    reviewedBy: (row.reviewedBy ?? row.reviewed_by ?? null) as string | null,
+    reviewedAt: iso(row.reviewedAt ?? row.reviewed_at ?? null),
+    promotedApprovalId: (row.promotedApprovalId ?? row.promoted_approval_id ?? null) as string | null,
+    promotedPersonId: (row.promotedPersonId ?? row.promoted_person_id ?? null) as string | null,
+    decisionNote: (row.decisionNote ?? row.decision_note ?? null) as string | null,
   };
 }
 

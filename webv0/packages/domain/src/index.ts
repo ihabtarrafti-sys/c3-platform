@@ -26,6 +26,7 @@ export * from './equipment';
 export * from './errors';
 export * from './identity';
 export * from './importExport';
+export * from './intake';
 export * from './invoice';
 export * from './journey';
 export * from './lifecycle';

@@ -42,6 +42,8 @@ import type {
   C3Notification,
   Delegation,
   Beneficiary,
+  IntakeLink,
+  IntakeSubmission,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -187,6 +189,12 @@ export interface ReadStore {
   listRecycleBin(): Promise<RecycleItem[]>;
   /** Track B4: the comment thread on a record, oldest first. */
   listCommentsForSubject(subjectType: string, subjectId: string): Promise<Comment[]>;
+  /** Track B6: the tenant's guest-intake links, newest first. */
+  listIntakeLinks(): Promise<IntakeLink[]>;
+  /** Track B6: the sandbox — submissions for review, newest first (all statuses). */
+  listIntakeSubmissions(): Promise<IntakeSubmission[]>;
+  /** Track B6: one sandbox submission (tenant-scoped), or null. */
+  getIntakeSubmissionById(id: string): Promise<IntakeSubmission | null>;
   /**
    * Track B3: the activity feed — a keyset page of the audit stream, newest
    * first. Returns up to `limit`+1 rows so the caller knows if more remain;
@@ -834,6 +842,22 @@ export interface WriteTx {
   insertNotification(row: { userIdentity: string; signalKey: string; kind: string; title: string; link: string }): Promise<boolean>;
   /** Track B4: append a comment to a record (append-only). */
   insertComment(row: { subjectType: string; subjectId: string; author: string; body: string; mentions: readonly string[] }): Promise<Comment>;
+
+  // ── Track B6 guest intake (staff side; the guest write is the guest port) ──
+  /** Mint a capability link (only the token HASH is stored). */
+  insertIntakeLink(row: { tokenHash: string; kind: string; label: string | null; createdBy: string; expiresAt: string; maxUses: number }): Promise<IntakeLink>;
+  /** Read one link inside the tx (the revoke guard). */
+  getIntakeLink(linkId: string): Promise<IntakeLink | null>;
+  /** Revoke iff currently Active; null = missing/already terminal. */
+  revokeIntakeLink(linkId: string): Promise<IntakeLink | null>;
+  /** Read one sandbox submission inside the tx (the promote/reject guard). */
+  getIntakeSubmission(submissionId: string): Promise<IntakeSubmission | null>;
+  /** Pending→Promoted: stamp the reviewer + the AddPerson approval it minted. Null = stale/missing/not-Pending. */
+  markIntakeSubmissionPromoted(submissionId: string, reviewedBy: string, approvalId: string, decisionNote: string | null): Promise<IntakeSubmission | null>;
+  /** Pending→Rejected: stamp the reviewer AND scrub the payload (wipe). Null = stale/missing/not-Pending. */
+  markIntakeSubmissionRejected(submissionId: string, reviewedBy: string, decisionNote: string | null): Promise<IntakeSubmission | null>;
+  /** Backfill the created person id on a promoted submission (post-execute file attach). Null = missing/not-Promoted. */
+  setIntakeSubmissionPromotedPerson(submissionId: string, personId: string): Promise<IntakeSubmission | null>;
   insertDelegation(row: { delegationId: string; granteeIdentity: string; grantedBy: string; startsOn: string; endsOn: string; reason: string }): Promise<Delegation>;
   lockDelegation(delegationId: string): Promise<Delegation | null>;
   revokeDelegation(delegationId: string, expectedVersion: number, revokedBy: string, revokeReason: string): Promise<Delegation | null>;
@@ -919,8 +943,42 @@ export interface ReadStoreFactory {
   forActor(actor: Actor): ReadStore;
 }
 
+// ── Track B6: the GUEST port — the ONLY tenant-unbound surface ────────────────
+// A public guest has no tenant context; the tenant is resolved server-side from
+// the unguessable token, never from the client. These two methods are the whole
+// public write surface (peek to load the form, claim+insert to submit).
+export interface GuestIntakePeek {
+  readonly linkId: string;
+  readonly tenantId: string;
+  readonly kind: string;
+  /** Past-expiry Active reads as 'Expired' without a write. */
+  readonly effectiveStatus: string;
+  readonly expiresAt: string;
+  readonly usesLeft: number;
+}
+export interface NewGuestSubmission {
+  /** App-generated so the API can key quarantine blobs before the row exists. */
+  readonly submissionId: string;
+  readonly payload: unknown;
+  readonly uploads: readonly unknown[];
+  readonly submitterFingerprint: string | null;
+}
+export interface GuestIntakePort {
+  /** Non-consuming resolve for the public form load; null = unknown token. */
+  peek(tokenHash: string): Promise<GuestIntakePeek | null>;
+  /**
+   * Atomically claim the token (row-locked validate + consume via the SECURITY
+   * DEFINER gateway) and insert the sandbox submission under the resolved
+   * tenant. Throws IntakeLinkUnavailableError when the token is unclaimable —
+   * the caller compensates (deletes any quarantined blobs).
+   */
+  claimAndInsert(tokenHash: string, submission: NewGuestSubmission): Promise<{ tenantId: string; linkId: string; kind: string; submission: IntakeSubmission }>;
+}
+
 /** Everything a use-case needs from persistence. */
 export interface Persistence {
   readonly reads: ReadStoreFactory;
   readonly writes: WriteStore;
+  /** Track B6: the tenant-unbound guest-intake surface (token-resolved). */
+  readonly guest: GuestIntakePort;
 }

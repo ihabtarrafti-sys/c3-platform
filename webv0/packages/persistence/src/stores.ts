@@ -4,14 +4,15 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
-import type { Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import { IntakeLinkUnavailableError } from '@c3web/domain';
+import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
 import { buildSearchQuery } from './searchSql';
 import { buildRecycleQuery } from './recycleSql';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment,
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission,
   mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
@@ -510,6 +511,26 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return rows.map(mapComment);
           }),
 
+        // Track B6: the tenant's guest-intake links (newest first).
+        listIntakeLinks: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<IntakeLink[]> => {
+            const rows = await db.select().from(schema.intakeLink).orderBy(desc(schema.intakeLink.createdAt));
+            return rows.map(mapIntakeLink);
+          }),
+
+        // Track B6: the sandbox — every submission, newest first (all statuses).
+        listIntakeSubmissions: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<IntakeSubmission[]> => {
+            const rows = await db.select().from(schema.intakeSubmission).orderBy(desc(schema.intakeSubmission.submittedAt));
+            return rows.map(mapIntakeSubmission);
+          }),
+
+        getIntakeSubmissionById: (id: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<IntakeSubmission | null> => {
+            const rows = await db.select().from(schema.intakeSubmission).where(eq(schema.intakeSubmission.id, id)).limit(1);
+            return rows[0] ? mapIntakeSubmission(rows[0]) : null;
+          }),
+
         // Track B3: the activity feed — a keyset page of the audit stream.
         listActivityFeed: (limit: number, before: { at: string; id: string } | null) =>
           withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; at: string; actor: string; action: string; entityType: string; entityId: string }>> => {
@@ -729,9 +750,67 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
     },
   };
 
+  // Track B6: the guest port — the ONLY tenant-unbound surface. The tenant is
+  // resolved server-side from the unguessable token (never the client) via the
+  // SECURITY DEFINER gateways; the sandbox insert then runs as c3_app under RLS
+  // bound to the CLAIMED tenant.
+  const guest: GuestIntakePort = {
+    async peek(tokenHash: string): Promise<GuestIntakePeek | null> {
+      const res = await pool.query(
+        'SELECT link_id, tenant_id, kind, effective_status, expires_at, uses_left FROM intake_peek($1)',
+        [tokenHash],
+      );
+      const r = res.rows[0];
+      if (!r) return null;
+      return {
+        linkId: String(r.link_id),
+        tenantId: String(r.tenant_id),
+        kind: String(r.kind),
+        effectiveStatus: String(r.effective_status),
+        expiresAt: r.expires_at instanceof Date ? r.expires_at.toISOString() : String(r.expires_at),
+        usesLeft: Number(r.uses_left),
+      };
+    },
+    async claimAndInsert(tokenHash: string, submission: NewGuestSubmission) {
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        // Atomic validate + consume (row-locked) via the definer gateway.
+        const claimed = await client.query('SELECT link_id, tenant_id, kind FROM intake_claim($1)', [tokenHash]);
+        const c = claimed.rows[0];
+        if (!c) {
+          await client.query('ROLLBACK');
+          throw new IntakeLinkUnavailableError();
+        }
+        const tenantId = String(c.tenant_id);
+        const linkId = String(c.link_id);
+        const kind = String(c.kind);
+        // Bind the insert to the claimed tenant; RLS WITH CHECK enforces it.
+        await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
+        const ins = await client.query(
+          `INSERT INTO intake_submission (id, tenant_id, link_id, kind, payload, uploads, submitter_fingerprint)
+           VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7) RETURNING *`,
+          [submission.submissionId, tenantId, linkId, kind, JSON.stringify(submission.payload), JSON.stringify(submission.uploads), submission.submitterFingerprint],
+        );
+        await client.query('COMMIT');
+        return { tenantId, linkId, kind, submission: mapIntakeSubmission(ins.rows[0]) };
+      } catch (err) {
+        try {
+          await client.query('ROLLBACK');
+        } catch {
+          /* ignore rollback failure */
+        }
+        throw err;
+      } finally {
+        client.release();
+      }
+    },
+  };
+
   return {
     reads,
     writes,
+    guest,
     pool,
     close: () => pool.end(),
   };

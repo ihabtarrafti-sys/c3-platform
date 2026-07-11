@@ -277,6 +277,15 @@ function RecycleBinIcon({ className }: { className?: string }) {
   );
 }
 
+function IntakeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M10 3v9M6.5 8.5L10 12l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3.5 12.5V15a1.5 1.5 0 001.5 1.5h10a1.5 1.5 0 001.5-1.5v-2.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function AgreementsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -542,6 +551,14 @@ export function AppShell() {
               to="/members"
               label="Members"
               icon={<MembersIcon className={s.navIcon} />}
+              onNavigate={() => setNavOpen(false)}
+            />
+          )}
+          {me?.capabilities.canManageIntake && (
+            <NavItem
+              to="/intake"
+              label="Guest intake"
+              icon={<IntakeIcon className={s.navIcon} />}
               onNavigate={() => setNavOpen(false)}
             />
           )}

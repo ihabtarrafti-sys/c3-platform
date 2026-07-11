@@ -17,6 +17,8 @@ import { EntitiesPage } from './pages/EntitiesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { RecycleBinPage } from './pages/RecycleBinPage';
 import { ActivityPage } from './pages/ActivityPage';
+import { IntakePage } from './pages/IntakePage';
+import { GuestIntakePage } from './pages/GuestIntakePage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -48,6 +50,9 @@ function HomeRedirect() {
 
 export const router = createBrowserRouter([
   { path: '/auth/callback', element: <AuthCallback /> },
+  // Track B6: the PUBLIC guest form — OUTSIDE the shell + session (a guest has
+  // no account). The tenant is resolved server-side from the token.
+  { path: '/intake/:token', element: <GuestIntakePage /> },
   {
     path: '/',
     element: <AppShell />,
@@ -74,6 +79,7 @@ export const router = createBrowserRouter([
       { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'approvals/:approvalId', element: <ApprovalDetailPage /> },
       { path: 'members', element: <MembersPage /> },
+      { path: 'intake', element: <IntakePage /> },
       { path: 'activity', element: <ActivityPage /> },
       { path: 'recycle-bin', element: <RecycleBinPage /> },
       { path: 'settings', element: <SettingsPage /> },
