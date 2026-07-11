@@ -131,6 +131,8 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'notification', exportSql: `SELECT * FROM notification WHERE tenant_id = $1 ORDER BY emitted_at, id`, exitRank: 11 },
   // HARDEN-2 (0037): the settings kernel — per-diem presets et al.
   { name: 'tenant_setting', exportSql: `SELECT * FROM tenant_setting WHERE tenant_id = $1 ORDER BY key`, exitRank: 6 },
+  // Track B4 (0039): contextual comments (append-only).
+  { name: 'comment', exportSql: `SELECT * FROM comment WHERE tenant_id = $1 ORDER BY created_at, id`, exitRank: 7 },
   {
     name: 'delegation',
     exportSql: `SELECT id, tenant_id, delegation_id, grantee_identity, granted_by,

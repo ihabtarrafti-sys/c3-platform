@@ -22,6 +22,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs';
 import { DefinitionList } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
+import { CommentThread } from '../components/CommentThread';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
@@ -324,6 +325,8 @@ export function AgreementDetailPage() {
               </table>
             </div>
           )}
+
+          <CommentThread subjectType="Agreement" subjectId={agreementId} />
 
           {canViewHistory && (
             <div className={s.section}>

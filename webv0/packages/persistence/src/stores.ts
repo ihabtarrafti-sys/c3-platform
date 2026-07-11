@@ -4,14 +4,14 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
 import { buildSearchQuery } from './searchSql';
 import { buildRecycleQuery } from './recycleSql';
-import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim,
+import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment,
   mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 export interface PersistenceConfig {
@@ -497,6 +497,17 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
                LIMIT 1
             `);
             return res.rows.length > 0;
+          }),
+
+        // Track B4: the comment thread on a record (oldest first).
+        listCommentsForSubject: (subjectType: string, subjectId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Comment[]> => {
+            const rows = await db
+              .select()
+              .from(schema.comment)
+              .where(and(eq(schema.comment.subjectType, subjectType), eq(schema.comment.subjectId, subjectId)))
+              .orderBy(asc(schema.comment.createdAt));
+            return rows.map(mapComment);
           }),
 
         // Track B3: the activity feed — a keyset page of the audit stream.

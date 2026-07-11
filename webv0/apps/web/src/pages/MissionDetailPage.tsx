@@ -26,6 +26,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs';
 import { DefinitionList } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
+import { CommentThread } from '../components/CommentThread';
 import { ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
@@ -516,6 +517,8 @@ export function MissionDetailPage() {
           )}
 
           <DocumentsSection ownerType="Mission" ownerId={m.missionId} canManage={canManage && m.isActive} />
+
+          <CommentThread subjectType="Mission" subjectId={m.missionId} />
 
           {canViewHistory && (
             <div className={s.section}>

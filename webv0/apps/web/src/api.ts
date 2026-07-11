@@ -46,6 +46,7 @@ import type {
   PerDiemPresetsDto,
   RecycleItemDto,
   ActivityItemDto,
+  CommentDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -419,6 +420,11 @@ export function createApiClient(deps: ApiClientDeps) {
         'GET',
         `/api/v1/activity?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
       ),
+    // Track B4: contextual comments + @mentions on records.
+    listComments: (subjectType: string, subjectId: string) =>
+      request<{ comments: CommentDto[] }>('GET', `/api/v1/comments?subjectType=${subjectType}&subjectId=${encodeURIComponent(subjectId)}`),
+    postComment: (subjectType: string, subjectId: string, body: string, mentions: string[]) =>
+      request<{ comment: CommentDto }>('POST', '/api/v1/comments', { subjectType, subjectId, body, mentions }),
     restoreRecord: (kind: string, id: string, expectedVersion: number, reason?: string | null) =>
       request<{ outcome: 'restored' | 'approval-submitted'; kind: string; id: string; approvalId: string | null }>(
         'POST',

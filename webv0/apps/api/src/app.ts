@@ -120,6 +120,10 @@ import {
   restoreRecycleResponseSchema,
   activityQuerySchema,
   activityFeedSchema,
+  commentsQuerySchema,
+  commentsListSchema,
+  commentResponseSchema,
+  postCommentInputSchema,
   claimIdParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
@@ -185,6 +189,8 @@ import {
   listRecycleBin,
   restoreRecord,
   listActivityFeed,
+  listComments,
+  postComment,
   listAgreements,
   listAgreementsForPerson,
   listAgreementTerms,
@@ -1502,6 +1508,18 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const { limit, cursor } = req.query as { limit?: number; cursor?: string };
     const page = await listActivityFeed(P, actorOf(req), { limit, cursor: cursor ?? null });
     return { items: page.items.map((i) => ({ ...i })), nextCursor: page.nextCursor };
+  });
+
+  // ── comments (Track B4): contextual discussion + @mentions on records ──────
+  r.get('/api/v1/comments', { schema: { querystring: commentsQuerySchema, response: { 200: commentsListSchema } } }, async (req) => {
+    const { subjectType, subjectId } = req.query as { subjectType: import('@c3web/domain').CommentSubjectType; subjectId: string };
+    const comments = await listComments(P, actorOf(req), subjectType, subjectId);
+    return { comments: comments.map((c) => ({ ...c, mentions: [...c.mentions] })) };
+  });
+
+  r.post('/api/v1/comments', { schema: { body: postCommentInputSchema, response: { 201: commentResponseSchema } } }, async (req, reply) => {
+    const comment = await postComment(P, actorOf(req), req.body as import('@c3web/domain').PostCommentInput);
+    return reply.status(201).send({ comment: { ...comment, mentions: [...comment.mentions] } });
   });
 
   // ── distributions (S8): the payout list — allocate, mark paid, revoke ──────

@@ -19,6 +19,7 @@ import { DefinitionList } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
 import { DocumentsSection } from '../components/DocumentsSection';
+import { CommentThread } from '../components/CommentThread';
 import { PersonV2Sections } from '../components/PersonV2Sections';
 import { BeneficiarySection, CredentialFactsAction } from '../components/PersonS12Sections';
 import { ErrorState, LoadingState } from '../components/states';
@@ -287,6 +288,8 @@ export function PersonProfilePage() {
             </div>
           )}
           <DocumentsSection ownerType="Person" ownerId={personId} canManage={me?.capabilities.canSubmitApproval ?? false} />
+
+          <CommentThread subjectType="Person" subjectId={personId} />
 
           <div className={s.section}>
             <h2 className={s.h2}>History</h2>

@@ -55,6 +55,8 @@ import {
   reactivateMemberPayloadSchema,
   removeMissionParticipantInputSchema,
   renewAgreementInputSchema,
+  COMMENT_SUBJECT_TYPES,
+  postCommentInputSchema,
   RECYCLE_KINDS,
   restoreRecycleInputSchema,
   setParticipantPerDiemInputSchema,
@@ -778,6 +780,22 @@ export const activityFeedSchema = z.object({
   items: z.array(activityItemSchema),
   nextCursor: z.string().nullable(),
 });
+
+// ── comments (Track B4): contextual discussion + @mentions on records ────────
+export { postCommentInputSchema };
+export const commentsQuerySchema = z.object({ subjectType: z.enum(COMMENT_SUBJECT_TYPES), subjectId: z.string().min(1).max(40) });
+export const commentSchema = z.object({
+  id: z.string(),
+  subjectType: z.enum(COMMENT_SUBJECT_TYPES),
+  subjectId: z.string(),
+  author: z.string(),
+  body: z.string(),
+  mentions: z.array(z.string()),
+  createdAt: z.string(),
+});
+export type CommentDto = z.infer<typeof commentSchema>;
+export const commentsListSchema = z.object({ comments: z.array(commentSchema) });
+export const commentResponseSchema = z.object({ comment: commentSchema });
 
 // ── notifications (S10): the L2 inbox ────────────────────────────────────────
 export const notificationSchema = z.object({

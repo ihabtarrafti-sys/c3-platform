@@ -43,3 +43,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     </ThemeModeProvider>
   </React.StrictMode>,
 );
+
+// Track B5: register the PWA service worker (installability + offline shell).
+// Production only — the dev server serves modules the SW must not intercept.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      /* SW registration is a progressive enhancement — never block the app */
+    });
+  });
+}

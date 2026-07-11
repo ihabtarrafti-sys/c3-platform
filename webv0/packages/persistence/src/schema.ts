@@ -553,6 +553,18 @@ export const auditEvent = pgTable('audit_event', {
   after: jsonb('after'),
 });
 
+// Track B4 (0039): contextual comments + @mentions on records (append-only).
+export const comment = pgTable('comment', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  subjectType: text('subject_type').notNull(),
+  subjectId: text('subject_id').notNull(),
+  author: text('author').notNull(),
+  body: text('body').notNull(),
+  mentions: text('mentions').array().notNull().default([]),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // HARDEN-2 (0037): the tenant settings kernel — one JSONB value per key,
 // version-guarded from birth (per-diem presets are its first resident).
 export const tenantSetting = pgTable('tenant_setting', {

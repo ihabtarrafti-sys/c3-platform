@@ -33,6 +33,7 @@ import type {
   MissionParticipant,
   Person,
   RecycleItem,
+  Comment,
   Team,
   TeamMembership,
   Distribution,
@@ -184,6 +185,8 @@ export interface ReadStore {
   searchTenant(spec: TenantSearchSpec): Promise<TenantSearchRow[]>;
   /** Track B2: every soft-removed record across the recycle domains, newest-removed first. */
   listRecycleBin(): Promise<RecycleItem[]>;
+  /** Track B4: the comment thread on a record, oldest first. */
+  listCommentsForSubject(subjectType: string, subjectId: string): Promise<Comment[]>;
   /**
    * Track B3: the activity feed — a keyset page of the audit stream, newest
    * first. Returns up to `limit`+1 rows so the caller knows if more remain;
@@ -829,6 +832,8 @@ export interface WriteTx {
   // ── S10 notifications (L2 rows; UNIQUE dedupe; no deletes) ────────────────
   /** Insert-if-first-crossing: ON CONFLICT (tenant,user,signal_key) DO NOTHING. Returns true when a NEW row landed. */
   insertNotification(row: { userIdentity: string; signalKey: string; kind: string; title: string; link: string }): Promise<boolean>;
+  /** Track B4: append a comment to a record (append-only). */
+  insertComment(row: { subjectType: string; subjectId: string; author: string; body: string; mentions: readonly string[] }): Promise<Comment>;
   insertDelegation(row: { delegationId: string; granteeIdentity: string; grantedBy: string; startsOn: string; endsOn: string; reason: string }): Promise<Delegation>;
   lockDelegation(delegationId: string): Promise<Delegation | null>;
   revokeDelegation(delegationId: string, expectedVersion: number, revokedBy: string, revokeReason: string): Promise<Delegation | null>;

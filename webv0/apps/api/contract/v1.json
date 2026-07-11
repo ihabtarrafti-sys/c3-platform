@@ -5538,6 +5538,144 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/comments",
+      "querystring": {
+        "t": "object",
+        "keys": {
+          "subjectId": {
+            "t": "string"
+          },
+          "subjectType": {
+            "t": "enum",
+            "values": [
+              "Agreement",
+              "Approval",
+              "Mission",
+              "Person"
+            ]
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "comments": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "author": {
+                    "t": "string"
+                  },
+                  "body": {
+                    "t": "string"
+                  },
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "id": {
+                    "t": "string"
+                  },
+                  "mentions": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
+                    }
+                  },
+                  "subjectId": {
+                    "t": "string"
+                  },
+                  "subjectType": {
+                    "t": "enum",
+                    "values": [
+                      "Agreement",
+                      "Approval",
+                      "Mission",
+                      "Person"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comments",
+      "body": {
+        "t": "object",
+        "keys": {
+          "body": {
+            "t": "string"
+          },
+          "mentions": {
+            "t": "array",
+            "item": {
+              "t": "string"
+            }
+          },
+          "subjectId": {
+            "t": "string"
+          },
+          "subjectType": {
+            "t": "enum",
+            "values": [
+              "Agreement",
+              "Approval",
+              "Mission",
+              "Person"
+            ]
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "comment": {
+              "t": "object",
+              "keys": {
+                "author": {
+                  "t": "string"
+                },
+                "body": {
+                  "t": "string"
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "id": {
+                  "t": "string"
+                },
+                "mentions": {
+                  "t": "array",
+                  "item": {
+                    "t": "string"
+                  }
+                },
+                "subjectId": {
+                  "t": "string"
+                },
+                "subjectType": {
+                  "t": "enum",
+                  "values": [
+                    "Agreement",
+                    "Approval",
+                    "Mission",
+                    "Person"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/credentials",
       "response": {
         "200": {

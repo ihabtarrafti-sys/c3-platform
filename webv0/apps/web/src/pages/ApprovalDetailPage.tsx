@@ -12,6 +12,7 @@ import { Breadcrumbs } from '../components/Breadcrumbs';
 import { DefinitionList, type DefItem } from '../components/DefinitionList';
 import { StatusBadge } from '../components/StatusBadge';
 import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
+import { CommentThread } from '../components/CommentThread';
 import { ErrorState, LoadingState } from '../components/states';
 import { GovernedAction } from '../components/GovernedAction';
 import { CorrectionDialog, isCorrectable } from '../components/RequestCorrections';
@@ -354,6 +355,8 @@ export function ApprovalDetailPage() {
               </div>
             </div>
           )}
+
+          <CommentThread subjectType="Approval" subjectId={approvalId} />
 
           <div className={s.section}>
             <h2 className={s.h2}>History</h2>

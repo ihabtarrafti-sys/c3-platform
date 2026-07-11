@@ -27,6 +27,7 @@ import {
   type Distribution,
   type DistributionShare,
   type Claim,
+  type Comment,
   type Delegation,
   type Beneficiary,
   type JourneyStatus,
@@ -41,7 +42,7 @@ import {
 import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -1079,6 +1080,14 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         RETURNING id
       `);
       return res.rows.length > 0;
+    },
+
+    async insertComment(row: { subjectType: string; subjectId: string; author: string; body: string; mentions: readonly string[] }): Promise<Comment> {
+      const [r] = await db
+        .insert(schema.comment)
+        .values({ tenantId, subjectType: row.subjectType, subjectId: row.subjectId, author: row.author, body: row.body, mentions: [...row.mentions] })
+        .returning();
+      return mapComment(r);
     },
 
     async markNotificationRead(identity: string, signalKey: string): Promise<boolean> {

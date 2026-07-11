@@ -34,6 +34,7 @@ import {
   type Distribution,
   type DistributionShare,
   type Claim,
+  type Comment,
   parseApprovalPayload,
   Delegation,
   Beneficiary,
@@ -291,6 +292,18 @@ export function mapDelegation(row: any): Delegation {
     revokedBy: row.revokedBy ?? row.revoked_by ?? null,
     revokeReason: row.revokeReason ?? row.revoke_reason ?? null,
     version: row.version,
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+  };
+}
+
+export function mapComment(row: any): Comment {
+  return {
+    id: String(row.id),
+    subjectType: (row.subjectType ?? row.subject_type) as Comment['subjectType'],
+    subjectId: row.subjectId ?? row.subject_id,
+    author: row.author,
+    body: row.body,
+    mentions: (row.mentions ?? []) as string[],
     createdAt: isoReq(row.createdAt ?? row.created_at),
   };
 }

@@ -12,3 +12,12 @@
 
 /index.html
   Cache-Control: no-cache, no-transform
+
+# Track B5 PWA: the service worker must revalidate so a new deploy propagates;
+# the manifest likewise. Icons are content-stable and may be cached.
+/sw.js
+  Cache-Control: no-cache, no-transform
+/manifest.webmanifest
+  Cache-Control: no-cache, no-transform
+/icons/*
+  Cache-Control: public, max-age=604800, no-transform

@@ -80,6 +80,8 @@ export const useDelegations = (enabled = true) => useQuery({ queryKey: ['delegat
 export const useBackupStatus = (enabled = true) => useQuery({ queryKey: ['backupStatus'], queryFn: () => api.backupStatus(), enabled });
 export const usePerDiemPresets = (enabled = true) => useQuery({ queryKey: ['perDiemPresets'], queryFn: () => api.perDiemPresets(), enabled });
 export const useRecycleBin = (enabled = true) => useQuery({ queryKey: ['recycleBin'], queryFn: () => api.recycleBin(), enabled });
+export const useComments = (subjectType: string, subjectId: string, enabled = true) =>
+  useQuery({ queryKey: ['comments', subjectType, subjectId], queryFn: () => api.listComments(subjectType, subjectId), enabled });
 export const useActivityFeed = (enabled = true) =>
   useInfiniteQuery({
     queryKey: ['activityFeed'],
