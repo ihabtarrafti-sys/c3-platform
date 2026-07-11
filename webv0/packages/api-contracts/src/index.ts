@@ -57,6 +57,7 @@ import {
   renewAgreementInputSchema,
   COMMENT_SUBJECT_TYPES,
   postCommentInputSchema,
+  CALENDAR_KINDS,
   INTAKE_KINDS,
   INTAKE_LINK_STATUSES,
   INTAKE_SUBMISSION_STATUSES,
@@ -801,6 +802,20 @@ export const commentSchema = z.object({
 export type CommentDto = z.infer<typeof commentSchema>;
 export const commentsListSchema = z.object({ comments: z.array(commentSchema) });
 export const commentResponseSchema = z.object({ comment: commentSchema });
+
+// ── ops calendar / timeline (Track B): the forward horizon ───────────────────
+export const calendarItemSchema = z.object({
+  kind: z.enum(CALENDAR_KINDS),
+  id: z.string(),
+  date: z.string(),
+  daysUntil: z.number(),
+  title: z.string(),
+  subtitle: z.string().nullable(),
+  route: z.string(),
+});
+export type CalendarItemDto = z.infer<typeof calendarItemSchema>;
+export const calendarResponseSchema = z.object({ items: z.array(calendarItemSchema), horizonDays: z.number(), todayIso: z.string() });
+export const calendarQuerySchema = z.object({ horizon: z.coerce.number().int().min(7).max(365).optional().default(90) });
 
 // ── guest intake (Track B6): tokenized sandbox submissions ───────────────────
 export { createIntakeLinkInputSchema, onboardingIntakePayloadSchema };

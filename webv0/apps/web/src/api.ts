@@ -46,6 +46,7 @@ import type {
   PerDiemPresetsDto,
   RecycleItemDto,
   ActivityItemDto,
+  CalendarItemDto,
   CommentDto,
   IntakeLinkDto,
   IntakeSubmissionDto,
@@ -422,6 +423,9 @@ export function createApiClient(deps: ApiClientDeps) {
         'GET',
         `/api/v1/activity?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
       ),
+    // Track B: ops calendar / timeline (forward horizon).
+    calendar: (horizon = 90) =>
+      request<{ items: CalendarItemDto[]; horizonDays: number; todayIso: string }>('GET', `/api/v1/calendar?horizon=${horizon}`),
     // Track B4: contextual comments + @mentions on records.
     listComments: (subjectType: string, subjectId: string) =>
       request<{ comments: CommentDto[] }>('GET', `/api/v1/comments?subjectType=${subjectType}&subjectId=${encodeURIComponent(subjectId)}`),

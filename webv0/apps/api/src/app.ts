@@ -124,6 +124,8 @@ import {
   commentsListSchema,
   commentResponseSchema,
   postCommentInputSchema,
+  calendarQuerySchema,
+  calendarResponseSchema,
   createIntakeLinkInputSchema,
   createIntakeLinkResponseSchema,
   intakeLinksListSchema,
@@ -206,6 +208,7 @@ import {
   listRecycleBin,
   restoreRecord,
   listActivityFeed,
+  getCalendar,
   listComments,
   postComment,
   createIntakeLink,
@@ -1783,6 +1786,13 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const { limit, cursor } = req.query as { limit?: number; cursor?: string };
     const page = await listActivityFeed(P, actorOf(req), { limit, cursor: cursor ?? null });
     return { items: page.items.map((i) => ({ ...i })), nextCursor: page.nextCursor };
+  });
+
+  // ── ops calendar / timeline (Track B): the forward horizon (owner/ops) ──────
+  r.get('/api/v1/calendar', { schema: { querystring: calendarQuerySchema, response: { 200: calendarResponseSchema } } }, async (req) => {
+    const { horizon } = req.query as { horizon: number };
+    const items = await getCalendar(P, actorOf(req), horizon);
+    return { items: items.map((i) => ({ ...i })), horizonDays: horizon, todayIso: new Date().toISOString().slice(0, 10) };
   });
 
   // ── comments (Track B4): contextual discussion + @mentions on records ──────

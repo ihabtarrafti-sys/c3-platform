@@ -286,6 +286,15 @@ function IntakeIcon({ className }: { className?: string }) {
   );
 }
 
+function CalendarIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <rect x="3" y="4.5" width="14" height="12.5" rx="1.5" />
+      <path d="M3 8h14M7 3v3M13 3v3" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function AgreementsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -495,6 +504,9 @@ export function AppShell() {
         >
           {me?.capabilities.canViewSituation && (
             <NavItem to="/situation" label="Situation" icon={<SituationIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
+          )}
+          {me?.capabilities.canViewSituation && (
+            <NavItem to="/calendar" label="Calendar" icon={<CalendarIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           )}
           <NavItem to="/people" label="People" icon={<PeopleIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           <NavItem

@@ -4859,6 +4859,70 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/calendar",
+      "querystring": {
+        "t": "object",
+        "keys": {
+          "horizon": {
+            "t": "number"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "horizonDays": {
+              "t": "number"
+            },
+            "items": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "date": {
+                    "t": "string"
+                  },
+                  "daysUntil": {
+                    "t": "number"
+                  },
+                  "id": {
+                    "t": "string"
+                  },
+                  "kind": {
+                    "t": "enum",
+                    "values": [
+                      "AgreementEnd",
+                      "CredentialExpiry",
+                      "DelegationEnd",
+                      "MissionEnd",
+                      "MissionStart"
+                    ]
+                  },
+                  "route": {
+                    "t": "string"
+                  },
+                  "subtitle": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "title": {
+                    "t": "string"
+                  }
+                }
+              }
+            },
+            "todayIso": {
+              "t": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/claims",
       "response": {
         "200": {
