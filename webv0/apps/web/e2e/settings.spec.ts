@@ -41,6 +41,36 @@ test('Settings → exchange rates: set a rate, see the inverse, persist', async 
     await expect(page.getByTestId('fx-rate-AED')).toHaveValue('0.2723');
   });
 
+  await test.step('HARDEN-2: per-diem presets — defaults shown, edit is version-guarded, persists', async () => {
+    await expect(page.getByTestId('perdiem-presets-panel')).toBeVisible();
+    // the org's real defaults (no row yet)
+    await expect(page.getByTestId('perdiem-presets-state')).toHaveText('defaults');
+    await expect(page.getByTestId('perdiem-preset-row-0')).toContainText('SAR 65.00/day');
+    await expect(page.getByTestId('perdiem-preset-row-2')).toContainText('USD 25.00/day');
+
+    // add 50 USD → first write lands as v0
+    await page.getByTestId('perdiem-preset-amount').fill('50');
+    await page.getByTestId('perdiem-preset-currency').click();
+    await page.getByRole('option', { name: 'USD', exact: true }).click();
+    await page.getByTestId('perdiem-preset-add').click();
+    await expect(page.getByTestId('perdiem-presets-state')).toHaveText('unsaved changes');
+    await page.getByTestId('perdiem-presets-save').click();
+    await expect(page.getByTestId('notifications')).toContainText('Per-diem presets saved');
+    await expect(page.getByTestId('perdiem-presets-state')).toHaveText('v0');
+
+    await page.reload();
+    await expect(page.getByTestId('perdiem-preset-row-3')).toContainText('USD 50.00/day');
+  });
+
+  await test.step('The new preset is a one-click pick in the per-diem dialog', async () => {
+    await page.goto('/missions/MSN-0001');
+    await page.getByTestId('perdiem-participant-PER-0001').click();
+    await page.getByTestId('perdiem-preset-PER-0001-5000-USD').click();
+    await expect(page.getByTestId('perdiem-amount-PER-0001')).toHaveValue('50');
+    // close without saving — the roster's per-diem stays as missions.spec left it
+    await page.keyboard.press('Escape');
+  });
+
   await test.step('A read-only identity sees no Settings nav', async () => {
     await login(page, 'visitor@alpha.com', 'visitor');
     await expect(page.getByTestId('nav-settings')).toHaveCount(0);

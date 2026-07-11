@@ -28,6 +28,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 // ERR_MODULE_NOT_FOUND, 2026-07-07).
 import { exportTenant } from '../../../packages/persistence/src/exportTenant';
 import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant } from './restore';
+import { assertMarkerMatchesManifest, signatureKeyFor, validateLatestSuccess, validateManifest, verifyManifestBytes } from './signing';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
   console.log(JSON.stringify({ level: 'info', event, ...fields }));
@@ -93,20 +94,50 @@ async function main(): Promise<void> {
   const admin = new Client({ connectionString: adminUrl });
   let created = false;
   try {
-    // Locate newest successful backup.
+    // Locate newest successful backup. HARDEN-2 H-02: both bucket documents
+    // are SCHEMA-VALIDATED (never JSON.parse-and-trust), the manifest's
+    // producer SIGNATURE is verified before any of its hashes are believed,
+    // and the mutable pointer must AGREE with the signed manifest.
     const latestRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: 'status/latest-success.json' }));
-    const latest = JSON.parse(Buffer.from(await latestRes.Body!.transformToByteArray()).toString('utf8'));
+    const latest = validateLatestSuccess(JSON.parse(Buffer.from(await latestRes.Body!.transformToByteArray()).toString('utf8')));
     log('restore.target', { key: latest.objectKey, manifestKey: latest.manifestKey });
 
     const manRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: latest.manifestKey }));
-    const manifest = JSON.parse(Buffer.from(await manRes.Body!.transformToByteArray()).toString('utf8'));
+    const manifestBody = Buffer.from(await manRes.Body!.transformToByteArray()).toString('utf8');
+    const manifest = validateManifest(JSON.parse(manifestBody));
 
-    // Download + verify encrypted artifact.
+    const verifyPubKey = process.env.BACKUP_VERIFY_PUBKEY;
+    if (verifyPubKey) {
+      let signature = '';
+      try {
+        const sigRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: signatureKeyFor(latest.manifestKey) }));
+        signature = Buffer.from(await sigRes.Body!.transformToByteArray()).toString('utf8');
+      } catch {
+        throw new Error(
+          `Manifest signature object missing (${signatureKeyFor(latest.manifestKey)}) — an unsigned artifact needs RESTORE_ALLOW_UNSIGNED.`,
+        );
+      }
+      if (!verifyManifestBytes(manifestBody, signature, verifyPubKey)) {
+        throw new Error('Manifest SIGNATURE VERIFICATION FAILED — refusing to decrypt or restore this artifact.');
+      }
+      log('restore.manifest_signature_verified', {});
+    } else if (process.env.RESTORE_ALLOW_UNSIGNED === 'yes-i-understand') {
+      log('restore.UNSIGNED_OVERRIDE', { warning: 'proceeding WITHOUT producer authenticity — legacy artifact only' });
+    } else {
+      throw new Error(
+        'BACKUP_VERIFY_PUBKEY is not set. Set it (see apps/backup keygen) or set RESTORE_ALLOW_UNSIGNED=yes-i-understand for a legacy unsigned artifact.',
+      );
+    }
+    assertMarkerMatchesManifest(latest, manifest);
+
+    // Download + verify encrypted artifact (hashes now anchored to the signed manifest).
     const encRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: latest.objectKey }));
     await fs.writeFile(encPath, Buffer.from(await encRes.Body!.transformToByteArray()));
     const encSha = await sha256File(encPath);
     if (encSha !== manifest.encryptedSha256) throw new Error('Encrypted artifact sha256 mismatch.');
-    log('restore.downloaded_verified', { encryptedBytes: (await fs.stat(encPath)).size });
+    const encBytes = (await fs.stat(encPath)).size;
+    if (encBytes !== manifest.encryptedBytes) throw new Error('Encrypted artifact byte-length mismatch.');
+    log('restore.downloaded_verified', { encryptedBytes: encBytes });
 
     // Decrypt locally (identity introduced only here).
     await fs.writeFile(idPath, identity.endsWith('\n') ? identity : identity + '\n', { mode: 0o600 });

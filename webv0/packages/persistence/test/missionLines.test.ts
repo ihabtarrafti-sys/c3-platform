@@ -155,7 +155,7 @@ describe('the full P&L assembly (lines + per-diem roll-in + FX blend)', () => {
     const personId = await addPerson('Jordan Reyes');
     const sub = await submitAddMissionParticipant(p, alphaOps, { input: { missionId: msn, personId, role: 'Player' } });
     await execAsOwner(sub.approvalId, sub.version);
-    await setParticipantPerDiem(p, alphaOps, { missionId: msn, personId, perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' }); // SAR 250/day
+    await setParticipantPerDiem(p, alphaOps, { missionId: msn, personId, perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR', expectedVersion: 0 }); // SAR 250/day
 
     await addMissionLine(p, alphaOps, msn, { direction: 'Income', category: 'PrizeMoney', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'USD' });
     await addMissionLine(p, alphaOps, msn, { direction: 'Expense', category: 'Travel', label: 'Flights', amountMinor: 200_000, currency: 'USD' });
@@ -224,24 +224,32 @@ describe('S2 mission finance: payments, budgets, the financial lifecycle', () =>
     expect(audit.filter((a) => a.action === 'MissionLinePaymentSet')).toHaveLength(2);
   });
 
-  it('budget cells upsert / replace / clear, audited; the P&L derives the variance', async () => {
+  it('budget cells set / replace / clear under the M-03 version guard, audited; the P&L derives the variance', async () => {
     const msn = await newMission();
     await addMissionLine(p, alphaOps, msn, { direction: 'Income', category: 'PrizeMoney', label: 'Prize', amountMinor: 1_000_000, currency: 'USD' });
 
-    await setMissionBudget(p, alphaOps, msn, { direction: 'Income', category: 'PrizeMoney', currency: 'USD', amountMinor: 1_200_000 } as never);
-    // upsert replaces, never duplicates
-    await setMissionBudget(p, alphaOwner, msn, { direction: 'Income', category: 'PrizeMoney', currency: 'USD', amountMinor: 1_100_000 } as never);
+    const cell = { direction: 'Income', category: 'PrizeMoney', currency: 'USD' };
+    const created = await setMissionBudget(p, alphaOps, msn, { ...cell, amountMinor: 1_200_000, expectedVersion: null } as never);
+    expect(created!.version).toBe(0);
+    // replacing requires the version the caller read — never a blind clobber
+    const replaced = await setMissionBudget(p, alphaOwner, msn, { ...cell, amountMinor: 1_100_000, expectedVersion: created!.version } as never);
+    expect(replaced!.version).toBe(1);
+
+    // HARDEN-2 M-03 refusals: a "creator" who missed the existing cell, and a
+    // staler editor, both get concurrency errors — not silent overwrites.
+    await expect(setMissionBudget(p, alphaOps, msn, { ...cell, amountMinor: 5, expectedVersion: null } as never)).rejects.toThrow(/modified concurrently/i);
+    await expect(setMissionBudget(p, alphaOps, msn, { ...cell, amountMinor: 5, expectedVersion: created!.version } as never)).rejects.toThrow(/modified concurrently/i);
 
     let view = await getMissionPnl(p, alphaOwner, msn);
     expect(view.budgets).toHaveLength(1);
     const row = view.pnl.perCategory.find((c) => c.category === 'PrizeMoney')!;
     expect(row).toMatchObject({ budgetUsdMinor: 1_100_000, actualUsdMinor: 1_000_000, varianceUsdMinor: -100_000 });
 
-    // clearing removes the cell; clearing again is a quiet no-op
-    await setMissionBudget(p, alphaOps, msn, { direction: 'Income', category: 'PrizeMoney', currency: 'USD', amountMinor: null } as never);
+    // clearing carries the version too; clearing an agreed-empty cell is a quiet no-op
+    await setMissionBudget(p, alphaOps, msn, { ...cell, amountMinor: null, expectedVersion: replaced!.version } as never);
     view = await getMissionPnl(p, alphaOwner, msn);
     expect(view.budgets).toHaveLength(0);
-    await setMissionBudget(p, alphaOps, msn, { direction: 'Income', category: 'PrizeMoney', currency: 'USD', amountMinor: null } as never);
+    await setMissionBudget(p, alphaOps, msn, { ...cell, amountMinor: null, expectedVersion: null } as never);
 
     const audit = await p.reads.forActor(alphaOwner).listAuditEventsForEntity('Mission', msn);
     expect(audit.filter((a) => a.action === 'MissionBudgetSet')).toHaveLength(3); // set + replace + clear (the no-op clear is unaudited)

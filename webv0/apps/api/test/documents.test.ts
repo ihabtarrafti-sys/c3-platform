@@ -8,7 +8,7 @@
  * blob), and tenant isolation.
  */
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
@@ -70,6 +70,24 @@ function blobCount(): number {
   }
 }
 
+/** M-07b tamper aid: the newest blob on disk (the fs driver's file for the last upload). */
+function findBlobPathFor(_documentId: string): string {
+  let newest: { path: string; mtime: number } | null = null;
+  const walk = (dir: string): void => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const p = join(dir, entry.name);
+      if (entry.isDirectory()) walk(p);
+      else {
+        const m = statSync(p).mtimeMs;
+        if (!newest || m > newest.mtime) newest = { path: p, mtime: m };
+      }
+    }
+  };
+  walk(blobDir);
+  if (!newest) throw new Error('no blobs on disk to tamper');
+  return (newest as { path: string }).path;
+}
+
 beforeAll(async () => {
   db = await startTestDatabase();
   blobDir = mkdtempSync(join(tmpdir(), 'c3-docs-'));
@@ -117,7 +135,8 @@ describe('documents over HTTP (S4)', () => {
     });
     await governedExecute(agrSub.json().approval.approvalId, agrSub.json().approval.version);
 
-    // Upload a small "PDF" (bytes are bytes; the type gate is the content-type).
+    // Upload a small PDF — real magic bytes: M-07 verifies content against the
+    // declared type (the label alone stopped being enough in HARDEN-2).
     const bytes = Buffer.from('%PDF-1.4\n%c3 evidence\n%%EOF\n');
     const up = await uploadDoc(tokens.ops, 'Agreement', 'AGR-0001', 'contract.pdf', 'application/pdf', bytes);
     expect(up.statusCode, up.body).toBe(201);
@@ -169,6 +188,11 @@ describe('documents over HTTP (S4)', () => {
     expect((await uploadDoc(tokens.ops, 'Agreement', 'AGR-0001', 'x.exe', 'application/x-msdownload', bytes)).statusCode).toBe(415);
     expect((await uploadDoc(tokens.ops, 'Agreement', 'AGR-0001', 'empty.pdf', 'application/pdf', Buffer.alloc(0))).statusCode).toBe(400);
 
+    // HARDEN-2 M-07a: a mislabeled body is refused — text bytes claiming to be
+    // a PDF, and a PDF claiming to be text, both fail the byte check.
+    expect((await uploadDoc(tokens.ops, 'Agreement', 'AGR-0001', 'fake.pdf', 'application/pdf', Buffer.from('just text'))).statusCode).toBe(415);
+    expect((await uploadDoc(tokens.ops, 'Agreement', 'AGR-0001', 'fake.txt', 'text/plain', bytes)).statusCode).toBe(415);
+
     // Upload to a missing owner: refused AND the blob is compensated away.
     const before = blobCount();
     const orphan = await uploadDoc(tokens.ops, 'Mission', 'MSN-9999', 'x.pdf', 'application/pdf', bytes);
@@ -183,5 +207,18 @@ describe('documents over HTTP (S4)', () => {
     expect((await app.inject({ method: 'GET', url: '/api/v1/documents/DOC-0001/content', headers: auth(tokens.owner) })).statusCode).toBe(404);
     const audit2 = await app.inject({ method: 'GET', url: '/api/v1/agreements/AGR-0001/audit', headers: auth(tokens.owner) });
     expect(audit2.json().events.some((e: { action: string }) => e.action === 'DocumentRemoved')).toBe(true);
+
+    // M-07a positive: a REAL text file (no binary tells) still lands.
+    const note = await uploadDoc(tokens.ops, 'Agreement', 'AGR-0001', 'note.txt', 'text/plain', Buffer.from('receipt note'));
+    expect(note.statusCode, note.body).toBe(201);
+
+    // HARDEN-2 M-07b: altered object-store bytes are NEVER served — the
+    // download recomputes the hash and refuses on mismatch (502, logged).
+    const noteId = note.json().document.documentId as string;
+    const keyPath = findBlobPathFor(noteId); // fs driver: locate + tamper the object
+    writeFileSync(keyPath, 'receipt note — tampered');
+    const tampered = await app.inject({ method: 'GET', url: `/api/v1/documents/${noteId}/content`, headers: auth(tokens.owner) });
+    expect(tampered.statusCode).toBe(502);
+    expect(tampered.json().error.code).toBe('INTEGRITY');
   });
 });

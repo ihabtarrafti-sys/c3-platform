@@ -8,8 +8,8 @@ import {
   CURRENCY_CODES,
   MINOR_UNITS_PER_UNIT,
   isMonetaryTermKind,
+  parseDecimalToMinor,
   termLabelRequired,
-  percentToBps,
   type AgreementTermKind,
   type CurrencyCode,
 } from '@c3web/domain';
@@ -350,15 +350,21 @@ function formFromTerm(t: AgreementTermDto): TermForm {
   };
 }
 
-/** Major-units string → integer minor units; null when not a positive number. */
+/** Major-units string → integer minor units; null when not a positive amount.
+ * M-02: exact digit-split via the domain parser — excess precision refuses. */
 function amountToMinor(input: string): number | null {
-  const n = Number.parseFloat(input);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * MINOR_UNITS_PER_UNIT);
+  const minor = parseDecimalToMinor(input);
+  return minor !== null && minor > 0 ? minor : null;
+}
+/** M-02: percent as exact digits (≤2 decimals), 0 < p ≤ 100 — bps-resolution only. */
+function percentToBpsExact(input: string): number | null {
+  const m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(input.trim());
+  if (!m) return null;
+  const bps = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
+  return bps > 0 && bps <= 10000 ? bps : null;
 }
 function percentValid(input: string): boolean {
-  const n = Number.parseFloat(input);
-  return Number.isFinite(n) && n > 0 && n <= 100;
+  return percentToBpsExact(input) !== null;
 }
 function formInvalid(kind: AgreementTermKind, f: TermForm): boolean {
   if (isMonetaryTermKind(kind)) {
@@ -440,7 +446,7 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
   function bodyFrom(kind: AgreementTermKind, f: TermForm) {
     return isMonetaryTermKind(kind)
       ? { amountMinor: amountToMinor(f.amount)!, currency: f.currency, label: f.label.trim() || null }
-      : { percentBps: percentToBps(Number.parseFloat(f.percent)), label: f.label.trim() || null };
+      : { percentBps: percentToBpsExact(f.percent)!, label: f.label.trim() || null };
   }
 
   return (

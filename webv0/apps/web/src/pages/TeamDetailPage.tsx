@@ -292,7 +292,7 @@ export function TeamDetailPage() {
                               title={`Remove ${m.personName} from ${t.name}?`}
                               description="The membership flips to former — history is preserved, and re-adding later reuses the same record."
                               confirmLabel="Remove member"
-                              onConfirm={() => run(() => api.removeTeamMember(t.teamId, m.personId), 'Member removed and recorded.')}
+                              onConfirm={() => run(() => api.removeTeamMember(t.teamId, m.personId, m.version), 'Member removed and recorded.')}
                             />
                           )}
                         </td>

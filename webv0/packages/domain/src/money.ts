@@ -40,8 +40,31 @@ export interface Money {
   readonly currency: CurrencyCode;
 }
 
+/**
+ * HARDEN-2 M-02: the largest amount any C3 field accepts — 9×10¹¹ minor units
+ * (≈ 9 billion USD), the bound under which every basis-point product
+ * (amount × 10000) stays exact in IEEE-754 AND far past any prize pool. The
+ * bps arithmetic itself runs in BigInt anyway; this cap makes the promise
+ * independent of that.
+ */
+export const MAX_AMOUNT_MINOR = 900_000_000_000;
+
 /** A non-negative integer amount of minor units (money never validates as float). */
-export const amountMinorSchema = z.number().int().min(0).max(Number.MAX_SAFE_INTEGER);
+export const amountMinorSchema = z.number().int().min(0).max(MAX_AMOUNT_MINOR);
+
+/**
+ * HARDEN-2 M-02: EXACT decimal-string → integer minor units. The ONLY lawful
+ * way to turn user-typed major units into money — digits split by a literal
+ * dot (never IEEE-754 round-through), at most 2 fraction digits, bounded by
+ * MAX_AMOUNT_MINOR. Returns null for anything else: empty, signs, exponents,
+ * grouping separators, or excess precision (12.345 is a REFUSAL, not 12.35).
+ */
+export function parseDecimalToMinor(input: string): number | null {
+  const m = /^(\d{1,10})(?:\.(\d{1,2}))?$/.exec(input.trim());
+  if (!m) return null;
+  const minor = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
+  return minor <= MAX_AMOUNT_MINOR ? minor : null;
+}
 
 /**
  * One org-maintained exchange rate: the value of 1 unit of `currency` in USD.

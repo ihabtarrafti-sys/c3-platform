@@ -459,6 +459,7 @@ export function mapMissionBudget(row: any): MissionBudget {
     category: row.category,
     currency: (row.currency) as MissionBudget['currency'],
     amountMinor: Number(amount),
+    version: Number(row.version ?? 0),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };
 }
@@ -475,6 +476,7 @@ export function mapMissionParticipant(row: any): MissionParticipant {
     perDiemAmountMinor:
       (row.perDiemAmountMinor ?? row.per_diem_amount_minor) == null ? null : Number(row.perDiemAmountMinor ?? row.per_diem_amount_minor),
     perDiemCurrency: (row.perDiemCurrency ?? row.per_diem_currency ?? null) as MissionParticipant['perDiemCurrency'],
+    version: Number(row.version ?? 0),
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };

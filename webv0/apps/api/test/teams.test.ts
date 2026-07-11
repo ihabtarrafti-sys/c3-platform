@@ -100,7 +100,9 @@ describe('teams over HTTP (S7)', () => {
     situation = await get(tokens.owner, '/api/v1/situation');
     expect(situation.signals.filter((sg: { kind: string }) => sg.kind === 'TeamUnstaffed')).toHaveLength(0);
 
-    const removed = (await post(tokens.ops, `/api/v1/teams/${r6.teamId}/members/${personId}/remove`, {}, 200)).member;
+    // HARDEN-2 M-03: removal carries the roster version; a stale one is a 409.
+    await post(tokens.ops, `/api/v1/teams/${r6.teamId}/members/${personId}/remove`, { expectedVersion: added.version + 7 }, 409);
+    const removed = (await post(tokens.ops, `/api/v1/teams/${r6.teamId}/members/${personId}/remove`, { expectedVersion: added.version }, 200)).member;
     expect(removed.isActive).toBe(false);
     const readded = (await post(tokens.ops, `/api/v1/teams/${r6.teamId}/members`, { personId, role: 'Coach' })).member;
     expect(readded).toMatchObject({ role: 'Coach', isActive: true }); // reactivation, same row
@@ -174,7 +176,7 @@ describe('teams over HTTP (S7)', () => {
       await post(tokens.ops, '/api/v1/missions/participants/requests', { input: { missionId: m.missionId, personId, role: 'Player' } }, 201)
     ).approval;
     await governedExecute(sub.approvalId, sub.version);
-    await post(tokens.ops, `/api/v1/missions/${m.missionId}/participants/${personId}/per-diem`, { perDiemAmountMinor: 10_000, perDiemCurrency: 'USD' }, 200);
+    await post(tokens.ops, `/api/v1/missions/${m.missionId}/participants/${personId}/per-diem`, { perDiemAmountMinor: 10_000, perDiemCurrency: 'USD', expectedVersion: 0 }, 200);
 
     // TEAM finance carries the per-diem: expense = 5 days × 100.00 = 500.00
     const fin = (await get(tokens.owner, `/api/v1/teams/${team.teamId}/finance`)).finance;

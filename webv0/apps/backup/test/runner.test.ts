@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { generateKeyPairSync } from 'node:crypto';
 import { runBackup, type BackupDeps } from '../src/runner';
 import type { BackupEnv } from '../src/env';
 
@@ -12,6 +13,7 @@ const env: BackupEnv = {
   sourceCommit: 'd133f0f',
   mode: 'daily',
   environmentLabel: 'staging',
+  signingKeyPem: null, // unsigned base fixture; the H-02 test opts in below
 };
 
 interface Recorder {
@@ -121,5 +123,21 @@ describe('runBackup orchestration', () => {
     const all = JSON.stringify(rec.logs);
     expect(all).not.toContain('SECRET-VALUE-SHOULD-NOT-LOG');
     expect(all).not.toContain(env.r2SecretAccessKey);
+  });
+
+  it('HARDEN-2 H-02: with a signing key, a .sig rides beside every manifest copy (and never leaks)', async () => {
+    const { privateKey } = generateKeyPairSync('ed25519');
+    const signed: BackupEnv = { ...env, signingKeyPem: privateKey.export({ type: 'pkcs8', format: 'pem' }).toString() };
+    const { deps, rec } = makeDeps({}, new Date('2026-07-05T02:15:00Z')); // Sunday → daily + weekly
+    await runBackup(signed, deps);
+    const sigs = rec.uploads.filter((k) => k.endsWith('.manifest.json.sig'));
+    const manifests = rec.uploads.filter((k) => k.endsWith('.manifest.json'));
+    expect(sigs).toHaveLength(manifests.length);
+    expect(sigs.length).toBeGreaterThanOrEqual(2); // daily + weekly copies
+    expect(JSON.stringify(rec.logs)).not.toContain('BEGIN PRIVATE KEY'); // the key never logs
+    // unsigned runs upload no .sig at all
+    const { deps: d2, rec: r2 } = makeDeps();
+    await runBackup(env, d2);
+    expect(r2.uploads.some((k) => k.endsWith('.sig'))).toBe(false);
   });
 });

@@ -14,6 +14,7 @@ import {
   type BackupManifest,
   type LatestSuccess,
 } from './manifest';
+import { signManifestBytes, signatureKeyFor } from './signing';
 
 export interface BackupDeps {
   now(): Date;
@@ -121,12 +122,17 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
       ageRecipientFingerprint: recipientFingerprint(env.ageRecipient),
     };
     const manifestBody = serializeManifest(manifest); // throws if any secret leaks
+    // HARDEN-2 H-02: producer signature over the EXACT manifest bytes. The
+    // signature object rides beside each manifest copy; the restore drill
+    // verifies it BEFORE trusting any hash in the manifest.
+    const signature = env.signingKeyPem ? signManifestBytes(manifestBody, env.signingKeyPem) : null;
 
-    // Step 9–10: upload encrypted object + manifest to every class prefix.
+    // Step 9–10: upload encrypted object + manifest (+ signature) per class prefix.
     for (const { cls, key } of keys) {
       await deps.uploadFile(key, encPath, 'application/octet-stream');
       await deps.uploadBytes(manifestKey(key), manifestBody, 'application/json');
-      deps.log('backup.uploaded', { cls, key });
+      if (signature) await deps.uploadBytes(signatureKeyFor(manifestKey(key)), signature, 'text/plain');
+      deps.log('backup.uploaded', { cls, key, signed: signature !== null });
     }
 
     // Step 11: independently verify the primary uploaded object's integrity.

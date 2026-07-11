@@ -2,7 +2,8 @@ import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Input, Option, makeStyles } from '@fluentui/react-components';
 import { CURRENCY_CODES, type DataQualityReportDto } from '@c3web/api-contracts';
-import { useDataQuality, useFxRates } from '../queries';
+import { formatMoney, parseDecimalToMinor, type CurrencyCode } from '@c3web/domain';
+import { useDataQuality, useFxRates, usePerDiemPresets } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -153,11 +154,130 @@ export function SettingsPage() {
         </div>
       )}
 
+      <PerDiemPresetsSection />
       <ImportExportSection />
       <DataQualitySection />
       <DelegationSection />
       <BackupStatusSection />
     </div>
+  );
+}
+
+// ── HARDEN-2: per-diem presets — the S2 rider comes home ─────────────────────
+// The org's quick-pick daily rates (their real config: 65 SAR / 100 SAR /
+// 25 USD as the defaults) surface as buttons in the per-diem dialog. Edits
+// are version-guarded (M-03): a concurrent editor refuses, never merges.
+
+function PerDiemPresetsSection() {
+  const s = useStyles();
+  const { notify } = useNotify();
+  const qc = useQueryClient();
+  const { data, isLoading, isError, error } = usePerDiemPresets();
+  const [draft, setDraft] = useState<Array<{ amountMinor: number; currency: CurrencyCode }> | null>(null);
+  const [amount, setAmount] = useState('');
+  const [currency, setCurrency] = useState<CurrencyCode>('SAR');
+  const [busy, setBusy] = useState(false);
+
+  const presets = draft ?? (data?.presets as Array<{ amountMinor: number; currency: CurrencyCode }> | undefined) ?? [];
+  const addMinor = parseDecimalToMinor(amount);
+  const addValid = addMinor !== null && addMinor > 0 && !presets.some((p) => p.amountMinor === addMinor && p.currency === currency);
+
+  async function save() {
+    setBusy(true);
+    try {
+      await api.setPerDiemPresets(presets, data?.version ?? null);
+      notify('success', 'Per-diem presets saved and recorded.');
+      setDraft(null);
+      void qc.invalidateQueries({ queryKey: ['perDiemPresets'] });
+    } catch (err) {
+      notify('error', err instanceof ApiError ? err.message : 'Could not save the presets.');
+      if (err instanceof ApiError && err.status === 409) {
+        setDraft(null);
+        void qc.invalidateQueries({ queryKey: ['perDiemPresets'] });
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <p className={s.intro} style={{ marginTop: '32px' }}>
+        Per-diem presets. The daily rates your missions actually use — they appear as one-click picks in every
+        per-diem dialog. Edit the list here; saving is recorded, and a colleague editing at the same time is refused
+        rather than silently overwritten.
+      </p>
+      <div className={s.panel} data-testid="perdiem-presets-panel">
+        <div className={s.head}>
+          <span className={s.title}>Per-diem presets</span>
+          <span className={s.meta} data-testid="perdiem-presets-state">
+            {data ? (data.version === null && !draft ? 'defaults' : draft ? 'unsaved changes' : `v${data.version}`) : '…'}
+          </span>
+        </div>
+        {isLoading && <LoadingState label="Loading presets…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load the presets.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && (
+          <>
+            {presets.map((p, i) => (
+              <div key={`${p.amountMinor}-${p.currency}`} className={s.row} data-testid={`perdiem-preset-row-${i}`}>
+                <span className={s.eq} style={{ fontWeight: 600 }}>{formatMoney(p.amountMinor, p.currency)}/day</span>
+                <Button
+                  size="small"
+                  appearance="transparent"
+                  disabled={presets.length <= 1}
+                  onClick={() => setDraft(presets.filter((_, j) => j !== i))}
+                  data-testid={`perdiem-preset-remove-${i}`}
+                >
+                  Remove
+                </Button>
+              </div>
+            ))}
+            <div className={s.row}>
+              <Input
+                className={s.rateInput}
+                value={amount}
+                onChange={(_, d) => setAmount(d.value)}
+                placeholder="e.g. 65"
+                data-testid="perdiem-preset-amount"
+              />
+              <Dropdown
+                value={currency}
+                selectedOptions={[currency]}
+                onOptionSelect={(_, d) => d.optionValue && setCurrency(d.optionValue as CurrencyCode)}
+                style={{ minWidth: '90px' }}
+                data-testid="perdiem-preset-currency"
+              >
+                {CURRENCY_CODES.map((c) => (
+                  <Option key={c} value={c} text={c}>
+                    {c}
+                  </Option>
+                ))}
+              </Dropdown>
+              <Button
+                size="small"
+                appearance="secondary"
+                disabled={!addValid || presets.length >= 8}
+                onClick={() => {
+                  setDraft([...presets, { amountMinor: addMinor!, currency }]);
+                  setAmount('');
+                }}
+                data-testid="perdiem-preset-add"
+              >
+                Add
+              </Button>
+              <Button size="small" appearance="primary" disabled={!draft || busy} onClick={save} data-testid="perdiem-presets-save">
+                {busy ? 'Saving…' : 'Save presets'}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
   );
 }
 

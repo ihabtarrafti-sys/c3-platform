@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Field, Input, Option, Textarea } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
-import { CLAIM_CATEGORIES } from '@c3web/domain';
+import { CLAIM_CATEGORIES, parseDecimalToMinor } from '@c3web/domain';
 import { useClaims } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -49,9 +49,10 @@ export function ClaimsPage() {
     );
   }
 
+  // M-02: exact-decimal law — excess precision refuses instead of rounding.
   const amountMinor = (() => {
-    const n = Number(amount);
-    return Number.isFinite(n) && n > 0 ? Math.round(n * 100) : null;
+    const minor = parseDecimalToMinor(amount);
+    return minor !== null && minor > 0 ? minor : null;
   })();
   const ready = description.trim() !== '' && amountMinor !== null && /^\d{4}-\d{2}-\d{2}$/.test(expenseOn);
 

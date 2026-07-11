@@ -23,6 +23,12 @@ export interface BackupEnv {
   /** 'daily' (default; Sundays also copied to weekly/) or 'manual'. */
   readonly mode: 'daily' | 'manual';
   readonly environmentLabel: string;
+  /**
+   * HARDEN-2 H-02: Ed25519 PRIVATE key (PKCS#8 PEM) that signs each manifest —
+   * producer authenticity for the restore drill. Null = unsigned (legacy);
+   * the restore side then demands its explicit override flag.
+   */
+  readonly signingKeyPem: string | null;
 }
 
 /** Substrings that must never appear in the backup DB role name. */
@@ -93,6 +99,13 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): BackupEnv {
     throw new Error(`BACKUP_MODE must be 'daily' or 'manual', got '${modeRaw}'.`);
   }
 
+  // H-02: the signing key is Ed25519 PKCS#8 PEM when present; a value that is
+  // clearly something else (an age key, a bare string) refuses loudly.
+  const signingKeyPem = source.BACKUP_SIGNING_KEY ?? null;
+  if (signingKeyPem !== null && !signingKeyPem.includes('-----BEGIN PRIVATE KEY-----')) {
+    throw new Error('BACKUP_SIGNING_KEY must be a PKCS#8 PEM private key (run `npm run keygen` in apps/backup).');
+  }
+
   return {
     databaseUrl,
     r2Endpoint: get('R2_ENDPOINT'),
@@ -103,5 +116,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): BackupEnv {
     sourceCommit: source.SOURCE_COMMIT ?? 'unknown',
     mode: modeRaw,
     environmentLabel: source.ENVIRONMENT_LABEL ?? 'staging',
+    signingKeyPem,
   };
 }

@@ -4,6 +4,8 @@ import {
   formatMoney,
   usdPerUnitMap,
   setFxRateInputSchema,
+  parseDecimalToMinor,
+  MAX_AMOUNT_MINOR,
   PIVOT_CURRENCY,
   type FxRate,
 } from '../src/money';
@@ -46,5 +48,36 @@ describe('money — formatting and rate validation', () => {
     expect(setFxRateInputSchema.safeParse({ currency: 'USD', usdPerUnit: 1 }).success).toBe(false);
     expect(setFxRateInputSchema.safeParse({ currency: 'AED', usdPerUnit: 0.2723 }).success).toBe(true);
     expect(setFxRateInputSchema.safeParse({ currency: 'AED', usdPerUnit: 0 }).success).toBe(false);
+  });
+});
+
+describe('HARDEN-2 M-02 — parseDecimalToMinor: the exact-decimal law', () => {
+  it('parses plain decimals exactly (never through IEEE-754)', () => {
+    expect(parseDecimalToMinor('12')).toBe(1200);
+    expect(parseDecimalToMinor('12.3')).toBe(1230);
+    expect(parseDecimalToMinor('12.34')).toBe(1234);
+    expect(parseDecimalToMinor('0.07')).toBe(7);
+    expect(parseDecimalToMinor('  65  ')).toBe(6500);
+    // the classic float trap: 0.29 has no exact binary representation
+    expect(parseDecimalToMinor('0.29')).toBe(29);
+    expect(parseDecimalToMinor('4.015')).toBeNull(); // Math.round(401.49999…) would have LIED
+  });
+
+  it('refuses excess precision, signs, exponents, grouping, and emptiness', () => {
+    expect(parseDecimalToMinor('12.345')).toBeNull();
+    expect(parseDecimalToMinor('-5')).toBeNull();
+    expect(parseDecimalToMinor('+5')).toBeNull();
+    expect(parseDecimalToMinor('1e3')).toBeNull();
+    expect(parseDecimalToMinor('1,000')).toBeNull();
+    expect(parseDecimalToMinor('')).toBeNull();
+    expect(parseDecimalToMinor('.')).toBeNull();
+    expect(parseDecimalToMinor('12.')).toBeNull();
+    expect(parseDecimalToMinor('abc')).toBeNull();
+  });
+
+  it('holds the MAX_AMOUNT_MINOR bound exactly', () => {
+    expect(parseDecimalToMinor('9000000000')).toBe(MAX_AMOUNT_MINOR); // the cap itself
+    expect(parseDecimalToMinor('9000000000.01')).toBeNull(); // one cent past it
+    expect(parseDecimalToMinor('9999999999')).toBeNull(); // regex-legal, cap-refused
   });
 });

@@ -16,7 +16,7 @@ let db: TestDatabase;
 let deps: Deps;
 let app: FastifyInstance;
 
-const tokens = {} as { ops: string; owner: string; legal: string; visitor: string; ownerB: string };
+const tokens = {} as { ops: string; owner: string; legal: string; hr: string; visitor: string; ownerB: string };
 
 async function login(email: string, role: string, tenantSlug: string): Promise<string> {
   const res = await app.inject({ method: 'POST', url: '/api/v1/dev/login', payload: { email, displayName: email, role, tenantSlug } });
@@ -69,6 +69,7 @@ beforeEach(async () => {
   tokens.ops = await login('ops@alpha.com', 'operations', 'alpha');
   tokens.owner = await login('owner@alpha.com', 'owner', 'alpha');
   tokens.legal = await login('legal@alpha.com', 'legal', 'alpha');
+  tokens.hr = await login('hr@alpha.com', 'hr', 'alpha');
   tokens.visitor = await login('visitor@alpha.com', 'visitor', 'alpha');
   tokens.ownerB = await login('owner@bravo.com', 'owner', 'bravo');
 });
@@ -148,5 +149,141 @@ describe('global search over HTTP (S3)', () => {
     // Sub-minimum queries return empty (never a full-table dump).
     expect(await search(tokens.owner, 'J')).toHaveLength(0);
     expect(await search(tokens.owner, '  ')).toHaveLength(0);
+  });
+
+  it('S3.1: invoices, teams, claims, distributions, documents, terms, P&L lines and beneficiaries are searchable — each behind its own gate', async () => {
+    // ── the graph: person → agreement (+term, +document) · mission → line
+    //    (Received, bank ref) → invoice + distribution · team · claims · beneficiary ──
+    const personSub = await app.inject({ method: 'POST', url: '/api/v1/approvals', headers: auth(tokens.ops), payload: { input: { fullName: 'Sasha Petrova' } } });
+    const personId = (await governedExecute(personSub.json().approval.approvalId, personSub.json().approval.version)).person.personId as string;
+
+    const agrSub = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/requests',
+      headers: auth(tokens.ops),
+      payload: { input: { personId, agreementType: 'Player Contract', startsOn: '2026-08-01', endsOn: '2027-07-31' } },
+    });
+    await governedExecute(agrSub.json().approval.approvalId, agrSub.json().approval.version);
+    const termSub = await app.inject({
+      method: 'POST',
+      url: '/api/v1/agreements/terms/requests',
+      headers: auth(tokens.ops),
+      payload: { input: { agreementId: 'AGR-0001', kind: 'Salary', amountMinor: 500_000, currency: 'AED', label: 'Base monthly retainer' } },
+    });
+    expect(termSub.statusCode, termSub.body).toBe(201);
+    await governedExecute(termSub.json().approval.approvalId, termSub.json().approval.version);
+
+    // a PDF on the agreement (real magic bytes — M-07)
+    const form = new FormData();
+    form.append('ownerType', 'Agreement');
+    form.append('ownerId', 'AGR-0001');
+    form.append('file', new Blob([Buffer.from('%PDF-1.4 sponsorship paper')], { type: 'application/pdf' }), 'sponsorship-contract.pdf');
+    const up = await app.inject({ method: 'POST', url: '/api/v1/documents', headers: auth(tokens.ops), body: form as never });
+    expect(up.statusCode, up.body).toBe(201);
+
+    const mission = await app.inject({
+      method: 'POST',
+      url: '/api/v1/missions',
+      headers: auth(tokens.ops),
+      payload: { name: 'Riyadh Major', startsOn: '2026-08-01', endsOn: '2026-08-05' },
+    });
+    expect(mission.statusCode, mission.body).toBe(201);
+    const msn = mission.json().mission.missionId as string;
+    const line = await app.inject({
+      method: 'POST',
+      url: `/api/v1/missions/${msn}/lines`,
+      headers: auth(tokens.ops),
+      payload: { direction: 'Income', category: 'PrizeMoney', label: 'Prize — champions', amountMinor: 1_000_000, currency: 'USD' },
+    });
+    expect(line.statusCode, line.body).toBe(201);
+    const lineId = line.json().line.lineId as string;
+
+    // invoice FIRST (issuing needs an Expected line: Expected → Invoiced)…
+    const entity = await app.inject({ method: 'POST', url: '/api/v1/entities', headers: auth(tokens.ops), payload: { name: 'Geekay UAE', code: 'GKA', jurisdiction: 'UAE', localCurrency: 'AED' } });
+    expect(entity.statusCode, entity.body).toBe(201);
+    const invoice = await app.inject({
+      method: 'POST',
+      url: '/api/v1/invoices',
+      headers: auth(tokens.ops),
+      payload: { missionId: msn, lineId, entityId: entity.json().entity.entityId, billedToName: 'VSPN Organizers', vatRateBps: 0 },
+    });
+    expect(invoice.statusCode, invoice.body).toBe(201);
+    const invoiceNumber = invoice.json().invoice.invoiceNumber as string; // GKA-INV-2026-001
+
+    // …then the money lands (Invoiced → Received, with the bank reference),
+    // which is what makes the line distributable.
+    const pay = await app.inject({
+      method: 'POST',
+      url: `/api/v1/missions/${msn}/lines/${lineId}/payment`,
+      headers: auth(tokens.ops),
+      payload: { expectedVersion: 1, paymentStatus: 'Received', receivedAmountMinor: 1_000_000, receivedUsdPerUnit: null, paymentSourceLabel: 'ESA', refNo: 'FT2501475Z6Z' },
+    });
+    expect(pay.statusCode, pay.body).toBe(200);
+
+    const dist = await app.inject({
+      method: 'POST',
+      url: '/api/v1/distributions',
+      headers: auth(tokens.ops),
+      payload: { missionId: msn, lineId, orgShareBps: 10000, shares: [] },
+    });
+    expect(dist.statusCode, dist.body).toBe(201);
+
+    const team = await app.inject({ method: 'POST', url: '/api/v1/teams', headers: auth(tokens.ops), payload: { name: 'Rainbow Six', code: 'R6', kind: 'GameDivision' } });
+    expect(team.statusCode, team.body).toBe(201);
+
+    // claims: HR's own + an ops one (HR has no financial visibility)
+    const hrClaim = await app.inject({ method: 'POST', url: '/api/v1/claims', headers: auth(tokens.hr), payload: { category: 'Travel', description: 'Taxi to venue airport', amountMinor: 4500, currency: 'SAR', expenseOn: '2026-08-02' } });
+    expect(hrClaim.statusCode, hrClaim.body).toBe(201);
+    const opsClaim = await app.inject({ method: 'POST', url: '/api/v1/claims', headers: auth(tokens.ops), payload: { category: 'Accommodation', description: 'Hotel booking deposit', amountMinor: 90_000, currency: 'SAR', expenseOn: '2026-08-02' } });
+    expect(opsClaim.statusCode, opsClaim.body).toBe(201);
+
+    const benSub = await app.inject({
+      method: 'POST',
+      url: '/api/v1/beneficiaries/requests',
+      headers: auth(tokens.ops),
+      payload: { input: { personId, label: 'ESA main', bankName: 'Emirates Islamic', bankCountry: 'UAE', currency: 'AED', paymentType: 'local' } },
+    });
+    expect(benSub.statusCode, benSub.body).toBe(201);
+    await governedExecute(benSub.json().approval.approvalId, benSub.json().approval.version);
+
+    // ── the OWNER finds each new domain, with parentId routing children home ──
+    const invHits = await search(tokens.owner, invoiceNumber.slice(0, 7)); // "GKA-INV"
+    const invHit = invHits.find((h) => h.kind === 'invoice')!;
+    expect(invHit).toMatchObject({ id: 'INV-0001', title: invoiceNumber, parentId: msn });
+
+    const refHits = await search(tokens.owner, 'FT2501475Z6Z');
+    expect(refHits.find((h) => h.kind === 'line')).toMatchObject({ id: lineId, parentId: msn });
+
+    expect((await search(tokens.owner, 'Rainbow')).find((h) => h.kind === 'team')).toMatchObject({ id: 'TEAM-0001' });
+    expect((await search(tokens.owner, 'DIST-0001')).find((h) => h.kind === 'distribution')).toMatchObject({ id: 'DIST-0001', parentId: msn });
+    expect((await search(tokens.owner, 'Base monthly')).find((h) => h.kind === 'term')).toMatchObject({ parentId: 'AGR-0001' });
+    expect((await search(tokens.owner, 'sponsorship-con')).find((h) => h.kind === 'document')).toMatchObject({ parentId: 'Agreement:AGR-0001' });
+    expect((await search(tokens.owner, 'ESA main')).find((h) => h.kind === 'beneficiary')).toMatchObject({ parentId: personId });
+
+    // claims: the owner (financial visibility) sees BOTH; HR sees ONLY its own.
+    expect((await search(tokens.owner, 'Taxi to venue')).some((h) => h.kind === 'claim')).toBe(true);
+    expect((await search(tokens.owner, 'Hotel booking')).some((h) => h.kind === 'claim')).toBe(true);
+    expect((await search(tokens.hr, 'Taxi to venue')).some((h) => h.kind === 'claim')).toBe(true);
+    expect((await search(tokens.hr, 'Hotel booking')).some((h) => h.kind === 'claim')).toBe(false);
+
+    // ── gates: finance domains ABSENT for non-finance roles ──────────────────
+    for (const [token, name] of [[tokens.visitor, 'visitor'], [tokens.legal, 'legal'], [tokens.hr, 'hr']] as const) {
+      const inv = await search(token, 'GKA-INV');
+      expect(inv.some((h) => h.kind === 'invoice'), `${name} must not see invoices`).toBe(false);
+      const ln = await search(token, 'FT2501475Z6Z');
+      expect(ln.some((h) => h.kind === 'line'), `${name} must not see P&L lines`).toBe(false);
+      const ben = await search(token, 'ESA main');
+      expect(ben.some((h) => h.kind === 'beneficiary'), `${name} must not see beneficiaries`).toBe(false);
+    }
+    // documents follow their OWNER's gate: legal reads agreement paper, visitor/hr do not.
+    expect((await search(tokens.legal, 'sponsorship-con')).some((h) => h.kind === 'document')).toBe(true);
+    expect((await search(tokens.visitor, 'sponsorship-con')).some((h) => h.kind === 'document')).toBe(false);
+    expect((await search(tokens.hr, 'sponsorship-con')).some((h) => h.kind === 'document')).toBe(false);
+    // teams are org structure — visible at the baseline.
+    expect((await search(tokens.visitor, 'Rainbow')).some((h) => h.kind === 'team')).toBe(true);
+
+    // ── ranking: an exact business-id match is the FIRST hit ─────────────────
+    const ranked = await search(tokens.owner, msn.toLowerCase());
+    expect(ranked[0]).toMatchObject({ kind: 'mission', id: msn });
   });
 });

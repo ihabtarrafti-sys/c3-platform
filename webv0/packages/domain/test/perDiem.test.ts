@@ -17,7 +17,7 @@ describe('missionDayCount — inclusive per-diem day span', () => {
 });
 
 describe('setParticipantPerDiem — amount and currency move together', () => {
-  const base = { missionId: 'MSN-0001', personId: 'PER-0001' };
+  const base = { missionId: 'MSN-0001', personId: 'PER-0001', expectedVersion: 0 };
   it('accepts a paired amount+currency', () => {
     expect(setParticipantPerDiemInputSchema.safeParse({ ...base, perDiemAmountMinor: 5000, perDiemCurrency: 'SAR' }).success).toBe(true);
   });

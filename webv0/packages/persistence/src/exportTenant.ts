@@ -15,8 +15,10 @@
  *     tenant bundle; platform logs are out of scope by definition.
  *   - Packaging (HARDEN-0): the sibling tenant-table registry is the only
  *     runtime import — one shared truth for export AND exit (H-03).
- *   - document.jsonl carries rows incl. storage keys; the object BYTES are a
- *     HARDEN-1 follow-up (streamed blob bundle + exit-time object deletion).
+ *   - document.jsonl carries rows incl. storage keys; the object BYTES ride
+ *     in the CLI's blob bundle (HARDEN-2, blobBundle.ts: verified download at
+ *     export, tenant-prefix deletion at exit). This module stays DB-only by
+ *     the backup-image packaging contract (see restore-main.ts).
  */
 import type { Client } from 'pg';
 import { createHash } from 'node:crypto';

@@ -8,6 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "start": "tsx src/server.ts",
     "openapi": "tsx scripts/generate-openapi.ts",
+    "contract": "tsx scripts/generate-contract.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

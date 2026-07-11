@@ -10,6 +10,10 @@
  *     the read-only c3_backup role — otherwise DATABASE_ADMIN_URL);
  *   - emits one JSONL file per table + manifest.json (per-file SHA-256, row
  *     counts, tenant id/slug, timestamp, applied schema version);
+ *   - HARDEN-2 (M-07/H-03 follow-up): DOCUMENT BYTES ride along under
+ *     out/documents/, each verified against its stored SHA-256. When documents
+ *     exist but no blob storage is configured (R2_* or DOCUMENTS_DIR), the
+ *     export REFUSES — pass the self-describing --no-doc-bytes to skip;
  *   - REFUSES an unknown tenant slug (non-zero exit);
  *   - is NEVER run automatically — a manual operator CLI, not an API hook.
  */
@@ -17,6 +21,7 @@ import { Client } from 'pg';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { exportTenant } from '../src/exportTenant';
+import { createBlobReader, downloadTenantBlobs, parseDocumentRows } from '../src/blobBundle';
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -30,6 +35,7 @@ function arg(name: string): string {
 
 const tenantSlug = arg('tenant-slug');
 const outDir = resolve(arg('out'));
+const skipDocBytes = process.argv.includes('--no-doc-bytes');
 
 const url = process.env.DATABASE_EXPORT_URL ?? process.env.DATABASE_ADMIN_URL;
 if (!url) {
@@ -44,6 +50,31 @@ try {
   mkdirSync(outDir, { recursive: true });
   for (const f of files) writeFileSync(resolve(outDir, f.name), f.content, 'utf8');
   writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+
+  // HARDEN-2: the evidence bytes. Fail-closed — documents without storage
+  // access refuse the export unless --no-doc-bytes says so out loud.
+  const docRows = parseDocumentRows(files.find((f) => f.name === 'document.jsonl')?.content ?? '');
+  if (docRows.length > 0 && !skipDocBytes) {
+    const reader = createBlobReader(process.env);
+    if (!reader) {
+      console.error(
+        `\nEXPORT REFUSED: ${docRows.length} document(s) exist but no blob storage is configured ` +
+          '(set R2_ENDPOINT/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_DOCUMENTS or DOCUMENTS_DIR, ' +
+          'or pass --no-doc-bytes to export rows only).',
+      );
+      process.exit(1);
+    }
+    try {
+      const docsDir = resolve(outDir, 'documents');
+      mkdirSync(docsDir, { recursive: true });
+      const blobs = await downloadTenantBlobs(reader, docRows, (name, bytes) => writeFileSync(resolve(docsDir, name), bytes));
+      console.log(`  documents/    ${blobs.count} blobs, ${blobs.totalBytes} bytes, each verified against its stored sha256`);
+    } finally {
+      reader.close();
+    }
+  } else if (docRows.length > 0) {
+    console.error(`WARNING: --no-doc-bytes set — ${docRows.length} document blob(s) NOT included in this bundle.`);
+  }
 
   console.log(`\n=== tenant export: ${manifest.tenant.slug} (${manifest.tenant.name}) ===`);
   console.log(`  tenant id     ${manifest.tenant.id}`);

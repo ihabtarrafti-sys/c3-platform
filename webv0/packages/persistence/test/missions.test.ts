@@ -142,18 +142,24 @@ describe('per-diem on a participant (Finance S2, direct-audited)', () => {
     await governedExecute(await submitAddMissionParticipant(p, alphaOps, { input: { missionId: m.missionId, personId, role: 'Player' } }));
 
     // 250.00 SAR/day
-    const set = await setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId, perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' });
+    const set = await setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId, perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR', expectedVersion: 0 });
     expect(set).toMatchObject({ perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' });
+    expect(set.version).toBe(1); // HARDEN-2 M-03: every participant write bumps the token
 
     const [seen] = await listMissionParticipants(p, alphaOwner, m.missionId);
     expect(seen).toMatchObject({ perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' });
 
-    const cleared = await setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId, perDiemAmountMinor: null, perDiemCurrency: null });
+    // HARDEN-2 M-03: a stale caller (still holding version 0) is refused, never merged.
+    await expect(
+      setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId, perDiemAmountMinor: 99_900, perDiemCurrency: 'USD', expectedVersion: 0 }),
+    ).rejects.toThrow(/modified concurrently/i);
+
+    const cleared = await setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId, perDiemAmountMinor: null, perDiemCurrency: null, expectedVersion: set.version });
     expect(cleared.perDiemAmountMinor).toBeNull();
     expect(cleared.perDiemCurrency).toBeNull();
 
     await expect(
-      setParticipantPerDiem(p, alphaVisitor, { missionId: m.missionId, personId, perDiemAmountMinor: 100, perDiemCurrency: 'USD' }),
+      setParticipantPerDiem(p, alphaVisitor, { missionId: m.missionId, personId, perDiemAmountMinor: 100, perDiemCurrency: 'USD', expectedVersion: cleared.version }),
     ).rejects.toThrow(/may not manage missions/i);
 
     const audit = await p.reads.forActor(alphaOwner).listAuditEventsForEntity('MissionParticipant', `${m.missionId}/${personId}`);
@@ -163,7 +169,7 @@ describe('per-diem on a participant (Finance S2, direct-audited)', () => {
   it('setting per-diem on a non-participant is refused', async () => {
     const m = await createMission(p, alphaOps, { name: 'Empty', startsOn: '2026-09-12', endsOn: '2026-09-21' });
     await expect(
-      setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId: 'PER-9999', perDiemAmountMinor: 100, perDiemCurrency: 'USD' }),
+      setParticipantPerDiem(p, alphaOps, { missionId: m.missionId, personId: 'PER-9999', perDiemAmountMinor: 100, perDiemCurrency: 'USD', expectedVersion: 0 }),
     ).rejects.toThrow(/participant/i);
   });
 });

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
-import { agreementRenewalStateOn, type AgreementRenewalState } from '@c3web/domain';
+import { agreementRenewalStateOn, parseDecimalToMinor, type AgreementRenewalState } from '@c3web/domain';
 import { useAgreements, useEntities, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -91,7 +91,13 @@ export function AgreementsPage() {
 
   async function submitCreate() {
     try {
-      const cents = valueUsd.trim() === '' ? undefined : Math.round(Number(valueUsd) * 100);
+      // M-02: exact-decimal law — a malformed value is a refusal, not a rounded guess.
+      const parsedCents = valueUsd.trim() === '' ? undefined : parseDecimalToMinor(valueUsd);
+      if (parsedCents === null) {
+        notify('error', 'The value must be a plain amount with at most 2 decimals (e.g. 2500 or 2500.50).');
+        return;
+      }
+      const cents = parsedCents;
       const res = await api.submitAddAgreement({
         personId: personId || undefined,
         entityId: entityId || undefined,

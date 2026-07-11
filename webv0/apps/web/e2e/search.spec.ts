@@ -52,6 +52,43 @@ test('Global search: any id or name, only within your role’s world', async ({ 
     await expect(page.getByTestId('search-hit-AGR-0001')).toBeVisible();
   });
 
+  await test.step('S3.1: a P&L line is found by its BANK REFERENCE and routes to its mission', async () => {
+    await page.getByTestId('global-search').fill('FT2501475Z6Z');
+    await expect(page.getByTestId('search-hit-PNL-0001')).toBeVisible();
+    await page.getByTestId('search-hit-PNL-0001').click();
+    await expect(page).toHaveURL(/\/missions\/MSN-0001$/);
+  });
+
+  await test.step('S3.1: a claim is found by its description and opens its page', async () => {
+    await page.getByTestId('global-search').fill('Taxi to the venue');
+    await expect(page.getByTestId('search-hit-CLM-0001')).toBeVisible();
+    await page.getByTestId('search-hit-CLM-0001').click();
+    await expect(page).toHaveURL(/\/claims\/CLM-0001$/);
+  });
+
+  await test.step('S3.1: a beneficiary label routes to its person; chips filter by kind', async () => {
+    await page.getByTestId('global-search').fill('ESA');
+    await expect(page.getByTestId('search-hit-BEN-0001')).toBeVisible();
+    // 'ESA' also hits the payment-source label world via lines — when more
+    // than one kind is present the chips row appears and narrows the panel.
+    const chips = page.getByTestId('search-chips');
+    if (await chips.isVisible()) {
+      await page.getByTestId('search-chip-beneficiary').click();
+      await expect(page.getByTestId('search-hit-BEN-0001')).toBeVisible();
+      await expect(page.getByTestId('search-hit-PNL-0001')).toHaveCount(0);
+      await page.getByTestId('search-chip-all').click();
+    }
+    await page.getByTestId('search-hit-BEN-0001').click();
+    await expect(page).toHaveURL(/\/people\/PER-0001$/);
+  });
+
+  await test.step('S3.1: the command palette — "go to teams" is an ACTION on the same surface', async () => {
+    await page.getByTestId('global-search').fill('go to teams');
+    await expect(page.getByTestId('search-action-/teams')).toBeVisible();
+    await page.getByTestId('search-action-/teams').click();
+    await expect(page).toHaveURL(/\/teams$/);
+  });
+
   await test.step('The visitor searching the same code sees nothing — the role boundary in the results', async () => {
     await login(page, 'visitor@alpha.com', 'visitor');
     await page.getByTestId('global-search').fill('GKE-PL');
@@ -62,5 +99,9 @@ test('Global search: any id or name, only within your role’s world', async ({ 
     // …but the visitor's own world is searchable.
     await page.getByTestId('global-search').fill('Jordan');
     await expect(page.getByTestId('search-hit-PER-0001')).toBeVisible();
+
+    // S3.1: the finance world is ABSENT from the visitor's box.
+    await page.getByTestId('global-search').fill('FT2501475Z6Z');
+    await expect(page.getByTestId('search-hit-PNL-0001')).toHaveCount(0);
   });
 });

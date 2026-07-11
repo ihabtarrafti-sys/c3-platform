@@ -43,6 +43,47 @@ import type {
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
+// ── S3.1 global search port types (the persistence layer implements) ─────────
+export const SEARCH_DOMAINS = [
+  'person',
+  'mission',
+  'agreement',
+  'entity',
+  'credential',
+  'journey',
+  'kit',
+  'apparel',
+  'approval',
+  'team',
+  'invoice',
+  'claim',
+  'distribution',
+  'document',
+  'term',
+  'line',
+  'beneficiary',
+] as const;
+export type SearchDomain = (typeof SEARCH_DOMAINS)[number];
+
+export interface TenantSearchSpec {
+  /** Raw query, already trimmed + lowercased by the use case. */
+  readonly q: string;
+  readonly limitPerDomain: number;
+  readonly domains: readonly SearchDomain[];
+  /** Non-null narrows CLAIM hits to this submitter (non-finance roles). */
+  readonly claimsOwnIdentity: string | null;
+  /** DOCUMENT owner types the role may see (empty = no document hits). */
+  readonly documentOwnerTypes: readonly string[];
+}
+
+export interface TenantSearchRow {
+  readonly kind: SearchDomain;
+  readonly id: string;
+  readonly title: string;
+  readonly subtitle: string | null;
+  readonly parent_id: string | null;
+}
+
 export interface ReadStore {
   listPeople(): Promise<Person[]>;
   getPersonById(personId: string): Promise<Person | null>;
@@ -111,6 +152,14 @@ export interface ReadStore {
   listDistributionsForMission(missionId: string): Promise<Distribution[]>;
   getDistributionById(distributionId: string): Promise<Distribution | null>;
   listDistributionShares(distributionId: string): Promise<DistributionShare[]>;
+  /** M-04: every share of every head on ONE mission — one query, not one per head. */
+  listDistributionSharesForMission(missionId: string): Promise<DistributionShare[]>;
+  /**
+   * M-04: candidate PrizeSharePersonal suggestions for a roster in ONE query —
+   * active agreements' live terms with a percent, ordered (person, agreement)
+   * so "first hit per person" reproduces the nested walk's suggestion.
+   */
+  listPrizeShareTermsForPeople(personIds: readonly string[]): Promise<Array<{ personId: string; agreementId: string; termId: string; percentBps: number }>>;
   /** Slim bulk pending-payout view for the Situation Room snapshot. */
   listDistributionsWithPending(): Promise<
     Array<{ distributionId: string; missionId: string; status: string; createdAt: string; pendingCount: number; pendingAmountMinor: number; currency: string }>
@@ -126,6 +175,14 @@ export interface ReadStore {
   listBeneficiaries(): Promise<Beneficiary[]>;
   listBeneficiariesForPerson(personId: string): Promise<Beneficiary[]>;
   getBeneficiaryById(beneficiaryId: string): Promise<Beneficiary | null>;
+  /**
+   * S3.1 + M-04: global search pushed into PostgreSQL — one statement,
+   * per-domain rank + LIMIT, RLS'd. The USE CASE owns the role boundary
+   * (domain inclusion, claims narrowing, document owner-type allowlist).
+   */
+  searchTenant(spec: TenantSearchSpec): Promise<TenantSearchRow[]>;
+  /** HARDEN-2 (0037): one settings row, or null (= the code-side defaults). */
+  getTenantSetting(key: string): Promise<{ value: unknown; version: number } | null>;
   /** Tier 0.5: the unrevoked delegation held by this grantee, if any (its DLG id). */
   findUnrevokedDelegationId(granteeIdentity: string): Promise<string | null>;
   /** Tier 0.5: does this identity hold an UNREVOKED delegation whose window covers onDate? */
@@ -490,6 +547,13 @@ export interface AgreementPatch {
 }
 
 export interface WriteTx {
+  // ── HARDEN-2 (0037): tenant settings (version-guarded from birth) ─────────
+  /** One settings row inside the tx, or null (the guard's basis). */
+  getTenantSetting(key: string): Promise<{ value: unknown; version: number } | null>;
+  /** Create a setting; null when a concurrent creator won (23505). */
+  insertTenantSetting(key: string, value: unknown): Promise<{ value: unknown; version: number } | null>;
+  /** Version-guarded settings update; null = stale/missing. */
+  updateTenantSetting(key: string, expectedVersion: number, value: unknown): Promise<{ value: unknown; version: number } | null>;
   /**
    * Atomic, server-controlled business-ID allocation (never MAX+1). Beyond
    * the canonical kinds, S6 allocates per-(entity, year) invoice series via
@@ -662,8 +726,8 @@ export interface WriteTx {
   reactivateEntity(entityId: string, expectedVersion: number): Promise<Entity | null>;
   /** Finance S1: set/replace the tenant's rate for a currency (value of 1 unit in USD). */
   upsertFxRate(currency: string, usdPerUnit: number): Promise<FxRate>;
-  /** Finance S2: set/clear a participant's per-diem daily rate; null = missing/no row. */
-  setParticipantPerDiem(missionId: string, personId: string, amountMinor: number | null, currency: string | null): Promise<MissionParticipant | null>;
+  /** Finance S2 + HARDEN-2 M-03: set/clear a participant's per-diem daily rate, version- and active-guarded; null = stale/removed/missing. */
+  setParticipantPerDiem(missionId: string, personId: string, amountMinor: number | null, currency: string | null, expectedVersion: number): Promise<MissionParticipant | null>;
 
   // ── Sprint 39 missions ─────────────────────────────────────────────────────
   insertMission(missionId: string, row: NewMissionRow): Promise<Mission>;
@@ -698,10 +762,14 @@ export interface WriteTx {
   deactivateMissionLine(lineId: string, expectedVersion: number): Promise<MissionLine | null>;
   /** S2: version-guarded income-payment set; null = stale/missing/inactive. */
   setMissionLinePayment(lineId: string, expectedVersion: number, patch: MissionLinePaymentPatch): Promise<MissionLine | null>;
-  /** S2: upsert one budget cell (mission, direction, category, currency). */
-  upsertMissionBudget(missionId: string, direction: string, category: string, currency: string, amountMinor: number): Promise<MissionBudget>;
-  /** S2: clear one budget cell; false when no row existed. */
-  deleteMissionBudget(missionId: string, direction: string, category: string, currency: string): Promise<boolean>;
+  /** HARDEN-2 M-03: read one budget cell inside the tx (the guard's basis). */
+  getMissionBudget(missionId: string, direction: string, category: string, currency: string): Promise<MissionBudget | null>;
+  /** S2 + M-03: create an EMPTY cell; null when a concurrent creator won (23505). */
+  insertMissionBudget(missionId: string, direction: string, category: string, currency: string, amountMinor: number): Promise<MissionBudget | null>;
+  /** S2 + M-03: version-guarded cell update; null = stale/missing. */
+  updateMissionBudget(missionId: string, direction: string, category: string, currency: string, expectedVersion: number, amountMinor: number): Promise<MissionBudget | null>;
+  /** S2 + M-03: version-guarded cell clear; false = stale/missing. */
+  deleteMissionBudget(missionId: string, direction: string, category: string, currency: string, expectedVersion: number): Promise<boolean>;
   /** S2: version-guarded finance-stage set; legality is the use-case's job. */
   setMissionFinanceStage(missionId: string, expectedVersion: number, stage: string): Promise<Mission | null>;
 
@@ -801,10 +869,10 @@ export interface WriteTx {
   getTeamMembership(teamId: string, personId: string): Promise<TeamMembership | null>;
   /** First-ever membership for the pair; the UNIQUE constraint backs it. */
   insertTeamMembership(teamId: string, personId: string, role: string): Promise<TeamMembership>;
-  /** Flip an INACTIVE pair back to active with a (possibly new) role; null when no inactive row matched. */
-  reactivateTeamMembership(teamId: string, personId: string, role: string): Promise<TeamMembership | null>;
-  /** Flip an ACTIVE pair to inactive; null when no active row matched. */
-  deactivateTeamMembership(teamId: string, personId: string): Promise<TeamMembership | null>;
+  /** M-03: flip an INACTIVE pair back to active (version-guarded); null when no matching row at that version. */
+  reactivateTeamMembership(teamId: string, personId: string, role: string, expectedVersion: number): Promise<TeamMembership | null>;
+  /** M-03: flip an ACTIVE pair to inactive (version-guarded); null when stale or no active row. */
+  deactivateTeamMembership(teamId: string, personId: string, expectedVersion: number): Promise<TeamMembership | null>;
 
   // ── Finance S3 agreement terms (direct-audited; soft removal) ─────────────
   insertAgreementTerm(row: NewAgreementTermRow): Promise<AgreementTerm>;

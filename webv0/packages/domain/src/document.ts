@@ -46,6 +46,46 @@ export function isAllowedDocumentContentType(v: string): boolean {
   return (DOCUMENT_CONTENT_TYPES as readonly string[]).includes(v);
 }
 
+/**
+ * HARDEN-2 M-07: the declared content type must MATCH THE BYTES — a caller's
+ * multipart MIME label is an assertion, not evidence. Binary formats prove
+ * themselves by magic bytes (PDF/PNG/JPEG/WEBP; OOXML = a PK ZIP container);
+ * the text types (csv/plain) must NOT look binary: no known binary signature
+ * and no NUL byte in the first KiB. A mislabeled body is an upload refusal —
+ * it never becomes registered evidence.
+ */
+export function documentBytesMatchDeclaredType(contentType: string, bytes: Uint8Array): boolean {
+  const startsWith = (sig: number[], offset = 0): boolean =>
+    bytes.length >= offset + sig.length && sig.every((b, i) => bytes[offset + i] === b);
+  const isPdf = () => startsWith([0x25, 0x50, 0x44, 0x46, 0x2d]); // %PDF-
+  const isPng = () => startsWith([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const isJpeg = () => startsWith([0xff, 0xd8, 0xff]);
+  const isWebp = () => startsWith([0x52, 0x49, 0x46, 0x46]) && startsWith([0x57, 0x45, 0x42, 0x50], 8); // RIFF….WEBP
+  const isZip = () => startsWith([0x50, 0x4b, 0x03, 0x04]); // PK\x03\x04 (OOXML container)
+
+  switch (contentType) {
+    case 'application/pdf':
+      return isPdf();
+    case 'image/png':
+      return isPng();
+    case 'image/jpeg':
+      return isJpeg();
+    case 'image/webp':
+      return isWebp();
+    case 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      return isZip();
+    case 'text/csv':
+    case 'text/plain': {
+      if (isPdf() || isPng() || isJpeg() || isWebp() || isZip()) return false;
+      const head = bytes.subarray(0, 1024);
+      return !head.includes(0);
+    }
+    default:
+      return false; // not on the allowlist ⇒ never byte-lawful either
+  }
+}
+
 /** A Document as the domain reasons about it (bytes live in object storage). */
 export interface C3Document {
   /** Canonical business identity, e.g. "DOC-0001". */

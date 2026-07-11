@@ -46,8 +46,18 @@ export async function listMissionDistributions(p: Persistence, actor: Actor, mis
   assertReadPeople(actor);
   assertViewFinancials(actor);
   const reads = p.reads.forActor(actor);
-  const heads = await reads.listDistributionsForMission(missionId);
-  return Promise.all(heads.map(async (d) => ({ distribution: d, shares: await reads.listDistributionShares(d.distributionId) })));
+  // M-04: heads + ALL their shares in two reads (never one query per head).
+  const [heads, allShares] = await Promise.all([
+    reads.listDistributionsForMission(missionId),
+    reads.listDistributionSharesForMission(missionId),
+  ]);
+  const byHead = new Map<string, DistributionShare[]>();
+  for (const s of allShares) {
+    const list = byHead.get(s.distributionId) ?? [];
+    list.push(s);
+    byHead.set(s.distributionId, list);
+  }
+  return heads.map((d) => ({ distribution: d, shares: byHead.get(d.distributionId) ?? [] }));
 }
 
 export async function getDistribution(p: Persistence, actor: Actor, distributionId: string): Promise<DistributionView> {
@@ -69,16 +79,20 @@ export async function getDistributionSeed(p: Persistence, actor: Actor, missionI
   if (!mission.teamId) return [];
 
   const members = (await reads.listTeamMembers(mission.teamId)).filter((m) => m.isActive);
-  return Promise.all(
-    members.map(async (m) => {
-      const agreements = (await reads.listAgreementsForPerson(m.personId)).filter((a) => a.status === 'Active');
-      for (const a of agreements) {
-        const term = (await reads.listAgreementTerms(a.agreementId)).find((t) => t.kind === 'PrizeSharePersonal' && t.percentBps !== null);
-        if (term) return { personId: m.personId, personName: m.personName, suggestedBps: term.percentBps, sourceTermId: term.termId };
-      }
-      return { personId: m.personId, personName: m.personName, suggestedBps: null, sourceTermId: null };
-    }),
-  );
+  // M-04: ONE query fetches every candidate term for the whole roster
+  // (previously member × agreement × term nested reads). First hit per person
+  // wins, in agreement order — the same suggestion the nested walk produced.
+  const candidates = await reads.listPrizeShareTermsForPeople(members.map((m) => m.personId));
+  const firstByPerson = new Map<string, { termId: string; percentBps: number }>();
+  for (const c of candidates) {
+    if (!firstByPerson.has(c.personId)) firstByPerson.set(c.personId, { termId: c.termId, percentBps: c.percentBps });
+  }
+  return members.map((m) => {
+    const hit = firstByPerson.get(m.personId);
+    return hit
+      ? { personId: m.personId, personName: m.personName, suggestedBps: hit.percentBps, sourceTermId: hit.termId }
+      : { personId: m.personId, personName: m.personName, suggestedBps: null, sourceTermId: null };
+  });
 }
 
 export async function createDistribution(p: Persistence, actor: Actor, input: CreateDistributionInput): Promise<DistributionView> {

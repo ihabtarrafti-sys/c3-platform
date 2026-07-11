@@ -250,8 +250,13 @@ describe('mission P&L over HTTP (Finance S4)', () => {
     const personId = await addPerson('Per Diem Player');
     const sub = await app.inject({ method: 'POST', url: '/api/v1/missions/participants/requests', headers: auth(tokens.ops), payload: { input: { missionId: m.missionId, personId, role: 'Player' } } });
     expect((await governedExecute(sub.json().approval.approvalId, sub.json().approval.version)).statusCode).toBe(200);
-    const pd = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/participants/${personId}/per-diem`, headers: auth(tokens.ops), payload: { perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR' } });
+    const pd = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/participants/${personId}/per-diem`, headers: auth(tokens.ops), payload: { perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR', expectedVersion: 0 } });
     expect(pd.statusCode, pd.body).toBe(200);
+    expect(pd.json().participant.version).toBe(1);
+
+    // HARDEN-2 M-03: a stale caller (still holding version 0) gets a 409, not a merge.
+    const stale = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/participants/${personId}/per-diem`, headers: auth(tokens.ops), payload: { perDiemAmountMinor: 1, perDiemCurrency: 'USD', expectedVersion: 0 } });
+    expect(stale.statusCode, stale.body).toBe(409);
 
     // Lines: income + expense; a bad line (zero amount) is a 400.
     const income = await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', category: 'PrizeMoney', label: 'Prize — 2nd place', amountMinor: 1_000_000, currency: 'USD' } });
@@ -366,9 +371,19 @@ describe('S2 mission finance over HTTP (payments, budgets, lifecycle, dashboard)
       method: 'POST',
       url: `/api/v1/missions/${m.missionId}/budgets`,
       headers: auth(tokens.owner),
-      payload: { direction: 'Income', category: 'PrizeMoney', currency: 'SAR', amountMinor: 1_200_000 },
+      payload: { direction: 'Income', category: 'PrizeMoney', currency: 'SAR', amountMinor: 1_200_000, expectedVersion: null },
     });
     expect(setB.statusCode, setB.body).toBe(200);
+    expect(setB.json().budget.version).toBe(0);
+
+    // HARDEN-2 M-03: writing against the cell while claiming it is empty is a 409.
+    const staleB = await app.inject({
+      method: 'POST',
+      url: `/api/v1/missions/${m.missionId}/budgets`,
+      headers: auth(tokens.owner),
+      payload: { direction: 'Income', category: 'PrizeMoney', currency: 'SAR', amountMinor: 7, expectedVersion: null },
+    });
+    expect(staleB.statusCode, staleB.body).toBe(409);
     let pnl = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
     expect(pnl.statusCode, pnl.body).toBe(200);
     expect(pnl.json().budgets).toHaveLength(1);

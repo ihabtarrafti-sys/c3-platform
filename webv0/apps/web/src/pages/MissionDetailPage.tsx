@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
+import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
 import {
   MISSION_LINE_DIRECTIONS,
@@ -11,12 +11,13 @@ import {
   formatMoney,
   missionDayCount,
   nextMissionFinanceStage,
+  parseDecimalToMinor,
   type CurrencyCode,
   type MissionFinanceStage,
   type MissionLineDirection,
   type PaymentStatus,
 } from '@c3web/domain';
-import { useEntities, useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople, useTeams } from '../queries';
+import { useEntities, useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople, usePerDiemPresets, useTeams } from '../queries';
 import { ApiError, type MissionLineDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
@@ -65,6 +66,9 @@ export function MissionDetailPage() {
   const canSubmit = me?.capabilities.canSubmitApproval ?? false;
   const canViewPerDiem = me?.capabilities.canViewPerDiem ?? false;
   const [perDiemDraft, setPerDiemDraft] = useState<Record<string, { amount: string; currency: string }>>({});
+  // HARDEN-2: the org's per-diem quick-picks (Settings-editable; defaults in code).
+  const presetsQuery = usePerDiemPresets(canManage);
+  const perDiemPresets = presetsQuery.data?.presets ?? [];
   const canViewHistory = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
   const audit = useMissionAudit(missionId, canViewHistory);
   const people = usePeople(canSubmit);
@@ -410,7 +414,8 @@ export function MissionDetailPage() {
                                   const setDraft = (patch: Partial<{ amount: string; currency: string }>) =>
                                     setPerDiemDraft((c) => ({ ...c, [p.personId]: { ...draft, ...patch } }));
                                   const amt = draft.amount.trim();
-                                  const validAmt = amt === '' || (!Number.isNaN(Number(amt)) && Number(amt) >= 0);
+                                  // M-02: exact-decimal law — excess precision disables Save.
+                                  const validAmt = amt === '' || parseDecimalToMinor(amt) !== null;
                                   return (
                                     <GovernedAction
                                       triggerLabel="Per-diem…"
@@ -420,6 +425,26 @@ export function MissionDetailPage() {
                                       description="This is the daily rate for this person on this mission. It takes effect immediately and is recorded. Leave the amount empty to clear it."
                                       extra={
                                         <div className={s.fields}>
+                                          {perDiemPresets.length > 0 && (
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }} data-testid={`perdiem-presets-${p.personId}`}>
+                                              {perDiemPresets.map((pre) => (
+                                                <Button
+                                                  key={`${pre.amountMinor}-${pre.currency}`}
+                                                  size="small"
+                                                  appearance="secondary"
+                                                  onClick={() =>
+                                                    setDraft({
+                                                      amount: pre.amountMinor % 100 === 0 ? String(pre.amountMinor / 100) : (pre.amountMinor / 100).toFixed(2),
+                                                      currency: pre.currency,
+                                                    })
+                                                  }
+                                                  data-testid={`perdiem-preset-${p.personId}-${pre.amountMinor}-${pre.currency}`}
+                                                >
+                                                  {formatMoney(pre.amountMinor, pre.currency)}/day
+                                                </Button>
+                                              ))}
+                                            </div>
+                                          )}
                                           <Field label="Daily rate (leave empty to clear)">
                                             <Input
                                               type="number"
@@ -450,8 +475,8 @@ export function MissionDetailPage() {
                                         run(
                                           () =>
                                             amt === ''
-                                              ? api.setParticipantPerDiem(m.missionId, p.personId, null, null)
-                                              : api.setParticipantPerDiem(m.missionId, p.personId, Math.round(Number(amt) * 100), draft.currency),
+                                              ? api.setParticipantPerDiem(m.missionId, p.personId, null, null, p.version)
+                                              : api.setParticipantPerDiem(m.missionId, p.personId, parseDecimalToMinor(amt)!, draft.currency, p.version),
                                           () => (amt === '' ? `${p.personId}'s per-diem cleared.` : `${p.personId}'s per-diem saved.`),
                                         )
                                       }
@@ -515,23 +540,24 @@ type PaymentForm = { status: PaymentStatus; received: string; rate: string; sour
 /** S6: the issue-invoice dialog per income line. */
 type InvoiceForm = { entityId: string; billedTo: string; details: string; vatPct: string; description: string };
 
-/** "15" → 1500 bps; decimals legal ("5.5" → 550); null = not a valid 0..100 percent. */
+/** "15" → 1500 bps; decimals legal ("5.5" → 550); null = not a valid 0..100
+ * percent. M-02: exact digit-split — sub-bps precision ("5.555") is a REFUSAL,
+ * never a silent round. */
 function vatPctToBps(v: string): number | null {
-  const t = v.trim();
-  if (t === '') return null;
-  const n = Number(t);
-  if (!Number.isFinite(n) || n < 0 || n > 100) return null;
-  return Math.round(n * 100);
+  const m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(v.trim());
+  if (!m) return null;
+  const bps = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
+  return bps <= 10000 ? bps : null;
 }
 type BudgetForm = { direction: MissionLineDirection; category: string; currency: CurrencyCode; amount: string };
 
 const EMPTY_BUDGET: BudgetForm = { direction: 'Expense', category: 'Other', currency: 'USD', amount: '' };
 
-/** Major-units string → integer minor units; null when not a positive number. */
+/** Major-units string → integer minor units; null when not a positive amount.
+ * M-02: exact digit-split via the domain parser — excess precision refuses. */
 function lineAmountToMinor(input: string): number | null {
-  const n = Number.parseFloat(input);
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * 100);
+  const minor = parseDecimalToMinor(input);
+  return minor !== null && minor > 0 ? minor : null;
 }
 
 function lineFormInvalid(f: LineForm): boolean {
@@ -732,6 +758,12 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                       category: budget.category,
                       currency: budget.currency,
                       amountMinor: budget.amount.trim() === '' ? null : lineAmountToMinor(budget.amount)!,
+                      // M-03: the version of the cell as THIS page loaded it
+                      // (null = the cell was empty) — a concurrent edit refuses.
+                      expectedVersion:
+                        (data?.budgets ?? []).find(
+                          (b) => b.direction === budget.direction && b.category === budget.category && b.currency === budget.currency,
+                        )?.version ?? null,
                     }),
                   budget.amount.trim() === '' ? 'Budget cell cleared and recorded.' : 'Budget saved and recorded.',
                 ).then(() => setBudget(EMPTY_BUDGET))

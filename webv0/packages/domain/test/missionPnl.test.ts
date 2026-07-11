@@ -76,9 +76,9 @@ describe('input schemas (S2)', () => {
   });
 
   it('budget input: PerDiem is a legal EXPENSE budget category; income lists exclude it; null clears', () => {
-    expect(setMissionBudgetInputSchema.parse({ direction: 'Expense', category: 'PerDiem', currency: 'SAR', amountMinor: 400_000 }).category).toBe('PerDiem');
-    expect(() => setMissionBudgetInputSchema.parse({ direction: 'Income', category: 'PerDiem', currency: 'USD', amountMinor: 1 })).toThrow();
-    expect(setMissionBudgetInputSchema.parse({ direction: 'Expense', category: 'Travel', currency: 'USD', amountMinor: null }).amountMinor).toBeNull();
+    expect(setMissionBudgetInputSchema.parse({ direction: 'Expense', category: 'PerDiem', currency: 'SAR', amountMinor: 400_000, expectedVersion: null }).category).toBe('PerDiem');
+    expect(() => setMissionBudgetInputSchema.parse({ direction: 'Income', category: 'PerDiem', currency: 'USD', amountMinor: 1, expectedVersion: null })).toThrow();
+    expect(setMissionBudgetInputSchema.parse({ direction: 'Expense', category: 'Travel', currency: 'USD', amountMinor: null, expectedVersion: 0 }).amountMinor).toBeNull();
   });
 
   it('the finance stage machine steps forward one at a time; Settled is terminal', () => {
@@ -267,5 +267,48 @@ describe('computeMissionPnl', () => {
     expect(pnl.perCategory).toEqual([]);
     expect(pnl.blended).toEqual({ incomeUsdMinor: 0, expenseUsdMinor: 0, profitUsdMinor: 0 });
     expect(pnl.missingRates).toEqual([]);
+  });
+});
+
+describe('HARDEN-2 M-02 — fragmentation invariance (per-currency subtotal blend)', () => {
+  const args = (lines: ReturnType<typeof line>[]) => ({
+    startsOn: '2026-09-01',
+    endsOn: '2026-09-05',
+    lines,
+    participants: [],
+    rates: [rate('SAR', 0.2666)],
+  });
+
+  it('one 100.37-SAR expense and three fragments of it blend to the SAME USD total', () => {
+    const whole = computeMissionPnl(args([line({ direction: 'Expense', amountMinor: 10_037, currency: 'SAR' })]));
+    const split = computeMissionPnl(
+      args([
+        line({ direction: 'Expense', amountMinor: 3_346, currency: 'SAR' }),
+        line({ direction: 'Expense', amountMinor: 3_346, currency: 'SAR' }),
+        line({ direction: 'Expense', amountMinor: 3_345, currency: 'SAR' }),
+      ]),
+    );
+    expect(whole.blended).not.toBeNull();
+    expect(split.blended!.expenseUsdMinor).toBe(whole.blended!.expenseUsdMinor);
+    expect(split.blended!.profitUsdMinor).toBe(whole.blended!.profitUsdMinor);
+    // the category row obeys the same law at its own grain
+    const wholeCat = whole.perCategory.find((c) => c.category === 'Travel')!;
+    const splitCat = split.perCategory.find((c) => c.category === 'Travel')!;
+    expect(splitCat.actualUsdMinor).toBe(wholeCat.actualUsdMinor);
+  });
+
+  it('a Received income FX snapshot still converts PER LINE (each receipt is its own truth)', () => {
+    const snap = (amount: number) =>
+      line({
+        direction: 'Income',
+        amountMinor: amount,
+        currency: 'SAR',
+        paymentStatus: 'Received',
+        receivedAmountMinor: amount,
+        receivedUsdPerUnit: 0.265,
+      });
+    const two = computeMissionPnl(args([snap(5_001), snap(5_001)]));
+    // per-line: 2 × round(5001×0.265) = 2 × 1325 — NOT round(10002×0.265) = 2651
+    expect(two.blended!.incomeUsdMinor).toBe(2 * Math.round(5_001 * 0.265));
   });
 });

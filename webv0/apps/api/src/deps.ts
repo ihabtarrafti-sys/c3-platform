@@ -25,6 +25,12 @@ export interface Deps {
   /** Tier 0.5 backup tile; always callable, honest when unconfigured. */
   backupStatus: () => Promise<BackupStatusView>;
   logger: Logger;
+  /**
+   * S-03: contract capture — when present, buildApp reports every registered
+   * route (method, url, zod schemas) here. Used ONLY by the contract
+   * generator/test; never set in production wiring.
+   */
+  routeCollector?: (route: { method: string | string[]; url: string; schema?: unknown }) => void;
   ready(): Promise<boolean>;
   close(): Promise<void>;
 }

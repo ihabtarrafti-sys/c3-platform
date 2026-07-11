@@ -129,6 +129,8 @@ export const AUDIT_ACTIONS = [
   'EntityReactivated',
   // Finance Sprint 1: the org's editable FX rate for a currency was set.
   'FxRateSet',
+  // HARDEN-2 (0037): a tenant setting was written (per-diem presets et al.).
+  'PerDiemPresetsSet',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

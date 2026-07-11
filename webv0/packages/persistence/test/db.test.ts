@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -180,6 +180,8 @@ describe('migrations & schema', () => {
       const begin = async () => {
         await c.query('BEGIN');
         await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+        // 0036: the person seat is now a composite FK — anchor to a real person.
+        await c.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1, 'PER-9001', 'Payee Test')`, [t.tenantId]);
       };
       const insert = (id: string, person: string | null, freelancer: string | null, vendor: string | null, label = 'main') =>
         c.query(
@@ -221,6 +223,8 @@ describe('migrations & schema', () => {
       await q('BEGIN');
       await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
       await q(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1, 'MSN-9001', 'H5', '2026-06-01')`, [t.tenantId]);
+      // 0036: share→person is now a composite FK — anchor to a real person.
+      await q(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1, 'PER-9001', 'H5 Payee')`, [t.tenantId]);
       await q(
         `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
          VALUES ($1, 'PNL-9001', 'MSN-9001', 'Income', 'PrizeMoney', 'Prize', 100000, 'USD', 'Received')`,
@@ -252,6 +256,121 @@ describe('migrations & schema', () => {
         q(`UPDATE distribution_share SET payout_status = 'Paid' WHERE distribution_id = 'DIST-9001' AND person_id = 'PER-9001'`),
       ).rejects.toThrow(/LIVE distribution/);
       await q('ROLLBACK');
+    } finally {
+      await c.end();
+    }
+  });
+
+  it('HARDEN-2 M-01: composite FKs, the deferred exact-sum law, and state-shape CHECKs hold at the database boundary', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'm1' });
+    const c = new Client({ connectionString: db.appUrl });
+    await c.connect();
+    try {
+      const q = async (text: string, params: unknown[] = []) => c.query(text, params);
+      const begin = async () => {
+        await q('BEGIN');
+        await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      };
+
+      // a valid graph: mission + person + received income line
+      await begin();
+      await q(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1, 'MSN-9101', 'M1', '2026-06-01')`, [t.tenantId]);
+      await q(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1, 'PER-9101', 'M1 Player')`, [t.tenantId]);
+      await q(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+         VALUES ($1, 'PNL-9101', 'MSN-9101', 'Income', 'PrizeMoney', 'Prize', 100000, 'USD', 'Received')`,
+        [t.tenantId],
+      );
+      await q('COMMIT');
+
+      // M-01a: a reference that names a row that does not exist is refused —
+      // representative probes across the S6–S9 generation.
+      await begin();
+      await expect(
+        q(`INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor)
+           VALUES ($1, 'DIST-NOPE', 'PER-9101', 10000, 1)`, [t.tenantId]),
+      ).rejects.toThrow(/distribution_share_head_fk/);
+      await q('ROLLBACK');
+      await begin();
+      await expect(
+        q(`INSERT INTO claim (tenant_id, claim_id, submitted_by, mission_id, category, description, amount_minor, currency, expense_on)
+           VALUES ($1, 'CLM-9101', 'x@m1.com', 'MSN-NOPE', 'Travel', 'taxi', 100, 'USD', '2026-06-02')`, [t.tenantId]),
+      ).rejects.toThrow(/claim_mission_fk/);
+      await q('ROLLBACK');
+      await begin();
+      await expect(
+        q(`INSERT INTO team_membership (tenant_id, team_id, person_id, role) VALUES ($1, 'TEAM-NOPE', 'PER-9101', 'Player')`, [t.tenantId]),
+      ).rejects.toThrow(/team_membership_team_fk/);
+      await q('ROLLBACK');
+
+      // M-01b: the exact-sum law — a head whose shares do not close the pool
+      // survives every row-level check but DIES AT COMMIT. (The sole player's
+      // share_bps is 10000: players split the PLAYER pool among themselves.)
+      await begin();
+      await q(
+        `INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by)
+         VALUES ($1, 'DIST-9101', 'MSN-9101', 'PNL-9101', 100000, 'USD', 4000, 40000, 'Live', 'owner@m1.com')`,
+        [t.tenantId],
+      );
+      await q(
+        `INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor)
+         VALUES ($1, 'DIST-9101', 'PER-9101', 10000, 59999)`,
+        [t.tenantId],
+      );
+      await expect(q('COMMIT')).rejects.toThrow(/DISTRIBUTION_SUM_VIOLATION/);
+
+      // a share split that does not sum to 100% dies at commit too
+      await begin();
+      await q(
+        `INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by)
+         VALUES ($1, 'DIST-9103', 'MSN-9101', 'PNL-9101', 100000, 'USD', 4000, 40000, 'Live', 'owner@m1.com')`,
+        [t.tenantId],
+      );
+      await q(
+        `INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor)
+         VALUES ($1, 'DIST-9103', 'PER-9101', 9999, 60000)`,
+        [t.tenantId],
+      );
+      await expect(q('COMMIT')).rejects.toThrow(/DISTRIBUTION_BPS_VIOLATION/);
+
+      // the exact graph commits; then a direct tamper of one share dies at commit
+      await begin();
+      await q(
+        `INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by)
+         VALUES ($1, 'DIST-9102', 'MSN-9101', 'PNL-9101', 100000, 'USD', 4000, 40000, 'Live', 'owner@m1.com')`,
+        [t.tenantId],
+      );
+      await q(
+        `INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor)
+         VALUES ($1, 'DIST-9102', 'PER-9101', 10000, 60000)`,
+        [t.tenantId],
+      );
+      await q('COMMIT');
+      await begin();
+      await q(`UPDATE distribution_share SET amount_minor = 59999 WHERE distribution_id = 'DIST-9102'`);
+      await expect(q('COMMIT')).rejects.toThrow(/DISTRIBUTION_SUM_VIOLATION/);
+
+      // M-01c: state shapes — each broken promise is named by its constraint.
+      await begin();
+      await expect(
+        q(`INSERT INTO delegation (tenant_id, delegation_id, grantee_identity, granted_by, starts_on, ends_on, reason, revoked_at)
+           VALUES ($1, 'DLG-9101', 'g@m1.com', 'o@m1.com', '2026-06-01', '2026-06-30', 'cover', now())`, [t.tenantId]),
+      ).rejects.toThrow(/delegation_revoke_shape/);
+      await q('ROLLBACK');
+      await begin();
+      await expect(
+        q(`INSERT INTO claim (tenant_id, claim_id, submitted_by, category, description, amount_minor, currency, expense_on, status, reviewed_by, paid_on)
+           VALUES ($1, 'CLM-9102', 'x@m1.com', 'Travel', 'taxi', 100, 'USD', '2026-06-02', 'Paid', 'o@m1.com', '2026-06-03')`, [t.tenantId]),
+      ).rejects.toThrow(/claim_paid_shape/); // Paid without a payment-source LABEL
+      await q('ROLLBACK');
+
+      // M-03: the new version columns exist and default to 0.
+      const cols = await q(
+        `SELECT table_name FROM information_schema.columns
+          WHERE table_name IN ('mission_participant','mission_budget') AND column_name = 'version'`,
+      );
+      expect(cols.rows.map((r: { table_name: string }) => r.table_name).sort()).toEqual(['mission_budget', 'mission_participant']);
     } finally {
       await c.end();
     }

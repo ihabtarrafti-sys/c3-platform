@@ -5,10 +5,11 @@
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
-import type { Persistence, PersonMissionMembership, ReadStore, WriteStore, WriteTx } from '@c3web/application';
+import type { Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
+import { buildSearchQuery } from './searchSql';
 import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim,
   mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
@@ -408,6 +409,46 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return res.rows.map(mapDistributionShare);
           }),
 
+        // M-04: one query for every share on the mission (grouped by the caller).
+        listDistributionSharesForMission: (missionId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<DistributionShare[]> => {
+            const res = await db.execute(sql`
+              SELECT ds.*, p.full_name AS person_name
+                FROM distribution_share ds
+                JOIN distribution d ON d.tenant_id = ds.tenant_id AND d.distribution_id = ds.distribution_id
+                JOIN person p ON p.tenant_id = ds.tenant_id AND p.person_id = ds.person_id
+               WHERE d.mission_id = ${missionId}
+               ORDER BY ds.distribution_id ASC, ds.amount_minor DESC, ds.person_id ASC
+            `);
+            return res.rows.map(mapDistributionShare);
+          }),
+
+        // M-04: the roster's PrizeSharePersonal candidates in one query.
+        listPrizeShareTermsForPeople: (personIds: readonly string[]) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ personId: string; agreementId: string; termId: string; percentBps: number }>> => {
+            if (personIds.length === 0) return [];
+            const res = await db.execute(sql`
+              SELECT a.person_id, t.agreement_id, t.term_id, t.percent_bps
+                FROM agreement_term t
+                JOIN agreement a ON a.tenant_id = t.tenant_id AND a.agreement_id = t.agreement_id
+               WHERE a.person_id IN (${sql.join(personIds.map((id) => sql`${id}`), sql`, `)})
+                 AND a.status = 'Active'
+                 AND t.is_active
+                 AND t.kind = 'PrizeSharePersonal'
+                 AND t.percent_bps IS NOT NULL
+               ORDER BY a.person_id ASC, t.agreement_id ASC, t.term_id ASC
+            `);
+            return res.rows.map((r) => {
+              const row = r as Record<string, unknown>;
+              return {
+                personId: String(row.person_id),
+                agreementId: String(row.agreement_id),
+                termId: String(row.term_id),
+                percentBps: Number(row.percent_bps),
+              };
+            });
+          }),
+
         // S10: the actor's own inbox (newest first, capped).
         listNotifications: (identity: string, limit: number) =>
           withTenantTx(pool, actor, 'read', async (db): Promise<C3Notification[]> => {
@@ -455,6 +496,30 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
                LIMIT 1
             `);
             return res.rows.length > 0;
+          }),
+
+        // HARDEN-2 (0037): one settings row (null = the code-side defaults).
+        getTenantSetting: (key: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<{ value: unknown; version: number } | null> => {
+            const rows = await db.select().from(schema.tenantSetting).where(eq(schema.tenantSetting.key, key)).limit(1);
+            return rows[0] ? { value: rows[0].value, version: rows[0].version } : null;
+          }),
+
+        // S3.1 + M-04: global search — ONE ranked, per-domain-limited statement.
+        searchTenant: (spec: TenantSearchSpec) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<TenantSearchRow[]> => {
+            if (spec.domains.length === 0) return [];
+            const res = await db.execute(buildSearchQuery(spec));
+            return res.rows.map((r) => {
+              const row = r as Record<string, unknown>;
+              return {
+                kind: String(row.kind) as TenantSearchRow['kind'],
+                id: String(row.id),
+                title: String(row.title ?? row.id),
+                subtitle: row.subtitle == null ? null : String(row.subtitle),
+                parent_id: row.parent_id == null ? null : String(row.parent_id),
+              };
+            });
           }),
 
         // S12: the beneficiary registry (finance-gated at the usecase).

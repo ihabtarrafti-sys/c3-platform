@@ -75,14 +75,15 @@ export function invoiceSeriesKind(entityId: string, year: number): `invoice-seri
 
 /**
  * VAT on an integer subtotal at a basis-point rate, rounded HALF-UP to the
- * minor unit (the standard for tax documents). Pure integer arithmetic —
- * safe while subtotal × 10000 stays under 2^53 (subtotals to ~9×10^11 minor
- * units, far past any prize pool).
+ * minor unit (the standard for tax documents). HARDEN-2 M-02: the product
+ * runs in BigInt, so exactness holds for EVERY contract-valid subtotal — not
+ * just while subtotal × 10000 happens to stay under 2^53. The result is ≤ the
+ * subtotal, so the return to Number is always exact.
  */
 export function computeVatMinor(subtotalMinor: number, vatRateBps: number): number {
   if (!Number.isInteger(subtotalMinor) || subtotalMinor < 0) throw new RangeError('subtotalMinor must be a non-negative integer');
   if (!Number.isInteger(vatRateBps) || vatRateBps < 0 || vatRateBps > 10000) throw new RangeError('vatRateBps must be an integer 0..10000');
-  return Math.floor((subtotalMinor * vatRateBps + 5000) / 10000);
+  return Number((BigInt(subtotalMinor) * BigInt(vatRateBps) + 5000n) / 10000n);
 }
 
 // ── inputs ───────────────────────────────────────────────────────────────────

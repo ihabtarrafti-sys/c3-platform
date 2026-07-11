@@ -104,12 +104,25 @@ export async function getMissionsFinanceSummary(p: Persistence, actor: Actor): P
   // HARDEN-1 H-06 (the honesty law): the bulk read now carries per-diem and
   // person names, so the dashboard blends the SAME truth as each mission's
   // own P&L page — per-diem expense included, never silently understated.
+  // HARDEN-2 M-04: group each collection ONCE — the old per-mission .filter
+  // walks were O(missions × rows).
+  const groupBy = <T extends { missionId: string }>(rows: readonly T[]): Map<string, T[]> => {
+    const m = new Map<string, T[]>();
+    for (const r of rows) {
+      const list = m.get(r.missionId) ?? [];
+      list.push(r);
+      m.set(r.missionId, list);
+    }
+    return m;
+  };
+  const linesByMission = groupBy(allLines);
+  const budgetsByMission = groupBy(allBudgets);
+  const participantsByMission = groupBy(allParticipants as ReadonlyArray<{ missionId: string }>);
+
   return missions.map((m) => {
-    const lines = allLines.filter((l) => l.missionId === m.missionId);
-    const budgets = allBudgets.filter((b) => b.missionId === m.missionId);
-    const participants = allParticipants.filter(
-      (p) => p.missionId === m.missionId,
-    ) as unknown as Parameters<typeof computeMissionPnl>[0]['participants'];
+    const lines = linesByMission.get(m.missionId) ?? [];
+    const budgets = budgetsByMission.get(m.missionId) ?? [];
+    const participants = (participantsByMission.get(m.missionId) ?? []) as unknown as Parameters<typeof computeMissionPnl>[0]['participants'];
     const pnl = computeMissionPnl({ startsOn: m.startsOn, endsOn: m.endsOn, lines, budgets, participants, rates });
     return {
       missionId: m.missionId,
@@ -334,27 +347,40 @@ export async function setMissionBudget(
   return p.writes.transaction(actor, async (tx) => {
     await requireActiveMission(tx, missionId);
 
+    // HARDEN-2 M-03: budgets are no longer last-write-wins. expectedVersion
+    // is the cell version the caller read — null means "I saw an empty cell".
+    // Every mismatch between that belief and the row is a concurrency refusal,
+    // and the audit before-image is the row actually replaced.
+    const current = await tx.getMissionBudget(missionId, parsed.direction, parsed.category, parsed.currency);
+    const cellKey = `${missionId}/${parsed.direction}/${parsed.category}/${parsed.currency}`;
+    if (current && parsed.expectedVersion === null) throw new ConcurrencyError('Mission budget', cellKey);
+    if (current && parsed.expectedVersion !== current.version) throw new ConcurrencyError('Mission budget', cellKey);
+
     if (parsed.amountMinor === null) {
-      const existed = await tx.deleteMissionBudget(missionId, parsed.direction, parsed.category, parsed.currency);
-      if (!existed) return null; // clearing a non-existent cell is a no-op, not an error
+      if (!current) return null; // clearing a cell both sides agree is empty: a no-op
+      const existed = await tx.deleteMissionBudget(missionId, parsed.direction, parsed.category, parsed.currency, current.version);
+      if (!existed) throw new ConcurrencyError('Mission budget', cellKey);
       await tx.appendAuditEvent({
         entityType: 'Mission',
         entityId: missionId,
         action: 'MissionBudgetSet',
         actor: actor.identity,
-        before: { direction: parsed.direction, category: parsed.category, currency: parsed.currency },
+        before: { direction: parsed.direction, category: parsed.category, currency: parsed.currency, amountMinor: current.amountMinor },
         after: { direction: parsed.direction, category: parsed.category, currency: parsed.currency, amountMinor: null },
       });
       return null;
     }
 
-    const budget = await tx.upsertMissionBudget(missionId, parsed.direction, parsed.category, parsed.currency, parsed.amountMinor);
+    const budget = current
+      ? await tx.updateMissionBudget(missionId, parsed.direction, parsed.category, parsed.currency, current.version, parsed.amountMinor)
+      : await tx.insertMissionBudget(missionId, parsed.direction, parsed.category, parsed.currency, parsed.amountMinor);
+    if (!budget) throw new ConcurrencyError('Mission budget', cellKey);
     await tx.appendAuditEvent({
       entityType: 'Mission',
       entityId: missionId,
       action: 'MissionBudgetSet',
       actor: actor.identity,
-      before: null,
+      before: current ? { direction: parsed.direction, category: parsed.category, currency: parsed.currency, amountMinor: current.amountMinor } : null,
       after: { direction: parsed.direction, category: parsed.category, currency: parsed.currency, amountMinor: parsed.amountMinor },
     });
     return budget;

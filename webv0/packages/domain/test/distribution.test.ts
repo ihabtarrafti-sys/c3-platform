@@ -82,3 +82,16 @@ describe('inputs', () => {
     expect(parsed.paymentSourceLabel).toBe('ESA');
   });
 });
+
+describe('HARDEN-2 M-02 — allocation in BigInt at the amount cap', () => {
+  it('a 9e11 pool splits exactly (org cut + shares == pool) with odd bps', () => {
+    const pool = 900_000_000_000; // MAX_AMOUNT_MINOR
+    const { orgCutMinor, rows } = allocateDistribution(pool, 3333, [
+      { personId: 'PER-0001', shareBps: 3334 },
+      { personId: 'PER-0002', shareBps: 3333 },
+      { personId: 'PER-0003', shareBps: 3333 },
+    ]);
+    expect(orgCutMinor + rows.reduce((n, r) => n + r.amountMinor, 0)).toBe(pool);
+    expect(orgCutMinor).toBe(Number((BigInt(pool) * 3333n) / 10000n));
+  });
+});

@@ -87,3 +87,14 @@ describe('invariants', () => {
     expect(() => assertInvoiceVoidable({ status: 'Issued' }, { paymentStatus: 'Received' })).toThrow(/correct the line/);
   });
 });
+
+describe('HARDEN-2 M-02 — VAT in BigInt (exact for every contract-valid subtotal)', () => {
+  it('matches the exact BigInt half-up result at the 9e11 cap, where Number products degrade', () => {
+    const subtotal = 900_000_000_000; // MAX_AMOUNT_MINOR
+    const bps = 555;
+    const expected = Number((BigInt(subtotal) * BigInt(bps) + 5000n) / 10000n);
+    expect(computeVatMinor(subtotal, bps)).toBe(expected);
+    expect(computeVatMinor(subtotal, 10000)).toBe(subtotal); // 100% VAT of the cap, exact
+    expect(computeVatMinor(899_999_999_999, 1)).toBe(90_000_000); // half-up at scale
+  });
+});

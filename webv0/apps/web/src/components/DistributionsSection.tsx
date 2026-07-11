@@ -76,12 +76,12 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
     }
   }
 
+  // M-02: exact digit-split percent → bps; sub-bps precision refuses, never rounds.
   const pctToBps = (v: string): number | null => {
-    const t = v.trim();
-    if (t === '') return null;
-    const n = Number(t);
-    if (!Number.isFinite(n) || n < 0 || n > 100) return null;
-    return Math.round(n * 100);
+    const m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(v.trim());
+    if (!m) return null;
+    const bps = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
+    return bps <= 10000 ? bps : null;
   };
 
   const activeDrafts = (drafts ?? []).filter((d) => d.bps.trim() !== '');

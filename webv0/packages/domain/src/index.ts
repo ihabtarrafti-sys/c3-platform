@@ -34,5 +34,6 @@ export * from './missionLine';
 export * from './money';
 export * from './person';
 export * from './roles';
+export * from './settings';
 export * from './situation';
 export * from './team';

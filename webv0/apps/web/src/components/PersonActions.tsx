@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { parseDecimalToMinor } from '@c3web/domain';
 import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { useMissions } from '../queries';
 import { ApiError } from '../api';
@@ -155,7 +156,15 @@ export function PersonActions({ personId, personName }: { personId: string; pers
           </div>
         }
         confirmLabel="Submit for approval"
-        confirmDisabled={agr.type.trim() === '' || !isoOk(agr.starts) || !isoOk(agr.ends) || agr.ends < agr.starts}
+        // M-02: exact-decimal law — a malformed/over-precise value disables
+        // Submit (never a silent round, never a silently dropped value).
+        confirmDisabled={
+          agr.type.trim() === '' ||
+          !isoOk(agr.starts) ||
+          !isoOk(agr.ends) ||
+          agr.ends < agr.starts ||
+          (agr.value.trim() !== '' && parseDecimalToMinor(agr.value) === null)
+        }
         onConfirm={() =>
           submit(
             () =>
@@ -165,7 +174,7 @@ export function PersonActions({ personId, personName }: { personId: string; pers
                 agreementCode: agr.code.trim() || undefined,
                 startsOn: agr.starts,
                 endsOn: agr.ends,
-                valueUsdCents: agr.value.trim() === '' ? undefined : Math.round(Number(agr.value) * 100),
+                valueUsdCents: agr.value.trim() === '' ? undefined : parseDecimalToMinor(agr.value)!,
               } as Parameters<typeof api.submitAddAgreement>[0]),
             `agreement for ${personId}`,
           ).then(() => setAgr({ type: '', code: '', starts: '', ends: '', value: '' }))

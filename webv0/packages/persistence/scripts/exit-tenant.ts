@@ -29,6 +29,7 @@ import { Client } from 'pg';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { exitTenant } from '../src/exitTenant';
+import { createBlobReader, deleteTenantBlobs } from '../src/blobBundle';
 
 function arg(name: string, required: boolean): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,6 +47,9 @@ const execute = flag('execute');
 const confirmSlug = arg('confirm', false);
 const manifestPath = arg('manifest', false);
 const skipManifest = flag('no-export-bundle');
+// HARDEN-2: erasure includes the OBJECT STORE (keys are tenant-prefixed).
+// Executing without storage access refuses unless --leave-blobs says so.
+const leaveBlobs = flag('leave-blobs');
 
 const adminUrl = process.env.DATABASE_ADMIN_URL;
 if (!adminUrl) {
@@ -83,7 +87,27 @@ if (execute) {
 
 const client = new Client({ connectionString: adminUrl, options: '-c client_encoding=UTF8' });
 await client.connect();
+// HARDEN-2 blob-erasure preflight: storage access must exist BEFORE the DB
+// erasure (after it, the tenant id is the only remaining handle — resolve
+// it now, and refuse an execute that would strand objects).
+const blobReader = createBlobReader(process.env);
 try {
+  let blobTenantId: string | null = null;
+  if (execute && !leaveBlobs) {
+    const t = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [tenantSlug]);
+    blobTenantId = t.rows[0]?.id ?? null;
+    if (blobTenantId && !blobReader) {
+      const docs = await client.query<{ n: string }>('SELECT count(*)::int AS n FROM document WHERE tenant_id = $1', [blobTenantId]);
+      if (Number(docs.rows[0]?.n ?? 0) > 0) {
+        console.error(
+          '\nEXIT REFUSED: the tenant has document blobs but no blob storage is configured ' +
+            '(set R2_* or DOCUMENTS_DIR so the objects can be erased, or pass --leave-blobs to explicitly strand them).',
+        );
+        process.exit(2);
+      }
+    }
+  }
+
   const report = await exitTenant(client, {
     tenantSlug,
     execute,
@@ -103,6 +127,14 @@ try {
     console.log(
       `  post-checks     zeroRows=${report.postChecks.zeroRowsVerified} tenantRowGone=${report.postChecks.tenantRowGone} triggersReEnabled=${report.postChecks.triggersReEnabled}`,
     );
+    // HARDEN-2: erase the object store under the tenant prefix (rows are
+    // already gone — the prefix enumerates every object incl. orphans).
+    if (!leaveBlobs && blobReader && blobTenantId) {
+      const deleted = await deleteTenantBlobs(blobReader, blobTenantId);
+      console.log(`  blobs erased    ${deleted.length} object(s) under ${blobTenantId}/`);
+    } else if (leaveBlobs) {
+      console.log('  blobs erased    SKIPPED (--leave-blobs) — object-store residue remains under the tenant prefix.');
+    }
     console.log('\n  Erasure committed. File this report in the exit register.');
     console.log('  Residual: encrypted backups retain this data until lifecycle expiry (max 180d);');
     console.log('  any post-exit restore MUST re-apply this erasure (see B5 design §3).');
@@ -113,5 +145,6 @@ try {
   console.error(`\nEXIT REFUSED: ${(err as Error).message}`);
   process.exitCode = 1;
 } finally {
+  blobReader?.close();
   await client.end();
 }

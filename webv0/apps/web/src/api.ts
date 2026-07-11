@@ -43,6 +43,7 @@ import type {
   NotificationDto,
   DelegationDto,
   BeneficiaryDto,
+  PerDiemPresetsDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -119,12 +120,14 @@ export interface MissionLinePaymentBody {
   paymentSourceLabel?: string | null;
   refNo?: string | null;
 }
-/** S2: set/clear one budget cell (null amount clears). */
+/** S2 + M-03: set/clear one budget cell (null amount clears). expectedVersion
+ * is the cell version the caller read — null asserts the cell was EMPTY. */
 export interface MissionBudgetBody {
   direction: MissionLineDirection;
   category: string;
   currency: string;
   amountMinor: number | null;
+  expectedVersion: number | null;
 }
 
 /** NON-MATERIAL agreement patch (material terms move through governed ops). */
@@ -182,7 +185,7 @@ export interface ApiClientDeps {
 export function createApiClient(deps: ApiClientDeps) {
   const doFetch = deps.fetchImpl ?? ((...args: Parameters<typeof fetch>) => fetch(...args));
 
-  async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+  async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     const token = await deps.getToken();
     const res = await doFetch(deps.baseUrl + path, {
       method,
@@ -191,6 +194,8 @@ export function createApiClient(deps: ApiClientDeps) {
         ...(token ? { authorization: `Bearer ${token}` } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
+      // S3.1/M-04: callers may cancel superseded requests (search keystrokes).
+      ...(signal ? { signal } : {}),
     });
     const text = await res.text();
     const json = text ? JSON.parse(text) : null;
@@ -322,11 +327,13 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines/${lineId}`, body),
     removeMissionLine: (missionId: string, lineId: string, expectedVersion: number) =>
       request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines/${lineId}/remove`, { expectedVersion }),
-    // Finance S2: set/clear a participant's per-diem daily rate (direct-audited).
-    setParticipantPerDiem: (missionId: string, personId: string, perDiemAmountMinor: number | null, perDiemCurrency: string | null) =>
+    // Finance S2 + M-03: set/clear a participant's per-diem daily rate
+    // (direct-audited, version-guarded — stale roster reads are refused).
+    setParticipantPerDiem: (missionId: string, personId: string, perDiemAmountMinor: number | null, perDiemCurrency: string | null, expectedVersion: number) =>
       request<{ participant: MissionParticipantDto }>('POST', `/api/v1/missions/${missionId}/participants/${personId}/per-diem`, {
         perDiemAmountMinor,
         perDiemCurrency,
+        expectedVersion,
       }),
     // Sprint 41: agreements (governed material lifecycle + direct patch).
     listAgreements: () => request<{ agreements: AgreementDto[] }>('GET', '/api/v1/agreements'),
@@ -340,7 +347,7 @@ export function createApiClient(deps: ApiClientDeps) {
     // Sprint 43: the Situation Room.
     situation: () => request<SituationResponse>('GET', '/api/v1/situation'),
     // S3: global search (role-aware; denied domains simply absent).
-    search: (q: string) => request<SearchResultsDto>('GET', `/api/v1/search?q=${encodeURIComponent(q)}`),
+    search: (q: string, signal?: AbortSignal) => request<SearchResultsDto>('GET', `/api/v1/search?q=${encodeURIComponent(q)}`, undefined, signal),
     // S5: import/export — export IS the template; staging returns the batch approval.
     stageImport: (domain: string, file: File) => {
       const form = new FormData();
@@ -366,8 +373,8 @@ export function createApiClient(deps: ApiClientDeps) {
     listTeamMembers: (teamId: string) => request<{ members: TeamMembershipDto[] }>('GET', `/api/v1/teams/${teamId}/members`),
     addTeamMember: (teamId: string, personId: string, role: string) =>
       request<{ member: TeamMembershipDto }>('POST', `/api/v1/teams/${teamId}/members`, { personId, role }),
-    removeTeamMember: (teamId: string, personId: string) =>
-      request<{ member: TeamMembershipDto }>('POST', `/api/v1/teams/${teamId}/members/${personId}/remove`),
+    removeTeamMember: (teamId: string, personId: string, expectedVersion: number) =>
+      request<{ member: TeamMembershipDto }>('POST', `/api/v1/teams/${teamId}/members/${personId}/remove`, { expectedVersion }),
     teamFinance: (teamId: string) => request<TeamFinanceResponse>('GET', `/api/v1/teams/${teamId}/finance`),
     teamAudit: (teamId: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/teams/${teamId}/audit`),
     personTeams: (personId: string) => request<{ members: TeamMembershipDto[] }>('GET', `/api/v1/people/${personId}/teams`),
@@ -395,6 +402,10 @@ export function createApiClient(deps: ApiClientDeps) {
     createDelegation: (input: { granteeIdentity: string; startsOn: string; endsOn: string; reason: string }) => request<{ delegation: DelegationDto }>('POST', '/api/v1/delegations', input),
     revokeDelegation: (delegationId: string, input: { expectedVersion: number; reason: string }) => request<{ delegation: DelegationDto }>('POST', `/api/v1/delegations/${delegationId}/revoke`, input),
     backupStatus: () => request<{ configured: boolean; healthy: boolean | null; lastSuccessUtc: string | null; ageHours: number | null; reason: string | null }>('GET', '/api/v1/settings/backup-status'),
+    // HARDEN-2: per-diem presets (the S2 rider) — owner/ops quick-pick config.
+    perDiemPresets: () => request<PerDiemPresetsDto>('GET', '/api/v1/settings/per-diem-presets'),
+    setPerDiemPresets: (presets: Array<{ amountMinor: number; currency: string }>, expectedVersion: number | null) =>
+      request<PerDiemPresetsDto>('POST', '/api/v1/settings/per-diem-presets', { presets, expectedVersion }),
     // S10: notifications — the bell.
     listNotifications: () => request<{ notifications: NotificationDto[]; unreadCount: number }>('GET', '/api/v1/notifications'),
     markNotificationRead: (signalKey: string) => request<{ ok: true }>('POST', '/api/v1/notifications/read', { signalKey }),

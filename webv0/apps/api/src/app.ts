@@ -110,6 +110,8 @@ import {
   createDelegationRequestSchema,
   revokeDelegationRequestSchema,
   backupStatusSchema,
+  perDiemPresetsResponseSchema,
+  setPerDiemPresetsInputSchema,
   claimIdParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
@@ -160,7 +162,7 @@ import {
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { DOCUMENT_MAX_BYTES, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
+import { DOCUMENT_MAX_BYTES, documentBytesMatchDeclaredType, isAllowedDocumentContentType, type DocumentOwnerType } from '@c3web/domain';
 import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
 import {
@@ -170,6 +172,7 @@ import {
   createKit,
   createMission,
   getAgreement,
+  getPerDiemPresets,
   getSituation,
   listAgreements,
   listAgreementsForPerson,
@@ -254,6 +257,7 @@ import {
   reactivateEntity,
   setFxRate,
   setParticipantPerDiem,
+  setPerDiemPresets,
   transitionApparel,
   transitionKit,
   updateEntity,
@@ -323,6 +327,12 @@ export function buildApp(deps: Deps): FastifyInstance {
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+
+  // S-03: contract capture — the generator/test collects every route's
+  // method, url, and zod schemas. Absent in production wiring; zero effect.
+  if (deps.routeCollector) {
+    app.addHook('onRoute', (route) => deps.routeCollector!({ method: route.method, url: route.url, schema: route.schema }));
+  }
 
   // Bearer-token auth: no cookies, so no credentialed CORS. content-disposition
   // must be EXPOSED for the S4 download filename to survive cross-origin fetch.
@@ -1029,7 +1039,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const actor = actorOf(req);
       const { missionId, personId } = req.params as { missionId: string; personId: string };
-      const body = req.body as { perDiemAmountMinor: number | null; perDiemCurrency: import('@c3web/domain').CurrencyCode | null };
+      const body = req.body as { perDiemAmountMinor: number | null; perDiemCurrency: import('@c3web/domain').CurrencyCode | null; expectedVersion: number };
       const participant = await setParticipantPerDiem(P, actor, { missionId, personId, ...body });
       // The setter is gated to canManageMissions (owner/ops), who can also view.
       return { participant: toMissionParticipantDto(participant, canViewPerDiem(actor.role)) };
@@ -1268,6 +1278,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         return sendError(req, reply, 413, 'TOO_LARGE', `The file exceeds the ${Math.round(DOCUMENT_MAX_BYTES / (1024 * 1024))} MB limit.`);
       }
       if (body.length === 0) return sendError(req, reply, 400, 'VALIDATION', 'The file is empty.');
+      // HARDEN-2 M-07: the declared MIME is an assertion — the BYTES must
+      // agree (magic signatures; text must not look binary). Mislabeled
+      // content never becomes registered evidence.
+      if (!documentBytesMatchDeclaredType(contentType, body)) {
+        return sendError(req, reply, 415, 'UNSUPPORTED_TYPE', "The file's content does not match its declared type.");
+      }
 
       const sha256 = createHash('sha256').update(body).digest('hex');
       // Tenant-scoped, server-generated — never derived from user input.
@@ -1298,6 +1314,13 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const doc = await getDocumentForDownload(P, actorOf(req), documentId);
     const body = await deps.documentStorage.get(doc.storageKey);
     if (!body) return sendError(req, reply, 404, 'NOT_FOUND', 'The stored file could not be found.');
+    // HARDEN-2 M-07: recompute the hash before serving — altered object-store
+    // bytes are a refusal, never silently delivered "evidence".
+    const actualSha = createHash('sha256').update(body).digest('hex');
+    if (actualSha !== doc.sha256) {
+      req.log.error({ documentId, expected: doc.sha256, actual: actualSha }, 'document content hash mismatch');
+      return sendError(req, reply, 502, 'INTEGRITY', 'The stored file failed its integrity check and was not served.');
+    }
     const safeName = doc.fileName.replace(/[^\w. -]/g, '_');
     reply.header('content-type', doc.contentType);
     reply.header('content-disposition', `attachment; filename="${safeName}"`);
@@ -1404,6 +1427,21 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     assertManageDelegations(actorOf(req)); // owner-only, same standing as delegations
     return deps.backupStatus();
   });
+
+  // ── per-diem presets (HARDEN-2: the S2 rider) — owner/ops quick-pick config ─
+  r.get('/api/v1/settings/per-diem-presets', { schema: { response: { 200: perDiemPresetsResponseSchema } } }, async (req) => {
+    const view = await getPerDiemPresets(P, actorOf(req));
+    return { presets: view.presets.map((p) => ({ ...p })), version: view.version };
+  });
+
+  r.post(
+    '/api/v1/settings/per-diem-presets',
+    { schema: { body: setPerDiemPresetsInputSchema, response: { 200: perDiemPresetsResponseSchema } } },
+    async (req) => {
+      const view = await setPerDiemPresets(P, actorOf(req), req.body as import('@c3web/domain').SetPerDiemPresetsInput);
+      return { presets: view.presets.map((p) => ({ ...p })), version: view.version };
+    },
+  );
 
   // ── distributions (S8): the payout list — allocate, mark paid, revoke ──────
   r.get(
@@ -1536,10 +1574,11 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   r.post(
     '/api/v1/teams/:teamId/members/:personId/remove',
-    { schema: { params: teamMemberRemoveParamSchema, response: { 200: z.object({ member: teamMembershipSchema }) } } },
+    { schema: { params: teamMemberRemoveParamSchema, body: flipVersionBodySchema, response: { 200: z.object({ member: teamMembershipSchema }) } } },
     async (req) => {
       const { teamId, personId } = req.params as { teamId: string; personId: string };
-      return { member: toTeamMembershipDto(await removeTeamMember(P, actorOf(req), teamId, personId)) };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      return { member: toTeamMembershipDto(await removeTeamMember(P, actorOf(req), teamId, personId, expectedVersion)) };
     },
   );
 

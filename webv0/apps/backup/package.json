@@ -8,6 +8,7 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "backup": "tsx src/main.ts",
     "restore": "tsx src/restore-main.ts",
+    "keygen": "tsx src/keygen.ts",
     "bootstrap-role": "tsx scripts/bootstrap-backup-role.ts"
   },
   "dependencies": {

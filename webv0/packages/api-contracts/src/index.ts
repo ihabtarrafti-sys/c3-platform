@@ -56,6 +56,7 @@ import {
   removeMissionParticipantInputSchema,
   renewAgreementInputSchema,
   setParticipantPerDiemInputSchema,
+  setPerDiemPresetsInputSchema,
   teamCreateInputSchema,
   teamMemberInputSchema,
   teamUpdateInputSchema,
@@ -394,6 +395,8 @@ export const missionParticipantSchema = z.object({
   // (absence, not masking) — hence optional on the wire.
   perDiemAmountMinor: z.number().int().nullable().optional(),
   perDiemCurrency: currencyCodeSchema.nullable().optional(),
+  /** HARDEN-2 M-03: concurrency token — per-diem writes must echo it back. */
+  version: z.number().int(),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -411,6 +414,8 @@ export const participantPerDiemBodySchema = z
   .object({
     perDiemAmountMinor: z.number().int().min(0).nullable(),
     perDiemCurrency: currencyCodeSchema.nullable(),
+    /** HARDEN-2 M-03: the participant version the caller read — stale = 409. */
+    expectedVersion: z.number().int().min(0),
   })
   .strict();
 
@@ -456,6 +461,8 @@ export const missionBudgetSchema = z.object({
   category: z.string(),
   currency: currencyCodeSchema,
   amountMinor: z.number().int(),
+  /** HARDEN-2 M-03: concurrency token — budget writes must echo it back. */
+  version: z.number().int(),
   updatedAt: z.string(),
 });
 export type MissionBudgetDto = z.infer<typeof missionBudgetSchema>;
@@ -536,8 +543,26 @@ export const documentsQuerySchema = z.object({
 });
 export const documentRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 
-// ── global search (S3): role-aware, identity fields only ─────────────────────
-export const SEARCH_RESULT_KINDS = ['person', 'mission', 'agreement', 'entity', 'credential', 'journey', 'kit', 'apparel', 'approval'] as const;
+// ── global search (S3 → S3.1): role-aware, identity fields only ──────────────
+export const SEARCH_RESULT_KINDS = [
+  'person',
+  'mission',
+  'agreement',
+  'entity',
+  'credential',
+  'journey',
+  'kit',
+  'apparel',
+  'approval',
+  'team',
+  'invoice',
+  'claim',
+  'distribution',
+  'document',
+  'term',
+  'line',
+  'beneficiary',
+] as const;
 export const searchQuerySchema = z.object({ q: z.string().max(80) });
 export const searchResultsSchema = z.object({
   results: z.array(
@@ -546,6 +571,8 @@ export const searchResultsSchema = z.object({
       id: z.string(),
       title: z.string(),
       subtitle: z.string().nullable(),
+      /** S3.1: the owning record's id for child hits (term→AGR, line→MSN, document→"Type:ID"). */
+      parentId: z.string().nullable(),
     }),
   ),
 });
@@ -684,6 +711,16 @@ export const backupStatusSchema = z.object({
   ageHours: z.number().int().nullable(),
   reason: z.string().nullable(),
 });
+
+// ── per-diem presets (HARDEN-2: the S2 rider) — Settings-editable quick-picks ─
+export const perDiemPresetDtoSchema = z.object({ amountMinor: z.number().int().positive(), currency: currencyCodeSchema });
+export const perDiemPresetsResponseSchema = z.object({
+  presets: z.array(perDiemPresetDtoSchema),
+  /** Null while the tenant is on the code-side defaults (no row yet). */
+  version: z.number().int().nullable(),
+});
+export { setPerDiemPresetsInputSchema };
+export type PerDiemPresetsDto = z.infer<typeof perDiemPresetsResponseSchema>;
 
 // ── notifications (S10): the L2 inbox ────────────────────────────────────────
 export const notificationSchema = z.object({

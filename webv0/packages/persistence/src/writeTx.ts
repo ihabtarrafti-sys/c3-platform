@@ -126,6 +126,31 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
   };
 
   return {
+    // ── HARDEN-2 (0037): tenant settings (version-guarded from birth) ────────
+    async getTenantSetting(key: string): Promise<{ value: unknown; version: number } | null> {
+      const rows = await db.select().from(schema.tenantSetting).where(eq(schema.tenantSetting.key, key)).limit(1);
+      return rows[0] ? { value: rows[0].value, version: rows[0].version } : null;
+    },
+
+    async insertTenantSetting(key: string, value: unknown): Promise<{ value: unknown; version: number } | null> {
+      try {
+        const [r] = await db.insert(schema.tenantSetting).values({ tenantId, key, value }).returning();
+        return r ? { value: r.value, version: r.version } : null;
+      } catch (e) {
+        if ((e as { code?: string }).code === '23505') return null;
+        throw e;
+      }
+    },
+
+    async updateTenantSetting(key: string, expectedVersion: number, value: unknown): Promise<{ value: unknown; version: number } | null> {
+      const rows = await db
+        .update(schema.tenantSetting)
+        .set({ value, version: sql`${schema.tenantSetting.version} + 1` })
+        .where(and(eq(schema.tenantSetting.key, key), eq(schema.tenantSetting.version, expectedVersion)))
+        .returning();
+      return rows[0] ? { value: rows[0].value, version: rows[0].version } : null;
+    },
+
     async allocateSequence(kind) {
       // Atomic, server-controlled. ON CONFLICT DO UPDATE row-locks the counter
       // so concurrent allocations serialise. Never MAX+1.
@@ -687,7 +712,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
     async reactivateParticipant(missionId: string, personId: string, role: string): Promise<MissionParticipant | null> {
       const rows = await db
         .update(schema.missionParticipant)
-        .set({ role, isActive: true })
+        .set({ role, isActive: true, version: sql`${schema.missionParticipant.version} + 1` })
         .where(
           and(
             eq(schema.missionParticipant.missionId, missionId),
@@ -702,7 +727,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
     async deactivateParticipant(missionId: string, personId: string): Promise<MissionParticipant | null> {
       const rows = await db
         .update(schema.missionParticipant)
-        .set({ isActive: false })
+        .set({ isActive: false, version: sql`${schema.missionParticipant.version} + 1` })
         .where(
           and(
             eq(schema.missionParticipant.missionId, missionId),
@@ -719,11 +744,21 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       personId: string,
       amountMinor: number | null,
       currency: string | null,
+      expectedVersion: number,
     ): Promise<MissionParticipant | null> {
+      // HARDEN-2 M-03: version-guarded AND active-guarded — a per-diem write
+      // can no longer race a roster removal or clobber a concurrent edit.
       const rows = await db
         .update(schema.missionParticipant)
-        .set({ perDiemAmountMinor: amountMinor, perDiemCurrency: currency })
-        .where(and(eq(schema.missionParticipant.missionId, missionId), eq(schema.missionParticipant.personId, personId)))
+        .set({ perDiemAmountMinor: amountMinor, perDiemCurrency: currency, version: sql`${schema.missionParticipant.version} + 1` })
+        .where(
+          and(
+            eq(schema.missionParticipant.missionId, missionId),
+            eq(schema.missionParticipant.personId, personId),
+            eq(schema.missionParticipant.version, expectedVersion),
+            eq(schema.missionParticipant.isActive, true),
+          ),
+        )
         .returning();
       return rows[0] ? readParticipantView(missionId, personId) : null;
     },
@@ -795,25 +830,58 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapMissionLine(rows[0]) : null;
     },
 
-    async upsertMissionBudget(missionId: string, direction: string, category: string, currency: string, amountMinor: number): Promise<MissionBudget> {
-      const [r] = await db
-        .insert(schema.missionBudget)
-        .values({ tenantId, missionId, direction, category, currency, amountMinor })
-        .onConflictDoUpdate({
-          target: [
-            schema.missionBudget.tenantId,
-            schema.missionBudget.missionId,
-            schema.missionBudget.direction,
-            schema.missionBudget.category,
-            schema.missionBudget.currency,
-          ],
-          set: { amountMinor, updatedAt: sql`now()` },
-        })
-        .returning();
-      return mapMissionBudget(r);
+    // HARDEN-2 M-03: budgets are no longer last-write-wins. The use case reads
+    // the cell inside this tx, then inserts (empty cell) or updates/deletes
+    // under a version predicate — a stale caller gets a concurrency refusal.
+    async getMissionBudget(missionId: string, direction: string, category: string, currency: string): Promise<MissionBudget | null> {
+      const rows = await db
+        .select()
+        .from(schema.missionBudget)
+        .where(
+          and(
+            eq(schema.missionBudget.missionId, missionId),
+            eq(schema.missionBudget.direction, direction),
+            eq(schema.missionBudget.category, category),
+            eq(schema.missionBudget.currency, currency),
+          ),
+        )
+        .limit(1);
+      return rows[0] ? mapMissionBudget(rows[0]) : null;
     },
 
-    async deleteMissionBudget(missionId: string, direction: string, category: string, currency: string): Promise<boolean> {
+    async insertMissionBudget(missionId: string, direction: string, category: string, currency: string, amountMinor: number): Promise<MissionBudget | null> {
+      // Plain insert — a concurrent creator hits the UNIQUE cell key (23505),
+      // which the caller surfaces as a concurrency refusal, never a clobber.
+      try {
+        const [r] = await db
+          .insert(schema.missionBudget)
+          .values({ tenantId, missionId, direction, category, currency, amountMinor })
+          .returning();
+        return mapMissionBudget(r);
+      } catch (e) {
+        if ((e as { code?: string }).code === '23505') return null;
+        throw e;
+      }
+    },
+
+    async updateMissionBudget(missionId: string, direction: string, category: string, currency: string, expectedVersion: number, amountMinor: number): Promise<MissionBudget | null> {
+      const rows = await db
+        .update(schema.missionBudget)
+        .set({ amountMinor, version: sql`${schema.missionBudget.version} + 1`, updatedAt: sql`now()` })
+        .where(
+          and(
+            eq(schema.missionBudget.missionId, missionId),
+            eq(schema.missionBudget.direction, direction),
+            eq(schema.missionBudget.category, category),
+            eq(schema.missionBudget.currency, currency),
+            eq(schema.missionBudget.version, expectedVersion),
+          ),
+        )
+        .returning();
+      return rows[0] ? mapMissionBudget(rows[0]) : null;
+    },
+
+    async deleteMissionBudget(missionId: string, direction: string, category: string, currency: string, expectedVersion: number): Promise<boolean> {
       const rows = await db
         .delete(schema.missionBudget)
         .where(
@@ -822,6 +890,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
             eq(schema.missionBudget.direction, direction),
             eq(schema.missionBudget.category, category),
             eq(schema.missionBudget.currency, currency),
+            eq(schema.missionBudget.version, expectedVersion),
           ),
         )
         .returning();
@@ -1194,7 +1263,10 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return created;
     },
 
-    async reactivateTeamMembership(teamId: string, personId: string, role: string): Promise<TeamMembership | null> {
+    // HARDEN-2 M-03: membership flips are version-guarded — reactivation uses
+    // the version read in THIS tx (the roster hides inactive rows from the
+    // browser), removal uses the version the caller displayed.
+    async reactivateTeamMembership(teamId: string, personId: string, role: string, expectedVersion: number): Promise<TeamMembership | null> {
       const rows = await db
         .update(schema.teamMembership)
         .set({ role, isActive: true, version: sql`${schema.teamMembership.version} + 1` })
@@ -1203,13 +1275,14 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
             eq(schema.teamMembership.teamId, teamId),
             eq(schema.teamMembership.personId, personId),
             eq(schema.teamMembership.isActive, false),
+            eq(schema.teamMembership.version, expectedVersion),
           ),
         )
         .returning();
       return rows[0] ? this.getTeamMembership(teamId, personId) : null;
     },
 
-    async deactivateTeamMembership(teamId: string, personId: string): Promise<TeamMembership | null> {
+    async deactivateTeamMembership(teamId: string, personId: string, expectedVersion: number): Promise<TeamMembership | null> {
       const rows = await db
         .update(schema.teamMembership)
         .set({ isActive: false, version: sql`${schema.teamMembership.version} + 1` })
@@ -1218,6 +1291,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
             eq(schema.teamMembership.teamId, teamId),
             eq(schema.teamMembership.personId, personId),
             eq(schema.teamMembership.isActive, true),
+            eq(schema.teamMembership.version, expectedVersion),
           ),
         )
         .returning();

@@ -173,8 +173,10 @@ export async function addTeamMember(p: Persistence, actor: Actor, teamId: string
     if (existing?.isActive) {
       throw new ConflictError(`${existing.personName} is already an active member of this team.`, { teamId, personId: parsed.personId });
     }
+    // M-03: reactivation is guarded by the version read in THIS transaction —
+    // the browser never sees inactive rows, so the tx read is the honest basis.
     const membership = existing
-      ? await tx.reactivateTeamMembership(teamId, parsed.personId, parsed.role)
+      ? await tx.reactivateTeamMembership(teamId, parsed.personId, parsed.role, existing.version)
       : await tx.insertTeamMembership(teamId, parsed.personId, parsed.role);
     if (!membership) throw new ConcurrencyError('Team membership', `${teamId}/${parsed.personId}`);
 
@@ -190,11 +192,15 @@ export async function addTeamMember(p: Persistence, actor: Actor, teamId: string
   });
 }
 
-export async function removeTeamMember(p: Persistence, actor: Actor, teamId: string, personId: string): Promise<TeamMembership> {
+export async function removeTeamMember(p: Persistence, actor: Actor, teamId: string, personId: string, expectedVersion: number): Promise<TeamMembership> {
   assertManageEntities(actor);
   return p.writes.transaction(actor, async (tx) => {
-    const removed = await tx.deactivateTeamMembership(teamId, personId);
-    if (!removed) throw new NotFoundError('Active team membership', `${teamId}/${personId}`);
+    // M-03: removal carries the version the caller displayed — a stale roster
+    // row (concurrent role change / reactivation) refuses instead of flipping.
+    const current = await tx.getTeamMembership(teamId, personId);
+    if (!current || !current.isActive) throw new NotFoundError('Active team membership', `${teamId}/${personId}`);
+    const removed = await tx.deactivateTeamMembership(teamId, personId, expectedVersion);
+    if (!removed) throw new ConcurrencyError('Team membership', `${teamId}/${personId}`);
     await tx.appendAuditEvent({
       entityType: 'Team',
       entityId: teamId,

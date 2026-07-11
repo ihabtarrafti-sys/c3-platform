@@ -98,6 +98,8 @@ export interface MissionParticipant {
    */
   readonly perDiemAmountMinor: number | null;
   readonly perDiemCurrency: CurrencyCode | null;
+  /** HARDEN-2 M-03: optimistic-concurrency token — every participant write bumps it. */
+  readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -233,6 +235,8 @@ export const setParticipantPerDiemInputSchema = z
     personId: personIdField,
     perDiemAmountMinor: amountMinorSchema.nullable(),
     perDiemCurrency: currencyCodeSchema.nullable(),
+    /** HARDEN-2 M-03: the participant version the caller read — stale = 409. */
+    expectedVersion: z.number().int().min(0),
   })
   .strict()
   .refine((v) => (v.perDiemAmountMinor === null) === (v.perDiemCurrency === null), {

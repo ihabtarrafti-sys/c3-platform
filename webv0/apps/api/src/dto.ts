@@ -325,6 +325,7 @@ export function toMissionBudgetDto(b: MissionBudget): MissionBudgetDto {
     category: b.category,
     currency: b.currency,
     amountMinor: b.amountMinor,
+    version: b.version,
     updatedAt: b.updatedAt,
   };
 }
@@ -358,6 +359,7 @@ export function toMissionParticipantDto(mp: MissionParticipant, showPerDiem = fa
     isActive: mp.isActive,
     // Finance S2: per-diem is OMITTED entirely for roles without canViewPerDiem.
     ...(showPerDiem ? { perDiemAmountMinor: mp.perDiemAmountMinor, perDiemCurrency: mp.perDiemCurrency } : {}),
+    version: mp.version,
     createdAt: mp.createdAt,
     updatedAt: mp.updatedAt,
   };

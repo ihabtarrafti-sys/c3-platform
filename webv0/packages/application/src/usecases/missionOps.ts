@@ -155,8 +155,11 @@ export async function setParticipantPerDiem(
     if (!current) throw new NotFoundError('Mission participant', `${parsed.missionId}/${parsed.personId}`);
     if (!current.isActive) throw new ConflictError('Per-diem may only be set on an active participant.');
 
-    const updated = await tx.setParticipantPerDiem(parsed.missionId, parsed.personId, parsed.perDiemAmountMinor, parsed.perDiemCurrency);
-    if (!updated) throw new NotFoundError('Mission participant', `${parsed.missionId}/${parsed.personId}`);
+    // HARDEN-2 M-03: the write predicate carries the caller's version AND
+    // is_active — a stale read or a concurrent roster removal is a refusal,
+    // never a silent overwrite.
+    const updated = await tx.setParticipantPerDiem(parsed.missionId, parsed.personId, parsed.perDiemAmountMinor, parsed.perDiemCurrency, parsed.expectedVersion);
+    if (!updated) throw new ConcurrencyError('Mission participant', `${parsed.missionId}/${parsed.personId}`);
 
     await tx.appendAuditEvent({
       entityType: 'MissionParticipant',

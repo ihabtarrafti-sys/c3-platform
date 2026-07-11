@@ -109,7 +109,10 @@ export function allocateDistribution(
     if (!Number.isInteger(s.shareBps) || s.shareBps <= 0) throw new RangeError('each shareBps must be a positive integer');
   }
 
-  const orgCutMinor = Math.floor((poolMinor * orgShareBps) / 10000);
+  // HARDEN-2 M-02: the bps products run in BigInt — exact for every
+  // contract-valid pool. Floors and remainders return to Number safely
+  // (each is ≤ the pool / < 10000 respectively).
+  const orgCutMinor = Number((BigInt(poolMinor) * BigInt(orgShareBps)) / 10000n);
   const playerPool = poolMinor - orgCutMinor;
 
   // Largest remainder: floor everyone, then hand the leftover cents to the
@@ -117,8 +120,8 @@ export function allocateDistribution(
   const exact = shares.map((s) => ({
     personId: s.personId,
     shareBps: s.shareBps,
-    floor: Math.floor((playerPool * s.shareBps) / 10000),
-    remainder: (playerPool * s.shareBps) % 10000,
+    floor: Number((BigInt(playerPool) * BigInt(s.shareBps)) / 10000n),
+    remainder: Number((BigInt(playerPool) * BigInt(s.shareBps)) % 10000n),
   }));
   let leftover = playerPool - exact.reduce((n, e) => n + e.floor, 0);
   const order = [...exact].sort(

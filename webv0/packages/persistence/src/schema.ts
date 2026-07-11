@@ -337,6 +337,7 @@ export const missionBudget = pgTable('mission_budget', {
   category: text('category').notNull(),
   currency: text('currency').notNull(),
   amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
+  version: integer('version').notNull().default(0),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -520,6 +521,7 @@ export const missionParticipant = pgTable('mission_participant', {
   isActive: boolean('is_active').notNull().default(true),
   perDiemAmountMinor: bigint('per_diem_amount_minor', { mode: 'number' }),
   perDiemCurrency: text('per_diem_currency'),
+  version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
@@ -545,4 +547,16 @@ export const auditEvent = pgTable('audit_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
   before: jsonb('before'),
   after: jsonb('after'),
+});
+
+// HARDEN-2 (0037): the tenant settings kernel — one JSONB value per key,
+// version-guarded from birth (per-diem presets are its first resident).
+export const tenantSetting = pgTable('tenant_setting', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  key: text('key').notNull(),
+  value: jsonb('value').notNull(),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

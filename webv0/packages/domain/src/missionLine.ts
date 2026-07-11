@@ -26,7 +26,7 @@
  */
 
 import { z } from 'zod';
-import { currencyCodeSchema, convertMinor, usdPerUnitMap, PIVOT_CURRENCY, type CurrencyCode, type FxRate } from './money';
+import { currencyCodeSchema, convertMinor, usdPerUnitMap, MAX_AMOUNT_MINOR, PIVOT_CURRENCY, type CurrencyCode, type FxRate } from './money';
 import { missionDayCount, type MissionParticipant } from './mission';
 
 export const MISSION_LINE_DIRECTIONS = ['Income', 'Expense'] as const;
@@ -119,7 +119,7 @@ export interface MissionLine {
 // ── input contracts ──────────────────────────────────────────────────────────
 
 const labelField = z.string().trim().min(1, 'A label is required').max(200);
-const positiveAmountMinor = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
+const positiveAmountMinor = z.number().int().positive().max(MAX_AMOUNT_MINOR);
 const shortOptional = (max: number) =>
   z
     .string()
@@ -193,6 +193,8 @@ export interface MissionBudget {
   readonly currency: CurrencyCode;
   /** Integer minor units, > 0 (setting 0/clearing removes the row). */
   readonly amountMinor: number;
+  /** HARDEN-2 M-03: optimistic-concurrency token — every cell write bumps it. */
+  readonly version: number;
   readonly updatedAt: string;
 }
 
@@ -203,6 +205,13 @@ export const setMissionBudgetInputSchema = z
     currency: currencyCodeSchema,
     /** Null clears the budget row for this key. */
     amountMinor: positiveAmountMinor.nullable(),
+    /**
+     * HARDEN-2 M-03: the cell version the caller read, or null when the caller
+     * believes the cell is EMPTY. A null against an existing cell (or a version
+     * against a missing/stale cell) is a concurrency refusal — budgets are no
+     * longer last-write-wins.
+     */
+    expectedVersion: z.number().int().min(0).nullable(),
   })
   .strict()
   .refine((v) => budgetCategoriesForDirection(v.direction).includes(v.category), {
@@ -339,36 +348,49 @@ export function computeMissionPnl(args: {
   // A currency is UNBLENDABLE when some contribution needs the live table and
   // the table has no rate. An income line with its own snapshot never does.
   const missing = new Set<CurrencyCode>();
-  const lineUsd = (line: PnlLine): number | null => {
-    const amount = effectiveAmountMinor(line);
-    if (line.direction === 'Income' && line.paymentStatus === 'Received' && line.receivedUsdPerUnit != null) {
-      return Math.round(amount * line.receivedUsdPerUnit);
-    }
-    const usd = convertMinor(amount, line.currency, PIVOT_CURRENCY, map);
-    if (usd === null) missing.add(line.currency);
+  const liveUsd = (amountMinor: number, currency: CurrencyCode): number | null => {
+    const usd = convertMinor(amountMinor, currency, PIVOT_CURRENCY, map);
+    if (usd === null) missing.add(currency);
     return usd;
   };
 
+  // HARDEN-2 M-02: live-rate money blends PER CURRENCY-SUBTOTAL — one
+  // conversion per currency, so splitting an amount across rows can never move
+  // the USD total by a cent. Received income with an FX snapshot converts per
+  // line: each receipt is its own economic truth (the recorded rate at landing).
+  const hasSnapshot = (line: PnlLine): boolean =>
+    line.direction === 'Income' && line.paymentStatus === 'Received' && line.receivedUsdPerUnit != null;
+  const snapshotUsd = (line: PnlLine): number => Math.round(effectiveAmountMinor(line) * line.receivedUsdPerUnit!);
+  const addTo = (m: Map<CurrencyCode, number>, currency: CurrencyCode, amount: number) =>
+    m.set(currency, (m.get(currency) ?? 0) + amount);
+
+  const liveIncomeByCurrency = new Map<CurrencyCode, number>();
+  const liveExpenseByCurrency = new Map<CurrencyCode, number>();
   let incomeUsdMinor = 0;
   let expenseUsdMinor = 0;
   for (const line of args.lines) {
-    const usd = lineUsd(line);
-    if (usd === null) continue;
-    if (line.direction === 'Income') incomeUsdMinor += usd;
-    else expenseUsdMinor += usd;
+    if (hasSnapshot(line)) incomeUsdMinor += snapshotUsd(line);
+    else if (line.direction === 'Income') addTo(liveIncomeByCurrency, line.currency, effectiveAmountMinor(line));
+    else addTo(liveExpenseByCurrency, line.currency, line.amountMinor);
   }
   for (const e of entries) {
-    if (e.totalMinor == null) continue;
-    const usd = convertMinor(e.totalMinor, e.currency, PIVOT_CURRENCY, map);
-    if (usd === null) missing.add(e.currency);
-    else expenseUsdMinor += usd;
+    if (e.totalMinor != null) addTo(liveExpenseByCurrency, e.currency, e.totalMinor);
+  }
+  for (const [currency, subtotal] of liveIncomeByCurrency) {
+    const usd = liveUsd(subtotal, currency);
+    if (usd !== null) incomeUsdMinor += usd;
+  }
+  for (const [currency, subtotal] of liveExpenseByCurrency) {
+    const usd = liveUsd(subtotal, currency);
+    if (usd !== null) expenseUsdMinor += usd;
   }
 
   // S2: budget-vs-actual per (direction, category). Budgets blend off the live
-  // table (planning money has no receipt truth).
+  // table (planning money has no receipt truth). M-02: category USD follows the
+  // same law at its own grain — live-rate money converts once per (category,
+  // currency) subtotal; snapshot income lands per line.
   const keyOf = (d: MissionLineDirection, c: string) => `${d}:${c}`;
   const catActual = new Map<string, Map<CurrencyCode, number>>();
-  const catActualUsd = new Map<string, number | null>();
   const addCat = (mapM: Map<string, Map<CurrencyCode, number>>, key: string, currency: CurrencyCode, amount: number) => {
     let m = mapM.get(key);
     if (!m) {
@@ -377,20 +399,28 @@ export function computeMissionPnl(args: {
     }
     m.set(currency, (m.get(currency) ?? 0) + amount);
   };
-  const addCatUsd = (key: string, usd: number | null) => {
-    const cur = catActualUsd.has(key) ? catActualUsd.get(key)! : 0;
-    catActualUsd.set(key, cur === null || usd === null ? null : cur + usd);
-  };
+  const catLive = new Map<string, Map<CurrencyCode, number>>();
+  const catSnapshotUsd = new Map<string, number>();
   for (const line of args.lines) {
     const key = keyOf(line.direction, line.category);
     addCat(catActual, key, line.currency, effectiveAmountMinor(line));
-    addCatUsd(key, lineUsd(line));
+    if (hasSnapshot(line)) catSnapshotUsd.set(key, (catSnapshotUsd.get(key) ?? 0) + snapshotUsd(line));
+    else addCat(catLive, key, line.currency, effectiveAmountMinor(line));
   }
   for (const e of entries) {
     if (e.totalMinor == null) continue;
     const key = keyOf('Expense', PER_DIEM_CATEGORY);
     addCat(catActual, key, e.currency, e.totalMinor);
-    addCatUsd(key, convertMinor(e.totalMinor, e.currency, PIVOT_CURRENCY, map));
+    addCat(catLive, key, e.currency, e.totalMinor);
+  }
+  const catActualUsd = new Map<string, number | null>();
+  for (const key of catActual.keys()) {
+    let usd: number | null = catSnapshotUsd.get(key) ?? 0;
+    for (const [currency, subtotal] of catLive.get(key) ?? new Map<CurrencyCode, number>()) {
+      const c = liveUsd(subtotal, currency);
+      usd = usd === null || c === null ? null : usd + c;
+    }
+    catActualUsd.set(key, usd);
   }
   const catBudget = new Map<string, Map<CurrencyCode, number>>();
   const catBudgetUsd = new Map<string, number | null>();
