@@ -126,6 +126,7 @@ describe('capabilityView (UX hint)', () => {
       canManageMissions: true,
       canManageEntities: true,
       canManageIntake: true,
+      canManageSubscriptions: true,
       canReadAgreements: true,
       canViewFinancials: true,
       canViewPerDiem: true,

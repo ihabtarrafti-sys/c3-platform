@@ -142,6 +142,11 @@ export const AUDIT_ACTIONS = [
   'IntakeLinkRevoked',
   'IntakePromoted',
   'IntakeRejected',
+  // Track B: recurring subscriptions — direct-audited register (org costs).
+  'SubscriptionCreated',
+  'SubscriptionUpdated',
+  'SubscriptionCancelled',
+  'SubscriptionReactivated',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

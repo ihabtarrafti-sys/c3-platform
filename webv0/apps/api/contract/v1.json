@@ -4896,7 +4896,8 @@
                       "CredentialExpiry",
                       "DelegationEnd",
                       "MissionEnd",
-                      "MissionStart"
+                      "MissionStart",
+                      "SubscriptionRenewal"
                     ]
                   },
                   "route": {
@@ -11034,6 +11035,9 @@
                 "canManageMissions": {
                   "t": "boolean"
                 },
+                "canManageSubscriptions": {
+                  "t": "boolean"
+                },
                 "canOperateJourneys": {
                   "t": "boolean"
                 },
@@ -16285,6 +16289,554 @@
             },
             "todayIso": {
               "t": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/subscriptions",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "subscriptions": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "amountMinor": {
+                    "t": "number"
+                  },
+                  "cadence": {
+                    "t": "enum",
+                    "values": [
+                      "Annual",
+                      "Monthly",
+                      "Quarterly",
+                      "Weekly"
+                    ]
+                  },
+                  "category": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "currency": {
+                    "t": "string"
+                  },
+                  "name": {
+                    "t": "string"
+                  },
+                  "nextRenewalOn": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "notes": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "startedOn": {
+                    "t": "string"
+                  },
+                  "status": {
+                    "t": "enum",
+                    "values": [
+                      "Active",
+                      "Cancelled"
+                    ]
+                  },
+                  "subscriptionId": {
+                    "t": "string"
+                  },
+                  "updatedAt": {
+                    "t": "string"
+                  },
+                  "vendorName": {
+                    "t": "string"
+                  },
+                  "version": {
+                    "t": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/subscriptions",
+      "body": {
+        "t": "object",
+        "keys": {
+          "amountMinor": {
+            "t": "number"
+          },
+          "cadence": {
+            "t": "enum",
+            "values": [
+              "Annual",
+              "Monthly",
+              "Quarterly",
+              "Weekly"
+            ]
+          },
+          "category": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            }
+          },
+          "currency": {
+            "t": "enum",
+            "values": [
+              "AED",
+              "EUR",
+              "GBP",
+              "SAR",
+              "USD"
+            ]
+          },
+          "name": {
+            "t": "string"
+          },
+          "nextRenewalOn": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            }
+          },
+          "notes": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            }
+          },
+          "startedOn": {
+            "t": "string"
+          },
+          "vendorName": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "subscription": {
+              "t": "object",
+              "keys": {
+                "amountMinor": {
+                  "t": "number"
+                },
+                "cadence": {
+                  "t": "enum",
+                  "values": [
+                    "Annual",
+                    "Monthly",
+                    "Quarterly",
+                    "Weekly"
+                  ]
+                },
+                "category": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "currency": {
+                  "t": "string"
+                },
+                "name": {
+                  "t": "string"
+                },
+                "nextRenewalOn": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "startedOn": {
+                  "t": "string"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Active",
+                    "Cancelled"
+                  ]
+                },
+                "subscriptionId": {
+                  "t": "string"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "vendorName": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/subscriptions/:subscriptionId",
+      "body": {
+        "t": "object",
+        "keys": {
+          "amountMinor": {
+            "t": "number",
+            "optional": true
+          },
+          "cadence": {
+            "t": "enum",
+            "values": [
+              "Annual",
+              "Monthly",
+              "Quarterly",
+              "Weekly"
+            ],
+            "optional": true
+          },
+          "category": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          },
+          "currency": {
+            "t": "enum",
+            "values": [
+              "AED",
+              "EUR",
+              "GBP",
+              "SAR",
+              "USD"
+            ],
+            "optional": true
+          },
+          "expectedVersion": {
+            "t": "number"
+          },
+          "name": {
+            "t": "string",
+            "optional": true
+          },
+          "nextRenewalOn": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          },
+          "notes": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          },
+          "startedOn": {
+            "t": "string",
+            "optional": true
+          },
+          "vendorName": {
+            "t": "string",
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "subscriptionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "subscription": {
+              "t": "object",
+              "keys": {
+                "amountMinor": {
+                  "t": "number"
+                },
+                "cadence": {
+                  "t": "enum",
+                  "values": [
+                    "Annual",
+                    "Monthly",
+                    "Quarterly",
+                    "Weekly"
+                  ]
+                },
+                "category": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "currency": {
+                  "t": "string"
+                },
+                "name": {
+                  "t": "string"
+                },
+                "nextRenewalOn": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "startedOn": {
+                  "t": "string"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Active",
+                    "Cancelled"
+                  ]
+                },
+                "subscriptionId": {
+                  "t": "string"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "vendorName": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/subscriptions/:subscriptionId/cancel",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expectedVersion": {
+            "t": "number"
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "subscriptionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "subscription": {
+              "t": "object",
+              "keys": {
+                "amountMinor": {
+                  "t": "number"
+                },
+                "cadence": {
+                  "t": "enum",
+                  "values": [
+                    "Annual",
+                    "Monthly",
+                    "Quarterly",
+                    "Weekly"
+                  ]
+                },
+                "category": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "currency": {
+                  "t": "string"
+                },
+                "name": {
+                  "t": "string"
+                },
+                "nextRenewalOn": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "startedOn": {
+                  "t": "string"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Active",
+                    "Cancelled"
+                  ]
+                },
+                "subscriptionId": {
+                  "t": "string"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "vendorName": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/subscriptions/:subscriptionId/reactivate",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expectedVersion": {
+            "t": "number"
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "subscriptionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "subscription": {
+              "t": "object",
+              "keys": {
+                "amountMinor": {
+                  "t": "number"
+                },
+                "cadence": {
+                  "t": "enum",
+                  "values": [
+                    "Annual",
+                    "Monthly",
+                    "Quarterly",
+                    "Weekly"
+                  ]
+                },
+                "category": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "currency": {
+                  "t": "string"
+                },
+                "name": {
+                  "t": "string"
+                },
+                "nextRenewalOn": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "startedOn": {
+                  "t": "string"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Active",
+                    "Cancelled"
+                  ]
+                },
+                "subscriptionId": {
+                  "t": "string"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "vendorName": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
             }
           }
         }

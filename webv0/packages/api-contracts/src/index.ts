@@ -58,6 +58,10 @@ import {
   COMMENT_SUBJECT_TYPES,
   postCommentInputSchema,
   CALENDAR_KINDS,
+  SUBSCRIPTION_CADENCES,
+  SUBSCRIPTION_STATUSES,
+  subscriptionCreateInputSchema,
+  subscriptionUpdateInputSchema,
   INTAKE_KINDS,
   INTAKE_LINK_STATUSES,
   INTAKE_SUBMISSION_STATUSES,
@@ -817,6 +821,29 @@ export type CalendarItemDto = z.infer<typeof calendarItemSchema>;
 export const calendarResponseSchema = z.object({ items: z.array(calendarItemSchema), horizonDays: z.number(), todayIso: z.string() });
 export const calendarQuerySchema = z.object({ horizon: z.coerce.number().int().min(7).max(365).optional().default(90) });
 
+// ── recurring subscriptions (Track B): the org's recurring costs ─────────────
+export { subscriptionCreateInputSchema, subscriptionUpdateInputSchema };
+export const subscriptionSchema = z.object({
+  subscriptionId: z.string(),
+  name: z.string(),
+  vendorName: z.string(),
+  amountMinor: z.number(),
+  currency: z.string(),
+  cadence: z.enum(SUBSCRIPTION_CADENCES),
+  category: z.string().nullable(),
+  status: z.enum(SUBSCRIPTION_STATUSES),
+  startedOn: z.string(),
+  nextRenewalOn: z.string().nullable(),
+  notes: z.string().nullable(),
+  version: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type SubscriptionDto = z.infer<typeof subscriptionSchema>;
+export const subscriptionsListSchema = z.object({ subscriptions: z.array(subscriptionSchema) });
+export const subscriptionResponseSchema = z.object({ subscription: subscriptionSchema });
+export const subscriptionIdParamSchema = z.object({ subscriptionId: z.string().regex(/^SUB-\d{4,}$/) });
+
 // ── guest intake (Track B6): tokenized sandbox submissions ───────────────────
 export { createIntakeLinkInputSchema, onboardingIntakePayloadSchema };
 /** Upload metadata EXPOSED to staff — the internal storageKey is never sent. */
@@ -1327,6 +1354,7 @@ export const capabilityViewSchema = z.object({
   canManageMissions: z.boolean(),
   canManageEntities: z.boolean(),
   canManageIntake: z.boolean(),
+  canManageSubscriptions: z.boolean(),
   canReadAgreements: z.boolean(),
   canViewFinancials: z.boolean(),
   canViewPerDiem: z.boolean(),

@@ -15,12 +15,13 @@ export async function getCalendar(p: Persistence, actor: Actor, horizonDays: num
   assertReadAgreements(actor); // both hold it; fail closed regardless
   const reads = p.reads.forActor(actor);
 
-  const [credentials, agreements, missions, delegations, people] = await Promise.all([
+  const [credentials, agreements, missions, delegations, people, subscriptions] = await Promise.all([
     reads.listCredentials(),
     reads.listAgreements(),
     reads.listMissions(),
     reads.listDelegations(),
     reads.listPeople(),
+    reads.listSubscriptions(),
   ]);
 
   const nameById = new Map(people.map((x) => [x.personId, x.fullName]));
@@ -39,6 +40,7 @@ export async function getCalendar(p: Persistence, actor: Actor, horizonDays: num
       agreements: agreements.map((a) => ({ agreementId: a.agreementId, personId: a.personId, agreementType: a.agreementType, endsOn: a.endsOn, status: a.status })),
       missions: missions.map((m) => ({ missionId: m.missionId, name: m.name, startsOn: m.startsOn, endsOn: m.endsOn, isActive: m.isActive })),
       delegations: delegations.map((d) => ({ delegationId: d.delegationId, granteeIdentity: d.granteeIdentity, endsOn: d.endsOn, revokedAt: d.revokedAt })),
+      subscriptions: subscriptions.map((sub) => ({ subscriptionId: sub.subscriptionId, name: sub.name, vendorName: sub.vendorName, nextRenewalOn: sub.nextRenewalOn, status: sub.status })),
     },
     todayIso,
     horizonDays,

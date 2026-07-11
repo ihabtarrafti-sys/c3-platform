@@ -137,6 +137,15 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   // sandbox submission (child; exits first, before its link FK).
   { name: 'intake_link', exportSql: `SELECT * FROM intake_link WHERE tenant_id = $1 ORDER BY created_at, id`, exitRank: 9 },
   { name: 'intake_submission', exportSql: `SELECT * FROM intake_submission WHERE tenant_id = $1 ORDER BY submitted_at, id`, exitRank: 8 },
+  // Track B (0041): recurring subscriptions — an independent leaf register.
+  {
+    name: 'subscription',
+    exportSql: `SELECT id, tenant_id, subscription_id, name, vendor_name, amount_minor, currency, cadence, category, status,
+                       started_on::text AS started_on, next_renewal_on::text AS next_renewal_on,
+                       notes, version, created_at, updated_at
+                  FROM subscription WHERE tenant_id = $1 ORDER BY subscription_id`,
+    exitRank: 3,
+  },
   {
     name: 'delegation',
     exportSql: `SELECT id, tenant_id, delegation_id, grantee_identity, granted_by,

@@ -295,6 +295,15 @@ function CalendarIcon({ className }: { className?: string }) {
   );
 }
 
+function SubscriptionsIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M15.5 7A6 6 0 004.7 5.5M4.5 13A6 6 0 0015.3 14.5" strokeLinecap="round" />
+      <path d="M15.5 3.5V7H12M4.5 16.5V13H8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function AgreementsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -532,6 +541,9 @@ export function AppShell() {
               icon={<InvoicesIcon className={s.navIcon} />}
               onNavigate={() => setNavOpen(false)}
             />
+          )}
+          {me?.capabilities.canViewFinancials && (
+            <NavItem to="/subscriptions" label="Subscriptions" icon={<SubscriptionsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           )}
           {me?.capabilities.canSubmitClaim && (
             <NavItem to='/claims' label='Claims' icon={<ClaimsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />

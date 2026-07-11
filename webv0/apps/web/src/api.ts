@@ -47,6 +47,7 @@ import type {
   RecycleItemDto,
   ActivityItemDto,
   CalendarItemDto,
+  SubscriptionDto,
   CommentDto,
   IntakeLinkDto,
   IntakeSubmissionDto,
@@ -426,6 +427,12 @@ export function createApiClient(deps: ApiClientDeps) {
     // Track B: ops calendar / timeline (forward horizon).
     calendar: (horizon = 90) =>
       request<{ items: CalendarItemDto[]; horizonDays: number; todayIso: string }>('GET', `/api/v1/calendar?horizon=${horizon}`),
+    // Track B: recurring subscriptions (org costs).
+    listSubscriptions: () => request<{ subscriptions: SubscriptionDto[] }>('GET', '/api/v1/subscriptions'),
+    createSubscription: (input: Record<string, unknown>) => request<{ subscription: SubscriptionDto }>('POST', '/api/v1/subscriptions', input),
+    updateSubscription: (id: string, input: Record<string, unknown>) => request<{ subscription: SubscriptionDto }>('POST', `/api/v1/subscriptions/${id}`, input),
+    cancelSubscription: (id: string, expectedVersion: number) => request<{ subscription: SubscriptionDto }>('POST', `/api/v1/subscriptions/${id}/cancel`, { expectedVersion }),
+    reactivateSubscription: (id: string, expectedVersion: number) => request<{ subscription: SubscriptionDto }>('POST', `/api/v1/subscriptions/${id}/reactivate`, { expectedVersion }),
     // Track B4: contextual comments + @mentions on records.
     listComments: (subjectType: string, subjectId: string) =>
       request<{ comments: CommentDto[] }>('GET', `/api/v1/comments?subjectType=${subjectType}&subjectId=${encodeURIComponent(subjectId)}`),

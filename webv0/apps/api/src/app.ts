@@ -126,6 +126,11 @@ import {
   postCommentInputSchema,
   calendarQuerySchema,
   calendarResponseSchema,
+  subscriptionCreateInputSchema,
+  subscriptionUpdateInputSchema,
+  subscriptionsListSchema,
+  subscriptionResponseSchema,
+  subscriptionIdParamSchema,
   createIntakeLinkInputSchema,
   createIntakeLinkResponseSchema,
   intakeLinksListSchema,
@@ -209,6 +214,11 @@ import {
   restoreRecord,
   listActivityFeed,
   getCalendar,
+  listSubscriptions,
+  createSubscription,
+  updateSubscription,
+  cancelSubscription,
+  reactivateSubscription,
   listComments,
   postComment,
   createIntakeLink,
@@ -349,7 +359,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1794,6 +1804,45 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const items = await getCalendar(P, actorOf(req), horizon);
     return { items: items.map((i) => ({ ...i })), horizonDays: horizon, todayIso: new Date().toISOString().slice(0, 10) };
   });
+
+  // ── recurring subscriptions (Track B): read finance-gated; manage owner/ops ─
+  r.get('/api/v1/subscriptions', { schema: { response: { 200: subscriptionsListSchema } } }, async (req) => {
+    return { subscriptions: (await listSubscriptions(P, actorOf(req))).map(toSubscriptionDto) };
+  });
+
+  r.post('/api/v1/subscriptions', { schema: { body: subscriptionCreateInputSchema, response: { 201: subscriptionResponseSchema } } }, async (req, reply) => {
+    const sub = await createSubscription(P, actorOf(req), req.body as import('@c3web/domain').SubscriptionCreateInput);
+    return reply.status(201).send({ subscription: toSubscriptionDto(sub) });
+  });
+
+  r.post(
+    '/api/v1/subscriptions/:subscriptionId',
+    { schema: { params: subscriptionIdParamSchema, body: subscriptionUpdateInputSchema, response: { 200: subscriptionResponseSchema } } },
+    async (req) => {
+      const { subscriptionId } = req.params as { subscriptionId: string };
+      return { subscription: toSubscriptionDto(await updateSubscription(P, actorOf(req), subscriptionId, req.body as import('@c3web/domain').SubscriptionUpdateInput)) };
+    },
+  );
+
+  r.post(
+    '/api/v1/subscriptions/:subscriptionId/cancel',
+    { schema: { params: subscriptionIdParamSchema, body: versionedRequestSchema, response: { 200: subscriptionResponseSchema } } },
+    async (req) => {
+      const { subscriptionId } = req.params as { subscriptionId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      return { subscription: toSubscriptionDto(await cancelSubscription(P, actorOf(req), subscriptionId, expectedVersion)) };
+    },
+  );
+
+  r.post(
+    '/api/v1/subscriptions/:subscriptionId/reactivate',
+    { schema: { params: subscriptionIdParamSchema, body: versionedRequestSchema, response: { 200: subscriptionResponseSchema } } },
+    async (req) => {
+      const { subscriptionId } = req.params as { subscriptionId: string };
+      const { expectedVersion } = req.body as { expectedVersion: number };
+      return { subscription: toSubscriptionDto(await reactivateSubscription(P, actorOf(req), subscriptionId, expectedVersion)) };
+    },
+  );
 
   // ── comments (Track B4): contextual discussion + @mentions on records ──────
   r.get('/api/v1/comments', { schema: { querystring: commentsQuerySchema, response: { 200: commentsListSchema } } }, async (req) => {

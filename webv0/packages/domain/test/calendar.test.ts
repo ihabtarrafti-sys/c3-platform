@@ -7,7 +7,7 @@ const plus = (days: number): string => {
   return d.toISOString().slice(0, 10);
 };
 
-const empty: CalendarInput = { credentials: [], agreements: [], missions: [], delegations: [] };
+const empty: CalendarInput = { credentials: [], agreements: [], missions: [], delegations: [], subscriptions: [] };
 
 describe('Track B — ops calendar', () => {
   it('daysBetween is a signed whole-day distance (DST-safe)', () => {
@@ -25,12 +25,14 @@ describe('Track B — ops calendar', () => {
       agreements: [{ agreementId: 'AGR-1', personId: 'PER-1', agreementType: 'Contract', endsOn: plus(-2), status: 'Active' }],
       missions: [{ missionId: 'MSN-1', name: 'EWC', startsOn: plus(3), endsOn: plus(20), isActive: true }],
       delegations: [{ delegationId: 'DLG-1', granteeIdentity: 'ops@x.com', endsOn: plus(40), revokedAt: null }],
+      subscriptions: [{ subscriptionId: 'SUB-1', name: 'Adobe', vendorName: 'Adobe Inc', nextRenewalOn: plus(15), status: 'Active' }],
     };
     const items = buildCalendar(input, TODAY, 90);
     expect(items.map((i) => i.id + ':' + i.kind)).toEqual([
       'AGR-1:AgreementEnd', // -2 overdue first
       'MSN-1:MissionStart', // +3
       'CRED-1:CredentialExpiry', // +10
+      'SUB-1:SubscriptionRenewal', // +15
       'MSN-1:MissionEnd', // +20
       'DLG-1:DelegationEnd', // +40
     ]);
@@ -45,6 +47,7 @@ describe('Track B — ops calendar', () => {
       agreements: [{ agreementId: 'AGR-X', personId: 'PER-1', agreementType: 'NDA', endsOn: plus(5), status: 'Terminated' }],
       missions: [{ missionId: 'MSN-X', name: 'Old', startsOn: plus(5), endsOn: plus(6), isActive: false }],
       delegations: [{ delegationId: 'DLG-X', granteeIdentity: 'x', endsOn: plus(5), revokedAt: plus(-1) }],
+      subscriptions: [{ subscriptionId: 'SUB-X', name: 'Cancelled', vendorName: 'v', nextRenewalOn: plus(5), status: 'Cancelled' }],
     };
     expect(buildCalendar(input, TODAY, 90)).toEqual([]);
   });

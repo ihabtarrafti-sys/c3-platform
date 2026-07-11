@@ -44,6 +44,7 @@ import type {
   Beneficiary,
   IntakeLink,
   IntakeSubmission,
+  Subscription,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -195,6 +196,8 @@ export interface ReadStore {
   listIntakeSubmissions(): Promise<IntakeSubmission[]>;
   /** Track B6: one sandbox submission (tenant-scoped), or null. */
   getIntakeSubmissionById(id: string): Promise<IntakeSubmission | null>;
+  /** Track B: recurring subscriptions (newest first). */
+  listSubscriptions(): Promise<Subscription[]>;
   /**
    * Track B3: the activity feed — a keyset page of the audit stream, newest
    * first. Returns up to `limit`+1 rows so the caller knows if more remain;
@@ -551,6 +554,32 @@ export interface EntityPatch {
   readonly localCurrency?: string;
 }
 
+/** Fields written when creating a Subscription (Track B, direct-audited). */
+export interface NewSubscriptionRow {
+  readonly name: string;
+  readonly vendorName: string;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly cadence: string;
+  readonly category: string | null;
+  readonly startedOn: string;
+  readonly nextRenewalOn: string | null;
+  readonly notes: string | null;
+}
+
+/** Editable-field patch for a subscription update (only provided keys change). */
+export interface SubscriptionPatch {
+  readonly name?: string;
+  readonly vendorName?: string;
+  readonly amountMinor?: number;
+  readonly currency?: string;
+  readonly cadence?: string;
+  readonly category?: string | null;
+  readonly startedOn?: string;
+  readonly nextRenewalOn?: string | null;
+  readonly notes?: string | null;
+}
+
 /** A person's mission membership, enriched with the mission's identity (Sprint 42). */
 export interface PersonMissionMembership {
   readonly missionId: string;
@@ -602,6 +631,7 @@ export interface WriteTx {
       | 'claim'
       | 'delegation'
       | 'beneficiary'
+      | 'subscription'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -858,6 +888,15 @@ export interface WriteTx {
   markIntakeSubmissionRejected(submissionId: string, reviewedBy: string, decisionNote: string | null): Promise<IntakeSubmission | null>;
   /** Backfill the created person id on a promoted submission (post-execute file attach). Null = missing/not-Promoted. */
   setIntakeSubmissionPromotedPerson(submissionId: string, personId: string): Promise<IntakeSubmission | null>;
+
+  // ── Track B recurring subscriptions (direct-audited register) ──────────────
+  insertSubscription(subscriptionId: string, row: NewSubscriptionRow): Promise<Subscription>;
+  /** Read one subscription inside the tx (the update/cancel guard). */
+  getSubscription(subscriptionId: string): Promise<Subscription | null>;
+  /** Version-guarded field patch; null = stale/missing. */
+  updateSubscription(subscriptionId: string, expectedVersion: number, patch: SubscriptionPatch): Promise<Subscription | null>;
+  /** Version-guarded status set (Active↔Cancelled); null = stale/missing. */
+  setSubscriptionStatus(subscriptionId: string, expectedVersion: number, status: string): Promise<Subscription | null>;
   insertDelegation(row: { delegationId: string; granteeIdentity: string; grantedBy: string; startsOn: string; endsOn: string; reason: string }): Promise<Delegation>;
   lockDelegation(delegationId: string): Promise<Delegation | null>;
   revokeDelegation(delegationId: string, expectedVersion: number, revokedBy: string, revokeReason: string): Promise<Delegation | null>;

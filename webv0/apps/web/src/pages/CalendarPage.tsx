@@ -26,6 +26,7 @@ const KIND_LABEL: Record<CalendarItemDto['kind'], string> = {
   MissionStart: 'Mission start',
   MissionEnd: 'Mission end',
   DelegationEnd: 'Delegation end',
+  SubscriptionRenewal: 'Subscription renewal',
 };
 
 const useStyles = makeStyles({

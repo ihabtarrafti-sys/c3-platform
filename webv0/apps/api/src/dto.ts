@@ -4,9 +4,9 @@
  */
 import { delegationState } from '@c3web/domain';
 import type { PayloadDisclosure } from '@c3web/authz';
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Subscription, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, SubscriptionDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -337,6 +337,25 @@ export function toIntakeSubmissionDto(s: IntakeSubmission): IntakeSubmissionDto 
     promotedApprovalId: s.promotedApprovalId,
     promotedPersonId: s.promotedPersonId,
     decisionNote: s.decisionNote,
+  };
+}
+
+export function toSubscriptionDto(s: Subscription): SubscriptionDto {
+  return {
+    subscriptionId: s.subscriptionId,
+    name: s.name,
+    vendorName: s.vendorName,
+    amountMinor: s.amountMinor,
+    currency: s.currency,
+    cadence: s.cadence,
+    category: s.category,
+    status: s.status,
+    startedOn: s.startedOn,
+    nextRenewalOn: s.nextRenewalOn,
+    notes: s.notes,
+    version: s.version,
+    createdAt: s.createdAt,
+    updatedAt: s.updatedAt,
   };
 }
 

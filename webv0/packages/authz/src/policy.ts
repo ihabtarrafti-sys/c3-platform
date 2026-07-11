@@ -39,6 +39,7 @@ export const canManageApparel = (role: C3Role): boolean => capabilitiesFor(role)
 export const canManageMissions = (role: C3Role): boolean => capabilitiesFor(role).canManageMissions;
 export const canManageEntities = (role: C3Role): boolean => capabilitiesFor(role).canManageEntities;
 export const canManageIntake = (role: C3Role): boolean => capabilitiesFor(role).canManageIntake;
+export const canManageSubscriptions = (role: C3Role): boolean => capabilitiesFor(role).canManageSubscriptions;
 export const canReadAgreements = (role: C3Role): boolean => capabilitiesFor(role).canReadAgreements;
 export const canViewFinancials = (role: C3Role): boolean => capabilitiesFor(role).canViewFinancials;
 export const canViewPerDiem = (role: C3Role): boolean => capabilitiesFor(role).canViewPerDiem;
@@ -164,6 +165,14 @@ export function assertManageIntake(actor: Actor): void {
   }
 }
 
+/** Guard managing the recurring-subscriptions register (Track B — owner/ops).
+ *  Viewing is finance-gated separately (assertViewFinancials). */
+export function assertManageSubscriptions(actor: Actor): void {
+  if (!canManageSubscriptions(actor.role)) {
+    throw new ForbiddenError('Your role may not manage subscriptions.', { role: actor.role });
+  }
+}
+
 /**
  * Guard reading the Agreements domain (Sprint 41 — the CP Set-E boundary:
  * commercial data; hr and visitor are denied entirely, fail closed).
@@ -223,6 +232,7 @@ export interface CapabilityView {
   readonly canManageMissions: boolean;
   readonly canManageEntities: boolean;
   readonly canManageIntake: boolean;
+  readonly canManageSubscriptions: boolean;
   readonly canReadAgreements: boolean;
   readonly canViewFinancials: boolean;
   readonly canViewPerDiem: boolean;
@@ -250,6 +260,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canManageMissions: c.canManageMissions,
     canManageEntities: c.canManageEntities,
     canManageIntake: c.canManageIntake,
+    canManageSubscriptions: c.canManageSubscriptions,
     canReadAgreements: c.canReadAgreements,
     canViewFinancials: c.canViewFinancials,
     canViewPerDiem: c.canViewPerDiem,

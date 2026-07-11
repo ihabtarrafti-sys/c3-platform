@@ -93,6 +93,12 @@ export interface C3Capabilities {
    */
   readonly canManageIntake: boolean;
   /**
+   * Track B: may manage the recurring-subscriptions register (create/edit/
+   * cancel org costs) — owner, operations. Viewing is finance-gated
+   * (canViewFinancials); managing is the operational owner/ops act.
+   */
+  readonly canManageSubscriptions: boolean;
+  /**
    * Sprint 41: may read the Agreements domain (contracts, NDAs, addendums)
    * AT ALL — owner, operations, legal, finance, management. HR and visitor
    * are DENIED entirely (the CP Set-E ACL boundary: agreements are sensitive
@@ -139,6 +145,7 @@ const READ_ONLY = {
   canManageMissions: false,
   canManageEntities: false,
   canManageIntake: false,
+  canManageSubscriptions: false,
   canReadAgreements: false,
   canViewFinancials: false,
     canViewPerDiem: false,
@@ -161,6 +168,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageMissions: true,
     canManageEntities: true,
     canManageIntake: true,
+    canManageSubscriptions: true,
     canReadAgreements: true,
     canViewFinancials: true,
     canViewPerDiem: true,
@@ -181,6 +189,7 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
     canManageMissions: true,
     canManageEntities: true,
     canManageIntake: true,
+    canManageSubscriptions: true,
     canReadAgreements: true,
     canViewFinancials: true,
     canViewPerDiem: true,

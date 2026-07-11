@@ -610,3 +610,23 @@ export const intakeSubmission = pgTable('intake_submission', {
   promotedPersonId: text('promoted_person_id'),
   decisionNote: text('decision_note'),
 });
+
+// Track B (0041): recurring subscriptions — the org's recurring costs.
+export const subscription = pgTable('subscription', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  subscriptionId: text('subscription_id').notNull(),
+  name: text('name').notNull(),
+  vendorName: text('vendor_name').notNull(),
+  amountMinor: bigint('amount_minor', { mode: 'number' }).notNull(),
+  currency: text('currency').notNull(),
+  cadence: text('cadence').notNull(),
+  category: text('category'),
+  status: text('status').notNull().default('Active'),
+  startedOn: date('started_on', { mode: 'string' }).notNull(),
+  nextRenewalOn: date('next_renewal_on', { mode: 'string' }),
+  notes: text('notes'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});

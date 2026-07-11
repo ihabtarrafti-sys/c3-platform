@@ -82,6 +82,8 @@ export const usePerDiemPresets = (enabled = true) => useQuery({ queryKey: ['perD
 export const useRecycleBin = (enabled = true) => useQuery({ queryKey: ['recycleBin'], queryFn: () => api.recycleBin(), enabled });
 // Track B: ops calendar / timeline (forward horizon).
 export const useCalendar = (horizon: number, enabled = true) => useQuery({ queryKey: ['calendar', horizon], queryFn: () => api.calendar(horizon), enabled });
+// Track B: recurring subscriptions.
+export const useSubscriptions = (enabled = true) => useQuery({ queryKey: ['subscriptions'], queryFn: () => api.listSubscriptions(), enabled });
 // Track B6: guest intake (staff side).
 export const useIntakeLinks = (enabled = true) => useQuery({ queryKey: ['intakeLinks'], queryFn: () => api.listIntakeLinks(), enabled });
 export const useIntakeSandbox = (enabled = true) => useQuery({ queryKey: ['intakeSandbox'], queryFn: () => api.listIntakeSubmissions(), enabled });

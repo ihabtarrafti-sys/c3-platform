@@ -30,6 +30,7 @@ import {
   type Comment,
   type IntakeLink,
   type IntakeSubmission,
+  type Subscription,
   type Delegation,
   type Beneficiary,
   type JourneyStatus,
@@ -41,10 +42,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, NewSubscriptionRow, SubscriptionPatch, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -1148,6 +1149,35 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.intakeSubmission.id, submissionId), eq(schema.intakeSubmission.status, 'Promoted')))
         .returning();
       return rows[0] ? mapIntakeSubmission(rows[0]) : null;
+    },
+
+    // ── Track B recurring subscriptions (direct-audited register) ────────────
+    async insertSubscription(subscriptionId: string, row: NewSubscriptionRow): Promise<Subscription> {
+      const [r] = await db.insert(schema.subscription).values({ tenantId, subscriptionId, ...row }).returning();
+      return mapSubscription(r);
+    },
+
+    async getSubscription(subscriptionId: string): Promise<Subscription | null> {
+      const rows = await db.select().from(schema.subscription).where(eq(schema.subscription.subscriptionId, subscriptionId)).limit(1);
+      return rows[0] ? mapSubscription(rows[0]) : null;
+    },
+
+    async updateSubscription(subscriptionId: string, expectedVersion: number, patch: SubscriptionPatch): Promise<Subscription | null> {
+      const rows = await db
+        .update(schema.subscription)
+        .set({ ...patch, version: sql`${schema.subscription.version} + 1` })
+        .where(and(eq(schema.subscription.subscriptionId, subscriptionId), eq(schema.subscription.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapSubscription(rows[0]) : null;
+    },
+
+    async setSubscriptionStatus(subscriptionId: string, expectedVersion: number, status: string): Promise<Subscription | null> {
+      const rows = await db
+        .update(schema.subscription)
+        .set({ status, version: sql`${schema.subscription.version} + 1` })
+        .where(and(eq(schema.subscription.subscriptionId, subscriptionId), eq(schema.subscription.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapSubscription(rows[0]) : null;
     },
 
     async markNotificationRead(identity: string, signalKey: string): Promise<boolean> {

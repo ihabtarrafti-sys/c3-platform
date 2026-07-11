@@ -13,7 +13,7 @@
  * must surface — bounded to the last year so ancient rows do not drown it.
  */
 
-export const CALENDAR_KINDS = ['CredentialExpiry', 'AgreementEnd', 'MissionStart', 'MissionEnd', 'DelegationEnd'] as const;
+export const CALENDAR_KINDS = ['CredentialExpiry', 'AgreementEnd', 'MissionStart', 'MissionEnd', 'DelegationEnd', 'SubscriptionRenewal'] as const;
 export type CalendarKind = (typeof CALENDAR_KINDS)[number];
 
 export interface CalendarItem {
@@ -36,6 +36,7 @@ export interface CalendarInput {
   readonly agreements: ReadonlyArray<{ agreementId: string; personId: string | null; agreementType: string; endsOn: string; status: string }>;
   readonly missions: ReadonlyArray<{ missionId: string; name: string; startsOn: string; endsOn: string | null; isActive: boolean }>;
   readonly delegations: ReadonlyArray<{ delegationId: string; granteeIdentity: string; endsOn: string; revokedAt: string | null }>;
+  readonly subscriptions: ReadonlyArray<{ subscriptionId: string; name: string; vendorName: string; nextRenewalOn: string | null; status: string }>;
 }
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -77,6 +78,10 @@ export function buildCalendar(input: CalendarInput, todayIso: string, horizonDay
   for (const d of input.delegations) {
     if (d.revokedAt) continue;
     push('DelegationEnd', d.delegationId, d.endsOn, `Approver delegation ends`, d.granteeIdentity, `/approvals`);
+  }
+  for (const sub of input.subscriptions) {
+    if (sub.status !== 'Active' || !sub.nextRenewalOn) continue;
+    push('SubscriptionRenewal', sub.subscriptionId, sub.nextRenewalOn, `${sub.name} renews`, sub.vendorName, `/subscriptions`);
   }
 
   // Soonest first; ties broken by kind then id for a stable order.
