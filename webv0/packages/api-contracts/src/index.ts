@@ -249,7 +249,10 @@ export const updateCredentialDetailsRequestSchema = z
 
 export const beneficiarySchema = z.object({
   beneficiaryId: z.string(),
-  personId: z.string(),
+  // 0035 payee anchor: exactly one seat set; freelancer/vendor dormant.
+  personId: z.string().nullable(),
+  freelancerId: z.string().nullable(),
+  vendorId: z.string().nullable(),
   label: z.string(),
   bankName: z.string(),
   bankCountry: z.string(),

@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -168,6 +168,46 @@ describe('migrations & schema', () => {
       }
     } finally {
       await admin.end();
+    }
+  });
+
+  it('0035: the beneficiary payee anchor — exactly one of person|freelancer|vendor, per-payee label law', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'payee' });
+    const c = new Client({ connectionString: db.appUrl });
+    await c.connect();
+    try {
+      const begin = async () => {
+        await c.query('BEGIN');
+        await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      };
+      const insert = (id: string, person: string | null, freelancer: string | null, vendor: string | null, label = 'main') =>
+        c.query(
+          `INSERT INTO beneficiary (tenant_id, beneficiary_id, person_id, freelancer_id, vendor_id, label, bank_name, bank_country, currency)
+           VALUES ($1, $2, $3, $4, $5, $6, 'ESA', 'UAE', 'AED')`,
+          [t.tenantId, id, person, freelancer, vendor, label],
+        );
+
+      // zero anchors refused; two anchors refused
+      await begin();
+      await expect(insert('BEN-9001', null, null, null)).rejects.toThrow(/beneficiary_exactly_one_payee/);
+      await c.query('ROLLBACK');
+      await begin();
+      await expect(insert('BEN-9002', 'PER-9001', 'FRL-9001', null)).rejects.toThrow(/beneficiary_exactly_one_payee/);
+      await c.query('ROLLBACK');
+
+      // each single seat works — the dormant seats are schema-ready today
+      await begin();
+      await insert('BEN-9003', 'PER-9001', null, null, 'person route');
+      await insert('BEN-9004', null, 'FRL-9001', null, 'freelancer route');
+      await insert('BEN-9005', null, null, 'VEN-9001', 'vendor route');
+      // per-PAYEE label law: same label on DIFFERENT payees is fine…
+      await insert('BEN-9006', null, 'FRL-9002', null, 'person route');
+      // …but a duplicate live label on the SAME payee is refused
+      await expect(insert('BEN-9007', 'PER-9001', null, null, 'PERSON ROUTE')).rejects.toThrow(/beneficiary_live_label_per_payee/);
+      await c.query('ROLLBACK');
+    } finally {
+      await c.end();
     }
   });
 

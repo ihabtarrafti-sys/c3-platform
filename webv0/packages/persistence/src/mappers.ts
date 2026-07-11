@@ -260,7 +260,9 @@ export function mapBeneficiary(row: any): Beneficiary {
   return {
     tenantId: row.tenantId ?? row.tenant_id,
     beneficiaryId: row.beneficiaryId ?? row.beneficiary_id,
-    personId: row.personId ?? row.person_id,
+    personId: row.personId ?? row.person_id ?? null,
+    freelancerId: row.freelancerId ?? row.freelancer_id ?? null,
+    vendorId: row.vendorId ?? row.vendor_id ?? null,
     label: row.label,
     bankName: row.bankName ?? row.bank_name,
     bankCountry: row.bankCountry ?? row.bank_country,

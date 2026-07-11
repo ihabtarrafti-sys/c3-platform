@@ -121,7 +121,7 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   {
     // S12: payment-ROUTING names only — no account numbers exist to export.
     name: 'beneficiary',
-    exportSql: `SELECT id, tenant_id, beneficiary_id, person_id, label, bank_name, bank_country,
+    exportSql: `SELECT id, tenant_id, beneficiary_id, person_id, freelancer_id, vendor_id, label, bank_name, bank_country,
                        currency, payment_type, registered_with_entity_id, status,
                        status_date::text AS status_date, notes, created_by_approval_id,
                        version, created_at, updated_at

@@ -70,6 +70,8 @@ export function toBeneficiaryDto(b: Beneficiary): BeneficiaryDto {
   return {
     beneficiaryId: b.beneficiaryId,
     personId: b.personId,
+    freelancerId: b.freelancerId,
+    vendorId: b.vendorId,
     label: b.label,
     bankName: b.bankName,
     bankCountry: b.bankCountry,

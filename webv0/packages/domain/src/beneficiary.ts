@@ -20,7 +20,11 @@ export type BeneficiaryStatus = (typeof BENEFICIARY_STATUSES)[number];
 export interface Beneficiary {
   readonly tenantId: string;
   readonly beneficiaryId: string; // BEN-XXXX
-  readonly personId: string;
+  // The PAYEE anchor (0035): exactly one seat is set. Freelancer/vendor
+  // seats are DORMANT until those domains land; the schema is ready today.
+  readonly personId: string | null;
+  readonly freelancerId: string | null;
+  readonly vendorId: string | null;
   readonly label: string;
   readonly bankName: string;
   readonly bankCountry: string;

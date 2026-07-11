@@ -82,7 +82,7 @@ export async function submitUpdateCredentialFacts(
   await assertNoOpenOpOnTarget(p, actor, ['UpdateCredentialFacts', 'DeactivateCredential'], input.credentialId);
   return submitOp(p, actor, command.reason, {
     op: 'UpdateCredentialFacts',
-    targetPersonId: current.personId,
+    targetPersonId: current.personId, // a credential's owner is always a person
     targetId: input.credentialId,
     input,
     note: `UpdateCredentialFacts request submitted for ${input.credentialId} (${Object.keys(input.patch).join(', ')})`,
@@ -127,7 +127,7 @@ export async function submitUpdateBeneficiary(
   await assertNoOpenOpOnTarget(p, actor, ['UpdateBeneficiary', 'RetireBeneficiary'], input.beneficiaryId);
   return submitOp(p, actor, command.reason, {
     op: 'UpdateBeneficiary',
-    targetPersonId: current.personId,
+    targetPersonId: current.personId ?? 'N/A-PAYEE', // dormant freelancer/vendor seats (0035)
     targetId: input.beneficiaryId,
     input,
     note: `UpdateBeneficiary request submitted for ${input.beneficiaryId} (${Object.keys(input.patch).join(', ')})`,
@@ -148,7 +148,7 @@ export async function submitRetireBeneficiary(
   await assertNoOpenOpOnTarget(p, actor, ['UpdateBeneficiary', 'RetireBeneficiary'], input.beneficiaryId);
   return submitOp(p, actor, command.reason ?? input.reason, {
     op: 'RetireBeneficiary',
-    targetPersonId: current.personId,
+    targetPersonId: current.personId ?? 'N/A-PAYEE', // dormant freelancer/vendor seats (0035)
     targetId: input.beneficiaryId,
     input,
     note: `RetireBeneficiary request submitted for ${input.beneficiaryId}: ${input.reason}`,
