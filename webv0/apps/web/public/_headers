@@ -15,6 +15,11 @@
 
 # Track B5 PWA: the service worker must revalidate so a new deploy propagates;
 # the manifest likewise. Icons are content-stable and may be cached.
+# NOTE: on the FIRST deploy that introduced /sw.js, the custom-domain edge
+# briefly served the SPA fallback (index.html, text/html) for /sw.js during the
+# alias-propagation window and cached it for 4h — see TRACKB-5-pwa.md. These
+# no-cache rules prevent recurrence (the file now exists in every deploy); the
+# one-time stale entry needed a manual edge purge of /sw.js.
 /sw.js
   Cache-Control: no-cache, no-transform
 /manifest.webmanifest
