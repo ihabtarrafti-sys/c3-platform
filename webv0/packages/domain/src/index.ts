@@ -7,6 +7,7 @@
  */
 
 export * from './actor';
+export * from './activity';
 export * from './approval';
 export * from './audit';
 export * from './agreement';
@@ -33,6 +34,7 @@ export * from './notification';
 export * from './missionLine';
 export * from './money';
 export * from './person';
+export * from './recycle';
 export * from './roles';
 export * from './settings';
 export * from './situation';

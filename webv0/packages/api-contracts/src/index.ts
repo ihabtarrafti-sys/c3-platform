@@ -55,6 +55,8 @@ import {
   reactivateMemberPayloadSchema,
   removeMissionParticipantInputSchema,
   renewAgreementInputSchema,
+  RECYCLE_KINDS,
+  restoreRecycleInputSchema,
   setParticipantPerDiemInputSchema,
   setPerDiemPresetsInputSchema,
   teamCreateInputSchema,
@@ -734,6 +736,48 @@ export const perDiemPresetsResponseSchema = z.object({
 });
 export { setPerDiemPresetsInputSchema };
 export type PerDiemPresetsDto = z.infer<typeof perDiemPresetsResponseSchema>;
+
+// ── recycle bin (Track B2): cross-domain soft-removed register + restore ─────
+export const recycleItemSchema = z.object({
+  kind: z.enum(RECYCLE_KINDS),
+  id: z.string(),
+  label: z.string(),
+  sublabel: z.string().nullable(),
+  parentId: z.string().nullable(),
+  removedAt: z.string(),
+  removedBy: z.string().nullable(),
+  version: z.number().int(),
+  restoreClass: z.enum(['governed', 'direct', 'recordPage']),
+});
+export type RecycleItemDto = z.infer<typeof recycleItemSchema>;
+export const recycleListSchema = z.object({ items: z.array(recycleItemSchema) });
+export { restoreRecycleInputSchema };
+export const restoreRecycleResponseSchema = z.object({
+  outcome: z.enum(['restored', 'approval-submitted']),
+  kind: z.enum(RECYCLE_KINDS),
+  id: z.string(),
+  approvalId: z.string().nullable(),
+});
+
+// ── activity feed (Track B3): the org journal over the audit stream ──────────
+export const activityQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  cursor: z.string().max(120).optional(),
+});
+export const activityItemSchema = z.object({
+  id: z.string(),
+  at: z.string(),
+  actor: z.string(),
+  action: z.string(),
+  entityType: z.string(),
+  entityId: z.string(),
+  headline: z.string(),
+});
+export type ActivityItemDto = z.infer<typeof activityItemSchema>;
+export const activityFeedSchema = z.object({
+  items: z.array(activityItemSchema),
+  nextCursor: z.string().nullable(),
+});
 
 // ── notifications (S10): the L2 inbox ────────────────────────────────────────
 export const notificationSchema = z.object({

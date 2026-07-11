@@ -4,6 +4,65 @@
   "routes": [
     {
       "method": "GET",
+      "url": "/api/v1/activity",
+      "querystring": {
+        "t": "object",
+        "keys": {
+          "cursor": {
+            "t": "string",
+            "optional": true
+          },
+          "limit": {
+            "t": "number",
+            "optional": true
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "items": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "action": {
+                    "t": "string"
+                  },
+                  "actor": {
+                    "t": "string"
+                  },
+                  "at": {
+                    "t": "string"
+                  },
+                  "entityId": {
+                    "t": "string"
+                  },
+                  "entityType": {
+                    "t": "string"
+                  },
+                  "headline": {
+                    "t": "string"
+                  },
+                  "id": {
+                    "t": "string"
+                  }
+                }
+              }
+            },
+            "nextCursor": {
+              "t": "nullable",
+              "inner": {
+                "t": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/agreements",
       "response": {
         "200": {
@@ -14578,6 +14637,141 @@
                   }
                 }
               }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/recycle-bin",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "items": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "id": {
+                    "t": "string"
+                  },
+                  "kind": {
+                    "t": "enum",
+                    "values": [
+                      "apparel",
+                      "credential",
+                      "entity",
+                      "kit",
+                      "person",
+                      "team"
+                    ]
+                  },
+                  "label": {
+                    "t": "string"
+                  },
+                  "parentId": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "removedAt": {
+                    "t": "string"
+                  },
+                  "removedBy": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "restoreClass": {
+                    "t": "enum",
+                    "values": [
+                      "direct",
+                      "governed",
+                      "recordPage"
+                    ]
+                  },
+                  "sublabel": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "version": {
+                    "t": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/recycle-bin/restore",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expectedVersion": {
+            "t": "number"
+          },
+          "id": {
+            "t": "string"
+          },
+          "kind": {
+            "t": "enum",
+            "values": [
+              "apparel",
+              "credential",
+              "entity",
+              "kit",
+              "person",
+              "team"
+            ]
+          },
+          "reason": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "approvalId": {
+              "t": "nullable",
+              "inner": {
+                "t": "string"
+              }
+            },
+            "id": {
+              "t": "string"
+            },
+            "kind": {
+              "t": "enum",
+              "values": [
+                "apparel",
+                "credential",
+                "entity",
+                "kit",
+                "person",
+                "team"
+              ]
+            },
+            "outcome": {
+              "t": "enum",
+              "values": [
+                "approval-submitted",
+                "restored"
+              ]
             }
           }
         }

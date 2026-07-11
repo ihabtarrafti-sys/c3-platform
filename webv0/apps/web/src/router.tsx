@@ -15,6 +15,8 @@ import { ApparelPage } from './pages/ApparelPage';
 import { MissionsPage } from './pages/MissionsPage';
 import { EntitiesPage } from './pages/EntitiesPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { RecycleBinPage } from './pages/RecycleBinPage';
+import { ActivityPage } from './pages/ActivityPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -72,6 +74,8 @@ export const router = createBrowserRouter([
       { path: 'approvals', element: <ApprovalsPage /> },
       { path: 'approvals/:approvalId', element: <ApprovalDetailPage /> },
       { path: 'members', element: <MembersPage /> },
+      { path: 'activity', element: <ActivityPage /> },
+      { path: 'recycle-bin', element: <RecycleBinPage /> },
       { path: 'settings', element: <SettingsPage /> },
       { path: '*', element: <Navigate to="/people" replace /> },
     ],

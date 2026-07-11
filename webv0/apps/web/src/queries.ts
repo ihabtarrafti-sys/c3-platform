@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from './apiClient';
 
 export const usePeople = (enabled = true) =>
@@ -79,6 +79,15 @@ export const useTeamAudit = (teamId: string) =>
 export const useDelegations = (enabled = true) => useQuery({ queryKey: ['delegations'], queryFn: () => api.listDelegations(), enabled });
 export const useBackupStatus = (enabled = true) => useQuery({ queryKey: ['backupStatus'], queryFn: () => api.backupStatus(), enabled });
 export const usePerDiemPresets = (enabled = true) => useQuery({ queryKey: ['perDiemPresets'], queryFn: () => api.perDiemPresets(), enabled });
+export const useRecycleBin = (enabled = true) => useQuery({ queryKey: ['recycleBin'], queryFn: () => api.recycleBin(), enabled });
+export const useActivityFeed = (enabled = true) =>
+  useInfiniteQuery({
+    queryKey: ['activityFeed'],
+    queryFn: ({ pageParam }) => api.activityFeed(pageParam as string | null),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.nextCursor,
+    enabled,
+  });
 export const usePersonBeneficiaries = (personId: string, enabled = true) => useQuery({ queryKey: ['personBeneficiaries', personId], queryFn: () => api.personBeneficiaries(personId), enabled });
 export const useNotifications = () => useQuery({ queryKey: ['notifications'], queryFn: () => api.listNotifications(), refetchInterval: 60_000 });
 export const useClaims = (enabled = true) => useQuery({ queryKey: ['claims'], queryFn: () => api.listClaims(), enabled });

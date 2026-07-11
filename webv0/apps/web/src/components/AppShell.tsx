@@ -260,6 +260,23 @@ function SituationIcon({ className }: { className?: string }) {
   );
 }
 
+function ActivityIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M3 10h3l2-5 3 10 2-7 1.5 2H17" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RecycleBinIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M4 6h12M8 6V4.5A1.5 1.5 0 019.5 3h1A1.5 1.5 0 0112 4.5V6M5.5 6l.7 9a1.5 1.5 0 001.5 1.4h4.6a1.5 1.5 0 001.5-1.4l.7-9" />
+      <path d="M8.5 12.5l1.5-1.5 1.5 1.5M10 11v3.5" />
+    </svg>
+  );
+}
+
 function AgreementsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -525,6 +542,22 @@ export function AppShell() {
               to="/members"
               label="Members"
               icon={<MembersIcon className={s.navIcon} />}
+              onNavigate={() => setNavOpen(false)}
+            />
+          )}
+          {me?.capabilities.canManageEntities && (
+            <NavItem
+              to="/activity"
+              label="Activity"
+              icon={<ActivityIcon className={s.navIcon} />}
+              onNavigate={() => setNavOpen(false)}
+            />
+          )}
+          {me?.capabilities.canManageEntities && (
+            <NavItem
+              to="/recycle-bin"
+              label="Recycle bin"
+              icon={<RecycleBinIcon className={s.navIcon} />}
               onNavigate={() => setNavOpen(false)}
             />
           )}

@@ -115,6 +115,11 @@ import {
   backupStatusSchema,
   perDiemPresetsResponseSchema,
   setPerDiemPresetsInputSchema,
+  recycleListSchema,
+  restoreRecycleInputSchema,
+  restoreRecycleResponseSchema,
+  activityQuerySchema,
+  activityFeedSchema,
   claimIdParamSchema,
   teamCreateInputSchema,
   teamUpdateInputSchema,
@@ -177,6 +182,9 @@ import {
   getAgreement,
   getPerDiemPresets,
   getSituation,
+  listRecycleBin,
+  restoreRecord,
+  listActivityFeed,
   listAgreements,
   listAgreementsForPerson,
   listAgreementTerms,
@@ -1473,6 +1481,28 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return { presets: view.presets.map((p) => ({ ...p })), version: view.version };
     },
   );
+
+  // ── recycle bin (Track B2): the cross-domain soft-removed register ─────────
+  r.get('/api/v1/recycle-bin', { schema: { response: { 200: recycleListSchema } } }, async (req) => {
+    const items = await listRecycleBin(P, actorOf(req));
+    return { items: items.map((i) => ({ ...i })) };
+  });
+
+  r.post(
+    '/api/v1/recycle-bin/restore',
+    { schema: { body: restoreRecycleInputSchema, response: { 200: restoreRecycleResponseSchema } } },
+    async (req) => {
+      const result = await restoreRecord(P, actorOf(req), req.body as import('@c3web/domain').RestoreRecycleInput);
+      return { ...result };
+    },
+  );
+
+  // ── activity feed (Track B3): the org journal, keyset-paginated ────────────
+  r.get('/api/v1/activity', { schema: { querystring: activityQuerySchema, response: { 200: activityFeedSchema } } }, async (req) => {
+    const { limit, cursor } = req.query as { limit?: number; cursor?: string };
+    const page = await listActivityFeed(P, actorOf(req), { limit, cursor: cursor ?? null });
+    return { items: page.items.map((i) => ({ ...i })), nextCursor: page.nextCursor };
+  });
 
   // ── distributions (S8): the payout list — allocate, mark paid, revoke ──────
   r.get(

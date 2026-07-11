@@ -44,6 +44,8 @@ import type {
   DelegationDto,
   BeneficiaryDto,
   PerDiemPresetsDto,
+  RecycleItemDto,
+  ActivityItemDto,
   PersonDto,
   PersonMissionMembershipDto,
   SearchResultsDto,
@@ -409,6 +411,20 @@ export function createApiClient(deps: ApiClientDeps) {
     backupStatus: () => request<{ configured: boolean; healthy: boolean | null; lastSuccessUtc: string | null; ageHours: number | null; reason: string | null }>('GET', '/api/v1/settings/backup-status'),
     // HARDEN-2: per-diem presets (the S2 rider) — owner/ops quick-pick config.
     perDiemPresets: () => request<PerDiemPresetsDto>('GET', '/api/v1/settings/per-diem-presets'),
+    // Track B2: the recycle bin — cross-domain soft-removed register + restore.
+    recycleBin: () => request<{ items: RecycleItemDto[] }>('GET', '/api/v1/recycle-bin'),
+    // Track B3: the activity feed — org journal over the audit stream.
+    activityFeed: (cursor?: string | null, limit = 40) =>
+      request<{ items: ActivityItemDto[]; nextCursor: string | null }>(
+        'GET',
+        `/api/v1/activity?limit=${limit}${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`,
+      ),
+    restoreRecord: (kind: string, id: string, expectedVersion: number, reason?: string | null) =>
+      request<{ outcome: 'restored' | 'approval-submitted'; kind: string; id: string; approvalId: string | null }>(
+        'POST',
+        '/api/v1/recycle-bin/restore',
+        { kind, id, expectedVersion, reason },
+      ),
     setPerDiemPresets: (presets: Array<{ amountMinor: number; currency: string }>, expectedVersion: number | null) =>
       request<PerDiemPresetsDto>('POST', '/api/v1/settings/per-diem-presets', { presets, expectedVersion }),
     // S10: notifications — the bell.

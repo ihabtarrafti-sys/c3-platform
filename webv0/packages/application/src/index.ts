@@ -28,6 +28,8 @@ export * from './usecases/submitAgreementOps';
 export * from './usecases/submitAgreementTermOps';
 export * from './usecases/search';
 export * from './usecases/settingsOps';
+export * from './usecases/recycleBinOps';
+export * from './usecases/activityOps';
 export * from './usecases/teamOps';
 export * from './usecases/situation';
 export * from './usecases/submitMemberChange';

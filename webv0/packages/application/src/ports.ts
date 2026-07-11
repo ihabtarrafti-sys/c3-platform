@@ -32,6 +32,7 @@ import type {
   MissionLine,
   MissionParticipant,
   Person,
+  RecycleItem,
   Team,
   TeamMembership,
   Distribution,
@@ -181,6 +182,16 @@ export interface ReadStore {
    * (domain inclusion, claims narrowing, document owner-type allowlist).
    */
   searchTenant(spec: TenantSearchSpec): Promise<TenantSearchRow[]>;
+  /** Track B2: every soft-removed record across the recycle domains, newest-removed first. */
+  listRecycleBin(): Promise<RecycleItem[]>;
+  /**
+   * Track B3: the activity feed — a keyset page of the audit stream, newest
+   * first. Returns up to `limit`+1 rows so the caller knows if more remain;
+   * `before` is the exclusive (at,id) cursor.
+   */
+  listActivityFeed(limit: number, before: { at: string; id: string } | null): Promise<
+    Array<{ id: string; at: string; actor: string; action: string; entityType: string; entityId: string }>
+  >;
   /** HARDEN-2 (0037): one settings row, or null (= the code-side defaults). */
   getTenantSetting(key: string): Promise<{ value: unknown; version: number } | null>;
   /** Tier 0.5: the unrevoked delegation held by this grantee, if any (its DLG id). */

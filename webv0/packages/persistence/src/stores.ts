@@ -4,12 +4,13 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import type { Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
 import { buildSearchQuery } from './searchSql';
+import { buildRecycleQuery } from './recycleSql';
 import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim,
   mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
@@ -496,6 +497,49 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
                LIMIT 1
             `);
             return res.rows.length > 0;
+          }),
+
+        // Track B3: the activity feed — a keyset page of the audit stream.
+        listActivityFeed: (limit: number, before: { at: string; id: string } | null) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; at: string; actor: string; action: string; entityType: string; entityId: string }>> => {
+            const res = await db.execute(sql`
+              SELECT id, at, actor, action, entity_type, entity_id
+                FROM audit_event
+               ${before ? sql`WHERE (at, id) < (${before.at}::timestamptz, ${before.id}::uuid)` : sql``}
+               ORDER BY at DESC, id DESC
+               LIMIT ${limit}
+            `);
+            return res.rows.map((r) => {
+              const row = r as Record<string, unknown>;
+              return {
+                id: String(row.id),
+                at: row.at instanceof Date ? row.at.toISOString() : String(row.at),
+                actor: String(row.actor),
+                action: String(row.action),
+                entityType: String(row.entity_type),
+                entityId: String(row.entity_id),
+              };
+            });
+          }),
+
+        // Track B2: the recycle bin — one UNION over the soft-delete domains.
+        listRecycleBin: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<RecycleItem[]> => {
+            const res = await db.execute(buildRecycleQuery());
+            return res.rows.map((r) => {
+              const row = r as Record<string, unknown>;
+              return {
+                kind: String(row.kind) as RecycleItem['kind'],
+                id: String(row.id),
+                label: String(row.label ?? row.id),
+                sublabel: row.sublabel == null ? null : String(row.sublabel),
+                parentId: row.parent_id == null ? null : String(row.parent_id),
+                removedAt: row.removed_at instanceof Date ? row.removed_at.toISOString() : String(row.removed_at),
+                removedBy: row.removed_by == null ? null : String(row.removed_by),
+                version: Number(row.version ?? 0),
+                restoreClass: String(row.restore_class) as RecycleItem['restoreClass'],
+              };
+            });
           }),
 
         // HARDEN-2 (0037): one settings row (null = the code-side defaults).
