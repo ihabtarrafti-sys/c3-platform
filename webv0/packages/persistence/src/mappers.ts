@@ -39,6 +39,7 @@ import {
   type IntakeSubmission,
   type IntakeUpload,
   type Subscription,
+  type Departure,
   parseApprovalPayload,
   Delegation,
   Beneficiary,
@@ -367,6 +368,24 @@ export function mapSubscription(row: any): Subscription {
     status: row.status,
     startedOn: d(row.startedOn ?? row.started_on)!,
     nextRenewalOn: d(row.nextRenewalOn ?? row.next_renewal_on),
+    notes: row.notes ?? null,
+    version: Number(row.version),
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapDeparture(row: any): Departure {
+  const d = (v: unknown): string | null => (v == null ? null : v instanceof Date ? v.toISOString().slice(0, 10) : String(v));
+  return {
+    departureId: row.departureId ?? row.departure_id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    personId: row.personId ?? row.person_id,
+    reason: row.reason,
+    status: row.status,
+    initiatedBy: row.initiatedBy ?? row.initiated_by,
+    initiatedOn: d(row.initiatedOn ?? row.initiated_on)!,
+    completedOn: d(row.completedOn ?? row.completed_on),
     notes: row.notes ?? null,
     version: Number(row.version),
     createdAt: isoReq(row.createdAt ?? row.created_at),

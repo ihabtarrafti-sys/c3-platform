@@ -611,6 +611,23 @@ export const intakeSubmission = pgTable('intake_submission', {
   decisionNote: text('decision_note'),
 });
 
+// Track B (0042): departure workflow — the offboarding record.
+export const departure = pgTable('departure', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  departureId: text('departure_id').notNull(),
+  personId: text('person_id').notNull(),
+  reason: text('reason').notNull(),
+  status: text('status').notNull().default('InProgress'),
+  initiatedBy: text('initiated_by').notNull(),
+  initiatedOn: date('initiated_on', { mode: 'string' }).notNull(),
+  completedOn: date('completed_on', { mode: 'string' }),
+  notes: text('notes'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Track B (0041): recurring subscriptions — the org's recurring costs.
 export const subscription = pgTable('subscription', {
   id: uuid('id').primaryKey().defaultRandom(),

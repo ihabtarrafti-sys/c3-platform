@@ -45,6 +45,7 @@ import type {
   IntakeLink,
   IntakeSubmission,
   Subscription,
+  Departure,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -198,6 +199,8 @@ export interface ReadStore {
   getIntakeSubmissionById(id: string): Promise<IntakeSubmission | null>;
   /** Track B: recurring subscriptions (newest first). */
   listSubscriptions(): Promise<Subscription[]>;
+  /** Track B: departures (all statuses, newest first). */
+  listDepartures(): Promise<Departure[]>;
   /**
    * Track B3: the activity feed — a keyset page of the audit stream, newest
    * first. Returns up to `limit`+1 rows so the caller knows if more remain;
@@ -632,6 +635,7 @@ export interface WriteTx {
       | 'delegation'
       | 'beneficiary'
       | 'subscription'
+      | 'departure'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -897,6 +901,15 @@ export interface WriteTx {
   updateSubscription(subscriptionId: string, expectedVersion: number, patch: SubscriptionPatch): Promise<Subscription | null>;
   /** Version-guarded status set (Active↔Cancelled); null = stale/missing. */
   setSubscriptionStatus(subscriptionId: string, expectedVersion: number, status: string): Promise<Subscription | null>;
+
+  // ── Track B departure workflow (direct-audited record) ─────────────────────
+  insertDeparture(departureId: string, row: { personId: string; reason: string; initiatedBy: string; initiatedOn: string }): Promise<Departure>;
+  /** The person's OPEN (InProgress) departure, if any (the one-open guard). */
+  getOpenDepartureForPerson(personId: string): Promise<Departure | null>;
+  /** Read one departure inside the tx (the complete/cancel guard). */
+  getDeparture(departureId: string): Promise<Departure | null>;
+  /** Version-guarded terminal transition (InProgress→Completed/Cancelled); null = stale/missing. */
+  setDepartureStatus(departureId: string, expectedVersion: number, status: string, completedOn: string | null, notes: string | null): Promise<Departure | null>;
   insertDelegation(row: { delegationId: string; granteeIdentity: string; grantedBy: string; startsOn: string; endsOn: string; reason: string }): Promise<Delegation>;
   lockDelegation(delegationId: string): Promise<Delegation | null>;
   revokeDelegation(delegationId: string, expectedVersion: number, revokedBy: string, revokeReason: string): Promise<Delegation | null>;

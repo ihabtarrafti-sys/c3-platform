@@ -6928,6 +6928,349 @@
       }
     },
     {
+      "method": "GET",
+      "url": "/api/v1/departures",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "departures": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "departure": {
+                    "t": "object",
+                    "keys": {
+                      "completedOn": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "createdAt": {
+                        "t": "string"
+                      },
+                      "departureId": {
+                        "t": "string"
+                      },
+                      "initiatedBy": {
+                        "t": "string"
+                      },
+                      "initiatedOn": {
+                        "t": "string"
+                      },
+                      "notes": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "personId": {
+                        "t": "string"
+                      },
+                      "reason": {
+                        "t": "string"
+                      },
+                      "status": {
+                        "t": "enum",
+                        "values": [
+                          "Cancelled",
+                          "Completed",
+                          "InProgress"
+                        ]
+                      },
+                      "updatedAt": {
+                        "t": "string"
+                      },
+                      "version": {
+                        "t": "number"
+                      }
+                    }
+                  },
+                  "openItems": {
+                    "t": "array",
+                    "item": {
+                      "t": "object",
+                      "keys": {
+                        "id": {
+                          "t": "string"
+                        },
+                        "kind": {
+                          "t": "enum",
+                          "values": [
+                            "Agreement",
+                            "Apparel",
+                            "Credential",
+                            "Kit",
+                            "Roster"
+                          ]
+                        },
+                        "label": {
+                          "t": "string"
+                        },
+                        "route": {
+                          "t": "string"
+                        }
+                      }
+                    }
+                  },
+                  "personName": {
+                    "t": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/departures",
+      "body": {
+        "t": "object",
+        "keys": {
+          "personId": {
+            "t": "string"
+          },
+          "reason": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "departure": {
+              "t": "object",
+              "keys": {
+                "completedOn": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "departureId": {
+                  "t": "string"
+                },
+                "initiatedBy": {
+                  "t": "string"
+                },
+                "initiatedOn": {
+                  "t": "string"
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "personId": {
+                  "t": "string"
+                },
+                "reason": {
+                  "t": "string"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Cancelled",
+                    "Completed",
+                    "InProgress"
+                  ]
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/departures/:departureId/cancel",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expectedVersion": {
+            "t": "number"
+          },
+          "note": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            },
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "departureId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "departure": {
+              "t": "object",
+              "keys": {
+                "completedOn": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "departureId": {
+                  "t": "string"
+                },
+                "initiatedBy": {
+                  "t": "string"
+                },
+                "initiatedOn": {
+                  "t": "string"
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "personId": {
+                  "t": "string"
+                },
+                "reason": {
+                  "t": "string"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Cancelled",
+                    "Completed",
+                    "InProgress"
+                  ]
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/departures/:departureId/complete",
+      "body": {
+        "t": "object",
+        "keys": {
+          "deactivatePerson": {
+            "t": "boolean"
+          },
+          "expectedVersion": {
+            "t": "number"
+          },
+          "note": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            }
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "departureId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "deactivationApprovalId": {
+              "t": "nullable",
+              "inner": {
+                "t": "string"
+              }
+            },
+            "departure": {
+              "t": "object",
+              "keys": {
+                "completedOn": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "departureId": {
+                  "t": "string"
+                },
+                "initiatedBy": {
+                  "t": "string"
+                },
+                "initiatedOn": {
+                  "t": "string"
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "personId": {
+                  "t": "string"
+                },
+                "reason": {
+                  "t": "string"
+                },
+                "status": {
+                  "t": "enum",
+                  "values": [
+                    "Cancelled",
+                    "Completed",
+                    "InProgress"
+                  ]
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "method": "POST",
       "url": "/api/v1/dev/login",
       "body": {
@@ -16261,6 +16604,7 @@
                       "ClaimsAwaitingReview",
                       "CredentialExpiry",
                       "DelegationActive",
+                      "DepartureIncomplete",
                       "ExecutionFailedRecovery",
                       "IncomeNotInvoiced",
                       "JourneyStalled",

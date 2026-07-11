@@ -21,6 +21,7 @@ import { IntakePage } from './pages/IntakePage';
 import { GuestIntakePage } from './pages/GuestIntakePage';
 import { CalendarPage } from './pages/CalendarPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
+import { DeparturesPage } from './pages/DeparturesPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -83,6 +84,7 @@ export const router = createBrowserRouter([
       { path: 'members', element: <MembersPage /> },
       { path: 'intake', element: <IntakePage /> },
       { path: 'calendar', element: <CalendarPage /> },
+      { path: 'departures', element: <DeparturesPage /> },
       { path: 'subscriptions', element: <SubscriptionsPage /> },
       { path: 'activity', element: <ActivityPage /> },
       { path: 'recycle-bin', element: <RecycleBinPage /> },

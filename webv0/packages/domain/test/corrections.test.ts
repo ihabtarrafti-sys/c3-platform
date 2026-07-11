@@ -40,7 +40,9 @@ describe('Track B1 — the corrections registries are COMPLETE (no op falls thro
 describe('Track B1 — the RejectedAwaitingRevision signal (signals-ship-with-features law)', () => {
   it('the check ledger stays index-aligned and carries the 14th line', () => {
     expect(SITUATION_CHECKS.length).toBe(SITUATION_CHECK_KINDS.length);
-    expect(SITUATION_CHECK_KINDS.at(-1)).toBe('RejectedAwaitingRevision');
+    // RejectedAwaitingRevision rides the ledger, index-aligned (no longer the
+    // last line — later features append their own checks after it).
+    expect(SITUATION_CHECK_KINDS).toContain('RejectedAwaitingRevision');
     expect(SIGNAL_KINDS).toContain('RejectedAwaitingRevision');
   });
 

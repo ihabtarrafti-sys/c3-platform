@@ -105,6 +105,8 @@ export interface SituationSnapshot {
     supersededBy: string | null;
   }>;
   readonly journeys: ReadonlyArray<{ journeyId: string; personId: string; journeyType: string; status: string; updatedAt: string }>;
+  /** Track B departure workflow: who is mid-offboarding (the incompleteness signal's subject). */
+  readonly departures?: ReadonlyArray<{ personId: string; status: string }>;
 }
 
 // ── signal shape ─────────────────────────────────────────────────────────────
@@ -124,6 +126,7 @@ export const SIGNAL_KINDS = [
   'ClaimsAwaitingReview',
   'DelegationActive',
   'RejectedAwaitingRevision',
+  'DepartureIncomplete',
 ] as const;
 export type SignalKind = (typeof SIGNAL_KINDS)[number];
 
@@ -618,6 +621,35 @@ export function composeSituation(snapshot: SituationSnapshot): Signal[] {
     );
   }
 
+  // 10 — Departure incomplete: a person is mid-offboarding but items remain
+  // open. The cockpit reasons over the GOVERNED subset it already loads
+  // (agreements / roster / credentials); the Departures page shows the whole
+  // checklist incl. kit/apparel.
+  for (const d of (snapshot.departures ?? []).filter((dep) => dep.status === 'InProgress')) {
+    const agreements = snapshot.agreements.filter((a) => a.personId === d.personId && a.status === 'Active').length;
+    const roster = snapshot.participants.filter((p) => p.personId === d.personId && p.isActive).length;
+    const credentials = snapshot.credentials.filter((c) => c.personId === d.personId && c.isActive).length;
+    const total = agreements + roster + credentials;
+    if (total === 0) continue;
+    const name = snapshot.people.find((p) => p.personId === d.personId)?.fullName ?? d.personId;
+    const parts: string[] = [];
+    if (agreements) parts.push(`${agreements} active agreement${agreements > 1 ? 's' : ''}`);
+    if (roster) parts.push(`${roster} active roster membership${roster > 1 ? 's' : ''}`);
+    if (credentials) parts.push(`${credentials} active credential${credentials > 1 ? 's' : ''}`);
+    signals.push(
+      make({
+        key: `DepartureIncomplete:${d.personId}`,
+        kind: 'DepartureIncomplete',
+        headline: `${name} is leaving — ${total} item${total > 1 ? 's' : ''} still open to offboard`,
+        reasons: [`Still open: ${parts.join(', ')}`, 'Close each from its record, then complete the departure'],
+        impact: 2,
+        urgency: 1,
+        inMotion: false,
+        actions: [{ kind: 'ViewPerson', personId: d.personId }],
+      }),
+    );
+  }
+
   // Deterministic order: live urgency first, in-motion last, then score, then key.
   return signals.sort((x, y) => {
     if (x.inMotion !== y.inMotion) return x.inMotion ? 1 : -1;
@@ -642,6 +674,7 @@ export const SITUATION_CHECKS: readonly string[] = [
   'Expense claims awaiting a decision for 3+ days',
   'Delegation active (review authority granted to a member — visible for its whole life)',
   'Rejected requests not yet revised (the fix-and-resend queue, 14-day window)',
+  'Departures in progress with agreements, roster spots, or credentials still open',
 ];
 
 /**
@@ -665,4 +698,5 @@ export const SITUATION_CHECK_KINDS: readonly SignalKind[] = [
   'ClaimsAwaitingReview',
   'DelegationActive',
   'RejectedAwaitingRevision',
+  'DepartureIncomplete',
 ];

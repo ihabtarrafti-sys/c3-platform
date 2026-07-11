@@ -295,6 +295,15 @@ function CalendarIcon({ className }: { className?: string }) {
   );
 }
 
+function DepartureIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+      <path d="M11 3.5H5.5A1.5 1.5 0 004 5v10a1.5 1.5 0 001.5 1.5H11" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M9 10h8M14 7l3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 function SubscriptionsIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
@@ -585,6 +594,9 @@ export function AppShell() {
               icon={<IntakeIcon className={s.navIcon} />}
               onNavigate={() => setNavOpen(false)}
             />
+          )}
+          {me?.capabilities.canViewSituation && (
+            <NavItem to="/departures" label="Departures" icon={<DepartureIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           )}
           {me?.capabilities.canManageEntities && (
             <NavItem

@@ -131,6 +131,13 @@ import {
   subscriptionsListSchema,
   subscriptionResponseSchema,
   subscriptionIdParamSchema,
+  departuresListSchema,
+  departureResponseSchema,
+  completeDepartureResponseSchema,
+  departureIdParamSchema,
+  initiateDepartureInputSchema,
+  completeDepartureInputSchema,
+  cancelDepartureInputSchema,
   createIntakeLinkInputSchema,
   createIntakeLinkResponseSchema,
   intakeLinksListSchema,
@@ -219,6 +226,10 @@ import {
   updateSubscription,
   cancelSubscription,
   reactivateSubscription,
+  listDepartures,
+  initiateDeparture,
+  completeDeparture,
+  cancelDeparture,
   listComments,
   postComment,
   createIntakeLink,
@@ -359,7 +370,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1841,6 +1852,44 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { subscriptionId } = req.params as { subscriptionId: string };
       const { expectedVersion } = req.body as { expectedVersion: number };
       return { subscription: toSubscriptionDto(await reactivateSubscription(P, actorOf(req), subscriptionId, expectedVersion)) };
+    },
+  );
+
+  // ── departure workflow (Track B): offboarding (owner/ops operational) ───────
+  r.get('/api/v1/departures', { schema: { response: { 200: departuresListSchema } } }, async (req) => {
+    const rows = await listDepartures(P, actorOf(req));
+    return { departures: rows.map((d) => ({ departure: toDepartureDto(d.departure), personName: d.personName, openItems: d.openItems.map((i) => ({ ...i })) })) };
+  });
+
+  r.post('/api/v1/departures', { schema: { body: initiateDepartureInputSchema, response: { 201: departureResponseSchema } } }, async (req, reply) => {
+    const departure = await initiateDeparture(P, actorOf(req), req.body as import('@c3web/domain').InitiateDepartureInput);
+    return reply.status(201).send({ departure: toDepartureDto(departure) });
+  });
+
+  r.post(
+    '/api/v1/departures/:departureId/complete',
+    { schema: { params: departureIdParamSchema, body: completeDepartureInputSchema, response: { 200: completeDepartureResponseSchema } } },
+    async (req) => {
+      const { departureId } = req.params as { departureId: string };
+      const result = await completeDeparture(P, actorOf(req), departureId, req.body as import('@c3web/domain').CompleteDepartureInput);
+      // The capstone hands the person to the GOVERNED DeactivatePerson pipeline
+      // when asked — an approval an owner executes, never a silent flip.
+      let deactivationApprovalId: string | null = null;
+      if (result.deactivateRequested) {
+        const approval = await submitDeactivatePerson(P, actorOf(req), { input: { personId: result.personId, reason: `Offboarding — departure ${departureId}` } });
+        deactivationApprovalId = approval.approvalId;
+      }
+      return { departure: toDepartureDto(result.departure), deactivationApprovalId };
+    },
+  );
+
+  r.post(
+    '/api/v1/departures/:departureId/cancel',
+    { schema: { params: departureIdParamSchema, body: cancelDepartureInputSchema, response: { 200: departureResponseSchema } } },
+    async (req) => {
+      const { departureId } = req.params as { departureId: string };
+      const { expectedVersion, note } = req.body as { expectedVersion: number; note?: string | null };
+      return { departure: toDepartureDto(await cancelDeparture(P, actorOf(req), departureId, expectedVersion, note ?? null)) };
     },
   );
 

@@ -147,6 +147,10 @@ export const AUDIT_ACTIONS = [
   'SubscriptionUpdated',
   'SubscriptionCancelled',
   'SubscriptionReactivated',
+  // Track B: departure workflow — the offboarding record's lifecycle.
+  'DepartureInitiated',
+  'DepartureCompleted',
+  'DepartureCancelled',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

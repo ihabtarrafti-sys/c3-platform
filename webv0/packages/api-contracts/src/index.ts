@@ -62,6 +62,10 @@ import {
   SUBSCRIPTION_STATUSES,
   subscriptionCreateInputSchema,
   subscriptionUpdateInputSchema,
+  DEPARTURE_STATUSES,
+  DEPARTURE_ITEM_KINDS,
+  initiateDepartureInputSchema,
+  completeDepartureInputSchema,
   INTAKE_KINDS,
   INTAKE_LINK_STATUSES,
   INTAKE_SUBMISSION_STATUSES,
@@ -844,6 +848,31 @@ export const subscriptionsListSchema = z.object({ subscriptions: z.array(subscri
 export const subscriptionResponseSchema = z.object({ subscription: subscriptionSchema });
 export const subscriptionIdParamSchema = z.object({ subscriptionId: z.string().regex(/^SUB-\d{4,}$/) });
 
+// ── departure workflow (Track B): offboarding ────────────────────────────────
+export { initiateDepartureInputSchema, completeDepartureInputSchema };
+export const departureSchema = z.object({
+  departureId: z.string(),
+  personId: z.string(),
+  reason: z.string(),
+  status: z.enum(DEPARTURE_STATUSES),
+  initiatedBy: z.string(),
+  initiatedOn: z.string(),
+  completedOn: z.string().nullable(),
+  notes: z.string().nullable(),
+  version: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type DepartureDto = z.infer<typeof departureSchema>;
+export const departureOpenItemSchema = z.object({ kind: z.enum(DEPARTURE_ITEM_KINDS), id: z.string(), label: z.string(), route: z.string() });
+export const departureWithReadinessSchema = z.object({ departure: departureSchema, personName: z.string(), openItems: z.array(departureOpenItemSchema) });
+export type DepartureWithReadinessDto = z.infer<typeof departureWithReadinessSchema>;
+export const departuresListSchema = z.object({ departures: z.array(departureWithReadinessSchema) });
+export const departureResponseSchema = z.object({ departure: departureSchema });
+export const completeDepartureResponseSchema = z.object({ departure: departureSchema, deactivationApprovalId: z.string().nullable() });
+export const departureIdParamSchema = z.object({ departureId: z.string().regex(/^DEP-\d{4,}$/) });
+export const cancelDepartureInputSchema = z.object({ expectedVersion: z.number().int().min(0), note: z.string().trim().max(2000).nullish() }).strict();
+
 // ── guest intake (Track B6): tokenized sandbox submissions ───────────────────
 export { createIntakeLinkInputSchema, onboardingIntakePayloadSchema };
 /** Upload metadata EXPOSED to staff — the internal storageKey is never sent. */
@@ -1271,7 +1300,7 @@ export const suggestedActionSchema = z.object({
 });
 export const signalSchema = z.object({
   key: z.string(),
-  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview', 'DelegationActive', 'RejectedAwaitingRevision']),
+  kind: z.enum(['MissionReadiness', 'CredentialExpiry', 'AgreementWindow', 'ApprovalStale', 'ExecutionFailedRecovery', 'OwnerWedge', 'JourneyStalled', 'IncomeNotInvoiced', 'PaymentOutstanding', 'TeamUnstaffed', 'PayoutsOutstanding', 'ClaimsAwaitingReview', 'DelegationActive', 'RejectedAwaitingRevision', 'DepartureIncomplete']),
   headline: z.string(),
   reasons: z.array(z.string()),
   impact: z.number().int(),

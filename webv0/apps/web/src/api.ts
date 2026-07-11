@@ -48,6 +48,8 @@ import type {
   ActivityItemDto,
   CalendarItemDto,
   SubscriptionDto,
+  DepartureDto,
+  DepartureWithReadinessDto,
   CommentDto,
   IntakeLinkDto,
   IntakeSubmissionDto,
@@ -427,6 +429,13 @@ export function createApiClient(deps: ApiClientDeps) {
     // Track B: ops calendar / timeline (forward horizon).
     calendar: (horizon = 90) =>
       request<{ items: CalendarItemDto[]; horizonDays: number; todayIso: string }>('GET', `/api/v1/calendar?horizon=${horizon}`),
+    // Track B: departure workflow (offboarding).
+    listDepartures: () => request<{ departures: DepartureWithReadinessDto[] }>('GET', '/api/v1/departures'),
+    initiateDeparture: (personId: string, reason: string) => request<{ departure: DepartureDto }>('POST', '/api/v1/departures', { personId, reason }),
+    completeDeparture: (id: string, expectedVersion: number, deactivatePerson: boolean, note?: string | null) =>
+      request<{ departure: DepartureDto; deactivationApprovalId: string | null }>('POST', `/api/v1/departures/${id}/complete`, { expectedVersion, deactivatePerson, note: note ?? null }),
+    cancelDeparture: (id: string, expectedVersion: number, note?: string | null) =>
+      request<{ departure: DepartureDto }>('POST', `/api/v1/departures/${id}/cancel`, { expectedVersion, note: note ?? null }),
     // Track B: recurring subscriptions (org costs).
     listSubscriptions: () => request<{ subscriptions: SubscriptionDto[] }>('GET', '/api/v1/subscriptions'),
     createSubscription: (input: Record<string, unknown>) => request<{ subscription: SubscriptionDto }>('POST', '/api/v1/subscriptions', input),

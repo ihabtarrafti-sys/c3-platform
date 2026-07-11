@@ -4,9 +4,9 @@
  */
 import { delegationState } from '@c3web/domain';
 import type { PayloadDisclosure } from '@c3web/authz';
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Subscription, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Subscription, Departure, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, SubscriptionDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, SubscriptionDto, DepartureDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -356,6 +356,22 @@ export function toSubscriptionDto(s: Subscription): SubscriptionDto {
     version: s.version,
     createdAt: s.createdAt,
     updatedAt: s.updatedAt,
+  };
+}
+
+export function toDepartureDto(d: Departure): DepartureDto {
+  return {
+    departureId: d.departureId,
+    personId: d.personId,
+    reason: d.reason,
+    status: d.status,
+    initiatedBy: d.initiatedBy,
+    initiatedOn: d.initiatedOn,
+    completedOn: d.completedOn,
+    notes: d.notes,
+    version: d.version,
+    createdAt: d.createdAt,
+    updatedAt: d.updatedAt,
   };
 }
 

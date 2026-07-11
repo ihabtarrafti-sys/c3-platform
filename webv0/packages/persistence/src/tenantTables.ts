@@ -146,6 +146,15 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
                   FROM subscription WHERE tenant_id = $1 ORDER BY subscription_id`,
     exitRank: 3,
   },
+  // Track B (0042): departures — child of person (composite FK), exits first.
+  {
+    name: 'departure',
+    exportSql: `SELECT id, tenant_id, departure_id, person_id, reason, status, initiated_by,
+                       initiated_on::text AS initiated_on, completed_on::text AS completed_on,
+                       notes, version, created_at, updated_at
+                  FROM departure WHERE tenant_id = $1 ORDER BY departure_id`,
+    exitRank: 2,
+  },
   {
     name: 'delegation',
     exportSql: `SELECT id, tenant_id, delegation_id, grantee_identity, granted_by,
