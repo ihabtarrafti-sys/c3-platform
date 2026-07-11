@@ -22,6 +22,7 @@ import { GuestIntakePage } from './pages/GuestIntakePage';
 import { CalendarPage } from './pages/CalendarPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
 import { DeparturesPage } from './pages/DeparturesPage';
+import { OnePagerPage } from './pages/OnePagerPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
@@ -64,6 +65,7 @@ export const router = createBrowserRouter([
       { path: 'situation', element: <SituationRoomPage /> },
       { path: 'people', element: <PeoplePage /> },
       { path: 'people/:personId', element: <PersonProfilePage /> },
+      { path: 'people/:personId/one-pager', element: <OnePagerPage /> },
       { path: 'credentials', element: <CredentialsPage /> },
       { path: 'journeys', element: <JourneysPage /> },
       { path: 'kit', element: <KitPage /> },

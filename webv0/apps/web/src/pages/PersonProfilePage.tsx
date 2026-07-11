@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { makeStyles } from '@fluentui/react-components';
+import { Button, makeStyles } from '@fluentui/react-components';
 import { agreementRenewalStateOn, credentialStatusOn } from '@c3web/domain';
 import {
   usePerson,
@@ -83,6 +83,11 @@ export function PersonProfilePage() {
         title={name}
         titleTestId="person-title"
         breadcrumbs={<Breadcrumbs crumbs={[{ label: 'People', to: '/people' }, { label: name }]} />}
+        actions={
+          <Link to={`/people/${personId}/one-pager`} data-testid="person-onepager">
+            <Button appearance="secondary" size="small">One-pager</Button>
+          </Link>
+        }
       />
       {isLoading && <LoadingState label="Loading person…" />}
       {data && (
