@@ -79,6 +79,12 @@ export function MissionDetailPage() {
   const [addPersonId, setAddPersonId] = useState('');
   const [addPersonLabel, setAddPersonLabel] = useState('');
   const [addRole, setAddRole] = useState('');
+  // Bulk roster actions (Track B): multi-add + roster-wide per-diem.
+  const [bulkPersonIds, setBulkPersonIds] = useState<string[]>([]);
+  const [bulkRole, setBulkRole] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [rosterPd, setRosterPd] = useState<{ amount: string; currency: string }>({ amount: '', currency: 'USD' });
+  const [rosterBusy, setRosterBusy] = useState(false);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['mission', missionId] });
@@ -132,6 +138,58 @@ export function MissionDetailPage() {
       notify('error', err instanceof ApiError ? err.message : 'The action failed.');
       throw err instanceof Error ? err : new Error('failed');
     }
+  }
+
+  // Bulk roster: fire N governed AddMissionParticipant requests (one approval
+  // each — membership stays a per-person governed decision) and report once.
+  async function bulkAdd(): Promise<void> {
+    if (!m || bulkPersonIds.length === 0 || !bulkRole.trim()) return;
+    setBulkBusy(true);
+    let ok = 0;
+    const fails: string[] = [];
+    for (const personId of bulkPersonIds) {
+      try {
+        await api.submitAddMissionParticipant({ missionId: m.missionId, personId, role: bulkRole.trim() });
+        ok += 1;
+      } catch {
+        fails.push(personId);
+      }
+    }
+    setBulkBusy(false);
+    if (ok > 0) notify('success', `Submitted ${ok} add request${ok > 1 ? 's' : ''} for approval — the roster is unchanged until an owner executes each.`);
+    if (fails.length) notify('error', `${fails.length} could not be submitted (${fails.join(', ')}) — already on the roster, or a request is pending.`);
+    setBulkPersonIds([]);
+    setBulkRole('');
+    invalidate();
+    void qc.invalidateQueries({ queryKey: ['missionParticipants', missionId] });
+    void qc.invalidateQueries({ queryKey: ['approvals'] });
+  }
+
+  // Roster-wide per-diem: set the same daily rate on every ACTIVE participant
+  // (direct-audited, version-guarded per person — the existing setter).
+  async function applyRosterPerDiem(): Promise<void> {
+    if (!m) return;
+    const minor = parseDecimalToMinor(rosterPd.amount);
+    if (minor === null) return notify('error', 'Enter a valid per-diem amount (up to 2 decimals).');
+    const active = (participants.data?.participants ?? []).filter((p) => p.isActive);
+    if (active.length === 0) return notify('error', 'No active participants to apply to.');
+    setRosterBusy(true);
+    let ok = 0;
+    const fails: string[] = [];
+    for (const p of active) {
+      try {
+        await api.setParticipantPerDiem(m.missionId, p.personId, minor, rosterPd.currency, p.version);
+        ok += 1;
+      } catch {
+        fails.push(p.personId);
+      }
+    }
+    setRosterBusy(false);
+    if (ok > 0) notify('success', `Set per-diem on ${ok} participant${ok > 1 ? 's' : ''}.`);
+    if (fails.length) notify('error', `${fails.length} could not be set (changed since load — reload and retry).`);
+    setRosterPd({ amount: '', currency: rosterPd.currency });
+    invalidate();
+    void qc.invalidateQueries({ queryKey: ['missionParticipants', missionId] });
   }
 
   const shellActions =
@@ -357,6 +415,55 @@ export function MissionDetailPage() {
                     }
                   />
                 </div>
+              </div>
+            )}
+            {canSubmit && m.isActive && (
+              <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-hairline)' }}>
+                <Field label="Bulk add — pick several people, one role">
+                  <Dropdown
+                    multiselect
+                    placeholder="Select people…"
+                    value={bulkPersonIds.length ? `${bulkPersonIds.length} selected` : ''}
+                    selectedOptions={bulkPersonIds}
+                    onOptionSelect={(_, d) => setBulkPersonIds(d.selectedOptions)}
+                    data-testid="bulk-add-people"
+                  >
+                    {(people.data?.people ?? [])
+                      .filter((p) => !roster.some((rp) => rp.isActive && rp.personId === p.personId))
+                      .map((p) => (
+                        <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>{`${p.fullName} (${p.personId})`}</Option>
+                      ))}
+                  </Dropdown>
+                </Field>
+                <Field label="Mission role for all">
+                  <Input value={bulkRole} onChange={(_, d) => setBulkRole(d.value)} data-testid="bulk-add-role" />
+                </Field>
+                <div>
+                  <Button appearance="primary" onClick={bulkAdd} disabled={bulkBusy || bulkPersonIds.length === 0 || !bulkRole.trim()} data-testid="bulk-add-submit">
+                    {bulkBusy ? 'Submitting…' : `Submit ${bulkPersonIds.length || ''} for approval`}
+                  </Button>
+                  <span className={s.rosterIntro} style={{ marginLeft: '10px' }}>One approval per person — membership stays a governed decision.</span>
+                </div>
+              </div>
+            )}
+            {canManage && canViewPerDiem && m.isActive && (participants.data?.participants ?? []).some((p) => p.isActive) && (
+              <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px' }}>
+                <Field label="Roster-wide per-diem — apply one daily rate to every active participant">
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                    <Input value={rosterPd.amount} onChange={(_, d) => setRosterPd((c) => ({ ...c, amount: d.value }))} placeholder="100.00" data-testid="roster-perdiem-amount" style={{ maxWidth: '120px' }} />
+                    <Dropdown value={rosterPd.currency} selectedOptions={[rosterPd.currency]} onOptionSelect={(_, d) => setRosterPd((c) => ({ ...c, currency: d.optionValue ?? 'USD' }))} data-testid="roster-perdiem-currency" style={{ maxWidth: '90px' }}>
+                      {CURRENCY_CODES.map((c) => <Option key={c} value={c}>{c}</Option>)}
+                    </Dropdown>
+                    {perDiemPresets.map((p) => (
+                      <Button key={`${p.amountMinor}-${p.currency}`} size="small" appearance="subtle" onClick={() => setRosterPd({ amount: (p.amountMinor / 100).toFixed(2), currency: p.currency })}>
+                        {(p.amountMinor / 100).toFixed(0)} {p.currency}
+                      </Button>
+                    ))}
+                    <Button appearance="secondary" onClick={applyRosterPerDiem} disabled={rosterBusy} data-testid="roster-perdiem-apply">
+                      {rosterBusy ? 'Applying…' : 'Apply to all active'}
+                    </Button>
+                  </div>
+                </Field>
               </div>
             )}
             {roster.length === 0 && <p data-testid="participants-empty">No participants yet.</p>}
