@@ -107,6 +107,9 @@ export class FakePersistence implements Persistence {
       lockApproval: async (approvalId) => s.approvals.find((a) => a.approvalId === approvalId) ?? null,
       // Tier 0.5: no delegations in the fake — the role half of the gate decides.
       hasActiveDelegation: async () => false,
+      // HARDEN-1 H-05: the fake has no finance rows to lock.
+      listMissionLinesTxLocked: async () => [],
+      lockDistribution: async () => null,
       updateApprovalStatus: async (approvalId, expectedVersion, patch): Promise<Approval | null> => {
         const idx = s.approvals.findIndex((a) => a.approvalId === approvalId);
         if (idx < 0) return null;

@@ -216,15 +216,17 @@ export async function getTeamFinance(p: Persistence, actor: Actor, teamId: strin
   const team = await reads.getTeamById(teamId);
   if (!team) throw new NotFoundError('Team', teamId);
 
-  const [missions, allLines, allBudgets, rates] = await Promise.all([
+  const [missions, allLines, allBudgets, allParticipants, rates] = await Promise.all([
     reads.listMissions(),
     reads.listAllMissionLines(),
     reads.listAllMissionBudgets(),
+    reads.listAllMissionParticipants(),
     reads.listFxRates(),
   ]);
 
-  // Same read shape as the finance dashboard: lines-only blending (per-diem
-  // roll-in lives on each mission's own page; the summary is honest + cheap).
+  // HARDEN-1 H-06 (the honesty law): the team report calls itself P&L + ROI,
+  // so it carries the SAME truth as each mission's page — per-diem expense
+  // rolled in from the real participant rates, never silently understated.
   const rows = missions
     .filter((m) => m.teamId === teamId)
     .map((m) => {
@@ -233,7 +235,9 @@ export async function getTeamFinance(p: Persistence, actor: Actor, teamId: strin
         endsOn: m.endsOn,
         lines: allLines.filter((l) => l.missionId === m.missionId),
         budgets: allBudgets.filter((b) => b.missionId === m.missionId),
-        participants: [],
+        participants: allParticipants.filter(
+          (pt) => pt.missionId === m.missionId,
+        ) as unknown as Parameters<typeof computeMissionPnl>[0]['participants'],
         rates,
       });
       return {

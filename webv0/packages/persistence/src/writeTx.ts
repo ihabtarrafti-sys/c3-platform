@@ -290,6 +290,17 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapCredential(rows[0]) : null;
     },
 
+    // ── HARDEN-1 H-05: in-tx locked reads for the finance lock-order ──────────
+    async listMissionLinesTxLocked(missionId: string): Promise<MissionLine[]> {
+      const res = await db.execute(sql`SELECT * FROM mission_line WHERE mission_id = ${missionId} FOR UPDATE`);
+      return (res.rows as Array<Record<string, unknown>>).map(mapMissionLine);
+    },
+
+    async lockDistribution(distributionId: string): Promise<Distribution | null> {
+      const res = await db.execute(sql`SELECT * FROM distribution WHERE distribution_id = ${distributionId} FOR UPDATE`);
+      return res.rows[0] ? mapDistribution(res.rows[0]) : null;
+    },
+
     async insertBeneficiary(row: NewBeneficiaryRow): Promise<Beneficiary> {
       const [r] = await db
         .insert(schema.beneficiary)

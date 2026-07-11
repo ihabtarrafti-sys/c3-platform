@@ -96,7 +96,7 @@ export interface ReadStore {
   // S5: the whole tenant audit stream (the audit-trail export).
   listAllAuditEvents(): Promise<AuditEvent[]>;
   // Sprint 43: the Situation Room snapshot (bulk, slim, one pass).
-  listAllMissionParticipants(): Promise<Array<{ missionId: string; personId: string; role: string; isActive: boolean }>>;
+  listAllMissionParticipants(): Promise<Array<{ missionId: string; personId: string; personName: string; role: string; isActive: boolean; perDiemAmountMinor: number | null; perDiemCurrency: string | null }>>;
   // S6: invoices (newest first). Gating is the use-case's job (finance read).
   listInvoices(): Promise<Invoice[]>;
   getInvoiceById(invoiceId: string): Promise<Invoice | null>;
@@ -555,6 +555,10 @@ export interface WriteTx {
   lockCredential(credentialId: string): Promise<Credential | null>;
   /** Sparse facts/details patch with version guard — null clears, undefined leaves untouched. */
   updateCredentialFields(credentialId: string, expectedVersion: number, patch: CredentialFieldsPatch): Promise<Credential | null>;
+  /** HARDEN-1 H-05: settlement checks read+LOCK the lines INSIDE the tx. */
+  listMissionLinesTxLocked(missionId: string): Promise<MissionLine[]>;
+  /** HARDEN-1 H-05: revoke/payout serialize on the distribution head. */
+  lockDistribution(distributionId: string): Promise<Distribution | null>;
   insertBeneficiary(row: NewBeneficiaryRow): Promise<Beneficiary>;
   lockBeneficiary(beneficiaryId: string): Promise<Beneficiary | null>;
   updateBeneficiaryFields(beneficiaryId: string, expectedVersion: number, patch: BeneficiaryFieldsPatch): Promise<Beneficiary | null>;

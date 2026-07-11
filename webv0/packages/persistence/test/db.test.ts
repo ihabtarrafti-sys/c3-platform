@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -111,6 +111,109 @@ describe('migrations & schema', () => {
       }
     } finally {
       await client.end();
+    }
+  });
+
+  it('HARDEN-1 H-04: concurrent owner demotions cannot leave a tenant ownerless (two real connections)', async () => {
+    // A fresh tenant with TWO active owners.
+    await db.truncateAll();
+    const t = await db.seedTenant({
+      slug: 'race',
+      users: [
+        { key: 'o1', email: 'o1@race.com', displayName: 'Owner One', role: 'owner' },
+        { key: 'o2', email: 'o2@race.com', displayName: 'Owner Two', role: 'owner' },
+      ],
+    });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const ids = await admin.query(
+        `SELECT u.id, u.email FROM app_user u JOIN tenant_membership m ON m.user_id = u.id WHERE m.tenant_id = $1 ORDER BY u.email`,
+        [t.tenantId],
+      );
+      const [o1, o2] = ids.rows as Array<{ id: string; email: string }>;
+
+      // Two REAL app connections, each demoting the OTHER owner concurrently.
+      // Before H-04 both last-owner checks could pass (check-then-write); the
+      // 0034 advisory lock serializes them so exactly one is refused.
+      const c1 = new Client({ connectionString: db.appUrl });
+      const c2 = new Client({ connectionString: db.appUrl });
+      await c1.connect();
+      await c2.connect();
+      try {
+        await c1.query('BEGIN');
+        await c1.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+        await c2.query('BEGIN');
+        await c2.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+
+        const settled = await Promise.allSettled([
+          c1.query(`SELECT member_set_role($1::uuid, 'operations', $2)`, [o2!.id, o1!.email]).then(() => c1.query('COMMIT')),
+          c2.query(`SELECT member_set_role($1::uuid, 'operations', $2)`, [o1!.id, o2!.email]).then(() => c2.query('COMMIT')),
+        ]);
+        const failures = settled.filter((s) => s.status === 'rejected');
+        expect(failures.length, 'exactly one demotion must be refused').toBe(1);
+        expect(String((failures[0] as PromiseRejectedResult).reason)).toMatch(/LAST_OWNER_PROTECTED/);
+        await c1.query('ROLLBACK').catch(() => {});
+        await c2.query('ROLLBACK').catch(() => {});
+
+        const owners = await admin.query(
+          `SELECT count(*)::int AS n FROM role_assignment ra JOIN app_user u ON u.id = ra.user_id
+            WHERE ra.tenant_id = $1 AND ra.role = 'owner' AND u.is_active`,
+          [t.tenantId],
+        );
+        expect(owners.rows[0].n, 'the tenant must never be ownerless').toBeGreaterThanOrEqual(1);
+      } finally {
+        await c1.end().catch(() => {});
+        await c2.end().catch(() => {});
+      }
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('HARDEN-1 H-05: the database refuses Paid-under-revoked and line edits under a LIVE distribution', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'h5' });
+    const c = new Client({ connectionString: db.appUrl });
+    await c.connect();
+    try {
+      const q = async (text: string, params: unknown[] = []) => c.query(text, params);
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await q(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1, 'MSN-9001', 'H5', '2026-06-01')`, [t.tenantId]);
+      await q(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+         VALUES ($1, 'PNL-9001', 'MSN-9001', 'Income', 'PrizeMoney', 'Prize', 100000, 'USD', 'Received')`,
+        [t.tenantId],
+      );
+      await q(
+        `INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by)
+         VALUES ($1, 'DIST-9001', 'MSN-9001', 'PNL-9001', 100000, 'USD', 0, 0, 'Live', 'owner@h5.com')`,
+        [t.tenantId],
+      );
+      await q(
+        `INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor)
+         VALUES ($1, 'DIST-9001', 'PER-9001', 10000, 100000)`,
+        [t.tenantId],
+      );
+      await q('COMMIT');
+
+      // H-05b: the line's money truth is FROZEN while the head is Live.
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await expect(q(`UPDATE mission_line SET amount_minor = 999999 WHERE line_id = 'PNL-9001'`)).rejects.toThrow(/LIVE distribution/);
+      await q('ROLLBACK');
+
+      // revoke the head, then H-05a: a payout cannot flip to Paid under it.
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await q(`UPDATE distribution SET status = 'Revoked', revoked_reason = 'test' WHERE distribution_id = 'DIST-9001'`);
+      await expect(
+        q(`UPDATE distribution_share SET payout_status = 'Paid' WHERE distribution_id = 'DIST-9001' AND person_id = 'PER-9001'`),
+      ).rejects.toThrow(/LIVE distribution/);
+      await q('ROLLBACK');
+    } finally {
+      await c.end();
     }
   });
 

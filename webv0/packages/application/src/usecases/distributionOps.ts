@@ -105,7 +105,11 @@ export async function createDistribution(p: Persistence, actor: Actor, input: Cr
     if (!mission) throw new NotFoundError('Mission', parsed.missionId);
     if (!mission.isActive) throw new ConflictError('This mission is retired — its money is frozen.', { missionId: parsed.missionId });
 
-    const line = await tx.getMissionLine(parsed.lineId);
+    // HARDEN-1 H-05: LOCK the source line before snapshotting the pool — a
+    // concurrent receipt edit can no longer slip between the read and the
+    // insert (and the 0034 trigger freezes the line while the head is Live).
+    const lockedLines = await tx.listMissionLinesTxLocked(parsed.missionId);
+    const line = lockedLines.find((l) => l.lineId === parsed.lineId && l.isActive);
     if (!line || line.missionId !== parsed.missionId) throw new NotFoundError('Mission line', parsed.lineId);
     if (line.direction !== 'Income') throw new ValidationError('Distributions allocate INCOME — expenses are paid, not split.', { lineId: parsed.lineId });
     if (line.paymentStatus !== 'Received') {
@@ -169,7 +173,10 @@ export async function revokeDistribution(p: Persistence, actor: Actor, distribut
   if (trimmed === '') throw new ValidationError('A revoke reason is required.', { distributionId });
 
   return p.writes.transaction(actor, async (tx) => {
-    const current = await tx.getDistribution(distributionId);
+    // HARDEN-1 H-05: revoke and payout serialize on the SAME head lock —
+    // the revoke-vs-pay race (Revoked head with a Paid share) is closed here
+    // and made unrepresentable by the 0034 trigger.
+    const current = await tx.lockDistribution(distributionId);
     if (!current) throw new NotFoundError('Distribution', distributionId);
     const shares = await tx.listDistributionSharesTx(distributionId);
     if (shares.some((s) => s.payoutStatus === 'Paid')) {
@@ -206,7 +213,9 @@ export async function markPayout(
   }
 
   return p.writes.transaction(actor, async (tx) => {
-    const head = await tx.getDistribution(distributionId);
+    // HARDEN-1 H-05: the payout flip holds the head lock, so a concurrent
+    // revoke waits behind it (and vice versa).
+    const head = await tx.lockDistribution(distributionId);
     if (!head) throw new NotFoundError('Distribution', distributionId);
     if (head.status !== 'Live') throw new ConflictError('This distribution was revoked — its payouts are frozen.', { distributionId });
     const current = await tx.getDistributionShare(distributionId, personId);

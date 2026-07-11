@@ -157,4 +157,32 @@ describe('teams over HTTP (S7)', () => {
     await post(tokens.visitor, '/api/v1/teams', { name: 'X', code: 'XX', kind: 'Department' }, 403);
     expect((await app.inject({ method: 'GET', url: `/api/v1/teams/${r6.teamId}/finance`, headers: auth(tokens.visitor) })).statusCode).toBe(403);
   });
+
+  it('HARDEN-1 H-06: per-diem expense rolls into TEAM finance and the org dashboard (the honesty law)', async () => {
+    // person via the pipeline
+    const pa = (await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'Per Diem Player' } }, 201)).approval;
+    const pex = await governedExecute(pa.approvalId, pa.version);
+    const personId = pex.person.personId as string;
+
+    // team-tagged 5-day mission (inclusive) with income 1,000.00 USD
+    const team = (await post(tokens.ops, '/api/v1/teams', { name: 'Honesty FC', code: 'HON', kind: 'GameDivision' })).team;
+    const m = (await post(tokens.ops, '/api/v1/missions', { name: 'Per Diem Cup', startsOn: '2026-06-01', endsOn: '2026-06-05', teamId: team.teamId })).mission;
+    await post(tokens.ops, `/api/v1/missions/${m.missionId}/lines`, { direction: 'Income', category: 'PrizeMoney', label: 'Prize', amountMinor: 100_000, currency: 'USD' });
+
+    // participant (governed) + per-diem 100.00 USD/day (direct)
+    const sub = (
+      await post(tokens.ops, '/api/v1/missions/participants/requests', { input: { missionId: m.missionId, personId, role: 'Player' } }, 201)
+    ).approval;
+    await governedExecute(sub.approvalId, sub.version);
+    await post(tokens.ops, `/api/v1/missions/${m.missionId}/participants/${personId}/per-diem`, { perDiemAmountMinor: 10_000, perDiemCurrency: 'USD' }, 200);
+
+    // TEAM finance carries the per-diem: expense = 5 days × 100.00 = 500.00
+    const fin = (await get(tokens.owner, `/api/v1/teams/${team.teamId}/finance`)).finance;
+    expect(fin.totals).toEqual({ incomeUsdMinor: 100_000, expenseUsdMinor: 50_000, profitUsdMinor: 50_000 });
+
+    // the org dashboard row blends the SAME truth
+    const summary = (await get(tokens.owner, '/api/v1/missions/finance-summary')).missions;
+    const row = summary.find((x: { missionId: string }) => x.missionId === m.missionId);
+    expect(row.blended).toMatchObject({ incomeUsdMinor: 100_000, expenseUsdMinor: 50_000, profitUsdMinor: 50_000 });
+  });
 });

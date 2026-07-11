@@ -559,12 +559,26 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return rows.map(mapApproval);
           }),
 
-        // Sprint 43: the Situation Room bulk participant read (slim; the
-        // engine needs ids/roles only, no person-name join).
+        // HARDEN-1 H-06: the bulk read carries per-diem + the joined person
+        // name so org/team P&L can roll REAL per-diem expense in — the slim
+        // Sprint-43 projection was why summaries silently understated expense.
         listAllMissionParticipants: () =>
           withTenantTx(pool, actor, 'read', async (db) => {
-            const rows = await db.select().from(schema.missionParticipant);
-            return rows.map((r) => ({ missionId: r.missionId, personId: r.personId, role: r.role, isActive: r.isActive }));
+            const res = await db.execute(sql`
+              SELECT mp.mission_id, mp.person_id, p.full_name AS person_name, mp.role, mp.is_active,
+                     mp.per_diem_amount_minor, mp.per_diem_currency
+                FROM mission_participant mp
+                JOIN person p ON p.tenant_id = mp.tenant_id AND p.person_id = mp.person_id
+            `);
+            return (res.rows as Array<Record<string, unknown>>).map((r) => ({
+              missionId: String(r.mission_id),
+              personId: String(r.person_id),
+              personName: String(r.person_name),
+              role: String(r.role),
+              isActive: Boolean(r.is_active),
+              perDiemAmountMinor: r.per_diem_amount_minor === null ? null : Number(r.per_diem_amount_minor),
+              perDiemCurrency: (r.per_diem_currency as string | null) ?? null,
+            }));
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped

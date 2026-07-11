@@ -101,17 +101,16 @@ export async function getMissionsFinanceSummary(p: Persistence, actor: Actor): P
     reads.listFxRates(),
   ]);
 
-  // The bulk participant read is slim (no per-diem); per-diem roll-in on the
-  // DASHBOARD would need a joined bulk read — deliberately kept out of the
-  // summary (each mission's own P&L page carries the full truth). Summary rows
-  // therefore blend LINES + BUDGET-less: lines only. Honest and cheap; the
-  // per-mission page is one click away.
-  void allParticipants;
-
+  // HARDEN-1 H-06 (the honesty law): the bulk read now carries per-diem and
+  // person names, so the dashboard blends the SAME truth as each mission's
+  // own P&L page — per-diem expense included, never silently understated.
   return missions.map((m) => {
     const lines = allLines.filter((l) => l.missionId === m.missionId);
     const budgets = allBudgets.filter((b) => b.missionId === m.missionId);
-    const pnl = computeMissionPnl({ startsOn: m.startsOn, endsOn: m.endsOn, lines, budgets, participants: [], rates });
+    const participants = allParticipants.filter(
+      (p) => p.missionId === m.missionId,
+    ) as unknown as Parameters<typeof computeMissionPnl>[0]['participants'];
+    const pnl = computeMissionPnl({ startsOn: m.startsOn, endsOn: m.endsOn, lines, budgets, participants, rates });
     return {
       missionId: m.missionId,
       name: m.name,
@@ -128,12 +127,21 @@ export async function getMissionsFinanceSummary(p: Persistence, actor: Actor): P
   });
 }
 
-/** Shared write guard: the owning mission must exist and be ACTIVE. */
+/**
+ * Shared write guard: the owning mission must exist, be ACTIVE, and — HARDEN-1
+ * H-05 — not be SETTLED. Settled is an ABSORBING financial state: the books
+ * are closed; new money facts on a settled mission would silently reopen them.
+ */
 async function requireActiveMission(tx: { getMission(id: string): Promise<Mission | null> }, missionId: string): Promise<Mission> {
   const mission = await tx.getMission(missionId);
   if (!mission) throw new NotFoundError('Mission', missionId);
   if (!mission.isActive) {
     throw new ConflictError('P&L records may only be changed on an active mission.', { missionId });
+  }
+  if (mission.financeStage === 'Settled') {
+    throw new ConflictError('The mission is SETTLED — its books are closed. Reopen the finance stage before changing money facts.', {
+      missionId,
+    });
   }
   return mission;
 }
@@ -382,7 +390,10 @@ export async function setMissionFinanceStage(
     }
 
     if (parsed.stage === 'Settled') {
-      const lines = await p.reads.forActor(actor).listMissionLines(missionId);
+      // HARDEN-1 H-05: the settlement check reads + LOCKS the lines inside
+      // THIS transaction — a concurrent receipt flip can no longer race the
+      // check-then-flip into a Settled mission with outstanding income.
+      const lines = await tx.listMissionLinesTxLocked(missionId);
       const outstanding = lines.filter((l) => l.direction === 'Income' && l.paymentStatus !== 'Received').length;
       if (outstanding > 0) {
         throw new ConflictError(`Cannot settle: ${outstanding} income line${outstanding === 1 ? '' : 's'} not yet Received.`, {
