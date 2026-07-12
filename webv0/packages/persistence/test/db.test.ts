@@ -114,6 +114,51 @@ describe('migrations & schema', () => {
     }
   });
 
+  it('H-10: every tenant FK child exits before its parent (exit cannot roll back on a surviving FK)', async () => {
+    const client = new Client({ connectionString: db.adminUrl });
+    await client.connect();
+    try {
+      const rank = new Map(TENANT_TABLES.map((t) => [t.name, t.exitRank] as const));
+      const fks = await client.query<{ child: string; parent: string; conname: string }>(`
+        SELECT child.relname AS child, parent.relname AS parent, con.conname
+          FROM pg_constraint con
+          JOIN pg_class child  ON child.oid  = con.conrelid
+          JOIN pg_class parent ON parent.oid = con.confrelid
+         WHERE con.contype = 'f' AND child.relname <> parent.relname
+      `);
+      const offenders: string[] = [];
+      for (const fk of fks.rows) {
+        const childRank = rank.get(fk.child);
+        const parentRank = rank.get(fk.parent);
+        // Only FKs where BOTH ends are registered tenant tables — FKs to
+        // `tenant` / directory tables are the bespoke final DELETE's job.
+        if (childRank === undefined || parentRank === undefined) continue;
+        if (childRank >= parentRank) offenders.push(`${fk.child}(${childRank}) → ${fk.parent}(${parentRank}) [${fk.conname}]`);
+      }
+      expect(offenders, 'child must exit (lower rank) before its parent').toEqual([]);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('M-16: no exported column is a raw DATE — every date is cast ::text (date-as-text law)', async () => {
+    const DATE_OID = 1082; // pg_type oid for `date`
+    const client = new Client({ connectionString: db.adminUrl });
+    await client.connect();
+    try {
+      const t0 = await client.query(`SELECT id FROM tenant LIMIT 1`);
+      const anyTenant = (t0.rows[0]?.id as string) ?? '00000000-0000-0000-0000-000000000000';
+      const offenders: string[] = [];
+      for (const spec of TENANT_TABLES) {
+        const res = await client.query({ text: `SELECT * FROM (${spec.exportSql}) _probe LIMIT 0`, values: [anyTenant] });
+        for (const f of res.fields) if (f.dataTypeID === DATE_OID) offenders.push(`${spec.name}.${f.name}`);
+      }
+      expect(offenders, 'these exported columns are raw DATE — cast them ::text').toEqual([]);
+    } finally {
+      await client.end();
+    }
+  });
+
   it('HARDEN-1 H-04: concurrent owner demotions cannot leave a tenant ownerless (two real connections)', async () => {
     // A fresh tenant with TWO active owners.
     await db.truncateAll();

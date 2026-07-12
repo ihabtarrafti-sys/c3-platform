@@ -37,7 +37,20 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'audit_event', exportSql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 4 },
 
   // ── people + person-adjacent ─────────────────────────────────────────────
-  { name: 'person', exportSql: `SELECT * FROM person WHERE tenant_id = $1 ORDER BY person_id`, exitRank: 60 },
+  {
+    // M-16: date_of_birth / date_of_joining cast ::text (the date-as-text law) —
+    // SELECT * would export raw DATE, which node-pg parses at LOCAL midnight and
+    // can shift a day across timezones on round-trip.
+    name: 'person',
+    exportSql: `SELECT id, tenant_id, person_id, full_name, ign, nationality, primary_role, personnel_code,
+                       current_team, current_game_title, primary_department, entity_id, notes, first_name, last_name,
+                       date_of_birth::text AS date_of_birth, address_line1, address_line2, address_city, address_country,
+                       phone, email, date_of_joining::text AS date_of_joining, position, other_nationalities,
+                       photo_storage_key, photo_content_type, photo_sha256, photo_updated_at,
+                       is_active, created_by_approval_id, version, created_at, updated_at
+                  FROM person WHERE tenant_id = $1 ORDER BY person_id`,
+    exitRank: 60,
+  },
   {
     name: 'credential',
     exportSql: `SELECT id, tenant_id, credential_id, person_id, credential_type, kind, issuer,
@@ -98,7 +111,14 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
     exitRank: 32,
   },
   { name: 'distribution', exportSql: `SELECT * FROM distribution WHERE tenant_id = $1 ORDER BY distribution_id`, exitRank: 31 },
-  { name: 'distribution_share', exportSql: `SELECT * FROM distribution_share WHERE tenant_id = $1 ORDER BY distribution_id, person_id`, exitRank: 14 },
+  {
+    // M-16: paid_on cast ::text (date-as-text law).
+    name: 'distribution_share',
+    exportSql: `SELECT id, tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status,
+                       paid_on::text AS paid_on, payment_source_label, ref_no, version, created_at, updated_at
+                  FROM distribution_share WHERE tenant_id = $1 ORDER BY distribution_id, person_id`,
+    exitRank: 14,
+  },
   {
     name: 'claim',
     exportSql: `SELECT id, tenant_id, claim_id, submitted_by, person_id, mission_id, category, description,
@@ -114,9 +134,13 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
     // Rows only: the object BYTES live in storage. The export manifest lists
     // every storage_key so the blob bundle is enumerable; streamed object
     // export + exit-time object deletion are the HARDEN-1 follow-up.
+    // H-10: `invoice.document_id → document` makes document a PARENT of invoice
+    // (rank 32), so document must delete AFTER it — rank 50 (was 12, which
+    // deleted document first and rolled the exit back for any tenant with an
+    // invoice PDF). The FK-order catalog test guards this.
     name: 'document',
     exportSql: `SELECT * FROM document WHERE tenant_id = $1 ORDER BY document_id`,
-    exitRank: 12,
+    exitRank: 50,
   },
   {
     // S12: payment-ROUTING names only — no account numbers exist to export.
