@@ -838,6 +838,8 @@ export interface WriteTx {
   // ── Sprint 39 missions ─────────────────────────────────────────────────────
   insertMission(missionId: string, row: NewMissionRow): Promise<Mission>;
   getMission(missionId: string): Promise<Mission | null>;
+  /** H-04: read + LOCK the mission head (SELECT … FOR UPDATE) — the shared lock order for settlement and every finance-child write. */
+  getMissionForUpdate(missionId: string): Promise<Mission | null>;
   /** Version-guarded field patch; null = stale/missing (caller distinguishes). */
   updateMission(missionId: string, expectedVersion: number, patch: MissionPatch): Promise<Mission | null>;
   /** Version-guarded deactivate iff currently active; null = stale/missing/inactive. */

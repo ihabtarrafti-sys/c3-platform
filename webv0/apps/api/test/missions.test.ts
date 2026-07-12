@@ -446,4 +446,32 @@ describe('S2 mission finance over HTTP (payments, budgets, lifecycle, dashboard)
     expect(ok.statusCode, ok.body).toBe(200);
     expect(ok.json().line).toMatchObject({ paymentStatus: 'Received', receivedUsdPerUnit: null });
   });
+
+  it('M-04: settlement needs ≥1 active income line and ignores inactive lines', async () => {
+    const walkToSettle = async (missionId: string, startVersion: number) => {
+      let version = startVersion;
+      for (const stage of ['FinancePending', 'Confirmed', 'Active', 'PostMission', 'Settled']) {
+        const step = await app.inject({ method: 'POST', url: `/api/v1/missions/${missionId}/finance-stage`, headers: auth(tokens.ops), payload: { expectedVersion: version, stage } });
+        if (stage === 'Settled') return step;
+        expect(step.statusCode, step.body).toBe(200);
+        version = step.json().mission.version;
+      }
+      throw new Error('unreachable');
+    };
+
+    // (a) an EMPTY mission has nothing to settle → the settle transition is refused.
+    const empty = (await app.inject({ method: 'POST', url: '/api/v1/missions', headers: auth(tokens.ops), payload: { name: 'Empty Cup', startsOn: '2026-08-01' } })).json().mission;
+    const emptySettle = await walkToSettle(empty.missionId, empty.version);
+    expect(emptySettle.statusCode).toBe(409);
+    expect(emptySettle.body).toMatch(/no active income line/i);
+
+    // (b) one Received income line settles; a REMOVED (inactive) unreceived line does not block.
+    const m = (await app.inject({ method: 'POST', url: '/api/v1/missions', headers: auth(tokens.ops), payload: { name: 'Has Income', startsOn: '2026-08-01' } })).json().mission;
+    const good = (await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', category: 'PrizeMoney', label: 'g', amountMinor: 100, currency: 'USD' } })).json().line;
+    await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines/${good.lineId}/payment`, headers: auth(tokens.ops), payload: { expectedVersion: 0, paymentStatus: 'Received', receivedAmountMinor: 100, paymentSourceLabel: 'ESA' } });
+    const removable = (await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops), payload: { direction: 'Income', category: 'PrizeMoney', label: 'r', amountMinor: 50, currency: 'USD' } })).json().line;
+    await app.inject({ method: 'POST', url: `/api/v1/missions/${m.missionId}/lines/${removable.lineId}/remove`, headers: auth(tokens.ops), payload: { expectedVersion: 0 } });
+    const settled = await walkToSettle(m.missionId, m.version);
+    expect(settled.statusCode, settled.body).toBe(200); // the removed, unreceived line is ignored
+  });
 });

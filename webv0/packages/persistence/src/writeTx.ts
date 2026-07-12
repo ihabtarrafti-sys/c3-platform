@@ -776,6 +776,14 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       const rows = await db.select().from(schema.mission).where(eq(schema.mission.missionId, missionId)).limit(1);
       return rows[0] ? mapMission(rows[0]) : null;
     },
+    // H-04: lock the mission HEAD. Settlement and every finance-child mutation
+    // resolve the mission through here, so they share ONE lock order (mission
+    // row first) — a concurrent income-line insert can no longer race a
+    // settlement (row locks can't lock a future insert; the head lock can).
+    async getMissionForUpdate(missionId: string): Promise<Mission | null> {
+      const rows = await db.select().from(schema.mission).where(eq(schema.mission.missionId, missionId)).limit(1).for('update');
+      return rows[0] ? mapMission(rows[0]) : null;
+    },
 
     async updateMission(missionId: string, expectedVersion: number, patch: MissionPatch): Promise<Mission | null> {
       const rows = await db

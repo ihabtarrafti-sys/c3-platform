@@ -255,10 +255,27 @@ export interface MissionPnlCategoryRow {
 
 /** S2: settlement truth, derived — feeds the →Settled transition guard. */
 export interface MissionSettlement {
-  /** Income lines not yet Received. */
+  /** ACTIVE income lines not yet Received. */
   readonly outstandingIncomeCount: number;
-  /** True when there is money recorded and every income line is Received. */
+  /** True when there is at least one active income line and every one is Received. */
   readonly incomeComplete: boolean;
+}
+
+/**
+ * M-04: THE single settlement predicate, shared by the read-side P&L and the
+ * write-side settle guard so they can never disagree. Evaluated over ACTIVE
+ * income lines only (a removed line neither blocks settlement nor counts as
+ * money), and settlement requires ≥1 active income line — an empty or
+ * expense-only mission has nothing to settle. Callers pass already-active lines
+ * (the read path filters is_active upstream; the settle guard filters the
+ * FOR-UPDATE-locked set), so this function trusts is_active if present.
+ */
+export function missionSettlement(
+  lines: readonly (Pick<MissionLine, 'direction' | 'paymentStatus'> & { readonly isActive?: boolean })[],
+): MissionSettlement {
+  const activeIncome = lines.filter((l) => l.direction === 'Income' && l.isActive !== false);
+  const outstandingIncomeCount = activeIncome.filter((l) => l.paymentStatus !== 'Received').length;
+  return { outstandingIncomeCount, incomeComplete: activeIncome.length > 0 && outstandingIncomeCount === 0 };
 }
 
 export interface MissionPnl {
@@ -460,13 +477,9 @@ export function computeMissionPnl(args: {
     })
     .sort((a, b) => (a.direction === b.direction ? a.category.localeCompare(b.category) : a.direction === 'Income' ? -1 : 1));
 
-  // Settlement truth: every income line Received (and there IS money recorded).
-  const incomeLines = args.lines.filter((l) => l.direction === 'Income');
-  const outstandingIncomeCount = incomeLines.filter((l) => l.paymentStatus !== 'Received').length;
-  const settlement: MissionSettlement = {
-    outstandingIncomeCount,
-    incomeComplete: incomeLines.length > 0 && outstandingIncomeCount === 0,
-  };
+  // Settlement truth (M-04): the shared predicate — ≥1 active income line, all
+  // Received. args.lines are already active (the read path filters is_active).
+  const settlement = missionSettlement(args.lines);
 
   const missingRates = [...missing].sort((a, b) => a.localeCompare(b));
   const blended =

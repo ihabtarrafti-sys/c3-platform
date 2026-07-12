@@ -34,6 +34,7 @@ import {
   type MissionPnl,
   type SetMissionBudgetInput,
   computeMissionPnl,
+  missionSettlement,
   missionFinanceStageInputSchema,
   missionLineCreateInputSchema,
   missionLineUpdateInputSchema,
@@ -145,8 +146,12 @@ export async function getMissionsFinanceSummary(p: Persistence, actor: Actor): P
  * H-05 — not be SETTLED. Settled is an ABSORBING financial state: the books
  * are closed; new money facts on a settled mission would silently reopen them.
  */
-async function requireActiveMission(tx: { getMission(id: string): Promise<Mission | null> }, missionId: string): Promise<Mission> {
-  const mission = await tx.getMission(missionId);
+async function requireActiveMission(tx: { getMissionForUpdate(id: string): Promise<Mission | null> }, missionId: string): Promise<Mission> {
+  // H-04: LOCK the mission head. Because settlement and every finance-child
+  // mutation funnel through here, they all serialize on the mission row — a
+  // concurrent line insert / per-diem set can no longer slip into a mission the
+  // moment it settles.
+  const mission = await tx.getMissionForUpdate(missionId);
   if (!mission) throw new NotFoundError('Mission', missionId);
   if (!mission.isActive) {
     throw new ConflictError('P&L records may only be changed on an active mission.', { missionId });
@@ -424,16 +429,20 @@ export async function setMissionFinanceStage(
     }
 
     if (parsed.stage === 'Settled') {
-      // HARDEN-1 H-05: the settlement check reads + LOCKS the lines inside
-      // THIS transaction — a concurrent receipt flip can no longer race the
-      // check-then-flip into a Settled mission with outstanding income.
+      // HARDEN-1 H-05 + HARDEN-3 M-04: read + LOCK the lines in THIS transaction
+      // (under the mission-head lock from requireActiveMission), then apply the
+      // ONE shared settlement predicate over ACTIVE lines — a concurrent receipt
+      // flip / line insert can no longer race the check, inactive lines don't
+      // block, and an empty / expense-only mission cannot Settle.
       const lines = await tx.listMissionLinesTxLocked(missionId);
-      const outstanding = lines.filter((l) => l.direction === 'Income' && l.paymentStatus !== 'Received').length;
-      if (outstanding > 0) {
-        throw new ConflictError(`Cannot settle: ${outstanding} income line${outstanding === 1 ? '' : 's'} not yet Received.`, {
-          missionId,
-          outstanding,
-        });
+      const { incomeComplete, outstandingIncomeCount } = missionSettlement(lines);
+      if (!incomeComplete) {
+        throw new ConflictError(
+          outstandingIncomeCount > 0
+            ? `Cannot settle: ${outstandingIncomeCount} income line${outstandingIncomeCount === 1 ? '' : 's'} not yet Received.`
+            : 'Cannot settle: the mission has no active income line to settle.',
+          { missionId, outstandingIncomeCount },
+        );
       }
     }
 
