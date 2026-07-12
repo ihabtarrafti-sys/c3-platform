@@ -13,8 +13,10 @@ import {
   type AddCredentialInput,
   type Approval,
   type DeactivateCredentialInput,
+  type ReactivateCredentialInput,
   addCredentialInputSchema,
   deactivateCredentialInputSchema,
+  reactivateCredentialInputSchema,
   ConflictError,
   formatApprovalId,
   NotFoundError,
@@ -114,6 +116,56 @@ export async function submitDeactivateCredential(
       actor: actor.identity,
       before: null,
       after: { status: 'Submitted', operationType: 'DeactivateCredential', credentialId: input.credentialId },
+    });
+    return approval;
+  });
+}
+
+/**
+ * ReactivateCredential (HARDEN-3 recycle door) — GOVERNED, symmetric with
+ * Deactivate: restoring a soft-removed credential submits an approval; the owning
+ * person is derived from the credential (the target). Execution re-checks the
+ * inactive state authoritatively.
+ */
+export async function submitReactivateCredential(
+  p: Persistence,
+  actor: Actor,
+  command: { input: ReactivateCredentialInput; reason?: string | null },
+): Promise<Approval> {
+  assertSubmitApproval(actor);
+  const input = reactivateCredentialInputSchema.parse(command.input);
+
+  const credential = await p.reads.forActor(actor).getCredentialById(input.credentialId);
+  if (!credential) throw new NotFoundError('Credential', input.credentialId);
+  if (credential.isActive) throw new ConflictError('The credential is already active.');
+
+  const reason = command.reason?.trim() ? command.reason.trim() : input.reason;
+  return p.writes.transaction(actor, async (tx) => {
+    const seq = await tx.allocateSequence('approval');
+    const approvalId = formatApprovalId(seq);
+    const approval = await tx.insertApproval({
+      approvalId,
+      operationType: 'ReactivateCredential',
+      targetPersonId: credential.personId,
+      targetId: input.credentialId,
+      reason,
+      payload: { operationType: 'ReactivateCredential', input },
+      submittedBy: actor.identity,
+    });
+    await tx.appendApprovalEvent({
+      approvalId,
+      fromStatus: null,
+      toStatus: 'Submitted',
+      actor: actor.identity,
+      note: `ReactivateCredential request submitted for ${input.credentialId}: ${input.reason}`,
+    });
+    await tx.appendAuditEvent({
+      entityType: 'Approval',
+      entityId: approvalId,
+      action: 'ApprovalSubmitted',
+      actor: actor.identity,
+      before: null,
+      after: { status: 'Submitted', operationType: 'ReactivateCredential', credentialId: input.credentialId },
     });
     return approval;
   });

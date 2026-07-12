@@ -24,9 +24,12 @@ export const RESTORE_CLASS_OF: Readonly<Record<RecycleKind, RestoreClass>> = {
   person: 'governed',
   entity: 'direct',
   team: 'direct',
-  credential: 'recordPage',
-  kit: 'recordPage',
-  apparel: 'recordPage',
+  // HARDEN-3 (owner ruling #1): finish the high-value doors. Credential
+  // deactivation is GOVERNED, so its restore submits a ReactivateCredential
+  // approval; kit/apparel are direct-audited, so they flip immediately.
+  credential: 'governed',
+  kit: 'direct',
+  apparel: 'direct',
 };
 
 export interface RecycleItem {

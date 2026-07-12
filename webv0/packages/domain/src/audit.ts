@@ -39,6 +39,7 @@ export const AUDIT_ACTIONS = [
   // Sprint 36: the Credentials domain entity mutations.
   'CredentialCreated',
   'CredentialDeactivated',
+  'CredentialReactivated',
   // Sprint 37: Journeys — one governed creation + four DIRECT-audited
   // transitions (role-gated, state-machine validated, same-tx audit).
   'JourneyInitiated',
@@ -50,9 +51,11 @@ export const AUDIT_ACTIONS = [
   'KitCreated',
   'KitUpdated',
   'KitDeactivated',
+  'KitReactivated',
   'ApparelCreated',
   'ApparelUpdated',
   'ApparelDeactivated',
+  'ApparelReactivated',
   // D-7 (2026-07-09): fulfillment status transitions (direct-audited,
   // state-machine validated). One action; the before/after images carry
   // the from→to status.

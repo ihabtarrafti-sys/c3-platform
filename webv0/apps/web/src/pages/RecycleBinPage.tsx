@@ -208,7 +208,7 @@ export function RecycleBinPage() {
                         triggerTestId={`recycle-restore-${item.id}`}
                         triggerAppearance="secondary"
                         title={`Request restoring ${item.id}?`}
-                        description="Restoring a person goes through approval — an owner must execute it before they are active again."
+                        description="This restore goes through approval — an owner must execute it before the record is active again."
                         extra={
                           <div className={s.fields}>
                             <Field label="Reason" required>

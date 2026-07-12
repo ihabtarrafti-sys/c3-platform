@@ -96,6 +96,21 @@ export const deactivateCredentialInputSchema = z
 export type DeactivateCredentialInput = z.infer<typeof deactivateCredentialInputSchema>;
 
 /**
+ * ReactivateCredential (HARDEN-3 recycle door, GOVERNED — symmetric with
+ * DeactivateCredential): restoring a soft-removed credential submits an approval.
+ * Reason is mandatory (a compliance record's return is a governed act); the
+ * owning person is derived from the credential at submit/execute.
+ */
+export const reactivateCredentialInputSchema = z
+  .object({
+    credentialId: z.string().regex(/^CRED-\d{4,}$/, 'credentialId must be a canonical CRED id'),
+    reason: z.string().trim().min(1, 'A reason is required to restore a credential.').max(500),
+  })
+  .strict();
+
+export type ReactivateCredentialInput = z.infer<typeof reactivateCredentialInputSchema>;
+
+/**
  * Derived display status (read-side only; no scheduler). "Expires soon" =
  * within `soonDays` calendar days of `today` (ISO date string comparison).
  */

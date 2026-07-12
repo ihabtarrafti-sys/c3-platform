@@ -37,13 +37,14 @@ interface EquipmentConfig<T extends Kit | Apparel> {
   readonly entityName: 'Kit' | 'Apparel';
   readonly assert: (actor: Actor) => void;
   readonly formatId: (seq: number) => string;
-  readonly actions: { created: AuditAction; updated: AuditAction; deactivated: AuditAction; statusChanged: AuditAction };
+  readonly actions: { created: AuditAction; updated: AuditAction; deactivated: AuditAction; reactivated: AuditAction; statusChanged: AuditAction };
   readonly idOf: (item: T) => string;
   readonly tx: {
     insert: (tx: WriteTx, id: string, row: Parameters<WriteTx['insertKit']>[1]) => Promise<T>;
     get: (tx: WriteTx, id: string) => Promise<T | null>;
     update: (tx: WriteTx, id: string, expectedVersion: number, patch: EquipmentPatch) => Promise<T | null>;
     deactivate: (tx: WriteTx, id: string, expectedVersion: number) => Promise<T | null>;
+    reactivate: (tx: WriteTx, id: string, expectedVersion: number) => Promise<T | null>;
     setStatus: (tx: WriteTx, id: string, expectedVersion: number, status: string) => Promise<T | null>;
   };
 }
@@ -53,13 +54,14 @@ const KIT: EquipmentConfig<Kit> = {
   entityName: 'Kit',
   assert: assertManageKit,
   formatId: formatKitId,
-  actions: { created: 'KitCreated', updated: 'KitUpdated', deactivated: 'KitDeactivated', statusChanged: 'KitStatusChanged' },
+  actions: { created: 'KitCreated', updated: 'KitUpdated', deactivated: 'KitDeactivated', reactivated: 'KitReactivated', statusChanged: 'KitStatusChanged' },
   idOf: (k) => k.kitId,
   tx: {
     insert: (tx, id, row) => tx.insertKit(id, row),
     get: (tx, id) => tx.getKit(id),
     update: (tx, id, v, patch) => tx.updateKit(id, v, patch),
     deactivate: (tx, id, v) => tx.deactivateKit(id, v),
+    reactivate: (tx, id, v) => tx.reactivateKit(id, v),
     setStatus: (tx, id, v, status) => tx.setKitStatus(id, v, status),
   },
 };
@@ -69,13 +71,14 @@ const APPAREL: EquipmentConfig<Apparel> = {
   entityName: 'Apparel',
   assert: assertManageApparel,
   formatId: formatApparelId,
-  actions: { created: 'ApparelCreated', updated: 'ApparelUpdated', deactivated: 'ApparelDeactivated', statusChanged: 'ApparelStatusChanged' },
+  actions: { created: 'ApparelCreated', updated: 'ApparelUpdated', deactivated: 'ApparelDeactivated', reactivated: 'ApparelReactivated', statusChanged: 'ApparelStatusChanged' },
   idOf: (a) => a.apparelId,
   tx: {
     insert: (tx, id, row) => tx.insertApparel(id, row),
     get: (tx, id) => tx.getApparel(id),
     update: (tx, id, v, patch) => tx.updateApparel(id, v, patch),
     deactivate: (tx, id, v) => tx.deactivateApparel(id, v),
+    reactivate: (tx, id, v) => tx.reactivateApparel(id, v),
     setStatus: (tx, id, v, status) => tx.setApparelStatus(id, v, status),
   },
 };
@@ -195,6 +198,34 @@ async function deactivateEquipment<T extends Kit | Apparel>(
   });
 }
 
+async function reactivateEquipment<T extends Kit | Apparel>(
+  cfg: EquipmentConfig<T>,
+  p: Persistence,
+  actor: Actor,
+  id: string,
+  expectedVersion: number,
+): Promise<T> {
+  cfg.assert(actor);
+  return p.writes.transaction(actor, async (tx) => {
+    const current = await cfg.tx.get(tx, id);
+    if (!current) throw new NotFoundError(cfg.entityName, id);
+    if (current.isActive) throw new ConflictError(`The ${cfg.kind} item is already active.`);
+
+    const updated = await cfg.tx.reactivate(tx, id, expectedVersion);
+    if (!updated) throw new ConcurrencyError(cfg.entityName, id);
+
+    await tx.appendAuditEvent({
+      entityType: cfg.entityName,
+      entityId: id,
+      action: cfg.actions.reactivated,
+      actor: actor.identity,
+      before: { isActive: false },
+      after: { isActive: true },
+    });
+    return updated;
+  });
+}
+
 async function transitionEquipment<T extends Kit | Apparel>(
   cfg: EquipmentConfig<T>,
   p: Persistence,
@@ -236,6 +267,8 @@ export const updateKit = (p: Persistence, actor: Actor, kitId: string, input: Eq
   updateEquipment(KIT, p, actor, kitId, input);
 export const deactivateKit = (p: Persistence, actor: Actor, kitId: string, expectedVersion: number): Promise<Kit> =>
   deactivateEquipment(KIT, p, actor, kitId, expectedVersion);
+export const reactivateKit = (p: Persistence, actor: Actor, kitId: string, expectedVersion: number): Promise<Kit> =>
+  reactivateEquipment(KIT, p, actor, kitId, expectedVersion);
 export const transitionKit = (
   p: Persistence,
   actor: Actor,
@@ -250,6 +283,8 @@ export const updateApparel = (p: Persistence, actor: Actor, apparelId: string, i
   updateEquipment(APPAREL, p, actor, apparelId, input);
 export const deactivateApparel = (p: Persistence, actor: Actor, apparelId: string, expectedVersion: number): Promise<Apparel> =>
   deactivateEquipment(APPAREL, p, actor, apparelId, expectedVersion);
+export const reactivateApparel = (p: Persistence, actor: Actor, apparelId: string, expectedVersion: number): Promise<Apparel> =>
+  reactivateEquipment(APPAREL, p, actor, apparelId, expectedVersion);
 export const transitionApparel = (
   p: Persistence,
   actor: Actor,

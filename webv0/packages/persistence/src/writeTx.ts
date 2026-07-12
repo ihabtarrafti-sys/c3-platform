@@ -561,6 +561,15 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapCredential(rows[0]) : null;
     },
 
+    async reactivateCredential(credentialId: string): Promise<Credential | null> {
+      const rows = await db
+        .update(schema.credential)
+        .set({ isActive: true, version: sql`${schema.credential.version} + 1` })
+        .where(and(eq(schema.credential.credentialId, credentialId), eq(schema.credential.isActive, false)))
+        .returning();
+      return rows[0] ? mapCredential(rows[0]) : null;
+    },
+
     // ── Sprint 37 journeys — drizzle-only (mode:'string' dates). ──────────────
     async insertJourney(row: NewJourneyRow): Promise<Journey> {
       const [r] = await db
@@ -642,6 +651,15 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapKit(rows[0]) : null;
     },
 
+    async reactivateKit(kitId: string, expectedVersion: number): Promise<Kit | null> {
+      const rows = await db
+        .update(schema.kit)
+        .set({ isActive: true, version: sql`${schema.kit.version} + 1` })
+        .where(and(eq(schema.kit.kitId, kitId), eq(schema.kit.version, expectedVersion), eq(schema.kit.isActive, false)))
+        .returning();
+      return rows[0] ? mapKit(rows[0]) : null;
+    },
+
     async setKitStatus(kitId: string, expectedVersion: number, status: string): Promise<Kit | null> {
       const rows = await db
         .update(schema.kit)
@@ -675,6 +693,15 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .update(schema.apparel)
         .set({ isActive: false, version: sql`${schema.apparel.version} + 1` })
         .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion), eq(schema.apparel.isActive, true)))
+        .returning();
+      return rows[0] ? mapApparel(rows[0]) : null;
+    },
+
+    async reactivateApparel(apparelId: string, expectedVersion: number): Promise<Apparel | null> {
+      const rows = await db
+        .update(schema.apparel)
+        .set({ isActive: true, version: sql`${schema.apparel.version} + 1` })
+        .where(and(eq(schema.apparel.apparelId, apparelId), eq(schema.apparel.version, expectedVersion), eq(schema.apparel.isActive, false)))
         .returning();
       return rows[0] ? mapApparel(rows[0]) : null;
     },

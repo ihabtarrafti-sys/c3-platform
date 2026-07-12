@@ -48,7 +48,7 @@ import type { Persistence } from '../ports';
 import { withdrawApproval } from './reviewApproval';
 import { submitAddPerson } from './submitAddPerson';
 import { submitMemberChange } from './submitMemberChange';
-import { submitAddCredential, submitDeactivateCredential } from './submitCredentialOps';
+import { submitAddCredential, submitDeactivateCredential, submitReactivateCredential } from './submitCredentialOps';
 import { submitInitiateJourney } from './journeyOps';
 import { submitAddMissionParticipant, submitRemoveMissionParticipant } from './submitMissionParticipantOps';
 import { submitAddAgreement, submitRenewAgreement, submitTerminateAgreement } from './submitAgreementOps';
@@ -153,6 +153,8 @@ async function dispatchSubmit(p: Persistence, actor: Actor, payload: ApprovalPay
       return submitAddCredential(p, actor, command);
     case 'DeactivateCredential':
       return submitDeactivateCredential(p, actor, command);
+    case 'ReactivateCredential':
+      return submitReactivateCredential(p, actor, command);
     case 'InitiateJourney':
       return submitInitiateJourney(p, actor, command);
     case 'AddMissionParticipant':

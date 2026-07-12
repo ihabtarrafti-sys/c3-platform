@@ -8,9 +8,10 @@
  * construction. RLS applies to every branch and to audit_event.
  */
 import { sql, type SQL } from 'drizzle-orm';
+import { RESTORE_CLASS_OF, type RecycleKind } from '@c3web/domain';
 
 interface Branch {
-  readonly kind: string;
+  readonly kind: RecycleKind;
   readonly table: string;
   readonly idCol: string;
   /** Business-id column used as the record id AND the audit_event.entity_id key. */
@@ -18,70 +19,17 @@ interface Branch {
   readonly labelExpr: string;
   readonly sublabelExpr: string;
   readonly parentExpr: string;
-  readonly restoreClass: 'governed' | 'direct' | 'recordPage';
+  // restoreClass is NOT duplicated here — it comes from the domain RESTORE_CLASS_OF
+  // (single source of truth), so the bin list can never drift from the dispatch.
 }
 
 const BRANCHES: readonly Branch[] = [
-  {
-    kind: 'person',
-    table: 'person',
-    idCol: 'person_id',
-    auditType: 'Person',
-    labelExpr: 'full_name',
-    sublabelExpr: `nullif(ign, '')`,
-    parentExpr: 'NULL',
-    restoreClass: 'governed',
-  },
-  {
-    kind: 'entity',
-    table: 'entity',
-    idCol: 'entity_id',
-    auditType: 'Entity',
-    labelExpr: 'name',
-    sublabelExpr: `nullif(concat_ws(' · ', code, jurisdiction), '')`,
-    parentExpr: 'NULL',
-    restoreClass: 'direct',
-  },
-  {
-    kind: 'team',
-    table: 'team',
-    idCol: 'team_id',
-    auditType: 'Team',
-    labelExpr: 'name',
-    sublabelExpr: `nullif(concat_ws(' · ', code, kind), '')`,
-    parentExpr: 'NULL',
-    restoreClass: 'direct',
-  },
-  {
-    kind: 'credential',
-    table: 'credential',
-    idCol: 'credential_id',
-    auditType: 'Credential',
-    labelExpr: 'credential_type',
-    sublabelExpr: 'person_id',
-    parentExpr: 'person_id',
-    restoreClass: 'recordPage',
-  },
-  {
-    kind: 'kit',
-    table: 'kit',
-    idCol: 'kit_id',
-    auditType: 'Kit',
-    labelExpr: 'name',
-    sublabelExpr: `nullif(concat_ws(' · ', category, assigned_person_id), '')`,
-    parentExpr: 'assigned_person_id',
-    restoreClass: 'recordPage',
-  },
-  {
-    kind: 'apparel',
-    table: 'apparel',
-    idCol: 'apparel_id',
-    auditType: 'Apparel',
-    labelExpr: 'name',
-    sublabelExpr: `nullif(concat_ws(' · ', category, assigned_person_id), '')`,
-    parentExpr: 'assigned_person_id',
-    restoreClass: 'recordPage',
-  },
+  { kind: 'person', table: 'person', idCol: 'person_id', auditType: 'Person', labelExpr: 'full_name', sublabelExpr: `nullif(ign, '')`, parentExpr: 'NULL' },
+  { kind: 'entity', table: 'entity', idCol: 'entity_id', auditType: 'Entity', labelExpr: 'name', sublabelExpr: `nullif(concat_ws(' · ', code, jurisdiction), '')`, parentExpr: 'NULL' },
+  { kind: 'team', table: 'team', idCol: 'team_id', auditType: 'Team', labelExpr: 'name', sublabelExpr: `nullif(concat_ws(' · ', code, kind), '')`, parentExpr: 'NULL' },
+  { kind: 'credential', table: 'credential', idCol: 'credential_id', auditType: 'Credential', labelExpr: 'credential_type', sublabelExpr: 'person_id', parentExpr: 'person_id' },
+  { kind: 'kit', table: 'kit', idCol: 'kit_id', auditType: 'Kit', labelExpr: 'name', sublabelExpr: `nullif(concat_ws(' · ', category, assigned_person_id), '')`, parentExpr: 'assigned_person_id' },
+  { kind: 'apparel', table: 'apparel', idCol: 'apparel_id', auditType: 'Apparel', labelExpr: 'name', sublabelExpr: `nullif(concat_ws(' · ', category, assigned_person_id), '')`, parentExpr: 'assigned_person_id' },
 ];
 
 export interface RecycleRow {
@@ -105,7 +53,7 @@ function branchSelect(b: Branch): SQL {
       ${b.parentExpr} AS parent_id,
       updated_at AS removed_at,
       version AS version,
-      '${b.restoreClass}' AS restore_class,
+      '${RESTORE_CLASS_OF[b.kind]}' AS restore_class,
       (SELECT ae.actor FROM audit_event ae
         WHERE ae.entity_type = '${b.auditType}' AND ae.entity_id = ${b.table}.${b.idCol}
         ORDER BY ae.at DESC LIMIT 1) AS removed_by

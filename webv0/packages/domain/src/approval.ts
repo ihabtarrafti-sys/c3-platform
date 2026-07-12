@@ -17,7 +17,7 @@ import {
 } from './person';
 import { updateCredentialFactsInputSchema } from './credential';
 import { addBeneficiaryInputSchema, updateBeneficiaryInputSchema, retireBeneficiaryInputSchema } from './beneficiary';
-import { addCredentialInputSchema, deactivateCredentialInputSchema } from './credential';
+import { addCredentialInputSchema, deactivateCredentialInputSchema, reactivateCredentialInputSchema } from './credential';
 import { initiateJourneyInputSchema } from './journey';
 import { addMissionParticipantInputSchema, removeMissionParticipantInputSchema } from './mission';
 import { addAgreementInputSchema, renewAgreementInputSchema, terminateAgreementInputSchema } from './agreement';
@@ -45,6 +45,7 @@ export const OPERATION_TYPES = [
   // Sprint 36: the Credentials domain.
   'AddCredential',
   'DeactivateCredential',
+  'ReactivateCredential', // HARDEN-3 recycle door (governed, symmetric with Deactivate)
   // Sprint 37: the Journeys domain (transitions are direct-audited, not governed).
   'InitiateJourney',
   // Sprint 39: mission participant membership (the mission SHELL is
@@ -134,6 +135,11 @@ export const deactivateCredentialPayloadSchema = z
   .object({ operationType: z.literal('DeactivateCredential'), input: deactivateCredentialInputSchema })
   .strict();
 export type DeactivateCredentialApprovalPayload = z.infer<typeof deactivateCredentialPayloadSchema>;
+
+export const reactivateCredentialPayloadSchema = z
+  .object({ operationType: z.literal('ReactivateCredential'), input: reactivateCredentialInputSchema })
+  .strict();
+export type ReactivateCredentialApprovalPayload = z.infer<typeof reactivateCredentialPayloadSchema>;
 
 /** InitiateJourney payload (Sprint 37): targetPersonId = the owning person. */
 export const initiateJourneyPayloadSchema = z
@@ -250,6 +256,7 @@ export const approvalPayloadSchema = z.discriminatedUnion('operationType', [
   reactivateMemberPayloadSchema,
   addCredentialPayloadSchema,
   deactivateCredentialPayloadSchema,
+  reactivateCredentialPayloadSchema,
   initiateJourneyPayloadSchema,
   addMissionParticipantPayloadSchema,
   removeMissionParticipantPayloadSchema,
@@ -333,6 +340,7 @@ export const EDIT_TARGET_KEYS: Readonly<Record<Exclude<OperationType, (typeof CO
   ReactivateMember: ['targetUserId', 'email'],
   AddCredential: ['personId'],
   DeactivateCredential: ['credentialId'],
+  ReactivateCredential: ['credentialId'],
   InitiateJourney: ['personId'],
   AddMissionParticipant: ['missionId', 'personId'],
   RemoveMissionParticipant: ['missionId', 'personId'],

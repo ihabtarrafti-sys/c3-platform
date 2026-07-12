@@ -120,6 +120,8 @@ export function ApprovalDetailPage() {
             ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${payload!.input.credentialType} for ${payload!.input.personId}`}</span> }]
             : payload!.operationType === 'DeactivateCredential'
               ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`${payload!.input.credentialId} (${payload!.input.personId})`}</span> }]
+              : payload!.operationType === 'ReactivateCredential'
+                ? [{ label: 'Credential', value: <span data-testid="approval-credential-subject">{`Restore ${payload!.input.credentialId} — ${payload!.input.reason}`}</span> }]
               : payload!.operationType === 'InitiateJourney'
                 ? [{ label: 'Journey', value: <span data-testid="approval-journey-subject">{`${payload!.input.journeyType} for ${payload!.input.personId}`}</span> }]
                 : payload!.operationType === 'AddMissionParticipant'

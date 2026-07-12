@@ -350,6 +350,46 @@ export async function executeApproval(
           return { approval: executed, person: null, credential, journey: null, participant: null, agreement: null, idempotent: false };
         }
 
+        if (approval.payload.operationType === 'ReactivateCredential') {
+          const { input } = approval.payload;
+          const credential = await tx.reactivateCredential(input.credentialId);
+          if (!credential) {
+            throw new ConflictError('The credential does not exist or is already active.', {
+              credentialId: input.credentialId,
+            });
+          }
+          const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, {
+            status: 'Executed',
+            executedAt: new Date().toISOString(),
+            executionError: null,
+          });
+          if (!executed) throw new ConcurrencyError('Approval', approvalId);
+          await tx.appendApprovalEvent({
+            approvalId,
+            fromStatus: approval.status,
+            toStatus: 'Executed',
+            actor: actor.identity,
+            note: `Executed: reactivated ${input.credentialId}`,
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Credential',
+            entityId: input.credentialId,
+            action: 'CredentialReactivated',
+            actor: actor.identity,
+            before: { isActive: false },
+            after: { isActive: true, personId: credential.personId },
+          });
+          await tx.appendAuditEvent({
+            entityType: 'Approval',
+            entityId: approvalId,
+            action: 'ApprovalExecuted',
+            actor: actor.identity,
+            before: { status: approval.status },
+            after: { status: 'Executed', operationType: 'ReactivateCredential', credentialId: input.credentialId },
+          });
+          return { approval: executed, person: null, credential, journey: null, participant: null, agreement: null, idempotent: false };
+        }
+
         // ── Sprint 41: agreements — the material lifecycle, executed ───────
         if (approval.payload.operationType === 'AddAgreement') {
           const { input } = approval.payload;

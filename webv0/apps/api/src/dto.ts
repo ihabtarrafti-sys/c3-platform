@@ -590,6 +590,7 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
     case 'DeactivatePerson':
     case 'ReactivatePerson':
     case 'DeactivateCredential':
+    case 'ReactivateCredential':
     case 'InitiateJourney':
     case 'AddMissionParticipant':
     case 'RemoveMissionParticipant':

@@ -128,12 +128,50 @@ describe('Track B2 — recycle bin', () => {
     expect(noReason.statusCode).toBe(400);
   });
 
-  it('record-page kinds cannot be restored from the bin; the surface is owner/ops only', async () => {
-    // a record-page kind restore is refused with a helpful 400
-    const cred = await post(tokens.ops, '/api/v1/recycle-bin/restore', { kind: 'credential', id: 'CRED-0001', expectedVersion: 0 });
-    expect(cred.statusCode).toBe(400);
+  it('HARDEN-3 finished doors: kit/apparel restore directly, credential restore is governed', async () => {
+    // ── kit: create → deactivate → restore (DIRECT, immediate) ───────────────
+    const kit = await post(tokens.ops, '/api/v1/kit', { name: 'Old Jersey', category: 'Jersey' });
+    const kitId = kit.json().kit.kitId as string;
+    await post(tokens.ops, `/api/v1/kit/${kitId}/deactivate`, { expectedVersion: kit.json().kit.version });
+    type BinItem = { kind: string; id: string; restoreClass: string; version: number };
+    const binOf = async () => (await get(tokens.owner, '/api/v1/recycle-bin')).json().items as BinItem[];
+    const kitRow = (await binOf()).find((i) => i.id === kitId)!;
+    expect(kitRow).toMatchObject({ kind: 'kit', restoreClass: 'direct' });
+    const kitRestore = await post(tokens.ops, '/api/v1/recycle-bin/restore', { kind: 'kit', id: kitId, expectedVersion: kitRow.version });
+    expect(kitRestore.json()).toMatchObject({ outcome: 'restored', kind: 'kit', id: kitId, approvalId: null });
+    expect((await binOf()).some((i) => i.id === kitId)).toBe(false);
 
-    // the visitor may neither read nor restore
+    // ── apparel: create → deactivate → restore (DIRECT) ──────────────────────
+    const ap = await post(tokens.ops, '/api/v1/apparel', { name: 'Old Cap', category: 'Headwear' });
+    const apparelId = ap.json().apparel.apparelId as string;
+    await post(tokens.ops, `/api/v1/apparel/${apparelId}/deactivate`, { expectedVersion: ap.json().apparel.version });
+    const apRow = (await binOf()).find((i) => i.id === apparelId)!;
+    expect(apRow).toMatchObject({ kind: 'apparel', restoreClass: 'direct' });
+    expect((await post(tokens.ops, '/api/v1/recycle-bin/restore', { kind: 'apparel', id: apparelId, expectedVersion: apRow.version })).json())
+      .toMatchObject({ outcome: 'restored', kind: 'apparel', id: apparelId });
+
+    // ── credential: create + deactivate (both GOVERNED) → restore is GOVERNED ─
+    const pSub = await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'Cred Owner' } });
+    const personId = (await governedExecute(tokens.owner, pSub.json().approval.approvalId, pSub.json().approval.version)).person.personId as string;
+    const cSub = await post(tokens.ops, '/api/v1/credentials/requests', { input: { personId, credentialType: 'Passport', issuedOn: '2025-01-01' } });
+    const credentialId = (await governedExecute(tokens.owner, cSub.json().approval.approvalId, cSub.json().approval.version)).credential.credentialId as string;
+    const dSub = await post(tokens.ops, '/api/v1/credentials/deactivations', { input: { credentialId, personId } });
+    await governedExecute(tokens.owner, dSub.json().approval.approvalId, dSub.json().approval.version);
+    const credRow = (await binOf()).find((i) => i.id === credentialId)!;
+    expect(credRow).toMatchObject({ kind: 'credential', restoreClass: 'governed' });
+    // a reason is mandatory (governed restore)
+    expect((await post(tokens.ops, '/api/v1/recycle-bin/restore', { kind: 'credential', id: credentialId, expectedVersion: credRow.version })).statusCode).toBe(400);
+    // with a reason → an approval is submitted, still in the bin until it executes
+    const credRestore = await post(tokens.ops, '/api/v1/recycle-bin/restore', { kind: 'credential', id: credentialId, expectedVersion: credRow.version, reason: 'reinstated' });
+    expect(credRestore.json()).toMatchObject({ outcome: 'approval-submitted', kind: 'credential', id: credentialId });
+    expect(credRestore.json().approvalId).toMatch(/^APR-/);
+    expect((await binOf()).some((i) => i.id === credentialId)).toBe(true);
+    const ra = credRestore.json().approvalId as string;
+    await governedExecute(tokens.owner, ra, (await get(tokens.owner, `/api/v1/approvals/${ra}`)).json().approval.version);
+    expect((await binOf()).some((i) => i.id === credentialId)).toBe(false); // reactivated → left the bin
+  });
+
+  it('the surface is owner/ops only', async () => {
     expect((await get(tokens.visitor, '/api/v1/recycle-bin')).statusCode).toBe(403);
     expect((await post(tokens.visitor, '/api/v1/recycle-bin/restore', { kind: 'entity', id: 'ENT-0001', expectedVersion: 0 })).statusCode).toBe(403);
   });
