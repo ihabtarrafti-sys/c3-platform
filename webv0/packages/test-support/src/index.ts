@@ -13,6 +13,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createServer } from 'node:net';
 import EmbeddedPostgres from 'embedded-postgres';
 import { Client } from 'pg';
 import { runMigrations } from '@c3web/persistence';
@@ -56,8 +57,64 @@ export interface TestDatabase {
   stop(): Promise<void>;
 }
 
-function randomPort(): number {
-  return 55000 + Math.floor(Math.random() * 9000);
+const sleep = (ms: number): Promise<void> => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * HARDEN-3 Batch F: ask the OS for a free ephemeral port instead of guessing a
+ * random one — random guesses collide across the projects that run in parallel,
+ * and each collision forced an expensive initialise() retry that stacked toward
+ * the 180s hook timeout (the credentialsV2 flake). A tiny TOCTOU window remains
+ * (covered by the bounded retry at the call site).
+ */
+function freePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const srv = createServer();
+    srv.once('error', reject);
+    srv.listen(0, () => {
+      const addr = srv.address();
+      const port = typeof addr === 'object' && addr ? addr.port : 0;
+      srv.close(() => (port ? resolve(port) : reject(new Error('could not obtain a free port'))));
+    });
+  });
+}
+
+/** Bound a possibly-hanging async op so a stuck initdb is retried, not timed out
+ *  by the whole beforeAll (HARDEN-3 Batch F). */
+async function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const guard = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  try {
+    return await Promise.race([p, guard]);
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/**
+ * HARDEN-3 Batch F: on Windows the embedded-Postgres process holds file locks
+ * for a short moment AFTER stop() returns, so an immediate rmSync races the OS
+ * and throws EBUSY/ENOTEMPTY — turning a green run red on a teardown-only issue.
+ * Retry with backoff; if the directory still won't go, LEAVE it for the OS temp
+ * cleaner rather than fail the suite (cleanup must never fail a passing run).
+ */
+async function removeDirWithRetry(dir: string): Promise<void> {
+  const transient = new Set(['EBUSY', 'ENOTEMPTY', 'EPERM', 'EACCES']);
+  for (let attempt = 0; attempt < 12; attempt++) {
+    try {
+      rmSync(dir, { recursive: true, force: true });
+      return;
+    } catch (err) {
+      if (!transient.has((err as { code?: string }).code ?? '')) throw err;
+      await sleep(100 * (attempt + 1));
+    }
+  }
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch {
+    /* leave the temp dir for the OS cleaner — never fail a passing run on cleanup */
+  }
 }
 
 export async function startTestDatabase(): Promise<TestDatabase> {
@@ -77,17 +134,44 @@ export async function startTestDatabase(): Promise<TestDatabase> {
       process.env.DATABASE_AUTH_URL ?? envApp.replace(/\/\/[^:]+:[^@]+@/, `//${AUTH_ROLE}:${AUTH_PW}@`);
     backupUrl = envApp.replace(/\/\/[^:]+:[^@]+@/, `//${BACKUP_ROLE}:${BACKUP_PW}@`);
   } else {
-    const dir = mkdtempSync(join(tmpdir(), 'c3web-pg-'));
-    const port = randomPort();
-    const pg = new EmbeddedPostgres({
-      databaseDir: dir,
-      user: 'c3_admin',
-      password: 'c3_admin_test_pw',
-      port,
-      persistent: false,
-    });
-    await pg.initialise();
-    await pg.start();
+    // HARDEN-3 Batch F: vitest runs test files in parallel, so randomPort() can
+    // collide across concurrently-starting instances — the loser's start() throws
+    // and (as a beforeAll failure) skips the whole file + marks it failed. Retry
+    // on a FRESH port + dir; surface a real error if it ultimately can't start.
+    let pg!: EmbeddedPostgres;
+    let dir!: string;
+    let port!: number;
+    const ATTEMPTS = 3;
+    for (let attempt = 0; attempt < ATTEMPTS; attempt++) {
+      dir = mkdtempSync(join(tmpdir(), 'c3web-pg-'));
+      port = await freePort();
+      const candidate = new EmbeddedPostgres({
+        databaseDir: dir,
+        user: 'c3_admin',
+        password: 'c3_admin_test_pw',
+        port,
+        persistent: false,
+      });
+      try {
+        // Per-attempt cap (< the 180s hook timeout / ATTEMPTS) so a hung initdb
+        // is retried on a fresh port+dir rather than failing the whole beforeAll.
+        await withTimeout(
+          (async () => {
+            await candidate.initialise();
+            await candidate.start();
+          })(),
+          50_000,
+          'embedded postgres start',
+        );
+        pg = candidate;
+        break;
+      } catch (err) {
+        await withTimeout(candidate.stop(), 10_000, 'embedded postgres stop').catch(() => {});
+        await removeDirWithRetry(dir);
+        if (attempt === ATTEMPTS - 1) throw new Error(`embedded postgres failed to start after ${ATTEMPTS} attempts: ${String(err)}`);
+        await sleep(250 * (attempt + 1));
+      }
+    }
     // Create the application database as UTF-8 explicitly (the Windows initdb
     // locale would otherwise default it to WIN1252, which cannot store
     // international names/UPNs). Docker/CI Postgres is already UTF-8.
@@ -100,8 +184,12 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     authUrl = `postgres://${AUTH_ROLE}:${AUTH_PW}@localhost:${port}/c3web`;
     backupUrl = `postgres://${BACKUP_ROLE}:${BACKUP_PW}@localhost:${port}/c3web`;
     stopEmbedded = async () => {
-      await pg.stop();
-      rmSync(dir, { recursive: true, force: true });
+      try {
+        await pg.stop();
+      } catch {
+        /* already stopped / crashed — still attempt cleanup below */
+      }
+      await removeDirWithRetry(dir);
     };
   }
 
