@@ -18,6 +18,9 @@ import { readFile, readdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { S3Client, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import type { BlobClass, BlobDescriptor } from './blobUniverse';
+
+export type { BlobClass, BlobDescriptor } from './blobUniverse';
 
 export interface DocumentBlobRow {
   readonly documentId: string;
@@ -179,4 +182,38 @@ export async function deleteTenantBlobs(reader: BlobReader, tenantId: string): P
   const keys = await reader.listKeys(`${tenantId}/`);
   for (const key of keys) await reader.deleteKey(key);
   return keys;
+}
+
+export interface BlobUniverseResult {
+  readonly count: number;
+  readonly totalBytes: number;
+  readonly byClass: Record<BlobClass, number>;
+}
+
+/**
+ * HARDEN-3 (H-07): fetch, VERIFY, and write every blob in the tenant universe
+ * (documents + photos + intake quarantine), each hand to `write` under its
+ * collision-free bundle path. Same fail-closed contract as the document bundle:
+ * a missing object or a hash mismatch REFUSES the whole export — an export that
+ * cannot return the evidence intact is not shipped silently partial.
+ */
+export async function downloadBlobUniverse(
+  reader: BlobReader,
+  descriptors: readonly BlobDescriptor[],
+  write: (bundleName: string, bytes: Buffer) => Promise<void> | void,
+): Promise<BlobUniverseResult> {
+  let totalBytes = 0;
+  const byClass: Record<BlobClass, number> = { document: 0, photo: 0, intake: 0 };
+  for (const d of descriptors) {
+    const bytes = await reader.get(d.storageKey);
+    if (!bytes) throw new Error(`Blob missing for ${d.ownerRef} (key ${d.storageKey}) — export refused.`);
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    if (sha !== d.sha256) {
+      throw new Error(`Blob hash mismatch for ${d.ownerRef}: stored ${d.sha256}, actual ${sha} — export refused.`);
+    }
+    await write(d.bundleName, bytes);
+    totalBytes += bytes.length;
+    byClass[d.blobClass] += 1;
+  }
+  return { count: descriptors.length, totalBytes, byClass };
 }

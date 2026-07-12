@@ -23,6 +23,7 @@
 import type { Client } from 'pg';
 import { createHash } from 'node:crypto';
 import { TENANT_TABLES } from './tenantTables';
+import { enumerateTenantBlobs, type BlobDescriptor } from './blobUniverse';
 
 export interface ExportSpec {
   readonly tenantSlug: string;
@@ -35,17 +36,29 @@ export interface ExportedFile {
   readonly sha256: string;
 }
 
+/** H-07/H-06: the manifest's authoritative index of the tenant's blob universe. */
+export interface ManifestBlob {
+  readonly bundleName: string;
+  readonly blobClass: BlobDescriptor['blobClass'];
+  readonly sha256: string;
+  readonly ownerRef: string;
+}
+
 export interface ExportManifest {
   readonly tenant: { id: string; slug: string; name: string };
   readonly exportedAt: string; // ISO-8601 (UTC)
   readonly schemaVersion: string[]; // applied migration ids, ordered
   readonly files: Array<{ name: string; rows: number; sha256: string }>;
+  /** Every object the bundle must carry (documents + photos + intake quarantine). */
+  readonly blobs: ManifestBlob[];
   readonly note: string;
 }
 
 export interface ExportResult {
   readonly manifest: ExportManifest;
   readonly files: ExportedFile[];
+  /** The blob universe, enumerated inside the export snapshot (consistent with `files`). */
+  readonly blobs: BlobDescriptor[];
 }
 
 /** Ordered so a reader (and a future restore) sees parents before children. */
@@ -121,6 +134,11 @@ export async function exportTenant(client: Client, spec: ExportSpec): Promise<Ex
 
     const migs = await client.query<{ id: string }>('SELECT id FROM _migrations ORDER BY id');
 
+    // H-07: enumerate the blob universe (documents + photos + intake quarantine)
+    // INSIDE the snapshot so it is consistent with the exported rows. The CLI
+    // moves the bytes; this stays DB-only per the backup-image packaging contract.
+    const blobs = await enumerateTenantBlobs(client, tenant.id);
+
     await client.query('COMMIT');
 
     const manifest: ExportManifest = {
@@ -128,10 +146,11 @@ export async function exportTenant(client: Client, spec: ExportSpec): Promise<Ex
       exportedAt: new Date().toISOString(),
       schemaVersion: migs.rows.map((r) => r.id),
       files: files.map((f) => ({ name: f.name, rows: f.rows, sha256: f.sha256 })),
+      blobs: blobs.map((b) => ({ bundleName: b.bundleName, blobClass: b.blobClass, sha256: b.sha256, ownerRef: b.ownerRef })),
       note:
-        'Organization-scoped logical export. Shared users (members of another tenant) are profile-only (shared:true) with their external_identity withheld. Platform-level access_event and logs are out of scope.',
+        'Organization-scoped logical export. Shared users (members of another tenant) are profile-only (shared:true) with their external_identity withheld. Platform-level access_event and logs are out of scope. The blobs index lists every object (documents + photos + intake quarantine) the bundle carries.',
     };
-    return { manifest, files };
+    return { manifest, files, blobs };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;

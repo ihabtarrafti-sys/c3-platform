@@ -10,7 +10,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { bundleFileName, createBlobReader, deleteTenantBlobs, downloadTenantBlobs, parseDocumentRows } from '../src/blobBundle';
+import { bundleFileName, createBlobReader, deleteTenantBlobs, downloadBlobUniverse, downloadTenantBlobs, parseDocumentRows } from '../src/blobBundle';
+import type { BlobDescriptor } from '../src/blobUniverse';
 
 const TENANT = '11111111-2222-3333-4444-555555555555';
 
@@ -65,6 +66,50 @@ describe('HARDEN-2 — document blob bundle (export)', () => {
 
   it('bundleFileName sanitizes but keeps the business id authoritative', () => {
     expect(bundleFileName(row('DOC-0009', 'k', 'x', '../../etc/passwd'))).toBe('DOC-0009__.._.._etc_passwd');
+  });
+});
+
+describe('HARDEN-3 — blob-universe bundle (export, all three classes)', () => {
+  const desc = (blobClass: BlobDescriptor['blobClass'], storageKey: string, content: string, bundleName: string): BlobDescriptor => ({
+    blobClass,
+    storageKey,
+    sha256: createHash('sha256').update(content).digest('hex'),
+    bundleName,
+    ownerRef: bundleName,
+  });
+
+  it('downloads + verifies documents, photos AND intake quarantine; writes under their bundle paths; tallies by class', async () => {
+    const { root, put, reader } = setup();
+    mkdirSync(join(root, 'intake', TENANT), { recursive: true });
+    put(`${TENANT}/doc1`, 'a document');
+    put(`${TENANT}/photo1`, 'a headshot');
+    mkdirSync(join(root, 'intake', TENANT, 'sub1'), { recursive: true });
+    put(`intake/${TENANT}/sub1/up1`, 'a quarantined upload');
+
+    const descriptors = [
+      desc('document', `${TENANT}/doc1`, 'a document', 'documents/DOC-0001__a.pdf'),
+      desc('photo', `${TENANT}/photo1`, 'a headshot', 'photos/PER-0001__photo.jpg'),
+      desc('intake', `intake/${TENANT}/sub1/up1`, 'a quarantined upload', 'intake/sub1__up1__passport.jpg'),
+    ];
+
+    const written = new Map<string, Buffer>();
+    const result = await downloadBlobUniverse(reader, descriptors, (name, bytes) => void written.set(name, bytes));
+    expect(result.count).toBe(3);
+    expect(result.byClass).toEqual({ document: 1, photo: 1, intake: 1 });
+    expect(result.totalBytes).toBe('a document'.length + 'a headshot'.length + 'a quarantined upload'.length);
+    expect([...written.keys()].sort()).toEqual(['documents/DOC-0001__a.pdf', 'intake/sub1__up1__passport.jpg', 'photos/PER-0001__photo.jpg']);
+    expect(written.get('photos/PER-0001__photo.jpg')!.toString()).toBe('a headshot');
+  });
+
+  it('a missing intake or photo object REFUSES the whole export (same fail-closed law as documents)', async () => {
+    const { put, reader } = setup();
+    put(`${TENANT}/photo1`, 'tampered');
+    await expect(
+      downloadBlobUniverse(reader, [desc('photo', `${TENANT}/photo1`, 'original', 'photos/PER-0001__photo.jpg')], () => {}),
+    ).rejects.toThrow(/hash mismatch for photos\/PER-0001/);
+    await expect(
+      downloadBlobUniverse(reader, [desc('intake', `intake/${TENANT}/gone`, 'x', 'intake/sub1__up1__f')], () => {}),
+    ).rejects.toThrow(/Blob missing for intake\/sub1__up1__f/);
   });
 });
 

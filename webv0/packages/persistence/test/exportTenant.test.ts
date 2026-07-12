@@ -58,6 +58,58 @@ async function runExport(slug: string): Promise<ExportResult> {
   }
 }
 
+const HEX = (c: string) => c.repeat(64);
+
+/**
+ * Seed the three blob classes for a tenant via the admin client (bypasses RLS):
+ * a document, a photo on the named person, and three intake submissions
+ * (Pending / Promoted / Rejected) — only the Pending one has LIVE quarantine
+ * bytes, so only its upload should appear in the blob universe.
+ */
+async function seedBlobs(tenantId: string, personFullName: string): Promise<void> {
+  const client = new Client({ connectionString: db.adminUrl, options: '-c client_encoding=UTF8' });
+  await client.connect();
+  try {
+    await client.query(
+      `UPDATE person SET photo_storage_key = $2, photo_content_type = 'image/jpeg', photo_sha256 = $3, photo_updated_at = now()
+        WHERE tenant_id = $1 AND full_name = $4`,
+      [tenantId, `${tenantId}/photo-obj`, HEX('a'), personFullName],
+    );
+    await client.query(
+      `INSERT INTO document (tenant_id, document_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, storage_key, uploaded_by)
+       VALUES ($1, 'DOC-0001', 'Person', 'PER-0001', 'contract.pdf', 'application/pdf', 12, $2, $3, 'owner')`,
+      [tenantId, HEX('b'), `${tenantId}/doc-obj`],
+    );
+    const link = await client.query<{ id: string }>(
+      `INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at)
+       VALUES ($1, $2, 'Onboarding', 'ops', now() + interval '7 days') RETURNING id`,
+      [tenantId, `hash-${tenantId}`],
+    );
+    const linkId = link.rows[0]!.id;
+    const upload = (sub: string) => JSON.stringify([{ uploadId: 'up1', fileName: 'passport.jpg', contentType: 'image/jpeg', sizeBytes: 5, sha256: HEX('c'), storageKey: `intake/${tenantId}/${sub}/up1` }]);
+    // Pending — live quarantine bytes (SHOULD be enumerated).
+    await client.query(
+      `INSERT INTO intake_submission (tenant_id, link_id, kind, payload, uploads, status)
+       VALUES ($1, $2, 'Onboarding', '{"fullName":"X"}'::jsonb, $3::jsonb, 'Pending')`,
+      [tenantId, linkId, upload('subPending')],
+    );
+    // Promoted — quarantine already copied+deleted (must NOT be enumerated).
+    await client.query(
+      `INSERT INTO intake_submission (tenant_id, link_id, kind, payload, uploads, status, reviewed_by, reviewed_at, promoted_approval_id, promoted_person_id)
+       VALUES ($1, $2, 'Onboarding', '{"fullName":"Y"}'::jsonb, $3::jsonb, 'Promoted', 'ops', now(), 'APR-0001', 'PER-0002')`,
+      [tenantId, linkId, upload('subPromoted')],
+    );
+    // Rejected — bytes wiped, payload scrubbed (must NOT be enumerated).
+    await client.query(
+      `INSERT INTO intake_submission (tenant_id, link_id, kind, payload, uploads, status, reviewed_by, reviewed_at)
+       VALUES ($1, $2, 'Onboarding', NULL, $3::jsonb, 'Rejected', 'ops', now())`,
+      [tenantId, linkId, upload('subRejected')],
+    );
+  } finally {
+    await client.end();
+  }
+}
+
 function fileRows(res: ExportResult, name: string): Array<Record<string, unknown>> {
   const f = res.files.find((x) => x.name === `${name}.jsonl`)!;
   return f.content ? f.content.trimEnd().split('\n').map((l) => JSON.parse(l)) : [];
@@ -156,5 +208,28 @@ describe('organization-scoped export', () => {
 
   it('refuses an unknown tenant slug', async () => {
     await expect(runExport('does-not-exist')).rejects.toThrow(/Unknown tenant/i);
+  });
+
+  it('H-07: the blob universe carries documents + photos + PENDING intake, excludes promoted/rejected and other tenants', async () => {
+    await seedBlobs(alphaId, 'Alpha Person One');
+    await seedBlobs(bravoId, 'Bravo Person'); // must NOT leak into alpha's universe
+
+    const res = await runExport('alpha');
+    const byClass = (c: string) => res.blobs.filter((b) => b.blobClass === c);
+
+    // exactly one of each live class, and the intake is the PENDING submission's upload only.
+    expect(byClass('document').map((b) => b.ownerRef)).toEqual(['DOC-0001']);
+    expect(byClass('photo')).toHaveLength(1);
+    expect(byClass('photo')[0]!.bundleName).toMatch(/^photos\/PER-\d+__photo\.jpg$/);
+    expect(byClass('intake')).toHaveLength(1);
+    expect(byClass('intake')[0]!.storageKey).toBe(`intake/${alphaId}/subPending/up1`);
+    // promoted + rejected quarantine are NOT enumerated (their bytes are gone).
+    expect(res.blobs.some((b) => b.storageKey.includes('subPromoted') || b.storageKey.includes('subRejected'))).toBe(false);
+    // isolation: nothing points at bravo.
+    expect(res.blobs.some((b) => b.storageKey.startsWith(bravoId) || b.storageKey.includes(bravoId))).toBe(false);
+
+    // the manifest mirrors the universe (H-06 foundation): same count + hashes.
+    expect(res.manifest.blobs).toHaveLength(res.blobs.length);
+    expect(res.manifest.blobs.map((b) => b.sha256).sort()).toEqual(res.blobs.map((b) => b.sha256).sort());
   });
 });

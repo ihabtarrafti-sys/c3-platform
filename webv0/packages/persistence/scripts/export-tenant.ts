@@ -19,9 +19,9 @@
  */
 import { Client } from 'pg';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { resolve, dirname } from 'node:path';
 import { exportTenant } from '../src/exportTenant';
-import { createBlobReader, downloadTenantBlobs, parseDocumentRows } from '../src/blobBundle';
+import { createBlobReader, downloadBlobUniverse } from '../src/blobBundle';
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,34 +46,40 @@ if (!url) {
 const client = new Client({ connectionString: url, options: '-c client_encoding=UTF8' });
 await client.connect();
 try {
-  const { manifest, files } = await exportTenant(client, { tenantSlug });
+  const { manifest, files, blobs } = await exportTenant(client, { tenantSlug });
   mkdirSync(outDir, { recursive: true });
   for (const f of files) writeFileSync(resolve(outDir, f.name), f.content, 'utf8');
   writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
 
-  // HARDEN-2: the evidence bytes. Fail-closed — documents without storage
-  // access refuse the export unless --no-doc-bytes says so out loud.
-  const docRows = parseDocumentRows(files.find((f) => f.name === 'document.jsonl')?.content ?? '');
-  if (docRows.length > 0 && !skipDocBytes) {
+  // HARDEN-3 (H-07): the evidence bytes — the FULL blob universe (documents +
+  // photos + intake quarantine), each written under its collision-free bundle
+  // path. Fail-closed — objects without storage access refuse the export unless
+  // --no-doc-bytes says so out loud.
+  if (blobs.length > 0 && !skipDocBytes) {
     const reader = createBlobReader(process.env);
     if (!reader) {
       console.error(
-        `\nEXPORT REFUSED: ${docRows.length} document(s) exist but no blob storage is configured ` +
+        `\nEXPORT REFUSED: ${blobs.length} storage object(s) exist but no blob storage is configured ` +
           '(set R2_ENDPOINT/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_DOCUMENTS or DOCUMENTS_DIR, ' +
           'or pass --no-doc-bytes to export rows only).',
       );
       process.exit(1);
     }
     try {
-      const docsDir = resolve(outDir, 'documents');
-      mkdirSync(docsDir, { recursive: true });
-      const blobs = await downloadTenantBlobs(reader, docRows, (name, bytes) => writeFileSync(resolve(docsDir, name), bytes));
-      console.log(`  documents/    ${blobs.count} blobs, ${blobs.totalBytes} bytes, each verified against its stored sha256`);
+      const result = await downloadBlobUniverse(reader, blobs, (bundleName, bytes) => {
+        const dest = resolve(outDir, bundleName);
+        mkdirSync(dirname(dest), { recursive: true });
+        writeFileSync(dest, bytes);
+      });
+      console.log(
+        `  blobs         ${result.count} objects (${result.byClass.document} document / ${result.byClass.photo} photo / ` +
+          `${result.byClass.intake} intake), ${result.totalBytes} bytes, each verified against its stored sha256`,
+      );
     } finally {
       reader.close();
     }
-  } else if (docRows.length > 0) {
-    console.error(`WARNING: --no-doc-bytes set — ${docRows.length} document blob(s) NOT included in this bundle.`);
+  } else if (blobs.length > 0) {
+    console.error(`WARNING: --no-doc-bytes set — ${blobs.length} object blob(s) NOT included in this bundle.`);
   }
 
   console.log(`\n=== tenant export: ${manifest.tenant.slug} (${manifest.tenant.name}) ===`);
