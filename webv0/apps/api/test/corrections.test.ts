@@ -139,6 +139,49 @@ describe('Track B1 — revise & resubmit', () => {
     expect(old.json().approval).toMatchObject({ status: 'Rejected', supersededBy: fresh.approvalId });
   });
 
+  it('M-06: a source already revised cannot be revised again — the chain never forks', async () => {
+    const a = await submitPerson(tokens.ops, 'Fork Me');
+    const rev = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version });
+    const rej = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/reject`, { expectedVersion: rev.json().approval.version, reason: 'redo' });
+
+    // the first revision supersedes the source
+    const first = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: rej.json().approval.version, input: { fullName: 'First Fix' } });
+    expect(first.statusCode, first.body).toBe(201);
+    const firstId = first.json().approval.approvalId as string;
+
+    // a SECOND revise of the same (still-Rejected, now-superseded) source is refused…
+    const second = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: rej.json().approval.version, input: { fullName: 'Second Fix' } });
+    expect(second.statusCode, second.body).toBe(409);
+
+    // …and the source still points ONLY at the first revision, symmetrically.
+    const old = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
+    expect(old.json().approval.supersededBy).toBe(firstId);
+    const kept = await get(tokens.owner, `/api/v1/approvals/${firstId}`);
+    expect(kept.json().approval.revisionOf).toBe(a.approvalId);
+  });
+
+  it('M-06: two concurrent revisions of one source — exactly one wins, links stay symmetric', async () => {
+    const a = await submitPerson(tokens.ops, 'Race Me');
+    const rev = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version });
+    const rej = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/reject`, { expectedVersion: rev.json().approval.version, reason: 'redo' });
+    const v = rej.json().approval.version as number;
+
+    // fire both revisions at the same version, concurrently.
+    const [r1, r2] = await Promise.all([
+      post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: v, input: { fullName: 'Racer A' } }),
+      post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: v, input: { fullName: 'Racer B' } }),
+    ]);
+    const codes = [r1.statusCode, r2.statusCode].sort();
+    expect(codes).toEqual([201, 409]); // exactly one revision, not two
+    const winner = (r1.statusCode === 201 ? r1 : r2).json().approval.approvalId as string;
+
+    // the source points at the winner, and the winner points back — no asymmetry.
+    const old = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
+    expect(old.json().approval.supersededBy).toBe(winner);
+    const w = await get(tokens.owner, `/api/v1/approvals/${winner}`);
+    expect(w.json().approval).toMatchObject({ status: 'Submitted', revisionOf: a.approvalId });
+  });
+
   it('revising a still-open request withdraws the old one first', async () => {
     const a = await submitPerson(tokens.ops, 'Open One');
     const revise = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, { expectedVersion: a.version, input: { fullName: 'Open One Fixed' } });

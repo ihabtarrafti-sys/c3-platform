@@ -217,6 +217,15 @@ export async function reviseApproval(p: Persistence, actor: Actor, inputRaw: Rev
           : 'this request is already done';
     throw new ConflictError(`Cannot revise a ${current.status} request — ${why}.`, { approvalId, status: current.status });
   }
+  // M-06 fast-path: a request already superseded by an earlier revision cannot be
+  // revised again — that would fork the chain. (The authoritative guard is the
+  // locked write-once link below; this just fails common cases before we submit.)
+  if (current.supersededBy) {
+    throw new ConflictError('This request has already been revised — correct its revision instead.', {
+      approvalId,
+      supersededBy: current.supersededBy,
+    });
+  }
 
   // Validate FIRST: a schema-invalid revision must never cost the old request.
   const payload = approvalPayloadSchema.parse({ operationType: current.operationType, input });
@@ -231,11 +240,19 @@ export async function reviseApproval(p: Persistence, actor: Actor, inputRaw: Rev
   // The op's REAL submit — duplicate-pending and business guards all apply.
   const revised = await dispatchSubmit(p, actor, payload, reason ?? current.reason);
 
-  // Link both rows (write-once both directions; a failure here leaves two
-  // truthful, unlinked requests — cosmetic, and the audit records the tie).
-  await p.writes.transaction(actor, async (tx) => {
-    await tx.setSupersededBy(approvalId, revised.approvalId);
-    await tx.setRevisionOf(revised.approvalId, approvalId);
+  // Link both rows atomically under a lock on the SOURCE (M-06). setSupersededBy
+  // is write-once (WHERE superseded_by IS NULL): with the source locked, a
+  // concurrent revision that already claimed it makes this call return false —
+  // and then this revision's fresh row is an orphan we must UNDO, rather than
+  // leaving the source falsely claiming a single successor while two exist, or
+  // one link direction set and the other not. Both directions must succeed or
+  // the whole revision is retracted.
+  const linked = await p.writes.transaction(actor, async (tx) => {
+    await tx.lockApproval(approvalId); // serialize concurrent revisions of this source
+    const supersededOk = await tx.setSupersededBy(approvalId, revised.approvalId);
+    if (!supersededOk) return false; // a competing revision already superseded the source
+    const revisionOk = await tx.setRevisionOf(revised.approvalId, approvalId);
+    if (!revisionOk) return false; // defensive: a fresh row can't already have a revisionOf
     await tx.appendApprovalEvent({
       approvalId: revised.approvalId,
       fromStatus: 'Submitted',
@@ -251,7 +268,18 @@ export async function reviseApproval(p: Persistence, actor: Actor, inputRaw: Rev
       before: { status: current.status },
       after: { supersededBy: revised.approvalId },
     });
+    return true;
   });
+
+  if (!linked) {
+    // The source was superseded by a competing revision first. Retire the orphan
+    // we just submitted and refuse truthfully — never leave asymmetric links.
+    await withdrawApproval(p, actor, revised.approvalId, revised.version).catch(() => {});
+    throw new ConflictError(
+      'This request was revised by another correction first — this duplicate revision was discarded.',
+      { approvalId, revisedInto: revised.approvalId },
+    );
+  }
 
   return { revised: { ...revised, revisionOf: approvalId }, superseded: approvalId };
 }
