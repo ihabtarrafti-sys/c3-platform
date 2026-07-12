@@ -25,7 +25,7 @@ describe('Track B6 — intake domain shapes', () => {
     expect(onboardingIntakePayloadSchema.safeParse({ fullName: 'A', dateOfBirth: '20-01-01' }).success).toBe(false);
   });
 
-  it('onboardingToAddPerson maps operational fields and folds contact/sizes into notes', () => {
+  it('onboardingToAddPerson routes PII to the gated fields (never notes) and folds only non-PII into notes (H-02)', () => {
     const input = onboardingToAddPerson(
       onboardingIntakePayloadSchema.parse({
         fullName: '  Ahmad Speed  ',
@@ -34,6 +34,7 @@ describe('Track B6 — intake domain shapes', () => {
         primaryRole: 'Support',
         email: 'ahmad@x.com',
         dateOfBirth: '1999-05-20',
+        phone: '+96599999999',
         apparelSize: 'L',
         addressCity: 'Kuwait City',
       }),
@@ -41,11 +42,16 @@ describe('Track B6 — intake domain shapes', () => {
     expect(input.fullName).toBe('Ahmad Speed');
     expect(input.ign).toBe('SpeedLoL');
     expect(input.primaryRole).toBe('Support');
-    // Contact/sizes are NOT AddPerson fields — they ride the notes so the approver sees them.
-    expect(input.notes).toContain('Email: ahmad@x.com');
-    expect(input.notes).toContain('Date of birth: 1999-05-20');
+    // H-02: PII rides the gated AddPerson columns, never notes.
+    expect(input.email).toBe('ahmad@x.com');
+    expect(input.dateOfBirth).toBe('1999-05-20');
+    expect(input.phone).toBe('+96599999999');
+    expect(input.addressCity).toBe('Kuwait City');
+    // Non-PII context (sizes) legitimately stays in notes; PII never leaks there.
     expect(input.notes).toContain('Apparel size: L');
-    expect(input.notes).toContain('Kuwait City');
+    for (const leak of ['Email:', 'Date of birth:', 'Phone:', 'Kuwait City', 'ahmad@x.com', '1999-05-20']) {
+      expect(input.notes ?? '').not.toContain(leak);
+    }
   });
 
   it('a bare submission still yields a valid AddPerson with a self-submitted note', () => {
