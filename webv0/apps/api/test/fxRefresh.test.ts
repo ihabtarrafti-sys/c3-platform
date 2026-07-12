@@ -111,4 +111,22 @@ describe('FX auto-fetch over HTTP (Track B)', () => {
     expect(res.statusCode).toBe(502);
     expect(res.json().error.code).toBe('UPSTREAM');
   });
+
+  it('M-17: an out-of-bounds derived rate REJECTS the whole refresh (all-or-nothing, no partial write)', async () => {
+    // AED inverts to a valid rate; SAR's tiny units invert to usdPerUnit = 1e7,
+    // above the domain's 1,000,000 bound — so the whole refresh is refused (400).
+    stubFx({ source: 's', asOf: '2026-07-12T00:00:00.000Z', unitsPerUsd: { AED: 3.6725, SAR: 0.0000001 } });
+    const res = await app.inject({ method: 'POST', url: '/api/v1/fx-rates/refresh', headers: auth(tokens.owner) });
+    expect(res.statusCode, res.body).toBe(400);
+    // rolled back: even the otherwise-valid AED was not written.
+    const rates = (await app.inject({ method: 'GET', url: '/api/v1/fx-rates', headers: auth(tokens.owner) })).json().rates as { currency: string }[];
+    expect(rates.some((r) => r.currency === 'AED')).toBe(false);
+  });
+
+  it('M-17: a present non-positive rate and a malformed source timestamp are refused', async () => {
+    stubFx({ source: 's', asOf: '2026-07-12T00:00:00.000Z', unitsPerUsd: { AED: -5 } });
+    expect((await app.inject({ method: 'POST', url: '/api/v1/fx-rates/refresh', headers: auth(tokens.owner) })).statusCode).toBe(400);
+    stubFx({ source: 's', asOf: 'not-a-date', unitsPerUsd: { AED: 3.6 } });
+    expect((await app.inject({ method: 'POST', url: '/api/v1/fx-rates/refresh', headers: auth(tokens.owner) })).statusCode).toBe(400);
+  });
 });

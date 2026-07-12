@@ -24,6 +24,7 @@ import {
   ConcurrencyError,
   ConflictError,
   NotFoundError,
+  ValidationError,
 } from '@c3web/domain';
 import { assertManageEntities } from '@c3web/authz';
 import type { EntityPatch, Persistence } from '../ports';
@@ -220,19 +221,42 @@ export interface FxRefreshResult {
  */
 export async function refreshFxRates(p: Persistence, actor: Actor, fetched: FxFetchedRates): Promise<FxRefreshResult> {
   assertManageEntities(actor);
+  // M-17: validate the provider payload shape before trusting any of it.
+  if (typeof fetched.source !== 'string' || fetched.source.trim() === '') {
+    throw new ValidationError('FX refresh: the source is missing.', { source: fetched.source });
+  }
+  if (typeof fetched.asOf !== 'string' || Number.isNaN(Date.parse(fetched.asOf))) {
+    throw new ValidationError('FX refresh: the source timestamp is not a valid date.', { asOf: fetched.asOf });
+  }
+  if (typeof fetched.unitsPerUsd !== 'object' || fetched.unitsPerUsd === null) {
+    throw new ValidationError('FX refresh: the source payload is malformed.', {});
+  }
+
   const supported = CURRENCY_CODES.filter((c) => c !== 'USD');
   const refreshed: string[] = [];
   const skipped: string[] = [];
   await p.writes.transaction(actor, async (tx) => {
     for (const currency of supported) {
       const units = fetched.unitsPerUsd[currency];
-      if (typeof units === 'number' && Number.isFinite(units) && units > 0) {
-        const usdPerUnit = Math.round((1 / units) * 1e8) / 1e8; // numeric(18,8)
-        await tx.upsertFxRate(currency, usdPerUnit);
-        refreshed.push(currency);
-      } else {
+      // A currency the source does not carry is legitimately SKIPPED (never blanked).
+      if (units === undefined || units === null) {
         skipped.push(currency);
+        continue;
       }
+      // M-17: a currency the source DOES carry but with a bad/out-of-bounds value
+      // REJECTS the whole refresh — a malformed provider payload must not
+      // partially write, and every derived rate passes the SAME domain bounds as
+      // a manual set (positive, ≤ 1,000,000) before it reaches the DB.
+      if (typeof units !== 'number' || !Number.isFinite(units) || units <= 0) {
+        throw new ValidationError(`FX refresh: the source returned an invalid rate for ${currency}.`, { currency, units });
+      }
+      const usdPerUnit = Math.round((1 / units) * 1e8) / 1e8; // numeric(18,8)
+      const check = setFxRateInputSchema.safeParse({ currency, usdPerUnit });
+      if (!check.success) {
+        throw new ValidationError(`FX refresh: the derived rate for ${currency} is outside the accepted range.`, { currency, usdPerUnit });
+      }
+      await tx.upsertFxRate(currency, usdPerUnit);
+      refreshed.push(currency);
     }
     if (refreshed.length > 0) {
       await tx.appendAuditEvent({

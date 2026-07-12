@@ -360,7 +360,11 @@ export function computeMissionPnl(args: {
   // line: each receipt is its own economic truth (the recorded rate at landing).
   const hasSnapshot = (line: PnlLine): boolean =>
     line.direction === 'Income' && line.paymentStatus === 'Received' && line.receivedUsdPerUnit != null;
-  const snapshotUsd = (line: PnlLine): number => Math.round(effectiveAmountMinor(line) * line.receivedUsdPerUnit!);
+  // M-05 defensive: a USD line is the pivot — always convert at 1, never at a
+  // stored snapshot (which the boundary now forbids, but the P&L must not inflate
+  // even if a legacy non-unity value survives).
+  const snapshotUsd = (line: PnlLine): number =>
+    Math.round(effectiveAmountMinor(line) * (line.currency === PIVOT_CURRENCY ? 1 : line.receivedUsdPerUnit!));
   const addTo = (m: Map<CurrencyCode, number>, currency: CurrencyCode, amount: number) =>
     m.set(currency, (m.get(currency) ?? 0) + amount);
 

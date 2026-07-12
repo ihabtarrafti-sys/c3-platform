@@ -293,6 +293,14 @@ export async function setMissionLinePayment(
     if (current.direction !== 'Income') {
       throw new ValidationError('Payment tracking applies to income lines only.', { lineId });
     }
+    // M-05: USD is the pivot (rate 1). A USD line must never carry a non-unity FX
+    // snapshot — it would multiply reported USD income. (DB CHECK backs this up.)
+    if (current.currency === 'USD' && parsed.receivedUsdPerUnit != null && parsed.receivedUsdPerUnit !== 1) {
+      throw new ValidationError('A USD income line takes no FX snapshot (USD is fixed at 1).', {
+        lineId,
+        receivedUsdPerUnit: parsed.receivedUsdPerUnit,
+      });
+    }
     await requireActiveMission(tx, missionId);
 
     const updated = await tx.setMissionLinePayment(lineId, parsed.expectedVersion, {

@@ -422,4 +422,28 @@ describe('S2 mission finance over HTTP (payments, budgets, lifecycle, dashboard)
       expect(denied.statusCode).toBe(403);
     }
   });
+
+  it('M-05: a USD income line rejects a non-unity FX snapshot, but accepts a receipt at rate 1', async () => {
+    const m = (await app.inject({ method: 'POST', url: '/api/v1/missions', headers: auth(tokens.ops), payload: { name: 'USD Cup', startsOn: '2026-08-01' } })).json().mission;
+    const line = (await app.inject({
+      method: 'POST', url: `/api/v1/missions/${m.missionId}/lines`, headers: auth(tokens.ops),
+      payload: { direction: 'Income', category: 'PrizeMoney', label: 'USD prize', amountMinor: 500_000, currency: 'USD' },
+    })).json().line;
+
+    // a bogus FX snapshot on a USD line is refused at the wire (would inflate USD income).
+    const bad = await app.inject({
+      method: 'POST', url: `/api/v1/missions/${m.missionId}/lines/${line.lineId}/payment`, headers: auth(tokens.ops),
+      payload: { expectedVersion: 0, paymentStatus: 'Received', receivedAmountMinor: 500_000, receivedUsdPerUnit: 1.5, paymentSourceLabel: 'ESA' },
+    });
+    expect(bad.statusCode, bad.body).toBe(400);
+    expect(bad.body).toMatch(/USD income line takes no FX snapshot/i);
+
+    // the same receipt with no snapshot (USD is fixed at 1) succeeds.
+    const ok = await app.inject({
+      method: 'POST', url: `/api/v1/missions/${m.missionId}/lines/${line.lineId}/payment`, headers: auth(tokens.ops),
+      payload: { expectedVersion: 0, paymentStatus: 'Received', receivedAmountMinor: 500_000, paymentSourceLabel: 'ESA' },
+    });
+    expect(ok.statusCode, ok.body).toBe(200);
+    expect(ok.json().line).toMatchObject({ paymentStatus: 'Received', receivedUsdPerUnit: null });
+  });
 });

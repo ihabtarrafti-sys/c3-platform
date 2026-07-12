@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -416,6 +416,53 @@ describe('migrations & schema', () => {
           WHERE table_name IN ('mission_participant','mission_budget') AND column_name = 'version'`,
       );
       expect(cols.rows.map((r: { table_name: string }) => r.table_name).sort()).toEqual(['mission_budget', 'mission_participant']);
+    } finally {
+      await c.end();
+    }
+  });
+
+  it('HARDEN-3 M-15 + M-05: income requires a payment_status; a USD line rejects a non-unity FX snapshot', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'bd' });
+    const c = new Client({ connectionString: db.appUrl });
+    await c.connect();
+    try {
+      const q = async (text: string, params: unknown[] = []) => c.query(text, params);
+      const attempt = async (sql: string) => {
+        await q('BEGIN');
+        await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+        try {
+          return await q(sql, [t.tenantId]);
+        } finally {
+          await q('ROLLBACK');
+        }
+      };
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await q(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1, 'MSN-D1', 'BD', '2026-06-01')`, [t.tenantId]);
+      await q('COMMIT');
+
+      // M-15: an Income line with NULL payment_status is now refused (was silently allowed — NULL CHECK passes).
+      await expect(
+        attempt(`INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+                 VALUES ($1, 'PNL-D1', 'MSN-D1', 'Income', 'PrizeMoney', 'x', 1000, 'AED', NULL)`),
+      ).rejects.toThrow(/mission_line_payment_shape/);
+
+      // M-05: a USD Received line with received_usd_per_unit <> 1 is refused (would multiply reported income).
+      await expect(
+        attempt(`INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status, received_amount_minor, received_usd_per_unit)
+                 VALUES ($1, 'PNL-D2', 'MSN-D1', 'Income', 'PrizeMoney', 'x', 1000, 'USD', 'Received', 1000, 1.5)`),
+      ).rejects.toThrow(/mission_line_usd_snapshot_unity/);
+
+      // …but a USD line at exactly 1, and a non-USD line at a real rate, are fine.
+      await expect(
+        attempt(`INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status, received_amount_minor, received_usd_per_unit)
+                 VALUES ($1, 'PNL-D3', 'MSN-D1', 'Income', 'PrizeMoney', 'x', 1000, 'USD', 'Received', 1000, 1)`),
+      ).resolves.toBeDefined();
+      await expect(
+        attempt(`INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status, received_amount_minor, received_usd_per_unit)
+                 VALUES ($1, 'PNL-D4', 'MSN-D1', 'Income', 'PrizeMoney', 'x', 1000, 'AED', 'Received', 1000, 0.272294)`),
+      ).resolves.toBeDefined();
     } finally {
       await c.end();
     }
