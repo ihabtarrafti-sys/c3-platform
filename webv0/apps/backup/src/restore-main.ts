@@ -27,7 +27,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 // drag drizzle/application/domain into the backup image (proven crash-loop,
 // ERR_MODULE_NOT_FOUND, 2026-07-07).
 import { exportTenant } from '../../../packages/persistence/src/exportTenant';
-import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant } from './restore';
+import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery } from './restore';
 import { assertMarkerMatchesManifest, signatureKeyFor, validateLatestSuccess, validateManifest, verifyManifestBytes } from './signing';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
@@ -188,6 +188,37 @@ async function main(): Promise<void> {
     const liveUnchanged = JSON.stringify(liveBefore) === JSON.stringify(liveAfter);
     if (!liveUnchanged) throw new Error('Live database counts changed during the restore drill!');
     log('restore.live_unchanged', { liveBefore, liveAfter });
+
+    // H-08: prove the OBJECT STORE is recoverable, not just the rows. The signed
+    // manifest carries a per-class blob census; fetch + hash-check a representative
+    // document/photo/intake object from the documents bucket. Fail-closed: if the
+    // backup records objects but no documents bucket is configured, the drill
+    // cannot prove recovery and refuses (unless explicitly skipped).
+    const inv = manifest.blobInventory;
+    const invObjectCount = inv.document.count + inv.photo.count + inv.intake.count;
+    const docsBucket = process.env.R2_BUCKET_DOCUMENTS;
+    if (invObjectCount > 0 && !docsBucket && process.env.RESTORE_SKIP_BLOB_DRILL !== 'yes') {
+      throw new Error(
+        `Restore drill: the backup records ${invObjectCount} blob object(s) but R2_BUCKET_DOCUMENTS is not set — ` +
+          'cannot prove object recovery. Set it (read access to the documents bucket), or RESTORE_SKIP_BLOB_DRILL=yes to skip.',
+      );
+    }
+    if (invObjectCount > 0 && docsBucket) {
+      const fetchObject = async (key: string): Promise<Buffer | null> => {
+        try {
+          const res = await s3.send(new GetObjectCommand({ Bucket: docsBucket, Key: key }));
+          return Buffer.from(await res.Body!.transformToByteArray());
+        } catch (err) {
+          if ((err as { name?: string }).name === 'NoSuchKey') return null;
+          throw err;
+        }
+      };
+      const rec = await verifyBlobRecovery(inv, fetchObject);
+      evidence = { ...evidence, blobRecovery: { verifiedClasses: rec.verifiedClasses } };
+      log('restore.blob_recovery_verified', { verifiedClasses: rec.verifiedClasses });
+    } else {
+      log('restore.blob_recovery_skipped', { invObjectCount, docsBucketConfigured: Boolean(docsBucket) });
+    }
 
     // Optional composed per-org restore (Track A, B-5 / A-5): run the
     // organization-scoped export against the DISPOSABLE restored DB — proving

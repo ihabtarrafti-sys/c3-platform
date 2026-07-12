@@ -75,6 +75,16 @@ export interface ValidatedLatestSuccess {
   readonly encryptedBytes: number;
 }
 
+export interface ValidatedBlobClass {
+  readonly count: number;
+  readonly sample: { readonly storageKey: string; readonly sha256: string } | null;
+}
+export interface ValidatedBlobInventory {
+  readonly document: ValidatedBlobClass;
+  readonly photo: ValidatedBlobClass;
+  readonly intake: ValidatedBlobClass;
+}
+
 export interface ValidatedManifest {
   readonly schema: 'c3-backup-manifest/1';
   readonly environment: string;
@@ -87,6 +97,8 @@ export interface ValidatedManifest {
   readonly encryptedBytes: number;
   readonly plaintextSha256: string;
   readonly plaintextBytes: number;
+  /** H-08: the object-store census (recoverability checklist for the drill). */
+  readonly blobInventory: ValidatedBlobInventory;
 }
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
@@ -111,6 +123,47 @@ function reqSha(doc: string, o: Record<string, unknown>, field: string): string 
   const v = reqString(doc, o, field);
   if (!SHA256_RE.test(v)) fail(doc, field, 'must be a lowercase hex sha256');
   return v;
+}
+
+/** H-08: validate one blob class { count>=0, sample: null | {storageKey, sha256} }. */
+function reqBlobClass(o: Record<string, unknown>, cls: string): ValidatedBlobClass {
+  const field = `blobInventory.${cls}`;
+  const v = o[cls];
+  if (typeof v !== 'object' || v === null) fail('manifest', field, 'must be an object');
+  const c = v as Record<string, unknown>;
+  const count = c.count;
+  if (typeof count !== 'number' || !Number.isInteger(count) || count < 0) fail('manifest', `${field}.count`, 'must be a non-negative integer');
+  const s = c.sample;
+  if (s === null) return { count, sample: null };
+  if (typeof s !== 'object') fail('manifest', `${field}.sample`, 'must be null or an object');
+  const so = s as Record<string, unknown>;
+  const storageKey = so.storageKey;
+  const sha256 = so.sha256;
+  if (typeof storageKey !== 'string' || storageKey.length === 0) fail('manifest', `${field}.sample.storageKey`, 'must be a non-empty string');
+  if (typeof sha256 !== 'string' || !SHA256_RE.test(sha256)) fail('manifest', `${field}.sample.sha256`, 'must be a lowercase hex sha256');
+  if (count === 0) fail('manifest', `${field}`, 'has a sample but count 0 (inconsistent)');
+  return { count, sample: { storageKey, sha256 } };
+}
+
+const EMPTY_BLOB_INVENTORY: ValidatedBlobInventory = {
+  document: { count: 0, sample: null },
+  photo: { count: 0, sample: null },
+  intake: { count: 0, sample: null },
+};
+
+function optBlobInventory(o: Record<string, unknown>): ValidatedBlobInventory {
+  // Backward-compatible: a pre-H-08 manifest has no census. Treat it as empty
+  // (the drill then has no objects to prove) rather than failing the restore of
+  // a legacy backup. A PRESENT inventory is validated strictly.
+  const v = o.blobInventory;
+  if (v === undefined) return EMPTY_BLOB_INVENTORY;
+  if (typeof v !== 'object' || v === null) fail('manifest', 'blobInventory', 'must be an object');
+  const inv = v as Record<string, unknown>;
+  return {
+    document: reqBlobClass(inv, 'document'),
+    photo: reqBlobClass(inv, 'photo'),
+    intake: reqBlobClass(inv, 'intake'),
+  };
 }
 
 export function validateLatestSuccess(raw: unknown): ValidatedLatestSuccess {
@@ -147,6 +200,7 @@ export function validateManifest(raw: unknown): ValidatedManifest {
     encryptedBytes: reqInt('manifest', o, 'encryptedBytes'),
     plaintextSha256: reqSha('manifest', o, 'plaintextSha256'),
     plaintextBytes: reqInt('manifest', o, 'plaintextBytes'),
+    blobInventory: optBlobInventory(o),
   };
 }
 

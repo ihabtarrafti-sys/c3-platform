@@ -2,6 +2,44 @@
  * restore.ts — pure helpers for the restore drill (unit-tested). The heavy
  * I/O lives in restore-main.ts and is certified by the hosted drill.
  */
+import { createHash } from 'node:crypto';
+import type { ValidatedBlobInventory } from './signing';
+
+/** Fetch an object's bytes by storage key, or null if it does not exist. */
+export type BlobFetch = (storageKey: string) => Promise<Buffer | null>;
+
+export interface BlobRecoveryResult {
+  /** The classes whose representative object was fetched + hash-verified. */
+  readonly verifiedClasses: string[];
+}
+
+/**
+ * H-08: prove the object store is recoverable. For every NON-EMPTY blob class in
+ * the (signed) manifest inventory, fetch its representative object and hash-check
+ * it. A missing or corrupt object FAILS the drill — a backup whose bytes cannot
+ * be recovered is not a backup. Empty classes are skipped (nothing to prove).
+ */
+export async function verifyBlobRecovery(inventory: ValidatedBlobInventory, fetch: BlobFetch): Promise<BlobRecoveryResult> {
+  const classes: Array<[string, ValidatedBlobInventory['document']]> = [
+    ['document', inventory.document],
+    ['photo', inventory.photo],
+    ['intake', inventory.intake],
+  ];
+  const verifiedClasses: string[] = [];
+  for (const [name, c] of classes) {
+    if (c.count === 0 || c.sample === null) continue;
+    const bytes = await fetch(c.sample.storageKey);
+    if (!bytes) {
+      throw new Error(`Restore drill: ${name} object '${c.sample.storageKey}' is UNRECOVERABLE (not found in the object store).`);
+    }
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    if (sha !== c.sample.sha256) {
+      throw new Error(`Restore drill: ${name} object '${c.sample.storageKey}' hash mismatch (manifest ${c.sample.sha256}, actual ${sha}).`);
+    }
+    verifiedClasses.push(name);
+  }
+  return { verifiedClasses };
+}
 
 /** A unique, safe, disposable restore database name. Never the live DB. */
 export function disposableDbName(now: Date, salt: string): string {

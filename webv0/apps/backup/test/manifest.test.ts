@@ -17,6 +17,11 @@ const base: BackupManifest = {
   plaintextBytes: 4096,
   pgDumpVersion: 'pg_dump (PostgreSQL) 18.4',
   ageRecipientFingerprint: 'age1ql3z7…mcac8p',
+  blobInventory: {
+    document: { count: 2, sample: { storageKey: 'tid/doc', sha256: 'c'.repeat(64) } },
+    photo: { count: 0, sample: null },
+    intake: { count: 0, sample: null },
+  },
 };
 
 describe('manifest redaction', () => {

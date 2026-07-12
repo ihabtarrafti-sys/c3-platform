@@ -12,6 +12,7 @@ import { Client } from 'pg';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import type { BackupDeps } from './runner';
 import type { BackupEnv } from './env';
+import type { BlobInventory, BlobInventoryClass } from './manifest';
 
 const ADVISORY_LOCK_KEY = 928_340_014; // arbitrary fixed key for the backup lock
 
@@ -79,6 +80,42 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
       }
     },
     pgDumpVersion: () => capture('pg_dump', ['--version']),
+
+    // H-08: census the object store from the DB (c3_backup reads every tenant).
+    // Per class: a count + a representative {storageKey, sha256} the restore
+    // drill fetches + hash-checks. Only rows with a verifiable sha256 count.
+    async blobInventory(): Promise<BlobInventory> {
+      const c = new Client({ connectionString: env.databaseUrl });
+      await c.connect();
+      try {
+        const cls = async (countSql: string, sampleSql: string): Promise<BlobInventoryClass> => {
+          const n = Number((await c.query(countSql)).rows[0]?.n ?? 0);
+          if (n === 0) return { count: 0, sample: null };
+          const s = (await c.query(sampleSql)).rows[0] as { key: string; sha: string } | undefined;
+          return s ? { count: n, sample: { storageKey: s.key, sha256: s.sha } } : { count: n, sample: null };
+        };
+        const [document, photo, intake] = await Promise.all([
+          cls(
+            `SELECT count(*)::int AS n FROM document WHERE sha256 ~ '^[a-f0-9]{64}$'`,
+            `SELECT storage_key AS key, sha256 AS sha FROM document WHERE sha256 ~ '^[a-f0-9]{64}$' ORDER BY storage_key LIMIT 1`,
+          ),
+          cls(
+            `SELECT count(*)::int AS n FROM person WHERE photo_storage_key IS NOT NULL AND photo_sha256 ~ '^[a-f0-9]{64}$'`,
+            `SELECT photo_storage_key AS key, photo_sha256 AS sha FROM person WHERE photo_storage_key IS NOT NULL AND photo_sha256 ~ '^[a-f0-9]{64}$' ORDER BY photo_storage_key LIMIT 1`,
+          ),
+          cls(
+            `SELECT count(*)::int AS n FROM intake_submission s, jsonb_array_elements(s.uploads) u
+              WHERE s.status = 'Pending' AND u->>'storageKey' IS NOT NULL AND u->>'sha256' ~ '^[a-f0-9]{64}$'`,
+            `SELECT u->>'storageKey' AS key, u->>'sha256' AS sha FROM intake_submission s, jsonb_array_elements(s.uploads) u
+              WHERE s.status = 'Pending' AND u->>'storageKey' IS NOT NULL AND u->>'sha256' ~ '^[a-f0-9]{64}$'
+              ORDER BY u->>'storageKey' LIMIT 1`,
+          ),
+        ]);
+        return { document, photo, intake };
+      } finally {
+        await c.end();
+      }
+    },
 
     async acquireLock() {
       await lockClient.connect();

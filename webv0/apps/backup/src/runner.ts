@@ -12,6 +12,7 @@ import {
   serializeLatestSuccess,
   recipientFingerprint,
   type BackupManifest,
+  type BlobInventory,
   type LatestSuccess,
 } from './manifest';
 import { signManifestBytes, signatureKeyFor } from './signing';
@@ -21,6 +22,8 @@ export interface BackupDeps {
   serverVersion(): Promise<string>;
   migrations(): Promise<string[]>;
   pgDumpVersion(): Promise<string>;
+  /** H-08: census the object store (documents + photos + intake) from the DB. */
+  blobInventory(): Promise<BlobInventory>;
   /** Single-run guard via a DB advisory lock. false => another run holds it. */
   acquireLock(): Promise<boolean>;
   releaseLock(): Promise<void>;
@@ -69,11 +72,17 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
 
   let tempDir: string | undefined;
   try {
-    const [serverVersion, migrations, pgDumpVersion] = await Promise.all([
+    const [serverVersion, migrations, pgDumpVersion, blobInventory] = await Promise.all([
       deps.serverVersion(),
       deps.migrations(),
       deps.pgDumpVersion(),
+      deps.blobInventory(),
     ]);
+    deps.log('backup.blob_inventory', {
+      document: blobInventory.document.count,
+      photo: blobInventory.photo.count,
+      intake: blobInventory.intake.count,
+    });
 
     // Step 3: secure temp dir.
     tempDir = await deps.makeTempDir();
@@ -120,6 +129,7 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
       plaintextBytes: dumpBytes,
       pgDumpVersion,
       ageRecipientFingerprint: recipientFingerprint(env.ageRecipient),
+      blobInventory,
     };
     const manifestBody = serializeManifest(manifest); // throws if any secret leaks
     // HARDEN-2 H-02: producer signature over the EXACT manifest bytes. The

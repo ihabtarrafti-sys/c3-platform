@@ -34,6 +34,11 @@ const manifest: BackupManifest = {
   plaintextBytes: 4096,
   pgDumpVersion: 'pg_dump 18.0',
   ageRecipientFingerprint: 'age1abcdefg…xyzuvw',
+  blobInventory: {
+    document: { count: 1, sample: { storageKey: 'tid/doc', sha256: 'c'.repeat(64) } },
+    photo: { count: 0, sample: null },
+    intake: { count: 0, sample: null },
+  },
 };
 
 describe('H-02: manifest signing (producer authenticity, not just confidentiality)', () => {
@@ -94,6 +99,21 @@ describe('H-02: restore-side schema validation (never JSON.parse-and-trust)', ()
     expect(() => validateLatestSuccess({ ...latest, encryptedSha256: 'ZZ' })).toThrow(/encryptedSha256/);
     expect(() => validateManifest({ schema: 'c3-backup-manifest/1' })).toThrow(/failed schema validation/);
     expect(() => validateManifest({ ...JSON.parse(serializeManifest(manifest)), encryptedBytes: -1 })).toThrow(/encryptedBytes/);
+    // H-08: a PRESENT blob inventory is validated strictly…
+    const ok = JSON.parse(serializeManifest(manifest));
+    expect(() => validateManifest({ ...ok, blobInventory: { ...ok.blobInventory, document: { count: 1, sample: { storageKey: 'k', sha256: 'nothex' } } } })).toThrow(/blobInventory.document.sample.sha256/);
+    expect(() => validateManifest({ ...ok, blobInventory: { ...ok.blobInventory, photo: { count: 0, sample: { storageKey: 'k', sha256: 'c'.repeat(64) } } } })).toThrow(/blobInventory.photo/);
+  });
+
+  it('H-08: a legacy (pre-H-08) manifest with NO blobInventory still validates — treated as empty', () => {
+    const legacy = JSON.parse(serializeManifest(manifest));
+    delete legacy.blobInventory;
+    const m = validateManifest(legacy);
+    expect(m.blobInventory).toEqual({
+      document: { count: 0, sample: null },
+      photo: { count: 0, sample: null },
+      intake: { count: 0, sample: null },
+    });
   });
 
   it('marker/manifest disagreement is refused — the pointer routes, the SIGNED manifest is the authority', () => {

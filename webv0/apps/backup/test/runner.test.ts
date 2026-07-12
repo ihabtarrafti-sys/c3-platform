@@ -18,19 +18,27 @@ const env: BackupEnv = {
 
 interface Recorder {
   uploads: string[];
+  bodies: Record<string, string>;
   removed: string[];
   cleaned: string[];
   released: number;
   logs: Array<{ event: string; fields?: Record<string, unknown> }>;
 }
 
+const INVENTORY = {
+  document: { count: 3, sample: { storageKey: 'tid/doc-obj', sha256: 'd'.repeat(64) } },
+  photo: { count: 1, sample: { storageKey: 'tid/photo-obj', sha256: 'e'.repeat(64) } },
+  intake: { count: 0, sample: null },
+};
+
 function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02:15:00Z')): { deps: BackupDeps; rec: Recorder } {
-  const rec: Recorder = { uploads: [], removed: [], cleaned: [], released: 0, logs: [] };
+  const rec: Recorder = { uploads: [], bodies: {}, removed: [], cleaned: [], released: 0, logs: [] };
   const deps: BackupDeps = {
     now: () => when,
     serverVersion: async () => '18.4',
     migrations: async () => ['0001_schema.sql', '0006_backup_role_grants.sql'],
     pgDumpVersion: async () => 'pg_dump (PostgreSQL) 18.4',
+    blobInventory: async () => INVENTORY,
     acquireLock: async () => true,
     releaseLock: async () => {
       rec.released++;
@@ -49,8 +57,9 @@ function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02
     uploadFile: async (k) => {
       rec.uploads.push(k);
     },
-    uploadBytes: async (k) => {
+    uploadBytes: async (k, body) => {
       rec.uploads.push(k);
+      rec.bodies[k] = body;
     },
     verifyObject: async () => {},
     log: (event, fields) => {
@@ -74,6 +83,16 @@ describe('runBackup orchestration', () => {
     expect(rec.uploads.at(-1)).toBe('status/latest-success.json');
     // encrypted object + manifest uploaded before the status marker.
     expect(rec.uploads).toContain('daily/2026/07/07/c3-staging-20260707T021500Z-d133f0f.dump.age');
+  });
+
+  it('H-08: records the blob inventory in the manifest (recoverability checklist)', async () => {
+    const { deps, rec } = makeDeps();
+    await runBackup(env, deps);
+    const manifestKey = rec.uploads.find((k) => k.endsWith('.manifest.json'))!;
+    const manifest = JSON.parse(rec.bodies[manifestKey]!);
+    expect(manifest.blobInventory).toEqual(INVENTORY);
+    // the per-class counts are also logged for observability.
+    expect(rec.logs.some((l) => l.event === 'backup.blob_inventory' && l.fields?.document === 3)).toBe(true);
   });
 
   it('on a Sunday uploads to both daily/ and weekly/', async () => {
