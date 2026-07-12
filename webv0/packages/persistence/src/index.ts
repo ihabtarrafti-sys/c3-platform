@@ -12,6 +12,8 @@ export { exportTenant } from './exportTenant';
 export type { ExportSpec, ExportResult, ExportManifest, ExportedFile, ManifestBlob } from './exportTenant';
 export { enumerateTenantBlobs, tenantBlobPrefixes } from './blobUniverse';
 export type { BlobClass, BlobDescriptor } from './blobUniverse';
+export { validateExitManifest, parseExitManifest, ManifestRejectedError } from './exitManifest';
+export type { ExitManifest, ManifestBlobEntry, ManifestCheckContext } from './exitManifest';
 export { exitTenant } from './exitTenant';
 export type { ExitOptions, ExitReport } from './exitTenant';
 export * as schema from './schema';

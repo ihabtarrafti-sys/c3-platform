@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { exitTenant } from '../src/exitTenant';
 import { createBlobReader, sweepTenantBlobErasure } from '../src/blobBundle';
+import { validateExitManifest, ManifestRejectedError } from '../src/exitManifest';
 
 function arg(name: string, required: boolean): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -47,6 +48,8 @@ const execute = flag('execute');
 const confirmSlug = arg('confirm', false);
 const manifestPath = arg('manifest', false);
 const skipManifest = flag('no-export-bundle');
+// H-06: allow a manifest older than the freshness window (explicit override).
+const allowStaleManifest = flag('allow-stale-manifest');
 // HARDEN-2: erasure includes the OBJECT STORE (keys are tenant-prefixed).
 // Executing without storage access refuses unless --leave-blobs says so.
 const leaveBlobs = flag('leave-blobs');
@@ -57,32 +60,17 @@ if (!adminUrl) {
   process.exit(2);
 }
 
-if (execute) {
-  // Data-return-first: verify the export bundle before anything irreversible.
-  if (!skipManifest) {
-    if (!manifestPath) {
-      console.error(
-        'Execute refused: provide --manifest <path-to-export-manifest.json> proving the org\'s data was exported ' +
-          '(export:tenant), or pass --no-export-bundle to explicitly skip the data-return check.',
-      );
-      process.exit(2);
-    }
-    let manifest: { tenant?: { slug?: string } };
-    try {
-      manifest = JSON.parse(readFileSync(resolve(manifestPath), 'utf8'));
-    } catch (err) {
-      console.error(`Execute refused: cannot read manifest at ${manifestPath}: ${(err as Error).message}`);
-      process.exit(2);
-    }
-    if (manifest.tenant?.slug !== tenantSlug) {
-      console.error(
-        `Execute refused: manifest is for tenant '${manifest.tenant?.slug ?? 'unknown'}', not '${tenantSlug}'.`,
-      );
-      process.exit(2);
-    }
-  } else {
-    console.error('WARNING: --no-export-bundle set — proceeding WITHOUT verifying a data-return export.');
-  }
+if (execute && skipManifest) {
+  console.error('WARNING: --no-export-bundle set — proceeding WITHOUT verifying a data-return export.');
+}
+if (execute && !skipManifest && !manifestPath) {
+  // Data-return-first: the STRICT content check (H-06) runs after connecting, but
+  // the path must be present up front.
+  console.error(
+    'Execute refused: provide --manifest <path-to-export-manifest.json> proving the org\'s data was exported ' +
+      '(export:tenant), or pass --no-export-bundle to explicitly skip the data-return check.',
+  );
+  process.exit(2);
 }
 
 const client = new Client({ connectionString: adminUrl, options: '-c client_encoding=UTF8' });
@@ -92,6 +80,42 @@ await client.connect();
 // it now, and refuse an execute that would strand objects).
 const blobReader = createBlobReader(process.env);
 try {
+  // H-06: STRICT data-return gate — the manifest must be a well-formed export
+  // manifest for THIS live tenant, on the CURRENT schema, and fresh. Rejects
+  // hand-written / partial / stale files that a slug-only check would have let
+  // authorize an irreversible erasure.
+  if (execute && !skipManifest) {
+    const tRow = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [tenantSlug]);
+    const liveTenantId = tRow.rows[0]?.id;
+    if (!liveTenantId) {
+      console.error(`Execute refused: unknown tenant '${tenantSlug}'.`);
+      process.exit(2);
+    }
+    const migs = await client.query<{ id: string }>('SELECT id FROM _migrations ORDER BY id');
+    let raw: unknown;
+    try {
+      raw = JSON.parse(readFileSync(resolve(manifestPath!), 'utf8'));
+    } catch (err) {
+      console.error(`Execute refused: cannot read manifest at ${manifestPath}: ${(err as Error).message}`);
+      process.exit(2);
+    }
+    try {
+      const m = validateExitManifest(raw, {
+        tenantSlug,
+        liveTenantId,
+        liveMigrations: migs.rows.map((r) => r.id),
+        allowStale: allowStaleManifest,
+      });
+      console.log(`  data-return     verified manifest for ${m.tenant.slug} (${m.tenant.id}), exported ${m.exportedAt}, ${m.files.length} files + ${m.blobs.length} blobs`);
+    } catch (err) {
+      if (err instanceof ManifestRejectedError) {
+        console.error(`\nEXIT REFUSED (data-return): ${err.message}`);
+        process.exit(2);
+      }
+      throw err;
+    }
+  }
+
   let blobTenantId: string | null = null;
   if (execute && !leaveBlobs) {
     const t = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [tenantSlug]);
