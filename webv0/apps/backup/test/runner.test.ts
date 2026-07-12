@@ -3,6 +3,8 @@ import { generateKeyPairSync } from 'node:crypto';
 import { runBackup, type BackupDeps } from '../src/runner';
 import type { BackupEnv } from '../src/env';
 
+const BASE_SIGNING_KEY = generateKeyPairSync('ed25519').privateKey.export({ type: 'pkcs8', format: 'pem' }).toString();
+
 const env: BackupEnv = {
   databaseUrl: 'postgresql://c3_backup:pw@postgres.railway.internal:5432/railway',
   r2Endpoint: 'https://acct.r2.cloudflarestorage.com',
@@ -13,8 +15,11 @@ const env: BackupEnv = {
   sourceCommit: 'd133f0f',
   mode: 'daily',
   environmentLabel: 'staging',
-  signingKeyPem: null, // unsigned base fixture; the H-02 test opts in below
+  // Signed is the norm now (M-14: a backup is refused unsigned unless allowed).
+  signingKeyPem: BASE_SIGNING_KEY,
+  allowUnsigned: false,
 };
+const unsignedEnv: BackupEnv = { ...env, signingKeyPem: null, allowUnsigned: true };
 
 interface Recorder {
   uploads: string[];
@@ -154,9 +159,39 @@ describe('runBackup orchestration', () => {
     expect(sigs).toHaveLength(manifests.length);
     expect(sigs.length).toBeGreaterThanOrEqual(2); // daily + weekly copies
     expect(JSON.stringify(rec.logs)).not.toContain('BEGIN PRIVATE KEY'); // the key never logs
-    // unsigned runs upload no .sig at all
+    // an explicitly-unsigned (legacy) run uploads no .sig at all
     const { deps: d2, rec: r2 } = makeDeps();
-    await runBackup(env, d2);
+    await runBackup(unsignedEnv, d2);
     expect(r2.uploads.some((k) => k.endsWith('.sig'))).toBe(false);
+  });
+
+  it('H-09: each retention copy gets its OWN signed manifest naming ITS OWN object', async () => {
+    const { deps, rec } = makeDeps({}, new Date('2026-07-05T02:15:00Z')); // Sunday → daily + weekly
+    await runBackup(env, deps);
+    const manifestKeys = rec.uploads.filter((k) => k.endsWith('.manifest.json'));
+    expect(manifestKeys.length).toBe(2); // daily + weekly
+    for (const mk of manifestKeys) {
+      const m = JSON.parse(rec.bodies[mk]!);
+      // the manifest's objectKey is the SAME prefix as the manifest it rides beside
+      // (weekly manifest → weekly object; not the daily object).
+      expect(mk).toBe(`${m.objectKey}.manifest.json`);
+      expect(m.objectKey.startsWith(mk.startsWith('weekly/') ? 'weekly/' : 'daily/')).toBe(true);
+    }
+  });
+
+  it('M-14: an unsigned backup does NOT write latest-success (the tile stays stale)', async () => {
+    const { deps, rec } = makeDeps();
+    await runBackup(unsignedEnv, deps);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+    expect(rec.logs.some((l) => l.event === 'backup.latest_success_skipped')).toBe(true);
+    // the objects + manifests were still uploaded — just no green marker.
+    expect(rec.uploads.some((k) => k.endsWith('.dump.age'))).toBe(true);
+  });
+
+  it('M-14: with NO signing key AND no legacy flag, the backup is REFUSED', async () => {
+    const { deps, rec } = makeDeps();
+    const noKeyNoFlag: BackupEnv = { ...env, signingKeyPem: null, allowUnsigned: false };
+    await expect(runBackup(noKeyNoFlag, deps)).rejects.toThrow(/UNSIGNED/i);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
   });
 });

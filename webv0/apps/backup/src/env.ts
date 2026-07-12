@@ -29,6 +29,12 @@ export interface BackupEnv {
    * the restore side then demands its explicit override flag.
    */
   readonly signingKeyPem: string | null;
+  /**
+   * M-14: explicit legacy escape hatch. Without a signing key a backup is
+   * REFUSED unless this is set; when set, the run proceeds unsigned but does NOT
+   * update the latest-success status marker (the tile stays stale, by design).
+   */
+  readonly allowUnsigned: boolean;
 }
 
 /** Substrings that must never appear in the backup DB role name. */
@@ -117,5 +123,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): BackupEnv {
     mode: modeRaw,
     environmentLabel: source.ENVIRONMENT_LABEL ?? 'staging',
     signingKeyPem,
+    allowUnsigned: source.BACKUP_ALLOW_UNSIGNED === 'yes',
   };
 }

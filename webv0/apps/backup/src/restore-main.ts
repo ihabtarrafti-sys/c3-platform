@@ -98,11 +98,24 @@ async function main(): Promise<void> {
     // are SCHEMA-VALIDATED (never JSON.parse-and-trust), the manifest's
     // producer SIGNATURE is verified before any of its hashes are believed,
     // and the mutable pointer must AGREE with the signed manifest.
-    const latestRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: 'status/latest-success.json' }));
-    const latest = validateLatestSuccess(JSON.parse(Buffer.from(await latestRes.Body!.transformToByteArray()).toString('utf8')));
-    log('restore.target', { key: latest.objectKey, manifestKey: latest.manifestKey });
+    // H-09: restore the newest backup (via the latest-success pointer) OR a
+    // SPECIFIC artifact — e.g. an aged weekly — by its own manifest key. Each
+    // copy now carries its OWN signed manifest naming its OWN object, so a weekly
+    // artifact is self-consistent and restorable without the daily pointer.
+    const targetManifestKey = process.env.RESTORE_MANIFEST_KEY;
+    let latest: ReturnType<typeof validateLatestSuccess> | null = null;
+    let manifestKeyToUse: string;
+    if (targetManifestKey) {
+      manifestKeyToUse = targetManifestKey;
+      log('restore.target', { manifestKey: manifestKeyToUse, source: 'RESTORE_MANIFEST_KEY' });
+    } else {
+      const latestRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: 'status/latest-success.json' }));
+      latest = validateLatestSuccess(JSON.parse(Buffer.from(await latestRes.Body!.transformToByteArray()).toString('utf8')));
+      manifestKeyToUse = latest.manifestKey;
+      log('restore.target', { key: latest.objectKey, manifestKey: latest.manifestKey });
+    }
 
-    const manRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: latest.manifestKey }));
+    const manRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: manifestKeyToUse }));
     const manifestBody = Buffer.from(await manRes.Body!.transformToByteArray()).toString('utf8');
     const manifest = validateManifest(JSON.parse(manifestBody));
 
@@ -110,11 +123,11 @@ async function main(): Promise<void> {
     if (verifyPubKey) {
       let signature = '';
       try {
-        const sigRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: signatureKeyFor(latest.manifestKey) }));
+        const sigRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: signatureKeyFor(manifestKeyToUse) }));
         signature = Buffer.from(await sigRes.Body!.transformToByteArray()).toString('utf8');
       } catch {
         throw new Error(
-          `Manifest signature object missing (${signatureKeyFor(latest.manifestKey)}) — an unsigned artifact needs RESTORE_ALLOW_UNSIGNED.`,
+          `Manifest signature object missing (${signatureKeyFor(manifestKeyToUse)}) — an unsigned artifact needs RESTORE_ALLOW_UNSIGNED.`,
         );
       }
       if (!verifyManifestBytes(manifestBody, signature, verifyPubKey)) {
@@ -128,10 +141,13 @@ async function main(): Promise<void> {
         'BACKUP_VERIFY_PUBKEY is not set. Set it (see apps/backup keygen) or set RESTORE_ALLOW_UNSIGNED=yes-i-understand for a legacy unsigned artifact.',
       );
     }
-    assertMarkerMatchesManifest(latest, manifest);
+    // The mutable pointer must AGREE with the signed manifest — only when we
+    // routed via latest-success (a direct manifest-key target is self-authoritative).
+    if (latest) assertMarkerMatchesManifest(latest, manifest);
 
-    // Download + verify encrypted artifact (hashes now anchored to the signed manifest).
-    const encRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: latest.objectKey }));
+    // Download the object the SIGNED manifest names (per-copy, so the weekly
+    // manifest points at the weekly object) + verify its hashes.
+    const encRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: manifest.objectKey }));
     await fs.writeFile(encPath, Buffer.from(await encRes.Body!.transformToByteArray()));
     const encSha = await sha256File(encPath);
     if (encSha !== manifest.encryptedSha256) throw new Error('Encrypted artifact sha256 mismatch.');

@@ -11,7 +11,6 @@ import {
   serializeManifest,
   serializeLatestSuccess,
   recipientFingerprint,
-  type BackupManifest,
   type BlobInventory,
   type LatestSuccess,
 } from './manifest';
@@ -113,55 +112,68 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
     const keys = classes.map((cls) => ({ cls, key: objectKey(cls, spec) }));
     const primaryKey = keys[0]!.key;
 
-    const manifest: BackupManifest = {
-      schema: 'c3-backup-manifest/1',
-      environment: env.environmentLabel,
-      createdAtUtc: started.toISOString(),
-      mode: env.mode,
-      classes,
-      objectKey: primaryKey,
-      sourceCommit: env.sourceCommit,
-      serverVersion,
-      migrations,
-      encryptedSha256,
-      encryptedBytes,
-      plaintextSha256,
-      plaintextBytes: dumpBytes,
-      pgDumpVersion,
-      ageRecipientFingerprint: recipientFingerprint(env.ageRecipient),
-      blobInventory,
-    };
-    const manifestBody = serializeManifest(manifest); // throws if any secret leaks
-    // HARDEN-2 H-02: producer signature over the EXACT manifest bytes. The
-    // signature object rides beside each manifest copy; the restore drill
-    // verifies it BEFORE trusting any hash in the manifest.
-    const signature = env.signingKeyPem ? signManifestBytes(manifestBody, env.signingKeyPem) : null;
+    // M-14: a signing key is REQUIRED — an unsigned backup may proceed ONLY under
+    // the explicit legacy flag, and then it must NOT write latest-success (the
+    // status tile must never go green on an unverifiable artifact).
+    if (!env.signingKeyPem && !env.allowUnsigned) {
+      throw new Error(
+        'Refusing to run UNSIGNED: set BACKUP_SIGNING_KEY (producer authenticity), or BACKUP_ALLOW_UNSIGNED=yes to run a legacy unsigned backup (which will NOT update the status marker).',
+      );
+    }
 
-    // Step 9–10: upload encrypted object + manifest (+ signature) per class prefix.
+    const manifestFor = (key: string): string =>
+      serializeManifest({
+        schema: 'c3-backup-manifest/1',
+        environment: env.environmentLabel,
+        createdAtUtc: started.toISOString(),
+        mode: env.mode,
+        classes,
+        // H-09: EACH copy's manifest names ITS OWN object — the weekly retention
+        // copy is self-consistent and verifiable on its own, not tied to the
+        // daily object's manifest.
+        objectKey: key,
+        sourceCommit: env.sourceCommit,
+        serverVersion,
+        migrations,
+        encryptedSha256,
+        encryptedBytes,
+        plaintextSha256,
+        plaintextBytes: dumpBytes,
+        pgDumpVersion,
+        ageRecipientFingerprint: recipientFingerprint(env.ageRecipient),
+        blobInventory,
+      });
+
+    // Step 9–11: upload the object, a per-key signed manifest, and VERIFY EACH copy.
     for (const { cls, key } of keys) {
+      const body = manifestFor(key); // throws if any secret leaks
+      const signature = env.signingKeyPem ? signManifestBytes(body, env.signingKeyPem) : null;
       await deps.uploadFile(key, encPath, 'application/octet-stream');
-      await deps.uploadBytes(manifestKey(key), manifestBody, 'application/json');
+      await deps.uploadBytes(manifestKey(key), body, 'application/json');
       if (signature) await deps.uploadBytes(signatureKeyFor(manifestKey(key)), signature, 'text/plain');
+      await deps.verifyObject(key, encryptedSha256, encryptedBytes);
       deps.log('backup.uploaded', { cls, key, signed: signature !== null });
     }
 
-    // Step 11: independently verify the primary uploaded object's integrity.
-    await deps.verifyObject(primaryKey, encryptedSha256, encryptedBytes);
-    deps.log('backup.verified', { key: primaryKey });
-
-    // Step 12: write latest-success ONLY after complete success.
-    const latest: LatestSuccess = {
-      schema: 'c3-backup-latest-success/1',
-      lastSuccessUtc: deps.now().toISOString(),
-      objectKey: primaryKey,
-      manifestKey: manifestKey(primaryKey),
-      environment: env.environmentLabel,
-      mode: env.mode,
-      encryptedSha256,
-      encryptedBytes,
-    };
-    await deps.uploadBytes(STATUS_LATEST_SUCCESS_KEY, serializeLatestSuccess(latest), 'application/json');
-    deps.log('backup.latest_success_written', { key: STATUS_LATEST_SUCCESS_KEY });
+    // Step 12: write latest-success ONLY after complete success AND only for a
+    // SIGNED backup — an unsigned (legacy-flag) run leaves the status tile stale
+    // so the gap is noticed, not silently masked green (M-14).
+    if (env.signingKeyPem) {
+      const latest: LatestSuccess = {
+        schema: 'c3-backup-latest-success/1',
+        lastSuccessUtc: deps.now().toISOString(),
+        objectKey: primaryKey,
+        manifestKey: manifestKey(primaryKey),
+        environment: env.environmentLabel,
+        mode: env.mode,
+        encryptedSha256,
+        encryptedBytes,
+      };
+      await deps.uploadBytes(STATUS_LATEST_SUCCESS_KEY, serializeLatestSuccess(latest), 'application/json');
+      deps.log('backup.latest_success_written', { key: STATUS_LATEST_SUCCESS_KEY });
+    } else {
+      deps.log('backup.latest_success_skipped', { reason: 'unsigned backup (BACKUP_ALLOW_UNSIGNED) does not update the status marker' });
+    }
 
     const durationMs = deps.now().getTime() - started.getTime();
     return { primaryKey, classes, encryptedSha256, encryptedBytes, plaintextBytes: dumpBytes, durationMs };
