@@ -95,4 +95,14 @@ describe('payroll export', () => {
     const csv = (await get(tokens.owner, '/api/v1/claims/payroll-export')).body;
     expect(csv).toContain('"Taxi, tolls, and parking"');
   });
+
+  it('neutralizes a formula-injection description (M-08): a leading = exports inert', async () => {
+    const c = await submitClaim('=HYPERLINK("http://evil","click")');
+    await approve(c.claimId, c.version);
+    const csv = (await get(tokens.owner, '/api/v1/claims/payroll-export')).body;
+    // the cell is prefixed with an apostrophe (then RFC-quoted for its comma/quotes),
+    // so a spreadsheet renders it as literal text — the raw formula never leads a cell.
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).not.toMatch(/,=HYPERLINK/); // no cell begins with a bare =
+  });
 });

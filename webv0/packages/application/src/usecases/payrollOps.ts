@@ -6,12 +6,17 @@
  * Payment-source is a LABEL (never an account number — the standing law).
  */
 import type { Actor } from '@c3web/domain';
+import { neutralizeFormula } from '@c3web/domain';
 import { assertViewFinancials } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
-/** RFC-4180 cell: quote when it contains a comma, quote, or newline. */
+/**
+ * RFC-4180 cell, formula-injection-safe (M-08): neutralize a leading
+ * =/+/-/@/TAB/CR (via the shared domain guard) BEFORE RFC quoting, so a claim
+ * description or payee name beginning with `=` opens as inert text.
+ */
 function csvCell(v: string | number | null | undefined): string {
-  const s = v == null ? '' : String(v);
+  const s = neutralizeFormula(v == null ? '' : String(v));
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

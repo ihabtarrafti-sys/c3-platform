@@ -4,7 +4,7 @@
  * ids-are-allocated-by-C3 rule, and the in-file duplicate checks.
  */
 import { describe, expect, it } from 'vitest';
-import { toCsv, parseCsv, CsvParseError, validateImportCsv, importBatchInputSchema, PEOPLE_COLUMNS, AGREEMENTS_COLUMNS } from '../src/index';
+import { toCsv, parseCsv, CsvParseError, neutralizeFormula, validateImportCsv, importBatchInputSchema, PEOPLE_COLUMNS, AGREEMENTS_COLUMNS } from '../src/index';
 
 describe('the CSV core', () => {
   it('round-trip law: toCsv → parseCsv → toCsv is byte-identical, through quotes, commas, and newlines', () => {
@@ -19,6 +19,23 @@ describe('the CSV core', () => {
     expect(parsed[0]).toEqual(headers);
     expect(parsed.slice(1)).toEqual(rows);
     expect(toCsv(parsed[0]!, parsed.slice(1))).toBe(csv); // byte-identical
+  });
+
+  it('formula-injection defense (M-08): a leading =/+/-/@/TAB/CR exports inert; other values untouched; idempotent', () => {
+    for (const t of ['=SUM(A1)', '+1+1', '-2+3', '@cmd', '\tfoo', '\rbar']) {
+      expect(neutralizeFormula(t)).toBe(`'${t}`);
+      expect(neutralizeFormula(neutralizeFormula(t))).toBe(`'${t}`); // idempotent
+    }
+    for (const ok of ['Alice', 'PER-0001', 'note = value', "'already", '', '2026-01-01']) {
+      expect(neutralizeFormula(ok)).toBe(ok);
+    }
+    // through the codec: a dangerous cell is emitted with the apostrophe guard…
+    const csv = toCsv(['a'], [['=1+1'], ['@evil,x'], ['plain']]);
+    expect(csv).toContain("'=1+1");
+    expect(csv).toContain('"\'@evil,x"'); // neutralized THEN RFC-quoted for the comma
+    // …and the round-trip law still holds byte-identically with a triggered value present.
+    const parsed = parseCsv(csv);
+    expect(toCsv(parsed[0]!, parsed.slice(1))).toBe(csv);
   });
 
   it('accepts CRLF, rejects structural garbage with a line number', () => {

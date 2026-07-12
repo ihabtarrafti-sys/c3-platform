@@ -34,8 +34,26 @@ function needsQuoting(v: string): boolean {
   return v.includes(',') || v.includes('"') || v.includes('\n') || v.includes('\r');
 }
 
+/**
+ * CSV formula-injection defense (M-08). A cell whose first character is `=`,
+ * `+`, `-`, `@`, TAB, or CR is interpreted by Excel/Sheets as a formula or DDE
+ * payload the moment the file is opened. Prefix such a value with an apostrophe
+ * — spreadsheets then render it as literal text and hide the apostrophe.
+ *
+ * The guard is IDEMPOTENT: a neutralized value now starts with `'`, which is
+ * not a trigger, so re-applying it is a no-op. That is what keeps the codec
+ * round-trip law (toCsv → parseCsv → toCsv byte-identical) intact — every
+ * CSV-emitting path in the app funnels through here, so exports are inert by
+ * construction. (parseCsv is left untouched: it is a pure byte reader.)
+ */
+const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+export function neutralizeFormula(v: string): string {
+  return FORMULA_TRIGGER.test(v) ? `'${v}` : v;
+}
+
 function escapeField(v: string): string {
-  return needsQuoting(v) ? `"${v.replace(/"/g, '""')}"` : v;
+  const safe = neutralizeFormula(v);
+  return needsQuoting(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
 /** Emit CSV (LF line endings, header row first, every row padded to headers). */
