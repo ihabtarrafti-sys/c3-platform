@@ -42,9 +42,11 @@ export interface RecycleItem {
   readonly sublabel: string | null;
   /** Where "open record" navigates for recordPage kinds (e.g. a credential's person). */
   readonly parentId: string | null;
-  /** When it was removed (the record's updated_at). */
+  /** When it was removed — the instant of the latest deactivation audit event
+   *  (M-11: NOT the row's updated_at, which a later permitted edit would move). */
   readonly removedAt: string;
-  /** Who removed it — the actor of the latest audit event, or null if unknown. */
+  /** Who removed it — the actor of the latest *deactivation* audit event (M-11),
+   *  or null if no such event exists. */
   readonly removedBy: string | null;
   /** Optimistic-concurrency token for a direct restore. */
   readonly version: number;

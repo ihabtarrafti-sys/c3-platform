@@ -171,6 +171,31 @@ describe('Track B2 — recycle bin', () => {
     expect((await binOf()).some((i) => i.id === credentialId)).toBe(false); // reactivated → left the bin
   });
 
+  it('M-11: removal provenance survives a permitted edit of the already-inactive row', async () => {
+    // ops creates + deactivates a kit → ops is the true remover.
+    const kit = await post(tokens.ops, '/api/v1/kit', { name: 'Retired Jersey', category: 'Jersey' });
+    const kitId = kit.json().kit.kitId as string;
+    const deact = await post(tokens.ops, `/api/v1/kit/${kitId}/deactivate`, { expectedVersion: kit.json().kit.version });
+    expect(deact.statusCode, deact.body).toBe(200);
+
+    // a DIFFERENT actor (owner) edits the still-inactive kit — a permitted
+    // direct-audited update that lands a LATER audit event than the removal.
+    const edit = await post(tokens.owner, `/api/v1/kit/${kitId}`, { expectedVersion: deact.json().kit.version, name: 'Retired Jersey (archived)' });
+    expect(edit.statusCode, edit.body).toBe(200);
+
+    // the bin must still attribute the removal to ops (the deactivate action),
+    // NOT to owner (the newest event) — and the removal time is the deactivate,
+    // not the edit.
+    type BinItem = { id: string; removedBy: string | null; removedAt: string; version: number };
+    const bin = (await get(tokens.owner, '/api/v1/recycle-bin')).json().items as BinItem[];
+    const row = bin.find((i) => i.id === kitId)!;
+    expect(row.removedBy).toBe('ops@alpha.com');
+    // version reflects the later edit (the row is what it is now)…
+    expect(row.version).toBe(edit.json().kit.version);
+    // …but removedAt is the deactivation instant, at/before the edit.
+    expect(new Date(row.removedAt).getTime()).toBeLessThanOrEqual(new Date(edit.json().kit.updatedAt ?? Date.now()).getTime());
+  });
+
   it('the surface is owner/ops only', async () => {
     expect((await get(tokens.visitor, '/api/v1/recycle-bin')).statusCode).toBe(403);
     expect((await post(tokens.visitor, '/api/v1/recycle-bin/restore', { kind: 'entity', id: 'ENT-0001', expectedVersion: 0 })).statusCode).toBe(403);
