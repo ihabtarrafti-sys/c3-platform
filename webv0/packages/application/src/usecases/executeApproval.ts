@@ -952,6 +952,12 @@ export async function executeApproval(
           const { input } = approval.payload;
           const current = await tx.lockCredential(input.credentialId);
           if (!current) throw new NotFoundError('Credential', input.credentialId);
+          // M-07: re-check under the row lock. A DeactivateCredential that executed
+          // first (both lock the credential, so they serialize) leaves it retired —
+          // the facts of a retired record must not change, in EITHER approval order.
+          if (!current.isActive) {
+            throw new ConflictError('The credential has been retired — its facts can no longer be updated.', { credentialId: input.credentialId });
+          }
           const patch = input.patch;
           // date sanity re-checked against the RESULTING pair (sparse patch)
           const issued = patch.issuedOn ?? current.issuedOn;

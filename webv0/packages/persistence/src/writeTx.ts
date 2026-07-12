@@ -384,7 +384,9 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           ...(patch.notes !== undefined ? { notes: patch.notes } : {}),
           version: expectedVersion + 1,
         })
-        .where(and(eq(schema.credential.credentialId, credentialId), eq(schema.credential.version, expectedVersion)))
+        // M-07: the facts of a RETIRED credential never change — active state is in
+        // the predicate so a concurrent deactivation cannot be overwritten.
+        .where(and(eq(schema.credential.credentialId, credentialId), eq(schema.credential.version, expectedVersion), eq(schema.credential.isActive, true)))
         .returning();
       return rows[0] ? mapCredential(rows[0]) : null;
     },

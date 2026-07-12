@@ -8,6 +8,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { Client } from 'pg';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
@@ -35,6 +36,16 @@ async function call(method: 'GET' | 'POST' | 'PATCH', token: string, url: string
   const res = await app.inject({ method, url, headers: auth(token), ...(payload ? { payload } : {}) });
   expect(res.statusCode, `${method} ${url}: ${res.body}`).toBe(expected);
   return res.json();
+}
+
+async function adminQuery(text: string, params: unknown[] = []): Promise<void> {
+  const c = new Client({ connectionString: db.adminUrl });
+  await c.connect();
+  try {
+    await c.query(text, params);
+  } finally {
+    await c.end();
+  }
 }
 
 async function pipeline(approvalId: string, version: number) {
@@ -146,6 +157,28 @@ describe('credentials v2 over HTTP (S12)', () => {
     await pipeline(open.approvalId, open.version);
     const finas = (await call('GET', tokens.owner, `/api/v1/people/${personId}/credentials`)).credentials[0];
     expect(finas.issuingCountry).toBe('UAE');
+  });
+
+  it('M-07: facts and deactivate are mutually exclusive; approved facts refuse to execute on a retired credential', async () => {
+    const personId = await createPerson('M7 Person');
+    const { credentialId } = await createCredential(personId);
+
+    // Reciprocal exclusion (both orderings): an open facts request blocks a
+    // deactivation request, and an open deactivation blocks a facts request.
+    const facts = (await call('POST', tokens.ops, `/api/v1/credentials/${credentialId}/facts-request`, { patch: { issuingCountry: 'UAE' } }, 201)).approval;
+    await call('POST', tokens.ops, '/api/v1/credentials/deactivations', { input: { credentialId, personId } }, 409);
+
+    // The execution re-check closes the concurrent-submit TOCTOU: approve the
+    // facts, retire the credential OUT OF BAND (as a racing deactivate would),
+    // then executing the facts is REFUSED — a retired record's facts never change.
+    const r1 = (await call('POST', tokens.owner, `/api/v1/approvals/${facts.approvalId}/begin-review`, { expectedVersion: facts.version })).approval;
+    const r2 = (await call('POST', tokens.owner, `/api/v1/approvals/${facts.approvalId}/approve`, { expectedVersion: r1.version })).approval;
+    await adminQuery(`UPDATE credential SET is_active = false, version = version + 1 WHERE credential_id = $1`, [credentialId]);
+    const exec = await app.inject({ method: 'POST', url: `/api/v1/approvals/${facts.approvalId}/execute`, headers: auth(tokens.owner), payload: { expectedVersion: r2.version } });
+    expect(exec.statusCode, exec.body).toBe(409);
+    expect(exec.body).toMatch(/retired/i);
+    // the approval landed in ExecutionFailed, and the retired credential is unchanged.
+    expect((await call('GET', tokens.owner, `/api/v1/approvals/${facts.approvalId}`)).approval.status).toBe('ExecutionFailed');
   });
 
   it('beneficiaries: governed lifecycle, label uniqueness, finance-gated reads, THE LAW refuses digit runs', async () => {

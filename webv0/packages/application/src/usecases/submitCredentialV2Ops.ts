@@ -26,7 +26,10 @@ import type { Persistence } from '../ports';
 
 const OPEN_STATUSES = ['Submitted', 'InReview', 'Approved', 'ExecutionFailed'] as const;
 
-async function assertNoOpenOpOnTarget(p: Persistence, actor: Actor, ops: readonly string[], targetId: string): Promise<void> {
+/** The mutually-exclusive credential operations on one credential target (M-07). */
+export const CREDENTIAL_TARGET_OPS = ['UpdateCredentialFacts', 'DeactivateCredential', 'ReactivateCredential'] as const;
+
+export async function assertNoOpenOpOnTarget(p: Persistence, actor: Actor, ops: readonly string[], targetId: string): Promise<void> {
   const open = await p.reads.forActor(actor).listApprovals({ statuses: [...OPEN_STATUSES] });
   if (open.some((a) => ops.includes(a.operationType) && a.targetId === targetId)) {
     throw new ConflictError('An open request already exists for this record. Resolve it before submitting another.', { targetId });
@@ -79,7 +82,7 @@ export async function submitUpdateCredentialFacts(
   const current = await p.reads.forActor(actor).getCredentialById(input.credentialId);
   if (!current) throw new NotFoundError('Credential', input.credentialId);
   if (!current.isActive) throw new ConflictError('The credential is inactive — facts of a retired record do not change.', { credentialId: input.credentialId });
-  await assertNoOpenOpOnTarget(p, actor, ['UpdateCredentialFacts', 'DeactivateCredential'], input.credentialId);
+  await assertNoOpenOpOnTarget(p, actor, CREDENTIAL_TARGET_OPS, input.credentialId);
   return submitOp(p, actor, command.reason, {
     op: 'UpdateCredentialFacts',
     targetPersonId: current.personId, // a credential's owner is always a person

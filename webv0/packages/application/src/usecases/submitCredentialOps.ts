@@ -24,6 +24,7 @@ import {
 } from '@c3web/domain';
 import { assertSubmitApproval } from '@c3web/authz';
 import type { Persistence } from '../ports';
+import { assertNoOpenOpOnTarget, CREDENTIAL_TARGET_OPS } from './submitCredentialV2Ops';
 
 export async function submitAddCredential(
   p: Persistence,
@@ -88,6 +89,8 @@ export async function submitDeactivateCredential(
     });
   }
   if (!credential.isActive) throw new ConflictError('The credential is already inactive.');
+  // M-07: reciprocal exclusion — no open facts/deactivate/reactivate on this credential.
+  await assertNoOpenOpOnTarget(p, actor, CREDENTIAL_TARGET_OPS, input.credentialId);
 
   const reason = command.reason?.trim() ? command.reason.trim() : null;
   return p.writes.transaction(actor, async (tx) => {
@@ -138,6 +141,8 @@ export async function submitReactivateCredential(
   const credential = await p.reads.forActor(actor).getCredentialById(input.credentialId);
   if (!credential) throw new NotFoundError('Credential', input.credentialId);
   if (credential.isActive) throw new ConflictError('The credential is already active.');
+  // M-07: reciprocal exclusion — no open facts/deactivate/reactivate on this credential.
+  await assertNoOpenOpOnTarget(p, actor, CREDENTIAL_TARGET_OPS, input.credentialId);
 
   const reason = command.reason?.trim() ? command.reason.trim() : input.reason;
   return p.writes.transaction(actor, async (tx) => {
