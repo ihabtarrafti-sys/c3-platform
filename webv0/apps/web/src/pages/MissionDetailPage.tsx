@@ -401,7 +401,7 @@ export function MissionDetailPage() {
                     triggerTestId="add-participant-submit"
                     triggerDisabled={!addReady}
                     title="Request adding this participant?"
-                    description="Once submitted, this request can’t be edited. It goes to an approver for review; the person joins the roster only when an owner executes it."
+                    description="It goes to an approver for review; you can edit it until review starts, then it’s frozen. The person joins the roster only when an owner executes it."
                     confirmLabel="Submit for approval"
                     onConfirm={() =>
                       run(

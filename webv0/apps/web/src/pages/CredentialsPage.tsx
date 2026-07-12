@@ -113,7 +113,7 @@ export function CredentialsPage() {
               triggerTestId="add-credential-submit"
               triggerDisabled={!ready}
               title="Submit this credential request for approval?"
-              description="Once submitted, this request can’t be edited. It goes to an approver for review; approval and execution are separate steps."
+              description="It goes to an approver for review; you can edit it until review starts, then it’s frozen. Approval and execution are separate steps."
               confirmLabel="Submit for approval"
               onConfirm={submit}
             />
