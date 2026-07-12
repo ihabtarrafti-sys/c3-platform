@@ -11,6 +11,9 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { Client } from 'pg';
+import type { Actor } from '@c3web/domain';
+import { wipeRejectedIntakeBlobs } from '@c3web/application';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
@@ -30,6 +33,16 @@ async function login(email: string, role: string, tenantSlug: string): Promise<s
 const auth = (t: string) => ({ authorization: `Bearer ${t}` });
 const post = (t: string, url: string, payload?: unknown) => app.inject({ method: 'POST', url, headers: auth(t), payload: payload ?? {} });
 const get = (t: string, url: string) => app.inject({ method: 'GET', url, headers: auth(t) });
+
+async function adminQuery<T = Record<string, unknown>>(text: string, params: unknown[] = []): Promise<T[]> {
+  const c = new Client({ connectionString: db.adminUrl });
+  await c.connect();
+  try {
+    return (await c.query(text, params)).rows as T[];
+  } finally {
+    await c.end();
+  }
+}
 
 /** Guest peek/submit — NO bearer token (the public surface). */
 const peekGuest = (token: string) => app.inject({ method: 'GET', url: `/api/v1/intake/public/${token}` });
@@ -248,9 +261,38 @@ describe('guest intake — reject wipes', () => {
 
     // The quarantined blob is gone.
     expect((await get(tokens.ops, `/api/v1/intake/submissions/${s.id}/uploads/${uploadId}`)).statusCode).toBe(404);
+    // M-02: the wipe rode a durable tombstone (reason='intake_reject') that the
+    // route's drain resolved after verifying the object is gone.
+    const ts = await adminQuery<{ deleted_at: string | null }>(`SELECT deleted_at FROM blob_tombstone WHERE reason='intake_reject'`);
+    expect(ts).toHaveLength(1);
+    expect(ts[0]!.deleted_at).not.toBeNull();
     // Promote/reject-again refused (already reviewed).
     expect((await post(tokens.ops, `/api/v1/intake/submissions/${s.id}/promote`, {})).statusCode).toBe(409);
     void sub;
+  });
+
+  it('M-02: a delete failure leaves a retryable tombstone (not an orphan); a later drain resolves it', async () => {
+    const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
+    const alphaId = tenant!.id;
+    const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
+    const key = `intake/${alphaId}/subX/upX`;
+    await adminQuery(`INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason) VALUES ($1, $2, 'intake', 'intake_reject')`, [alphaId, key]);
+
+    // Storage whose delete THROWS: the tombstone stays pending, error recorded, attempts bumped.
+    const failing = { get: async (_k: string) => null, delete: async (_k: string) => { throw new Error('storage down'); } };
+    expect(await wipeRejectedIntakeBlobs(deps.persistence, failing, actor)).toMatchObject({ attempted: 1, wiped: 0, stillPending: 1 });
+    const [t1] = await adminQuery<{ deleted_at: string | null; attempts: number; last_error: string | null }>(
+      `SELECT deleted_at, attempts, last_error FROM blob_tombstone WHERE storage_key=$1`, [key],
+    );
+    expect(t1!.deleted_at).toBeNull(); // NOT orphaned — retryable
+    expect(t1!.attempts).toBe(1);
+    expect(t1!.last_error).toMatch(/storage down/);
+
+    // A later drain with working storage (object verified gone) resolves it.
+    const working = { get: async (_k: string) => null, delete: async (_k: string) => {} };
+    expect(await wipeRejectedIntakeBlobs(deps.persistence, working, actor)).toMatchObject({ attempted: 1, wiped: 1, stillPending: 0 });
+    const [t2] = await adminQuery<{ deleted_at: string | null }>(`SELECT deleted_at FROM blob_tombstone WHERE storage_key=$1`, [key]);
+    expect(t2!.deleted_at).not.toBeNull();
   });
 });
 

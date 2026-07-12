@@ -1177,6 +1177,26 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapIntakeSubmission(rows[0]) : null;
     },
 
+    // ── M-02: the rejected-intake blob-wipe outbox ───────────────────────────
+    async insertBlobTombstone(input: { storageKey: string; blobClass: 'intake'; reason: 'intake_reject' }): Promise<void> {
+      // Written in the reject transaction so a failed object delete can never
+      // orphan the bytes silently — the tombstone is the durable, retryable
+      // record. RLS scopes tenant_ref to the acting tenant; idempotent per key.
+      await db.execute(sql`
+        INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason)
+        VALUES (${tenantId}, ${input.storageKey}, ${input.blobClass}, ${input.reason})
+        ON CONFLICT (tenant_ref, storage_key, reason) DO NOTHING
+      `);
+    },
+
+    async resolveBlobTombstone(id: string, outcome: { deleted: boolean; error?: string }): Promise<void> {
+      if (outcome.deleted) {
+        await db.execute(sql`UPDATE blob_tombstone SET deleted_at = now(), attempts = attempts + 1 WHERE id = ${id}`);
+      } else {
+        await db.execute(sql`UPDATE blob_tombstone SET attempts = attempts + 1, last_error = ${(outcome.error ?? 'delete failed').slice(0, 500)} WHERE id = ${id}`);
+      }
+    },
+
     // ── Track B recurring subscriptions (direct-audited register) ────────────
     async insertSubscription(subscriptionId: string, row: NewSubscriptionRow): Promise<Subscription> {
       const [r] = await db.insert(schema.subscription).values({ tenantId, subscriptionId, ...row }).returning();

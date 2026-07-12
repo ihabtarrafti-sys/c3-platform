@@ -198,6 +198,8 @@ export interface ReadStore {
   listIntakeSubmissions(): Promise<IntakeSubmission[]>;
   /** Track B6: one sandbox submission (tenant-scoped), or null. */
   getIntakeSubmissionById(id: string): Promise<IntakeSubmission | null>;
+  /** M-02: pending rejected-intake blob wipes (opaque keys) awaiting deletion + verification. */
+  listPendingIntakeRejectTombstones(): Promise<Array<{ id: string; storageKey: string }>>;
   /** Track B: recurring subscriptions (newest first). */
   listSubscriptions(): Promise<Subscription[]>;
   /** Track B: this user's active saved views for a register (newest first). */
@@ -925,6 +927,10 @@ export interface WriteTx {
   markIntakeSubmissionRejected(submissionId: string, reviewedBy: string, decisionNote: string | null): Promise<IntakeSubmission | null>;
   /** Backfill the created person id on a promoted submission (post-execute file attach). Null = missing/not-Promoted. */
   setIntakeSubmissionPromotedPerson(submissionId: string, personId: string): Promise<IntakeSubmission | null>;
+  /** M-02: record a rejected-intake object for durable, retryable wiping (reason='intake_reject'). Idempotent per key. */
+  insertBlobTombstone(input: { storageKey: string; blobClass: 'intake'; reason: 'intake_reject' }): Promise<void>;
+  /** M-02: mark a wipe tombstone deleted (object verified gone) or record a retryable error + bump attempts. */
+  resolveBlobTombstone(id: string, outcome: { deleted: boolean; error?: string }): Promise<void>;
 
   // ── Track B recurring subscriptions (direct-audited register) ──────────────
   insertSubscription(subscriptionId: string, row: NewSubscriptionRow): Promise<Subscription>;

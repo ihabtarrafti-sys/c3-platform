@@ -202,6 +202,12 @@ export async function rejectSubmission(p: Persistence, actor: Actor, submissionI
     const note = decisionNote?.trim() ? decisionNote.trim() : null;
     const rejected = await tx.markIntakeSubmissionRejected(submissionId, actor.identity, note);
     if (!rejected) throw new ConflictError('This submission has already been reviewed.', { submissionId });
+    // M-02: record the quarantine keys as durable wipe tombstones IN THIS TX, so a
+    // failed object delete afterward leaves a retryable record — not a silent orphan
+    // (the metadata scrub above has already erased the keys from the submission row).
+    for (const storageKey of wipedStorageKeys) {
+      await tx.insertBlobTombstone({ storageKey, blobClass: 'intake', reason: 'intake_reject' });
+    }
     await tx.appendAuditEvent({
       entityType: 'Intake',
       entityId: submissionId,
@@ -212,6 +218,50 @@ export async function rejectSubmission(p: Persistence, actor: Actor, submissionI
     });
     return { submission: rejected, wipedStorageKeys };
   });
+}
+
+/** The minimal object-store surface the wipe drain needs (DocumentStorage satisfies it). */
+export interface BlobWipePort {
+  get(key: string): Promise<Buffer | null>;
+  delete(key: string): Promise<void>;
+}
+
+export interface WipeResult {
+  readonly attempted: number;
+  readonly wiped: number;
+  readonly stillPending: number;
+}
+
+/**
+ * M-02: drain the rejected-intake blob-wipe outbox for the tenant. For every
+ * pending tombstone it deletes the object, VERIFIES it is gone, and resolves the
+ * tombstone; a failure leaves the tombstone pending (retryable) with the error
+ * recorded, instead of orphaning the bytes. Called after `rejectSubmission`
+ * commits — and because it drains ALL pending tombstones (not just the ones this
+ * reject added) it also retries any a prior reject left behind, so the outbox
+ * needs no separate cron.
+ */
+export async function wipeRejectedIntakeBlobs(p: Persistence, storage: BlobWipePort, actor: Actor): Promise<WipeResult> {
+  const pending = await p.reads.forActor(actor).listPendingIntakeRejectTombstones();
+  if (pending.length === 0) return { attempted: 0, wiped: 0, stillPending: 0 };
+
+  const outcomes: Array<{ id: string; deleted: boolean; error?: string }> = [];
+  for (const t of pending) {
+    try {
+      await storage.delete(t.storageKey);
+      const still = await storage.get(t.storageKey);
+      outcomes.push(still === null ? { id: t.id, deleted: true } : { id: t.id, deleted: false, error: 'object still present after delete' });
+    } catch (err) {
+      outcomes.push({ id: t.id, deleted: false, error: err instanceof Error ? err.message : 'delete failed' });
+    }
+  }
+
+  await p.writes.transaction(actor, async (tx) => {
+    for (const o of outcomes) await tx.resolveBlobTombstone(o.id, o);
+  });
+
+  const wiped = outcomes.filter((o) => o.deleted).length;
+  return { attempted: pending.length, wiped, stillPending: pending.length - wiped };
 }
 
 // ── guest: the ONLY public write surface ─────────────────────────────────────

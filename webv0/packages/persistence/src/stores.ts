@@ -531,6 +531,18 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return rows[0] ? mapIntakeSubmission(rows[0]) : null;
           }),
 
+        // M-02: outstanding rejected-intake blob wipes for this tenant (RLS-scoped
+        // by tenant_ref); the reject route deletes + verifies + resolves these.
+        listPendingIntakeRejectTombstones: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; storageKey: string }>> => {
+            const res = await db.execute(sql`
+              SELECT id, storage_key FROM blob_tombstone
+               WHERE reason = 'intake_reject' AND deleted_at IS NULL
+               ORDER BY created_at
+            `);
+            return res.rows.map((r) => ({ id: String(r.id), storageKey: String(r.storage_key) }));
+          }),
+
         // Track B: recurring subscriptions (newest first).
         listSubscriptions: () =>
           withTenantTx(pool, actor, 'read', async (db): Promise<Subscription[]> => {

@@ -251,6 +251,7 @@ import {
   getSubmissionForReview,
   promoteSubmission,
   rejectSubmission,
+  wipeRejectedIntakeBlobs,
   submitGuestIntake,
   resolvePromotedPerson,
   listAgreements,
@@ -1624,9 +1625,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { submissionId } = req.params as { submissionId: string };
       const { decisionNote } = req.body as { decisionNote?: string | null };
-      const result = await rejectSubmission(P, actorOf(req), submissionId, decisionNote ?? null);
-      // Wipe-on-reject: the metadata is already scrubbed; delete the blobs too.
-      for (const key of result.wipedStorageKeys) await deps.documentStorage.delete(key).catch(() => {});
+      const actor = actorOf(req);
+      const result = await rejectSubmission(P, actor, submissionId, decisionNote ?? null);
+      // M-02: the reject tx recorded the quarantine keys as durable wipe tombstones;
+      // drain the outbox now (delete + verify + resolve). A drain failure is NOT
+      // fatal — the tombstones stay pending and the next reject retries them — so a
+      // storage hiccup never orphans bytes AND never fails an accepted rejection.
+      try {
+        await wipeRejectedIntakeBlobs(P, deps.documentStorage, actor);
+      } catch (err) {
+        req.log.warn({ err }, 'intake-reject blob wipe drain failed; tombstones remain retryable');
+      }
       return { submission: toIntakeSubmissionDto(result.submission) };
     },
   );
