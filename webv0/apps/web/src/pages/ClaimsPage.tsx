@@ -28,9 +28,10 @@ export function ClaimsPage() {
   const { notify } = useNotify();
   const qc = useQueryClient();
   const canSubmit = me?.capabilities.canSubmitClaim ?? false;
+  const canReadClaims = me?.capabilities.canReadClaims ?? false; // M-12: finance/management read the register
   const canDecide = me?.capabilities.canDecideClaim ?? false;
   const canViewFinancials = me?.capabilities.canViewFinancials ?? false;
-  const { data, isLoading, isError, error } = useClaims(canSubmit);
+  const { data, isLoading, isError, error } = useClaims(canReadClaims);
 
   async function downloadPayroll(): Promise<void> {
     try {
@@ -55,7 +56,7 @@ export function ClaimsPage() {
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: ['claims'] });
 
-  if (!canSubmit) {
+  if (!canReadClaims) {
     return (
       <div>
         <PageHeader title="Claims" />
@@ -105,9 +106,11 @@ export function ClaimsPage() {
                 Payroll export
               </Button>
             )}
-            <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
-              Submit Claim
-            </Button>
+            {canSubmit && (
+              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
+                Submit Claim
+              </Button>
+            )}
           </div>
         }
       />

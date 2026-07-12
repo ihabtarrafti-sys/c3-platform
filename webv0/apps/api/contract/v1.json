@@ -11494,6 +11494,9 @@
                 "canReadAgreements": {
                   "t": "boolean"
                 },
+                "canReadClaims": {
+                  "t": "boolean"
+                },
                 "canReadMembers": {
                   "t": "boolean"
                 },

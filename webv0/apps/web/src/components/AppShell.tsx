@@ -554,7 +554,7 @@ export function AppShell() {
           {me?.capabilities.canViewFinancials && (
             <NavItem to="/subscriptions" label="Subscriptions" icon={<SubscriptionsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           )}
-          {me?.capabilities.canSubmitClaim && (
+          {me?.capabilities.canReadClaims && (
             <NavItem to='/claims' label='Claims' icon={<ClaimsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
           )}
           {me?.capabilities.canReadAgreements && (

@@ -1430,6 +1430,7 @@ export const capabilityViewSchema = z.object({
   canViewFinancials: z.boolean(),
   canViewPerDiem: z.boolean(),
   canSubmitClaim: z.boolean(),
+  canReadClaims: z.boolean(),
   canDecideClaim: z.boolean(),
   canManageDelegations: z.boolean(),
   canViewSituation: z.boolean(),

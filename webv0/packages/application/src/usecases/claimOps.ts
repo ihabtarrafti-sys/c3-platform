@@ -30,18 +30,18 @@ import {
   payClaimInputSchema,
   submitClaimInputSchema,
 } from '@c3web/domain';
-import { assertDecideClaim, assertSubmitClaim, canViewFinancials } from '@c3web/authz';
+import { assertDecideClaim, assertReadClaims, assertSubmitClaim, canViewFinancials } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
-/** Everyone sees their own claims; finance-standing roles see all. */
+/** Submitters see their own claims; finance-standing roles (finance/management) see all (M-12). */
 export async function listClaims(p: Persistence, actor: Actor): Promise<Claim[]> {
-  assertSubmitClaim(actor); // read-only roles have no claims surface at all
+  assertReadClaims(actor); // read-only NON-finance roles have no claims surface at all
   const reads = p.reads.forActor(actor);
   return canViewFinancials(actor.role) ? reads.listClaims() : reads.listClaimsForSubmitter(actor.identity);
 }
 
 export async function getClaim(p: Persistence, actor: Actor, claimId: string): Promise<Claim> {
-  assertSubmitClaim(actor);
+  assertReadClaims(actor);
   const claim = await p.reads.forActor(actor).getClaimById(claimId);
   if (!claim) throw new NotFoundError('Claim', claimId);
   if (claim.submittedBy !== actor.identity && !canViewFinancials(actor.role)) {

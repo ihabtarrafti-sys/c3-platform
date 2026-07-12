@@ -213,6 +213,20 @@ export function assertSubmitClaim(actor: Actor): void {
   }
 }
 
+/**
+ * Reading the claims register (M-12): submitters see their OWN claims, and
+ * finance-standing roles (finance, management — read-only but canViewFinancials)
+ * see ALL. Gating reads on submit-rights alone locked the two roles that most
+ * need the register out of it. Creation controls stay gated by assertSubmitClaim.
+ */
+export const canReadClaims = (role: C3Role): boolean => canSubmitClaim(role) || canViewFinancials(role);
+
+export function assertReadClaims(actor: Actor): void {
+  if (!canReadClaims(actor.role)) {
+    throw new ForbiddenError('Your role may not read the claims register.', { role: actor.role });
+  }
+}
+
 /** Deciding claims = financial visibility + operational standing (owner/operations). */
 export const canDecideClaim = (role: C3Role): boolean => canViewFinancials(role) && canSubmitApproval(role);
 
@@ -244,6 +258,8 @@ export interface CapabilityView {
   readonly canViewFinancials: boolean;
   readonly canViewPerDiem: boolean;
   readonly canSubmitClaim: boolean;
+  /** M-12: read the claims register (submitters + finance-standing). Nav/read gate; creation stays canSubmitClaim. */
+  readonly canReadClaims: boolean;
   readonly canDecideClaim: boolean;
   readonly canManageDelegations: boolean;
   /** Cockpit access is ROLE-pure (owner/ops) — delegation never widens financial visibility. */
@@ -272,6 +288,7 @@ export function capabilityView(role: C3Role): CapabilityView {
     canViewFinancials: c.canViewFinancials,
     canViewPerDiem: c.canViewPerDiem,
     canSubmitClaim: !c.isReadOnly,
+    canReadClaims: !c.isReadOnly || c.canViewFinancials,
     canDecideClaim: c.canViewFinancials && c.canSubmitApproval,
     canManageDelegations: c.canManageDelegations,
     canViewSituation: c.canSubmitApproval || c.canReviewApproval,

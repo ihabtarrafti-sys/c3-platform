@@ -131,6 +131,7 @@ describe('capabilityView (UX hint)', () => {
       canViewFinancials: true,
       canViewPerDiem: true,
       canSubmitClaim: true,
+      canReadClaims: true,
       canDecideClaim: true,
       canManageDelegations: false,
       canViewSituation: true,

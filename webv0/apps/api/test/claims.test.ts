@@ -20,7 +20,7 @@ let db: TestDatabase;
 let deps: Deps;
 let app: FastifyInstance;
 
-const tokens = {} as { ops: string; owner: string; hr: string; visitor: string };
+const tokens = {} as { ops: string; owner: string; hr: string; visitor: string; finance: string };
 
 async function login(email: string, role: string, tenantSlug: string): Promise<string> {
   const res = await app.inject({ method: 'POST', url: '/api/v1/dev/login', payload: { email, displayName: email, role, tenantSlug } });
@@ -70,6 +70,7 @@ beforeEach(async () => {
   tokens.owner = await login('owner@alpha.com', 'owner', 'alpha');
   tokens.hr = await login('hr@alpha.com', 'hr', 'alpha');
   tokens.visitor = await login('visitor@alpha.com', 'visitor', 'alpha');
+  tokens.finance = await login('finance@alpha.com', 'finance', 'alpha');
 });
 
 describe('claims over HTTP (S9)', () => {
@@ -88,6 +89,12 @@ describe('claims over HTTP (S9)', () => {
     expect(claim).toMatchObject({ status: 'Submitted', submittedBy: 'hr@alpha.com' });
     await post(tokens.visitor, '/api/v1/claims', { category: 'Travel', description: 'x', amountMinor: 1, currency: 'USD', expenseOn: '2026-07-01' }, 403);
     expect((await app.inject({ method: 'GET', url: '/api/v1/claims', headers: auth(tokens.visitor) })).statusCode).toBe(403);
+
+    // ── M-12: finance is READ-ONLY but finance-standing — it READS the whole
+    // register (the payroll/decision surface) yet may NOT create claims. ──────
+    expect((await get(tokens.finance, '/api/v1/claims')).claims.map((c: { claimId: string }) => c.claimId)).toEqual(['CLM-0001']);
+    expect((await app.inject({ method: 'GET', url: `/api/v1/claims/${claim.claimId}`, headers: auth(tokens.finance) })).statusCode).toBe(200); // reads a claim it does not own
+    await post(tokens.finance, '/api/v1/claims', { category: 'Travel', description: 'x', amountMinor: 1, currency: 'USD', expenseOn: '2026-07-01' }, 403);
 
     // ── per-actor reads: hr sees their own; ops (finance standing) sees all ──
     const ownClaim = (
