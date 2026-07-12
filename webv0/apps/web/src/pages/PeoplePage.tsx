@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
@@ -9,10 +9,29 @@ import { useNotify, useSession } from '../session';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
 import { PersonAvatar } from '../components/PersonAvatar';
+import { SavedViewsBar } from '../components/SavedViewsBar';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
 import { FormDrawer } from '../components/FormDrawer';
+
+/** The People register's filter/sort state — the payload a saved view stores. */
+type PeopleStatus = 'active' | 'all' | 'inactive';
+type PeopleSort = 'name' | 'id' | 'team';
+interface PeopleViewState {
+  q: string;
+  team: string;
+  status: PeopleStatus;
+  sort: PeopleSort;
+}
+const DEFAULT_VIEW: PeopleViewState = { q: '', team: '', status: 'active', sort: 'name' };
+/** Coerce an opaque saved-view blob back into a valid PeopleViewState. */
+function coerceView(state: unknown): PeopleViewState {
+  const s = (state ?? {}) as Record<string, unknown>;
+  const status: PeopleStatus = s.status === 'all' || s.status === 'inactive' ? s.status : 'active';
+  const sort: PeopleSort = s.sort === 'id' || s.sort === 'team' ? s.sort : 'name';
+  return { q: typeof s.q === 'string' ? s.q : '', team: typeof s.team === 'string' ? s.team : '', status, sort };
+}
 
 export function PeoplePage() {
   const r = useRegisterStyles();
@@ -29,6 +48,36 @@ export function PeoplePage() {
   const [entityId, setEntityId] = useState('');
   const [entityLabel, setEntityLabel] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // ── register filter/sort state (client-side over the loaded roster) ────────
+  const [view, setView] = useState<PeopleViewState>(DEFAULT_VIEW);
+  const patchView = (p: Partial<PeopleViewState>) => setView((v) => ({ ...v, ...p }));
+
+  const people = data?.people ?? [];
+  const teamsPresent = useMemo(
+    () => Array.from(new Set(people.map((p) => p.currentTeam).filter((t): t is string => !!t))).sort(),
+    [people],
+  );
+  const shown = useMemo(() => {
+    const q = view.q.trim().toLowerCase();
+    let rows = people.filter((p) => {
+      if (view.status === 'active' && !p.isActive) return false;
+      if (view.status === 'inactive' && p.isActive) return false;
+      if (view.team && p.currentTeam !== view.team) return false;
+      if (q) {
+        const hay = `${p.fullName} ${p.ign ?? ''} ${p.personId}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+    rows = [...rows].sort((a, b) => {
+      if (view.sort === 'id') return a.personId.localeCompare(b.personId);
+      if (view.sort === 'team') return (a.currentTeam ?? '').localeCompare(b.currentTeam ?? '') || a.fullName.localeCompare(b.fullName);
+      return a.fullName.localeCompare(b.fullName);
+    });
+    return rows;
+  }, [people, view]);
+  const isFiltered = view.q !== '' || view.team !== '' || view.status !== 'active' || view.sort !== 'name';
 
   async function submit() {
     setBusy(true);
@@ -67,7 +116,7 @@ export function PeoplePage() {
       <PageHeader
         kicker="Register"
         title="People"
-        context={data ? `${data.people.length} in this view` : undefined}
+        context={data ? `${shown.length} shown${isFiltered ? ` · ${people.length} total` : ''}` : undefined}
         actions={addAction}
       />
 
@@ -147,6 +196,59 @@ export function PeoplePage() {
       )}
       {data && data.people.length > 0 && (
         <>
+          <SavedViewsBar register="people" currentState={view} onApply={(st) => setView(coerceView(st))} />
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end', margin: '0 0 16px' }} data-testid="people-filters">
+            <Field label="Search">
+              <Input
+                value={view.q}
+                placeholder="Name, IGN, or ID"
+                onChange={(_, d) => patchView({ q: d.value })}
+                data-testid="people-filter-search"
+              />
+            </Field>
+            <Field label="Team">
+              <Dropdown
+                value={view.team || 'All teams'}
+                selectedOptions={[view.team]}
+                onOptionSelect={(_, d) => patchView({ team: d.optionValue ?? '' })}
+                data-testid="people-filter-team"
+              >
+                <Option value="" text="All teams">All teams</Option>
+                {teamsPresent.map((t) => (
+                  <Option key={t} value={t} text={t}>{t}</Option>
+                ))}
+              </Dropdown>
+            </Field>
+            <Field label="Status">
+              <Dropdown
+                value={view.status === 'active' ? 'Active' : view.status === 'inactive' ? 'Inactive' : 'All'}
+                selectedOptions={[view.status]}
+                onOptionSelect={(_, d) => patchView({ status: (d.optionValue as PeopleStatus) ?? 'active' })}
+                data-testid="people-filter-status"
+              >
+                <Option value="active" text="Active">Active</Option>
+                <Option value="all" text="All">All</Option>
+                <Option value="inactive" text="Inactive">Inactive</Option>
+              </Dropdown>
+            </Field>
+            <Field label="Sort">
+              <Dropdown
+                value={view.sort === 'id' ? 'Person ID' : view.sort === 'team' ? 'Team' : 'Full name'}
+                selectedOptions={[view.sort]}
+                onOptionSelect={(_, d) => patchView({ sort: (d.optionValue as PeopleSort) ?? 'name' })}
+                data-testid="people-filter-sort"
+              >
+                <Option value="name" text="Full name">Full name</Option>
+                <Option value="id" text="Person ID">Person ID</Option>
+                <Option value="team" text="Team">Team</Option>
+              </Dropdown>
+            </Field>
+            {isFiltered && (
+              <Button appearance="subtle" onClick={() => setView(DEFAULT_VIEW)} data-testid="people-filter-reset">
+                Reset
+              </Button>
+            )}
+          </div>
           <table className={r.table} data-testid="people-table" aria-label="People register">
             <thead>
               <tr>
@@ -157,7 +259,14 @@ export function PeoplePage() {
               </tr>
             </thead>
             <tbody>
-              {data.people.map((p) => (
+              {shown.length === 0 && (
+                <tr>
+                  <td className={r.td} colSpan={4} data-testid="people-no-matches">
+                    No people match this view.
+                  </td>
+                </tr>
+              )}
+              {shown.map((p) => (
                 <tr key={p.personId} className={r.row} data-testid={`person-row-${p.personId}`}>
                   <td className={r.td}>
                     <Link className={r.idLink} to={`/people/${p.personId}`}>
@@ -179,7 +288,8 @@ export function PeoplePage() {
             </tbody>
           </table>
           <div className={r.count}>
-            {data.people.length} {data.people.length === 1 ? 'person' : 'people'}
+            {shown.length} {shown.length === 1 ? 'person' : 'people'}
+            {isFiltered ? ` of ${people.length}` : ''}
           </div>
         </>
       )}

@@ -59,6 +59,8 @@ import {
   postCommentInputSchema,
   CALENDAR_KINDS,
   SUBSCRIPTION_CADENCES,
+  SAVED_VIEW_REGISTERS,
+  SAVED_VIEW_NAME_MAX,
   SUBSCRIPTION_STATUSES,
   subscriptionCreateInputSchema,
   subscriptionUpdateInputSchema,
@@ -850,6 +852,34 @@ export type SubscriptionDto = z.infer<typeof subscriptionSchema>;
 export const subscriptionsListSchema = z.object({ subscriptions: z.array(subscriptionSchema) });
 export const subscriptionResponseSchema = z.object({ subscription: subscriptionSchema });
 export const subscriptionIdParamSchema = z.object({ subscriptionId: z.string().regex(/^SUB-\d{4,}$/) });
+
+// ── saved views (Track B): personal filter/sort/search presets ───────────────
+export const savedViewSchema = z.object({
+  id: z.string(),
+  register: z.enum(SAVED_VIEW_REGISTERS),
+  name: z.string(),
+  // Opaque web-owned blob — the API never interprets it.
+  state: z.unknown(),
+  version: z.number(),
+  createdAt: z.string(),
+  updatedAt: z.string(),
+});
+export type SavedViewDto = z.infer<typeof savedViewSchema>;
+export const savedViewsListSchema = z.object({ views: z.array(savedViewSchema) });
+export const savedViewResponseSchema = z.object({ view: savedViewSchema });
+export const savedViewsQuerySchema = z.object({ register: z.enum(SAVED_VIEW_REGISTERS) });
+export const savedViewIdParamSchema = z.object({ id: z.string().uuid() });
+export const savedViewCreateBodySchema = z.object({
+  register: z.enum(SAVED_VIEW_REGISTERS),
+  name: z.string().trim().min(1).max(SAVED_VIEW_NAME_MAX),
+  state: z.record(z.string(), z.unknown()),
+});
+export const savedViewUpdateBodySchema = z
+  .object({
+    name: z.string().trim().min(1).max(SAVED_VIEW_NAME_MAX).optional(),
+    state: z.record(z.string(), z.unknown()).optional(),
+  })
+  .refine((v) => v.name !== undefined || v.state !== undefined, 'Nothing to update.');
 
 // ── departure workflow (Track B): offboarding ────────────────────────────────
 export { initiateDepartureInputSchema, completeDepartureInputSchema };

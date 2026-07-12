@@ -7,6 +7,10 @@ export const usePeople = (enabled = true) =>
 export const usePerson = (id: string) =>
   useQuery({ queryKey: ['person', id], queryFn: () => api.getPerson(id) });
 
+/** Track B: this user's saved views for a register (personal presets). */
+export const useSavedViews = (register: string, enabled = true) =>
+  useQuery({ queryKey: ['savedViews', register], queryFn: () => api.listSavedViews(register), enabled });
+
 export const usePersonAudit = (id: string) =>
   useQuery({ queryKey: ['personAudit', id], queryFn: () => api.personAudit(id) });
 

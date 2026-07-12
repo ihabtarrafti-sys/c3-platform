@@ -39,6 +39,7 @@ import {
   type IntakeSubmission,
   type IntakeUpload,
   type Subscription,
+  type SavedView,
   type Departure,
   parseApprovalPayload,
   Delegation,
@@ -373,6 +374,21 @@ export function mapSubscription(row: any): Subscription {
     startedOn: d(row.startedOn ?? row.started_on)!,
     nextRenewalOn: d(row.nextRenewalOn ?? row.next_renewal_on),
     notes: row.notes ?? null,
+    version: Number(row.version),
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapSavedView(row: any): SavedView {
+  return {
+    id: row.id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    userIdentity: row.userIdentity ?? row.user_identity,
+    register: row.register,
+    name: row.name,
+    state: row.state,
+    isActive: row.isActive ?? row.is_active,
     version: Number(row.version),
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

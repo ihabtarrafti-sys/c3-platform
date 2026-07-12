@@ -163,6 +163,13 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
                   FROM delegation WHERE tenant_id = $1 ORDER BY delegation_id`,
     exitRank: 13,
   },
+  // Track B (0044): saved views — an independent per-user leaf (state = jsonb).
+  {
+    name: 'saved_view',
+    exportSql: `SELECT id, tenant_id, user_identity, register, name, state, is_active, version, created_at, updated_at
+                  FROM saved_view WHERE tenant_id = $1 ORDER BY id`,
+    exitRank: 1,
+  },
 ];
 
 /** Exit deletion order: children before parents, deterministic. */

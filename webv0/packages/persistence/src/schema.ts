@@ -393,6 +393,21 @@ export const notification = pgTable('notification', {
   readAt: timestamp('read_at', { withTimezone: true }),
 });
 
+// Track B (0044): saved views — per-user named filter/sort/search presets on a
+// register. `state` is an opaque web-owned blob; soft-remove only; not audited.
+export const savedView = pgTable('saved_view', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  userIdentity: text('user_identity').notNull(),
+  register: text('register').notNull(),
+  name: text('name').notNull(),
+  state: jsonb('state').notNull(),
+  isActive: boolean('is_active').notNull().default(true),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // S12: the beneficiary registry — payment-ROUTING names, never credentials.
 export const beneficiary = pgTable('beneficiary', {
   id: uuid('id').primaryKey().defaultRandom(),

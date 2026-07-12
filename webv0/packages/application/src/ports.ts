@@ -45,6 +45,7 @@ import type {
   IntakeLink,
   IntakeSubmission,
   Subscription,
+  SavedView,
   Departure,
 } from '@c3web/domain';
 
@@ -199,6 +200,8 @@ export interface ReadStore {
   getIntakeSubmissionById(id: string): Promise<IntakeSubmission | null>;
   /** Track B: recurring subscriptions (newest first). */
   listSubscriptions(): Promise<Subscription[]>;
+  /** Track B: this user's active saved views for a register (newest first). */
+  listSavedViews(userIdentity: string, register: string): Promise<SavedView[]>;
   /** Track B: departures (all statuses, newest first). */
   listDepartures(): Promise<Departure[]>;
   /**
@@ -557,6 +560,20 @@ export interface EntityPatch {
   readonly localCurrency?: string;
 }
 
+/** Fields written when creating a SavedView (Track B, per-user, not audited). */
+export interface NewSavedViewRow {
+  readonly userIdentity: string;
+  readonly register: string;
+  readonly name: string;
+  readonly state: unknown;
+}
+
+/** Rename / re-save patch for a saved view (only provided keys change). */
+export interface SavedViewPatch {
+  readonly name?: string;
+  readonly state?: unknown;
+}
+
 /** Fields written when creating a Subscription (Track B, direct-audited). */
 export interface NewSubscriptionRow {
   readonly name: string;
@@ -908,6 +925,13 @@ export interface WriteTx {
   updateSubscription(subscriptionId: string, expectedVersion: number, patch: SubscriptionPatch): Promise<Subscription | null>;
   /** Version-guarded status set (Active↔Cancelled); null = stale/missing. */
   setSubscriptionStatus(subscriptionId: string, expectedVersion: number, status: string): Promise<Subscription | null>;
+
+  // ── Track B saved views (per-user; owner-scoped; not audited) ──────────────
+  insertSavedView(row: NewSavedViewRow): Promise<SavedView>;
+  /** Rename / re-save state — owner-scoped (WHERE id AND user_identity); last-write-wins. Null = missing/not-owner. */
+  updateSavedView(id: string, userIdentity: string, patch: SavedViewPatch): Promise<SavedView | null>;
+  /** Soft-remove — owner-scoped. Null = missing/not-owner. */
+  deactivateSavedView(id: string, userIdentity: string): Promise<SavedView | null>;
 
   // ── Track B departure workflow (direct-audited record) ─────────────────────
   insertDeparture(departureId: string, row: { personId: string; reason: string; initiatedBy: string; initiatedOn: string }): Promise<Departure>;

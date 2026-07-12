@@ -48,6 +48,7 @@ import type {
   ActivityItemDto,
   CalendarItemDto,
   SubscriptionDto,
+  SavedViewDto,
   DepartureDto,
   DepartureWithReadinessDto,
   CommentDto,
@@ -447,6 +448,12 @@ export function createApiClient(deps: ApiClientDeps) {
     cancelDeparture: (id: string, expectedVersion: number, note?: string | null) =>
       request<{ departure: DepartureDto }>('POST', `/api/v1/departures/${id}/cancel`, { expectedVersion, note: note ?? null }),
     // Track B: recurring subscriptions (org costs).
+    // Track B: saved views (personal filter/sort/search presets per register).
+    listSavedViews: (register: string) => request<{ views: SavedViewDto[] }>('GET', `/api/v1/saved-views?register=${encodeURIComponent(register)}`),
+    createSavedView: (register: string, name: string, state: unknown) =>
+      request<{ view: SavedViewDto }>('POST', '/api/v1/saved-views', { register, name, state }),
+    updateSavedView: (id: string, body: { name?: string; state?: unknown }) => request<{ view: SavedViewDto }>('POST', `/api/v1/saved-views/${id}`, body),
+    removeSavedView: (id: string) => request<{ view: SavedViewDto }>('POST', `/api/v1/saved-views/${id}/remove`),
     listSubscriptions: () => request<{ subscriptions: SubscriptionDto[] }>('GET', '/api/v1/subscriptions'),
     createSubscription: (input: Record<string, unknown>) => request<{ subscription: SubscriptionDto }>('POST', '/api/v1/subscriptions', input),
     updateSubscription: (id: string, input: Record<string, unknown>) => request<{ subscription: SubscriptionDto }>('POST', `/api/v1/subscriptions/${id}`, input),

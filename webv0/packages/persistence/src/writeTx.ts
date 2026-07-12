@@ -31,6 +31,7 @@ import {
   type IntakeLink,
   type IntakeSubmission,
   type Subscription,
+  type SavedView,
   type Departure,
   type Delegation,
   type Beneficiary,
@@ -43,10 +44,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, NewSubscriptionRow, SubscriptionPatch, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, NewSubscriptionRow, SubscriptionPatch, NewSavedViewRow, SavedViewPatch, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapDeparture, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapSavedView, mapDeparture, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -1195,6 +1196,38 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.subscription.subscriptionId, subscriptionId), eq(schema.subscription.version, expectedVersion)))
         .returning();
       return rows[0] ? mapSubscription(rows[0]) : null;
+    },
+
+    // ── Track B saved views (per-user; owner-scoped; not audited) ────────────
+    async insertSavedView(row: NewSavedViewRow): Promise<SavedView> {
+      const [r] = await db
+        .insert(schema.savedView)
+        .values({ tenantId, userIdentity: row.userIdentity, register: row.register, name: row.name, state: row.state })
+        .returning();
+      return mapSavedView(r);
+    },
+
+    async updateSavedView(id: string, userIdentity: string, patch: SavedViewPatch): Promise<SavedView | null> {
+      const rows = await db
+        .update(schema.savedView)
+        .set({
+          ...(patch.name !== undefined ? { name: patch.name } : {}),
+          ...(patch.state !== undefined ? { state: patch.state } : {}),
+          version: sql`${schema.savedView.version} + 1`,
+        })
+        // Owner-scoped: a user can only touch their own view (RLS covers tenant).
+        .where(and(eq(schema.savedView.id, id), eq(schema.savedView.userIdentity, userIdentity), eq(schema.savedView.isActive, true)))
+        .returning();
+      return rows[0] ? mapSavedView(rows[0]) : null;
+    },
+
+    async deactivateSavedView(id: string, userIdentity: string): Promise<SavedView | null> {
+      const rows = await db
+        .update(schema.savedView)
+        .set({ isActive: false, version: sql`${schema.savedView.version} + 1` })
+        .where(and(eq(schema.savedView.id, id), eq(schema.savedView.userIdentity, userIdentity), eq(schema.savedView.isActive, true)))
+        .returning();
+      return rows[0] ? mapSavedView(rows[0]) : null;
     },
 
     // ── Track B departure workflow (direct-audited record) ───────────────────

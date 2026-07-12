@@ -16685,6 +16685,274 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/saved-views",
+      "querystring": {
+        "t": "object",
+        "keys": {
+          "register": {
+            "t": "enum",
+            "values": [
+              "agreements",
+              "apparel",
+              "approvals",
+              "claims",
+              "credentials",
+              "kit",
+              "missions",
+              "people"
+            ]
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "views": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "id": {
+                    "t": "string"
+                  },
+                  "name": {
+                    "t": "string"
+                  },
+                  "register": {
+                    "t": "enum",
+                    "values": [
+                      "agreements",
+                      "apparel",
+                      "approvals",
+                      "claims",
+                      "credentials",
+                      "kit",
+                      "missions",
+                      "people"
+                    ]
+                  },
+                  "state": {
+                    "t": "unknown"
+                  },
+                  "updatedAt": {
+                    "t": "string"
+                  },
+                  "version": {
+                    "t": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/saved-views",
+      "body": {
+        "t": "object",
+        "keys": {
+          "name": {
+            "t": "string"
+          },
+          "register": {
+            "t": "enum",
+            "values": [
+              "agreements",
+              "apparel",
+              "approvals",
+              "claims",
+              "credentials",
+              "kit",
+              "missions",
+              "people"
+            ]
+          },
+          "state": {
+            "t": "record",
+            "value": {
+              "t": "unknown"
+            }
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "view": {
+              "t": "object",
+              "keys": {
+                "createdAt": {
+                  "t": "string"
+                },
+                "id": {
+                  "t": "string"
+                },
+                "name": {
+                  "t": "string"
+                },
+                "register": {
+                  "t": "enum",
+                  "values": [
+                    "agreements",
+                    "apparel",
+                    "approvals",
+                    "claims",
+                    "credentials",
+                    "kit",
+                    "missions",
+                    "people"
+                  ]
+                },
+                "state": {
+                  "t": "unknown"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/saved-views/:id",
+      "body": {
+        "t": "object",
+        "keys": {
+          "name": {
+            "t": "string",
+            "optional": true
+          },
+          "state": {
+            "t": "record",
+            "value": {
+              "t": "unknown"
+            },
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "id": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "view": {
+              "t": "object",
+              "keys": {
+                "createdAt": {
+                  "t": "string"
+                },
+                "id": {
+                  "t": "string"
+                },
+                "name": {
+                  "t": "string"
+                },
+                "register": {
+                  "t": "enum",
+                  "values": [
+                    "agreements",
+                    "apparel",
+                    "approvals",
+                    "claims",
+                    "credentials",
+                    "kit",
+                    "missions",
+                    "people"
+                  ]
+                },
+                "state": {
+                  "t": "unknown"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/saved-views/:id/remove",
+      "params": {
+        "t": "object",
+        "keys": {
+          "id": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "view": {
+              "t": "object",
+              "keys": {
+                "createdAt": {
+                  "t": "string"
+                },
+                "id": {
+                  "t": "string"
+                },
+                "name": {
+                  "t": "string"
+                },
+                "register": {
+                  "t": "enum",
+                  "values": [
+                    "agreements",
+                    "apparel",
+                    "approvals",
+                    "claims",
+                    "credentials",
+                    "kit",
+                    "missions",
+                    "people"
+                  ]
+                },
+                "state": {
+                  "t": "unknown"
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/search",
       "querystring": {
         "t": "object",

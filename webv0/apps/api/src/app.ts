@@ -129,6 +129,12 @@ import {
   subscriptionCreateInputSchema,
   subscriptionUpdateInputSchema,
   subscriptionsListSchema,
+  savedViewsListSchema,
+  savedViewResponseSchema,
+  savedViewsQuerySchema,
+  savedViewIdParamSchema,
+  savedViewCreateBodySchema,
+  savedViewUpdateBodySchema,
   subscriptionResponseSchema,
   subscriptionIdParamSchema,
   departuresListSchema,
@@ -223,6 +229,10 @@ import {
   getCalendar,
   listSubscriptions,
   createSubscription,
+  listSavedViews,
+  createSavedView,
+  updateSavedView,
+  removeSavedView,
   updateSubscription,
   cancelSubscription,
   reactivateSubscription,
@@ -374,7 +384,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toSavedViewDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1935,6 +1945,33 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return { subscription: toSubscriptionDto(await reactivateSubscription(P, actorOf(req), subscriptionId, expectedVersion)) };
     },
   );
+
+  // ── saved views (Track B): personal filter/sort/search presets ─────────────
+  // No capability gate (personal to any authenticated actor); every op is
+  // owner-scoped by the actor identity inside the use-case.
+  r.get('/api/v1/saved-views', { schema: { querystring: savedViewsQuerySchema, response: { 200: savedViewsListSchema } } }, async (req) => {
+    const { register } = req.query as { register: import('@c3web/domain').SavedViewRegister };
+    return { views: (await listSavedViews(P, actorOf(req), register)).map(toSavedViewDto) };
+  });
+
+  r.post('/api/v1/saved-views', { schema: { body: savedViewCreateBodySchema, response: { 201: savedViewResponseSchema } } }, async (req, reply) => {
+    const view = await createSavedView(P, actorOf(req), req.body as import('@c3web/domain').SavedViewCreateInput);
+    return reply.status(201).send({ view: toSavedViewDto(view) });
+  });
+
+  r.post(
+    '/api/v1/saved-views/:id',
+    { schema: { params: savedViewIdParamSchema, body: savedViewUpdateBodySchema, response: { 200: savedViewResponseSchema } } },
+    async (req) => {
+      const { id } = req.params as { id: string };
+      return { view: toSavedViewDto(await updateSavedView(P, actorOf(req), id, req.body as import('@c3web/domain').SavedViewUpdateInput)) };
+    },
+  );
+
+  r.post('/api/v1/saved-views/:id/remove', { schema: { params: savedViewIdParamSchema, response: { 200: savedViewResponseSchema } } }, async (req) => {
+    const { id } = req.params as { id: string };
+    return { view: toSavedViewDto(await removeSavedView(P, actorOf(req), id)) };
+  });
 
   // ── departure workflow (Track B): offboarding (owner/ops operational) ───────
   r.get('/api/v1/departures', { schema: { response: { 200: departuresListSchema } } }, async (req) => {
