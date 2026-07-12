@@ -45,6 +45,15 @@ export interface Person {
   /** YYYY-MM-DD. */
   readonly dateOfJoining: string | null;
   readonly position: string | null;
+  // ── Track B: the current headshot (bytes in private object storage) ───────
+  /** Opaque tenant-scoped storage key — server-generated. Server-only (never
+   *  leaves the API; the DTO exposes only photoUpdatedAt). Null = no photo. */
+  readonly photoStorageKey: string | null;
+  readonly photoContentType: string | null;
+  /** Server-computed at set time — the serve route re-verifies before serving. */
+  readonly photoSha256: string | null;
+  /** ISO; presence = "has a photo", and doubles as the cache-buster. */
+  readonly photoUpdatedAt: string | null;
   readonly isActive: boolean;
   /** Optimistic-concurrency token (monotonic integer). */
   readonly version: number;
@@ -58,6 +67,18 @@ export interface Person {
  * (owner/operations/hr) — absence, not masking (the S41 financials law).
  */
 export const PERSON_PII_FIELDS = ['dateOfBirth', 'addressLine1', 'addressLine2', 'addressCity', 'addressCountry', 'phone', 'email'] as const;
+
+/**
+ * Person photo (Track B). A headshot is an IMAGE only — the document allowlist
+ * is wider (PDFs, office docs); an avatar is png/jpeg/webp, hard-capped well
+ * below the document ceiling. The bytes still prove themselves by magic
+ * signature at upload (documentBytesMatchDeclaredType covers these three).
+ */
+export const PERSON_PHOTO_MAX_BYTES = 8 * 1024 * 1024;
+export const PERSON_PHOTO_CONTENT_TYPES = ['image/png', 'image/jpeg', 'image/webp'] as const;
+export function isAllowedPersonPhotoContentType(v: string): boolean {
+  return (PERSON_PHOTO_CONTENT_TYPES as readonly string[]).includes(v);
+}
 
 const trimmedOptional = (max: number) =>
   z

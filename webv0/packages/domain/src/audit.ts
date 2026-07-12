@@ -79,6 +79,9 @@ export const AUDIT_ACTIONS = [
   // S4: registered evidence — audit lands on the OWNER record's trail.
   'DocumentAttached',
   'DocumentRemoved',
+  // Track B: person headshot (direct-audited on the person trail).
+  'PersonPhotoUpdated',
+  'PersonPhotoRemoved',
   // S6: invoices (direct-audited; the line flip audits as MissionLinePaymentSet).
   'InvoiceIssued',
   'InvoiceVoided',

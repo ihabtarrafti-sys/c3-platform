@@ -3683,6 +3683,12 @@
                     },
                     "optional": true
                   },
+                  "photoUpdatedAt": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
                   "position": {
                     "t": "nullable",
                     "inner": {
@@ -14463,6 +14469,12 @@
                     },
                     "optional": true
                   },
+                  "photoUpdatedAt": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
                   "position": {
                     "t": "nullable",
                     "inner": {
@@ -14638,6 +14650,12 @@
                     "t": "string"
                   },
                   "optional": true
+                },
+                "photoUpdatedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "position": {
                   "t": "nullable",
@@ -14938,6 +14956,12 @@
                     "t": "string"
                   },
                   "optional": true
+                },
+                "photoUpdatedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "position": {
                   "t": "nullable",
@@ -15941,6 +15965,380 @@
                   "role": {
                     "t": "string"
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/people/:personId/photo",
+      "params": {
+        "t": "object",
+        "keys": {
+          "personId": {
+            "t": "string"
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/people/:personId/photo",
+      "params": {
+        "t": "object",
+        "keys": {
+          "personId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "person": {
+              "t": "object",
+              "keys": {
+                "addressCity": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "addressCountry": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "addressLine1": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "addressLine2": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "currentGameTitle": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "currentTeam": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "dateOfBirth": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "dateOfJoining": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "email": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "entityId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "firstName": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "fullName": {
+                  "t": "string"
+                },
+                "ign": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "isActive": {
+                  "t": "boolean"
+                },
+                "lastName": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "nationality": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "otherNationalities": {
+                  "t": "array",
+                  "item": {
+                    "t": "string"
+                  }
+                },
+                "personId": {
+                  "t": "string"
+                },
+                "personnelCode": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "phone": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "photoUpdatedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "position": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "primaryDepartment": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "primaryRole": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/people/:personId/photo/remove",
+      "params": {
+        "t": "object",
+        "keys": {
+          "personId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "person": {
+              "t": "object",
+              "keys": {
+                "addressCity": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "addressCountry": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "addressLine1": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "addressLine2": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "currentGameTitle": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "currentTeam": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "dateOfBirth": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "dateOfJoining": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "email": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "entityId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "firstName": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "fullName": {
+                  "t": "string"
+                },
+                "ign": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "isActive": {
+                  "t": "boolean"
+                },
+                "lastName": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "nationality": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "notes": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "otherNationalities": {
+                  "t": "array",
+                  "item": {
+                    "t": "string"
+                  }
+                },
+                "personId": {
+                  "t": "string"
+                },
+                "personnelCode": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "phone": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  },
+                  "optional": true
+                },
+                "photoUpdatedAt": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "position": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "primaryDepartment": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "primaryRole": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "updatedAt": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
                 }
               }
             }

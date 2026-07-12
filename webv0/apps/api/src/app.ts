@@ -204,7 +204,7 @@ import {
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { DOCUMENT_MAX_BYTES, documentBytesMatchDeclaredType, isAllowedDocumentContentType, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
+import { DOCUMENT_MAX_BYTES, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
 import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
@@ -333,6 +333,9 @@ import {
   getApproval,
   getMission,
   getPerson,
+  getPersonPhoto,
+  setPersonPhoto,
+  clearPersonPhoto,
   listApparel,
   listApprovalEvents,
   listApprovals,
@@ -668,6 +671,74 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const { personId } = req.params as { personId: string };
     const events = await listAuditEvents(P, actorOf(req), 'Person', personId);
     return { events: events.map(toAuditEventDto) };
+  });
+
+  // ── person photo (Track B): image bytes through the API under the person ──
+  // read gate. Set/replace/clear are ops; a face is the same read surface as
+  // the name (baseline people read), not the PII tier.
+  r.post(
+    '/api/v1/people/:personId/photo',
+    { bodyLimit: PERSON_PHOTO_MAX_BYTES + 512 * 1024, schema: { params: personIdParamSchema, response: { 200: personResponseSchema } } },
+    async (req, reply) => {
+      const actor = actorOf(req);
+      const { personId } = req.params as { personId: string };
+      const file = await req.file();
+      if (!file) return sendError(req, reply, 400, 'VALIDATION', 'An image file is required.');
+      const contentType = file.mimetype;
+      if (!isAllowedPersonPhotoContentType(contentType)) {
+        return sendError(req, reply, 415, 'UNSUPPORTED_TYPE', 'A photo must be a PNG, JPEG, or WEBP image.');
+      }
+      let body: Buffer;
+      try {
+        body = await file.toBuffer();
+      } catch {
+        return sendError(req, reply, 413, 'TOO_LARGE', `The image exceeds the ${Math.round(PERSON_PHOTO_MAX_BYTES / (1024 * 1024))} MB limit.`);
+      }
+      if (body.length === 0) return sendError(req, reply, 400, 'VALIDATION', 'The image is empty.');
+      if (body.length > PERSON_PHOTO_MAX_BYTES) {
+        return sendError(req, reply, 413, 'TOO_LARGE', `The image exceeds the ${Math.round(PERSON_PHOTO_MAX_BYTES / (1024 * 1024))} MB limit.`);
+      }
+      // The declared MIME is an assertion — the bytes must agree (magic bytes).
+      if (!documentBytesMatchDeclaredType(contentType, body)) {
+        return sendError(req, reply, 415, 'UNSUPPORTED_TYPE', "The image's content does not match its declared type.");
+      }
+      const sha256 = createHash('sha256').update(body).digest('hex');
+      const storageKey = `${actor.tenantId}/${randomUUID()}`;
+      await deps.documentStorage.put(storageKey, body, contentType);
+      try {
+        const person = await setPersonPhoto(P, actor, personId, { storageKey, contentType, sha256 });
+        return reply.status(200).send({ person: toPersonDto(person, piiOf(req)) });
+      } catch (err) {
+        // Compensation: the blob landed but the pointer set failed — remove it.
+        await deps.documentStorage.delete(storageKey).catch(() => {});
+        throw err;
+      }
+    },
+  );
+
+  r.get('/api/v1/people/:personId/photo', { schema: { params: personIdParamSchema } }, async (req, reply) => {
+    const { personId } = req.params as { personId: string };
+    const ref = await getPersonPhoto(P, actorOf(req), personId);
+    if (!ref) return sendError(req, reply, 404, 'NOT_FOUND', 'This person has no photo.');
+    const body = await deps.documentStorage.get(ref.storageKey);
+    if (!body) return sendError(req, reply, 404, 'NOT_FOUND', 'The stored image could not be found.');
+    // Re-verify before serving — altered object-store bytes are a refusal.
+    const actualSha = createHash('sha256').update(body).digest('hex');
+    if (actualSha !== ref.sha256) {
+      req.log.error({ personId, expected: ref.sha256, actual: actualSha }, 'person photo hash mismatch');
+      return sendError(req, reply, 502, 'INTEGRITY', 'The stored image failed its integrity check and was not served.');
+    }
+    reply.header('content-type', ref.contentType);
+    reply.header('content-length', String(body.length));
+    // PII surface: private cache only; the web cache-busts on photoUpdatedAt.
+    reply.header('cache-control', 'private, max-age=300');
+    reply.header('content-disposition', 'inline');
+    return reply.send(body);
+  });
+
+  r.post('/api/v1/people/:personId/photo/remove', { schema: { params: personIdParamSchema, response: { 200: personResponseSchema } } }, async (req) => {
+    const { personId } = req.params as { personId: string };
+    return { person: toPersonDto(await clearPersonPhoto(P, actorOf(req), personId), piiOf(req)) };
   });
 
   // ── approvals ──────────────────────────────────────────────────────────────

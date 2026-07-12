@@ -267,6 +267,16 @@ export function createApiClient(deps: ApiClientDeps) {
     listPeople: () => request<{ people: PersonDto[] }>('GET', '/api/v1/people'),
     getPerson: (id: string) => request<{ person: PersonDto }>('GET', `/api/v1/people/${id}`),
     personAudit: (id: string) => request<{ events: AuditEventDto[] }>('GET', `/api/v1/people/${id}/audit`),
+    // Track B: the person headshot. Upload/replace (ops) → { person }; the
+    // bearer-authed GET returns bytes (rendered via an object URL, never a raw
+    // <img src>); remove clears the pointer.
+    uploadPersonPhoto: (personId: string, file: File) => {
+      const form = new FormData();
+      form.append('file', file, file.name);
+      return upload<{ person: PersonDto }>(`/api/v1/people/${personId}/photo`, form);
+    },
+    getPersonPhoto: (personId: string) => download(`/api/v1/people/${personId}/photo`),
+    removePersonPhoto: (personId: string) => request<{ person: PersonDto }>('POST', `/api/v1/people/${personId}/photo/remove`),
     listApprovals: () => request<{ approvals: ApprovalDto[] }>('GET', '/api/v1/approvals'),
     getApproval: (id: string) => request<{ approval: ApprovalDto }>('GET', `/api/v1/approvals/${id}`),
     approvalEvents: (id: string) => request<{ events: ApprovalEventDto[] }>('GET', `/api/v1/approvals/${id}/events`),

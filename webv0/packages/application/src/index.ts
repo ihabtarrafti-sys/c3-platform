@@ -19,6 +19,7 @@ export * from './usecases/delegationOps';
 export * from './usecases/submitPersonOps';
 export * from './usecases/submitCredentialV2Ops';
 export * from './usecases/personOps';
+export * from './usecases/personPhotoOps';
 export * from './usecases/missionPnlOps';
 export * from './usecases/entityOps';
 export * from './usecases/submitMissionParticipantOps';

@@ -3,6 +3,7 @@ import { Button, makeStyles } from '@fluentui/react-components';
 import { usePerson, usePersonAgreements, usePersonCredentials, usePersonJourneys, usePersonMissionMemberships, usePersonTeams } from '../queries';
 import { useSession } from '../session';
 import { ErrorState, LoadingState } from '../components/states';
+import { PersonAvatar } from '../components/PersonAvatar';
 import { ApiError } from '../api';
 
 /**
@@ -18,6 +19,7 @@ const useStyles = makeStyles({
   wrap: { maxWidth: '820px' },
   bar: { display: 'flex', gap: '8px', marginBottom: '16px' },
   sheet: { border: '1px solid var(--c3-hairline)', borderRadius: '12px', padding: '28px 32px', backgroundColor: 'var(--c3-surface, transparent)' },
+  headRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', columnGap: '16px' },
   brand: { fontFamily: 'var(--c3-font-mono)', fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--c3-ink-muted)' },
   name: { fontSize: '24px', fontWeight: 600, color: 'var(--c3-ink)', margin: '4px 0 2px' },
   sub: { fontSize: '13px', color: 'var(--c3-ink-mid)' },
@@ -76,10 +78,15 @@ export function OnePagerPage() {
       </div>
 
       <div className={`${s.sheet} c3-onepager`} data-testid="onepager-sheet">
-        <div className={s.brand}>C3 · Geekay Esports · Person one-pager</div>
-        <div className={s.name}>{p.fullName}</div>
-        <div className={s.sub}>
-          {p.personId}{p.ign ? ` · ${p.ign}` : ''}{p.primaryRole ? ` · ${p.primaryRole}` : ''}{p.currentTeam ? ` · ${p.currentTeam}` : ''}
+        <div className={s.headRow}>
+          <div>
+            <div className={s.brand}>C3 · Geekay Esports · Person one-pager</div>
+            <div className={s.name}>{p.fullName}</div>
+            <div className={s.sub}>
+              {p.personId}{p.ign ? ` · ${p.ign}` : ''}{p.primaryRole ? ` · ${p.primaryRole}` : ''}{p.currentTeam ? ` · ${p.currentTeam}` : ''}
+            </div>
+          </div>
+          <PersonAvatar personId={p.personId} photoUpdatedAt={p.photoUpdatedAt} name={p.fullName} size={72} />
         </div>
 
         <div className={s.grid}>

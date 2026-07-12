@@ -474,6 +474,7 @@ export function toPersonDto(p: Person, includePii: boolean): PersonDto {
     otherNationalities: [...p.otherNationalities],
     position: p.position,
     dateOfJoining: p.dateOfJoining,
+    photoUpdatedAt: p.photoUpdatedAt,
     ...(includePii
       ? {
           dateOfBirth: p.dateOfBirth,

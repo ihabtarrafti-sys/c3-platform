@@ -339,6 +339,22 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapPerson(rows[0]) : null;
     },
 
+    async setPersonPhoto(personId: string, patch: { storageKey: string; contentType: string; sha256: string } | null): Promise<Person | null> {
+      // No version guard: a photo swap must not touch the identity concurrency
+      // token (nor collide with a governed edit). Last-write-wins.
+      const rows = await db
+        .update(schema.person)
+        .set({
+          photoStorageKey: patch ? patch.storageKey : null,
+          photoContentType: patch ? patch.contentType : null,
+          photoSha256: patch ? patch.sha256 : null,
+          photoUpdatedAt: patch ? new Date() : null,
+        })
+        .where(eq(schema.person.personId, personId))
+        .returning();
+      return rows[0] ? mapPerson(rows[0]) : null;
+    },
+
     // ── S12: credential v2 facts/details + the beneficiary registry ──────────
     async lockCredential(credentialId: string): Promise<Credential | null> {
       const res = await db.execute(sql`SELECT * FROM credential WHERE credential_id = ${credentialId} FOR UPDATE`);

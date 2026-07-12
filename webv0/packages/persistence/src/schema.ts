@@ -118,6 +118,13 @@ export const person = pgTable('person', {
   dateOfJoining: date('date_of_joining', { mode: 'string' }),
   position: text('position'),
   otherNationalities: text('other_nationalities').array().notNull().default([]),
+  // Track B (0043): the current headshot. Metadata here; bytes in the private
+  // object store under photoStorageKey. Orthogonal to `version` (a photo swap
+  // is not an identity edit — see 0043_person_photo.sql).
+  photoStorageKey: text('photo_storage_key'),
+  photoContentType: text('photo_content_type'),
+  photoSha256: text('photo_sha256'),
+  photoUpdatedAt: timestamp('photo_updated_at', { withTimezone: true }),
   isActive: boolean('is_active').notNull().default(true),
   createdByApprovalId: text('created_by_approval_id'),
   version: integer('version').notNull().default(0),

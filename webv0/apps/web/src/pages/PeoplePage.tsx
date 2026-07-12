@@ -8,6 +8,7 @@ import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { PageHeader } from '../components/PageHeader';
 import { StatusBadge } from '../components/StatusBadge';
+import { PersonAvatar } from '../components/PersonAvatar';
 import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
@@ -163,7 +164,12 @@ export function PeoplePage() {
                       {p.personId}
                     </Link>
                   </td>
-                  <td className={`${r.td} ${r.name}`}>{p.fullName}</td>
+                  <td className={`${r.td} ${r.name}`}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', columnGap: '8px' }}>
+                      <PersonAvatar personId={p.personId} photoUpdatedAt={p.photoUpdatedAt} name={p.fullName} size={26} />
+                      {p.fullName}
+                    </span>
+                  </td>
                   <td className={r.td}>{p.currentTeam ?? '—'}</td>
                   <td className={r.td}>
                     <StatusBadge variant={p.isActive ? 'ready' : 'neutral'}>{p.isActive ? 'Active' : 'Inactive'}</StatusBadge>

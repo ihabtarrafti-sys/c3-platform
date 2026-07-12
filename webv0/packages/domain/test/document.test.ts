@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { documentBytesMatchDeclaredType } from '../src/document';
+import { isAllowedPersonPhotoContentType, PERSON_PHOTO_CONTENT_TYPES, PERSON_PHOTO_MAX_BYTES } from '../src/person';
 
 const bytes = (...parts: Array<string | number[]>): Uint8Array => {
   const chunks = parts.map((p) => (typeof p === 'string' ? new TextEncoder().encode(p) : Uint8Array.from(p)));
@@ -37,5 +38,19 @@ describe('HARDEN-2 M-07 — the declared type must match the bytes', () => {
 
   it('an unlisted type never matches', () => {
     expect(documentBytesMatchDeclaredType('application/x-msdownload', bytes('MZ…'))).toBe(false);
+  });
+});
+
+describe('person photo — image-only, well below the document ceiling (Track B)', () => {
+  it('accepts exactly png/jpeg/webp; refuses PDFs and office docs (valid documents, not headshots)', () => {
+    expect([...PERSON_PHOTO_CONTENT_TYPES]).toEqual(['image/png', 'image/jpeg', 'image/webp']);
+    for (const t of PERSON_PHOTO_CONTENT_TYPES) expect(isAllowedPersonPhotoContentType(t)).toBe(true);
+    for (const t of ['application/pdf', 'text/plain', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'image/gif', '']) {
+      expect(isAllowedPersonPhotoContentType(t)).toBe(false);
+    }
+  });
+
+  it('the photo ceiling is smaller than the document ceiling', () => {
+    expect(PERSON_PHOTO_MAX_BYTES).toBe(8 * 1024 * 1024);
   });
 });

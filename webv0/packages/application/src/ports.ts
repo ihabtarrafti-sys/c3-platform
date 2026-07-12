@@ -680,6 +680,13 @@ export interface WriteTx {
   updatePersonFields(personId: string, expectedVersion: number, patch: PersonFieldsPatch): Promise<Person | null>;
   /** S11: lifecycle flip with version guard. */
   setPersonActive(personId: string, expectedVersion: number, isActive: boolean): Promise<Person | null>;
+  /**
+   * Track B: set/replace (patch) or clear (null) the person's photo pointer.
+   * Version-FREE by design — a headshot is orthogonal to identity concurrency,
+   * so last-write-wins and no in-flight governed edit is disturbed. Null =
+   * person not found.
+   */
+  setPersonPhoto(personId: string, patch: { storageKey: string; contentType: string; sha256: string } | null): Promise<Person | null>;
   // ── S12: credential v2 + the beneficiary registry ─────────────────────────
   lockCredential(credentialId: string): Promise<Credential | null>;
   /** Sparse facts/details patch with version guard — null clears, undefined leaves untouched. */

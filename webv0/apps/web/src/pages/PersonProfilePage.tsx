@@ -24,6 +24,7 @@ import { PersonV2Sections } from '../components/PersonV2Sections';
 import { BeneficiarySection, CredentialFactsAction } from '../components/PersonS12Sections';
 import { ErrorState, LoadingState } from '../components/states';
 import { PersonActions } from '../components/PersonActions';
+import { PersonPhotoControl } from '../components/PersonPhotoControl';
 import { useRegisterStyles } from '../components/registerStyles';
 import { agreementRenewalStateOf, approvalStatusOf, auditActionOf, credentialStatusOf, formatUsdCents, journeyStatusOf, operationOf } from '../labels';
 
@@ -92,6 +93,12 @@ export function PersonProfilePage() {
       {isLoading && <LoadingState label="Loading person…" />}
       {data && (
         <>
+          <PersonPhotoControl
+            personId={data.person.personId}
+            name={data.person.fullName}
+            photoUpdatedAt={data.person.photoUpdatedAt}
+            canManage={me?.capabilities.canSubmitApproval ?? false}
+          />
           <DefinitionList
             items={[
               { label: 'Person ID', value: data.person.personId, mono: true, testId: 'person-id' },
