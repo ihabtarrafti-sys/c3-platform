@@ -11,12 +11,16 @@
  *   - an erased/unknown slug is refused.
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
 import { Client } from 'pg';
 import type { Actor } from '@c3web/domain';
 import { createMission } from '@c3web/application';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
 import { exitTenant } from '../src/exitTenant';
+import { createBlobReader, sweepTenantBlobErasure } from '../src/blobBundle';
 
 let db: TestDatabase;
 let p: PersistenceHandle;
@@ -197,6 +201,88 @@ describe('exit ceremony — refusals (fail closed, nothing changes)', () => {
 
   it('refuses an unknown tenant slug', async () => {
     await expect(admin((c) => exitTenant(c, { tenantSlug: 'nope' }))).rejects.toThrow(/Unknown tenant/i);
+  });
+});
+
+const HEX = (c: string) => c.repeat(64);
+
+/**
+ * Seed all three blob classes for alpha AND lay down the matching object files
+ * (plus ORPHANS no row names) under `root`. Returns the object keys that must
+ * end up erased.
+ */
+async function seedAlphaBlobs(root: string): Promise<{ known: string[]; orphans: string[] }> {
+  const put = (key: string, content = 'bytes') => {
+    const dest = join(root, key);
+    mkdirSync(dirname(dest), { recursive: true });
+    writeFileSync(dest, content);
+  };
+  const docKey = `${alphaId}/doc-obj`;
+  const photoKey = `${alphaId}/photo-obj`;
+  const intakeKey = `intake/${alphaId}/subPending/up1`;
+  await admin(async (c) => {
+    await c.query(
+      `UPDATE person SET photo_storage_key = $2, photo_content_type = 'image/jpeg', photo_sha256 = $3, photo_updated_at = now()
+        WHERE tenant_id = $1 AND full_name = 'Alpha Person'`,
+      [alphaId, photoKey, HEX('a')],
+    );
+    await c.query(
+      `INSERT INTO document (tenant_id, document_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, storage_key, uploaded_by)
+       VALUES ($1, 'DOC-0001', 'Person', 'PER-0001', 'c.pdf', 'application/pdf', 5, $2, $3, 'owner')`,
+      [alphaId, HEX('b'), docKey],
+    );
+    const link = await c.query<{ id: string }>(
+      `INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at)
+       VALUES ($1, $2, 'Onboarding', 'ops', now() + interval '7 days') RETURNING id`,
+      [alphaId, `hash-${alphaId}`],
+    );
+    await c.query(
+      `INSERT INTO intake_submission (tenant_id, link_id, kind, payload, uploads, status)
+       VALUES ($1, $2, 'Onboarding', '{"fullName":"X"}'::jsonb, $3::jsonb, 'Pending')`,
+      [alphaId, link.rows[0]!.id, JSON.stringify([{ uploadId: 'up1', fileName: 'p.jpg', contentType: 'image/jpeg', sizeBytes: 5, sha256: HEX('c'), storageKey: intakeKey }])],
+    );
+  });
+  const known = [docKey, photoKey, intakeKey];
+  for (const k of known) put(k);
+  // ORPHANS: a stray object under each prefix that NO row names (e.g. a crashed
+  // compensation, or a rejected-intake whose best-effort delete failed).
+  const orphans = [`${alphaId}/orphan-doc`, `intake/${alphaId}/subRejected/orphan-up`];
+  for (const k of orphans) put(k);
+  return { known, orphans };
+}
+
+describe('exit ceremony — blob universe (H-07 two-phase erasure)', () => {
+  it('records tombstones in the txn, then the sweep erases both prefixes (orphans included) and verifies each tombstone gone', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'c3exit-blob-'));
+    const { known, orphans } = await seedAlphaBlobs(root);
+    await completePhaseE1();
+
+    // Phase 1: the erasure transaction records the DB-known objects as tombstones.
+    const report = await admin((c) => exitTenant(c, { tenantSlug: 'alpha', execute: true, confirmSlug: 'alpha', secondConfirm: 'alpha' }));
+    expect(report.mode).toBe('executed');
+    expect(report.blobObjects).toBe(known.length); // 3 DB-known objects tombstoned
+    await admin(async (c) => {
+      const ts = await c.query(`SELECT storage_key, deleted_at FROM blob_tombstone WHERE tenant_ref = $1 AND reason = 'exit'`, [alphaId]);
+      expect(ts.rows.map((r) => r.storage_key).sort()).toEqual([...known].sort());
+      expect(ts.rows.every((r) => r.deleted_at === null)).toBe(true); // pending until Phase 2
+    });
+    // The object files still exist on disk (Phase 2 hasn't run).
+    for (const k of [...known, ...orphans]) expect(existsSync(join(root, k))).toBe(true);
+
+    // Phase 2: the post-commit sweep erases both prefixes and verifies tombstones.
+    const sweep = await admin((c) => sweepTenantBlobErasure(c, createBlobReader({ DOCUMENTS_DIR: root })!, alphaId));
+    expect(sweep.deletedObjects.sort()).toEqual([...known, ...orphans].sort()); // orphans erased too
+    expect(sweep.verifiedTombstones).toBe(known.length);
+    expect(sweep.pendingTombstones).toBe(0);
+    expect(sweep.prefixesEmpty).toBe(true);
+
+    // Zero residual bytes under either prefix; tombstones now marked deleted.
+    for (const k of [...known, ...orphans]) expect(existsSync(join(root, k))).toBe(false);
+    expect(existsSync(join(root, alphaId)) ? readdirSync(join(root, alphaId)) : []).toEqual([]);
+    await admin(async (c) => {
+      const done = await c.query(`SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref = $1 AND deleted_at IS NOT NULL`, [alphaId]);
+      expect(done.rows[0].n).toBe(known.length);
+    });
   });
 });
 

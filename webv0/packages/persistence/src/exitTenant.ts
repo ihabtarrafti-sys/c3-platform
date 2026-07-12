@@ -27,6 +27,7 @@
  */
 import type { Client } from 'pg';
 import { tenantTablesInExitOrder } from './tenantTables';
+import { enumerateTenantBlobs } from './blobUniverse';
 
 export interface ExitOptions {
   readonly tenantSlug: string;
@@ -49,6 +50,13 @@ export interface ExitReport {
   readonly sharedUsers: number;
   /** Rows per table that would be / were erased, in deletion order. */
   readonly tables: Array<{ name: string; rows: number }>;
+  /**
+   * H-07: DB-known storage objects (documents + photos + intake quarantine) in
+   * the blob universe. On execute these are recorded as `blob_tombstone` rows
+   * INSIDE the erasure transaction (Phase 1); the CLI deletes + verifies them
+   * after commit (Phase 2). A dry-run reports the count without recording.
+   */
+  readonly blobObjects: number;
   /** Present after execute: every count re-verified zero inside the transaction. */
   readonly postChecks?: { zeroRowsVerified: boolean; tenantRowGone: boolean; triggersReEnabled: boolean };
 }
@@ -133,9 +141,13 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
     tables.push({ name: 'app_user', rows: soleUsers });
     tables.push({ name: 'tenant', rows: 1 });
 
+    // H-07: enumerate the blob universe WHILE the source rows still exist —
+    // documents + photos + intake quarantine, across both storage prefixes.
+    const blobs = await enumerateTenantBlobs(client, tenant.id);
+
     if (!execute) {
       await client.query('COMMIT'); // read-only; nothing to commit, ends the snapshot
-      return { mode: 'dry-run', tenant, activeMembers, soleUsers, sharedUsers, tables };
+      return { mode: 'dry-run', tenant, activeMembers, soleUsers, sharedUsers, tables, blobObjects: blobs.length };
     }
 
     // ── The ceremony proper (single transaction) ─────────────────────────────
@@ -145,6 +157,18 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
 
     for (const { table, trigger } of APPEND_ONLY_TRIGGERS) {
       await client.query(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`);
+    }
+
+    // H-07 Phase 1: record every DB-known object in the durable erasure ledger
+    // BEFORE the rows that name them are deleted. blob_tombstone is platform-level
+    // (tenant_ref, no FK) so it survives the DELETE FROM tenant below and remains
+    // as the retryable record the CLI's Phase 2 works from. Idempotent per key.
+    for (const b of blobs) {
+      await client.query(
+        `INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason)
+         VALUES ($1, $2, $3, 'exit') ON CONFLICT (tenant_ref, storage_key, reason) DO NOTHING`,
+        [tenant.id, b.storageKey, b.blobClass],
+      );
     }
 
     for (const name of TENANT_TABLES) {
@@ -187,6 +211,7 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
       soleUsers,
       sharedUsers,
       tables,
+      blobObjects: blobs.length,
       postChecks: { zeroRowsVerified: zero, tenantRowGone, triggersReEnabled },
     };
   } catch (err) {

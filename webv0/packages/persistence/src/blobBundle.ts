@@ -15,10 +15,10 @@
  * the owner-run export/exit CLIs — never by the API runtime.
  */
 import { readFile, readdir, rm } from 'node:fs/promises';
-import { join } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { createHash } from 'node:crypto';
 import { S3Client, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand } from '@aws-sdk/client-s3';
-import type { BlobClass, BlobDescriptor } from './blobUniverse';
+import { tenantBlobPrefixes, type BlobClass, type BlobDescriptor, type Queryable } from './blobUniverse';
 
 export type { BlobClass, BlobDescriptor } from './blobUniverse';
 
@@ -129,14 +129,27 @@ export function createBlobReader(env: BlobEnv): BlobReader | null {
         }
       },
       async listKeys(prefix) {
-        const dir = join(root, prefix);
-        try {
-          const names = await readdir(dir);
-          return names.map((n) => `${prefix}${n}`);
-        } catch (err) {
-          if ((err as { code?: string }).code === 'ENOENT') return [];
-          throw err;
-        }
+        // RECURSIVE: intake quarantine keys nest (intake/<tenant>/<sub>/<upload>),
+        // so a one-level readdir would miss them. Walk the tree and return every
+        // FILE key (forward-slash separated, relative to root) — mirrors the R2
+        // prefix listing, which is recursive by nature.
+        const out: string[] = [];
+        const walk = async (dir: string): Promise<void> => {
+          let entries;
+          try {
+            entries = await readdir(dir, { withFileTypes: true });
+          } catch (err) {
+            if ((err as { code?: string }).code === 'ENOENT') return;
+            throw err;
+          }
+          for (const e of entries) {
+            const abs = join(dir, e.name);
+            if (e.isDirectory()) await walk(abs);
+            else out.push(relative(root, abs).split(sep).join('/'));
+          }
+        };
+        await walk(join(root, prefix));
+        return out;
       },
       async deleteKey(key) {
         await rm(join(root, key), { force: true });
@@ -182,6 +195,70 @@ export async function deleteTenantBlobs(reader: BlobReader, tenantId: string): P
   const keys = await reader.listKeys(`${tenantId}/`);
   for (const key of keys) await reader.deleteKey(key);
   return keys;
+}
+
+export interface TombstoneSweepResult {
+  /** Every object key actually removed from storage (both prefixes, incl. orphans). */
+  readonly deletedObjects: string[];
+  /** Exit tombstones whose object was verified gone and marked deleted. */
+  readonly verifiedTombstones: number;
+  /** Exit tombstones whose object still resolved after the sweep — left pending (retryable). */
+  readonly pendingTombstones: number;
+  /** Both tenant prefixes list empty afterwards (zero tenant bytes). */
+  readonly prefixesEmpty: boolean;
+}
+
+/**
+ * HARDEN-3 (H-07) Phase 2 — the post-commit erasure sweep. Runs AFTER the exit
+ * transaction has committed (tenant identity gone; the `blob_tombstone` ledger
+ * is the only remaining handle). It:
+ *   1. deletes EVERY object under both tenant prefixes — `${tenantId}/`
+ *      (documents/photos/intake-live) and `intake/${tenantId}/` (quarantine) —
+ *      including ORPHANS no database row named (e.g. a crashed compensation);
+ *   2. VERIFIES each recorded exit tombstone's object is actually gone before
+ *      marking it deleted; an object that still resolves keeps its tombstone
+ *      PENDING with the error recorded, so a re-run retries it;
+ *   3. re-lists both prefixes to confirm zero residual tenant bytes.
+ * The tombstone ledger makes this idempotent and resumable: a failed pass
+ * leaves a durable, retryable record rather than a silently-stranded object.
+ */
+export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, tenantId: string): Promise<TombstoneSweepResult> {
+  const prefixes = tenantBlobPrefixes(tenantId);
+
+  const deletedObjects: string[] = [];
+  for (const prefix of prefixes) {
+    for (const key of await reader.listKeys(prefix)) {
+      await reader.deleteKey(key);
+      deletedObjects.push(key);
+    }
+  }
+
+  const pending = await db.query<{ id: string; storage_key: string }>(
+    `SELECT id, storage_key FROM blob_tombstone WHERE tenant_ref = $1 AND reason = 'exit' AND deleted_at IS NULL`,
+    [tenantId],
+  );
+  let verified = 0;
+  let stillPending = 0;
+  for (const row of pending.rows) {
+    if ((await reader.get(row.storage_key)) === null) {
+      await db.query(`UPDATE blob_tombstone SET deleted_at = now(), attempts = attempts + 1 WHERE id = $1`, [row.id]);
+      verified += 1;
+    } else {
+      await db.query(`UPDATE blob_tombstone SET attempts = attempts + 1, last_error = $2 WHERE id = $1`, [
+        row.id,
+        'object still present after erasure sweep',
+      ]);
+      stillPending += 1;
+    }
+  }
+
+  const remaining = await Promise.all(prefixes.map((p) => reader.listKeys(p)));
+  return {
+    deletedObjects: deletedObjects.sort(),
+    verifiedTombstones: verified,
+    pendingTombstones: stillPending,
+    prefixesEmpty: remaining.every((keys) => keys.length === 0),
+  };
 }
 
 export interface BlobUniverseResult {

@@ -29,7 +29,7 @@ import { Client } from 'pg';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { exitTenant } from '../src/exitTenant';
-import { createBlobReader, deleteTenantBlobs } from '../src/blobBundle';
+import { createBlobReader, sweepTenantBlobErasure } from '../src/blobBundle';
 
 function arg(name: string, required: boolean): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -97,11 +97,19 @@ try {
     const t = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [tenantSlug]);
     blobTenantId = t.rows[0]?.id ?? null;
     if (blobTenantId && !blobReader) {
-      const docs = await client.query<{ n: string }>('SELECT count(*)::int AS n FROM document WHERE tenant_id = $1', [blobTenantId]);
-      if (Number(docs.rows[0]?.n ?? 0) > 0) {
+      // H-07: count the WHOLE blob universe, not documents only — a photo-only
+      // or intake-only tenant would otherwise pass this preflight and strand
+      // its bytes.
+      const objs = await client.query<{ n: string }>(
+        `SELECT (SELECT count(*) FROM document WHERE tenant_id = $1)
+              + (SELECT count(*) FROM person WHERE tenant_id = $1 AND photo_storage_key IS NOT NULL)
+              + (SELECT count(*) FROM intake_submission WHERE tenant_id = $1 AND status = 'Pending' AND uploads <> '[]'::jsonb) AS n`,
+        [blobTenantId],
+      );
+      if (Number(objs.rows[0]?.n ?? 0) > 0) {
         console.error(
-          '\nEXIT REFUSED: the tenant has document blobs but no blob storage is configured ' +
-            '(set R2_* or DOCUMENTS_DIR so the objects can be erased, or pass --leave-blobs to explicitly strand them).',
+          '\nEXIT REFUSED: the tenant has storage objects (documents, photos, and/or intake quarantine) but no blob ' +
+            'storage is configured (set R2_* or DOCUMENTS_DIR so the objects can be erased, or pass --leave-blobs to explicitly strand them).',
         );
         process.exit(2);
       }
@@ -127,13 +135,25 @@ try {
     console.log(
       `  post-checks     zeroRows=${report.postChecks.zeroRowsVerified} tenantRowGone=${report.postChecks.tenantRowGone} triggersReEnabled=${report.postChecks.triggersReEnabled}`,
     );
-    // HARDEN-2: erase the object store under the tenant prefix (rows are
-    // already gone — the prefix enumerates every object incl. orphans).
+    // HARDEN-3 (H-07) Phase 2: erase the object store under BOTH tenant prefixes
+    // (${tenantId}/ + intake/${tenantId}/, orphans included) and VERIFY every
+    // recorded exit tombstone's object is gone. The tombstone ledger (written in
+    // the committed transaction above) is the durable, retryable record.
     if (!leaveBlobs && blobReader && blobTenantId) {
-      const deleted = await deleteTenantBlobs(blobReader, blobTenantId);
-      console.log(`  blobs erased    ${deleted.length} object(s) under ${blobTenantId}/`);
+      const sweep = await sweepTenantBlobErasure(client, blobReader, blobTenantId);
+      console.log(
+        `  blobs erased    ${sweep.deletedObjects.length} object(s); tombstones verified ${sweep.verifiedTombstones}` +
+          `${sweep.pendingTombstones > 0 ? `, PENDING ${sweep.pendingTombstones}` : ''}; prefixes empty: ${sweep.prefixesEmpty}`,
+      );
+      if (sweep.pendingTombstones > 0 || !sweep.prefixesEmpty) {
+        console.error(
+          '  ⚠ BLOB ERASURE INCOMPLETE — some objects were not confirmed deleted. The blob_tombstone ledger ' +
+            'retains the pending keys; re-run the exit blob sweep until it reports zero pending and prefixes empty.',
+        );
+        process.exitCode = 1;
+      }
     } else if (leaveBlobs) {
-      console.log('  blobs erased    SKIPPED (--leave-blobs) — object-store residue remains under the tenant prefix.');
+      console.log('  blobs erased    SKIPPED (--leave-blobs) — object-store residue remains under the tenant prefixes.');
     }
     console.log('\n  Erasure committed. File this report in the exit register.');
     console.log('  Residual: encrypted backups retain this data until lifecycle expiry (max 180d);');
