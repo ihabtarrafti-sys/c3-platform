@@ -110,6 +110,27 @@ export function SettingsPage() {
   const qc = useQueryClient();
   const canManage = me?.capabilities.canManageEntities ?? false;
   const { data, isLoading, isError, error } = useFxRates(canManage);
+  const { notify } = useNotify();
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function refreshRates() {
+    setRefreshing(true);
+    try {
+      const res = await api.refreshFxRates();
+      const asOf = new Date(res.asOf).toLocaleString();
+      notify(
+        'success',
+        res.refreshed.length > 0
+          ? `Updated ${res.refreshed.join(', ')} from ${res.source} (as of ${asOf}).${res.skipped.length ? ` No live rate for ${res.skipped.join(', ')}.` : ''}`
+          : `The source carried no supported rates${res.skipped.length ? ` (missing ${res.skipped.join(', ')})` : ''}.`,
+      );
+      void qc.invalidateQueries({ queryKey: ['fxRates'] });
+    } catch (err) {
+      notify('error', err instanceof ApiError ? err.message : 'Could not refresh rates.');
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   if (!canManage) {
     return (
@@ -127,8 +148,8 @@ export function SettingsPage() {
       <PageHeader kicker="Configuration" title="Settings" />
       <p className={s.intro}>
         Exchange rates. Set each currency’s value in {PIVOT} — every cross-rate (any currency to any other) is derived
-        from these, so money booked in one currency can always be shown a truthful “≈” in another. Rates are yours to
-        maintain; nothing is fetched automatically.
+        from these, so money booked in one currency can always be shown a truthful “≈” in another. Maintain them by hand,
+        or pull the current rates from a live source with <em>Refresh from source</em>; either way the numbers stay yours.
       </p>
 
       {isLoading && <LoadingState label="Loading rates…" />}
@@ -143,6 +164,10 @@ export function SettingsPage() {
           <div className={s.head}>
             <span className={s.title}>Exchange rates</span>
             <span className={s.meta}>pivot · {PIVOT}</span>
+            <span style={{ flexGrow: 1 }} />
+            <Button appearance="secondary" size="small" disabled={refreshing} onClick={() => void refreshRates()} data-testid="fx-refresh">
+              {refreshing ? 'Refreshing…' : 'Refresh from source'}
+            </Button>
           </div>
           <div className={s.row}>
             <span className={s.cur}>{PIVOT}</span>

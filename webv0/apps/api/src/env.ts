@@ -54,6 +54,9 @@ const rawSchema = z.object({
   BACKUP_STATUS_R2_ACCESS_KEY_ID: z.string().optional(),
   BACKUP_STATUS_R2_SECRET_ACCESS_KEY: z.string().optional(),
   BACKUP_STATUS_R2_BUCKET: z.string().optional(),
+  // Track B: FX auto-fetch source. Defaults to a KEYLESS provider (no secret to
+  // manage); override to a different endpoint returning { rates: units-per-USD }.
+  FX_RATES_URL: z.string().url().optional(),
 });
 
 export type Env = {
@@ -79,6 +82,8 @@ export type Env = {
   smtp: { host: string; port: number; user: string; pass: string; from: string } | null;
   /** Tier 0.5 backup-status tile: read-only marker lookup; null = not configured. */
   backupStatus: { endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string } | null;
+  /** Track B: FX auto-fetch source (keyless by default). */
+  fxRatesUrl: string;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -200,5 +205,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     documents,
     smtp,
     backupStatus,
+    fxRatesUrl: e.FX_RATES_URL ?? 'https://open.er-api.com/v6/latest/USD',
   };
 }

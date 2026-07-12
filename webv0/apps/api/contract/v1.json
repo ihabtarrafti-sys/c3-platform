@@ -8776,6 +8776,59 @@
     },
     {
       "method": "POST",
+      "url": "/api/v1/fx-rates/refresh",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "asOf": {
+              "t": "string"
+            },
+            "rates": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "currency": {
+                    "t": "enum",
+                    "values": [
+                      "AED",
+                      "EUR",
+                      "GBP",
+                      "SAR",
+                      "USD"
+                    ]
+                  },
+                  "updatedAt": {
+                    "t": "string"
+                  },
+                  "usdPerUnit": {
+                    "t": "number"
+                  }
+                }
+              }
+            },
+            "refreshed": {
+              "t": "array",
+              "item": {
+                "t": "string"
+              }
+            },
+            "skipped": {
+              "t": "array",
+              "item": {
+                "t": "string"
+              }
+            },
+            "source": {
+              "t": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
       "url": "/api/v1/imports",
       "response": {
         "201": {

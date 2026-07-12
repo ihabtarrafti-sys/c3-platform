@@ -132,6 +132,7 @@ export const AUDIT_ACTIONS = [
   'EntityReactivated',
   // Finance Sprint 1: the org's editable FX rate for a currency was set.
   'FxRateSet',
+  'FxRatesRefreshed',
   // HARDEN-2 (0037): a tenant setting was written (per-diem presets et al.).
   'PerDiemPresetsSet',
   // Track B1: request corrections — a pre-review edit / a revise-and-resubmit tie.

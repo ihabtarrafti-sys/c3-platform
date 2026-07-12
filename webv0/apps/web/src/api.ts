@@ -558,6 +558,9 @@ export function createApiClient(deps: ApiClientDeps) {
     listFxRates: () => request<{ rates: FxRateDto[] }>('GET', '/api/v1/fx-rates'),
     setFxRate: (currency: string, usdPerUnit: number) =>
       request<{ rate: FxRateDto }>('POST', '/api/v1/fx-rates', { currency, usdPerUnit }),
+    // Track B: FX auto-fetch — refresh supported currencies from the source.
+    refreshFxRates: () =>
+      request<{ rates: FxRateDto[]; refreshed: string[]; skipped: string[]; source: string; asOf: string }>('POST', '/api/v1/fx-rates/refresh'),
     listApparel: () => request<{ apparel: ApparelDto[] }>('GET', '/api/v1/apparel'),
     createApparel: (body: EquipmentCreateBody) => request<{ apparel: ApparelDto }>('POST', '/api/v1/apparel', body),
     updateApparel: (apparelId: string, body: EquipmentUpdateBody) =>

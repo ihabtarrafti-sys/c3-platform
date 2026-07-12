@@ -16,6 +16,7 @@ import {
   type EntityUpdateInput,
   type FxRate,
   type SetFxRateInput,
+  CURRENCY_CODES,
   entityCreateInputSchema,
   entityUpdateInputSchema,
   setFxRateInputSchema,
@@ -190,4 +191,60 @@ export async function setFxRate(p: Persistence, actor: Actor, input: SetFxRateIn
     });
     return rate;
   });
+}
+
+/** The source's native shape (units-per-USD), handed in by the API route. */
+export interface FxFetchedRates {
+  readonly source: string;
+  readonly asOf: string;
+  readonly unitsPerUsd: Record<string, number>;
+}
+
+export interface FxRefreshResult {
+  readonly rates: FxRate[];
+  /** Tracked currencies that were updated from the source. */
+  readonly refreshed: string[];
+  /** Tracked currencies the source did not carry (left untouched). */
+  readonly skipped: string[];
+  readonly source: string;
+  readonly asOf: string;
+}
+
+/**
+ * Track B — FX auto-fetch. Refresh every SUPPORTED currency (CURRENCY_CODES
+ * minus the USD pivot) from the source, inverting units-per-USD to the domain's
+ * usdPerUnit pivot and upserting — so one click populates them all, whether or
+ * not they were set before. USD is never touched (the pivot is pinned to 1).
+ * Currencies the source does not carry are left as-is and reported as skipped —
+ * never blanked. One summary audit event records the provenance.
+ */
+export async function refreshFxRates(p: Persistence, actor: Actor, fetched: FxFetchedRates): Promise<FxRefreshResult> {
+  assertManageEntities(actor);
+  const supported = CURRENCY_CODES.filter((c) => c !== 'USD');
+  const refreshed: string[] = [];
+  const skipped: string[] = [];
+  await p.writes.transaction(actor, async (tx) => {
+    for (const currency of supported) {
+      const units = fetched.unitsPerUsd[currency];
+      if (typeof units === 'number' && Number.isFinite(units) && units > 0) {
+        const usdPerUnit = Math.round((1 / units) * 1e8) / 1e8; // numeric(18,8)
+        await tx.upsertFxRate(currency, usdPerUnit);
+        refreshed.push(currency);
+      } else {
+        skipped.push(currency);
+      }
+    }
+    if (refreshed.length > 0) {
+      await tx.appendAuditEvent({
+        entityType: 'FxRate',
+        entityId: 'refresh',
+        action: 'FxRatesRefreshed',
+        actor: actor.identity,
+        before: null,
+        after: { source: fetched.source, asOf: fetched.asOf, refreshed, skipped },
+      });
+    }
+  });
+  const rates = await p.reads.forActor(actor).listFxRates();
+  return { rates, refreshed, skipped, source: fetched.source, asOf: fetched.asOf };
 }

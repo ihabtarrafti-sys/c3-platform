@@ -13,6 +13,7 @@ import { createAdminDirectory, type AdminDirectory } from './auth/directory';
 import { createDocumentStorage, type DocumentStorage } from './storage';
 import { createMailer, type Mailer } from './mailer';
 import { createBackupStatusReader, type BackupStatusView } from './backupStatus';
+import { createFxProvider, type FxProvider } from './fxProvider';
 
 export interface Deps {
   env: Env;
@@ -20,6 +21,8 @@ export interface Deps {
   authAdapter: AuthAdapter;
   directory?: AdminDirectory;
   documentStorage: DocumentStorage;
+  /** Track B: FX auto-fetch source (keyless HTTP by default; stubbed in tests). */
+  fxProvider: FxProvider;
   /** S10 email channel; null = not configured (rows-only). */
   mailer: Mailer | null;
   /** Tier 0.5 backup tile; always callable, honest when unconfigured. */
@@ -38,6 +41,7 @@ export interface Deps {
 export function buildDeps(env: Env, logger: Logger): Deps {
   const persistence = createPersistence({ appConnectionString: env.databaseUrl });
   const documentStorage = createDocumentStorage(env.documents);
+  const fxProvider = createFxProvider(env.fxRatesUrl, logger);
   const mailer = createMailer(env, logger);
   const backupStatus = createBackupStatusReader(env);
 
@@ -62,6 +66,7 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     authAdapter,
     directory,
     documentStorage,
+    fxProvider,
     mailer,
     backupStatus,
     logger,

@@ -1288,6 +1288,15 @@ export const fxRateSchema = z.object({
 export type FxRateDto = z.infer<typeof fxRateSchema>;
 export const fxRatesListSchema = z.object({ rates: z.array(fxRateSchema) });
 export const fxRateResponseSchema = z.object({ rate: fxRateSchema });
+// Track B: FX auto-fetch result — the refreshed list + which currencies moved.
+export const fxRefreshResponseSchema = z.object({
+  rates: z.array(fxRateSchema),
+  refreshed: z.array(z.string()),
+  skipped: z.array(z.string()),
+  source: z.string(),
+  asOf: z.string(),
+});
+export type FxRefreshResponse = z.infer<typeof fxRefreshResponseSchema>;
 export { setFxRateInputSchema, currencyCodeSchema, CURRENCY_CODES };
 
 /** The domain schema IS the wire schema for the direct patch — one validator, no drift. */

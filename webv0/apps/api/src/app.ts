@@ -47,6 +47,7 @@ import {
   entityUpdateInputSchema,
   fxRatesListSchema,
   fxRateResponseSchema,
+  fxRefreshResponseSchema,
   setFxRateInputSchema,
   missionParticipantParamSchema,
   missionParticipantResponseSchema,
@@ -212,7 +213,7 @@ import {
 // (withdrawApproval imported with the application use-cases below)
 import { DOCUMENT_MAX_BYTES, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
-import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations } from '@c3web/authz';
+import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations, assertManageEntities } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
 import {
   approveApproval,
@@ -332,6 +333,7 @@ import {
   deactivateMission,
   listEntities,
   listFxRates,
+  refreshFxRates,
   reactivateEntity,
   setFxRate,
   setParticipantPerDiem,
@@ -1188,6 +1190,22 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   r.post('/api/v1/fx-rates', { schema: { body: setFxRateInputSchema, response: { 200: fxRateResponseSchema } } }, async (req) => {
     const rate = await setFxRate(P, actorOf(req), req.body as import('@c3web/domain').SetFxRateInput);
     return { rate: toFxRateDto(rate) };
+  });
+
+  // Track B — FX auto-fetch: pull current rates from the (keyless) source and
+  // refresh the tracked currencies. The upstream fetch happens here; the
+  // use-case stays pure (upsert + audit). A source outage is a clean 502.
+  r.post('/api/v1/fx-rates/refresh', { schema: { response: { 200: fxRefreshResponseSchema } } }, async (req, reply) => {
+    const actor = actorOf(req);
+    assertManageEntities(actor); // fail fast before the network call
+    let fetched: import('@c3web/application').FxFetchedRates;
+    try {
+      fetched = await deps.fxProvider.fetchUsdRates();
+    } catch (err) {
+      return sendError(req, reply, 502, 'UPSTREAM', err instanceof Error ? err.message : 'The FX rate source is unavailable.');
+    }
+    const out = await refreshFxRates(P, actor, fetched);
+    return { rates: out.rates.map(toFxRateDto), refreshed: out.refreshed, skipped: out.skipped, source: out.source, asOf: out.asOf };
   });
 
   // ── missions (Sprint 39): direct-audited shell + governed participants ────

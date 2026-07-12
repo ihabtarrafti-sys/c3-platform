@@ -69,6 +69,7 @@ const AUDIT_ACTION: Record<string, string> = {
   ApprovalExecutionFailed: 'Execution failed',
   ApprovalWithdrawn: 'Request withdrawn',
   PersonCreated: 'Person created',
+  FxRatesRefreshed: 'FX rates refreshed',
   SessionEstablished: 'Session established',
   MemberProvisioned: 'Member provisioned',
   MemberRoleChanged: 'Role changed',
