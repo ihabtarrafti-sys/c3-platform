@@ -35,7 +35,33 @@ export interface MigrateConfig {
   readonly backupRole?: string;
   /** Password to (re)set on the backup role. */
   readonly backupPassword?: string;
+  /**
+   * H-01: in production the caller MUST supply explicit strong secrets for every
+   * role — a missing or published-default password is refused before the DB is
+   * touched. The backup role in particular is BYPASSRLS (it reads every tenant),
+   * so a default password there exposes all data. Dev/test leave this false and
+   * keep the convenience fallbacks.
+   */
+  readonly requireStrongSecrets?: boolean;
   readonly log?: (msg: string) => void;
+}
+
+/** Published dev/default role passwords that must never reach a real environment. */
+const WEAK_SECRETS: ReadonlySet<string> = new Set([
+  'c3_app_dev_pw',
+  'c3_auth_dev_pw',
+  'c3_backup_dev_pw',
+  'c3_admin_dev_pw',
+]);
+
+/** H-01: refuse a missing or published-default secret when strong secrets are required. */
+function assertStrongSecret(label: string, value: string | undefined): void {
+  if (value === undefined || value.trim() === '') {
+    throw new Error(`Refusing to migrate: ${label} is required in production — set an explicit strong secret.`);
+  }
+  if (WEAK_SECRETS.has(value)) {
+    throw new Error(`Refusing to migrate: ${label} is a PUBLISHED dev default — set an explicit strong secret (a BYPASSRLS role must never carry a known password).`);
+  }
 }
 
 function quoteLiteral(value: string): string {
@@ -62,6 +88,17 @@ async function ensureRestrictedRole(client: Client, role: string, password: stri
 
 export async function runMigrations(config: MigrateConfig): Promise<string[]> {
   const log = config.log ?? (() => {});
+
+  // H-01: fail closed BEFORE touching the database when strong secrets are
+  // required — every role's resolved password must be explicit and non-default.
+  const authPassword = config.authPassword ?? 'c3_auth_dev_pw';
+  const backupPassword = config.backupPassword ?? 'c3_backup_dev_pw';
+  if (config.requireStrongSecrets) {
+    assertStrongSecret('appPassword (DATABASE_URL / APP_DB_PASSWORD)', config.appPassword);
+    assertStrongSecret('authPassword (DATABASE_AUTH_URL / AUTH_DB_PASSWORD)', config.authPassword);
+    assertStrongSecret('backupPassword (BACKUP_DB_PASSWORD)', config.backupPassword);
+  }
+
   const client = new Client({ connectionString: config.adminConnectionString });
   await client.connect();
   // Force UTF-8: on Windows the server may default client_encoding to WIN1252,
@@ -72,10 +109,10 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
     await ensureRestrictedRole(client, config.appRole, config.appPassword);
     // SELECT-only membership-resolution role for the API's auth boundary (the
     // running API never receives the privileged admin credentials).
-    await ensureRestrictedRole(client, config.authRole ?? 'c3_auth', config.authPassword ?? 'c3_auth_dev_pw');
+    await ensureRestrictedRole(client, config.authRole ?? 'c3_auth', authPassword);
     // Read-only logical-backup role (created here so 0006 can grant to it; the
     // documented BYPASSRLS exception is applied by migration 0006, not here).
-    await ensureRestrictedRole(client, config.backupRole ?? 'c3_backup', config.backupPassword ?? 'c3_backup_dev_pw');
+    await ensureRestrictedRole(client, config.backupRole ?? 'c3_backup', backupPassword);
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
         id text PRIMARY KEY,
