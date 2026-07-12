@@ -91,7 +91,15 @@ export async function completeDeparture(p: Persistence, actor: Actor, departureI
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.getDeparture(departureId);
     if (!current) throw new NotFoundError('Departure', departureId);
-    if (current.status !== 'InProgress') throw new ConflictError('This departure is already closed.', { departureId, status: current.status });
+    if (current.status === 'Cancelled') throw new ConflictError('A cancelled departure cannot be completed.', { departureId, status: current.status });
+    // M-03: completion and the downstream deactivation hand-off are two separate
+    // commits (the governed submit owns its own tx). If the hand-off failed after
+    // this row was already Completed, a retry must be able to re-enter and finish
+    // it — so an already-Completed departure returns idempotently (no re-audit)
+    // and the caller re-issues the deactivation via findOrSubmitDeactivatePerson.
+    if (current.status === 'Completed') {
+      return { departure: current, personId: current.personId, deactivateRequested: parsed.deactivatePerson };
+    }
     const updated = await tx.setDepartureStatus(departureId, parsed.expectedVersion, 'Completed', new Date().toISOString().slice(0, 10), parsed.note);
     if (!updated) throw new ConcurrencyError('Departure', departureId);
     await tx.appendAuditEvent({ entityType: 'Departure', entityId: departureId, action: 'DepartureCompleted', actor: actor.identity, before: { status: 'InProgress' }, after: { status: 'Completed', deactivateRequested: parsed.deactivatePerson } });

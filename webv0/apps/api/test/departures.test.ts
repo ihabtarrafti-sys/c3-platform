@@ -110,6 +110,33 @@ describe('departure workflow', () => {
     expect((await post(tokens.ops, '/api/v1/departures', { personId, reason: 'reopened' })).statusCode).toBe(201);
   });
 
+  it('M-03: completing is idempotent — a retry re-issues the SAME deactivation, never a duplicate', async () => {
+    const personId = await addPerson('Retry Rita');
+    const dep = (await post(tokens.ops, '/api/v1/departures', { personId, reason: 'End of contract' })).json().departure;
+
+    // first completion hands the person off to the governed DeactivatePerson.
+    const first = await post(tokens.ops, `/api/v1/departures/${dep.departureId}/complete`, { expectedVersion: dep.version, deactivatePerson: true });
+    expect(first.statusCode, first.body).toBe(200);
+    const approvalId = first.json().deactivationApprovalId as string;
+    expect(approvalId).toMatch(/^APR-/);
+
+    // a retry of the SAME request (as if the client never saw the response, or
+    // the hand-off had failed and is being re-driven) returns the SAME approval —
+    // no second submit, no "already closed" 409.
+    const retry = await post(tokens.ops, `/api/v1/departures/${dep.departureId}/complete`, { expectedVersion: dep.version, deactivatePerson: true });
+    expect(retry.statusCode, retry.body).toBe(200);
+    expect(retry.json().departure.status).toBe('Completed');
+    expect(retry.json().deactivationApprovalId).toBe(approvalId);
+
+    // exactly ONE open DeactivatePerson approval exists for the person.
+    const approvals = (await get(tokens.owner, '/api/v1/approvals')).json().approvals as Array<{ approvalId: string; operationType: string; targetPersonId: string | null; status: string }>;
+    const open = approvals.filter(
+      (a) => a.operationType === 'DeactivatePerson' && a.targetPersonId === personId && ['Submitted', 'InReview', 'Approved', 'ExecutionFailed'].includes(a.status),
+    );
+    expect(open.length).toBe(1);
+    expect(open[0]!.approvalId).toBe(approvalId);
+  });
+
   it('cancels an in-progress departure and refuses re-close', async () => {
     const personId = await addPerson('Staying Sam');
     const dep = (await post(tokens.ops, '/api/v1/departures', { personId, reason: 'maybe' })).json().departure;

@@ -300,6 +300,7 @@ import {
   hasEffectiveReviewStanding,
   submitUpdatePersonIdentity,
   submitDeactivatePerson,
+  findOrSubmitDeactivatePerson,
   submitReactivatePerson,
   updatePersonOperational,
   updateCredentialDetails,
@@ -2019,10 +2020,13 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { departureId } = req.params as { departureId: string };
       const result = await completeDeparture(P, actorOf(req), departureId, req.body as import('@c3web/domain').CompleteDepartureInput);
       // The capstone hands the person to the GOVERNED DeactivatePerson pipeline
-      // when asked — an approval an owner executes, never a silent flip.
+      // when asked — an approval an owner executes, never a silent flip. M-03:
+      // completion committed in its own tx above; this hand-off is a second,
+      // idempotent commit, so a retry re-issues the missing request without
+      // double-submitting or erroring on the one already there.
       let deactivationApprovalId: string | null = null;
       if (result.deactivateRequested) {
-        const approval = await submitDeactivatePerson(P, actorOf(req), { input: { personId: result.personId, reason: `Offboarding — departure ${departureId}` } });
+        const { approval } = await findOrSubmitDeactivatePerson(P, actorOf(req), { input: { personId: result.personId, reason: `Offboarding — departure ${departureId}` } });
         deactivationApprovalId = approval.approvalId;
       }
       return { departure: toDepartureDto(result.departure), deactivationApprovalId };

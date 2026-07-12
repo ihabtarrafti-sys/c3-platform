@@ -124,6 +124,29 @@ export async function submitDeactivatePerson(
   );
 }
 
+/**
+ * M-03: idempotent DeactivatePerson hand-off for the offboarding capstone.
+ * Departure completion and this submit are separate commits, so a retry after a
+ * partial failure must NOT create a second request — nor error just because the
+ * first one already landed. Returns the existing OPEN DeactivatePerson approval
+ * for the person if one exists (created:false), otherwise submits a fresh one
+ * (created:true). The submit's own assertNoOpenPersonOp still guards true
+ * concurrent doubles.
+ */
+export async function findOrSubmitDeactivatePerson(
+  p: Persistence,
+  actor: Actor,
+  command: { input: DeactivatePersonInput; reason?: string | null },
+): Promise<{ approval: Approval; created: boolean }> {
+  assertSubmitApproval(actor);
+  const input = deactivatePersonInputSchema.parse(command.input);
+  const open = await p.reads.forActor(actor).listApprovals({ statuses: [...OPEN_STATUSES] });
+  const existing = open.find((a) => a.operationType === 'DeactivatePerson' && a.targetPersonId === input.personId);
+  if (existing) return { approval: existing, created: false };
+  const approval = await submitDeactivatePerson(p, actor, command);
+  return { approval, created: true };
+}
+
 export async function submitReactivatePerson(
   p: Persistence,
   actor: Actor,
