@@ -1,8 +1,9 @@
 /**
  * personPhoto.test.ts (api) — the person headshot over HTTP with the fs storage
  * driver (Track B). Covers the lifecycle: no-photo → ops upload (image only,
- * magic-byte checked) → byte-identical serve under the baseline people read
- * (a read-only role sees the face) → replace → remove — plus the write gate
+ * magic-byte checked) → byte-identical serve under the PII gate (HARDEN-3: a
+ * face is PII-tier — a read-only role is REFUSED and never learns one exists)
+ * → replace → remove — plus the write gate
  * (read-only cannot set/clear), the image-only allowlist (415), mislabeled
  * bytes (415), upload-to-missing-person compensation (no orphan blob), tenant
  * isolation, and the served-bytes integrity check (502 on tamper). The audit
@@ -141,12 +142,18 @@ describe('person photo over HTTP (Track B)', () => {
     const audit = await app.inject({ method: 'GET', url: `/api/v1/people/${personId}/audit`, headers: auth(tokens.owner) });
     expect(audit.json().events.some((e: { action: string }) => e.action === 'PersonPhotoUpdated')).toBe(true);
 
-    // Serve: byte-identical, image content-type — and a READ-ONLY role (visitor)
-    // may view it (a face is the baseline people read, not the PII tier).
-    const dl = await app.inject({ method: 'GET', url: `/api/v1/people/${personId}/photo`, headers: auth(tokens.visitor) });
+    // Serve: byte-identical, image content-type — to a PII-standing role (owner).
+    const dl = await app.inject({ method: 'GET', url: `/api/v1/people/${personId}/photo`, headers: auth(tokens.owner) });
     expect(dl.statusCode, dl.body).toBe(200);
     expect(dl.headers['content-type']).toBe('image/png');
     expect(Buffer.compare(dl.rawPayload, PNG)).toBe(0);
+
+    // HARDEN-3: a face is PII-tier. A read-only role (visitor: canReadPeople but
+    // NOT canViewPersonPII) is REFUSED the photo, and never even learns one
+    // exists — photoUpdatedAt is omitted from its person view.
+    expect((await app.inject({ method: 'GET', url: `/api/v1/people/${personId}/photo`, headers: auth(tokens.visitor) })).statusCode).toBe(403);
+    const visitorPerson = (await app.inject({ method: 'GET', url: `/api/v1/people/${personId}`, headers: auth(tokens.visitor) })).json().person;
+    expect(visitorPerson.photoUpdatedAt).toBeUndefined();
 
     // Write gate: a read-only role cannot set or clear.
     expect((await uploadPhoto(tokens.visitor, personId, 'x.png', 'image/png', PNG)).statusCode).toBe(403);

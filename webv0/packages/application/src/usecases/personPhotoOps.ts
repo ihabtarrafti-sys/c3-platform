@@ -13,7 +13,7 @@
  * prior blob orphaned-but-retained (the no-DELETE data-plane law).
  */
 import { type Actor, type Person, NotFoundError } from '@c3web/domain';
-import { assertReadPeople, assertSubmitApproval } from '@c3web/authz';
+import { assertSubmitApproval, assertViewPersonPII } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
 /** What the serve route needs to fetch + integrity-check + label the bytes. */
@@ -23,9 +23,11 @@ export interface PersonPhotoRef {
   readonly sha256: string;
 }
 
-/** Resolve the current photo pointer (baseline people read). Null = no photo. */
+/** Resolve the current photo pointer. HARDEN-3 (owner ruling): a face is
+ *  PII-tier, so viewing rides canViewPersonPII — not the baseline people read.
+ *  Null = no photo. */
 export async function getPersonPhoto(p: Persistence, actor: Actor, personId: string): Promise<PersonPhotoRef | null> {
-  assertReadPeople(actor);
+  assertViewPersonPII(actor);
   const person = await p.reads.forActor(actor).getPersonById(personId);
   if (!person) throw new NotFoundError('Person', personId);
   if (!person.photoStorageKey || !person.photoContentType || !person.photoSha256) return null;
@@ -35,6 +37,7 @@ export async function getPersonPhoto(p: Persistence, actor: Actor, personId: str
 /** Set/replace the photo pointer AFTER the bytes landed in storage (ops). */
 export async function setPersonPhoto(p: Persistence, actor: Actor, personId: string, ref: PersonPhotoRef): Promise<Person> {
   assertSubmitApproval(actor);
+  assertViewPersonPII(actor); // managing a headshot is managing PII
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.lockPerson(personId);
     if (!current) throw new NotFoundError('Person', personId);
@@ -55,6 +58,7 @@ export async function setPersonPhoto(p: Persistence, actor: Actor, personId: str
 /** Clear the photo pointer (ops). The prior blob is retained, unreachable. */
 export async function clearPersonPhoto(p: Persistence, actor: Actor, personId: string): Promise<Person> {
   assertSubmitApproval(actor);
+  assertViewPersonPII(actor); // managing a headshot is managing PII
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.lockPerson(personId);
     if (!current) throw new NotFoundError('Person', personId);

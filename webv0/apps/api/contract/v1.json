@@ -3730,7 +3730,8 @@
                     "t": "nullable",
                     "inner": {
                       "t": "string"
-                    }
+                    },
+                    "optional": true
                   },
                   "position": {
                     "t": "nullable",
@@ -14569,7 +14570,8 @@
                     "t": "nullable",
                     "inner": {
                       "t": "string"
-                    }
+                    },
+                    "optional": true
                   },
                   "position": {
                     "t": "nullable",
@@ -14751,7 +14753,8 @@
                   "t": "nullable",
                   "inner": {
                     "t": "string"
-                  }
+                  },
+                  "optional": true
                 },
                 "position": {
                   "t": "nullable",
@@ -15057,7 +15060,8 @@
                   "t": "nullable",
                   "inner": {
                     "t": "string"
-                  }
+                  },
+                  "optional": true
                 },
                 "position": {
                   "t": "nullable",
@@ -16229,7 +16233,8 @@
                   "t": "nullable",
                   "inner": {
                     "t": "string"
-                  }
+                  },
+                  "optional": true
                 },
                 "position": {
                   "t": "nullable",
@@ -16410,7 +16415,8 @@
                   "t": "nullable",
                   "inner": {
                     "t": "string"
-                  }
+                  },
+                  "optional": true
                 },
                 "position": {
                   "t": "nullable",

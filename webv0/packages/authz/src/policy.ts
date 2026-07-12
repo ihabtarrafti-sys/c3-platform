@@ -50,6 +50,13 @@ export function assertReadPeople(actor: Actor): void {
   }
 }
 
+/** HARDEN-3 (owner ruling): a face is PII-tier — person photos ride canViewPersonPII, not general people-read. */
+export function assertViewPersonPII(actor: Actor): void {
+  if (!canViewPersonPII(actor.role)) {
+    throw new ForbiddenError('Person PII is not available to your role.', { role: actor.role });
+  }
+}
+
 export function assertSubmitApproval(actor: Actor): void {
   if (!canSubmitApproval(actor.role)) {
     throw new ForbiddenError('Your role may not submit approvals.', { role: actor.role, action: 'submit' });

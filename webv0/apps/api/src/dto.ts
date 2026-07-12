@@ -489,7 +489,6 @@ export function toPersonDto(p: Person, includePii: boolean): PersonDto {
     otherNationalities: [...p.otherNationalities],
     position: p.position,
     dateOfJoining: p.dateOfJoining,
-    photoUpdatedAt: p.photoUpdatedAt,
     ...(includePii
       ? {
           dateOfBirth: p.dateOfBirth,
@@ -499,6 +498,8 @@ export function toPersonDto(p: Person, includePii: boolean): PersonDto {
           addressCountry: p.addressCountry,
           phone: p.phone,
           email: p.email,
+          // HARDEN-3: a face is PII — omit the "has a photo" signal for non-PII readers.
+          photoUpdatedAt: p.photoUpdatedAt,
         }
       : {}),
     isActive: p.isActive,

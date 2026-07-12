@@ -118,11 +118,11 @@ export const personSchema = z.object({
   // S11 operational:
   position: z.string().nullable(),
   dateOfJoining: z.string().nullable(),
-  // Track B: null = no headshot; non-null = "has a photo" + the cache-buster.
-  // Visible to all who can read the person (same surface as the name).
-  photoUpdatedAt: z.string().nullable(),
   // S11 PII tier — STRUCTURALLY OMITTED without canViewPersonPII:
   dateOfBirth: z.string().nullable().optional(),
+  // HARDEN-3: a face is PII — presence of a headshot (and its cache-buster) is
+  // PII-tier too, so a non-PII reader never learns a photo exists.
+  photoUpdatedAt: z.string().nullable().optional(),
   addressLine1: z.string().nullable().optional(),
   addressLine2: z.string().nullable().optional(),
   addressCity: z.string().nullable().optional(),
