@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -211,6 +211,50 @@ describe('migrations & schema', () => {
         await c1.end().catch(() => {});
         await c2.end().catch(() => {});
       }
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('0050 (M-01): concurrent provisioning of one identity is serialized — no ghost user', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'prov' });
+    const args = ['newbie@prov.com', 'New Bie', 'operations', 'entra', 'issuer-x', 'subject-x'];
+    const c1 = new Client({ connectionString: db.appUrl });
+    const c2 = new Client({ connectionString: db.appUrl });
+    await c1.connect();
+    await c2.connect();
+    try {
+      await c1.query('BEGIN');
+      await c1.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await c2.query('BEGIN');
+      await c2.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+
+      // Both provision the SAME new identity at once. The 0050 advisory lock
+      // serializes them: the winner creates the user + membership; the loser
+      // blocks, re-reads the committed identity, and is refused CLEANLY as an
+      // existing member — never a raw unique-violation and never a second user.
+      const provision = (c: InstanceType<typeof Client>) =>
+        c.query(`SELECT member_provision($1,$2,$3,$4,$5,$6)`, args).then(() => c.query('COMMIT'));
+      const settled = await Promise.allSettled([provision(c1), provision(c2)]);
+      const ok = settled.filter((s) => s.status === 'fulfilled');
+      const failed = settled.filter((s) => s.status === 'rejected');
+      expect(ok.length, 'exactly one provision wins').toBe(1);
+      expect(failed.length).toBe(1);
+      expect(String((failed[0] as PromiseRejectedResult).reason)).toMatch(/already a member/i);
+      await c1.query('ROLLBACK').catch(() => {});
+      await c2.query('ROLLBACK').catch(() => {});
+    } finally {
+      await c1.end().catch(() => {});
+      await c2.end().catch(() => {});
+    }
+
+    // exactly ONE user for that email — the race left no duplicate/ghost.
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const n = await admin.query(`SELECT count(*)::int AS n FROM app_user WHERE email = 'newbie@prov.com'`);
+      expect(n.rows[0].n, 'no ghost user').toBe(1);
     } finally {
       await admin.end();
     }
