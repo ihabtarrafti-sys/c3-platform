@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { Button, makeStyles } from '@fluentui/react-components';
 import { usePerson, usePersonAgreements, usePersonCredentials, usePersonJourneys, usePersonMissionMemberships, usePersonTeams } from '../queries';
@@ -66,6 +67,23 @@ export function OnePagerPage() {
   const activeMissions = (missions.data?.missions ?? []).filter((m) => m.isActive);
   const activeTeams = (teams.data?.members ?? []).filter((t) => t.isActive);
   const openJourneys = (journeys.data?.journeys ?? []).filter((j) => j.status !== 'Completed' && j.status !== 'Cancelled');
+
+  // M-13: a one-pager must never print a section that is still loading or has
+  // failed as an authoritative "None". Enumerate the ENABLED section queries,
+  // show honest per-section loading/error states, and forbid printing until
+  // every enabled section has settled successfully (a saved PDF is complete or
+  // it is not offered at all). agreements is only in scope when readable.
+  const sectionQueries = [teams, credentials, missions, journeys, ...(canReadAgreements ? [agreements] : [])];
+  const sectionsPending = sectionQueries.some((q) => q.isLoading);
+  const sectionsFailed = sectionQueries.some((q) => q.isError);
+  const sectionBody = (q: { isLoading: boolean; isError: boolean }, ready: () => ReactNode): ReactNode =>
+    q.isError ? (
+      <div className={s.empty} data-testid="onepager-section-error">Couldn’t load this section — reopen the one-pager to retry.</div>
+    ) : q.isLoading ? (
+      <div className={s.empty}>Loading…</div>
+    ) : (
+      ready()
+    );
   const kv = (label: string, value: string | null | undefined) =>
     value ? [<span key={`${label}k`} className={s.k}>{label}</span>, <span key={`${label}v`} className={s.v}>{value}</span>] : [];
 
@@ -73,7 +91,14 @@ export function OnePagerPage() {
     <div className={s.wrap}>
       <style>{PRINT_CSS}</style>
       <div className={`${s.bar} c3-noprint`}>
-        <Button appearance="primary" onClick={() => window.print()} data-testid="onepager-print">Print / Save as PDF</Button>
+        <Button
+          appearance="primary"
+          onClick={() => window.print()}
+          data-testid="onepager-print"
+          disabled={sectionsPending || sectionsFailed}
+        >
+          {sectionsPending ? 'Assembling…' : sectionsFailed ? 'Incomplete — cannot print' : 'Print / Save as PDF'}
+        </Button>
         <Link to={`/people/${personId}`}><Button appearance="secondary">Back to profile</Button></Link>
       </div>
 
@@ -103,37 +128,37 @@ export function OnePagerPage() {
 
         <div className={s.section}>
           <div className={s.sTitle}>Teams</div>
-          {activeTeams.length === 0 ? <div className={s.empty}>None</div> : activeTeams.map((t) => (
+          {sectionBody(teams, () => activeTeams.length === 0 ? <div className={s.empty}>None</div> : activeTeams.map((t) => (
             <div className={s.row} key={t.teamId}>{t.teamId} <span className={s.rowMuted}>· {t.role}</span></div>
-          ))}
+          )))}
         </div>
 
         <div className={s.section}>
           <div className={s.sTitle}>Active agreements</div>
-          {!canReadAgreements ? <div className={s.empty}>—</div> : activeAgreements.length === 0 ? <div className={s.empty}>None</div> : activeAgreements.map((a) => (
+          {!canReadAgreements ? <div className={s.empty}>—</div> : sectionBody(agreements, () => activeAgreements.length === 0 ? <div className={s.empty}>None</div> : activeAgreements.map((a) => (
             <div className={s.row} key={a.agreementId}>{a.agreementType} <span className={s.rowMuted}>· {a.agreementId} · {a.startsOn} → {a.endsOn}</span></div>
-          ))}
+          )))}
         </div>
 
         <div className={s.section}>
           <div className={s.sTitle}>Credentials</div>
-          {activeCreds.length === 0 ? <div className={s.empty}>None</div> : activeCreds.map((c) => (
+          {sectionBody(credentials, () => activeCreds.length === 0 ? <div className={s.empty}>None</div> : activeCreds.map((c) => (
             <div className={s.row} key={c.credentialId}>{c.credentialType} <span className={s.rowMuted}>· {c.credentialId}{c.expiresOn ? ` · expires ${c.expiresOn}` : ''}</span></div>
-          ))}
+          )))}
         </div>
 
         <div className={s.section}>
           <div className={s.sTitle}>Mission roster</div>
-          {activeMissions.length === 0 ? <div className={s.empty}>None</div> : activeMissions.map((m) => (
+          {sectionBody(missions, () => activeMissions.length === 0 ? <div className={s.empty}>None</div> : activeMissions.map((m) => (
             <div className={s.row} key={m.missionId}>{m.missionName ?? m.missionId} <span className={s.rowMuted}>· {m.role}</span></div>
-          ))}
+          )))}
         </div>
 
         <div className={s.section}>
           <div className={s.sTitle}>Journeys in progress</div>
-          {openJourneys.length === 0 ? <div className={s.empty}>None</div> : openJourneys.map((j) => (
+          {sectionBody(journeys, () => openJourneys.length === 0 ? <div className={s.empty}>None</div> : openJourneys.map((j) => (
             <div className={s.row} key={j.journeyId}>{j.journeyType}{j.title ? ` — ${j.title}` : ''} <span className={s.rowMuted}>· {j.status}</span></div>
-          ))}
+          )))}
         </div>
 
         <div className={s.gen}>Generated by C3 on {new Date().toISOString().slice(0, 10)} — {p.personId}</div>
