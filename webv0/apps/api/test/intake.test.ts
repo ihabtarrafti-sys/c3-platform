@@ -133,8 +133,11 @@ describe('guest intake — the happy path (submit → promote → attach)', () =
     const exec = await governedExecute(tokens.owner, approvalId, promote.json().approval.version);
     const personId = exec.person.personId;
     expect(personId).toMatch(/^PER-\d{4,}$/);
-    // The joiner's extra fields were folded into the person's notes.
-    expect(exec.person.notes).toContain('Email: ahmad@x.com');
+    // H-02: the joiner's email is PII — it rides its own gated column, NEVER
+    // notes (notes is emitted to every canReadPeople role). The owner has PII
+    // standing so sees it in the field; notes carries no PII label.
+    expect(exec.person.email).toBe('ahmad@x.com');
+    expect(exec.person.notes ?? '').not.toContain('Email:');
 
     // Attach the quarantined file to the created person (copy quarantine→live).
     const attach = await post(tokens.ops, `/api/v1/intake/submissions/${s.id}/attach`, { uploadIds: [s.uploads[0].uploadId] });
@@ -144,6 +147,43 @@ describe('guest intake — the happy path (submit → promote → attach)', () =
     const docs = await get(tokens.owner, `/api/v1/documents?ownerType=Person&ownerId=${personId}`);
     expect(docs.json().documents).toHaveLength(1);
     expect(docs.json().documents[0].fileName).toBe('passport.pdf');
+  });
+
+  it('H-02: intake PII lands in the gated columns, never notes — structurally absent for a non-PII reader', async () => {
+    const link = await mintLink(tokens.ops, 'PII routing');
+    const sub = await submitGuest(link, {
+      fullName: 'Priya Vasquez',
+      dateOfBirth: '1998-05-01',
+      email: 'priya@x.com',
+      phone: '+971500000000',
+      addressLine1: '12 Marina Walk',
+      addressCity: 'Dubai',
+      addressCountry: 'AE',
+      apparelSize: 'M', // non-PII → legitimately stays in notes
+    });
+    expect(sub.statusCode, sub.body).toBe(201);
+    const s = (await get(tokens.ops, '/api/v1/intake/submissions')).json().submissions[0];
+    const promote = await post(tokens.ops, `/api/v1/intake/submissions/${s.id}/promote`, { decisionNote: 'ok' });
+    const personId = (await governedExecute(tokens.owner, promote.json().approval.approvalId, promote.json().approval.version)).person.personId;
+
+    // The owner (PII standing) sees the PII in its gated columns — NOT in notes.
+    const asOwner = (await get(tokens.owner, `/api/v1/people/${personId}`)).json().person;
+    expect(asOwner.dateOfBirth).toBe('1998-05-01');
+    expect(asOwner.email).toBe('priya@x.com');
+    expect(asOwner.phone).toBe('+971500000000');
+    expect(asOwner.addressLine1).toBe('12 Marina Walk');
+    const ownerNotes = asOwner.notes ?? '';
+    for (const label of ['Date of birth', 'Email', 'Phone', 'Address']) expect(ownerNotes).not.toContain(`${label}:`);
+    expect(ownerNotes).toContain('Apparel size: M'); // non-PII context preserved
+
+    // A read-only role (visitor): canReadPeople but NOT canViewPersonPII → the
+    // PII fields are structurally ABSENT, and notes leaks none of it either.
+    const asVisitor = (await get(tokens.visitor, `/api/v1/people/${personId}`)).json().person;
+    for (const f of ['dateOfBirth', 'email', 'phone', 'addressLine1', 'addressCity', 'addressCountry']) {
+      expect(asVisitor[f]).toBeUndefined();
+    }
+    const visitorBlob = JSON.stringify(asVisitor);
+    for (const leak of ['priya@x.com', '1998-05-01', '971500000000', 'Marina Walk']) expect(visitorBlob).not.toContain(leak);
   });
 });
 

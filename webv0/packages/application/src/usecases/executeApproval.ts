@@ -1134,6 +1134,14 @@ export async function executeApproval(
         primaryDepartment: input.primaryDepartment,
         entityId: input.entityId ?? null,
         notes: input.notes,
+        // H-02: PII rides its own gated columns, never `notes`.
+        dateOfBirth: input.dateOfBirth ?? null,
+        email: input.email ?? null,
+        phone: input.phone ?? null,
+        addressLine1: input.addressLine1 ?? null,
+        addressLine2: input.addressLine2 ?? null,
+        addressCity: input.addressCity ?? null,
+        addressCountry: input.addressCountry ?? null,
         createdByApprovalId: approvalId,
       });
 

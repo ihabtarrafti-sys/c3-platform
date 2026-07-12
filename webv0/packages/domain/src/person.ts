@@ -89,6 +89,12 @@ const trimmedOptional = (max: number) =>
     .nullish()
     .transform((v) => v ?? null);
 
+const dateOnly = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
+  .nullish()
+  .transform((v) => v ?? null);
+
 /**
  * The AddPerson input contract — the fields an operator provides when
  * requesting creation of a new Person. `fullName` is the only required field
@@ -109,16 +115,25 @@ export const addPersonInputSchema = z
     primaryDepartment: trimmedOptional(120),
     entityId: entityIdOptional,
     notes: trimmedOptional(2000),
+    // S11 PII tier — captured at creation (e.g. guest-intake promote) and written
+    // to the PII-gated columns. NEVER folded into `notes` (H-02): notes is emitted
+    // to every canReadPeople role, so PII there would defeat structural omission.
+    // The approval payload projector omits these unless the reader holds PII
+    // standing (H-03). Absent on the direct AddPerson UI path.
+    dateOfBirth: dateOnly.optional(),
+    email: trimmedOptional(200),
+    phone: trimmedOptional(60),
+    addressLine1: trimmedOptional(200),
+    addressLine2: trimmedOptional(200),
+    addressCity: trimmedOptional(120),
+    addressCountry: trimmedOptional(120),
   })
   .strict();
 
 export type AddPersonInput = z.infer<typeof addPersonInputSchema>;
+/** The AddPerson fields that carry PII (omitted from wire views without PII standing). */
+export const ADD_PERSON_PII_FIELDS = ['dateOfBirth', 'email', 'phone', 'addressLine1', 'addressLine2', 'addressCity', 'addressCountry'] as const;
 
-const dateOnly = z
-  .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, 'Expected YYYY-MM-DD')
-  .nullish()
-  .transform((v) => v ?? null);
 
 /**
  * UpdatePersonIdentity (S11, GOVERNED — owner-ratified C2): identity-material

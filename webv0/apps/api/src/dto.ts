@@ -2,7 +2,7 @@
  * dto.ts — explicit domain → wire mappers. The internal tenantId is never put
  * on the wire; canonical business ids are the external identity.
  */
-import { delegationState } from '@c3web/domain';
+import { delegationState, ADD_PERSON_PII_FIELDS } from '@c3web/domain';
 import type { PayloadDisclosure } from '@c3web/authz';
 import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
@@ -533,6 +533,14 @@ export function toFxRateDto(r: FxRate): FxRateDto {
  */
 export function projectApprovalPayload(payload: Approval['payload'], d: PayloadDisclosure): Record<string, unknown> {
   switch (payload.operationType) {
+    case 'AddPerson': {
+      // H-02: an AddPerson payload can carry PII (guest-intake promote). Omit it
+      // for readers without PII standing — absence, not masking.
+      if (d.pii) return payload as unknown as Record<string, unknown>;
+      const input = { ...(payload.input as Record<string, unknown>) };
+      for (const f of ADD_PERSON_PII_FIELDS) delete input[f];
+      return { operationType: payload.operationType, input };
+    }
     case 'UpdatePersonIdentity': {
       if (d.pii) return payload as unknown as Record<string, unknown>;
       const { dateOfBirth: _dob, ...patch } = payload.input.patch;

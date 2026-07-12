@@ -277,6 +277,14 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           primaryDepartment: row.primaryDepartment,
           entityId: row.entityId,
           notes: row.notes,
+          // H-02: PII tier (guest-intake promote); null on direct/import paths.
+          dateOfBirth: row.dateOfBirth ?? null,
+          email: row.email ?? null,
+          phone: row.phone ?? null,
+          addressLine1: row.addressLine1 ?? null,
+          addressLine2: row.addressLine2 ?? null,
+          addressCity: row.addressCity ?? null,
+          addressCountry: row.addressCountry ?? null,
           createdByApprovalId: row.createdByApprovalId,
           ...(row.isActive !== undefined ? { isActive: row.isActive } : {}),
         })

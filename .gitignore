@@ -59,7 +59,12 @@ test-results/
 .turbo/
 # S4 fs-driver document blobs (local dev only; staging/production use R2)
 webv0/.data/
+**/.data/
 
 # Intentionally untracked owner handoff material (never commit)
 docs/Handoff v2/
 docs/fable/
+
+# HARDEN-3 review scaffolding — Apex Sentinel review + input plan (keep local, never commit)
+webv0/C3-END-OF-PROGRAM-REVIEW.md
+/REVIEW-INPUT-PLAN.md

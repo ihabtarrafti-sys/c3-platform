@@ -141,19 +141,14 @@ export function onboardingToAddPerson(payload: OnboardingIntakePayload): AddPers
     const t = (v ?? '').trim();
     return t ? t : null;
   };
+  // H-02: `notes` is emitted to every canReadPeople role, so it carries ONLY
+  // non-PII context (sizes, the joiner's own note). DOB / email / phone / address
+  // are PII — they ride the gated AddPerson columns below, never notes.
   const contextLines: string[] = [];
   const add = (label: string, v: string | null | undefined) => {
     const c = clean(v);
     if (c) contextLines.push(`${label}: ${c}`);
   };
-  add('Date of birth', payload.dateOfBirth);
-  add('Email', payload.email);
-  add('Phone', payload.phone);
-  const address = [payload.addressLine1, payload.addressCity, payload.addressCountry]
-    .map((p) => clean(p))
-    .filter(Boolean)
-    .join(', ');
-  if (address) contextLines.push(`Address: ${address}`);
   add('Apparel size', payload.apparelSize);
   add('Shoe size', payload.shoeSize);
   add('Note from joiner', payload.note);
@@ -170,6 +165,13 @@ export function onboardingToAddPerson(payload: OnboardingIntakePayload): AddPers
     currentTeam: clean(payload.currentTeam) ?? undefined,
     currentGameTitle: clean(payload.currentGameTitle) ?? undefined,
     primaryDepartment: clean(payload.primaryDepartment) ?? undefined,
+    // PII → gated columns (H-02).
+    dateOfBirth: clean(payload.dateOfBirth) ?? undefined,
+    email: clean(payload.email) ?? undefined,
+    phone: clean(payload.phone) ?? undefined,
+    addressLine1: clean(payload.addressLine1) ?? undefined,
+    addressCity: clean(payload.addressCity) ?? undefined,
+    addressCountry: clean(payload.addressCountry) ?? undefined,
     notes: context,
   };
   // Validate through the real AddPerson schema so promote never builds an

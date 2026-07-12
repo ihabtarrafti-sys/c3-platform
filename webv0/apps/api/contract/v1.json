@@ -2182,6 +2182,30 @@
           "input": {
             "t": "object",
             "keys": {
+              "addressCity": {
+                "t": "nullable",
+                "inner": {
+                  "t": "string"
+                }
+              },
+              "addressCountry": {
+                "t": "nullable",
+                "inner": {
+                  "t": "string"
+                }
+              },
+              "addressLine1": {
+                "t": "nullable",
+                "inner": {
+                  "t": "string"
+                }
+              },
+              "addressLine2": {
+                "t": "nullable",
+                "inner": {
+                  "t": "string"
+                }
+              },
               "currentGameTitle": {
                 "t": "nullable",
                 "inner": {
@@ -2189,6 +2213,19 @@
                 }
               },
               "currentTeam": {
+                "t": "nullable",
+                "inner": {
+                  "t": "string"
+                }
+              },
+              "dateOfBirth": {
+                "t": "nullable",
+                "inner": {
+                  "t": "string"
+                },
+                "optional": true
+              },
+              "email": {
                 "t": "nullable",
                 "inner": {
                   "t": "string"
@@ -2222,6 +2259,12 @@
                 }
               },
               "personnelCode": {
+                "t": "nullable",
+                "inner": {
+                  "t": "string"
+                }
+              },
+              "phone": {
                 "t": "nullable",
                 "inner": {
                   "t": "string"

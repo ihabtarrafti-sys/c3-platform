@@ -296,6 +296,15 @@ export interface NewPersonRow {
   readonly primaryDepartment: string | null;
   readonly entityId: string | null;
   readonly notes: string | null;
+  // H-02: PII tier written at creation (guest-intake promote). Optional — the
+  // direct AddPerson/import paths omit them (null).
+  readonly dateOfBirth?: string | null;
+  readonly email?: string | null;
+  readonly phone?: string | null;
+  readonly addressLine1?: string | null;
+  readonly addressLine2?: string | null;
+  readonly addressCity?: string | null;
+  readonly addressCountry?: string | null;
   /** The approval whose execution created this person; NULL for batch imports (provenance = the batch approval, audit-carried). */
   readonly createdByApprovalId: string | null;
   /** S5 imports may create historical (inactive) rows. Default true. */
