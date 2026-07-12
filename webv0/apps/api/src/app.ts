@@ -829,7 +829,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         credential: res.credential ? toCredentialDto(res.credential, piiOf(req)) : null,
         journey: res.journey ? toJourneyDto(res.journey) : null,
         participant: res.participant ? toMissionParticipantDto(res.participant) : null,
-        agreement: res.agreement ? toAgreementDto(res.agreement) : null,
+        // H-03: actor-project the agreement side object (strip value without financial standing).
+        agreement: res.agreement ? toAgreementDto(res.agreement, discOf(req).financial) : null,
         idempotent: res.idempotent,
       };
     }),
@@ -2367,7 +2368,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // Reads are role-differentiated (canReadAgreements; hr/visitor 403) and the
   // financial field is structurally absent for roles without canViewFinancials.
   r.get('/api/v1/agreements', { schema: { response: { 200: agreementsListSchema } } }, async (req) => {
-    return { agreements: (await listAgreements(P, actorOf(req))).map(toAgreementDto) };
+    return { agreements: (await listAgreements(P, actorOf(req))).map((a) => toAgreementDto(a)) };
   });
 
   r.get(
@@ -2384,7 +2385,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { params: personIdParamSchema, response: { 200: agreementsListSchema } } },
     async (req) => {
       const { personId } = req.params as { personId: string };
-      return { agreements: (await listAgreementsForPerson(P, actorOf(req), personId)).map(toAgreementDto) };
+      return { agreements: (await listAgreementsForPerson(P, actorOf(req), personId)).map((a) => toAgreementDto(a)) };
     },
   );
 

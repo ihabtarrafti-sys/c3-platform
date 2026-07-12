@@ -92,7 +92,7 @@ export function toBeneficiaryDto(b: Beneficiary): BeneficiaryDto {
  * when the application read model included it — structural omission survives
  * the wire (plain ISO dates and integer cents pass through untouched).
  */
-export function toAgreementDto(a: AgreementView): AgreementDto {
+export function toAgreementDto(a: AgreementView, financial = true): AgreementDto {
   return {
     agreementId: a.agreementId,
     personId: a.personId,
@@ -102,7 +102,10 @@ export function toAgreementDto(a: AgreementView): AgreementDto {
     linkedAgreementId: a.linkedAgreementId,
     startsOn: a.startsOn,
     endsOn: a.endsOn,
-    ...('valueUsdCents' in a ? { valueUsdCents: a.valueUsdCents ?? null } : {}),
+    // H-03: value is financial. Present upstream only for financial reads; the
+    // `financial` guard additionally lets a caller (the execute side-object)
+    // strip it when the actor lacks financial standing — defense in depth.
+    ...(financial && 'valueUsdCents' in a ? { valueUsdCents: a.valueUsdCents ?? null } : {}),
     notes: a.notes,
     status: a.status,
     version: a.version,
@@ -572,8 +575,41 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
       const { agreements: _rows, ...input } = payload.input as Record<string, unknown>;
       return { operationType: payload.operationType, input };
     }
-    default:
+    case 'AddBeneficiary':
+    case 'UpdateBeneficiary': {
+      // H-03: a beneficiary NAMES a payment route (bank name + country). Omit the
+      // routing detail for readers without financial standing.
+      if (d.financial) return payload as unknown as Record<string, unknown>;
+      const { bankName: _bn, bankCountry: _bc, ...input } = payload.input as Record<string, unknown>;
+      return { operationType: payload.operationType, input };
+    }
+    // Non-sensitive payloads (no PII/financial): passed through in full. Listed
+    // EXPLICITLY, never via a catch-all — the exhaustiveness check below turns a
+    // newly-added op type into a compile error here (H-03).
+    case 'DeactivatePerson':
+    case 'ReactivatePerson':
+    case 'DeactivateCredential':
+    case 'InitiateJourney':
+    case 'AddMissionParticipant':
+    case 'RemoveMissionParticipant':
+    case 'RenewAgreement':
+    case 'TerminateAgreement':
+    case 'RemoveAgreementTerm':
+    case 'RetireBeneficiary':
+    case 'ProvisionMember':
+    case 'DeactivateMember':
+    case 'ReactivateMember':
+    case 'ChangeRole':
       return payload as unknown as Record<string, unknown>;
+    default: {
+      // FAIL-CLOSED (H-03): every op type above is handled, so `payload` narrows
+      // to `never` here — a new op type without a projection case is a COMPILE
+      // error. At runtime we NEVER return the raw payload for an unhandled type;
+      // only the operationType leaves the boundary.
+      const _exhaustive: never = payload;
+      void _exhaustive;
+      return { operationType: (payload as { operationType: string }).operationType };
+    }
   }
 }
 

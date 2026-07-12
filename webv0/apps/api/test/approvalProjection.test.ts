@@ -51,3 +51,32 @@ describe('projectApprovalPayload — AddPerson PII (H-02)', () => {
     expect(input.dateOfBirth).toBe('1998-05-01');
   });
 });
+
+describe('projectApprovalPayload — H-03 exhaustive + fail-closed', () => {
+  it('FAIL-CLOSED: an unhandled op type never leaks its input — only operationType', () => {
+    // A rogue/future op type that reached the boundary without a projection case.
+    const rogue = { operationType: 'FutureUnmappedOp', input: { secret: 'leak-me' } } as unknown as Approval['payload'];
+    const projected = projectApprovalPayload(rogue, { pii: true, financial: true });
+    expect(projected).toEqual({ operationType: 'FutureUnmappedOp' });
+    expect(JSON.stringify(projected)).not.toContain('leak-me');
+  });
+
+  it('beneficiary bank routing is omitted without financial standing, present with it', () => {
+    const ben = {
+      operationType: 'AddBeneficiary',
+      input: { personId: 'PER-0001', label: 'Main', bankName: 'Emirates NBD', bankCountry: 'AE', currency: 'AED' },
+    } as unknown as Approval['payload'];
+    const noFin = projectApprovalPayload(ben, { pii: true, financial: false });
+    expect(JSON.stringify(noFin)).not.toContain('Emirates NBD');
+    expect(JSON.stringify(noFin)).not.toContain('bankCountry');
+    expect((noFin as { input: Record<string, unknown> }).input.label).toBe('Main'); // non-routing kept
+    const withFin = projectApprovalPayload(ben, { pii: true, financial: true });
+    expect((withFin as { input: Record<string, unknown> }).input.bankName).toBe('Emirates NBD');
+  });
+
+  it('a non-sensitive op type passes through in full (no over-omission)', () => {
+    const dep = { operationType: 'DeactivatePerson', input: { personId: 'PER-0001', reason: 'left the org' } } as unknown as Approval['payload'];
+    const projected = projectApprovalPayload(dep, { pii: false, financial: false });
+    expect((projected as { input: Record<string, unknown> }).input).toMatchObject({ personId: 'PER-0001', reason: 'left the org' });
+  });
+});
