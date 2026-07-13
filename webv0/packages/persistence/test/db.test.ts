@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -257,6 +257,45 @@ describe('migrations & schema', () => {
       expect(n.rows[0].n, 'no ghost user').toBe(1);
     } finally {
       await admin.end();
+    }
+  });
+
+  it('0051 (R2-N06): blob_tombstone is append-and-mark-only — identity frozen, deleted_at monotonic', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'tomb' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const ins = await admin.query(
+        `INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason) VALUES ($1, 'tomb/obj-1', 'document', 'exit') RETURNING id`,
+        [t.tenantId],
+      );
+      const id = ins.rows[0].id as string;
+
+      // The trigger freezes identity/key/class/reason/created even for admin.
+      await expect(admin.query(`UPDATE blob_tombstone SET storage_key = 'tomb/hacked' WHERE id = $1`, [id])).rejects.toThrow(/identity is immutable/i);
+      await expect(admin.query(`UPDATE blob_tombstone SET tenant_ref = gen_random_uuid() WHERE id = $1`, [id])).rejects.toThrow(/identity is immutable/i);
+      await expect(admin.query(`UPDATE blob_tombstone SET blob_class = 'photo' WHERE id = $1`, [id])).rejects.toThrow(/identity is immutable/i);
+      await expect(admin.query(`UPDATE blob_tombstone SET reason = 'intake_reject' WHERE id = $1`, [id])).rejects.toThrow(/identity is immutable/i);
+
+      // Resolution columns are writable; deleted_at set once is then monotonic.
+      await admin.query(`UPDATE blob_tombstone SET attempts = attempts + 1, last_error = 'retry' WHERE id = $1`, [id]);
+      await admin.query(`UPDATE blob_tombstone SET deleted_at = now() WHERE id = $1`, [id]);
+      await expect(admin.query(`UPDATE blob_tombstone SET deleted_at = NULL WHERE id = $1`, [id])).rejects.toThrow(/monotonic/i);
+    } finally {
+      await admin.end();
+    }
+
+    // The app role cannot even NAME an identity column in an UPDATE (column grant).
+    const c = new Client({ connectionString: db.appUrl });
+    await c.connect();
+    try {
+      await c.query('BEGIN');
+      await c.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await expect(c.query(`UPDATE blob_tombstone SET storage_key = 'x' WHERE tenant_ref = $1`, [t.tenantId])).rejects.toThrow(/permission denied|column/i);
+      await c.query('ROLLBACK').catch(() => {});
+    } finally {
+      await c.end();
     }
   });
 
