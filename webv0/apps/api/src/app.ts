@@ -300,7 +300,7 @@ import {
   hasEffectiveReviewStanding,
   submitUpdatePersonIdentity,
   submitDeactivatePerson,
-  findOrSubmitDeactivatePerson,
+  drainDepartureDeactivations,
   submitReactivatePerson,
   updatePersonOperational,
   updateCredentialDetails,
@@ -2029,17 +2029,33 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { departureId } = req.params as { departureId: string };
       const result = await completeDeparture(P, actorOf(req), departureId, req.body as import('@c3web/domain').CompleteDepartureInput);
-      // The capstone hands the person to the GOVERNED DeactivatePerson pipeline
-      // when asked — an approval an owner executes, never a silent flip. M-03:
-      // completion committed in its own tx above; this hand-off is a second,
-      // idempotent commit, so a retry re-issues the missing request without
-      // double-submitting or erroring on the one already there.
-      let deactivationApprovalId: string | null = null;
-      if (result.deactivateRequested) {
-        const { approval } = await findOrSubmitDeactivatePerson(P, actorOf(req), { input: { personId: result.personId, reason: `Offboarding — departure ${departureId}` } });
-        deactivationApprovalId = approval.approvalId;
+      // M-03: completeDeparture committed the deactivation INTENT atomically with
+      // the status change (the outbox). Drain it now — find-or-submit the governed
+      // DeactivatePerson and link it write-once. A crash before/within the drain
+      // leaves the durable intent for a later drain (or the owner drain endpoint),
+      // so the hand-off is never lost and never duplicated.
+      // A retry finds the intent already linked (persisted on the row); otherwise
+      // drain now. Either way the SAME approval id comes back, never a duplicate.
+      let deactivationApprovalId: string | null = result.departure.deactivationApprovalId;
+      if (result.deactivateRequested && deactivationApprovalId === null) {
+        const drain = await drainDepartureDeactivations(P, actorOf(req)).catch((err) => {
+          req.log.warn({ err }, 'departure deactivation drain failed; the durable intent remains for a later drain');
+          return { attempted: 0, linked: [] as Array<{ departureId: string; approvalId: string }> };
+        });
+        deactivationApprovalId = drain.linked.find((l) => l.departureId === departureId)?.approvalId ?? null;
       }
       return { departure: toDepartureDto(result.departure), deactivationApprovalId };
+    },
+  );
+
+  // M-03: owner/ops-invocable drain of the departure deactivation outbox —
+  // finishes any hand-off left pending by an earlier crash, with no re-complete.
+  r.post(
+    '/api/v1/departures/drain-deactivations',
+    { schema: { response: { 200: z.object({ attempted: z.number().int(), linked: z.number().int() }) } } },
+    async (req) => {
+      const drain = await drainDepartureDeactivations(P, actorOf(req));
+      return { attempted: drain.attempted, linked: drain.linked.length };
     },
   );
 

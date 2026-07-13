@@ -3,7 +3,7 @@
  * role). Implements the @c3web/application Persistence port.
  */
 import { Pool } from 'pg';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import { IntakeLinkUnavailableError } from '@c3web/domain';
 import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
@@ -565,6 +565,17 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         listDepartures: () =>
           withTenantTx(pool, actor, 'read', async (db): Promise<Departure[]> => {
             const rows = await db.select().from(schema.departure).orderBy(desc(schema.departure.initiatedOn), desc(schema.departure.createdAt));
+            return rows.map(mapDeparture);
+          }),
+
+        // M-03: the outbox — Completed departures whose deactivation hand-off is
+        // still outstanding (requested, not yet linked to an approval).
+        listDeparturesAwaitingDeactivation: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Departure[]> => {
+            const rows = await db
+              .select()
+              .from(schema.departure)
+              .where(and(eq(schema.departure.deactivationRequested, true), isNull(schema.departure.deactivationApprovalId)));
             return rows.map(mapDeparture);
           }),
 

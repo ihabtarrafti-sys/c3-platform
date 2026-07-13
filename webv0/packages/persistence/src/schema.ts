@@ -645,6 +645,9 @@ export const departure = pgTable('departure', {
   initiatedOn: date('initiated_on', { mode: 'string' }).notNull(),
   completedOn: date('completed_on', { mode: 'string' }),
   notes: text('notes'),
+  // M-03: durable deactivation-hand-off outbox (set atomically at completion).
+  deactivationRequested: boolean('deactivation_requested').notNull().default(false),
+  deactivationApprovalId: text('deactivation_approval_id'),
   version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

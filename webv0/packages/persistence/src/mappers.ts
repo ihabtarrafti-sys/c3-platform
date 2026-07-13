@@ -407,6 +407,8 @@ export function mapDeparture(row: any): Departure {
     initiatedOn: d(row.initiatedOn ?? row.initiated_on)!,
     completedOn: d(row.completedOn ?? row.completed_on),
     notes: row.notes ?? null,
+    deactivationRequested: Boolean(row.deactivationRequested ?? row.deactivation_requested ?? false),
+    deactivationApprovalId: row.deactivationApprovalId ?? row.deactivation_approval_id ?? null,
     version: Number(row.version),
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),

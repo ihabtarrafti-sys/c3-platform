@@ -6,7 +6,10 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { Client } from 'pg';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
+import type { Actor } from '@c3web/domain';
+import { completeDeparture, drainDepartureDeactivations } from '@c3web/application';
 import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
 import { buildDeps, type Deps } from '../src/deps';
@@ -135,6 +138,43 @@ describe('departure workflow', () => {
     );
     expect(open.length).toBe(1);
     expect(open[0]!.approvalId).toBe(approvalId);
+  });
+
+  it('M-03: completion durably persists the deactivation intent (outbox); a drain finishes it after a crash, idempotently', async () => {
+    const personId = await addPerson('Crash Carl');
+    const dep = (await post(tokens.ops, '/api/v1/departures', { personId, reason: 'End of contract' })).json().departure;
+
+    const client = new Client({ connectionString: db.adminUrl });
+    await client.connect();
+    try {
+      const tid = (await client.query(`SELECT id FROM tenant WHERE slug='alpha'`)).rows[0].id as string;
+      const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: tid };
+
+      // Simulate a CRASH between completion and the hand-off: complete via the
+      // use-case (which persists the intent atomically) but do NOT drain.
+      await completeDeparture(deps.persistence, actor, dep.departureId, { expectedVersion: dep.version, deactivatePerson: true });
+
+      // The intent is DURABLE and DISCOVERABLE, not yet handed off.
+      const row1 = (await client.query(`SELECT deactivation_requested, deactivation_approval_id FROM departure WHERE departure_id=$1`, [dep.departureId])).rows[0];
+      expect(row1.deactivation_requested).toBe(true);
+      expect(row1.deactivation_approval_id).toBeNull();
+      const pending = await deps.persistence.reads.forActor(actor).listDeparturesAwaitingDeactivation();
+      expect(pending.some((d) => d.departureId === dep.departureId)).toBe(true);
+
+      // A drain finishes the hand-off: submits + links write-once.
+      const drain = await drainDepartureDeactivations(deps.persistence, actor);
+      expect(drain.linked.some((l) => l.departureId === dep.departureId)).toBe(true);
+      const linkedId = (await client.query(`SELECT deactivation_approval_id FROM departure WHERE departure_id=$1`, [dep.departureId])).rows[0].deactivation_approval_id;
+      expect(linkedId).toMatch(/^APR-/);
+
+      // Idempotent: a second drain finds nothing pending (already linked) — no duplicate.
+      const drain2 = await drainDepartureDeactivations(deps.persistence, actor);
+      expect(drain2.linked.some((l) => l.departureId === dep.departureId)).toBe(false);
+      const open = (await client.query(`SELECT count(*)::int AS n FROM approval WHERE operation_type='DeactivatePerson' AND target_person_id=$1 AND status IN ('Submitted','InReview','Approved','ExecutionFailed')`, [personId])).rows[0].n;
+      expect(open).toBe(1);
+    } finally {
+      await client.end();
+    }
   });
 
   it('cancels an in-progress departure and refuses re-close', async () => {

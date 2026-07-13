@@ -1320,6 +1320,28 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapDeparture(rows[0]) : null;
     },
 
+    // M-03: complete AND persist the deactivation intent in ONE transaction, so a
+    // crash before the governed submit leaves a durable, discoverable follow-up.
+    async completeDepartureWithIntent(departureId: string, expectedVersion: number, completedOn: string, notes: string | null, deactivationRequested: boolean): Promise<Departure | null> {
+      const rows = await db
+        .update(schema.departure)
+        .set({ status: 'Completed', completedOn, notes, deactivationRequested, version: sql`${schema.departure.version} + 1` })
+        .where(and(eq(schema.departure.departureId, departureId), eq(schema.departure.version, expectedVersion)))
+        .returning();
+      return rows[0] ? mapDeparture(rows[0]) : null;
+    },
+
+    // M-03: link the submitted deactivation approval to the departure WRITE-ONCE —
+    // a concurrent drain that already linked one makes this a no-op (no duplicate).
+    async linkDepartureDeactivation(departureId: string, approvalId: string): Promise<boolean> {
+      const rows = await db
+        .update(schema.departure)
+        .set({ deactivationApprovalId: approvalId })
+        .where(and(eq(schema.departure.departureId, departureId), isNull(schema.departure.deactivationApprovalId)))
+        .returning();
+      return rows.length > 0;
+    },
+
     async markNotificationRead(identity: string, signalKey: string): Promise<boolean> {
       const rows = await db
         .update(schema.notification)

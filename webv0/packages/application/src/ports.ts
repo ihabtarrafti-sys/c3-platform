@@ -206,6 +206,8 @@ export interface ReadStore {
   listSavedViews(userIdentity: string, register: string): Promise<SavedView[]>;
   /** Track B: departures (all statuses, newest first). */
   listDepartures(): Promise<Departure[]>;
+  /** M-03: Completed departures whose deactivation hand-off is still pending. */
+  listDeparturesAwaitingDeactivation(): Promise<Departure[]>;
   /**
    * Track B3: the activity feed — a keyset page of the audit stream, newest
    * first. Returns up to `limit`+1 rows so the caller knows if more remain;
@@ -964,6 +966,10 @@ export interface WriteTx {
   getDeparture(departureId: string): Promise<Departure | null>;
   /** Version-guarded terminal transition (InProgress→Completed/Cancelled); null = stale/missing. */
   setDepartureStatus(departureId: string, expectedVersion: number, status: string, completedOn: string | null, notes: string | null): Promise<Departure | null>;
+  /** M-03: complete + persist the deactivation intent atomically. */
+  completeDepartureWithIntent(departureId: string, expectedVersion: number, completedOn: string, notes: string | null, deactivationRequested: boolean): Promise<Departure | null>;
+  /** M-03: link the submitted deactivation approval to the departure, write-once. */
+  linkDepartureDeactivation(departureId: string, approvalId: string): Promise<boolean>;
   insertDelegation(row: { delegationId: string; granteeIdentity: string; grantedBy: string; startsOn: string; endsOn: string; reason: string }): Promise<Delegation>;
   lockDelegation(delegationId: string): Promise<Delegation | null>;
   revokeDelegation(delegationId: string, expectedVersion: number, revokedBy: string, revokeReason: string): Promise<Delegation | null>;

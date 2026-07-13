@@ -22,6 +22,10 @@ export interface Departure {
   readonly initiatedOn: string;
   readonly completedOn: string | null;
   readonly notes: string | null;
+  /** M-03: durable deactivation-hand-off outbox. `requested` is set atomically at
+   *  completion; `approvalId` is linked write-once by the drain (null = pending). */
+  readonly deactivationRequested: boolean;
+  readonly deactivationApprovalId: string | null;
   readonly version: number;
   readonly createdAt: string;
   readonly updatedAt: string;
