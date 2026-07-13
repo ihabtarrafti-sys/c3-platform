@@ -84,6 +84,25 @@ async function main(): Promise<void> {
     forcePathStyle: true,
   });
 
+  // H-08: the drill reads a sample object from the DOCUMENTS bucket to prove blob
+  // recovery. When it runs on the same service as the backup job — which shares
+  // R2_ACCESS_KEY_ID as a WRITE key for the backups bucket — use a dedicated
+  // READ-ONLY credential for the documents bucket so the backup principal never
+  // gains write access to live customer files. Falls back to the main client if
+  // the dedicated read key isn't configured (e.g. a fully isolated drill env
+  // whose one key already spans both buckets).
+  const docsS3 = process.env.R2_DOCUMENTS_ACCESS_KEY_ID
+    ? new S3Client({
+        region: 'auto',
+        endpoint: req('R2_ENDPOINT'),
+        credentials: {
+          accessKeyId: req('R2_DOCUMENTS_ACCESS_KEY_ID'),
+          secretAccessKey: req('R2_DOCUMENTS_SECRET_ACCESS_KEY'),
+        },
+        forcePathStyle: true,
+      })
+    : s3;
+
   const tempDir = await fs.mkdtemp(join(tmpdir(), 'c3restore-'));
   const idPath = join(tempDir, 'age.key');
   const encPath = join(tempDir, 'backup.dump.age');
@@ -222,7 +241,7 @@ async function main(): Promise<void> {
     if (invObjectCount > 0 && docsBucket) {
       const fetchObject = async (key: string): Promise<Buffer | null> => {
         try {
-          const res = await s3.send(new GetObjectCommand({ Bucket: docsBucket, Key: key }));
+          const res = await docsS3.send(new GetObjectCommand({ Bucket: docsBucket, Key: key }));
           return Buffer.from(await res.Body!.transformToByteArray());
         } catch (err) {
           if ((err as { name?: string }).name === 'NoSuchKey') return null;
