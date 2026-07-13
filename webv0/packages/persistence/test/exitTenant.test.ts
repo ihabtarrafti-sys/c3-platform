@@ -19,7 +19,7 @@ import type { Actor } from '@c3web/domain';
 import { createMission } from '@c3web/application';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
-import { exitTenant } from '../src/exitTenant';
+import { exitTenant, finalizeTenantExit } from '../src/exitTenant';
 import { createBlobReader, sweepTenantBlobErasure } from '../src/blobBundle';
 
 let db: TestDatabase;
@@ -287,20 +287,38 @@ describe('exit ceremony — blob universe (H-07 two-phase erasure)', () => {
 });
 
 describe('exit ceremony — executed', () => {
-  it('erases exactly the target tenant; shared users and the other tenant are untouched; triggers still enforce', async () => {
+  it('R2-N01: data phase erases data + holds identity Exiting; --finalize removes it; shared users and the other tenant are untouched; triggers still enforce', async () => {
     await completePhaseE1();
+    // ── Phase 1 (data): erase DATA, hold identity in Exiting (no blobs seeded, so
+    // no tombstones — finalize can run straight after). ─────────────────────────
     const report = await admin((c) =>
       exitTenant(c, { tenantSlug: 'alpha', execute: true, confirmSlug: 'alpha', secondConfirm: 'alpha' }),
     );
     expect(report.mode).toBe('executed');
-    expect(report.postChecks).toEqual({ zeroRowsVerified: true, tenantRowGone: true, triggersReEnabled: true });
+    expect(report.postChecks).toEqual({ zeroRowsVerified: true, tenantExiting: true, triggersReEnabled: true });
 
     await admin(async (c) => {
-      // Alpha is gone everywhere.
-      expect((await c.query(`SELECT count(*)::int AS n FROM tenant WHERE slug='alpha'`)).rows[0].n).toBe(0);
-      for (const t of ['person', 'credential', 'journey', 'agreement', 'mission', 'mission_participant', 'kit', 'apparel', 'approval', 'approval_event', 'audit_event', 'tenant_membership', 'role_assignment', 'business_id_counter']) {
+      // Identity is HELD: tenant row still present, marked Exiting; membership +
+      // sole user kept for finalize to recompute the sole-user set.
+      const tRow = await c.query(`SELECT exit_state FROM tenant WHERE slug='alpha'`);
+      expect(tRow.rows).toHaveLength(1);
+      expect(tRow.rows[0].exit_state).toBe('Exiting');
+      expect((await c.query(`SELECT count(*)::int AS n FROM tenant_membership WHERE tenant_id=$1`, [alphaId])).rows[0].n).toBeGreaterThan(0);
+      expect((await c.query(`SELECT count(*)::int AS n FROM app_user WHERE email='owner@a.com'`)).rows[0].n).toBe(1);
+      // DATA is gone.
+      for (const t of ['person', 'credential', 'journey', 'agreement', 'mission', 'mission_participant', 'kit', 'apparel', 'approval', 'approval_event', 'audit_event', 'role_assignment', 'business_id_counter']) {
         expect((await c.query(`SELECT count(*)::int AS n FROM ${t} WHERE tenant_id = $1`, [alphaId])).rows[0].n).toBe(0);
       }
+    });
+
+    // ── Phase 2 (finalize): the point of no return — remove the identity LAST. ───
+    const fin = await admin((c) => finalizeTenantExit(c, alphaId));
+    expect(fin.removed).toBe(true);
+
+    await admin(async (c) => {
+      // Alpha identity is gone everywhere.
+      expect((await c.query(`SELECT count(*)::int AS n FROM tenant WHERE slug='alpha'`)).rows[0].n).toBe(0);
+      expect((await c.query(`SELECT count(*)::int AS n FROM tenant_membership WHERE tenant_id=$1`, [alphaId])).rows[0].n).toBe(0);
       // Sole-tenant user + identity erased with the org.
       expect((await c.query(`SELECT count(*)::int AS n FROM app_user WHERE email='owner@a.com'`)).rows[0].n).toBe(0);
       expect((await c.query(`SELECT count(*)::int AS n FROM external_identity WHERE subject='oid-owner-a'`)).rows[0].n).toBe(0);
@@ -319,7 +337,8 @@ describe('exit ceremony — executed', () => {
       await expect(c.query(`DELETE FROM approval_event WHERE tenant_id=$1`, [bravoId])).rejects.toThrow(/append-only/i);
     });
 
-    // The erased slug is now unknown — a re-run refuses.
+    // The erased slug is now unknown — a re-run refuses; finalize refuses too.
     await expect(admin((c) => exitTenant(c, { tenantSlug: 'alpha' }))).rejects.toThrow(/Unknown tenant/i);
+    await expect(admin((c) => finalizeTenantExit(c, alphaId))).rejects.toThrow(/not in the Exiting state/i);
   });
 });

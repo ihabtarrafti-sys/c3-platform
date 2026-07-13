@@ -17,10 +17,15 @@
  *   photo     ${tenantId}/<uuid>          person.photo_storage_key
  *   intake    intake/${tenantId}/<sub>/<upload>   intake_submission.uploads[].storageKey
  *
- * Only PENDING intake submissions have live quarantine bytes: a Promoted
- * submission's upload was copied to `${tenantId}/…` and its quarantine key
- * deleted; a Rejected submission's bytes are wiped. So enumerating Pending
- * submissions never references an already-deleted object.
+ * This enumeration names only PENDING intake submissions: a Promoted submission's
+ * upload was copied to `${tenantId}/…` (captured here as the person's photo/doc)
+ * and a Rejected submission's bytes are wiped, so enumerating Pending never
+ * references an already-deleted object. A Promoted submission's quarantine copy is
+ * deleted only BEST-EFFORT after the attach, so a residual may survive under
+ * `intake/${tenantId}/…` — that (and any crashed-compensation orphan) is NOT named
+ * by a DB row. Such prefix-discovered objects are erased by the exit sweep and
+ * returned to the org by `downloadOrphanBlobs` (blobBundle.ts); this DB-only module
+ * deliberately does not list the store.
  *
  * This module is DB-ONLY (no object-store/S3 import) so it may be used by the
  * export snapshot AND the backup image without pulling in the storage SDK — the

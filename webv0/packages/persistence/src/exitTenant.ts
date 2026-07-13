@@ -57,8 +57,9 @@ export interface ExitReport {
    * after commit (Phase 2). A dry-run reports the count without recording.
    */
   readonly blobObjects: number;
-  /** Present after execute: every count re-verified zero inside the transaction. */
-  readonly postChecks?: { zeroRowsVerified: boolean; tenantRowGone: boolean; triggersReEnabled: boolean };
+  /** Present after the data phase: DATA rows re-verified zero, tenant still Exiting
+   *  (identity held for --finalize), append-only triggers restored. */
+  readonly postChecks?: { zeroRowsVerified: boolean; tenantExiting: boolean; triggersReEnabled: boolean };
 }
 
 const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
@@ -98,6 +99,33 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
       throw new Error(
         `Execute refused: erasure of '${opts.tenantSlug}' requires BOTH confirmations to match the slug (dual authorization).`,
       );
+    }
+  }
+
+  // R2-N01 Phase 0 (execute): mark Exiting in its OWN committed transaction BEFORE
+  // we enumerate. This turns on the write-quiesce (no new object can appear during
+  // the ceremony) and is the durable resume-by-UUID anchor. Idempotent: re-running
+  // on an already-Exiting tenant (a resume) is a no-op.
+  if (execute) {
+    await client.query('BEGIN');
+    try {
+      const t0 = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [opts.tenantSlug]);
+      if (!t0.rows[0]) throw new Error(`Unknown tenant '${opts.tenantSlug}'.`);
+      const active0 = await count(
+        client,
+        `SELECT count(*)::int AS n FROM tenant_membership tm JOIN app_user u ON u.id = tm.user_id WHERE tm.tenant_id = $1 AND u.is_active`,
+        [t0.rows[0].id],
+      );
+      if (active0 > 0) {
+        throw new Error(
+          `Execute refused: ${active0} active member(s) still hold a membership in '${opts.tenantSlug}'. Complete Phase E1 (access termination) first.`,
+        );
+      }
+      await client.query(`UPDATE tenant SET exit_state = 'Exiting' WHERE id = $1`, [t0.rows[0].id]);
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
     }
   }
 
@@ -150,11 +178,11 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
       return { mode: 'dry-run', tenant, activeMembers, soleUsers, sharedUsers, tables, blobObjects: blobs.length };
     }
 
-    // ── The ceremony proper (single transaction) ─────────────────────────────
-    // Snapshot the sole-user set before membership rows disappear.
-    const sole = await client.query<{ user_id: string }>(SOLE_USERS_SQL, [tenant.id]);
-    const soleIds = sole.rows.map((r) => r.user_id);
-
+    // ── The DATA-erasure transaction (Phase 1) ───────────────────────────────
+    // The tenant is already Exiting (Phase 0, committed) so writers are quiesced
+    // and the enumeration above is complete. This tx erases the tenant's DATA and
+    // records the blob ledger; the IDENTITY (tenant_membership + sole users +
+    // tenant row) is removed later by --finalize.
     for (const { table, trigger } of APPEND_ONLY_TRIGGERS) {
       await client.query(`ALTER TABLE ${table} DISABLE TRIGGER ${trigger}`);
     }
@@ -171,35 +199,37 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
       );
     }
 
+    // R2-N01: delete the tenant DATA only. Keep tenant_membership (so finalize can
+    // recompute the sole-user set), the sole app_users, and the tenant row itself —
+    // the IDENTITY is removed last, by an explicit --finalize, only after the R2
+    // sweep re-verifies zero remaining bytes. Nothing FKs to tenant_membership, so
+    // holding it back is safe.
     for (const name of TENANT_TABLES) {
+      if (name === 'tenant_membership') continue; // kept until --finalize
       await client.query(`DELETE FROM ${name} WHERE tenant_id = $1`, [tenant.id]);
     }
-    if (soleIds.length > 0) {
-      await client.query(`DELETE FROM external_identity WHERE user_id = ANY($1::uuid[])`, [soleIds]);
-      await client.query(`DELETE FROM app_user WHERE id = ANY($1::uuid[])`, [soleIds]);
-    }
-    await client.query('DELETE FROM tenant WHERE id = $1', [tenant.id]);
 
     for (const { table, trigger } of APPEND_ONLY_TRIGGERS) {
       await client.query(`ALTER TABLE ${table} ENABLE TRIGGER ${trigger}`);
     }
 
-    // In-transaction post-checks: refuse to commit a partial erasure.
+    // In-transaction post-checks: refuse to commit a partial erasure. Every DATA
+    // table (all but the held-back tenant_membership) must be zero, the tenant
+    // must still be Exiting (identity intact for --finalize), and the append-only
+    // triggers must be back on.
     let zero = true;
     for (const name of TENANT_TABLES) {
+      if (name === 'tenant_membership') continue;
       if ((await count(client, `SELECT count(*)::int AS n FROM ${name} WHERE tenant_id = $1`, [tenant.id])) !== 0) zero = false;
     }
-    if (soleIds.length > 0) {
-      if ((await count(client, `SELECT count(*)::int AS n FROM app_user WHERE id = ANY($1::uuid[])`, [soleIds])) !== 0) zero = false;
-    }
-    const tenantRowGone = (await count(client, 'SELECT count(*)::int AS n FROM tenant WHERE id = $1', [tenant.id])) === 0;
+    const tenantExiting = (await count(client, `SELECT count(*)::int AS n FROM tenant WHERE id = $1 AND exit_state = 'Exiting'`, [tenant.id])) === 1;
     const enabled = await client.query<{ n: string }>(
       `SELECT count(*)::int AS n FROM pg_trigger WHERE tgname = ANY($1) AND tgenabled = 'O'`,
       [APPEND_ONLY_TRIGGERS.map((x) => x.trigger)],
     );
     const triggersReEnabled = Number(enabled.rows[0]!.n) === APPEND_ONLY_TRIGGERS.length;
 
-    if (!zero || !tenantRowGone || !triggersReEnabled) {
+    if (!zero || !tenantExiting || !triggersReEnabled) {
       throw new Error('Post-check failed inside the erasure transaction — rolling back (no partial erasure).');
     }
 
@@ -212,8 +242,62 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
       sharedUsers,
       tables,
       blobObjects: blobs.length,
-      postChecks: { zeroRowsVerified: zero, tenantRowGone, triggersReEnabled },
+      postChecks: { zeroRowsVerified: zero, tenantExiting, triggersReEnabled },
     };
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  }
+}
+
+/**
+ * R2-N01 --finalize: the POINT OF NO RETURN, a SEPARATE explicit invocation run
+ * only after the R2 sweep verified zero remaining bytes. Fail-closed: it refuses
+ * unless the tenant is Exiting, EVERY blob_tombstone is resolved (swept), and no
+ * DATA row survives — leaving the identity intact for the operator to investigate.
+ * On a clean re-verify it removes the identity LAST: tenant_membership → sole
+ * external_identity + app_user → the tenant row, with an in-tx post-check.
+ */
+export async function finalizeTenantExit(client: Client, tenantId: string): Promise<{ removed: true; soleUsers: number }> {
+  await client.query('BEGIN');
+  try {
+    const t = await client.query<{ slug: string }>(`SELECT slug FROM tenant WHERE id = $1 AND exit_state = 'Exiting'`, [tenantId]);
+    if (t.rowCount === 0) {
+      throw new Error('Finalize refused: tenant is not in the Exiting state (already finalized, or the data phase never ran).');
+    }
+    // Fail-closed re-verify: the sweep must have resolved every tombstone, and no
+    // DATA row may remain. Any straggler → refuse, leave identity intact.
+    const unswept = await count(client, `SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref = $1 AND deleted_at IS NULL`, [tenantId]);
+    if (unswept > 0) {
+      throw new Error(`Finalize REFUSED: ${unswept} blob object(s) are still unswept — re-run the sweep and re-verify zero before finalizing. Identity left intact.`);
+    }
+    for (const name of TENANT_TABLES) {
+      if (name === 'tenant_membership') continue;
+      if ((await count(client, `SELECT count(*)::int AS n FROM ${name} WHERE tenant_id = $1`, [tenantId])) !== 0) {
+        throw new Error(`Finalize REFUSED: ${name} still has rows — the data phase is incomplete. Identity left intact.`);
+      }
+    }
+
+    // Recompute the sole-user set from the still-present memberships, then remove
+    // the identity LAST, children first.
+    const sole = await client.query<{ user_id: string }>(SOLE_USERS_SQL, [tenantId]);
+    const soleIds = sole.rows.map((r) => r.user_id);
+    await client.query(`DELETE FROM tenant_membership WHERE tenant_id = $1`, [tenantId]);
+    if (soleIds.length > 0) {
+      await client.query(`DELETE FROM external_identity WHERE user_id = ANY($1::uuid[])`, [soleIds]);
+      await client.query(`DELETE FROM app_user WHERE id = ANY($1::uuid[])`, [soleIds]);
+    }
+    await client.query(`DELETE FROM tenant WHERE id = $1`, [tenantId]);
+
+    // Post-check: identity is gone.
+    const tenantGone = (await count(client, `SELECT count(*)::int AS n FROM tenant WHERE id = $1`, [tenantId])) === 0;
+    const membershipsGone = (await count(client, `SELECT count(*)::int AS n FROM tenant_membership WHERE tenant_id = $1`, [tenantId])) === 0;
+    const usersGone = soleIds.length === 0 || (await count(client, `SELECT count(*)::int AS n FROM app_user WHERE id = ANY($1::uuid[])`, [soleIds])) === 0;
+    if (!tenantGone || !membershipsGone || !usersGone) {
+      throw new Error('Finalize post-check failed inside the transaction — rolling back (identity not removed).');
+    }
+    await client.query('COMMIT');
+    return { removed: true, soleUsers: soleIds.length };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;

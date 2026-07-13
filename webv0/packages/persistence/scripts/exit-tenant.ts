@@ -29,7 +29,7 @@ import { Client } from 'pg';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { resolve, dirname, relative, join } from 'node:path';
-import { exitTenant } from '../src/exitTenant';
+import { exitTenant, finalizeTenantExit } from '../src/exitTenant';
 import { createBlobReader, sweepTenantBlobErasure } from '../src/blobBundle';
 import { validateExitManifest, verifyExitBundle, ManifestRejectedError, type ExitBundleReader } from '../src/exitManifest';
 
@@ -76,6 +76,9 @@ function arg(name: string, required: boolean): string | undefined {
 }
 const flag = (name: string): boolean => process.argv.includes(`--${name}`);
 
+// R2-N01: --finalize <tenant-uuid> is the SEPARATE, explicit point-of-no-return
+// invocation (see the data-phase output). When set, we run finalize, not exit.
+const finalizeUuid = arg('finalize', false);
 const tenantSlug = arg('tenant-slug', true)!;
 const execute = flag('execute');
 const confirmSlug = arg('confirm', false);
@@ -113,6 +116,28 @@ await client.connect();
 // it now, and refuse an execute that would strand objects).
 const blobReader = createBlobReader(process.env);
 try {
+  // R2-N01 --finalize: the explicit point-of-no-return. Requires dual slug
+  // confirmation (like execute) matching the tenant named by the UUID, then does
+  // the fail-closed re-verify + identity removal. No manifest/preflight — the data
+  // phase already ran and was verified.
+  if (finalizeUuid) {
+    const fr = await client.query<{ slug: string }>(`SELECT slug FROM tenant WHERE id = $1`, [finalizeUuid]);
+    if (fr.rowCount === 0) {
+      console.error(`Finalize refused: no tenant with id ${finalizeUuid} (already finalized, or wrong id).`);
+      process.exitCode = 2;
+    } else if (confirmSlug !== fr.rows[0]!.slug || process.env.C3_EXIT_SECOND_CONFIRM !== fr.rows[0]!.slug) {
+      console.error(`Finalize refused: BOTH confirmations must match the tenant slug '${fr.rows[0]!.slug}' (dual authorization).`);
+      process.exitCode = 2;
+    } else {
+      const res = await finalizeTenantExit(client, finalizeUuid);
+      console.log(`\n=== tenant exit FINALIZED: ${fr.rows[0]!.slug} (${finalizeUuid}) ===`);
+      console.log(`  identity removed — tenant row, ${res.soleUsers} sole user account(s), and memberships are gone.`);
+      console.log('  This is the point of no return; file this in the exit register.');
+    }
+    await client.end();
+    process.exit(process.exitCode ?? 0);
+  }
+
   // H-06: STRICT data-return gate — the manifest must be a well-formed export
   // manifest for THIS live tenant, on the CURRENT schema, and fresh. Rejects
   // hand-written / partial / stale files that a slug-only check would have let
@@ -195,7 +220,7 @@ try {
   }
   if (report.postChecks) {
     console.log(
-      `  post-checks     zeroRows=${report.postChecks.zeroRowsVerified} tenantRowGone=${report.postChecks.tenantRowGone} triggersReEnabled=${report.postChecks.triggersReEnabled}`,
+      `  post-checks     zeroRows=${report.postChecks.zeroRowsVerified} tenantExiting=${report.postChecks.tenantExiting} triggersReEnabled=${report.postChecks.triggersReEnabled}`,
     );
     // HARDEN-3 (H-07) Phase 2: erase the object store under BOTH tenant prefixes
     // (${tenantId}/ + intake/${tenantId}/, orphans included) and VERIFY every
@@ -210,14 +235,24 @@ try {
       if (sweep.pendingTombstones > 0 || !sweep.prefixesEmpty) {
         console.error(
           '  ⚠ BLOB ERASURE INCOMPLETE — some objects were not confirmed deleted. The blob_tombstone ledger ' +
-            'retains the pending keys; re-run the exit blob sweep until it reports zero pending and prefixes empty.',
+            'retains the pending keys; re-run this exit (it resumes from the Exiting state) until zero pending and prefixes empty.',
         );
         process.exitCode = 1;
+      } else {
+        // R2-N01: data erased + object store swept + verified zero. STOP here —
+        // the tenant identity is NOT removed automatically. A human re-reads the
+        // proof-of-zero and runs the explicit --finalize at the point of no return.
+        console.log('\n  DATA erased + object store swept + verified ZERO. The tenant is held in the Exiting state.');
+        console.log('  ▶ To remove the identity (IRREVERSIBLE), run the explicit finalize once you have confirmed the above:');
+        console.log(
+          `      C3_EXIT_SECOND_CONFIRM=${report.tenant.slug} npm run exit:tenant -- ` +
+            `--tenant-slug ${report.tenant.slug} --finalize ${report.tenant.id} --confirm ${report.tenant.slug}`,
+        );
       }
     } else if (leaveBlobs) {
       console.log('  blobs erased    SKIPPED (--leave-blobs) — object-store residue remains under the tenant prefixes.');
     }
-    console.log('\n  Erasure committed. File this report in the exit register.');
+    console.log('\n  File this report in the exit register.');
     console.log('  Residual: encrypted backups retain this data until lifecycle expiry (max 180d);');
     console.log('  any post-exit restore MUST re-apply this erasure (see B5 design §3).');
   } else if (report.activeMembers === 0) {

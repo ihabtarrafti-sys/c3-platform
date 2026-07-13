@@ -11,6 +11,7 @@ import type { Actor } from '@c3web/domain';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
 import { runMigrations } from '../src/migrate';
+import { exitTenant, finalizeTenantExit } from '../src/exitTenant';
 import { TENANT_TABLES, tenantTablesInExitOrder } from '../src/tenantTables';
 
 let db: TestDatabase;
@@ -340,6 +341,54 @@ describe('migrations & schema', () => {
       await expect(admin.query(`UPDATE person SET photo_storage_key='k2', photo_sha256=$1 WHERE person_id='PER-Q'`, ['c'.repeat(64)])).rejects.toThrow(/exiting/i);
       // A non-blob person edit is still allowed (only photo-SET is quiesced).
       await admin.query(`UPDATE person SET full_name='Renamed' WHERE person_id='PER-Q'`);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('R2-N01: exit data-phase holds identity Exiting; --finalize is fail-closed on unswept blobs, removes identity only when clean', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'exitco' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      // A sole member, deactivated (Phase E1 complete), plus a document (a blob).
+      const u = await admin.query<{ id: string }>(`INSERT INTO app_user (email, display_name, is_active) VALUES ('gone@exitco.com','Gone',false) RETURNING id`);
+      const uid = u.rows[0]!.id;
+      await admin.query(`INSERT INTO tenant_membership (tenant_id, user_id) VALUES ($1,$2)`, [t.tenantId, uid]);
+      // any user seedTenant created must also be inactive so the exit isn't blocked.
+      await admin.query(`UPDATE app_user SET is_active=false WHERE id IN (SELECT user_id FROM tenant_membership WHERE tenant_id=$1)`, [t.tenantId]);
+      await admin.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-E','P')`, [t.tenantId]);
+      await admin.query(
+        `INSERT INTO document (tenant_id, document_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, storage_key, uploaded_by)
+         VALUES ($1,'DOC-E','Person','PER-E','f.pdf','application/pdf',10,$2,$3,'u@x.com')`,
+        [t.tenantId, 'a'.repeat(64), `${t.tenantId}/doc-e`],
+      );
+
+      // Data phase: erases DATA, tombstones the blob, holds identity in Exiting.
+      const report = await exitTenant(admin, { tenantSlug: 'exitco', execute: true, confirmSlug: 'exitco', secondConfirm: 'exitco' });
+      expect(report.mode).toBe('executed');
+      expect(report.postChecks?.tenantExiting).toBe(true);
+      expect((await admin.query(`SELECT count(*)::int n FROM document WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+      expect((await admin.query(`SELECT exit_state FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].exit_state).toBe('Exiting');
+      expect((await admin.query(`SELECT count(*)::int n FROM tenant_membership WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(1);
+      expect((await admin.query(`SELECT count(*)::int n FROM app_user WHERE id=$1`, [uid])).rows[0].n).toBe(1);
+      const tomb = await admin.query<{ deleted_at: string | null }>(`SELECT deleted_at FROM blob_tombstone WHERE tenant_ref=$1 AND reason='exit'`, [t.tenantId]);
+      expect(tomb.rowCount).toBe(1);
+      expect(tomb.rows[0]!.deleted_at).toBeNull();
+
+      // --finalize REFUSES while the tombstone is unswept — identity left intact.
+      await expect(finalizeTenantExit(admin, t.tenantId)).rejects.toThrow(/unswept|REFUSED/i);
+      expect((await admin.query(`SELECT count(*)::int n FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].n).toBe(1);
+
+      // Sweep resolves the tombstone → finalize succeeds, identity removed LAST.
+      await admin.query(`UPDATE blob_tombstone SET deleted_at=now() WHERE tenant_ref=$1`, [t.tenantId]);
+      const fin = await finalizeTenantExit(admin, t.tenantId);
+      expect(fin.removed).toBe(true);
+      expect(fin.soleUsers).toBeGreaterThanOrEqual(1);
+      expect((await admin.query(`SELECT count(*)::int n FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+      expect((await admin.query(`SELECT count(*)::int n FROM tenant_membership WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+      expect((await admin.query(`SELECT count(*)::int n FROM app_user WHERE id=$1`, [uid])).rows[0].n).toBe(0);
     } finally {
       await admin.end();
     }

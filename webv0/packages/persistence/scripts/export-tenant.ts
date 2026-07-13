@@ -21,7 +21,7 @@ import { Client } from 'pg';
 import { mkdirSync, writeFileSync, renameSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { exportTenant } from '../src/exportTenant';
-import { createBlobReader, downloadBlobUniverse } from '../src/blobBundle';
+import { createBlobReader, downloadBlobUniverse, downloadOrphanBlobs } from '../src/blobBundle';
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -77,6 +77,25 @@ try {
         `  blobs         ${result.count} objects (${result.byClass.document} document / ${result.byClass.photo} photo / ` +
           `${result.byClass.intake} intake), ${result.totalBytes} bytes, each verified against its stored sha256`,
       );
+      // H-07 completeness: capture any object under the tenant's prefixes that no
+      // DB row named — a Promoted intake's surviving quarantine copy or a crashed
+      // compensation's orphan — so the RETURN BUNDLE is byte-complete before an
+      // exit sweep would destroy them. Written under orphans/.
+      const orphans = await downloadOrphanBlobs(
+        reader,
+        manifest.tenant.id,
+        blobs.map((b) => b.storageKey),
+        (bundleName, bytes) => {
+          const dest = resolve(outDir, bundleName);
+          mkdirSync(dirname(dest), { recursive: true });
+          writeFileSync(dest, bytes);
+        },
+      );
+      if (orphans.capturedKeys.length > 0) {
+        console.log(
+          `  orphans       ${orphans.capturedKeys.length} prefix-discovered object(s) no row named, ${orphans.totalBytes} bytes, captured under orphans/`,
+        );
+      }
     } finally {
       reader.close();
     }

@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { bundleFileName, createBlobReader, deleteTenantBlobs, downloadBlobUniverse, downloadTenantBlobs, parseDocumentRows } from '../src/blobBundle';
+import { bundleFileName, createBlobReader, deleteTenantBlobs, downloadBlobUniverse, downloadOrphanBlobs, downloadTenantBlobs, parseDocumentRows } from '../src/blobBundle';
 import type { BlobDescriptor } from '../src/blobUniverse';
 
 const TENANT = '11111111-2222-3333-4444-555555555555';
@@ -110,6 +110,23 @@ describe('HARDEN-3 — blob-universe bundle (export, all three classes)', () => 
     await expect(
       downloadBlobUniverse(reader, [desc('intake', `intake/${TENANT}/gone`, 'x', 'intake/sub1__up1__f')], () => {}),
     ).rejects.toThrow(/Blob missing for intake\/sub1__up1__f/);
+  });
+
+  it('H-07: downloadOrphanBlobs captures prefix objects no DB row named (Promoted residual + orphan), skips the known set', async () => {
+    const { root, put, reader } = setup();
+    mkdirSync(join(root, 'intake', TENANT, 'sub1'), { recursive: true });
+    put(`${TENANT}/doc1`, 'a known document'); // enumerated (known)
+    put(`${TENANT}/orphan`, 'crashed-compensation orphan'); // no row names it
+    put(`intake/${TENANT}/sub1/up1`, 'promoted quarantine residual'); // best-effort delete missed it
+
+    const written = new Map<string, Buffer>();
+    const result = await downloadOrphanBlobs(reader, TENANT, [`${TENANT}/doc1`], (name, bytes) => void written.set(name, bytes));
+
+    // the known document is skipped; both prefix-discovered objects are captured under orphans/
+    expect(result.capturedKeys).toEqual([`${TENANT}/orphan`, `intake/${TENANT}/sub1/up1`].sort());
+    expect(result.totalBytes).toBe('crashed-compensation orphan'.length + 'promoted quarantine residual'.length);
+    expect([...written.keys()].sort()).toEqual([`orphans/${TENANT}/orphan`, `orphans/intake/${TENANT}/sub1/up1`].sort());
+    expect(written.get(`orphans/${TENANT}/orphan`)!.toString()).toBe('crashed-compensation orphan');
   });
 });
 

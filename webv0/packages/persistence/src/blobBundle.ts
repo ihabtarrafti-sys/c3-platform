@@ -298,3 +298,44 @@ export async function downloadBlobUniverse(
   }
   return { count: descriptors.length, totalBytes, byClass };
 }
+
+export interface OrphanCaptureResult {
+  /** Objects captured that no DB row named — keys, sorted. */
+  readonly capturedKeys: string[];
+  readonly totalBytes: number;
+}
+
+/**
+ * HARDEN-3.1 (H-07): capture PREFIX-DISCOVERED objects the DB universe did NOT
+ * name, so the RETURN BUNDLE is byte-complete — nothing is swept-and-destroyed at
+ * exit without first being handed back. Two sources produce such objects:
+ *   - a PROMOTED intake submission whose quarantine copy survived the best-effort
+ *     post-attach delete (the universe enumerates only PENDING intake), and
+ *   - an ORPHAN a crashed compensation left behind (no row ever named it).
+ * Both are erased by `sweepTenantBlobErasure`'s prefix listing; this is the
+ * symmetric READ that puts them in the export first. Bytes are written under an
+ * `orphans/` path (verifiable only by size — no stored sha256 exists off-DB), and
+ * `knownKeys` (the enumerated universe's storage keys) is skipped so nothing is
+ * downloaded twice. Read-only: it never deletes.
+ */
+export async function downloadOrphanBlobs(
+  reader: BlobReader,
+  tenantId: string,
+  knownKeys: Iterable<string>,
+  write: (bundleName: string, bytes: Buffer) => Promise<void> | void,
+): Promise<OrphanCaptureResult> {
+  const known = new Set(knownKeys);
+  const capturedKeys: string[] = [];
+  let totalBytes = 0;
+  for (const prefix of tenantBlobPrefixes(tenantId)) {
+    for (const key of await reader.listKeys(prefix)) {
+      if (known.has(key)) continue; // already in the enumerated bundle
+      const bytes = await reader.get(key);
+      if (!bytes) continue; // vanished between list and get — nothing to return
+      await write(`orphans/${key.replace(/[^\w./ -]/g, '_')}`, bytes);
+      capturedKeys.push(key);
+      totalBytes += bytes.length;
+    }
+  }
+  return { capturedKeys: capturedKeys.sort(), totalBytes };
+}
