@@ -1653,3 +1653,137 @@ describe('connection-pool tenant-context isolation', () => {
     }
   });
 });
+
+// A migration cannot repair a hazard its OWN transaction trips, and a LATER migration is too
+// late — the earlier one already aborted the replay. 0048 flips NULL-status income rows to
+// 'Expected'; a NULL-status income row carrying receipt facts was LEGAL at 0047 (the
+// received_only CHECK is UNKNOWN, not FALSE) and 'Expected' + receipt facts then VIOLATES it.
+// Batch D adds a preflight bound to 0048 that coheres such a row to 'Received' inside 0048's
+// own tx, BEFORE its SQL, and ONLY when 0048 is pending (a fresh replay / DR rebuild). These
+// tests reproduce a REAL from-0047 replay on a throwaway database rather than fake schema state.
+// Skipped only when an external managed admin URL is supplied (creating databases may be locked
+// down there); it runs on the embedded path the gate uses.
+describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.2 Batch D (R2-N04) — migration-runner preflight (from-0047 replay)', () => {
+  const TARGET_0047 = '0047_reactivate_credential_op.sql';
+  const PREFLIGHT_0048 = '0048_finance_check_hardening.sql';
+  // Roles are cluster-global (already created by the shared db); rotate is off, so these
+  // passwords are only ever used to CREATE an absent role — here they never are.
+  const roles = {
+    appRole: 'c3_app', appPassword: 'c3_app_dev_pw',
+    authRole: 'c3_auth', authPassword: 'c3_auth_dev_pw',
+    backupRole: 'c3_backup', backupPassword: 'c3_backup_dev_pw',
+    allowDevSecrets: true as const,
+  };
+  const maintUrl = () => { const u = new URL(db.adminUrl); u.pathname = '/postgres'; return u.href; };
+
+  async function createDbThrough0047(): Promise<{ url: string; name: string; logs: string[] }> {
+    const name = `c3web_pf_${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+    const target = new URL(db.adminUrl); target.pathname = `/${name}`;
+    const boot = new Client({ connectionString: maintUrl() });
+    await boot.connect();
+    try {
+      await boot.query(`CREATE DATABASE ${name} WITH ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`);
+    } finally {
+      await boot.end();
+    }
+    const logs: string[] = [];
+    await runMigrations({ adminConnectionString: target.href, ...roles, targetInclusive: TARGET_0047, log: (m) => logs.push(m) });
+    return { url: target.href, name, logs };
+  }
+
+  async function dropDb(name: string): Promise<void> {
+    const boot = new Client({ connectionString: maintUrl() });
+    await boot.connect();
+    try {
+      await boot.query(`DROP DATABASE IF EXISTS ${name}`);
+    } catch {
+      /* embedded server is torn down (and its dir removed) in afterAll regardless */
+    } finally {
+      await boot.end();
+    }
+  }
+
+  it('a receipt-carrying NULL-status income line (legal at 0047) survives the 0048 replay — the preflight coheres it to Received', async () => {
+    const { url, name, logs } = await createDbThrough0047();
+    // Stopped exactly at 0047: 0048 is NOT yet applied (targetInclusive honored).
+    expect(logs.some((l) => l.includes('apply 0047'))).toBe(true);
+    expect(logs.some((l) => l.includes('apply 0048'))).toBe(false);
+
+    const seed = new Client({ connectionString: url });
+    await seed.connect();
+    try {
+      // The pathological-but-LEGAL-at-0047 shape: Income, payment_status NULL, receipt facts
+      // set. received_only = NULL OR (FALSE AND …) = UNKNOWN, which a CHECK admits.
+      const t = await seed.query<{ id: string }>(`INSERT INTO tenant (slug, name) VALUES ('pfco','pfco') RETURNING id`);
+      const tenantId = t.rows[0]!.id;
+      await seed.query(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-0001','Replay','2026-06-01')`, [tenantId]);
+      await seed.query(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status, received_amount_minor, received_usd_per_unit)
+         VALUES ($1,'PNL-0001','MSN-0001','Income','PrizeMoney','Prize',1000000,'SAR',NULL,950000,0.2650)`,
+        [tenantId],
+      );
+    } finally {
+      await seed.end();
+    }
+
+    // Resume history (0048 → tip). Today (preflight removed) 0048's NULL→'Expected' flip turns
+    // the row into 'Expected' + receipt facts → received_only VIOLATION → 0048 aborts → this
+    // rejects (RED). With the preflight it repairs first, so the whole chain applies (GREEN).
+    const resumeLogs: string[] = [];
+    const applied = await runMigrations({ adminConnectionString: url, ...roles, log: (m) => resumeLogs.push(m) });
+    expect(applied).toContain(PREFLIGHT_0048);
+    expect(resumeLogs.some((l) => new RegExp(`preflight ${PREFLIGHT_0048.replace('.', '\\.')}: repaired 1 row`).test(l))).toBe(true);
+
+    const check = new Client({ connectionString: url });
+    await check.connect();
+    try {
+      const row = await check.query<{ payment_status: string }>(`SELECT payment_status FROM mission_line WHERE line_id='PNL-0001'`);
+      expect(row.rows[0]!.payment_status).toBe('Received'); // cohered — received_only now holds
+    } finally {
+      await check.end();
+      await dropDb(name);
+    }
+  }, 120_000);
+
+  it('a coherent DB replays with the preflight as a NO-OP (it never mutates clean data)', async () => {
+    const { url, name } = await createDbThrough0047();
+    const seed = new Client({ connectionString: url });
+    await seed.connect();
+    try {
+      const t = await seed.query<{ id: string }>(`INSERT INTO tenant (slug, name) VALUES ('pfok','pfok') RETURNING id`);
+      const tenantId = t.rows[0]!.id;
+      await seed.query(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-0001','Clean','2026-06-01')`, [tenantId]);
+      // A coherent Received line (receipt facts + status Received) and a plain Expected line —
+      // neither is the pathological shape, so the preflight must leave both untouched.
+      await seed.query(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status, received_amount_minor, received_usd_per_unit)
+         VALUES ($1,'PNL-0001','MSN-0001','Income','PrizeMoney','Recv',1000000,'SAR','Received',950000,0.2650)`,
+        [tenantId],
+      );
+      await seed.query(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+         VALUES ($1,'PNL-0002','MSN-0001','Income','PrizeMoney','Exp',500000,'USD','Expected')`,
+        [tenantId],
+      );
+    } finally {
+      await seed.end();
+    }
+
+    const resumeLogs: string[] = [];
+    await runMigrations({ adminConnectionString: url, ...roles, log: (m) => resumeLogs.push(m) });
+    expect(resumeLogs.some((l) => new RegExp(`preflight ${PREFLIGHT_0048.replace('.', '\\.')}: no-op`).test(l))).toBe(true);
+
+    const check = new Client({ connectionString: url });
+    await check.connect();
+    try {
+      const rows = await check.query<{ line_id: string; payment_status: string }>(`SELECT line_id, payment_status FROM mission_line ORDER BY line_id`);
+      expect(rows.rows).toEqual([
+        { line_id: 'PNL-0001', payment_status: 'Received' },
+        { line_id: 'PNL-0002', payment_status: 'Expected' },
+      ]);
+    } finally {
+      await check.end();
+      await dropDb(name);
+    }
+  }, 120_000);
+});

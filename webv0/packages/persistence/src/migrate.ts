@@ -12,12 +12,16 @@
  * next run — the freeze protects from that moment forward.
  */
 import { createHash } from 'node:crypto';
-import { readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { Client } from 'pg';
 
 const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migrations');
+// R2-N04 (Batch D): a migration NNNN.sql MAY have a sibling preflights/NNNN.sql — an
+// idempotent repair the runner executes in the migration's OWN transaction, immediately
+// before its SQL, but only when the migration is pending. See runMigrations for why.
+const PREFLIGHTS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'preflights');
 const ROLE_RE = /^[a-z_][a-z0-9_]*$/;
 
 export interface MigrateConfig {
@@ -53,6 +57,13 @@ export interface MigrateConfig {
    */
   readonly rotateRoleSecrets?: boolean;
   readonly log?: (msg: string) => void;
+  /**
+   * TEST-ONLY: stop after processing the migration whose filename equals this value
+   * (inclusive). Lets a test reproduce a REAL from-<N> replay — apply through 0047,
+   * seed a pathological row, then resume the rest — rather than hand-fake schema state
+   * that would drift from the true migration history. Never set on a production path.
+   */
+  readonly targetInclusive?: string;
 }
 
 /** Published dev/default role passwords that must never reach a real environment. */
@@ -110,6 +121,31 @@ async function ensureRestrictedRole(client: Client, role: string, password: stri
   `);
   // Defense in depth: restricted roles never bypass RLS and are never superuser.
   await client.query(`ALTER ROLE ${role} NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);
+}
+
+/**
+ * R2-N04 (Batch D): run a migration's sibling preflight, if one exists, on the given
+ * client — which is ALREADY inside the migration's BEGIN/COMMIT. Logs whether it repaired
+ * rows or was a no-op, so a DR replay leaves an operator trail (log-on-repair). A preflight
+ * is plain multi-statement SQL; node-pg returns one result per statement, so the UPDATE row
+ * counts are summed. If the preflight RAISEs (an incoherent shape it refuses to guess at),
+ * the throw propagates and the caller rolls the whole migration back.
+ */
+async function runPreflight(client: Client, file: string, log: (msg: string) => void): Promise<void> {
+  const preflightPath = join(PREFLIGHTS_DIR, file);
+  if (!existsSync(preflightPath)) return;
+  const sql = readFileSync(preflightPath, 'utf8');
+  const res = (await client.query(sql)) as unknown as
+    | { command?: string; rowCount?: number | null }
+    | Array<{ command?: string; rowCount?: number | null }>;
+  const repaired = (Array.isArray(res) ? res : [res])
+    .filter((r) => r?.command === 'UPDATE')
+    .reduce((n, r) => n + (r.rowCount ?? 0), 0);
+  log(
+    repaired > 0
+      ? `  ↳ preflight ${file}: repaired ${repaired} row(s) before applying`
+      : `  ↳ preflight ${file}: no-op (data already coherent)`,
+  );
 }
 
 export async function runMigrations(config: MigrateConfig): Promise<string[]> {
@@ -182,20 +218,28 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
         } else {
           log(`↳ skip ${file} (already applied)`);
         }
-        continue;
+      } else {
+        log(`↳ apply ${file}`);
+        await client.query('BEGIN');
+        try {
+          // R2-N04: run this migration's preflight (if any) FIRST, in the SAME tx. It is
+          // reached only when the migration is pending — a fresh replay / DR rebuild —
+          // so on the live DB (migration already ledgered) it never runs. Atomic with the
+          // migration: a later failure rolls the repair back too.
+          await runPreflight(client, file, log);
+          await client.query(sqlText);
+          await client.query('INSERT INTO _migrations (id, checksum) VALUES ($1, $2)', [file, checksum]);
+          await client.query('COMMIT');
+          applied.push(file);
+        } catch (err) {
+          await client.query('ROLLBACK');
+          throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
+        }
       }
 
-      log(`↳ apply ${file}`);
-      await client.query('BEGIN');
-      try {
-        await client.query(sqlText);
-        await client.query('INSERT INTO _migrations (id, checksum) VALUES ($1, $2)', [file, checksum]);
-        await client.query('COMMIT');
-        applied.push(file);
-      } catch (err) {
-        await client.query('ROLLBACK');
-        throw new Error(`Migration ${file} failed: ${(err as Error).message}`);
-      }
+      // TEST-ONLY bounded replay: stop after the requested target (honored on both the
+      // apply and the already-applied paths) so a test can seed state mid-history.
+      if (config.targetInclusive !== undefined && file === config.targetInclusive) break;
     }
 
     // Rerun idempotence: ensureRestrictedRole clamps NOBYPASSRLS on every run
