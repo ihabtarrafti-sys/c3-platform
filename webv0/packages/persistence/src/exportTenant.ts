@@ -36,10 +36,12 @@ export interface ExportedFile {
   readonly sha256: string;
 }
 
-/** H-07/H-06: the manifest's authoritative index of the tenant's blob universe. */
+/** H-07/H-06/R3-N01: the manifest's authoritative index of the tenant's blob universe,
+ *  INCLUDING prefix-discovered orphans (class 'orphan') so the bundle it describes is a
+ *  superset the strict verifier accepts — no orphan is contraband to the exit gate. */
 export interface ManifestBlob {
   readonly bundleName: string;
-  readonly blobClass: BlobDescriptor['blobClass'];
+  readonly blobClass: BlobDescriptor['blobClass'] | 'orphan';
   readonly sha256: string;
   readonly ownerRef: string;
 }

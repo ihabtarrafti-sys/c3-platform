@@ -299,9 +299,19 @@ export async function downloadBlobUniverse(
   return { count: descriptors.length, totalBytes, byClass };
 }
 
+/** A prefix-discovered object no DB row named, captured for the return bundle + manifest. */
+export interface OrphanCapture {
+  readonly storageKey: string;
+  /** Collision-free bundle path under orphans/ (matches what was written). */
+  readonly bundleName: string;
+  /** sha256 of the captured bytes — the manifest indexes orphans by it, like any blob. */
+  readonly sha256: string;
+  readonly sizeBytes: number;
+}
+
 export interface OrphanCaptureResult {
-  /** Objects captured that no DB row named — keys, sorted. */
-  readonly capturedKeys: string[];
+  /** Captured orphans (manifest-ready), sorted by storage key. */
+  readonly captured: OrphanCapture[];
   readonly totalBytes: number;
 }
 
@@ -325,17 +335,19 @@ export async function downloadOrphanBlobs(
   write: (bundleName: string, bytes: Buffer) => Promise<void> | void,
 ): Promise<OrphanCaptureResult> {
   const known = new Set(knownKeys);
-  const capturedKeys: string[] = [];
+  const captured: OrphanCapture[] = [];
   let totalBytes = 0;
   for (const prefix of tenantBlobPrefixes(tenantId)) {
     for (const key of await reader.listKeys(prefix)) {
       if (known.has(key)) continue; // already in the enumerated bundle
       const bytes = await reader.get(key);
       if (!bytes) continue; // vanished between list and get — nothing to return
-      await write(`orphans/${key.replace(/[^\w./ -]/g, '_')}`, bytes);
-      capturedKeys.push(key);
+      const bundleName = `orphans/${key.replace(/[^\w./ -]/g, '_')}`;
+      await write(bundleName, bytes);
+      captured.push({ storageKey: key, bundleName, sha256: createHash('sha256').update(bytes).digest('hex'), sizeBytes: bytes.length });
       totalBytes += bytes.length;
     }
   }
-  return { capturedKeys: capturedKeys.sort(), totalBytes };
+  captured.sort((a, b) => a.storageKey.localeCompare(b.storageKey));
+  return { captured, totalBytes };
 }

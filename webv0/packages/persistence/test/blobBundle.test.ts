@@ -123,10 +123,14 @@ describe('HARDEN-3 — blob-universe bundle (export, all three classes)', () => 
     const result = await downloadOrphanBlobs(reader, TENANT, [`${TENANT}/doc1`], (name, bytes) => void written.set(name, bytes));
 
     // the known document is skipped; both prefix-discovered objects are captured under orphans/
-    expect(result.capturedKeys).toEqual([`${TENANT}/orphan`, `intake/${TENANT}/sub1/up1`].sort());
+    expect(result.captured.map((c) => c.storageKey)).toEqual([`${TENANT}/orphan`, `intake/${TENANT}/sub1/up1`].sort());
     expect(result.totalBytes).toBe('crashed-compensation orphan'.length + 'promoted quarantine residual'.length);
     expect([...written.keys()].sort()).toEqual([`orphans/${TENANT}/orphan`, `orphans/intake/${TENANT}/sub1/up1`].sort());
     expect(written.get(`orphans/${TENANT}/orphan`)!.toString()).toBe('crashed-compensation orphan');
+    // each capture carries the manifest-ready sha256 + bundleName (so the export indexes it).
+    const orphanCap = result.captured.find((c) => c.storageKey === `${TENANT}/orphan`)!;
+    expect(orphanCap.bundleName).toBe(`orphans/${TENANT}/orphan`);
+    expect(orphanCap.sha256).toBe(createHash('sha256').update('crashed-compensation orphan').digest('hex'));
   });
 });
 

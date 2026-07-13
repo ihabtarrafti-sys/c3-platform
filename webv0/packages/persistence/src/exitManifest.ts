@@ -23,7 +23,9 @@
 
 export interface ManifestBlobEntry {
   readonly bundleName: string;
-  readonly blobClass: 'document' | 'photo' | 'intake';
+  // R3-N01: 'orphan' = a prefix-discovered object no DB row named, folded into the
+  // manifest so the bundle it describes is a verifier-accepted superset.
+  readonly blobClass: 'document' | 'photo' | 'intake' | 'orphan';
   readonly sha256: string;
   readonly ownerRef: string;
 }
@@ -85,7 +87,7 @@ export function parseExitManifest(raw: unknown): ExitManifest {
   if (!Array.isArray(r.blobs)) reject('manifest.blobs must be an array (possibly empty).');
   for (const b of r.blobs as unknown[]) {
     if (!isObj(b) || !isStr(b.bundleName) || !isStr(b.sha256) || !SHA256.test(b.sha256) || !isStr(b.ownerRef) ||
-        (b.blobClass !== 'document' && b.blobClass !== 'photo' && b.blobClass !== 'intake')) {
+        (b.blobClass !== 'document' && b.blobClass !== 'photo' && b.blobClass !== 'intake' && b.blobClass !== 'orphan')) {
       reject('manifest.blobs has an entry missing bundleName/blobClass/sha256/ownerRef (or a bad value).');
     }
   }

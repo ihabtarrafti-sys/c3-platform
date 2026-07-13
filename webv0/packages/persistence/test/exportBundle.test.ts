@@ -1,0 +1,102 @@
+/**
+ * exportBundle.test.ts — HARDEN-3.2 A2 (R3-N01): the export bundle must be a superset
+ * the strict exit verifier accepts, and the export must re-verify what it wrote.
+ *
+ * Before the fix, prefix-discovered orphans were written under orphans/ but NOT listed in
+ * the manifest, so the exit gate's strict verifier (rejects any present file the manifest
+ * does not name) turned away every orphan-bearing bundle; and orphan discovery was skipped
+ * when there were no DB blobs, so an orphan-only tenant returned none of its bytes.
+ */
+import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { createHash } from 'node:crypto';
+import { createBlobReader } from '../src/blobBundle';
+import { writeAndVerifyExportBundle, fsBundleReader } from '../src/exportBundle';
+import { verifyExitBundle } from '../src/exitManifest';
+import type { ExportResult } from '../src/exportTenant';
+
+const TENANT = '11111111-2222-3333-4444-555555555555';
+const sha = (s: string) => createHash('sha256').update(s).digest('hex');
+const dirs: string[] = [];
+
+function storageDir(): string {
+  const d = mkdtempSync(join(tmpdir(), 'c3exp-store-'));
+  dirs.push(d);
+  mkdirSync(join(d, TENANT), { recursive: true });
+  return d;
+}
+function outDir(): string {
+  const d = mkdtempSync(join(tmpdir(), 'c3exp-out-'));
+  dirs.push(d);
+  return d;
+}
+
+/** A minimal ExportResult with one row file and `dbBlobs` DB-named document blobs. */
+function makeResult(dbBlobs: Array<{ key: string; bytes: string; bundleName: string; ownerRef: string }>): ExportResult {
+  const tenantJson = JSON.stringify({ id: TENANT, slug: 'x', name: 'X' });
+  const content = tenantJson + '\n';
+  return {
+    manifest: {
+      tenant: { id: TENANT, slug: 'x', name: 'X' },
+      exportedAt: new Date().toISOString(),
+      schemaVersion: ['0001_schema.sql'],
+      files: [{ name: 'tenant.jsonl', rows: 1, sha256: sha(content) }],
+      blobs: dbBlobs.map((b) => ({ bundleName: b.bundleName, blobClass: 'document' as const, sha256: sha(b.bytes), ownerRef: b.ownerRef })),
+      note: 'test',
+    },
+    files: [{ name: 'tenant.jsonl', content, rows: 1, sha256: sha(content) }],
+    blobs: dbBlobs.map((b) => ({ blobClass: 'document' as const, storageKey: b.key, sha256: sha(b.bytes), bundleName: b.bundleName, ownerRef: b.ownerRef })),
+  };
+}
+
+afterEach(() => {
+  for (const d of dirs.splice(0)) rmSync(d, { recursive: true, force: true });
+});
+
+describe('A2 (R3-N01) — export bundle is a verifier-accepted superset', () => {
+  it('folds a prefix orphan into the manifest as class:orphan; the written bundle PASSES its own strict verifier', async () => {
+    const store = storageDir();
+    writeFileSync(join(store, TENANT, 'doc1'), 'the document'); // DB-named
+    writeFileSync(join(store, TENANT, 'orphan1'), 'a crashed orphan'); // no DB row names it
+    const reader = createBlobReader({ DOCUMENTS_DIR: store })!;
+    const out = outDir();
+    const result = makeResult([{ key: `${TENANT}/doc1`, bytes: 'the document', bundleName: 'documents/DOC-1__f', ownerRef: 'DOC-1' }]);
+
+    // Does NOT throw → the export re-verified the bundle it wrote (strict verifier passed).
+    const written = await writeAndVerifyExportBundle(out, result, reader, { skipDocBytes: false });
+    reader.close();
+
+    // the orphan is a first-class manifest entry, and its bytes are on disk under orphans/.
+    const orphanEntry = written.manifest.blobs.find((b) => b.blobClass === 'orphan');
+    expect(orphanEntry).toBeTruthy();
+    expect(orphanEntry!.sha256).toBe(sha('a crashed orphan'));
+    expect(existsSync(resolve(out, orphanEntry!.bundleName))).toBe(true);
+    expect(readFileSync(resolve(out, orphanEntry!.bundleName), 'utf8')).toBe('a crashed orphan');
+
+    // Load-bearing: WITHOUT the orphan in the manifest (the old behavior), the SAME strict
+    // verifier rejects the present orphan file as unlisted — which is why exit turned real
+    // orphan bundles away.
+    const strippedManifest = { ...written.manifest, blobs: written.manifest.blobs.filter((b) => b.blobClass !== 'orphan') };
+    await expect(verifyExitBundle(strippedManifest, fsBundleReader(out))).rejects.toThrow(/UNLISTED/i);
+  });
+
+  it('an orphan-only tenant (zero DB blobs) still discovers, returns, and indexes every byte', async () => {
+    const store = storageDir();
+    writeFileSync(join(store, TENANT, 'strayA'), 'stray A'); // only orphans exist
+    mkdirSync(join(store, 'intake', TENANT, 'sub'), { recursive: true });
+    writeFileSync(join(store, 'intake', TENANT, 'sub', 'strayB'), 'stray B');
+    const reader = createBlobReader({ DOCUMENTS_DIR: store })!;
+    const out = outDir();
+    const result = makeResult([]); // zero DB blobs — the old code skipped orphan discovery entirely
+
+    const written = await writeAndVerifyExportBundle(out, result, reader, { skipDocBytes: false });
+    reader.close();
+
+    // both orphans captured + indexed; bundle self-verified.
+    expect(written.orphanCount).toBe(2);
+    expect(written.manifest.blobs.filter((b) => b.blobClass === 'orphan')).toHaveLength(2);
+    for (const b of written.manifest.blobs) expect(existsSync(resolve(out, b.bundleName))).toBe(true);
+  });
+});

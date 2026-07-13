@@ -18,10 +18,10 @@
  *   - is NEVER run automatically — a manual operator CLI, not an API hook.
  */
 import { Client } from 'pg';
-import { mkdirSync, writeFileSync, renameSync } from 'node:fs';
-import { resolve, dirname } from 'node:path';
+import { resolve } from 'node:path';
 import { exportTenant } from '../src/exportTenant';
-import { createBlobReader, downloadBlobUniverse, downloadOrphanBlobs } from '../src/blobBundle';
+import { createBlobReader } from '../src/blobBundle';
+import { writeAndVerifyExportBundle } from '../src/exportBundle';
 
 function arg(name: string): string {
   const i = process.argv.indexOf(`--${name}`);
@@ -46,67 +46,28 @@ if (!url) {
 const client = new Client({ connectionString: url, options: '-c client_encoding=UTF8' });
 await client.connect();
 try {
-  const { manifest, files, blobs } = await exportTenant(client, { tenantSlug });
-  mkdirSync(outDir, { recursive: true });
-  for (const f of files) writeFileSync(resolve(outDir, f.name), f.content, 'utf8');
-  // H-06: the manifest is the erasure-AUTHORIZING artifact — it is published LAST,
-  // by atomic rename, only after every row file AND blob is on disk. A crashed or
-  // partial export therefore leaves NO manifest.json to authorize an erasure.
-
-  // HARDEN-3 (H-07): the evidence bytes — the FULL blob universe (documents +
-  // photos + intake quarantine), each written under its collision-free bundle
-  // path. Fail-closed — objects without storage access refuse the export unless
-  // --no-doc-bytes says so out loud.
-  if (blobs.length > 0 && !skipDocBytes) {
-    const reader = createBlobReader(process.env);
-    if (!reader) {
-      console.error(
-        `\nEXPORT REFUSED: ${blobs.length} storage object(s) exist but no blob storage is configured ` +
-          '(set R2_ENDPOINT/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_DOCUMENTS or DOCUMENTS_DIR, ' +
-          'or pass --no-doc-bytes to export rows only).',
-      );
-      process.exit(1);
-    }
-    try {
-      const result = await downloadBlobUniverse(reader, blobs, (bundleName, bytes) => {
-        const dest = resolve(outDir, bundleName);
-        mkdirSync(dirname(dest), { recursive: true });
-        writeFileSync(dest, bytes);
-      });
-      console.log(
-        `  blobs         ${result.count} objects (${result.byClass.document} document / ${result.byClass.photo} photo / ` +
-          `${result.byClass.intake} intake), ${result.totalBytes} bytes, each verified against its stored sha256`,
-      );
-      // H-07 completeness: capture any object under the tenant's prefixes that no
-      // DB row named — a Promoted intake's surviving quarantine copy or a crashed
-      // compensation's orphan — so the RETURN BUNDLE is byte-complete before an
-      // exit sweep would destroy them. Written under orphans/.
-      const orphans = await downloadOrphanBlobs(
-        reader,
-        manifest.tenant.id,
-        blobs.map((b) => b.storageKey),
-        (bundleName, bytes) => {
-          const dest = resolve(outDir, bundleName);
-          mkdirSync(dirname(dest), { recursive: true });
-          writeFileSync(dest, bytes);
-        },
-      );
-      if (orphans.capturedKeys.length > 0) {
-        console.log(
-          `  orphans       ${orphans.capturedKeys.length} prefix-discovered object(s) no row named, ${orphans.totalBytes} bytes, captured under orphans/`,
-        );
-      }
-    } finally {
-      reader.close();
-    }
-  } else if (blobs.length > 0) {
-    console.error(`WARNING: --no-doc-bytes set — ${blobs.length} object blob(s) NOT included in this bundle.`);
+  const result = await exportTenant(client, { tenantSlug });
+  // A2 (R3-N01): write the row files + FULL blob universe + prefix-discovered orphans
+  // (indexed in the manifest as class 'orphan'), publish the superset manifest last by
+  // atomic rename, and RE-VERIFY the written bundle against the strict exit verifier — so
+  // the export can never publish a manifest the exit gate would reject. Fail-closed:
+  // objects without storage access refuse unless --no-doc-bytes says so out loud.
+  const reader = skipDocBytes ? null : createBlobReader(process.env);
+  let written;
+  try {
+    written = await writeAndVerifyExportBundle(outDir, result, reader, { skipDocBytes });
+  } catch (err) {
+    console.error(`\n${(err as Error).message}`);
+    process.exit(1);
+  } finally {
+    reader?.close();
   }
-
-  // H-06: publish the authorizing manifest LAST, atomically (write-temp + rename).
-  const manifestTmp = resolve(outDir, 'manifest.json.tmp');
-  writeFileSync(manifestTmp, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-  renameSync(manifestTmp, resolve(outDir, 'manifest.json'));
+  const manifest = written.manifest;
+  if (skipDocBytes && result.blobs.length > 0) {
+    console.error(`WARNING: --no-doc-bytes set — ${result.blobs.length} object blob(s) NOT included in this bundle.`);
+  } else if (!skipDocBytes) {
+    console.log(`  blobs         ${written.blobCount} DB-named + ${written.orphanCount} orphan object(s), bundle re-verified against the strict exit verifier`);
+  }
 
   console.log(`\n=== tenant export: ${manifest.tenant.slug} (${manifest.tenant.name}) ===`);
   console.log(`  tenant id     ${manifest.tenant.id}`);
