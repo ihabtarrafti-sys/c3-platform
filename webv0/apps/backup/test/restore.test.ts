@@ -97,37 +97,44 @@ describe('verifyBlobArchiveRecovery — H-08 Option A (recover from the independ
     photo: { count: 1, sample: { storageKey: 'tid/photo', sha256: sha('photo-bytes') } },
     intake: { count: 0, sample: null },
   });
+  // R3-N06: the archive indexes the COMPLETE set (2 documents + 1 photo, matching inv()).
   const archive = () => ({
     key: 'daily/x.dump.age.blobs.age',
     sha256: sha('archive'),
     bytes: 123,
-    entryCount: 2,
+    entryCount: 3,
     entries: [
       { storageKey: 'tid/doc', sha256: sha('doc-bytes'), cls: 'document' as const },
+      { storageKey: 'tid/doc2', sha256: sha('doc2-bytes'), cls: 'document' as const },
       { storageKey: 'tid/photo', sha256: sha('photo-bytes'), cls: 'photo' as const },
     ],
   });
+  const fullStore = (): Record<string, Buffer> => ({
+    'tid/doc': Buffer.from('doc-bytes'),
+    'tid/doc2': Buffer.from('doc2-bytes'),
+    'tid/photo': Buffer.from('photo-bytes'),
+  });
   const extractOf = (store: Record<string, Buffer>) => async (k: string) => store[k] ?? null;
 
-  it('recovers a representative object of every class FROM THE ARCHIVE (live bucket untouched)', async () => {
-    const store = { 'tid/doc': Buffer.from('doc-bytes'), 'tid/photo': Buffer.from('photo-bytes') };
-    const res = await verifyBlobArchiveRecovery(inv(), archive(), extractOf(store));
+  it('recovers EVERY indexed object FROM THE ARCHIVE (complete index, live bucket untouched)', async () => {
+    const res = await verifyBlobArchiveRecovery(inv(), archive(), extractOf(fullStore()));
     expect(res.verifiedClasses.sort()).toEqual(['document', 'photo']);
   });
 
-  it('FAILS when the archive is missing an object', async () => {
-    const store = { 'tid/doc': Buffer.from('doc-bytes') }; // photo absent from archive
+  it('FAILS when an indexed object is missing from the archive', async () => {
+    const store = fullStore();
+    delete store['tid/doc2']; // indexed but unextractable
     await expect(verifyBlobArchiveRecovery(inv(), archive(), extractOf(store))).rejects.toThrow(/UNRECOVERABLE from the independent archive/);
   });
 
   it('FAILS on a hash mismatch in the archive', async () => {
-    const store = { 'tid/doc': Buffer.from('doc-bytes'), 'tid/photo': Buffer.from('TAMPERED') };
+    const store = fullStore();
+    store['tid/doc2'] = Buffer.from('TAMPERED');
     await expect(verifyBlobArchiveRecovery(inv(), archive(), extractOf(store))).rejects.toThrow(/hash mismatch in archive/);
   });
 
-  it('no-silent-skip: inventory has a class the archive omits entirely → FAILS', async () => {
+  it('R3-N06 completeness: the archive index count must match the census — a short class FAILS', async () => {
     const invExtra: ValidatedBlobInventory = { ...inv(), intake: { count: 3, sample: { storageKey: 'x', sha256: sha('x') } } };
-    const store = { 'tid/doc': Buffer.from('doc-bytes'), 'tid/photo': Buffer.from('photo-bytes') };
-    await expect(verifyBlobArchiveRecovery(invExtra, archive(), extractOf(store))).rejects.toThrow(/inventory reports 3 intake object\(s\) but the independent archive holds NONE/);
+    await expect(verifyBlobArchiveRecovery(invExtra, archive(), extractOf(fullStore()))).rejects.toThrow(/intake — manifest inventory 3 != archive index 0/i);
   });
 });

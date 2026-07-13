@@ -12,7 +12,7 @@ import { Client } from 'pg';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import type { BackupDeps } from './runner';
 import type { BackupEnv } from './env';
-import type { BlobInventory, BlobInventoryClass, BlobArchiveEntry } from './manifest';
+import type { BlobArchiveEntry } from './manifest';
 
 const ADVISORY_LOCK_KEY = 928_340_014; // arbitrary fixed key for the backup lock
 
@@ -45,26 +45,23 @@ async function sha256File(path: string): Promise<string> {
   return hash.digest('hex');
 }
 
-/** H-08 (Option A): every blob object across all tenants, DB-authoritative. */
-async function enumerateAllBlobs(databaseUrl: string): Promise<BlobArchiveEntry[]> {
-  const c = new Client({ connectionString: databaseUrl });
-  await c.connect();
-  try {
-    const q = async (sql: string, cls: BlobArchiveEntry['cls']): Promise<BlobArchiveEntry[]> =>
-      (await c.query(sql)).rows.map((r: { key: string; sha: string }) => ({ storageKey: r.key, sha256: r.sha, cls }));
-    const [docs, photos, intake] = await Promise.all([
-      q(`SELECT storage_key AS key, sha256 AS sha FROM document WHERE sha256 ~ '^[a-f0-9]{64}$' ORDER BY storage_key`, 'document'),
-      q(`SELECT photo_storage_key AS key, photo_sha256 AS sha FROM person WHERE photo_storage_key IS NOT NULL AND photo_sha256 ~ '^[a-f0-9]{64}$' ORDER BY photo_storage_key`, 'photo'),
-      q(
-        `SELECT u->>'storageKey' AS key, u->>'sha256' AS sha FROM intake_submission s, jsonb_array_elements(s.uploads) u
-          WHERE s.status = 'Pending' AND u->>'storageKey' IS NOT NULL AND u->>'sha256' ~ '^[a-f0-9]{64}$' ORDER BY u->>'storageKey'`,
-        'intake',
-      ),
-    ]);
-    return [...docs, ...photos, ...intake];
-  } finally {
-    await c.end();
-  }
+/**
+ * H-08 (Option A) / R3-N06: every blob object across all tenants, DB-authoritative.
+ * Runs on a CALLER-SUPPLIED connection so all three class queries share ONE snapshot
+ * (sequential in the caller's transaction — NOT Promise.all, which would be three
+ * implicit txns). Deterministic order for stable coverage diffs.
+ */
+async function enumerateBlobsInTx(c: Client): Promise<BlobArchiveEntry[]> {
+  const q = async (sql: string, cls: BlobArchiveEntry['cls']): Promise<BlobArchiveEntry[]> =>
+    (await c.query(sql)).rows.map((r: { key: string; sha: string }) => ({ storageKey: r.key, sha256: r.sha, cls }));
+  const docs = await q(`SELECT storage_key AS key, sha256 AS sha FROM document WHERE sha256 ~ '^[a-f0-9]{64}$' ORDER BY storage_key`, 'document');
+  const photos = await q(`SELECT photo_storage_key AS key, photo_sha256 AS sha FROM person WHERE photo_storage_key IS NOT NULL AND photo_sha256 ~ '^[a-f0-9]{64}$' ORDER BY photo_storage_key`, 'photo');
+  const intake = await q(
+    `SELECT u->>'storageKey' AS key, u->>'sha256' AS sha FROM intake_submission s, jsonb_array_elements(s.uploads) u
+      WHERE s.status = 'Pending' AND u->>'storageKey' IS NOT NULL AND u->>'sha256' ~ '^[a-f0-9]{64}$' ORDER BY u->>'storageKey'`,
+    'intake',
+  );
+  return [...docs, ...photos, ...intake];
 }
 
 export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promise<void> } {
@@ -106,34 +103,26 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
     // H-08: census the object store from the DB (c3_backup reads every tenant).
     // Per class: a count + a representative {storageKey, sha256} the restore
     // drill fetches + hash-checks. Only rows with a verifiable sha256 count.
-    async blobInventory(): Promise<BlobInventory> {
+    async coherentDumpAndCensus(dumpPath: string): Promise<{ bytes: number; blobs: BlobArchiveEntry[] }> {
       const c = new Client({ connectionString: env.databaseUrl });
       await c.connect();
       try {
-        const cls = async (countSql: string, sampleSql: string): Promise<BlobInventoryClass> => {
-          const n = Number((await c.query(countSql)).rows[0]?.n ?? 0);
-          if (n === 0) return { count: 0, sample: null };
-          const s = (await c.query(sampleSql)).rows[0] as { key: string; sha: string } | undefined;
-          return s ? { count: n, sample: { storageKey: s.key, sha256: s.sha } } : { count: n, sample: null };
-        };
-        const [document, photo, intake] = await Promise.all([
-          cls(
-            `SELECT count(*)::int AS n FROM document WHERE sha256 ~ '^[a-f0-9]{64}$'`,
-            `SELECT storage_key AS key, sha256 AS sha FROM document WHERE sha256 ~ '^[a-f0-9]{64}$' ORDER BY storage_key LIMIT 1`,
-          ),
-          cls(
-            `SELECT count(*)::int AS n FROM person WHERE photo_storage_key IS NOT NULL AND photo_sha256 ~ '^[a-f0-9]{64}$'`,
-            `SELECT photo_storage_key AS key, photo_sha256 AS sha FROM person WHERE photo_storage_key IS NOT NULL AND photo_sha256 ~ '^[a-f0-9]{64}$' ORDER BY photo_storage_key LIMIT 1`,
-          ),
-          cls(
-            `SELECT count(*)::int AS n FROM intake_submission s, jsonb_array_elements(s.uploads) u
-              WHERE s.status = 'Pending' AND u->>'storageKey' IS NOT NULL AND u->>'sha256' ~ '^[a-f0-9]{64}$'`,
-            `SELECT u->>'storageKey' AS key, u->>'sha256' AS sha FROM intake_submission s, jsonb_array_elements(s.uploads) u
-              WHERE s.status = 'Pending' AND u->>'storageKey' IS NOT NULL AND u->>'sha256' ~ '^[a-f0-9]{64}$'
-              ORDER BY u->>'storageKey' LIMIT 1`,
-          ),
-        ]);
-        return { document, photo, intake };
+        // R3-N06: ONE coherent image — the blob census and pg_dump read the IDENTICAL MVCC
+        // snapshot, so no between-reads delete/insert can make them incoherent. Order is
+        // LOAD-BEARING: export the snapshot, enumerate in this tx, run pg_dump ON that
+        // snapshot, and close the tx ONLY AFTER pg_dump fully finishes (closing it earlier
+        // invalidates the exported snapshot). READ ONLY + REPEATABLE READ takes no
+        // DML-blocking locks; pg_dump already holds a snapshot this long for its own dump.
+        await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
+        const snapId = String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id);
+        const blobs = await enumerateBlobsInTx(c);
+        await run('pg_dump', ['-Fc', '-Z', '6', '--no-owner', '--no-privileges', `--snapshot=${snapId}`, '-f', dumpPath, env.databaseUrl]);
+        await c.query('COMMIT');
+        const st = await fs.stat(dumpPath);
+        return { bytes: st.size, blobs };
+      } catch (err) {
+        await c.query('ROLLBACK').catch(() => {});
+        throw err;
       } finally {
         await c.end();
       }
@@ -143,12 +132,11 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
     // from the live documents bucket and sha-verified against the DB at capture.
     // Uses a dedicated documents READ credential when configured so the backup's
     // write key is not widened; the runner then encrypts + uploads this archive.
-    async snapshotBlobs(destPath: string): Promise<{ entries: BlobArchiveEntry[] } | null> {
-      const entries = await enumerateAllBlobs(env.databaseUrl);
-      if (entries.length === 0) return null;
+    async snapshotBlobs(destPath: string, blobs: BlobArchiveEntry[]): Promise<{ entries: BlobArchiveEntry[] }> {
+      if (blobs.length === 0) return { entries: [] };
       const docsBucket = process.env.R2_BUCKET_DOCUMENTS;
       if (!docsBucket) {
-        throw new Error(`Cannot snapshot ${entries.length} blob object(s): R2_BUCKET_DOCUMENTS is not set (needed to read live objects for the independent archive).`);
+        throw new Error(`Cannot snapshot ${blobs.length} blob object(s): R2_BUCKET_DOCUMENTS is not set (needed to read live objects for the independent archive).`);
       }
       const docsS3 = process.env.R2_DOCUMENTS_ACCESS_KEY_ID
         ? new S3Client({
@@ -160,9 +148,16 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
         : s3;
       const stagingDir = await fs.mkdtemp(join(tmpdir(), 'c3blobs-'));
       try {
-        for (const e of entries) {
+        for (const e of blobs) {
           if (e.storageKey.includes('..')) throw new Error(`Unsafe storage key in snapshot: ${e.storageKey}`);
-          const res = await docsS3.send(new GetObjectCommand({ Bucket: docsBucket, Key: e.storageKey }));
+          // R3-N06 fail-closed: a key in the census but MISSING from R2 (a concurrent
+          // tenant-exit deleted it) REFUSES the backup — never a silent skip.
+          let res;
+          try {
+            res = await docsS3.send(new GetObjectCommand({ Bucket: docsBucket, Key: e.storageKey }));
+          } catch (err) {
+            throw new Error(`Blob '${e.storageKey}' is in the DB census but missing from the store — refusing to sign an incomplete archive (${(err as Error).message}).`);
+          }
           const buf = Buffer.from(await res.Body!.transformToByteArray());
           const sha = createHash('sha256').update(buf).digest('hex');
           if (sha !== e.sha256) throw new Error(`Blob '${e.storageKey}' hash mismatch at capture (db ${e.sha256}, live ${sha}).`);
@@ -172,7 +167,7 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
         }
         // tar the staging dir; member paths ARE the storage keys (extract reads by key).
         await run('tar', ['-cf', destPath, '-C', stagingDir, '.']);
-        return { entries };
+        return { entries: blobs };
       } finally {
         await fs.rm(stagingDir, { recursive: true, force: true });
       }
@@ -195,13 +190,6 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
     makeTempDir: () => fs.mkdtemp(join(tmpdir(), 'c3bkp-')),
     cleanupTempDir: (dir) => fs.rm(dir, { recursive: true, force: true }),
 
-    async dump(outPath) {
-      // Custom format (-Fc), compressed (-Z6), schema+data, no owner/acl at
-      // dump time via restore flags; connect as c3_backup (env URL).
-      await run('pg_dump', ['-Fc', '-Z', '6', '--no-owner', '--no-privileges', '-f', outPath, env.databaseUrl]);
-      const st = await fs.stat(outPath);
-      return { bytes: st.size };
-    },
     sha256File,
     fileSize: async (p) => (await fs.stat(p)).size,
 

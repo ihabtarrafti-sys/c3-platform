@@ -23,22 +23,25 @@ export interface BackupDeps {
   serverVersion(): Promise<string>;
   migrations(): Promise<string[]>;
   pgDumpVersion(): Promise<string>;
-  /** H-08: census the object store (documents + photos + intake) from the DB. */
-  blobInventory(): Promise<BlobInventory>;
   /**
-   * H-08 (Option A): capture EVERY blob object's bytes into a single plaintext
-   * archive at `destPath` (downloaded from the live store, sha-verified against
-   * the DB at capture time), returning the per-object index. Null when the DB
-   * has zero blob objects (nothing to snapshot).
+   * R3-N06: ONE coherent read — pg_dump to `dumpPath` AND the DB blob census enumerated
+   * from the IDENTICAL MVCC snapshot (pg_export_snapshot + pg_dump --snapshot). The dump
+   * rows and the returned blob list are the same point in time, so no between-reads
+   * delete/insert can produce a signed-but-incoherent image. Returns the dump size and
+   * the authoritative blob index (used for the archive, coverage, and the manifest).
    */
-  snapshotBlobs(destPath: string): Promise<{ entries: BlobArchiveEntry[] } | null>;
+  coherentDumpAndCensus(dumpPath: string): Promise<{ bytes: number; blobs: BlobArchiveEntry[] }>;
+  /**
+   * H-08 (Option A): capture EXACTLY the census `blobs` into a single plaintext archive
+   * at `destPath` (downloaded from the live store, sha-verified at capture). Fail-closed:
+   * a census key missing from the store REFUSES the backup. Returns the captured index.
+   */
+  snapshotBlobs(destPath: string, blobs: BlobArchiveEntry[]): Promise<{ entries: BlobArchiveEntry[] }>;
   /** Single-run guard via a DB advisory lock. false => another run holds it. */
   acquireLock(): Promise<boolean>;
   releaseLock(): Promise<void>;
   makeTempDir(): Promise<string>;
   cleanupTempDir(dir: string): Promise<void>;
-  /** pg_dump -Fc -Z <n> to outPath. Returns byte size. */
-  dump(outPath: string): Promise<{ bytes: number }>;
   sha256File(path: string): Promise<string>;
   fileSize(path: string): Promise<number>;
   /** age encrypt inPath -> outPath for recipient. */
@@ -63,39 +66,47 @@ export interface BackupResult {
   readonly durationMs: number;
 }
 
+/** Derive the manifest's inventory summary (counts + one sample/class) from the coherent census. */
+function inventoryOf(blobs: BlobArchiveEntry[]): BlobInventory {
+  const mk = (cls: BlobArchiveEntry['cls']): BlobInventory['document'] => {
+    const of = blobs.filter((b) => b.cls === cls);
+    return of.length === 0 ? { count: 0, sample: null } : { count: of.length, sample: { storageKey: of[0]!.storageKey, sha256: of[0]!.sha256 } };
+  };
+  return { document: mk('document'), photo: mk('photo'), intake: mk('intake') };
+}
+
 /**
- * H-08 no-silent-skip: if the inventory says a class has objects, the archive
- * MUST have captured at least one — a whole class silently missing from the
- * independent copy is a recoverability gap, not an acceptable backup.
+ * R3-N06: the archive must cover EVERY census key — count AND key, not one-per-class.
+ * A missing (or extra) key refuses the backup; with the fail-closed capture and the
+ * synchronized snapshot, a signed archive is provably complete, not merely non-empty.
  */
-function assertInventoryCovered(inv: BlobInventory, entries: BlobArchiveEntry[]): void {
-  const captured = { document: 0, photo: 0, intake: 0 };
-  for (const e of entries) captured[e.cls]++;
-  for (const cls of ['document', 'photo', 'intake'] as const) {
-    if (inv[cls].count > 0 && captured[cls] === 0) {
-      throw new Error(
-        `Blob snapshot gap: inventory reports ${inv[cls].count} ${cls} object(s) but the independent archive captured none — refusing to record a backup that cannot recover ${cls} bytes.`,
-      );
-    }
+function assertCoverage(census: BlobArchiveEntry[], captured: BlobArchiveEntry[]): void {
+  const want = new Set(census.map((b) => b.storageKey));
+  const got = new Set(captured.map((e) => e.storageKey));
+  if (got.size !== want.size) {
+    throw new Error(`Blob archive coverage mismatch: census has ${want.size} object(s), archive captured ${got.size} — refusing an incomplete backup.`);
+  }
+  for (const k of want) {
+    if (!got.has(k)) throw new Error(`Blob archive is MISSING census key '${k}' — refusing an incomplete backup.`);
   }
 }
 
 /**
- * H-08 (Option A): build the INDEPENDENT encrypted blob archive and upload it to
- * the backups bucket. Returns its descriptor, or null when there are no blobs.
+ * H-08 (Option A): build the INDEPENDENT encrypted blob archive from the COHERENT census
+ * and upload it. Returns its descriptor, or null when there are no blobs.
  */
 async function buildBlobArchive(
   env: BackupEnv,
   deps: BackupDeps,
   tempDir: string,
   primaryKey: string,
-  inventory: BlobInventory,
+  census: BlobArchiveEntry[],
 ): Promise<BlobArchive | null> {
+  if (census.length === 0) return null;
   const plainPath = `${tempDir}/blobs.tar`;
   const encPath = `${tempDir}/blobs.tar.age`;
-  const snap = await deps.snapshotBlobs(plainPath);
-  assertInventoryCovered(inventory, snap?.entries ?? []); // no silent skip
-  if (!snap || snap.entries.length === 0) return null;
+  const snap = await deps.snapshotBlobs(plainPath, census);
+  assertCoverage(census, snap.entries); // count + key, no silent skip
 
   await deps.encrypt(plainPath, encPath, env.ageRecipient);
   await deps.removeFile(plainPath); // drop plaintext blobs immediately
@@ -129,27 +140,24 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
 
   let tempDir: string | undefined;
   try {
-    const [serverVersion, migrations, pgDumpVersion, blobInventory] = await Promise.all([
+    const [serverVersion, migrations, pgDumpVersion] = await Promise.all([
       deps.serverVersion(),
       deps.migrations(),
       deps.pgDumpVersion(),
-      deps.blobInventory(),
     ]);
-    deps.log('backup.blob_inventory', {
-      document: blobInventory.document.count,
-      photo: blobInventory.photo.count,
-      intake: blobInventory.intake.count,
-    });
 
     // Step 3: secure temp dir.
     tempDir = await deps.makeTempDir();
     const dumpPath = `${tempDir}/dump.pgc`;
     const encPath = `${tempDir}/dump.pgc.age`;
 
-    // Step 4–5: pg_dump; reject an empty dump.
-    const { bytes: dumpBytes } = await deps.dump(dumpPath);
+    // Step 4–5: R3-N06 ONE coherent image — pg_dump AND the blob census from the identical
+    // MVCC snapshot. Reject an empty dump.
+    const { bytes: dumpBytes, blobs } = await deps.coherentDumpAndCensus(dumpPath);
     if (dumpBytes <= 0) throw new Error('pg_dump produced an empty dump.');
+    const blobInventory = inventoryOf(blobs);
     deps.log('backup.dumped', { bytes: dumpBytes });
+    deps.log('backup.blob_inventory', { document: blobInventory.document.count, photo: blobInventory.photo.count, intake: blobInventory.intake.count });
 
     // Step 6: plaintext metadata.
     const plaintextSha256 = await deps.sha256File(dumpPath);
@@ -181,7 +189,7 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
 
     // H-08 (Option A): the independent encrypted blob snapshot (built + uploaded
     // once, referenced by every retention copy's manifest).
-    const blobArchive = await buildBlobArchive(env, deps, tempDir, primaryKey, blobInventory);
+    const blobArchive = await buildBlobArchive(env, deps, tempDir, primaryKey, blobs);
 
     const manifestFor = (key: string): string =>
       serializeManifest({

@@ -49,45 +49,61 @@ export async function verifyBlobRecovery(inventory: ValidatedBlobInventory, fetc
 /** Extract one object's bytes from the (already-decrypted) blob archive, or null. */
 export type ArchiveExtract = (storageKey: string) => Promise<Buffer | null>;
 
+/** R3-N06: how many objects a routine drill extracts+hash-verifies before it trusts the
+ *  signed index for the rest. A real recovery extracts everything (see the loop below). */
+const DRILL_SHA_SAMPLE = 25;
+
+/** A strong random sample of the archive index, with every non-empty class represented. */
+function strongSample(entries: ValidatedBlobArchive['entries']): ValidatedBlobArchive['entries'] {
+  if (entries.length <= DRILL_SHA_SAMPLE) return entries;
+  const shuffled = [...entries].sort(() => Math.random() - 0.5);
+  const chosen = new Map(shuffled.slice(0, DRILL_SHA_SAMPLE).map((e) => [e.storageKey, e] as const));
+  for (const cls of ['document', 'photo', 'intake'] as const) {
+    if (![...chosen.values()].some((e) => e.cls === cls)) {
+      const rep = entries.find((e) => e.cls === cls);
+      if (rep) chosen.set(rep.storageKey, rep);
+    }
+  }
+  return [...chosen.values()];
+}
+
 /**
- * H-08 (Option A): prove recoverability from the INDEPENDENT encrypted blob
- * archive — the live documents bucket is assumed LOST. For every class the
- * inventory says has objects, the archive MUST hold a representative one
- * (no silent skip), and that object's bytes must extract and hash-match. This is
- * what makes the backup a real backup of the object store, not just pointers.
+ * H-08 (Option A) / R3-N06: prove recoverability from the INDEPENDENT encrypted blob
+ * archive — the live documents bucket is assumed LOST. Unlike the old representative-per-
+ * class check, this verifies the COMPLETE index: (1) the archive's per-class count must
+ * equal the signed manifest inventory (completeness — no class short, none extra), (2)
+ * EVERY indexed object must extract (full key presence), and (3) a strong random sample
+ * (all classes) is hash-verified. The signed manifest carries the full {key,sha,cls}
+ * index, so a full sha verification is available on demand — which a real recovery does
+ * for free while downloading every object.
  */
 export async function verifyBlobArchiveRecovery(
   inventory: ValidatedBlobInventory,
   archive: ValidatedBlobArchive,
   extract: ArchiveExtract,
 ): Promise<BlobRecoveryResult> {
-  const repByClass = new Map<string, ValidatedBlobArchive['entries'][number]>();
-  for (const e of archive.entries) if (!repByClass.has(e.cls)) repByClass.set(e.cls, e);
-
-  const counts: Array<[string, number]> = [
-    ['document', inventory.document.count],
-    ['photo', inventory.photo.count],
-    ['intake', inventory.intake.count],
-  ];
-  for (const [name, count] of counts) {
-    if (count > 0 && !repByClass.has(name)) {
-      throw new Error(`Restore drill: inventory reports ${count} ${name} object(s) but the independent archive holds NONE — unrecoverable.`);
+  // (1) Completeness: the archive index must match the census count for every class.
+  const archiveCount: Record<string, number> = { document: 0, photo: 0, intake: 0 };
+  for (const e of archive.entries) archiveCount[e.cls] = (archiveCount[e.cls] ?? 0) + 1;
+  for (const cls of ['document', 'photo', 'intake'] as const) {
+    if (inventory[cls].count !== archiveCount[cls]) {
+      throw new Error(`Restore drill: ${cls} — manifest inventory ${inventory[cls].count} != archive index ${archiveCount[cls]} (incomplete or incoherent archive).`);
     }
   }
 
-  const verifiedClasses: string[] = [];
-  for (const [cls, e] of repByClass) {
+  // (2) Full key presence + (3) sampled sha verification.
+  const sampleKeys = new Set(strongSample(archive.entries).map((e) => e.storageKey));
+  const verifiedClasses = new Set<string>();
+  for (const e of archive.entries) {
     const bytes = await extract(e.storageKey);
-    if (!bytes) {
-      throw new Error(`Restore drill: ${cls} object '${e.storageKey}' is UNRECOVERABLE from the independent archive.`);
+    if (!bytes) throw new Error(`Restore drill: object '${e.storageKey}' (${e.cls}) is UNRECOVERABLE from the independent archive.`);
+    if (sampleKeys.has(e.storageKey)) {
+      const sha = createHash('sha256').update(bytes).digest('hex');
+      if (sha !== e.sha256) throw new Error(`Restore drill: object '${e.storageKey}' hash mismatch in archive (expected ${e.sha256}, actual ${sha}).`);
     }
-    const sha = createHash('sha256').update(bytes).digest('hex');
-    if (sha !== e.sha256) {
-      throw new Error(`Restore drill: ${cls} object '${e.storageKey}' hash mismatch in archive (expected ${e.sha256}, actual ${sha}).`);
-    }
-    verifiedClasses.push(cls);
+    verifiedClasses.add(e.cls);
   }
-  return { verifiedClasses };
+  return { verifiedClasses: [...verifiedClasses] };
 }
 
 /** A unique, safe, disposable restore database name. Never the live DB. */

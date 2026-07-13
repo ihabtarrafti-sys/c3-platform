@@ -30,6 +30,14 @@ interface Recorder {
   logs: Array<{ event: string; fields?: Record<string, unknown> }>;
 }
 
+// R3-N06: the coherent census — the full blob list (3 documents + 1 photo). inventoryOf()
+// derives INVENTORY from it (first-per-class sample), and the archive must cover EVERY key.
+const CENSUS_BLOBS = [
+  { storageKey: 'tid/doc-obj', sha256: 'd'.repeat(64), cls: 'document' as const },
+  { storageKey: 'tid/doc-obj-2', sha256: 'd'.repeat(64), cls: 'document' as const },
+  { storageKey: 'tid/doc-obj-3', sha256: 'd'.repeat(64), cls: 'document' as const },
+  { storageKey: 'tid/photo-obj', sha256: 'e'.repeat(64), cls: 'photo' as const },
+];
 const INVENTORY = {
   document: { count: 3, sample: { storageKey: 'tid/doc-obj', sha256: 'd'.repeat(64) } },
   photo: { count: 1, sample: { storageKey: 'tid/photo-obj', sha256: 'e'.repeat(64) } },
@@ -43,15 +51,11 @@ function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02
     serverVersion: async () => '18.4',
     migrations: async () => ['0001_schema.sql', '0006_backup_role_grants.sql'],
     pgDumpVersion: async () => 'pg_dump (PostgreSQL) 18.4',
-    blobInventory: async () => INVENTORY,
-    // H-08: capture one representative per non-empty class (matches INVENTORY:
-    // document=3, photo=1, intake=0), so the coverage check passes.
-    snapshotBlobs: async () => ({
-      entries: [
-        { storageKey: 'tid/doc-obj', sha256: 'd'.repeat(64), cls: 'document' as const },
-        { storageKey: 'tid/photo-obj', sha256: 'e'.repeat(64), cls: 'photo' as const },
-      ],
-    }),
+    // R3-N06: the dump and the blob census from ONE coherent snapshot.
+    coherentDumpAndCensus: async () => ({ bytes: 4096, blobs: CENSUS_BLOBS }),
+    // Capture EXACTLY the census (fail-closed on any missing key upstream), so count+key
+    // coverage passes.
+    snapshotBlobs: async (_p: string, blobs) => ({ entries: blobs }),
     acquireLock: async () => true,
     releaseLock: async () => {
       rec.released++;
@@ -60,7 +64,6 @@ function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02
     cleanupTempDir: async (d) => {
       rec.cleaned.push(d);
     },
-    dump: async () => ({ bytes: 4096 }),
     sha256File: async (p) => (p.endsWith('.age') ? 'e'.repeat(64) : 'p'.repeat(64)),
     fileSize: async () => 2048,
     encrypt: async () => {},
@@ -111,22 +114,33 @@ describe('runBackup orchestration', () => {
     const manifestKey = rec.uploads.find((k) => k.endsWith('.manifest.json'))!;
     const manifest = JSON.parse(rec.bodies[manifestKey]!);
     expect(manifest.blobArchive.key).toBe(archiveKey);
-    expect(manifest.blobArchive.entryCount).toBe(2);
-    expect(manifest.blobArchive.entries.map((e: { cls: string }) => e.cls).sort()).toEqual(['document', 'photo']);
+    expect(manifest.blobArchive.entryCount).toBe(4);
+    // the archive indexes EVERY census object (R3-N06: full index, not one-per-class).
+    expect(manifest.blobArchive.entries).toHaveLength(4);
+    expect([...new Set(manifest.blobArchive.entries.map((e: { cls: string }) => e.cls))].sort()).toEqual(['document', 'photo']);
     // the archive is uploaded BEFORE latest-success (which stays last).
     expect(rec.uploads.at(-1)).toBe('status/latest-success.json');
   });
 
-  it('H-08 no-silent-skip: inventory has objects but the snapshot captured none → REFUSED, no latest-success', async () => {
+  it('R3-N06 count+key coverage: census has objects but the archive captured fewer → REFUSED, no latest-success', async () => {
     const { deps, rec } = makeDeps({ snapshotBlobs: async () => ({ entries: [] }) });
-    await expect(runBackup(env, deps)).rejects.toThrow(/snapshot gap/i);
+    await expect(runBackup(env, deps)).rejects.toThrow(/coverage mismatch/i);
     expect(rec.uploads).not.toContain('status/latest-success.json');
     expect(rec.uploads.some((k) => k.endsWith('.blobs.age'))).toBe(false);
   });
 
+  it('R3-N06 (the drill): archive covers every CLASS but MISSES one document key → REFUSED — the old class-presence check would have signed it', async () => {
+    // 2 documents + the photo — every class still represented (document≥1, photo≥1), so
+    // the previous one-per-class check passes silently; count+key coverage catches the
+    // dropped key (a between-reads delete injected at the BackupDeps seam).
+    const partial = [CENSUS_BLOBS[0]!, CENSUS_BLOBS[1]!, CENSUS_BLOBS[3]!];
+    const { deps, rec } = makeDeps({ snapshotBlobs: async () => ({ entries: partial }) });
+    await expect(runBackup(env, deps)).rejects.toThrow(/coverage mismatch|MISSING census/i);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+  });
+
   it('H-08: a zero-blob tenant uploads NO archive and records blobArchive: null', async () => {
-    const emptyInv = { document: { count: 0, sample: null }, photo: { count: 0, sample: null }, intake: { count: 0, sample: null } };
-    const { deps, rec } = makeDeps({ blobInventory: async () => emptyInv, snapshotBlobs: async () => null });
+    const { deps, rec } = makeDeps({ coherentDumpAndCensus: async () => ({ bytes: 4096, blobs: [] }) });
     await runBackup(env, deps);
     expect(rec.uploads.some((k) => k.endsWith('.blobs.age'))).toBe(false);
     const manifestKey = rec.uploads.find((k) => k.endsWith('.manifest.json'))!;
@@ -151,7 +165,7 @@ describe('runBackup orchestration', () => {
   });
 
   it('rejects an empty dump and never uploads or writes latest-success', async () => {
-    const { deps, rec } = makeDeps({ dump: async () => ({ bytes: 0 }) });
+    const { deps, rec } = makeDeps({ coherentDumpAndCensus: async () => ({ bytes: 0, blobs: [] }) });
     await expect(runBackup(env, deps)).rejects.toThrow(/empty dump/);
     expect(rec.uploads).toHaveLength(0);
     expect(rec.cleaned).toContain('/tmp/c3bkp-xyz'); // still cleaned up
