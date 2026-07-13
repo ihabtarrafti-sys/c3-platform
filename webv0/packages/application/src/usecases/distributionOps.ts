@@ -115,7 +115,11 @@ export async function createDistribution(p: Persistence, actor: Actor, input: Cr
   }
 
   return p.writes.transaction(actor, async (tx) => {
-    const mission = await tx.getMission(parsed.missionId);
+    // R2-N03: acquire the mission HEAD lock BEFORE the source lines — the same
+    // order settlement uses (mission → lines). Reading the head unlocked and then
+    // locking lines (while the insert's FK also key-share-locks the mission) was a
+    // reachable deadlock cycle against a concurrent settlement.
+    const mission = await tx.getMissionForUpdate(parsed.missionId);
     if (!mission) throw new NotFoundError('Mission', parsed.missionId);
     if (!mission.isActive) throw new ConflictError('This mission is retired — its money is frozen.', { missionId: parsed.missionId });
 

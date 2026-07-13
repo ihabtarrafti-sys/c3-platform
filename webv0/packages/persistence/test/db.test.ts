@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -386,6 +386,166 @@ describe('migrations & schema', () => {
       await q('ROLLBACK');
     } finally {
       await c.end();
+    }
+  });
+
+  it('0052 (H-04): a Settled mission freezes child money facts — DELETE + per-diem INSERT refused, concurrent settlement serialized', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'h4' });
+    const c = new Client({ connectionString: db.appUrl });
+    await c.connect();
+    try {
+      const q = (text: string, params: unknown[] = []) => c.query(text, params);
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await q(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-4001','H4','2026-06-01')`, [t.tenantId]);
+      await q(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-4001','H4 P')`, [t.tenantId]);
+      await q(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+         VALUES ($1,'PNL-4001','MSN-4001','Income','PrizeMoney','Prize',100000,'USD','Received')`,
+        [t.tenantId],
+      );
+      await q('COMMIT');
+
+      // c3_app: a per-diem INSERT under Settled is refused (0049 guarded only UPDATE).
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await q(`UPDATE mission SET finance_stage='Settled' WHERE mission_id='MSN-4001'`);
+      await expect(
+        q(`INSERT INTO mission_participant (tenant_id, mission_id, person_id, role, per_diem_amount_minor, per_diem_currency)
+           VALUES ($1,'MSN-4001','PER-4001','Player',5000,'USD')`, [t.tenantId]),
+      ).rejects.toThrow(/per-diem is frozen|settled/i);
+      await q('ROLLBACK');
+    } finally {
+      await c.end();
+    }
+
+    // admin/raw path: a line DELETE under Settled is refused (0049 covered only
+    // INSERT/UPDATE; c3_app has no DELETE grant, so the trigger guards this path).
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      await admin.query('BEGIN');
+      await admin.query(`UPDATE mission SET finance_stage='Settled' WHERE mission_id='MSN-4001'`);
+      await expect(admin.query(`DELETE FROM mission_line WHERE line_id='PNL-4001'`)).rejects.toThrow(/settled or inactive/);
+      await admin.query('ROLLBACK');
+    } finally {
+      await admin.end();
+    }
+
+    // Two real connections: the trigger's parent FOR UPDATE serializes a child
+    // write issued BEFORE settlement so it cannot commit AFTER settlement.
+    const cA = new Client({ connectionString: db.appUrl });
+    const cB = new Client({ connectionString: db.appUrl });
+    await cA.connect();
+    await cB.connect();
+    try {
+      await cA.query('BEGIN');
+      await cA.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await cB.query('BEGIN');
+      await cB.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      // A holds the mission head lock (as settlement does).
+      await cA.query(`SELECT 1 FROM mission WHERE mission_id='MSN-4001' FOR UPDATE`);
+      // B's child write blocks on the trigger's FOR UPDATE of the same head.
+      const bWrite = cB.query(`UPDATE mission_line SET label='changed' WHERE line_id='PNL-4001'`);
+      // A settles + commits, releasing the lock.
+      await cA.query(`UPDATE mission SET finance_stage='Settled' WHERE mission_id='MSN-4001'`);
+      await cA.query('COMMIT');
+      // B unblocks, sees Settled, and is refused — no post-settlement child write.
+      await expect(bWrite).rejects.toThrow(/settled or inactive/);
+      await cB.query('ROLLBACK').catch(() => {});
+    } finally {
+      await cA.end().catch(() => {});
+      await cB.end().catch(() => {});
+    }
+  });
+
+  it('0052 (H-05 inverse + R2-N02): a Live head with Paid shares cannot leave Live; a Settled mission\'s dates are frozen', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'h5i' });
+    const c = new Client({ connectionString: db.appUrl });
+    await c.connect();
+    try {
+      const q = (text: string, params: unknown[] = []) => c.query(text, params);
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await q(`INSERT INTO mission (tenant_id, mission_id, name, starts_on, ends_on) VALUES ($1,'MSN-5001','H5i','2026-06-01','2026-06-10')`, [t.tenantId]);
+      await q(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-5001','P')`, [t.tenantId]);
+      await q(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+         VALUES ($1,'PNL-5001','MSN-5001','Income','PrizeMoney','P',100000,'USD','Received')`,
+        [t.tenantId],
+      );
+      await q(
+        `INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by)
+         VALUES ($1,'DIST-5001','MSN-5001','PNL-5001',100000,'USD',0,0,'Live','o@h.com')`,
+        [t.tenantId],
+      );
+      await q(`INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor) VALUES ($1,'DIST-5001','PER-5001',10000,100000)`, [t.tenantId]);
+      // Pay the share while the head is Live (allowed by the 0034 guard). Paid
+      // demands paid_on + a payment-source label (0036 shape CHECK).
+      await q(`UPDATE distribution_share SET payout_status='Paid', paid_on='2026-06-15', payment_source_label='Bank Transfer' WHERE distribution_id='DIST-5001' AND person_id='PER-5001'`);
+      await q('COMMIT');
+
+      // H-05 inverse: revoking the Live head while a Paid share exists is refused.
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await expect(q(`UPDATE distribution SET status='Revoked', revoked_reason='x' WHERE distribution_id='DIST-5001'`)).rejects.toThrow(/PAID shares/);
+      await q('ROLLBACK');
+
+      // R2-N02: a Settled mission's economically-relevant dates are frozen.
+      await q('BEGIN');
+      await q(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await q(`UPDATE mission SET finance_stage='Settled' WHERE mission_id='MSN-5001'`);
+      await expect(q(`UPDATE mission SET starts_on='2026-07-01' WHERE mission_id='MSN-5001'`)).rejects.toThrow(/dates are frozen/);
+      await q('ROLLBACK');
+    } finally {
+      await c.end();
+    }
+  });
+
+  it('R2-N03: distribution-create and settlement lock mission→line in the SAME order (no deadlock cycle)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'n3' });
+    const seed = new Client({ connectionString: db.appUrl });
+    await seed.connect();
+    try {
+      await seed.query('BEGIN');
+      await seed.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await seed.query(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-3001','N3','2026-06-01')`, [t.tenantId]);
+      await seed.query(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+         VALUES ($1,'PNL-3001','MSN-3001','Income','PrizeMoney','P',100000,'USD','Received')`,
+        [t.tenantId],
+      );
+      await seed.query('COMMIT');
+    } finally {
+      await seed.end();
+    }
+
+    const cA = new Client({ connectionString: db.appUrl }); // "settlement": mission → line
+    const cB = new Client({ connectionString: db.appUrl }); // "distribution-create" (fixed): mission → line
+    await cA.connect();
+    await cB.connect();
+    try {
+      await cA.query('BEGIN');
+      await cA.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+      await cB.query('BEGIN');
+      await cB.query(`SELECT set_config('app.tenant_id', $1, true)`, [t.tenantId]);
+
+      // A takes the mission head. B — now that createDistribution locks the head
+      // FIRST too — blocks HARMLESSLY on the head (not a cycle) instead of grabbing
+      // the line first and waiting on A for the mission (the old deadlock shape).
+      await cA.query(`SELECT 1 FROM mission WHERE mission_id='MSN-3001' FOR UPDATE`);
+      const bHead = cB.query(`SELECT 1 FROM mission WHERE mission_id='MSN-3001' FOR UPDATE`);
+      await cA.query(`SELECT 1 FROM mission_line WHERE line_id='PNL-3001' FOR UPDATE`);
+      await cA.query('COMMIT'); // releases mission + line
+      await bHead; // B acquires the head — no deadlock (would reject with 40P01 otherwise)
+      await cB.query(`SELECT 1 FROM mission_line WHERE line_id='PNL-3001' FOR UPDATE`);
+      await cB.query('COMMIT');
+    } finally {
+      await cA.end().catch(() => {});
+      await cB.end().catch(() => {});
     }
   });
 
