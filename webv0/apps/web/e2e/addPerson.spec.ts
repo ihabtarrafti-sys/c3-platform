@@ -83,6 +83,12 @@ test('AddPerson governed workflow, end to end', async ({ page }) => {
   await test.step('Approval history and person audit render; deep link + refresh work', async () => {
     await page.goto('/approvals/APR-0001');
     await page.reload(); // deep-link + browser refresh must resolve the route
+    // A hard reload re-runs session bootstrap (stored session -> /me) and,
+    // while the suite's shared servers are cold or busy, the "Loading
+    // session..." gate can outlast the default expect timeout. Wait for the
+    // authenticated shell to confirm the owner session survived the refresh,
+    // then assert the deep-linked route content as strictly as before.
+    await expect(page.getByTestId('role-display')).toContainText('owner', { timeout: 30_000 });
     await expect(page.getByTestId('approval-events')).toBeVisible();
     await expect(page.getByTestId('approval-events')).toContainText('Executed');
 
