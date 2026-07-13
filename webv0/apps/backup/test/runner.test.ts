@@ -67,6 +67,11 @@ function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02
       rec.bodies[k] = body;
     },
     verifyObject: async () => {},
+    readBytes: async (k) => {
+      const v = rec.bodies[k];
+      if (v === undefined) throw new Error(`readBytes: missing key ${k}`);
+      return v;
+    },
     log: (event, fields) => {
       rec.logs.push({ event, fields });
     },
@@ -192,6 +197,32 @@ describe('runBackup orchestration', () => {
     const { deps, rec } = makeDeps();
     const noKeyNoFlag: BackupEnv = { ...env, signingKeyPem: null, allowUnsigned: false };
     await expect(runBackup(noKeyNoFlag, deps)).rejects.toThrow(/UNSIGNED/i);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+  });
+
+  it('R2-N07: a TAMPERED manifest sidecar fails the run before latest-success', async () => {
+    const { deps, rec } = makeDeps();
+    // The store hands back manifest bytes that differ from what was signed.
+    deps.readBytes = async (k) => (k.endsWith('.manifest.json') ? '{"objectKey":"x","tampered":true}' : rec.bodies[k]!);
+    await expect(runBackup(env, deps)).rejects.toThrow(/readback/i);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+  });
+
+  it('R2-N07: a MISSING signature sidecar fails the run before latest-success', async () => {
+    const { deps, rec } = makeDeps();
+    deps.readBytes = async (k) => {
+      if (k.endsWith('.manifest.json.sig')) throw new Error('NoSuchKey');
+      return rec.bodies[k]!;
+    };
+    await expect(runBackup(env, deps)).rejects.toThrow();
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+  });
+
+  it('R2-N07: a signature that does not verify on readback fails the run', async () => {
+    const { deps, rec } = makeDeps();
+    // Valid base64 but not a real signature over the manifest → verify=false.
+    deps.readBytes = async (k) => (k.endsWith('.manifest.json.sig') ? Buffer.from('not-a-real-signature').toString('base64') : rec.bodies[k]!);
+    await expect(runBackup(env, deps)).rejects.toThrow(/verification/i);
     expect(rec.uploads).not.toContain('status/latest-success.json');
   });
 });

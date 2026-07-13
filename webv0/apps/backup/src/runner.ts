@@ -14,7 +14,7 @@ import {
   type BlobInventory,
   type LatestSuccess,
 } from './manifest';
-import { signManifestBytes, signatureKeyFor } from './signing';
+import { signManifestBytes, signatureKeyFor, verifyManifestBytes, publicKeyPemFromPrivate } from './signing';
 
 export interface BackupDeps {
   now(): Date;
@@ -39,6 +39,9 @@ export interface BackupDeps {
   uploadBytes(key: string, body: string, contentType: string): Promise<void>;
   /** Download the object and verify its sha256+size match. Throws on mismatch. */
   verifyObject(key: string, expectedSha256: string, expectedBytes: number): Promise<void>;
+  /** R2-N07: read an uploaded object's bytes back as a UTF-8 string (manifest /
+   *  signature sidecar readback). Throws if the key is missing. */
+  readBytes(key: string): Promise<string>;
   log(event: string, fields?: Record<string, unknown>): void;
 }
 
@@ -145,13 +148,32 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
       });
 
     // Step 9–11: upload the object, a per-key signed manifest, and VERIFY EACH copy.
+    const verifyPubPem = env.signingKeyPem ? publicKeyPemFromPrivate(env.signingKeyPem) : null;
     for (const { cls, key } of keys) {
       const body = manifestFor(key); // throws if any secret leaks
+      const mKey = manifestKey(key);
       const signature = env.signingKeyPem ? signManifestBytes(body, env.signingKeyPem) : null;
       await deps.uploadFile(key, encPath, 'application/octet-stream');
-      await deps.uploadBytes(manifestKey(key), body, 'application/json');
-      if (signature) await deps.uploadBytes(signatureKeyFor(manifestKey(key)), signature, 'text/plain');
+      await deps.uploadBytes(mKey, body, 'application/json');
+      if (signature) await deps.uploadBytes(signatureKeyFor(mKey), signature, 'text/plain');
       await deps.verifyObject(key, encryptedSha256, encryptedBytes);
+
+      // R2-N07: read the auth sidecars BACK from the store and verify them HERE —
+      // a missing/corrupt manifest or signature must fail this run, not surface
+      // later at restore (after the tile already went green). For a signed run the
+      // Ed25519 signature must verify over the read-back manifest bytes (which,
+      // by Ed25519 non-malleability, proves they are exactly what we signed), and
+      // the manifest must name THIS object (key/object binding). A missing sidecar
+      // makes readBytes throw.
+      if (signature && verifyPubPem) {
+        const backManifest = await deps.readBytes(mKey);
+        const backSig = await deps.readBytes(signatureKeyFor(mKey));
+        if (!verifyManifestBytes(backManifest, backSig, verifyPubPem)) {
+          throw new Error(`Manifest signature failed readback verification for ${mKey} — sidecar missing or corrupt.`);
+        }
+        const boundKey = (JSON.parse(backManifest) as { objectKey?: string }).objectKey;
+        if (boundKey !== key) throw new Error(`Manifest object binding mismatch on readback: expected ${key}, got ${boundKey}.`);
+      }
       deps.log('backup.uploaded', { cls, key, signed: signature !== null });
     }
 

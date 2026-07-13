@@ -60,6 +60,15 @@ export function verifyManifestBytes(serializedManifest: string, signatureB64: st
   }
 }
 
+/**
+ * R2-N07: derive the SPKI public-key PEM from the Ed25519 PRIVATE signing key,
+ * so the producer can verify the signature it just wrote when it reads the
+ * sidecar back from the store — closing the loop before the success marker.
+ */
+export function publicKeyPemFromPrivate(privateKeyPem: string): string {
+  return createPublicKey(privateKeyFrom(privateKeyPem)).export({ type: 'spki', format: 'pem' }).toString();
+}
+
 // ── restore-side schema validation (H-02: never JSON.parse-and-trust) ────────
 // Hand-rolled (no zod: the backup image ships self-contained by packaging
 // contract — see restore-main.ts's import note).

@@ -165,6 +165,10 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
       const sha = createHash('sha256').update(buf).digest('hex');
       if (sha !== expectedSha256) throw new Error('Verify failed: sha256 mismatch on uploaded object.');
     },
+    async readBytes(key) {
+      const res = await s3.send(new GetObjectCommand({ Bucket: env.r2Bucket, Key: key }));
+      return Buffer.from(await res.Body!.transformToByteArray()).toString('utf8');
+    },
 
     log(event, fields) {
       // Structured, redacted: only whitelisted non-secret fields are emitted.
