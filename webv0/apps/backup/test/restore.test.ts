@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery } from '../src/restore';
+import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery, verifyBlobArchiveRecovery } from '../src/restore';
 import type { ValidatedBlobInventory } from '../src/signing';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -79,5 +79,55 @@ describe('H-08: object-store recovery verification (restore drill)', () => {
       intake: { count: 0, sample: null },
     };
     expect((await verifyBlobRecovery(empty, fetch)).verifiedClasses).toEqual([]);
+  });
+
+  it('round-2 no-silent-skip: a class WITH objects but a null sample FAILS (never skipped)', async () => {
+    const gap: ValidatedBlobInventory = {
+      document: { count: 5, sample: null }, // objects exist but nothing verifiable
+      photo: { count: 0, sample: null },
+      intake: { count: 0, sample: null },
+    };
+    await expect(verifyBlobRecovery(gap, fetch)).rejects.toThrow(/count-positive\/sample-null must NOT be skipped/i);
+  });
+});
+
+describe('verifyBlobArchiveRecovery — H-08 Option A (recover from the independent copy)', () => {
+  const inv = (): ValidatedBlobInventory => ({
+    document: { count: 2, sample: { storageKey: 'tid/doc', sha256: sha('doc-bytes') } },
+    photo: { count: 1, sample: { storageKey: 'tid/photo', sha256: sha('photo-bytes') } },
+    intake: { count: 0, sample: null },
+  });
+  const archive = () => ({
+    key: 'daily/x.dump.age.blobs.age',
+    sha256: sha('archive'),
+    bytes: 123,
+    entryCount: 2,
+    entries: [
+      { storageKey: 'tid/doc', sha256: sha('doc-bytes'), cls: 'document' as const },
+      { storageKey: 'tid/photo', sha256: sha('photo-bytes'), cls: 'photo' as const },
+    ],
+  });
+  const extractOf = (store: Record<string, Buffer>) => async (k: string) => store[k] ?? null;
+
+  it('recovers a representative object of every class FROM THE ARCHIVE (live bucket untouched)', async () => {
+    const store = { 'tid/doc': Buffer.from('doc-bytes'), 'tid/photo': Buffer.from('photo-bytes') };
+    const res = await verifyBlobArchiveRecovery(inv(), archive(), extractOf(store));
+    expect(res.verifiedClasses.sort()).toEqual(['document', 'photo']);
+  });
+
+  it('FAILS when the archive is missing an object', async () => {
+    const store = { 'tid/doc': Buffer.from('doc-bytes') }; // photo absent from archive
+    await expect(verifyBlobArchiveRecovery(inv(), archive(), extractOf(store))).rejects.toThrow(/UNRECOVERABLE from the independent archive/);
+  });
+
+  it('FAILS on a hash mismatch in the archive', async () => {
+    const store = { 'tid/doc': Buffer.from('doc-bytes'), 'tid/photo': Buffer.from('TAMPERED') };
+    await expect(verifyBlobArchiveRecovery(inv(), archive(), extractOf(store))).rejects.toThrow(/hash mismatch in archive/);
+  });
+
+  it('no-silent-skip: inventory has a class the archive omits entirely → FAILS', async () => {
+    const invExtra: ValidatedBlobInventory = { ...inv(), intake: { count: 3, sample: { storageKey: 'x', sha256: sha('x') } } };
+    const store = { 'tid/doc': Buffer.from('doc-bytes'), 'tid/photo': Buffer.from('photo-bytes') };
+    await expect(verifyBlobArchiveRecovery(invExtra, archive(), extractOf(store))).rejects.toThrow(/inventory reports 3 intake object\(s\) but the independent archive holds NONE/);
   });
 });

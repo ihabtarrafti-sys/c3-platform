@@ -93,6 +93,18 @@ export interface ValidatedBlobInventory {
   readonly photo: ValidatedBlobClass;
   readonly intake: ValidatedBlobClass;
 }
+export interface ValidatedBlobArchiveEntry {
+  readonly storageKey: string;
+  readonly sha256: string;
+  readonly cls: 'document' | 'photo' | 'intake';
+}
+export interface ValidatedBlobArchive {
+  readonly key: string;
+  readonly sha256: string;
+  readonly bytes: number;
+  readonly entryCount: number;
+  readonly entries: ValidatedBlobArchiveEntry[];
+}
 
 export interface ValidatedManifest {
   readonly schema: 'c3-backup-manifest/1';
@@ -108,6 +120,9 @@ export interface ValidatedManifest {
   readonly plaintextBytes: number;
   /** H-08: the object-store census (recoverability checklist for the drill). */
   readonly blobInventory: ValidatedBlobInventory;
+  /** H-08 (Option A): descriptor of the independent encrypted blob snapshot, or
+   *  null (no blobs, or a pre-Option-A manifest — the drill decides what null means). */
+  readonly blobArchive: ValidatedBlobArchive | null;
 }
 
 const SHA256_RE = /^[a-f0-9]{64}$/;
@@ -175,6 +190,35 @@ function optBlobInventory(o: Record<string, unknown>): ValidatedBlobInventory {
   };
 }
 
+function optBlobArchive(o: Record<string, unknown>): ValidatedBlobArchive | null {
+  // Absent/null → no independent copy (pre-Option-A, or a zero-blob tenant). The
+  // drill decides whether that is acceptable (it fails if the inventory has
+  // objects). A PRESENT archive is validated strictly.
+  const v = o.blobArchive;
+  if (v === undefined || v === null) return null;
+  if (typeof v !== 'object') fail('manifest', 'blobArchive', 'must be an object or null');
+  const a = v as Record<string, unknown>;
+  const key = a.key;
+  if (typeof key !== 'string' || key.length === 0) fail('manifest', 'blobArchive.key', 'must be a non-empty string');
+  const sha256 = a.sha256;
+  if (typeof sha256 !== 'string' || !SHA256_RE.test(sha256)) fail('manifest', 'blobArchive.sha256', 'must be a lowercase hex sha256');
+  const bytes = a.bytes;
+  if (typeof bytes !== 'number' || !Number.isInteger(bytes) || bytes <= 0) fail('manifest', 'blobArchive.bytes', 'must be a positive integer');
+  const rawEntries = a.entries;
+  if (!Array.isArray(rawEntries) || rawEntries.length === 0) fail('manifest', 'blobArchive.entries', 'must be a non-empty array');
+  const entries: ValidatedBlobArchiveEntry[] = rawEntries.map((e, i) => {
+    if (typeof e !== 'object' || e === null) fail('manifest', `blobArchive.entries[${i}]`, 'must be an object');
+    const eo = e as Record<string, unknown>;
+    if (typeof eo.storageKey !== 'string' || eo.storageKey.length === 0) fail('manifest', `blobArchive.entries[${i}].storageKey`, 'must be a non-empty string');
+    if (typeof eo.sha256 !== 'string' || !SHA256_RE.test(eo.sha256)) fail('manifest', `blobArchive.entries[${i}].sha256`, 'must be a lowercase hex sha256');
+    if (eo.cls !== 'document' && eo.cls !== 'photo' && eo.cls !== 'intake') fail('manifest', `blobArchive.entries[${i}].cls`, 'must be document|photo|intake');
+    return { storageKey: eo.storageKey, sha256: eo.sha256, cls: eo.cls };
+  });
+  const entryCount = a.entryCount;
+  if (entryCount !== entries.length) fail('manifest', 'blobArchive.entryCount', 'must equal entries.length');
+  return { key, sha256, bytes, entryCount, entries };
+}
+
 export function validateLatestSuccess(raw: unknown): ValidatedLatestSuccess {
   if (typeof raw !== 'object' || raw === null) fail('latest-success', 'document', 'must be a JSON object');
   const o = raw as Record<string, unknown>;
@@ -210,6 +254,7 @@ export function validateManifest(raw: unknown): ValidatedManifest {
     plaintextSha256: reqSha('manifest', o, 'plaintextSha256'),
     plaintextBytes: reqInt('manifest', o, 'plaintextBytes'),
     blobInventory: optBlobInventory(o),
+    blobArchive: optBlobArchive(o),
   };
 }
 

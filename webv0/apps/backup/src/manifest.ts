@@ -28,6 +28,29 @@ export interface BlobInventory {
   readonly intake: BlobInventoryClass;
 }
 
+export interface BlobArchiveEntry {
+  readonly storageKey: string;
+  readonly sha256: string;
+  readonly cls: 'document' | 'photo' | 'intake';
+}
+
+/**
+ * H-08 (Option A): the INDEPENDENT, encrypted snapshot of the object-store bytes,
+ * uploaded to the BACKUPS bucket alongside the dump. Unlike the inventory (which
+ * only points at live objects), this carries the bytes themselves, so recovery
+ * survives loss of the live documents bucket. `entries` indexes every captured
+ * object by hash; the restore drill recovers representative bytes from THIS copy.
+ */
+export interface BlobArchive {
+  /** Object key of the age-encrypted archive in the backups bucket. */
+  readonly key: string;
+  /** SHA-256 + size of the ENCRYPTED archive (what R2 stores). */
+  readonly sha256: string;
+  readonly bytes: number;
+  readonly entryCount: number;
+  readonly entries: BlobArchiveEntry[];
+}
+
 export interface BackupManifest {
   readonly schema: 'c3-backup-manifest/1';
   readonly environment: string;
@@ -48,6 +71,9 @@ export interface BackupManifest {
   readonly ageRecipientFingerprint: string;
   /** H-08: the object-store census the dump does not carry (recoverability checklist). */
   readonly blobInventory: BlobInventory;
+  /** H-08 (Option A): descriptor of the INDEPENDENT encrypted blob snapshot (bytes
+   *  in the backups bucket). Null only when the tenant has zero blob objects. */
+  readonly blobArchive: BlobArchive | null;
 }
 
 /** Non-secret fingerprint of the recipient (first/last chars) for cross-check. */

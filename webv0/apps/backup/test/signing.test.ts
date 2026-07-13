@@ -39,6 +39,7 @@ const manifest: BackupManifest = {
     photo: { count: 0, sample: null },
     intake: { count: 0, sample: null },
   },
+  blobArchive: null,
 };
 
 describe('H-02: manifest signing (producer authenticity, not just confidentiality)', () => {

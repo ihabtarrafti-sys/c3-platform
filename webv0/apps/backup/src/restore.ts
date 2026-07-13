@@ -3,7 +3,7 @@
  * I/O lives in restore-main.ts and is certified by the hosted drill.
  */
 import { createHash } from 'node:crypto';
-import type { ValidatedBlobInventory } from './signing';
+import type { ValidatedBlobInventory, ValidatedBlobArchive } from './signing';
 
 /** Fetch an object's bytes by storage key, or null if it does not exist. */
 export type BlobFetch = (storageKey: string) => Promise<Buffer | null>;
@@ -27,7 +27,12 @@ export async function verifyBlobRecovery(inventory: ValidatedBlobInventory, fetc
   ];
   const verifiedClasses: string[] = [];
   for (const [name, c] of classes) {
-    if (c.count === 0 || c.sample === null) continue;
+    if (c.count === 0) continue;
+    // No silent skip (round-2): a class WITH objects but no verifiable sample is
+    // an unprovable recoverability gap, not something to pass over.
+    if (c.sample === null) {
+      throw new Error(`Restore drill: ${name} reports ${c.count} object(s) but no verifiable sample — count-positive/sample-null must NOT be skipped.`);
+    }
     const bytes = await fetch(c.sample.storageKey);
     if (!bytes) {
       throw new Error(`Restore drill: ${name} object '${c.sample.storageKey}' is UNRECOVERABLE (not found in the object store).`);
@@ -37,6 +42,50 @@ export async function verifyBlobRecovery(inventory: ValidatedBlobInventory, fetc
       throw new Error(`Restore drill: ${name} object '${c.sample.storageKey}' hash mismatch (manifest ${c.sample.sha256}, actual ${sha}).`);
     }
     verifiedClasses.push(name);
+  }
+  return { verifiedClasses };
+}
+
+/** Extract one object's bytes from the (already-decrypted) blob archive, or null. */
+export type ArchiveExtract = (storageKey: string) => Promise<Buffer | null>;
+
+/**
+ * H-08 (Option A): prove recoverability from the INDEPENDENT encrypted blob
+ * archive — the live documents bucket is assumed LOST. For every class the
+ * inventory says has objects, the archive MUST hold a representative one
+ * (no silent skip), and that object's bytes must extract and hash-match. This is
+ * what makes the backup a real backup of the object store, not just pointers.
+ */
+export async function verifyBlobArchiveRecovery(
+  inventory: ValidatedBlobInventory,
+  archive: ValidatedBlobArchive,
+  extract: ArchiveExtract,
+): Promise<BlobRecoveryResult> {
+  const repByClass = new Map<string, ValidatedBlobArchive['entries'][number]>();
+  for (const e of archive.entries) if (!repByClass.has(e.cls)) repByClass.set(e.cls, e);
+
+  const counts: Array<[string, number]> = [
+    ['document', inventory.document.count],
+    ['photo', inventory.photo.count],
+    ['intake', inventory.intake.count],
+  ];
+  for (const [name, count] of counts) {
+    if (count > 0 && !repByClass.has(name)) {
+      throw new Error(`Restore drill: inventory reports ${count} ${name} object(s) but the independent archive holds NONE — unrecoverable.`);
+    }
+  }
+
+  const verifiedClasses: string[] = [];
+  for (const [cls, e] of repByClass) {
+    const bytes = await extract(e.storageKey);
+    if (!bytes) {
+      throw new Error(`Restore drill: ${cls} object '${e.storageKey}' is UNRECOVERABLE from the independent archive.`);
+    }
+    const sha = createHash('sha256').update(bytes).digest('hex');
+    if (sha !== e.sha256) {
+      throw new Error(`Restore drill: ${cls} object '${e.storageKey}' hash mismatch in archive (expected ${e.sha256}, actual ${sha}).`);
+    }
+    verifiedClasses.push(cls);
   }
   return { verifiedClasses };
 }

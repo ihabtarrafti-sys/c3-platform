@@ -44,6 +44,14 @@ function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02
     migrations: async () => ['0001_schema.sql', '0006_backup_role_grants.sql'],
     pgDumpVersion: async () => 'pg_dump (PostgreSQL) 18.4',
     blobInventory: async () => INVENTORY,
+    // H-08: capture one representative per non-empty class (matches INVENTORY:
+    // document=3, photo=1, intake=0), so the coverage check passes.
+    snapshotBlobs: async () => ({
+      entries: [
+        { storageKey: 'tid/doc-obj', sha256: 'd'.repeat(64), cls: 'document' as const },
+        { storageKey: 'tid/photo-obj', sha256: 'e'.repeat(64), cls: 'photo' as const },
+      ],
+    }),
     acquireLock: async () => true,
     releaseLock: async () => {
       rec.released++;
@@ -93,6 +101,36 @@ describe('runBackup orchestration', () => {
     expect(rec.uploads.at(-1)).toBe('status/latest-success.json');
     // encrypted object + manifest uploaded before the status marker.
     expect(rec.uploads).toContain('daily/2026/07/07/c3-staging-20260707T021500Z-d133f0f.dump.age');
+  });
+
+  it('H-08 Option A: builds + uploads an INDEPENDENT encrypted blob archive, recorded in the manifest', async () => {
+    const { deps, rec } = makeDeps();
+    await runBackup(env, deps);
+    const archiveKey = rec.uploads.find((k) => k.endsWith('.blobs.age'));
+    expect(archiveKey, 'an independent .blobs.age archive is uploaded').toBeTruthy();
+    const manifestKey = rec.uploads.find((k) => k.endsWith('.manifest.json'))!;
+    const manifest = JSON.parse(rec.bodies[manifestKey]!);
+    expect(manifest.blobArchive.key).toBe(archiveKey);
+    expect(manifest.blobArchive.entryCount).toBe(2);
+    expect(manifest.blobArchive.entries.map((e: { cls: string }) => e.cls).sort()).toEqual(['document', 'photo']);
+    // the archive is uploaded BEFORE latest-success (which stays last).
+    expect(rec.uploads.at(-1)).toBe('status/latest-success.json');
+  });
+
+  it('H-08 no-silent-skip: inventory has objects but the snapshot captured none → REFUSED, no latest-success', async () => {
+    const { deps, rec } = makeDeps({ snapshotBlobs: async () => ({ entries: [] }) });
+    await expect(runBackup(env, deps)).rejects.toThrow(/snapshot gap/i);
+    expect(rec.uploads).not.toContain('status/latest-success.json');
+    expect(rec.uploads.some((k) => k.endsWith('.blobs.age'))).toBe(false);
+  });
+
+  it('H-08: a zero-blob tenant uploads NO archive and records blobArchive: null', async () => {
+    const emptyInv = { document: { count: 0, sample: null }, photo: { count: 0, sample: null }, intake: { count: 0, sample: null } };
+    const { deps, rec } = makeDeps({ blobInventory: async () => emptyInv, snapshotBlobs: async () => null });
+    await runBackup(env, deps);
+    expect(rec.uploads.some((k) => k.endsWith('.blobs.age'))).toBe(false);
+    const manifestKey = rec.uploads.find((k) => k.endsWith('.manifest.json'))!;
+    expect(JSON.parse(rec.bodies[manifestKey]!).blobArchive).toBeNull();
   });
 
   it('H-08: records the blob inventory in the manifest (recoverability checklist)', async () => {

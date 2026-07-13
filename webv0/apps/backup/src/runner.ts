@@ -12,6 +12,8 @@ import {
   serializeLatestSuccess,
   recipientFingerprint,
   type BlobInventory,
+  type BlobArchive,
+  type BlobArchiveEntry,
   type LatestSuccess,
 } from './manifest';
 import { signManifestBytes, signatureKeyFor, verifyManifestBytes, publicKeyPemFromPrivate } from './signing';
@@ -23,6 +25,13 @@ export interface BackupDeps {
   pgDumpVersion(): Promise<string>;
   /** H-08: census the object store (documents + photos + intake) from the DB. */
   blobInventory(): Promise<BlobInventory>;
+  /**
+   * H-08 (Option A): capture EVERY blob object's bytes into a single plaintext
+   * archive at `destPath` (downloaded from the live store, sha-verified against
+   * the DB at capture time), returning the per-object index. Null when the DB
+   * has zero blob objects (nothing to snapshot).
+   */
+  snapshotBlobs(destPath: string): Promise<{ entries: BlobArchiveEntry[] } | null>;
   /** Single-run guard via a DB advisory lock. false => another run holds it. */
   acquireLock(): Promise<boolean>;
   releaseLock(): Promise<void>;
@@ -52,6 +61,52 @@ export interface BackupResult {
   readonly encryptedBytes: number;
   readonly plaintextBytes: number;
   readonly durationMs: number;
+}
+
+/**
+ * H-08 no-silent-skip: if the inventory says a class has objects, the archive
+ * MUST have captured at least one — a whole class silently missing from the
+ * independent copy is a recoverability gap, not an acceptable backup.
+ */
+function assertInventoryCovered(inv: BlobInventory, entries: BlobArchiveEntry[]): void {
+  const captured = { document: 0, photo: 0, intake: 0 };
+  for (const e of entries) captured[e.cls]++;
+  for (const cls of ['document', 'photo', 'intake'] as const) {
+    if (inv[cls].count > 0 && captured[cls] === 0) {
+      throw new Error(
+        `Blob snapshot gap: inventory reports ${inv[cls].count} ${cls} object(s) but the independent archive captured none — refusing to record a backup that cannot recover ${cls} bytes.`,
+      );
+    }
+  }
+}
+
+/**
+ * H-08 (Option A): build the INDEPENDENT encrypted blob archive and upload it to
+ * the backups bucket. Returns its descriptor, or null when there are no blobs.
+ */
+async function buildBlobArchive(
+  env: BackupEnv,
+  deps: BackupDeps,
+  tempDir: string,
+  primaryKey: string,
+  inventory: BlobInventory,
+): Promise<BlobArchive | null> {
+  const plainPath = `${tempDir}/blobs.tar`;
+  const encPath = `${tempDir}/blobs.tar.age`;
+  const snap = await deps.snapshotBlobs(plainPath);
+  assertInventoryCovered(inventory, snap?.entries ?? []); // no silent skip
+  if (!snap || snap.entries.length === 0) return null;
+
+  await deps.encrypt(plainPath, encPath, env.ageRecipient);
+  await deps.removeFile(plainPath); // drop plaintext blobs immediately
+  const sha256 = await deps.sha256File(encPath);
+  const bytes = await deps.fileSize(encPath);
+  if (bytes <= 0) throw new Error('Blob archive encryption produced an empty artifact.');
+  const key = `${primaryKey}.blobs.age`;
+  await deps.uploadFile(key, encPath, 'application/octet-stream');
+  await deps.verifyObject(key, sha256, bytes);
+  deps.log('backup.blob_archive', { key, entries: snap.entries.length, bytes });
+  return { key, sha256, bytes, entryCount: snap.entries.length, entries: snap.entries };
 }
 
 /**
@@ -124,6 +179,10 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
       );
     }
 
+    // H-08 (Option A): the independent encrypted blob snapshot (built + uploaded
+    // once, referenced by every retention copy's manifest).
+    const blobArchive = await buildBlobArchive(env, deps, tempDir, primaryKey, blobInventory);
+
     const manifestFor = (key: string): string =>
       serializeManifest({
         schema: 'c3-backup-manifest/1',
@@ -145,6 +204,7 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
         pgDumpVersion,
         ageRecipientFingerprint: recipientFingerprint(env.ageRecipient),
         blobInventory,
+        blobArchive,
       });
 
     // Step 9–11: upload the object, a per-key signed manifest, and VERIFY EACH copy.

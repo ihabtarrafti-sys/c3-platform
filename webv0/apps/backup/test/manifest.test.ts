@@ -22,6 +22,7 @@ const base: BackupManifest = {
     photo: { count: 0, sample: null },
     intake: { count: 0, sample: null },
   },
+  blobArchive: null,
 };
 
 describe('manifest redaction', () => {

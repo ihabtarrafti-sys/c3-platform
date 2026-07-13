@@ -12,7 +12,7 @@ import { Client } from 'pg';
 import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3';
 import type { BackupDeps } from './runner';
 import type { BackupEnv } from './env';
-import type { BlobInventory, BlobInventoryClass } from './manifest';
+import type { BlobInventory, BlobInventoryClass, BlobArchiveEntry } from './manifest';
 
 const ADVISORY_LOCK_KEY = 928_340_014; // arbitrary fixed key for the backup lock
 
@@ -43,6 +43,28 @@ async function sha256File(path: string): Promise<string> {
     createReadStream(path).on('data', (c) => hash.update(c)).on('end', resolve).on('error', reject);
   });
   return hash.digest('hex');
+}
+
+/** H-08 (Option A): every blob object across all tenants, DB-authoritative. */
+async function enumerateAllBlobs(databaseUrl: string): Promise<BlobArchiveEntry[]> {
+  const c = new Client({ connectionString: databaseUrl });
+  await c.connect();
+  try {
+    const q = async (sql: string, cls: BlobArchiveEntry['cls']): Promise<BlobArchiveEntry[]> =>
+      (await c.query(sql)).rows.map((r: { key: string; sha: string }) => ({ storageKey: r.key, sha256: r.sha, cls }));
+    const [docs, photos, intake] = await Promise.all([
+      q(`SELECT storage_key AS key, sha256 AS sha FROM document WHERE sha256 ~ '^[a-f0-9]{64}$' ORDER BY storage_key`, 'document'),
+      q(`SELECT photo_storage_key AS key, photo_sha256 AS sha FROM person WHERE photo_storage_key IS NOT NULL AND photo_sha256 ~ '^[a-f0-9]{64}$' ORDER BY photo_storage_key`, 'photo'),
+      q(
+        `SELECT u->>'storageKey' AS key, u->>'sha256' AS sha FROM intake_submission s, jsonb_array_elements(s.uploads) u
+          WHERE s.status = 'Pending' AND u->>'storageKey' IS NOT NULL AND u->>'sha256' ~ '^[a-f0-9]{64}$' ORDER BY u->>'storageKey'`,
+        'intake',
+      ),
+    ]);
+    return [...docs, ...photos, ...intake];
+  } finally {
+    await c.end();
+  }
 }
 
 export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promise<void> } {
@@ -114,6 +136,45 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
         return { document, photo, intake };
       } finally {
         await c.end();
+      }
+    },
+
+    // H-08 (Option A): capture every blob's BYTES into a plaintext tar, downloaded
+    // from the live documents bucket and sha-verified against the DB at capture.
+    // Uses a dedicated documents READ credential when configured so the backup's
+    // write key is not widened; the runner then encrypts + uploads this archive.
+    async snapshotBlobs(destPath: string): Promise<{ entries: BlobArchiveEntry[] } | null> {
+      const entries = await enumerateAllBlobs(env.databaseUrl);
+      if (entries.length === 0) return null;
+      const docsBucket = process.env.R2_BUCKET_DOCUMENTS;
+      if (!docsBucket) {
+        throw new Error(`Cannot snapshot ${entries.length} blob object(s): R2_BUCKET_DOCUMENTS is not set (needed to read live objects for the independent archive).`);
+      }
+      const docsS3 = process.env.R2_DOCUMENTS_ACCESS_KEY_ID
+        ? new S3Client({
+            region: 'auto',
+            endpoint: env.r2Endpoint,
+            credentials: { accessKeyId: process.env.R2_DOCUMENTS_ACCESS_KEY_ID, secretAccessKey: process.env.R2_DOCUMENTS_SECRET_ACCESS_KEY! },
+            forcePathStyle: true,
+          })
+        : s3;
+      const stagingDir = await fs.mkdtemp(join(tmpdir(), 'c3blobs-'));
+      try {
+        for (const e of entries) {
+          if (e.storageKey.includes('..')) throw new Error(`Unsafe storage key in snapshot: ${e.storageKey}`);
+          const res = await docsS3.send(new GetObjectCommand({ Bucket: docsBucket, Key: e.storageKey }));
+          const buf = Buffer.from(await res.Body!.transformToByteArray());
+          const sha = createHash('sha256').update(buf).digest('hex');
+          if (sha !== e.sha256) throw new Error(`Blob '${e.storageKey}' hash mismatch at capture (db ${e.sha256}, live ${sha}).`);
+          const outPath = join(stagingDir, e.storageKey);
+          await fs.mkdir(join(outPath, '..'), { recursive: true });
+          await fs.writeFile(outPath, buf);
+        }
+        // tar the staging dir; member paths ARE the storage keys (extract reads by key).
+        await run('tar', ['-cf', destPath, '-C', stagingDir, '.']);
+        return { entries };
+      } finally {
+        await fs.rm(stagingDir, { recursive: true, force: true });
       }
     },
 

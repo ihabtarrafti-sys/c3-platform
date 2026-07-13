@@ -27,7 +27,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 // drag drizzle/application/domain into the backup image (proven crash-loop,
 // ERR_MODULE_NOT_FOUND, 2026-07-07).
 import { exportTenant } from '../../../packages/persistence/src/exportTenant';
-import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery } from './restore';
+import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobArchiveRecovery } from './restore';
 import { assertMarkerMatchesManifest, signatureKeyFor, validateLatestSuccess, validateManifest, verifyManifestBytes } from './signing';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
@@ -84,24 +84,10 @@ async function main(): Promise<void> {
     forcePathStyle: true,
   });
 
-  // H-08: the drill reads a sample object from the DOCUMENTS bucket to prove blob
-  // recovery. When it runs on the same service as the backup job — which shares
-  // R2_ACCESS_KEY_ID as a WRITE key for the backups bucket — use a dedicated
-  // READ-ONLY credential for the documents bucket so the backup principal never
-  // gains write access to live customer files. Falls back to the main client if
-  // the dedicated read key isn't configured (e.g. a fully isolated drill env
-  // whose one key already spans both buckets).
-  const docsS3 = process.env.R2_DOCUMENTS_ACCESS_KEY_ID
-    ? new S3Client({
-        region: 'auto',
-        endpoint: req('R2_ENDPOINT'),
-        credentials: {
-          accessKeyId: req('R2_DOCUMENTS_ACCESS_KEY_ID'),
-          secretAccessKey: req('R2_DOCUMENTS_SECRET_ACCESS_KEY'),
-        },
-        forcePathStyle: true,
-      })
-    : s3;
+  // H-08 (Option A): the drill recovers blob bytes from the INDEPENDENT encrypted
+  // archive in the BACKUPS bucket (read with the main key), NOT from the live
+  // documents bucket — which the drill assumes lost. No documents-bucket
+  // credential is needed at restore time.
 
   const tempDir = await fs.mkdtemp(join(tmpdir(), 'c3restore-'));
   const idPath = join(tempDir, 'age.key');
@@ -224,35 +210,48 @@ async function main(): Promise<void> {
     if (!liveUnchanged) throw new Error('Live database counts changed during the restore drill!');
     log('restore.live_unchanged', { liveBefore, liveAfter });
 
-    // H-08: prove the OBJECT STORE is recoverable, not just the rows. The signed
-    // manifest carries a per-class blob census; fetch + hash-check a representative
-    // document/photo/intake object from the documents bucket. Fail-closed: if the
-    // backup records objects but no documents bucket is configured, the drill
-    // cannot prove recovery and refuses (unless explicitly skipped).
+    // H-08 (Option A): prove the OBJECT STORE is recoverable from the INDEPENDENT
+    // encrypted archive — the LIVE documents bucket is assumed LOST. Download the
+    // archive from the BACKUPS bucket, verify its own hash, decrypt + extract, and
+    // hash-check a representative object per class from THAT copy. Fail-closed:
+    // objects recorded but no archive (a pre-Option-A backup) cannot prove recovery.
     const inv = manifest.blobInventory;
     const invObjectCount = inv.document.count + inv.photo.count + inv.intake.count;
-    const docsBucket = process.env.R2_BUCKET_DOCUMENTS;
-    if (invObjectCount > 0 && !docsBucket && process.env.RESTORE_SKIP_BLOB_DRILL !== 'yes') {
+    const archive = manifest.blobArchive;
+    if (invObjectCount > 0 && !archive && process.env.RESTORE_SKIP_BLOB_DRILL !== 'yes') {
       throw new Error(
-        `Restore drill: the backup records ${invObjectCount} blob object(s) but R2_BUCKET_DOCUMENTS is not set — ` +
-          'cannot prove object recovery. Set it (read access to the documents bucket), or RESTORE_SKIP_BLOB_DRILL=yes to skip.',
+        `Restore drill: the backup records ${invObjectCount} blob object(s) but carries NO independent blob archive — ` +
+          'a pre-Option-A backup cannot prove object recovery. Take a fresh backup, or set RESTORE_SKIP_BLOB_DRILL=yes.',
       );
     }
-    if (invObjectCount > 0 && docsBucket) {
-      const fetchObject = async (key: string): Promise<Buffer | null> => {
+    if (archive) {
+      const arcEncPath = join(tempDir, 'blobs.tar.age');
+      const arcTarPath = join(tempDir, 'blobs.tar');
+      const arcDir = join(tempDir, 'blobs');
+      const arcRes = await s3.send(new GetObjectCommand({ Bucket: bucket, Key: archive.key }));
+      await fs.writeFile(arcEncPath, Buffer.from(await arcRes.Body!.transformToByteArray()));
+      const arcSha = await sha256File(arcEncPath);
+      if (arcSha !== archive.sha256) throw new Error('Blob archive sha256 mismatch — the independent copy is corrupt.');
+      // Decrypt + extract (identity reintroduced only here, removed immediately).
+      await fs.writeFile(idPath, identity.endsWith('\n') ? identity : identity + '\n', { mode: 0o600 });
+      await run('age', ['-d', '-i', idPath, '-o', arcTarPath, arcEncPath]);
+      await fs.rm(idPath, { force: true });
+      await fs.mkdir(arcDir, { recursive: true });
+      await run('tar', ['-xf', arcTarPath, '-C', arcDir]);
+      const extract = async (key: string): Promise<Buffer | null> => {
+        if (key.includes('..')) throw new Error(`Unsafe archive member key: ${key}`);
         try {
-          const res = await docsS3.send(new GetObjectCommand({ Bucket: docsBucket, Key: key }));
-          return Buffer.from(await res.Body!.transformToByteArray());
+          return await fs.readFile(join(arcDir, key));
         } catch (err) {
-          if ((err as { name?: string }).name === 'NoSuchKey') return null;
+          if ((err as { code?: string }).code === 'ENOENT') return null;
           throw err;
         }
       };
-      const rec = await verifyBlobRecovery(inv, fetchObject);
-      evidence = { ...evidence, blobRecovery: { verifiedClasses: rec.verifiedClasses } };
-      log('restore.blob_recovery_verified', { verifiedClasses: rec.verifiedClasses });
+      const rec = await verifyBlobArchiveRecovery(inv, archive, extract);
+      evidence = { ...evidence, blobRecovery: { verifiedClasses: rec.verifiedClasses, source: 'independent-archive' } };
+      log('restore.blob_recovery_verified', { verifiedClasses: rec.verifiedClasses, source: 'independent-archive', entries: archive.entryCount });
     } else {
-      log('restore.blob_recovery_skipped', { invObjectCount, docsBucketConfigured: Boolean(docsBucket) });
+      log('restore.blob_recovery_skipped', { invObjectCount });
     }
 
     // Optional composed per-org restore (Track A, B-5 / A-5): run the
