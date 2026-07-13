@@ -122,6 +122,10 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
         );
       }
       await client.query(`UPDATE tenant SET exit_state = 'Exiting' WHERE id = $1`, [t0.rows[0].id]);
+      // R3-N02: revoke every live intake link IN THE SAME TX as the state flip, so once
+      // the tenant is Exiting no new public upload can even start — the route's cheap
+      // peek sees a non-Active link and returns 410 before buffering any bytes.
+      await client.query(`UPDATE intake_link SET status = 'Revoked' WHERE tenant_id = $1 AND status = 'Active'`, [t0.rows[0].id]);
       await client.query('COMMIT');
     } catch (e) {
       await client.query('ROLLBACK').catch(() => {});

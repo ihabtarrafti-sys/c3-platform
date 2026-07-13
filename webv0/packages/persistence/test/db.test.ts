@@ -73,7 +73,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -343,6 +343,39 @@ describe('migrations & schema', () => {
       await admin.query(`UPDATE person SET full_name='Renamed' WHERE person_id='PER-Q'`);
     } finally {
       await admin.end();
+    }
+  });
+
+  it('R3-N02: the quiesce trigger LOCKS the tenant row (FOR SHARE) so the Exiting transition serializes with in-flight writers', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'lockco' });
+    const writer = new Client({ connectionString: db.adminUrl });
+    const exiter = new Client({ connectionString: db.adminUrl });
+    await writer.connect();
+    await exiter.connect();
+    try {
+      await writer.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-L','P')`, [t.tenantId]);
+      // Writer opens a tx and inserts a blob row for the (Active) tenant. The quiesce
+      // trigger's UNCONDITIONAL `SELECT … FOR SHARE` takes a share lock on the tenant
+      // row and HOLDS it for the open tx (on the old conditional form it locked nothing).
+      await writer.query('BEGIN');
+      await writer.query(
+        `INSERT INTO document (tenant_id, document_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, storage_key, uploaded_by)
+         VALUES ($1,'DOC-L','Person','PER-L','f','application/pdf',10,$2,$3,'u@x.com')`,
+        [t.tenantId, 'a'.repeat(64), `${t.tenantId}/doc-l`],
+      );
+      // The Exiting transition needs FOR NO KEY UPDATE on that row → it CONFLICTS with the
+      // writer's share lock and blocks. A short statement_timeout turns the block into a
+      // deterministic error (GREEN). On the lock-free/conditional trigger the UPDATE would
+      // not block and would succeed → this expectation fails (RED), proving the lock works.
+      await exiter.query(`SET statement_timeout = '600ms'`);
+      await expect(
+        exiter.query(`UPDATE tenant SET exit_state = 'Exiting' WHERE id = $1`, [t.tenantId]),
+      ).rejects.toThrow(/statement timeout|canceling statement/i);
+    } finally {
+      await writer.query('ROLLBACK').catch(() => {});
+      await writer.end();
+      await exiter.end();
     }
   });
 
