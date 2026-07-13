@@ -4,8 +4,8 @@
  * the SHA-256, stores the blob under a tenant-scoped server-generated key, and
  * THEN sets the pointer here.
  *
- * AUTHZ mirrors the name: VIEWING a photo rides the baseline people read (a
- * face is the same read surface as the person's name — not the PII tier).
+ * AUTHZ (HARDEN-3 owner ruling): a face is PII-tier, so VIEWING a photo rides
+ * canViewPersonPII (assertViewPersonPII) — NOT the baseline people read.
  * SET / CLEAR are owner/operations (assertSubmitApproval), direct-audited on
  * the PERSON trail (PersonPhotoUpdated / PersonPhotoRemoved), consistent with
  * how document attach records facts. The pointer is version-FREE — a photo swap

@@ -88,9 +88,10 @@ const optionalShort = shortText.nullish();
 
 /**
  * The new-joiner's self-submitted details. The operational fields map straight
- * onto AddPerson; the identity/contact/sizes fields are CAPTURED and summarised
- * into the approval's notes (they become the person's data via the governed S11
- * identity update after creation — never a quiet write from a public form).
+ * onto AddPerson. The identity/contact PII (DOB / email / phone / address) rides
+ * the GATED AddPerson columns — never the approval notes (H-02: notes reach every
+ * canReadPeople role). Only non-PII context (sizes, the joiner's own note) is
+ * summarised into notes. See onboardingToAddPerson.
  */
 export const onboardingIntakePayloadSchema = z
   .object({
@@ -102,7 +103,7 @@ export const onboardingIntakePayloadSchema = z
     currentTeam: optionalShort,
     currentGameTitle: optionalShort,
     primaryDepartment: optionalShort,
-    // identity/contact (captured → summarised into notes at promote)
+    // identity/contact PII (captured → GATED AddPerson columns at promote, never notes — H-02)
     dateOfBirth: z
       .string()
       .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD.')
@@ -132,9 +133,10 @@ export function parseIntakePayload(kind: IntakeKind, payload: unknown): Onboardi
 
 /**
  * Compose the AddPerson input + a legible context note from an onboarding
- * submission. The operational fields ride AddPerson; everything else is folded
- * into notes so the APPROVER sees the whole picture (and nothing a public form
- * typed silently overwrites a governed field). Pure — used at promote time.
+ * submission. Operational fields + identity/contact PII ride the gated AddPerson
+ * columns (H-02); only NON-PII context (sizes, the joiner's own note) is folded
+ * into notes, so nothing a public form typed silently overwrites a governed field
+ * and no PII leaks through the every-people-reader notes. Pure — used at promote time.
  */
 export function onboardingToAddPerson(payload: OnboardingIntakePayload): AddPersonInput {
   const clean = (v: string | null | undefined): string | null => {
