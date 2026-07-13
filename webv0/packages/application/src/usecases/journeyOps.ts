@@ -20,6 +20,7 @@ import {
   nextJourneyStatus,
   JOURNEY_CLOSING_TRANSITIONS,
   ConcurrencyError,
+  ConflictError,
   formatApprovalId,
   InvalidTransitionError,
   NotFoundError,
@@ -107,6 +108,11 @@ export async function transitionJourney(
     }
     const to = nextJourneyStatus(action, current.status)!;
     const endedOn = JOURNEY_CLOSING_TRANSITIONS.includes(action) ? utcTodayIso() : null;
+    // L-01: a journey cannot end before it started (friendly pre-check; the DB
+    // journey_ended_after_started CHECK is the authority).
+    if (endedOn !== null && endedOn < current.startedOn) {
+      throw new ConflictError('A journey cannot be closed before its start date.', { journeyId, startedOn: current.startedOn, endedOn });
+    }
 
     // Version + state guarded at the statement level: a stale or raced row
     // updates nothing and surfaces as a truthful concurrency refusal.

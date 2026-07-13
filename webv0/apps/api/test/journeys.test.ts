@@ -129,6 +129,21 @@ describe('direct-audited transitions over HTTP', () => {
     expect(c.json().journey.endedOn).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 
+  it('L-01: a journey cannot be completed before its start date', async () => {
+    const personId = await addPerson('Future Start');
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/journeys/requests',
+      headers: auth(tokens.ops),
+      payload: { input: { personId, journeyType: 'Pro Contract Onboarding', startedOn: '2099-01-01' } },
+    });
+    expect(res.statusCode, res.body).toBe(201);
+    const j = (await ownerExecutes(res.json().approval)).journey as { journeyId: string; version: number };
+    // Completing today (before the 2099 start) is refused — end cannot precede start.
+    const complete = await transition(tokens.ops, j.journeyId, 'complete', j.version);
+    expect(complete.statusCode, complete.body).toBe(409);
+  });
+
   it('cancel without a reason is 400; with a reason it lands and is audited', async () => {
     const personId = await addPerson('Cancel Target');
     const j = await initiate(personId);
