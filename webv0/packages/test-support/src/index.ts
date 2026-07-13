@@ -201,6 +201,9 @@ export async function startTestDatabase(): Promise<TestDatabase> {
     authPassword: AUTH_PW,
     backupRole: BACKUP_ROLE,
     backupPassword: BACKUP_PW,
+    // Disposable embedded test database: dev/convenience secrets are intentional
+    // (H-01.1 fail-closed requires this to be an EXPLICIT opt-in).
+    allowDevSecrets: true,
   });
 
   const adminQuery = async <T = Record<string, unknown>>(text: string, params?: unknown[]): Promise<T[]> => {

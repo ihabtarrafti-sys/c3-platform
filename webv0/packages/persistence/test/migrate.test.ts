@@ -1,13 +1,16 @@
 /**
- * migrate.test.ts — H-01: the strong-secret gate. In production, runMigrations
- * MUST refuse a missing or published-default role password BEFORE it touches the
- * database — the backup role is BYPASSRLS (it reads every tenant), so a known
- * password there exposes all data. These cases fail in the pure guard, so no
- * database is needed; the admin URL is deliberately unreachable to prove the
- * refusal happens first.
+ * migrate.test.ts — H-01 / H-01.1: the FAIL-CLOSED strong-secret gate.
+ *
+ * runMigrations must refuse a missing or published-default role password BEFORE
+ * it touches the database, in EVERY mode except an explicit dev/test opt-in —
+ * the backup role is BYPASSRLS (it reads every tenant), so a known password
+ * there exposes all data. Round 2 proved the round-1 gate only fired on exact
+ * NODE_ENV==='production'; these cases prove the default is now unreachable
+ * unless dev/test is explicitly selected. The pure guard fails before any
+ * connection, so the admin URL is deliberately unreachable to prove ordering.
  */
 import { describe, expect, it } from 'vitest';
-import { runMigrations } from '../src/migrate';
+import { runMigrations, resolveSecretMode } from '../src/migrate';
 
 const base = {
   adminConnectionString: 'postgres://c3_admin:x@127.0.0.1:1/does-not-exist',
@@ -15,28 +18,49 @@ const base = {
   appPassword: 'a-strong-app-secret',
   authPassword: 'a-strong-auth-secret',
   backupPassword: 'a-strong-backup-secret',
-  requireStrongSecrets: true as const,
   log: () => {},
 };
 
-describe('H-01: production strong-secret gate for runMigrations', () => {
-  it('refuses a MISSING backup secret before touching the database', async () => {
+describe('H-01.1: fail-closed strong-secret gate for runMigrations', () => {
+  // The default (no allowDevSecrets) is fail-closed — this is the whole point.
+  it('by DEFAULT (no dev opt-in) refuses a MISSING backup secret before the DB', async () => {
     await expect(runMigrations({ ...base, backupPassword: undefined })).rejects.toThrow(/backupPassword.*required/i);
   });
-
-  it('refuses the PUBLISHED default backup password (unreachable in prod mode)', async () => {
+  it('by DEFAULT refuses the PUBLISHED default backup password (unreachable outside dev)', async () => {
     await expect(runMigrations({ ...base, backupPassword: 'c3_backup_dev_pw' })).rejects.toThrow(/PUBLISHED dev default/);
   });
-
-  it('refuses default app and auth passwords too', async () => {
+  it('by DEFAULT refuses default app and missing auth passwords too', async () => {
     await expect(runMigrations({ ...base, appPassword: 'c3_app_dev_pw' })).rejects.toThrow(/PUBLISHED dev default/);
     await expect(runMigrations({ ...base, authPassword: undefined })).rejects.toThrow(/authPassword.*required/i);
   });
 
-  it('does NOT apply the gate when requireStrongSecrets is off (dev/test keep the fallbacks)', async () => {
-    // With the gate off, the default secret is accepted and the run proceeds to
-    // the DB — which is unreachable here, so it fails on CONNECTION, never on the
-    // secret. That distinction proves the gate did not fire.
-    await expect(runMigrations({ ...base, requireStrongSecrets: false, backupPassword: 'c3_backup_dev_pw' })).rejects.not.toThrow(/dev default|required/i);
+  it('ONLY an explicit dev opt-in accepts the fallbacks — and then fails on CONNECTION, not the secret', async () => {
+    // allowDevSecrets:true is the explicit opt-in. The default secret is now
+    // accepted and the run proceeds to the (unreachable) DB — proving the gate
+    // did NOT fire.
+    await expect(
+      runMigrations({ ...base, allowDevSecrets: true, backupPassword: 'c3_backup_dev_pw' }),
+    ).rejects.not.toThrow(/dev default|required/i);
+  });
+});
+
+describe('H-01.1: resolveSecretMode is fail-closed on NODE_ENV', () => {
+  const allow = (NODE_ENV?: string) => resolveSecretMode({ NODE_ENV } as NodeJS.ProcessEnv).allowDevSecrets;
+
+  it('permits dev secrets ONLY for explicit development/test', () => {
+    expect(allow('development')).toBe(true);
+    expect(allow('test')).toBe(true);
+  });
+
+  it('requires strong secrets for production, staging, absent, empty, or MISTYPED values', () => {
+    for (const v of ['production', 'staging', undefined, '', 'Production', 'prod', 'Development ', 'dev']) {
+      expect(allow(v), `NODE_ENV=${JSON.stringify(v)} must be fail-closed`).toBe(false);
+    }
+  });
+
+  it('rotation of role secrets is a separate explicit opt-in', () => {
+    expect(resolveSecretMode({} as NodeJS.ProcessEnv).rotateRoleSecrets).toBe(false);
+    expect(resolveSecretMode({ MIGRATE_ROTATE_ROLE_SECRETS: 'yes' } as NodeJS.ProcessEnv).rotateRoleSecrets).toBe(true);
+    expect(resolveSecretMode({ MIGRATE_ROTATE_ROLE_SECRETS: 'true' } as NodeJS.ProcessEnv).rotateRoleSecrets).toBe(false);
   });
 });

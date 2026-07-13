@@ -3,7 +3,7 @@
  *   npm run webv0:db:migrate
  * Reads the privileged admin URL + app role/password from the environment.
  */
-import { runMigrations } from '../src/migrate';
+import { runMigrations, resolveSecretMode } from '../src/migrate';
 
 function parseAppRole(appUrl: string | undefined): { role: string; password: string } {
   if (!appUrl) return { role: 'c3_app', password: 'c3_app_dev_pw' };
@@ -23,7 +23,11 @@ const auth = process.env.DATABASE_AUTH_URL ? parseAppRole(process.env.DATABASE_A
 // connection URL if provided). In production it is REQUIRED and must be strong —
 // runMigrations refuses a missing/default value before touching the database.
 const backup = process.env.DATABASE_BACKUP_URL ? parseAppRole(process.env.DATABASE_BACKUP_URL) : null;
-const requireStrongSecrets = process.env.NODE_ENV === 'production';
+// H-01.1: fail-closed. Dev/test convenience secrets are used ONLY when NODE_ENV
+// explicitly selects them; anything else requires strong secrets. Role-secret
+// rotation is opt-in via MIGRATE_ROTATE_ROLE_SECRETS=yes and is decoupled from
+// ordinary schema application.
+const { allowDevSecrets, rotateRoleSecrets } = resolveSecretMode(process.env);
 
 runMigrations({
   adminConnectionString,
@@ -33,7 +37,8 @@ runMigrations({
   authPassword: process.env.AUTH_DB_PASSWORD ?? auth?.password,
   backupRole: process.env.BACKUP_DB_ROLE ?? backup?.role ?? 'c3_backup',
   backupPassword: process.env.BACKUP_DB_PASSWORD ?? backup?.password,
-  requireStrongSecrets,
+  allowDevSecrets,
+  rotateRoleSecrets,
   log: (m) => console.log(m),
 })
   .then((applied) => {

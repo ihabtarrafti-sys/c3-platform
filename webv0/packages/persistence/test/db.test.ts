@@ -642,6 +642,7 @@ describe('migrations & schema', () => {
           appPassword: pwOf(db.appUrl),
           authPassword: pwOf(db.authUrl),
           backupPassword: pwOf(db.backupUrl),
+          allowDevSecrets: true, // disposable embedded DB (H-01.1 explicit opt-in)
         });
       // simulate an in-place edit: corrupt one stored checksum, rerun → loud refusal
       await client.query(`UPDATE _migrations SET checksum = repeat('0', 64) WHERE id = '0001_schema.sql'`);
