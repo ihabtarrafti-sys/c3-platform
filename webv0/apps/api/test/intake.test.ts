@@ -311,6 +311,37 @@ describe('guest intake — reject wipes', () => {
     const [t] = await adminQuery<{ deleted_at: string | null }>(`SELECT deleted_at FROM blob_tombstone WHERE storage_key=$1`, [key]);
     expect(t!.deleted_at).not.toBeNull();
   });
+
+  it('R3-N02: a claim refused mid-exit durably TOMBSTONES the stored bytes (never a swallowed orphan); the drain sweeps them', async () => {
+    const link = await mintLink(tokens.ops);
+    const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
+    const alphaId = tenant!.id;
+    // Simulate the in-flight race: the public peek passed while Active, then the tenant
+    // transitions to Exiting (set directly — link NOT revoked — so the upload still reaches
+    // the claim, where the quiesce trigger refuses the intake_submission insert).
+    await adminQuery(`UPDATE tenant SET exit_state='Exiting' WHERE id=$1`, [alphaId]);
+
+    const res = await submitGuest(link, { fullName: 'Inflight Ivan' }, [{ name: 'p.pdf', type: 'application/pdf', bytes: PDF }]);
+    expect(res.statusCode).toBe(500); // the claim is refused by the Exiting quiesce trigger
+
+    // R3-N02 fix: the refused claim's bytes are recorded as a DURABLE wipe tombstone
+    // (reason='intake_refused'), not swallowed. On today's code there is none → this is red.
+    const tombs = await adminQuery<{ storage_key: string }>(
+      `SELECT storage_key FROM blob_tombstone WHERE tenant_ref=$1 AND reason='intake_refused'`,
+      [alphaId],
+    );
+    expect(tombs.length).toBe(1);
+    expect(tombs[0]!.storage_key).toMatch(new RegExp(`^intake/${alphaId}/`));
+
+    // the wipe drain now covers intake_refused → the bytes are removed + the tombstone resolved.
+    const drain = await post(tokens.owner, '/api/v1/intake/drain-wipes', {});
+    expect(drain.statusCode, drain.body).toBe(200);
+    const [pending] = await adminQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref=$1 AND reason='intake_refused' AND deleted_at IS NULL`,
+      [alphaId],
+    );
+    expect(pending!.n).toBe(0);
+  });
 });
 
 describe('guest intake — boundaries (roles, tenants, public scope)', () => {

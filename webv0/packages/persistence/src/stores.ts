@@ -537,7 +537,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; storageKey: string }>> => {
             const res = await db.execute(sql`
               SELECT id, storage_key FROM blob_tombstone
-               WHERE reason = 'intake_reject' AND deleted_at IS NULL
+               WHERE reason IN ('intake_reject', 'intake_refused') AND deleted_at IS NULL
                ORDER BY created_at
             `);
             return res.rows.map((r) => ({ id: String(r.id), storageKey: String(r.storage_key) }));
@@ -879,6 +879,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         expiresAt: r.expires_at instanceof Date ? r.expires_at.toISOString() : String(r.expires_at),
         usesLeft: Number(r.uses_left),
       };
+    },
+    async tombstoneRefusedUploads(tokenHash: string, storageKeys: readonly string[]): Promise<number> {
+      if (storageKeys.length === 0) return 0;
+      // R3-N02: token-keyed definer insert — durable record of a refused claim's bytes,
+      // written even while the tenant is Exiting (blob_tombstone is not quiesced).
+      const res = await pool.query('SELECT intake_tombstone_refused($1, $2) AS n', [tokenHash, storageKeys as string[]]);
+      return Number(res.rows[0]?.n ?? 0);
     },
     async claimAndInsert(tokenHash: string, submission: NewGuestSubmission) {
       const client = await pool.connect();

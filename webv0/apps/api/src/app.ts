@@ -1746,6 +1746,15 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const uploads: IntakeUpload[] = [];
       const storedKeys: string[] = [];
       let failure: { status: number; code: string; msg: string } | null = null;
+      // R3-N02: discard stored bytes on ANY failure WITHOUT ever swallowing an orphan —
+      // durably tombstone first (survives a failed delete AND an Exiting tenant, since
+      // blob_tombstone is not quiesced), then best-effort delete; the reject drain / exit
+      // sweep finishes any the delete missed. Replaces the old swallowed `.catch(()=>{})`.
+      const discardStored = async () => {
+        if (storedKeys.length === 0) return;
+        await P.guest.tombstoneRefusedUploads(tokenHash, storedKeys).catch(() => {});
+        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+      };
       try {
         for await (const part of req.parts()) {
           if (failure) {
@@ -1781,13 +1790,13 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
           }
         }
       } catch (err) {
-        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        await discardStored();
         if ((err as { code?: string }).code === 'FST_FILES_LIMIT') return sendError(req, reply, 413, 'TOO_LARGE', 'Too many files.');
         throw err;
       }
 
       const fail = async (status: number, code: string, msg: string) => {
-        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        await discardStored();
         return sendError(req, reply, status, code, msg);
       };
       if (failure) return fail(failure.status, failure.code, failure.msg);
@@ -1806,8 +1815,9 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const submission = await submitGuestIntake(P, { tokenHash, submissionId, kind, payload, uploads, submitterFingerprint: fingerprint });
         return reply.status(201).send({ ok: true as const, reference: submission.id.slice(0, 8).toUpperCase() });
       } catch (err) {
-        // Claim lost the race / payload invalid → wipe the quarantined blobs.
-        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        // Claim lost the race / refused by the Exiting quiesce / payload invalid → the
+        // bytes are durably tombstoned (R3-N02) then best-effort deleted; never swallowed.
+        await discardStored();
         throw err;
       }
     },

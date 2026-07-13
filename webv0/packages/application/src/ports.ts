@@ -1144,6 +1144,13 @@ export interface GuestIntakePort {
    * the caller compensates (deletes any quarantined blobs).
    */
   claimAndInsert(tokenHash: string, submission: NewGuestSubmission): Promise<{ tenantId: string; linkId: string; kind: string; submission: IntakeSubmission }>;
+  /**
+   * R3-N02: durably tombstone the bytes of a REFUSED claim (token-keyed SECURITY
+   * DEFINER gateway, since the public route has no actor and blob_tombstone is FORCE
+   * RLS). A failed best-effort delete can then never strand the bytes — the exit sweep
+   * / reject drain removes them. Returns the number of keys recorded.
+   */
+  tombstoneRefusedUploads(tokenHash: string, storageKeys: readonly string[]): Promise<number>;
 }
 
 /** Everything a use-case needs from persistence. */
