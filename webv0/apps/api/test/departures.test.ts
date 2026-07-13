@@ -152,7 +152,7 @@ describe('departure workflow', () => {
 
       // Simulate a CRASH between completion and the hand-off: complete via the
       // use-case (which persists the intent atomically) but do NOT drain.
-      await completeDeparture(deps.persistence, actor, dep.departureId, { expectedVersion: dep.version, deactivatePerson: true });
+      await completeDeparture(deps.persistence, actor, dep.departureId, { expectedVersion: dep.version, note: null, deactivatePerson: true });
 
       // The intent is DURABLE and DISCOVERABLE, not yet handed off.
       const row1 = (await client.query(`SELECT deactivation_requested, deactivation_approval_id FROM departure WHERE departure_id=$1`, [dep.departureId])).rows[0];
