@@ -102,23 +102,70 @@ export function validateExitManifest(raw: unknown, ctx: ManifestCheckContext): E
   if (m.tenant.slug !== ctx.tenantSlug) reject(`manifest is for tenant '${m.tenant.slug}', not '${ctx.tenantSlug}'.`);
   if (m.tenant.id !== ctx.liveTenantId) reject(`manifest tenant id ${m.tenant.id} does not match the live tenant ${ctx.liveTenantId}.`);
 
-  const manifestTip = m.schemaVersion[m.schemaVersion.length - 1];
-  const liveTip = ctx.liveMigrations[ctx.liveMigrations.length - 1];
-  if (m.schemaVersion.length !== ctx.liveMigrations.length || manifestTip !== liveTip) {
+  // H-06: the EXACT migration array must match — not just count + tip. A reordered
+  // or divergent history (same length + tip but a different middle) must not
+  // authorize erasure of data exported under a different schema.
+  const sameHistory =
+    m.schemaVersion.length === ctx.liveMigrations.length &&
+    m.schemaVersion.every((id, i) => id === ctx.liveMigrations[i]);
+  if (!sameHistory) {
+    const manifestTip = m.schemaVersion[m.schemaVersion.length - 1];
+    const liveTip = ctx.liveMigrations[ctx.liveMigrations.length - 1];
     reject(
       `manifest schema (${m.schemaVersion.length} migrations, tip ${manifestTip ?? 'none'}) does not match the live schema ` +
         `(${ctx.liveMigrations.length} migrations, tip ${liveTip ?? 'none'}) — re-export before erasing.`,
     );
   }
 
+  // H-06: the two time checks are INDEPENDENT. A FUTURE timestamp is never
+  // legitimate and is ALWAYS refused (a stale override must not smuggle it past);
+  // only the too-old staleness check is what --allow-stale-manifest waives.
+  const ageMs = (ctx.now ?? new Date()).getTime() - Date.parse(m.exportedAt);
+  if (ageMs < -60_000) reject(`manifest exportedAt ${m.exportedAt} is in the future — refused.`);
   if (!ctx.allowStale) {
     const maxAgeDays = ctx.maxAgeDays ?? 7;
-    const ageMs = (ctx.now ?? new Date()).getTime() - Date.parse(m.exportedAt);
-    if (ageMs < -60_000) reject(`manifest exportedAt ${m.exportedAt} is in the future — refused.`);
     if (ageMs > maxAgeDays * 86_400_000) {
       reject(`manifest is stale (exported ${m.exportedAt}, older than ${maxAgeDays}d) — re-export, or pass --allow-stale-manifest to override.`);
     }
   }
 
   return m;
+}
+
+/** Reads the actual export bundle for the at-exit re-verification (H-06). */
+export interface ExitBundleReader {
+  /** Every entry name present in the bundle, EXCLUDING the manifest file itself. */
+  listEntries(): Promise<string[]>;
+  /** sha256 of a named bundle entry, or null if it is absent. */
+  sha256Of(name: string): Promise<string | null>;
+  /** Line/row count of a data file, or null if absent / not a row file. */
+  rowCountOf(name: string): Promise<number | null>;
+}
+
+/**
+ * H-06: re-open and verify the ACTUAL bundle at exit — the manifest only
+ * describes it. The set of files present must EXACTLY match what the manifest
+ * names (no missing file, no unlisted extra), every data file's sha256 (and row
+ * count) must match, and every blob the manifest indexes must be present with the
+ * right hash. This is what turns away a fabricated, partial, or `--no-doc-bytes`
+ * (blob-less) bundle whose metadata would otherwise pass.
+ */
+export async function verifyExitBundle(m: ExitManifest, reader: ExitBundleReader): Promise<void> {
+  const expected = new Set<string>([...m.files.map((f) => f.name), ...m.blobs.map((b) => b.bundleName)]);
+  const present = new Set(await reader.listEntries());
+  for (const name of expected) if (!present.has(name)) reject(`export bundle is MISSING '${name}' named in the manifest — refusing to erase.`);
+  for (const name of present) if (!expected.has(name)) reject(`export bundle contains an UNLISTED file '${name}' — manifest/bundle mismatch, refusing to erase.`);
+
+  for (const f of m.files) {
+    const sha = await reader.sha256Of(f.name);
+    if (sha === null) reject(`export file '${f.name}' is absent from the bundle.`);
+    if (sha !== f.sha256) reject(`export file '${f.name}' hash mismatch (manifest ${f.sha256}, actual ${sha}).`);
+    const rows = await reader.rowCountOf(f.name);
+    if (rows !== null && rows !== f.rows) reject(`export file '${f.name}' row count ${rows} != manifest ${f.rows}.`);
+  }
+  for (const b of m.blobs) {
+    const sha = await reader.sha256Of(b.bundleName);
+    if (sha === null) reject(`blob '${b.bundleName}' (${b.blobClass}) is absent from the bundle — the export omitted its bytes.`);
+    if (sha !== b.sha256) reject(`blob '${b.bundleName}' hash mismatch (manifest ${b.sha256}, actual ${sha}).`);
+  }
 }

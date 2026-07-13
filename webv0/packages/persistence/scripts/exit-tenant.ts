@@ -26,11 +26,44 @@
  * the append-only triggers requires table ownership. Never an API hook.
  */
 import { Client } from 'pg';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { resolve, dirname, relative, join } from 'node:path';
 import { exitTenant } from '../src/exitTenant';
 import { createBlobReader, sweepTenantBlobErasure } from '../src/blobBundle';
-import { validateExitManifest, ManifestRejectedError } from '../src/exitManifest';
+import { validateExitManifest, verifyExitBundle, ManifestRejectedError, type ExitBundleReader } from '../src/exitManifest';
+
+/** H-06: a filesystem-backed reader over the export bundle directory. */
+function bundleReaderAt(bundleDir: string): ExitBundleReader {
+  const walk = (dir: string): string[] =>
+    readdirSync(dir).flatMap((e) => {
+      const full = join(dir, e);
+      return statSync(full).isDirectory() ? walk(full) : [relative(bundleDir, full).split('\\').join('/')];
+    });
+  return {
+    async listEntries() {
+      return walk(bundleDir).filter((n) => n !== 'manifest.json');
+    },
+    async sha256Of(name) {
+      const full = resolve(bundleDir, name);
+      try {
+        return createHash('sha256').update(readFileSync(full)).digest('hex');
+      } catch {
+        return null;
+      }
+    },
+    async rowCountOf(name) {
+      const full = resolve(bundleDir, name);
+      try {
+        const text = readFileSync(full, 'utf8');
+        if (text.length === 0) return 0;
+        return text.replace(/\n$/, '').split('\n').length;
+      } catch {
+        return null;
+      }
+    },
+  };
+}
 
 function arg(name: string, required: boolean): string | undefined {
   const i = process.argv.indexOf(`--${name}`);
@@ -106,7 +139,12 @@ try {
         liveMigrations: migs.rows.map((r) => r.id),
         allowStale: allowStaleManifest,
       });
-      console.log(`  data-return     verified manifest for ${m.tenant.slug} (${m.tenant.id}), exported ${m.exportedAt}, ${m.files.length} files + ${m.blobs.length} blobs`);
+      // H-06: metadata alone cannot authorize — re-open the ACTUAL bundle next to
+      // the manifest and verify it matches (exact file set, every hash + row count,
+      // every indexed blob present). A fabricated, partial, or --no-doc-bytes
+      // bundle is refused HERE, before anything is erased.
+      await verifyExitBundle(m, bundleReaderAt(dirname(resolve(manifestPath!))));
+      console.log(`  data-return     verified manifest AND bundle for ${m.tenant.slug} (${m.tenant.id}), exported ${m.exportedAt}, ${m.files.length} files + ${m.blobs.length} blobs`);
     } catch (err) {
       if (err instanceof ManifestRejectedError) {
         console.error(`\nEXIT REFUSED (data-return): ${err.message}`);

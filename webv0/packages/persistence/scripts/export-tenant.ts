@@ -18,7 +18,7 @@
  *   - is NEVER run automatically — a manual operator CLI, not an API hook.
  */
 import { Client } from 'pg';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, renameSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { exportTenant } from '../src/exportTenant';
 import { createBlobReader, downloadBlobUniverse } from '../src/blobBundle';
@@ -49,7 +49,9 @@ try {
   const { manifest, files, blobs } = await exportTenant(client, { tenantSlug });
   mkdirSync(outDir, { recursive: true });
   for (const f of files) writeFileSync(resolve(outDir, f.name), f.content, 'utf8');
-  writeFileSync(resolve(outDir, 'manifest.json'), JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  // H-06: the manifest is the erasure-AUTHORIZING artifact — it is published LAST,
+  // by atomic rename, only after every row file AND blob is on disk. A crashed or
+  // partial export therefore leaves NO manifest.json to authorize an erasure.
 
   // HARDEN-3 (H-07): the evidence bytes — the FULL blob universe (documents +
   // photos + intake quarantine), each written under its collision-free bundle
@@ -81,6 +83,11 @@ try {
   } else if (blobs.length > 0) {
     console.error(`WARNING: --no-doc-bytes set — ${blobs.length} object blob(s) NOT included in this bundle.`);
   }
+
+  // H-06: publish the authorizing manifest LAST, atomically (write-temp + rename).
+  const manifestTmp = resolve(outDir, 'manifest.json.tmp');
+  writeFileSync(manifestTmp, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  renameSync(manifestTmp, resolve(outDir, 'manifest.json'));
 
   console.log(`\n=== tenant export: ${manifest.tenant.slug} (${manifest.tenant.name}) ===`);
   console.log(`  tenant id     ${manifest.tenant.id}`);
