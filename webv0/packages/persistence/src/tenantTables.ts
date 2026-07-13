@@ -33,6 +33,10 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'role_assignment', exportSql: `SELECT * FROM role_assignment WHERE tenant_id = $1 ORDER BY user_id, role`, exitRank: 89 },
   { name: 'business_id_counter', exportSql: `SELECT * FROM business_id_counter WHERE tenant_id = $1 ORDER BY kind`, exitRank: 80 },
   { name: 'approval', exportSql: `SELECT * FROM approval WHERE tenant_id = $1 ORDER BY approval_id`, exitRank: 70 },
+  // M-06: the revise-intent outbox. Holds validated submit payloads (PII) — registered
+  // here so the exit ceremony erases it + asserts it zero (nothing FKs to it, so it can
+  // delete early). Only tenant(id) is referenced; timestamptz columns need no ::text cast.
+  { name: 'approval_revision', exportSql: `SELECT * FROM approval_revision WHERE tenant_id = $1 ORDER BY id`, exitRank: 3 },
   { name: 'approval_event', exportSql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 5 },
   { name: 'audit_event', exportSql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 4 },
 

@@ -31,6 +31,8 @@ const MEMBER_OPS = new Set(['ProvisionMember', 'ChangeRole', 'DeactivateMember',
 export interface SubmitMemberChangeCommand {
   readonly payload: MemberChangePayload;
   readonly reason?: string | null;
+  /** M-06: set when this submit is a revision — stamped as the idempotency key. */
+  readonly revisionOf?: string | null;
 }
 
 export async function submitMemberChange(
@@ -66,6 +68,7 @@ export async function submitMemberChange(
       reason,
       payload,
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,

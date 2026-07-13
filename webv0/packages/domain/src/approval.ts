@@ -388,6 +388,37 @@ export const reviseApprovalInputSchema = z
   .strict();
 export type ReviseApprovalInput = z.infer<typeof reviseApprovalInputSchema>;
 
+/**
+ * M-06: the revise-intent outbox row (table `approval_revision`, migration 0058).
+ * A durable, write-once claim on a source approval that makes revise/resubmit atomic
+ * and crash-resumable — the departure-outbox pattern applied to revise.
+ *   Pending    — the outstanding work; a drain completes it after a crash.
+ *   Completed  — submitted + linked; `submittedApprovalId` names the successor.
+ *   Abandoned  — a deterministic refusal (attempt 1) or the poison-pill backstop after
+ *                N transient retries; `lastError` carries why, the source stays Withdrawn.
+ */
+export const REVISION_INTENT_STATUSES = ['Pending', 'Completed', 'Abandoned'] as const;
+export type RevisionIntentStatus = (typeof REVISION_INTENT_STATUSES)[number];
+
+export interface ApprovalRevision {
+  readonly id: string;
+  readonly tenantId: string;
+  readonly sourceApprovalId: string;
+  readonly operationType: Approval['operationType'];
+  readonly payload: ApprovalPayload;
+  readonly reason: string | null;
+  readonly submittedBy: string;
+  readonly status: RevisionIntentStatus;
+  readonly submittedApprovalId: string | null;
+  readonly attempts: number;
+  readonly lastError: string | null;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+/** How many transient (non-deterministic) drain attempts before the intent is abandoned. */
+export const REVISION_MAX_ATTEMPTS = 5;
+
 /** The field names whose values differ between two op inputs (sorted; for the record). */
 export function changedInputFields(before: unknown, after: unknown): string[] {
   const a = (before ?? {}) as Record<string, unknown>;

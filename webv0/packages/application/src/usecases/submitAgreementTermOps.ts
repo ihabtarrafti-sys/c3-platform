@@ -73,6 +73,7 @@ async function insertTermApproval(
   reasonRaw: string | null | undefined,
   note: string,
   auditAfter: Record<string, unknown>,
+  revisionOf: string | null | undefined,
 ): Promise<Approval> {
   const reason = reasonRaw?.trim() ? reasonRaw.trim() : null;
   return p.writes.transaction(actor, async (tx) => {
@@ -86,6 +87,7 @@ async function insertTermApproval(
       reason,
       payload: { operationType: op, input: payloadInput },
       submittedBy: actor.identity,
+      revisionOf: revisionOf ?? null,
     });
     await tx.appendApprovalEvent({ approvalId, fromStatus: null, toStatus: 'Submitted', actor: actor.identity, note });
     await tx.appendAuditEvent({
@@ -103,7 +105,7 @@ async function insertTermApproval(
 export async function submitAddAgreementTerm(
   p: Persistence,
   actor: Actor,
-  command: { input: SubmitAddAgreementTermInput; reason?: string | null },
+  command: { input: SubmitAddAgreementTermInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   assertViewFinancials(actor);
@@ -122,13 +124,14 @@ export async function submitAddAgreementTerm(
     command.reason,
     `AddAgreementTerm request submitted: ${input.kind} on ${input.agreementId}`,
     { agreementId: input.agreementId, kind: input.kind },
+    command.revisionOf,
   );
 }
 
 export async function submitUpdateAgreementTerm(
   p: Persistence,
   actor: Actor,
-  command: { input: SubmitUpdateAgreementTermInput; reason?: string | null },
+  command: { input: SubmitUpdateAgreementTermInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   assertViewFinancials(actor);
@@ -153,13 +156,14 @@ export async function submitUpdateAgreementTerm(
     command.reason,
     `UpdateAgreementTerm request submitted: ${input.termId} on ${input.agreementId}`,
     { agreementId: input.agreementId, termId: input.termId },
+    command.revisionOf,
   );
 }
 
 export async function submitRemoveAgreementTerm(
   p: Persistence,
   actor: Actor,
-  command: { input: SubmitRemoveAgreementTermInput; reason?: string | null },
+  command: { input: SubmitRemoveAgreementTermInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   assertViewFinancials(actor);
@@ -181,5 +185,6 @@ export async function submitRemoveAgreementTerm(
     command.reason,
     `RemoveAgreementTerm request submitted: ${input.termId} on ${input.agreementId}`,
     { agreementId: input.agreementId, termId: input.termId },
+    command.revisionOf,
   );
 }

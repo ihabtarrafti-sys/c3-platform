@@ -41,6 +41,7 @@ import {
   type Subscription,
   type SavedView,
   type Departure,
+  type ApprovalRevision,
   parseApprovalPayload,
   Delegation,
   Beneficiary,
@@ -410,6 +411,24 @@ export function mapDeparture(row: any): Departure {
     deactivationRequested: Boolean(row.deactivationRequested ?? row.deactivation_requested ?? false),
     deactivationApprovalId: row.deactivationApprovalId ?? row.deactivation_approval_id ?? null,
     version: Number(row.version),
+    createdAt: isoReq(row.createdAt ?? row.created_at),
+    updatedAt: isoReq(row.updatedAt ?? row.updated_at),
+  };
+}
+
+export function mapApprovalRevision(row: any): ApprovalRevision {
+  return {
+    id: row.id,
+    tenantId: row.tenantId ?? row.tenant_id,
+    sourceApprovalId: row.sourceApprovalId ?? row.source_approval_id,
+    operationType: row.operationType ?? row.operation_type,
+    payload: row.payload,
+    reason: row.reason ?? null,
+    submittedBy: row.submittedBy ?? row.submitted_by,
+    status: row.status,
+    submittedApprovalId: row.submittedApprovalId ?? row.submitted_approval_id ?? null,
+    attempts: Number(row.attempts ?? 0),
+    lastError: row.lastError ?? row.last_error ?? null,
     createdAt: isoReq(row.createdAt ?? row.created_at),
     updatedAt: isoReq(row.updatedAt ?? row.updated_at),
   };

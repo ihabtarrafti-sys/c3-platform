@@ -653,6 +653,24 @@ export const departure = pgTable('departure', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// M-06 (0058): the revise-intent outbox — a durable, write-once claim on a source
+// approval so revise/resubmit is atomic + crash-resumable (the departure-outbox pattern).
+export const approvalRevision = pgTable('approval_revision', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  sourceApprovalId: text('source_approval_id').notNull(),
+  operationType: text('operation_type').notNull(),
+  payload: jsonb('payload').notNull(),
+  reason: text('reason'),
+  submittedBy: text('submitted_by').notNull(),
+  status: text('status').notNull().default('Pending'),
+  submittedApprovalId: text('submitted_approval_id'),
+  attempts: integer('attempts').notNull().default(0),
+  lastError: text('last_error'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // Track B (0041): recurring subscriptions — the org's recurring costs.
 export const subscription = pgTable('subscription', {
   id: uuid('id').primaryKey().defaultRandom(),

@@ -141,6 +141,8 @@ export const AUDIT_ACTIONS = [
   // Track B1: request corrections — a pre-review edit / a revise-and-resubmit tie.
   'ApprovalEdited',
   'ApprovalSuperseded',
+  // M-06: the revise-intent outbox claim (source withdrawn + intent recorded, tx-1).
+  'ApprovalRevisionRequested',
   // Track B6: guest intake — the STAFF actions (mint/revoke a link; promote or
   // reject a sandbox submission). The guest submission itself is not on the
   // audit stream (the sandbox row is the record); promotion also audits the

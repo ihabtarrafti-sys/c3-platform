@@ -18,6 +18,8 @@ import type { Persistence } from '../ports';
 export interface SubmitAddPersonCommand {
   readonly input: AddPersonInput;
   readonly reason?: string | null;
+  /** M-06: set when this submit is a revision — stamped as the idempotency key. */
+  readonly revisionOf?: string | null;
 }
 
 export async function submitAddPerson(
@@ -49,6 +51,7 @@ export async function submitAddPerson(
       reason,
       payload: { operationType: 'AddPerson', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,

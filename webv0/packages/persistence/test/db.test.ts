@@ -73,7 +73,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -364,12 +364,20 @@ describe('migrations & schema', () => {
          VALUES ($1,'DOC-E','Person','PER-E','f.pdf','application/pdf',10,$2,$3,'u@x.com')`,
         [t.tenantId, 'a'.repeat(64), `${t.tenantId}/doc-e`],
       );
+      // M-06: a PII-bearing revise-intent row MUST be erased by the exit ceremony
+      // (it is registered in tenantTables, so the data phase deletes + zero-checks it).
+      await admin.query(
+        `INSERT INTO approval_revision (tenant_id, source_approval_id, operation_type, payload, submitted_by)
+         VALUES ($1,'APR-0001','AddPerson',$2::jsonb,'u@x.com')`,
+        [t.tenantId, JSON.stringify({ operationType: 'AddPerson', input: { fullName: 'Private Name' } })],
+      );
 
       // Data phase: erases DATA, tombstones the blob, holds identity in Exiting.
       const report = await exitTenant(admin, { tenantSlug: 'exitco', execute: true, confirmSlug: 'exitco', secondConfirm: 'exitco' });
       expect(report.mode).toBe('executed');
       expect(report.postChecks?.tenantExiting).toBe(true);
       expect((await admin.query(`SELECT count(*)::int n FROM document WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+      expect((await admin.query(`SELECT count(*)::int n FROM approval_revision WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0); // M-06 PII swept
       expect((await admin.query(`SELECT exit_state FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].exit_state).toBe('Exiting');
       expect((await admin.query(`SELECT count(*)::int n FROM tenant_membership WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(1);
       expect((await admin.query(`SELECT count(*)::int n FROM app_user WHERE id=$1`, [uid])).rows[0].n).toBe(1);

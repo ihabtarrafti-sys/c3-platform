@@ -45,7 +45,7 @@ interface SubmitSpec {
   readonly auditAfter: Record<string, unknown>;
 }
 
-async function submitOp(p: Persistence, actor: Actor, reasonRaw: string | null | undefined, spec: SubmitSpec): Promise<Approval> {
+async function submitOp(p: Persistence, actor: Actor, reasonRaw: string | null | undefined, spec: SubmitSpec, revisionOf?: string | null): Promise<Approval> {
   const reason = reasonRaw?.trim() ? reasonRaw.trim() : null;
   return p.writes.transaction(actor, async (tx) => {
     const seq = await tx.allocateSequence('approval');
@@ -58,6 +58,7 @@ async function submitOp(p: Persistence, actor: Actor, reasonRaw: string | null |
       reason,
       payload: { operationType: spec.op, input: spec.input } as Approval['payload'],
       submittedBy: actor.identity,
+      revisionOf: revisionOf ?? null,
     });
     await tx.appendApprovalEvent({ approvalId, fromStatus: null, toStatus: 'Submitted', actor: actor.identity, note: spec.note });
     await tx.appendAuditEvent({
@@ -75,7 +76,7 @@ async function submitOp(p: Persistence, actor: Actor, reasonRaw: string | null |
 export async function submitUpdateCredentialFacts(
   p: Persistence,
   actor: Actor,
-  command: { input: UpdateCredentialFactsInput; reason?: string | null },
+  command: { input: UpdateCredentialFactsInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = updateCredentialFactsInputSchema.parse(command.input);
@@ -90,13 +91,13 @@ export async function submitUpdateCredentialFacts(
     input,
     note: `UpdateCredentialFacts request submitted for ${input.credentialId} (${Object.keys(input.patch).join(', ')})`,
     auditAfter: { credentialId: input.credentialId, fields: Object.keys(input.patch) },
-  });
+  }, command.revisionOf);
 }
 
 export async function submitAddBeneficiary(
   p: Persistence,
   actor: Actor,
-  command: { input: AddBeneficiaryInput; reason?: string | null },
+  command: { input: AddBeneficiaryInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = addBeneficiaryInputSchema.parse(command.input);
@@ -114,13 +115,13 @@ export async function submitAddBeneficiary(
     input,
     note: `AddBeneficiary request submitted: "${input.label}" (${input.bankName}, ${input.currency}) for ${input.personId}`,
     auditAfter: { personId: input.personId, label: input.label, bankName: input.bankName },
-  });
+  }, command.revisionOf);
 }
 
 export async function submitUpdateBeneficiary(
   p: Persistence,
   actor: Actor,
-  command: { input: UpdateBeneficiaryInput; reason?: string | null },
+  command: { input: UpdateBeneficiaryInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = updateBeneficiaryInputSchema.parse(command.input);
@@ -135,13 +136,13 @@ export async function submitUpdateBeneficiary(
     input,
     note: `UpdateBeneficiary request submitted for ${input.beneficiaryId} (${Object.keys(input.patch).join(', ')})`,
     auditAfter: { beneficiaryId: input.beneficiaryId, fields: Object.keys(input.patch) },
-  });
+  }, command.revisionOf);
 }
 
 export async function submitRetireBeneficiary(
   p: Persistence,
   actor: Actor,
-  command: { input: RetireBeneficiaryInput; reason?: string | null },
+  command: { input: RetireBeneficiaryInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = retireBeneficiaryInputSchema.parse(command.input);
@@ -156,5 +157,5 @@ export async function submitRetireBeneficiary(
     input,
     note: `RetireBeneficiary request submitted for ${input.beneficiaryId}: ${input.reason}`,
     auditAfter: { beneficiaryId: input.beneficiaryId, retireReason: input.reason },
-  });
+  }, command.revisionOf);
 }

@@ -54,7 +54,7 @@ async function assertNoOpenApprovalForPair(
 export async function submitAddMissionParticipant(
   p: Persistence,
   actor: Actor,
-  command: { input: AddMissionParticipantInput; reason?: string | null },
+  command: { input: AddMissionParticipantInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = addMissionParticipantInputSchema.parse(command.input);
@@ -84,6 +84,7 @@ export async function submitAddMissionParticipant(
       reason,
       payload: { operationType: 'AddMissionParticipant', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,
@@ -107,7 +108,7 @@ export async function submitAddMissionParticipant(
 export async function submitRemoveMissionParticipant(
   p: Persistence,
   actor: Actor,
-  command: { input: RemoveMissionParticipantInput; reason?: string | null },
+  command: { input: RemoveMissionParticipantInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = removeMissionParticipantInputSchema.parse(command.input);
@@ -138,6 +139,7 @@ export async function submitRemoveMissionParticipant(
       reason,
       payload: { operationType: 'RemoveMissionParticipant', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,

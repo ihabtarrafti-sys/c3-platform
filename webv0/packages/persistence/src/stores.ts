@@ -3,8 +3,8 @@
  * role). Implements the @c3web/application Persistence port.
  */
 import { Pool } from 'pg';
-import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import { IntakeLinkUnavailableError } from '@c3web/domain';
 import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
@@ -13,7 +13,7 @@ import { makeWriteTx } from './writeTx';
 import { buildSearchQuery } from './searchSql';
 import { buildRecycleQuery } from './recycleSql';
 import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapDeparture,
-  mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson, mapSavedView } from './mappers';
+  mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson, mapSavedView, mapApprovalRevision } from './mappers';
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -577,6 +577,31 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               .from(schema.departure)
               .where(and(eq(schema.departure.deactivationRequested, true), isNull(schema.departure.deactivationApprovalId)));
             return rows.map(mapDeparture);
+          }),
+
+        // M-06: the revise-intent outbox — Pending intents whose submit/link is still
+        // outstanding (a crash after tx-1). The drain finishes them idempotently.
+        listPendingRevisionIntents: () =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<ApprovalRevision[]> => {
+            const rows = await db
+              .select()
+              .from(schema.approvalRevision)
+              .where(eq(schema.approvalRevision.status, 'Pending'))
+              .orderBy(asc(schema.approvalRevision.createdAt));
+            return rows.map(mapApprovalRevision);
+          }),
+
+        // M-06: the drain's per-step idempotency probe — has tx-2 already created a
+        // successor for this source? (revisionOf stamped at submit; a Withdrawn row is
+        // an abandoned attempt, not the live successor.)
+        findSuccessorApproval: (sourceApprovalId: string) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<Approval | null> => {
+            const rows = await db
+              .select()
+              .from(schema.approval)
+              .where(and(eq(schema.approval.revisionOf, sourceApprovalId), ne(schema.approval.status, 'Withdrawn')))
+              .limit(1);
+            return rows[0] ? mapApproval(rows[0]) : null;
           }),
 
         // Track B3: the activity feed — a keyset page of the audit stream.

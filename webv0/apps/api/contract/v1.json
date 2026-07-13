@@ -4271,6 +4271,26 @@
       }
     },
     {
+      "method": "POST",
+      "url": "/api/v1/approvals/drain-revisions",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "abandoned": {
+              "t": "number"
+            },
+            "attempted": {
+              "t": "number"
+            },
+            "completed": {
+              "t": "number"
+            }
+          }
+        }
+      }
+    },
+    {
       "method": "GET",
       "url": "/api/v1/beneficiaries",
       "response": {

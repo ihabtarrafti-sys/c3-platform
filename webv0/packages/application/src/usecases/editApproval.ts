@@ -29,23 +29,25 @@ import {
   type Actor,
   type Approval,
   type ApprovalPayload,
+  type ApprovalRevision,
   CORRECTIONS_EXCLUDED_OPS,
   ConcurrencyError,
   ConflictError,
+  DomainError,
   EDIT_TARGET_KEYS,
   type EditApprovalInput,
   ForbiddenError,
   NotFoundError,
   REVISABLE_STATUSES,
+  REVISION_MAX_ATTEMPTS,
   type ReviseApprovalInput,
   approvalPayloadSchema,
   changedInputFields,
   editApprovalInputSchema,
   reviseApprovalInputSchema,
 } from '@c3web/domain';
-import { assertTenantMatch } from '@c3web/authz';
+import { assertSubmitApproval, assertTenantMatch } from '@c3web/authz';
 import type { Persistence } from '../ports';
-import { withdrawApproval } from './reviewApproval';
 import { submitAddPerson } from './submitAddPerson';
 import { submitMemberChange } from './submitMemberChange';
 import { submitAddCredential, submitDeactivateCredential, submitReactivateCredential } from './submitCredentialOps';
@@ -138,17 +140,28 @@ export async function editApprovalPayload(p: Persistence, actor: Actor, inputRaw
   });
 }
 
-/** Dispatch to the op's REAL submit — every duplicate/business guard applies. */
-async function dispatchSubmit(p: Persistence, actor: Actor, payload: ApprovalPayload, reason: string | null): Promise<Approval> {
-  const command = { input: payload.input as never, reason };
+/**
+ * Dispatch to the op's REAL submit — every duplicate/business guard applies.
+ * M-06: `revisionOf` (the source approval id) is threaded into every op's command
+ * so the created successor is stamped with it at insert time — the drain's
+ * idempotency key (find the successor by `revisionOf = source`, never submit twice).
+ */
+async function dispatchSubmit(
+  p: Persistence,
+  actor: Actor,
+  payload: ApprovalPayload,
+  reason: string | null,
+  revisionOf: string | null,
+): Promise<Approval> {
+  const command = { input: payload.input as never, reason, revisionOf };
   switch (payload.operationType) {
     case 'AddPerson':
-      return submitAddPerson(p, actor, { input: payload.input, reason });
+      return submitAddPerson(p, actor, { input: payload.input, reason, revisionOf });
     case 'ProvisionMember':
     case 'ChangeRole':
     case 'DeactivateMember':
     case 'ReactivateMember':
-      return submitMemberChange(p, actor, { payload, reason });
+      return submitMemberChange(p, actor, { payload, reason, revisionOf });
     case 'AddCredential':
       return submitAddCredential(p, actor, command);
     case 'DeactivateCredential':
@@ -198,88 +211,188 @@ export interface ReviseResult {
   readonly superseded: Approval['approvalId'];
 }
 
+/**
+ * M-06: is a tx-2 submit failure DETERMINISTIC (will refuse identically on every
+ * retry) or TRANSIENT (retriable)? A business-guard refusal is a DomainError and is
+ * deterministic — EXCEPT ConcurrencyError, which is a lock/version race and retries.
+ * Anything that is not a DomainError (a crash, an infra/pg fault) is transient too.
+ */
+function isTransientSubmitFailure(err: unknown): boolean {
+  if (err instanceof ConcurrencyError) return true;
+  if (err instanceof DomainError) return false;
+  return true;
+}
+
+function describeError(err: unknown): string {
+  return err instanceof Error ? `${err.name}: ${err.message}`.slice(0, 1000) : String(err).slice(0, 1000);
+}
+
+type RevisionOutcome = { readonly kind: 'completed'; readonly revised: Approval } | { readonly kind: 'abandoned'; readonly error: Error };
+
+/**
+ * M-06 tx-2 + tx-3: complete a claimed revision intent, IDEMPOTENTLY. Shared by the
+ * opportunistic in-request path and the crash-recovery drain.
+ *   probe — a prior (crashed) attempt may already have submitted the successor; find
+ *           it by `revisionOf = source` so we never submit twice;
+ *   tx-2  — otherwise run the op's REAL submit, stamping revisionOf = source. A
+ *           deterministic refusal abandons the intent at once (attempt 1) and surfaces
+ *           the truthful error; a transient failure bumps attempts (abandon only after
+ *           the backstop) and rethrows so a later drain retries;
+ *   tx-3  — link the source → successor (write-once) and mark the intent Completed;
+ *           the append-only events fire only on the first successful link.
+ */
+async function completeRevisionIntent(p: Persistence, actor: Actor, intent: ApprovalRevision): Promise<RevisionOutcome> {
+  let revised = await p.reads.forActor(actor).findSuccessorApproval(intent.sourceApprovalId);
+
+  if (!revised) {
+    const payload = approvalPayloadSchema.parse(intent.payload);
+    try {
+      revised = await dispatchSubmit(p, actor, payload, intent.reason, intent.sourceApprovalId);
+    } catch (err) {
+      if (!isTransientSubmitFailure(err)) {
+        await p.writes.transaction(actor, (tx) => tx.markRevisionAbandoned(intent.id, describeError(err)));
+        return { kind: 'abandoned', error: err as Error };
+      }
+      const attempts = await p.writes.transaction(actor, (tx) => tx.bumpRevisionAttempt(intent.id, describeError(err)));
+      if (attempts >= REVISION_MAX_ATTEMPTS) {
+        await p.writes.transaction(actor, (tx) =>
+          tx.markRevisionAbandoned(intent.id, `Giving up after ${attempts} transient attempt(s): ${describeError(err)}`),
+        );
+        return { kind: 'abandoned', error: err as Error };
+      }
+      throw err; // transient — intent stays Pending; a later drain retries it
+    }
+  }
+
+  const successor = revised;
+  await p.writes.transaction(actor, async (tx) => {
+    await tx.lockApproval(intent.sourceApprovalId); // serialise the link
+    const linked = await tx.setSupersededBy(intent.sourceApprovalId, successor.approvalId); // write-once (idempotent)
+    await tx.markRevisionCompleted(intent.id, successor.approvalId);
+    if (linked) {
+      await tx.appendApprovalEvent({
+        approvalId: successor.approvalId,
+        fromStatus: 'Submitted',
+        toStatus: 'Submitted',
+        actor: actor.identity,
+        note: `Revision of ${intent.sourceApprovalId} (supersedes it)`,
+      });
+      await tx.appendAuditEvent({
+        entityType: 'Approval',
+        entityId: intent.sourceApprovalId,
+        action: 'ApprovalSuperseded',
+        actor: actor.identity,
+        before: null,
+        after: { supersededBy: successor.approvalId },
+      });
+    }
+  });
+  return { kind: 'completed', revised: { ...successor, revisionOf: intent.sourceApprovalId } };
+}
+
 export async function reviseApproval(p: Persistence, actor: Actor, inputRaw: ReviseApprovalInput): Promise<ReviseResult> {
   const { approvalId, expectedVersion, input, reason } = reviseApprovalInputSchema.parse(inputRaw);
 
-  // Read + gate OUTSIDE any write tx (the real submit owns its own).
+  // Read + gate (advisory; the authoritative re-gate runs under the source lock in tx-1).
   const reads = p.reads.forActor(actor);
   const current = await reads.getApprovalById(approvalId);
   if (!current) throw new NotFoundError('Approval', approvalId);
   assertTenantMatch(actor.tenantId, current.tenantId);
   assertOwnRequest(actor, current);
   assertCorrectionsAllowed(current.operationType);
-  if (!REVISABLE_STATUSES.includes(current.status)) {
-    const why =
-      current.status === 'Approved'
-        ? 'an Approved request belongs to the reviewers (execute or reject are their tools)'
-        : current.status === 'ExecutionFailed'
-          ? 'an ExecutionFailed request is recovered by the owner re-executing it'
-          : 'this request is already done';
-    throw new ConflictError(`Cannot revise a ${current.status} request — ${why}.`, { approvalId, status: current.status });
-  }
-  // M-06 fast-path: a request already superseded by an earlier revision cannot be
-  // revised again — that would fork the chain. (The authoritative guard is the
-  // locked write-once link below; this just fails common cases before we submit.)
-  if (current.supersededBy) {
-    throw new ConflictError('This request has already been revised — correct its revision instead.', {
-      approvalId,
-      supersededBy: current.supersededBy,
-    });
-  }
 
   // Validate FIRST: a schema-invalid revision must never cost the old request.
   const payload = approvalPayloadSchema.parse({ operationType: current.operationType, input });
 
-  // Withdraw while still open (Submitted/InReview); terminal rows are already closed.
-  if (current.status === 'Submitted' || current.status === 'InReview') {
-    await withdrawApproval(p, actor, approvalId, expectedVersion);
-  } else if (current.version !== expectedVersion) {
-    throw new ConcurrencyError('Approval', approvalId);
-  }
+  // ── tx-1: atomically {re-gate under lock → withdraw-if-open → claim the write-once
+  // intent}. After this commits, the source is closed IFF a durable intent exists —
+  // "withdrawn with no record" is unrepresentable, and the unique (tenant, source)
+  // index makes a concurrent second revise refuse rather than fork. ──────────────────
+  const intent = await p.writes.transaction(actor, async (tx) => {
+    const src = await tx.lockApproval(approvalId);
+    if (!src) throw new NotFoundError('Approval', approvalId);
+    assertOwnRequest(actor, src);
+    if (!REVISABLE_STATUSES.includes(src.status)) {
+      const why =
+        src.status === 'Approved'
+          ? 'an Approved request belongs to the reviewers (execute or reject are their tools)'
+          : src.status === 'ExecutionFailed'
+            ? 'an ExecutionFailed request is recovered by the owner re-executing it'
+            : 'this request is already done';
+      throw new ConflictError(`Cannot revise a ${src.status} request — ${why}.`, { approvalId, status: src.status });
+    }
+    if (src.supersededBy) {
+      throw new ConflictError('This request has already been revised — correct its revision instead.', {
+        approvalId,
+        supersededBy: src.supersededBy,
+      });
+    }
+    if (src.version !== expectedVersion) throw new ConcurrencyError('Approval', approvalId);
 
-  // The op's REAL submit — duplicate-pending and business guards all apply.
-  const revised = await dispatchSubmit(p, actor, payload, reason ?? current.reason);
+    // Withdraw while still open (Submitted/InReview); terminal rows are already closed.
+    if (src.status === 'Submitted' || src.status === 'InReview') {
+      const withdrawn = await tx.updateApprovalStatus(approvalId, expectedVersion, { status: 'Withdrawn' });
+      if (!withdrawn) throw new ConcurrencyError('Approval', approvalId);
+      await tx.appendApprovalEvent({
+        approvalId,
+        fromStatus: src.status,
+        toStatus: 'Withdrawn',
+        actor: actor.identity,
+        note: 'Withdrawn by the submitter (superseded by a revision)',
+      });
+    }
 
-  // Link both rows atomically under a lock on the SOURCE (M-06). setSupersededBy
-  // is write-once (WHERE superseded_by IS NULL): with the source locked, a
-  // concurrent revision that already claimed it makes this call return false —
-  // and then this revision's fresh row is an orphan we must UNDO, rather than
-  // leaving the source falsely claiming a single successor while two exist, or
-  // one link direction set and the other not. Both directions must succeed or
-  // the whole revision is retracted.
-  const linked = await p.writes.transaction(actor, async (tx) => {
-    await tx.lockApproval(approvalId); // serialize concurrent revisions of this source
-    const supersededOk = await tx.setSupersededBy(approvalId, revised.approvalId);
-    if (!supersededOk) return false; // a competing revision already superseded the source
-    const revisionOk = await tx.setRevisionOf(revised.approvalId, approvalId);
-    if (!revisionOk) return false; // defensive: a fresh row can't already have a revisionOf
-    await tx.appendApprovalEvent({
-      approvalId: revised.approvalId,
-      fromStatus: 'Submitted',
-      toStatus: 'Submitted',
-      actor: actor.identity,
-      note: `Revision of ${approvalId} (supersedes it)`,
+    const claimed = await tx.insertRevisionIntent({
+      sourceApprovalId: approvalId,
+      operationType: current.operationType,
+      payload,
+      reason: reason ?? current.reason ?? null,
+      submittedBy: actor.identity,
     });
+    // Write-once: a concurrent revise already holds the claim → refuse (no fork).
+    if (!claimed) throw new ConflictError('This request is already being revised.', { approvalId });
     await tx.appendAuditEvent({
       entityType: 'Approval',
       entityId: approvalId,
-      action: 'ApprovalSuperseded',
+      action: 'ApprovalRevisionRequested',
       actor: actor.identity,
-      before: { status: current.status },
-      after: { supersededBy: revised.approvalId },
+      before: { status: src.status },
+      after: { intentId: claimed.id },
     });
-    return true;
+    return claimed;
   });
 
-  if (!linked) {
-    // The source was superseded by a competing revision first. Retire the orphan
-    // we just submitted and refuse truthfully — never leave asymmetric links.
-    await withdrawApproval(p, actor, revised.approvalId, revised.version).catch(() => {});
-    throw new ConflictError(
-      'This request was revised by another correction first — this duplicate revision was discarded.',
-      { approvalId, revisedInto: revised.approvalId },
-    );
-  }
+  // ── tx-2 + tx-3: complete opportunistically in-request; the drain is the crash net. ──
+  const outcome = await completeRevisionIntent(p, actor, intent);
+  if (outcome.kind === 'completed') return { revised: outcome.revised, superseded: approvalId };
+  // Deterministic refusal (or the transient backstop): the intent is durably Abandoned,
+  // the source stays Withdrawn, and we surface the truthful error — the submitter
+  // resubmits fresh, but now there is a discoverable record instead of a silent orphan.
+  throw outcome.error;
+}
 
-  return { revised: { ...revised, revisionOf: approvalId }, superseded: approvalId };
+/**
+ * M-06: drain the revise-intent outbox — finish every Pending intent a crash left
+ * between tx-1 and completion. Idempotent + safe to run repeatedly/concurrently: an
+ * already-submitted successor is re-linked (never re-submitted), a deterministic
+ * refusal is abandoned, a transient failure is isolated and retried by a later run.
+ */
+export async function drainApprovalRevisions(
+  p: Persistence,
+  actor: Actor,
+): Promise<{ attempted: number; completed: number; abandoned: number }> {
+  assertSubmitApproval(actor);
+  const pending = await p.reads.forActor(actor).listPendingRevisionIntents();
+  let completed = 0;
+  let abandoned = 0;
+  for (const intent of pending) {
+    try {
+      const outcome = await completeRevisionIntent(p, actor, intent);
+      if (outcome.kind === 'completed') completed += 1;
+      else abandoned += 1;
+    } catch {
+      // Transient — the intent stays Pending and a later drain retries it.
+    }
+  }
+  return { attempted: pending.length, completed, abandoned };
 }

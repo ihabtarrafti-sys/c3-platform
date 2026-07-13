@@ -16,6 +16,7 @@ import {
   type Actor,
   type Apparel,
   type Approval,
+  type ApprovalRevision,
   type C3Role,
   type Credential,
   type Entity,
@@ -44,10 +45,10 @@ import {
   type MissionParticipant,
   type Person,
 } from '@c3web/domain';
-import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, NewSubscriptionRow, SubscriptionPatch, NewSavedViewRow, SavedViewPatch, WriteTx } from '@c3web/application';
+import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, NewSubscriptionRow, SubscriptionPatch, NewSavedViewRow, SavedViewPatch, NewRevisionIntent, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapSavedView, mapDeparture, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapSavedView, mapDeparture, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapApprovalRevision, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -185,6 +186,9 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           status: 'Submitted',
           payload: row.payload,
           submittedBy: row.submittedBy,
+          // M-06: stamp the revision link at submit so a resumed drain can find
+          // this successor by its source and never submit twice.
+          revisionOf: row.revisionOf ?? null,
         })
         .returning();
       return mapApproval(r);
@@ -1340,6 +1344,52 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .where(and(eq(schema.departure.departureId, departureId), isNull(schema.departure.deactivationApprovalId)))
         .returning();
       return rows.length > 0;
+    },
+
+    // M-06: write-once revision-intent claim on a source approval. ON CONFLICT DO
+    // NOTHING against the (tenant, source) unique index — a second concurrent revise
+    // of the same source gets null and refuses; that is the fork guard.
+    async insertRevisionIntent(intent: NewRevisionIntent): Promise<ApprovalRevision | null> {
+      const rows = await db
+        .insert(schema.approvalRevision)
+        .values({
+          tenantId,
+          sourceApprovalId: intent.sourceApprovalId,
+          operationType: intent.operationType,
+          payload: intent.payload,
+          reason: intent.reason,
+          submittedBy: intent.submittedBy,
+        })
+        .onConflictDoNothing()
+        .returning();
+      return rows[0] ? mapApprovalRevision(rows[0]) : null;
+    },
+
+    // M-06: complete the intent — record the submitted successor (tx-3).
+    async markRevisionCompleted(id: string, submittedApprovalId: string): Promise<void> {
+      await db
+        .update(schema.approvalRevision)
+        .set({ status: 'Completed', submittedApprovalId, updatedAt: new Date() })
+        .where(eq(schema.approvalRevision.id, id));
+    },
+
+    // M-06: abandon the intent — a deterministic refusal (attempt 1) or the transient
+    // retry backstop. The source stays Withdrawn; last_error is surfaced to the submitter.
+    async markRevisionAbandoned(id: string, lastError: string): Promise<void> {
+      await db
+        .update(schema.approvalRevision)
+        .set({ status: 'Abandoned', lastError, attempts: sql`${schema.approvalRevision.attempts} + 1`, updatedAt: new Date() })
+        .where(eq(schema.approvalRevision.id, id));
+    },
+
+    // M-06: record a transient (retriable) failure — bump attempts + last_error, stay Pending.
+    async bumpRevisionAttempt(id: string, lastError: string): Promise<number> {
+      const rows = await db
+        .update(schema.approvalRevision)
+        .set({ lastError, attempts: sql`${schema.approvalRevision.attempts} + 1`, updatedAt: new Date() })
+        .where(eq(schema.approvalRevision.id, id))
+        .returning();
+      return rows[0] ? Number(rows[0].attempts) : 0;
     },
 
     async markNotificationRead(identity: string, signalKey: string): Promise<boolean> {

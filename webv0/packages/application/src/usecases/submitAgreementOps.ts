@@ -54,7 +54,7 @@ async function assertNoOpenApprovalForAgreement(p: Persistence, actor: Actor, ag
 export async function submitAddAgreement(
   p: Persistence,
   actor: Actor,
-  command: { input: AddAgreementInput; reason?: string | null },
+  command: { input: AddAgreementInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = addAgreementInputSchema.parse(command.input);
@@ -97,6 +97,7 @@ export async function submitAddAgreement(
       reason,
       payload: { operationType: 'AddAgreement', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,
@@ -127,6 +128,7 @@ async function submitTargetedAgreementOp(
   payloadInput: unknown,
   note: string,
   auditAfter: Record<string, unknown>,
+  revisionOf: string | null | undefined,
 ): Promise<Approval> {
   const agreement = await p.reads.forActor(actor).getAgreementById(agreementId);
   if (!agreement) throw new NotFoundError('Agreement', agreementId);
@@ -147,6 +149,7 @@ async function submitTargetedAgreementOp(
       reason,
       payload: { operationType: op, input: payloadInput },
       submittedBy: actor.identity,
+      revisionOf: revisionOf ?? null,
     });
     await tx.appendApprovalEvent({ approvalId, fromStatus: null, toStatus: 'Submitted', actor: actor.identity, note });
     await tx.appendAuditEvent({
@@ -164,7 +167,7 @@ async function submitTargetedAgreementOp(
 export async function submitRenewAgreement(
   p: Persistence,
   actor: Actor,
-  command: { input: RenewAgreementInput; reason?: string | null },
+  command: { input: RenewAgreementInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = renewAgreementInputSchema.parse(command.input);
@@ -189,13 +192,14 @@ export async function submitRenewAgreement(
     input,
     `RenewAgreement request submitted: ${input.agreementId} to ${input.newEndsOn}`,
     { newEndsOn: input.newEndsOn },
+    command.revisionOf,
   );
 }
 
 export async function submitTerminateAgreement(
   p: Persistence,
   actor: Actor,
-  command: { input: TerminateAgreementInput; reason?: string | null },
+  command: { input: TerminateAgreementInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = terminateAgreementInputSchema.parse(command.input);
@@ -208,5 +212,6 @@ export async function submitTerminateAgreement(
     input,
     `TerminateAgreement request submitted: ${input.agreementId}`,
     { terminationReason: input.reason },
+    command.revisionOf,
   );
 }

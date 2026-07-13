@@ -50,6 +50,7 @@ async function submitPersonOp(
   payloadInput: unknown,
   note: string,
   auditAfter: Record<string, unknown>,
+  revisionOf: string | null | undefined,
 ): Promise<Approval> {
   const person = await p.reads.forActor(actor).getPersonById(personId);
   if (!person) throw new NotFoundError('Person', personId);
@@ -67,6 +68,7 @@ async function submitPersonOp(
       reason,
       payload: { operationType: op, input: payloadInput } as Approval['payload'],
       submittedBy: actor.identity,
+      revisionOf: revisionOf ?? null,
     });
     await tx.appendApprovalEvent({ approvalId, fromStatus: null, toStatus: 'Submitted', actor: actor.identity, note });
     await tx.appendAuditEvent({
@@ -84,7 +86,7 @@ async function submitPersonOp(
 export async function submitUpdatePersonIdentity(
   p: Persistence,
   actor: Actor,
-  command: { input: UpdatePersonIdentityInput; reason?: string | null },
+  command: { input: UpdatePersonIdentityInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = updatePersonIdentityInputSchema.parse(command.input);
@@ -97,13 +99,14 @@ export async function submitUpdatePersonIdentity(
     input,
     `UpdatePersonIdentity request submitted for ${input.personId} (${Object.keys(input.patch).join(', ')})`,
     { fields: Object.keys(input.patch) },
+    command.revisionOf,
   );
 }
 
 export async function submitDeactivatePerson(
   p: Persistence,
   actor: Actor,
-  command: { input: DeactivatePersonInput; reason?: string | null },
+  command: { input: DeactivatePersonInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = deactivatePersonInputSchema.parse(command.input);
@@ -121,6 +124,7 @@ export async function submitDeactivatePerson(
     input,
     `DeactivatePerson request submitted for ${input.personId}: ${input.reason}`,
     { deactivationReason: input.reason },
+    command.revisionOf,
   );
 }
 
@@ -136,7 +140,7 @@ export async function submitDeactivatePerson(
 export async function findOrSubmitDeactivatePerson(
   p: Persistence,
   actor: Actor,
-  command: { input: DeactivatePersonInput; reason?: string | null },
+  command: { input: DeactivatePersonInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<{ approval: Approval; created: boolean }> {
   assertSubmitApproval(actor);
   const input = deactivatePersonInputSchema.parse(command.input);
@@ -150,7 +154,7 @@ export async function findOrSubmitDeactivatePerson(
 export async function submitReactivatePerson(
   p: Persistence,
   actor: Actor,
-  command: { input: ReactivatePersonInput; reason?: string | null },
+  command: { input: ReactivatePersonInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = reactivatePersonInputSchema.parse(command.input);
@@ -167,5 +171,6 @@ export async function submitReactivatePerson(
     input,
     `ReactivatePerson request submitted for ${input.personId}: ${input.reason}`,
     { reactivationReason: input.reason },
+    command.revisionOf,
   );
 }

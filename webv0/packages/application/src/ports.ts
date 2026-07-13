@@ -15,6 +15,7 @@ import type {
   Apparel,
   Approval,
   ApprovalEvent,
+  ApprovalRevision,
   C3Document,
   ApprovalStatus,
   AuditEvent,
@@ -208,6 +209,10 @@ export interface ReadStore {
   listDepartures(): Promise<Departure[]>;
   /** M-03: Completed departures whose deactivation hand-off is still pending. */
   listDeparturesAwaitingDeactivation(): Promise<Departure[]>;
+  /** M-06: Pending revise-intent outbox rows whose submit/link is outstanding. */
+  listPendingRevisionIntents(): Promise<ApprovalRevision[]>;
+  /** M-06: the live successor of a revised source (revisionOf link, not Withdrawn), or null. */
+  findSuccessorApproval(sourceApprovalId: string): Promise<Approval | null>;
   /**
    * Track B3: the activity feed — a keyset page of the audit stream, newest
    * first. Returns up to `limit`+1 rows so the caller knows if more remain;
@@ -316,6 +321,15 @@ export interface NewPersonRow {
 }
 
 /** Fields written when submitting a new approval. */
+/** M-06: fields for a new revise-intent outbox row (the payload is pre-validated). */
+export interface NewRevisionIntent {
+  readonly sourceApprovalId: string;
+  readonly operationType: Approval['operationType'];
+  readonly payload: unknown;
+  readonly reason: string | null;
+  readonly submittedBy: string;
+}
+
 export interface NewApprovalRow {
   readonly approvalId: string;
   readonly operationType: Approval['operationType'];
@@ -324,6 +338,13 @@ export interface NewApprovalRow {
   readonly reason: string | null;
   readonly payload: unknown;
   readonly submittedBy: string;
+  /**
+   * M-06: when this submit is a REVISION of an earlier request, the source
+   * approval id, stamped at insert time. It is the drain's idempotency key — a
+   * resumed revise finds the already-submitted successor by `revisionOf = source`
+   * and never submits twice (and never re-derives the target). Default null.
+   */
+  readonly revisionOf?: string | null;
 }
 
 /**
@@ -670,6 +691,16 @@ export interface WriteTx {
   ): Promise<number>;
 
   insertApproval(row: NewApprovalRow): Promise<Approval>;
+
+  /** M-06: write-once revision-intent claim on a source approval; null when the
+   *  (tenant, source) unique index already holds an intent (a concurrent revise). */
+  insertRevisionIntent(intent: NewRevisionIntent): Promise<ApprovalRevision | null>;
+  /** M-06: complete an intent — record the submitted successor. */
+  markRevisionCompleted(id: string, submittedApprovalId: string): Promise<void>;
+  /** M-06: abandon an intent (deterministic refusal or retry backstop); bumps attempts. */
+  markRevisionAbandoned(id: string, lastError: string): Promise<void>;
+  /** M-06: record a transient failure and return the new attempt count (stays Pending). */
+  bumpRevisionAttempt(id: string, lastError: string): Promise<number>;
 
   /** Track B1: edit-before-review — version+Submitted-guarded payload replace, bumps editCount; null = stale/frozen. */
   updateApprovalPayload(approvalId: string, expectedVersion: number, payload: Approval['payload']): Promise<Approval | null>;

@@ -32,7 +32,7 @@ import type { Persistence } from '../ports';
 export async function submitInitiateJourney(
   p: Persistence,
   actor: Actor,
-  command: { input: InitiateJourneyInput; reason?: string | null },
+  command: { input: InitiateJourneyInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = initiateJourneyInputSchema.parse(command.input);
@@ -53,6 +53,7 @@ export async function submitInitiateJourney(
       reason,
       payload: { operationType: 'InitiateJourney', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,

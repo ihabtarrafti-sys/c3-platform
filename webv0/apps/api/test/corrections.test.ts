@@ -9,6 +9,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { Client } from 'pg';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
@@ -208,5 +209,77 @@ describe('Track B1 — revise & resubmit', () => {
     const still = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
     expect(still.json().approval.status).toBe('Submitted');
     expect(still.json().approval.supersededBy).toBeNull();
+  });
+
+  it('M-06: a crash after tx-1 (source withdrawn + Pending intent, no successor) is recovered by the drain, idempotently', async () => {
+    const a = await submitPerson(tokens.ops, 'Crashed Src');
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const tid = (await admin.query(`SELECT id FROM tenant WHERE slug='alpha'`)).rows[0].id as string;
+      // Simulate tx-1 committing, then the process crashing before tx-2: the source is
+      // Withdrawn and a durable Pending intent exists, but no successor was submitted.
+      await admin.query(`UPDATE approval SET status='Withdrawn' WHERE approval_id=$1 AND tenant_id=$2`, [a.approvalId, tid]);
+      await admin.query(
+        `INSERT INTO approval_revision (tenant_id, source_approval_id, operation_type, payload, submitted_by, status)
+         VALUES ($1,$2,'AddPerson',$3::jsonb,'ops@alpha.com','Pending')`,
+        [tid, a.approvalId, JSON.stringify({ operationType: 'AddPerson', input: { fullName: 'Crashed Fix' } })],
+      );
+
+      // The drain finishes it: submit + link, exactly once.
+      const drain1 = await post(tokens.owner, '/api/v1/approvals/drain-revisions');
+      expect(drain1.statusCode, drain1.body).toBe(200);
+      expect(drain1.json()).toMatchObject({ attempted: 1, completed: 1, abandoned: 0 });
+
+      // the source now points forward; exactly one successor exists, linked both ways.
+      const old = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
+      const successorId = old.json().approval.supersededBy as string;
+      expect(successorId).toBeTruthy();
+      const succ = await get(tokens.owner, `/api/v1/approvals/${successorId}`);
+      expect(succ.json().approval).toMatchObject({ status: 'Submitted', revisionOf: a.approvalId });
+
+      // the intent is Completed; a re-drain is a no-op (never a second successor).
+      const intent = await admin.query(`SELECT status, submitted_approval_id FROM approval_revision WHERE source_approval_id=$1`, [a.approvalId]);
+      expect(intent.rows[0]).toMatchObject({ status: 'Completed', submitted_approval_id: successorId });
+      const drain2 = await post(tokens.owner, '/api/v1/approvals/drain-revisions');
+      expect(drain2.json()).toMatchObject({ attempted: 0, completed: 0 });
+      const succCount = await admin.query(`SELECT count(*)::int AS n FROM approval WHERE revision_of=$1 AND status<>'Withdrawn'`, [a.approvalId]);
+      expect(succCount.rows[0].n).toBe(1);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('M-06: a DETERMINISTIC submit refusal abandons the intent + surfaces the truthful error — a durable record, not a silent orphan', async () => {
+    const a = await submitPerson(tokens.ops, 'Abandon Src');
+    const rev = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version });
+    const rej = await post(tokens.owner, `/api/v1/approvals/${a.approvalId}/reject`, { expectedVersion: rev.json().approval.version, reason: 'redo' });
+
+    // Revise into an AddPerson naming a non-existent entity: schema-valid, so it reaches
+    // tx-2, where submitAddPerson refuses deterministically (Entity not found).
+    const revise = await post(tokens.ops, `/api/v1/approvals/${a.approvalId}/revise`, {
+      expectedVersion: rej.json().approval.version,
+      input: { fullName: 'Abandon Fix', entityId: 'ENT-9999' },
+    });
+    expect(revise.statusCode).toBe(404); // the truthful NotFoundError is surfaced
+
+    // The Rejected source is untouched (no successor); the intent is durably Abandoned.
+    const old = await get(tokens.owner, `/api/v1/approvals/${a.approvalId}`);
+    expect(old.json().approval).toMatchObject({ status: 'Rejected', supersededBy: null });
+
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const intent = await admin.query(`SELECT status, last_error FROM approval_revision WHERE source_approval_id=$1`, [a.approvalId]);
+      expect(intent.rows[0].status).toBe('Abandoned');
+      expect(intent.rows[0].last_error).toBeTruthy();
+      const succ = await admin.query(`SELECT count(*)::int AS n FROM approval WHERE revision_of=$1`, [a.approvalId]);
+      expect(succ.rows[0].n).toBe(0);
+      // a drain does not resurrect an Abandoned intent.
+      const drain = await post(tokens.owner, '/api/v1/approvals/drain-revisions');
+      expect(drain.json()).toMatchObject({ attempted: 0 });
+    } finally {
+      await admin.end();
+    }
   });
 });

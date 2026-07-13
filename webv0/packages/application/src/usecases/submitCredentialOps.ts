@@ -29,7 +29,7 @@ import { assertNoOpenOpOnTarget, CREDENTIAL_TARGET_OPS } from './submitCredentia
 export async function submitAddCredential(
   p: Persistence,
   actor: Actor,
-  command: { input: AddCredentialInput; reason?: string | null },
+  command: { input: AddCredentialInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = addCredentialInputSchema.parse(command.input);
@@ -50,6 +50,7 @@ export async function submitAddCredential(
       reason,
       payload: { operationType: 'AddCredential', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,
@@ -73,7 +74,7 @@ export async function submitAddCredential(
 export async function submitDeactivateCredential(
   p: Persistence,
   actor: Actor,
-  command: { input: DeactivateCredentialInput; reason?: string | null },
+  command: { input: DeactivateCredentialInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = deactivateCredentialInputSchema.parse(command.input);
@@ -104,6 +105,7 @@ export async function submitDeactivateCredential(
       reason,
       payload: { operationType: 'DeactivateCredential', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,
@@ -133,7 +135,7 @@ export async function submitDeactivateCredential(
 export async function submitReactivateCredential(
   p: Persistence,
   actor: Actor,
-  command: { input: ReactivateCredentialInput; reason?: string | null },
+  command: { input: ReactivateCredentialInput; reason?: string | null; revisionOf?: string | null },
 ): Promise<Approval> {
   assertSubmitApproval(actor);
   const input = reactivateCredentialInputSchema.parse(command.input);
@@ -156,6 +158,7 @@ export async function submitReactivateCredential(
       reason,
       payload: { operationType: 'ReactivateCredential', input },
       submittedBy: actor.identity,
+      revisionOf: command.revisionOf ?? null,
     });
     await tx.appendApprovalEvent({
       approvalId,

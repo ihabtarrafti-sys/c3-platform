@@ -380,6 +380,7 @@ import {
   withdrawApproval,
   editApprovalPayload,
   reviseApproval,
+  drainApprovalRevisions,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -873,6 +874,15 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const result = await reviseApproval(P, actorOf(req), { approvalId, expectedVersion, input, reason });
       return reply.status(201).send({ approval: toApprovalDto(result.revised, discOf(req)), superseded: result.superseded });
     },
+  );
+
+  // M-06: owner/ops-invocable drain of the revise-intent outbox — finishes any
+  // revision left Pending by a crash between tx-1 and completion, idempotently
+  // (an already-submitted successor is re-linked, never re-submitted).
+  r.post(
+    '/api/v1/approvals/drain-revisions',
+    { schema: { response: { 200: z.object({ attempted: z.number().int(), completed: z.number().int(), abandoned: z.number().int() }) } } },
+    async (req) => drainApprovalRevisions(P, actorOf(req)),
   );
 
   r.get('/api/v1/approvals/:approvalId/events', { schema: { params: approvalIdParamSchema, response: { 200: approvalEventsListSchema } } }, async (req) => {
