@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -311,6 +311,35 @@ describe('migrations & schema', () => {
       // The row is untouched.
       const [row] = (await admin.query(`SELECT body FROM comment WHERE subject_id='PER-1'`)).rows;
       expect(row.body).toBe('original');
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('0056 (R2-N01): an Exiting tenant refuses new blob writes (quiesced); Active tenants are unaffected', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'quiesce' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      await admin.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-Q','P')`, [t.tenantId]);
+      const doc = (key: string) =>
+        admin.query(
+          `INSERT INTO document (tenant_id, document_id, owner_type, owner_id, file_name, content_type, size_bytes, sha256, storage_key, uploaded_by)
+           VALUES ($1,$2,'Person','PER-Q','f.pdf','application/pdf',100,$3,$4,'u@x.com')`,
+          [t.tenantId, key, 'a'.repeat(64), `${t.tenantId}/${key}`],
+        );
+
+      // Active: a document write + a photo write both succeed.
+      await doc('DOC-1');
+      await admin.query(`UPDATE person SET photo_storage_key='k1', photo_sha256=$1 WHERE person_id='PER-Q'`, ['b'.repeat(64)]);
+
+      // Mark the tenant Exiting → new blob-referencing writes are DB-refused.
+      await admin.query(`UPDATE tenant SET exit_state='Exiting' WHERE id=$1`, [t.tenantId]);
+      await expect(doc('DOC-2')).rejects.toThrow(/exiting/i);
+      await expect(admin.query(`UPDATE person SET photo_storage_key='k2', photo_sha256=$1 WHERE person_id='PER-Q'`, ['c'.repeat(64)])).rejects.toThrow(/exiting/i);
+      // A non-blob person edit is still allowed (only photo-SET is quiesced).
+      await admin.query(`UPDATE person SET full_name='Renamed' WHERE person_id='PER-Q'`);
     } finally {
       await admin.end();
     }
