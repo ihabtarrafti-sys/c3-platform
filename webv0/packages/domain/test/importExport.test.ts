@@ -4,7 +4,7 @@
  * ids-are-allocated-by-C3 rule, and the in-file duplicate checks.
  */
 import { describe, expect, it } from 'vitest';
-import { toCsv, parseCsv, CsvParseError, neutralizeFormula, validateImportCsv, importBatchInputSchema, PEOPLE_COLUMNS, AGREEMENTS_COLUMNS } from '../src/index';
+import { toCsv, parseCsv, CsvParseError, neutralizeFormula, denormalizeFormula, validateImportCsv, importBatchInputSchema, PEOPLE_COLUMNS, AGREEMENTS_COLUMNS } from '../src/index';
 
 describe('the CSV core', () => {
   it('round-trip law: toCsv → parseCsv → toCsv is byte-identical, through quotes, commas, and newlines', () => {
@@ -21,13 +21,18 @@ describe('the CSV core', () => {
     expect(toCsv(parsed[0]!, parsed.slice(1))).toBe(csv); // byte-identical
   });
 
-  it('formula-injection defense (M-08): a leading =/+/-/@/TAB/CR exports inert; other values untouched; idempotent', () => {
-    for (const t of ['=SUM(A1)', '+1+1', '-2+3', '@cmd', '\tfoo', '\rbar']) {
+  it('formula-injection defense (M-08): the FULL prefix class exports inert; idempotent; import round-trip preserves the value', () => {
+    // Round 2: the class must also include leading SPACE, LF, and other controls
+    // (a spreadsheet may strip them to reveal a formula), not just =/+/-/@/TAB/CR.
+    for (const t of ['=SUM(A1)', '+1+1', '-2+3', '@cmd', '\tfoo', '\rbar', ' =1+1', '\n=evil', '\x01ctrl']) {
       expect(neutralizeFormula(t)).toBe(`'${t}`);
       expect(neutralizeFormula(neutralizeFormula(t))).toBe(`'${t}`); // idempotent
+      // R2-N08: the inverse restores the EXACT original on machine re-import.
+      expect(denormalizeFormula(neutralizeFormula(t))).toBe(t);
     }
     for (const ok of ['Alice', 'PER-0001', 'note = value', "'already", '', '2026-01-01']) {
       expect(neutralizeFormula(ok)).toBe(ok);
+      expect(denormalizeFormula(ok)).toBe(ok); // a legit apostrophe-led value is untouched
     }
     // through the codec: a dangerous cell is emitted with the apostrophe guard…
     const csv = toCsv(['a'], [['=1+1'], ['@evil,x'], ['plain']]);

@@ -46,9 +46,24 @@ function needsQuoting(v: string): boolean {
  * CSV-emitting path in the app funnels through here, so exports are inert by
  * construction. (parseCsv is left untouched: it is a pure byte reader.)
  */
-const FORMULA_TRIGGER = /^[=+\-@\t\r]/;
+// M-08: the FULL dangerous prefix class — a formula lead char (= + - @) OR ANY
+// leading whitespace/control (space, TAB, CR, LF, other C0 controls) that a
+// spreadsheet may strip to reveal a formula underneath.
+const FORMULA_TRIGGER = /^[=+\-@]|^[\x00-\x20]/;
 export function neutralizeFormula(v: string): string {
   return FORMULA_TRIGGER.test(v) ? `'${v}` : v;
+}
+
+/**
+ * R2-N08: the inverse of neutralizeFormula, for MACHINE re-import. Strip a
+ * leading apostrophe that (and ONLY that) neutralizeFormula would have added —
+ * i.e. when what follows is itself a trigger — so an export → C3-import round-trip
+ * preserves the original value. A legitimate `'`-led value (no trigger after) is
+ * left untouched. parseCsv itself stays a pure byte reader; this is applied by
+ * the import reader.
+ */
+export function denormalizeFormula(v: string): string {
+  return v.startsWith("'") && FORMULA_TRIGGER.test(v.slice(1)) ? v.slice(1) : v;
 }
 
 function escapeField(v: string): string {
@@ -284,7 +299,9 @@ export function validateImportCsv(domain: ImportDomain, text: string): { ok: tru
   if (dataRows.length === 0) return { ok: false, errors: [{ row: 0, column: '(file)', message: 'The file has a header but no data rows.' }] };
 
   const errors: ImportRowError[] = [];
-  const cell = (r: string[], name: string): string => r[columns.indexOf(name)] ?? '';
+  // R2-N08: reverse any spreadsheet-display neutralization so a round-trip import
+  // preserves the exact original value.
+  const cell = (r: string[], name: string): string => denormalizeFormula(r[columns.indexOf(name)] ?? '');
 
   const addZodIssues = (rowNo: number, issues: z.ZodIssue[]) => {
     for (const issue of issues) {

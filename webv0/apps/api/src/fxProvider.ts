@@ -43,15 +43,33 @@ export function createFxProvider(url: string, logger: Logger): FxProvider {
         time_last_update_unix?: number;
       };
       if (json.result && json.result !== 'success') throw new Error(`The FX rate source returned an error: ${json.result}.`);
-      if (!json.rates || typeof json.rates !== 'object') throw new Error('The FX rate source returned no rates.');
-      const asOf = json.time_last_update_unix ? new Date(json.time_last_update_unix * 1000).toISOString() : new Date().toISOString();
+      // M-17: validate the ENVELOPE at the edge, INSIDE this wrapper, so every
+      // malformed-provider case is a clean UPSTREAM failure — not a silent success
+      // (rates:[]) or a client-side validation error later in the use-case.
+      const rates = json.rates;
+      if (!rates || typeof rates !== 'object' || Array.isArray(rates)) {
+        throw new Error('The FX rate source returned a malformed rates object.');
+      }
+      const entries = Object.entries(rates);
+      if (entries.length === 0) throw new Error('The FX rate source returned an empty rate set.');
+      for (const [cur, rate] of entries) {
+        if (typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0) {
+          throw new Error(`The FX rate source returned an invalid rate for ${cur}.`);
+        }
+      }
+      // A provider timestamp is REQUIRED — never silently substitute local now, or
+      // an "as of" provenance could claim freshness the source never asserted.
+      if (typeof json.time_last_update_unix !== 'number' || !Number.isFinite(json.time_last_update_unix) || json.time_last_update_unix <= 0) {
+        throw new Error('The FX rate source did not provide an update timestamp.');
+      }
+      const asOf = new Date(json.time_last_update_unix * 1000).toISOString();
       let source = 'fx-source';
       try {
         source = new URL(url).host;
       } catch {
         /* keep the fallback */
       }
-      return { source, asOf, unitsPerUsd: json.rates };
+      return { source, asOf, unitsPerUsd: rates };
     },
   };
 }
