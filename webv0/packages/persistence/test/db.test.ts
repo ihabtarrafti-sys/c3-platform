@@ -379,6 +379,58 @@ describe('migrations & schema', () => {
     }
   });
 
+  it('A4: finalize RE-LISTS both prefixes and REFUSES when an object was planted after the sweep', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'relistco' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const u = await admin.query<{ id: string }>(`INSERT INTO app_user (email, display_name, is_active) VALUES ('gone@relist.com','G',false) RETURNING id`);
+      await admin.query(`INSERT INTO tenant_membership (tenant_id, user_id) VALUES ($1,$2)`, [t.tenantId, u.rows[0]!.id]);
+      await admin.query(`UPDATE app_user SET is_active=false WHERE id IN (SELECT user_id FROM tenant_membership WHERE tenant_id=$1)`, [t.tenantId]);
+      // Data phase → tenant Exiting, data erased, no blobs (so no tombstones): finalize-ready.
+      await exitTenant(admin, { tenantSlug: 'relistco', execute: true, confirmSlug: 'relistco', secondConfirm: 'relistco' });
+
+      // A survivor planted under the tenant prefix AFTER the sweep — invisible to the
+      // row/tombstone checks, caught only by the prefix re-list. Finalize must REFUSE.
+      const plantedReader = { listKeys: async (prefix: string) => (prefix === `${t.tenantId}/` ? [`${t.tenantId}/planted`] : []) };
+      await expect(finalizeTenantExit(admin, t.tenantId, plantedReader)).rejects.toThrow(/still present under|planted after/i);
+      // identity untouched (finalize refused before the destructive tx).
+      expect((await admin.query(`SELECT count(*)::int n FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].n).toBe(1);
+
+      // With a clean re-list (prefixes empty), finalize proceeds to the point of no return.
+      const cleanReader = { listKeys: async () => [] as string[] };
+      const fin = await finalizeTenantExit(admin, t.tenantId, cleanReader);
+      expect(fin.removed).toBe(true);
+      expect((await admin.query(`SELECT count(*)::int n FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('A3: an exit executes/resumes BY tenant UUID (slug resolved internally, dual-confirm against the resolved slug)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'resumeco' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const u = await admin.query<{ id: string }>(`INSERT INTO app_user (email, display_name, is_active) VALUES ('g@resume.com','G',false) RETURNING id`);
+      await admin.query(`INSERT INTO tenant_membership (tenant_id, user_id) VALUES ($1,$2)`, [t.tenantId, u.rows[0]!.id]);
+      await admin.query(`UPDATE app_user SET is_active=false WHERE id IN (SELECT user_id FROM tenant_membership WHERE tenant_id=$1)`, [t.tenantId]);
+      await admin.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-R','P')`, [t.tenantId]);
+
+      // Resume/execute BY UUID — no slug passed. Today's code compares confirmSlug to an
+      // undefined opts.tenantSlug and refuses (red); A3 resolves the slug from the id first.
+      const report = await exitTenant(admin, { tenantId: t.tenantId, execute: true, confirmSlug: 'resumeco', secondConfirm: 'resumeco' });
+      expect(report.mode).toBe('executed');
+      expect(report.postChecks?.tenantExiting).toBe(true);
+      expect((await admin.query(`SELECT exit_state FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].exit_state).toBe('Exiting');
+      expect((await admin.query(`SELECT count(*)::int n FROM person WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+    } finally {
+      await admin.end();
+    }
+  });
+
   it('R2-N01: exit data-phase holds identity Exiting; --finalize is fail-closed on unswept blobs, removes identity only when clean', async () => {
     await db.truncateAll();
     const t = await db.seedTenant({ slug: 'exitco' });

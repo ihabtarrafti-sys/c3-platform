@@ -27,15 +27,24 @@
  */
 import type { Client } from 'pg';
 import { tenantTablesInExitOrder } from './tenantTables';
-import { enumerateTenantBlobs } from './blobUniverse';
+import { enumerateTenantBlobs, tenantBlobPrefixes } from './blobUniverse';
+
+/** A4: the minimal object-store surface finalize needs to re-list the tenant prefixes. */
+export interface PrefixLister {
+  listKeys(prefix: string): Promise<string[]>;
+}
 
 export interface ExitOptions {
-  readonly tenantSlug: string;
+  /** The tenant slug. Optional only when resuming by `tenantId` (A3). */
+  readonly tenantSlug?: string;
+  /** A3 (H-07 tail): resume an interrupted exit by tenant UUID — the slug is resolved
+   *  from it (the tenant row is present until finalize). One of slug/tenantId is required. */
+  readonly tenantId?: string;
   /** false/undefined = dry-run (default). */
   readonly execute?: boolean;
-  /** Must equal tenantSlug to execute (typed by the requester). */
+  /** Must equal the resolved slug to execute (typed by the requester). */
   readonly confirmSlug?: string;
-  /** Must equal tenantSlug to execute (typed by the second authorizer). */
+  /** Must equal the resolved slug to execute (typed by the second authorizer). */
   readonly secondConfirm?: string;
 }
 
@@ -92,12 +101,23 @@ const SOLE_USERS_SQL = `
 export async function exitTenant(client: Client, opts: ExitOptions): Promise<ExitReport> {
   const execute = opts.execute === true;
 
+  // A3 (H-07 tail): resume by UUID — when only the tenant id is known (from the ceremony
+  // output), resolve its slug (the tenant row survives until finalize). Everything below
+  // keys on the slug, and the dual confirmation is checked against the RESOLVED slug.
+  let tenantSlug = opts.tenantSlug;
+  if (!tenantSlug) {
+    if (!opts.tenantId) throw new Error('exitTenant requires a tenantSlug or a tenantId.');
+    const r = await client.query<{ slug: string }>('SELECT slug FROM tenant WHERE id = $1', [opts.tenantId]);
+    if (!r.rows[0]) throw new Error(`Unknown tenant id '${opts.tenantId}'.`);
+    tenantSlug = r.rows[0].slug;
+  }
+
   if (execute) {
     // Dual typed confirmation — both the requester and a second authorizer
     // must have typed the slug. Checked before touching the database.
-    if (opts.confirmSlug !== opts.tenantSlug || opts.secondConfirm !== opts.tenantSlug) {
+    if (opts.confirmSlug !== tenantSlug || opts.secondConfirm !== tenantSlug) {
       throw new Error(
-        `Execute refused: erasure of '${opts.tenantSlug}' requires BOTH confirmations to match the slug (dual authorization).`,
+        `Execute refused: erasure of '${tenantSlug}' requires BOTH confirmations to match the slug (dual authorization).`,
       );
     }
   }
@@ -109,8 +129,8 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
   if (execute) {
     await client.query('BEGIN');
     try {
-      const t0 = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [opts.tenantSlug]);
-      if (!t0.rows[0]) throw new Error(`Unknown tenant '${opts.tenantSlug}'.`);
+      const t0 = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [tenantSlug]);
+      if (!t0.rows[0]) throw new Error(`Unknown tenant '${tenantSlug}'.`);
       const active0 = await count(
         client,
         `SELECT count(*)::int AS n FROM tenant_membership tm JOIN app_user u ON u.id = tm.user_id WHERE tm.tenant_id = $1 AND u.is_active`,
@@ -118,7 +138,7 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
       );
       if (active0 > 0) {
         throw new Error(
-          `Execute refused: ${active0} active member(s) still hold a membership in '${opts.tenantSlug}'. Complete Phase E1 (access termination) first.`,
+          `Execute refused: ${active0} active member(s) still hold a membership in '${tenantSlug}'. Complete Phase E1 (access termination) first.`,
         );
       }
       await client.query(`UPDATE tenant SET exit_state = 'Exiting' WHERE id = $1`, [t0.rows[0].id]);
@@ -137,9 +157,9 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
   try {
     const t = await client.query<{ id: string; slug: string; name: string }>(
       'SELECT id, slug, name FROM tenant WHERE slug = $1',
-      [opts.tenantSlug],
+      [tenantSlug],
     );
-    if (t.rowCount === 0) throw new Error(`Unknown tenant '${opts.tenantSlug}'.`);
+    if (t.rowCount === 0) throw new Error(`Unknown tenant '${tenantSlug}'.`);
     const tenant = t.rows[0]!;
 
     // Guard: Phase E1 must be complete — no ACTIVE user may still hold a
@@ -261,8 +281,28 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
  * DATA row survives — leaving the identity intact for the operator to investigate.
  * On a clean re-verify it removes the identity LAST: tenant_membership → sole
  * external_identity + app_user → the tenant row, with an in-tx post-check.
+ *
+ * A4 (R3-N01): when a `reader` is supplied, finalize also RE-LISTS both object-store
+ * prefixes and is fail-closed on any survivor — the tombstone ledger cannot see an
+ * object planted under a prefix AFTER the last sweep (e.g. a late in-flight upload).
  */
-export async function finalizeTenantExit(client: Client, tenantId: string): Promise<{ removed: true; soleUsers: number }> {
+export async function finalizeTenantExit(
+  client: Client,
+  tenantId: string,
+  reader?: PrefixLister | null,
+): Promise<{ removed: true; soleUsers: number }> {
+  // The prefix re-list is a READ against the object store — do it BEFORE opening the
+  // destructive transaction so a survivor refuses without having touched the DB.
+  if (reader) {
+    for (const prefix of tenantBlobPrefixes(tenantId)) {
+      const keys = await reader.listKeys(prefix);
+      if (keys.length > 0) {
+        throw new Error(
+          `Finalize REFUSED: ${keys.length} object(s) still present under '${prefix}' (planted after the last sweep?) — re-run the sweep and re-verify zero. Identity left intact.`,
+        );
+      }
+    }
+  }
   await client.query('BEGIN');
   try {
     const t = await client.query<{ slug: string }>(`SELECT slug FROM tenant WHERE id = $1 AND exit_state = 'Exiting'`, [tenantId]);

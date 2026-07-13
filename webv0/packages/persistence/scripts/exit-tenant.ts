@@ -79,7 +79,10 @@ const flag = (name: string): boolean => process.argv.includes(`--${name}`);
 // R2-N01: --finalize <tenant-uuid> is the SEPARATE, explicit point-of-no-return
 // invocation (see the data-phase output). When set, we run finalize, not exit.
 const finalizeUuid = arg('finalize', false);
-const tenantSlug = arg('tenant-slug', true)!;
+// A3 (H-07 tail): the data/sweep path accepts either --tenant-slug or --tenant-id (resume
+// by UUID — the slug is resolved from the id after connecting).
+let tenantSlug = arg('tenant-slug', false);
+const tenantIdArg = arg('tenant-id', false);
 const execute = flag('execute');
 const confirmSlug = arg('confirm', false);
 const manifestPath = arg('manifest', false);
@@ -116,6 +119,20 @@ await client.connect();
 // it now, and refuse an execute that would strand objects).
 const blobReader = createBlobReader(process.env);
 try {
+  // A3: resume by UUID — resolve the slug from --tenant-id (the tenant row survives until
+  // finalize). The finalize path keys on its own --finalize <uuid> and needs no slug.
+  if (!tenantSlug && tenantIdArg) {
+    const r = await client.query<{ slug: string }>('SELECT slug FROM tenant WHERE id = $1', [tenantIdArg]);
+    if (!r.rows[0]) {
+      console.error(`No tenant with id ${tenantIdArg}.`);
+      process.exit(2);
+    }
+    tenantSlug = r.rows[0].slug;
+  }
+  if (!finalizeUuid && !tenantSlug) {
+    console.error('Provide --tenant-slug <slug> (or --tenant-id <uuid> to resume by id).');
+    process.exit(2);
+  }
   // R2-N01 --finalize: the explicit point-of-no-return. Requires dual slug
   // confirmation (like execute) matching the tenant named by the UUID, then does
   // the fail-closed re-verify + identity removal. No manifest/preflight — the data
@@ -129,7 +146,9 @@ try {
       console.error(`Finalize refused: BOTH confirmations must match the tenant slug '${fr.rows[0]!.slug}' (dual authorization).`);
       process.exitCode = 2;
     } else {
-      const res = await finalizeTenantExit(client, finalizeUuid);
+      // A4: pass the blob reader so finalize re-lists both prefixes fail-closed — a
+      // survivor planted after the last sweep refuses the point-of-no-return.
+      const res = await finalizeTenantExit(client, finalizeUuid, blobReader);
       console.log(`\n=== tenant exit FINALIZED: ${fr.rows[0]!.slug} (${finalizeUuid}) ===`);
       console.log(`  identity removed — tenant row, ${res.soleUsers} sole user account(s), and memberships are gone.`);
       console.log('  This is the point of no return; file this in the exit register.');
@@ -159,7 +178,7 @@ try {
     }
     try {
       const m = validateExitManifest(raw, {
-        tenantSlug,
+        tenantSlug: tenantSlug!, // guaranteed present on the data/sweep path (guard above)
         liveTenantId,
         liveMigrations: migs.rows.map((r) => r.id),
         allowStale: allowStaleManifest,
