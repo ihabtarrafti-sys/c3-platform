@@ -134,7 +134,7 @@ export function listMissionMembershipsForPerson(
  * see the register they are asked to decide. Role standing first (pure,
  * cheap); otherwise one indexed active-delegation lookup. Fail closed.
  */
-async function assertViewApprovalsEffective(p: Persistence, actor: Actor): Promise<void> {
+export async function assertViewApprovalsEffective(p: Persistence, actor: Actor): Promise<void> {
   try {
     assertViewApprovals(actor);
     return;

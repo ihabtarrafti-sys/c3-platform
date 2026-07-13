@@ -36,6 +36,18 @@ describe('money — cross-rate conversion via the USD pivot', () => {
   it('returns null when a needed rate is missing (never invents a number)', () => {
     expect(convertMinor(10_000, 'EUR', 'USD', map)).toBeNull();
   });
+
+  it('L-02: refuses a conversion that would overflow the exact-integer range (never a silently-wrong number)', () => {
+    // A near-max amount times a large (schema-permitted up to 1e6) rate overflows
+    // amount×rate past 2^53 → return null rather than an imprecise value.
+    const big = { USD: 1, HUGE: 1_000_000 } as Record<string, number>;
+    expect(convertMinor(900_000_000_000, 'HUGE', 'USD', big)).toBeNull();
+    // A tiny target rate blows the RESULT up past the safe range → also null.
+    const tiny = { USD: 1, DUST: 0.000001 } as Record<string, number>;
+    expect(convertMinor(900_000_000_000, 'USD', 'DUST', tiny)).toBeNull();
+    // A normal-scale conversion is unaffected.
+    expect(convertMinor(100_000, 'AED', 'USD', map)).toBe(27_230);
+  });
 });
 
 describe('money — formatting and rate validation', () => {

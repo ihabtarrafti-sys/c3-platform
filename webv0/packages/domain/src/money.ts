@@ -110,7 +110,15 @@ export function convertMinor(
   const rf = usdPerUnit[from];
   const rt = usdPerUnit[to];
   if (!rf || !rt) return null;
-  return Math.round((amountMinor * rf) / rt);
+  // L-02: refuse a conversion whose intermediate or result would leave the
+  // IEEE-754 exact-integer range — a silently-imprecise money value is worse than
+  // none (the caller then shows native-only). The check divides (never multiplies)
+  // to test the product safely. A BigInt/decimal rework may follow; the bound
+  // ships now.
+  if (amountMinor > Number.MAX_SAFE_INTEGER / rf) return null;
+  const result = Math.round((amountMinor * rf) / rt);
+  if (!Number.isSafeInteger(result)) return null;
+  return result;
 }
 
 /** Format an integer minor amount in its currency, e.g. 100000 AED → "AED 1,000.00". */

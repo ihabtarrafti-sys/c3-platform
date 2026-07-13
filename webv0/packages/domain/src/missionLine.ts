@@ -337,7 +337,9 @@ export function computeMissionPnl(args: {
       amountMinor: p.perDiemAmountMinor!,
       currency: p.perDiemCurrency!,
       days,
-      totalMinor: days != null ? p.perDiemAmountMinor! * days : null,
+      // L-02: null (not-computable) rather than a silently-imprecise product if
+      // amount × days would leave the exact-integer range.
+      totalMinor: days != null && Number.isSafeInteger(p.perDiemAmountMinor! * days) ? p.perDiemAmountMinor! * days : null,
     }));
 
   // Native subtotals (income at its EFFECTIVE amount) + computable per-diems as expense.

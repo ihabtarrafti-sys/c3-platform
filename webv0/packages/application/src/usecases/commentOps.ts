@@ -11,13 +11,13 @@ import {
   type Actor,
   type Comment,
   type CommentSubjectType,
-  ForbiddenError,
   NotFoundError,
   type PostCommentInput,
   postCommentInputSchema,
   subjectRoute,
 } from '@c3web/domain';
-import { assertReadAgreements, assertReadPeople, canReviewApproval, canSubmitApproval } from '@c3web/authz';
+import { assertReadAgreements, assertReadPeople } from '@c3web/authz';
+import { assertViewApprovalsEffective } from './queries';
 import type { Persistence } from '../ports';
 
 /** Gate + existence check per subject type — you comment where you can read. */
@@ -40,9 +40,11 @@ async function assertSubjectAccess(p: Persistence, actor: Actor, subjectType: Co
       return;
     }
     case 'Approval': {
-      if (!canSubmitApproval(actor.role) && !canReviewApproval(actor.role)) {
-        throw new ForbiddenError('Your role cannot see approvals.', { subjectId });
-      }
+      // L-04: honor DELEGATION — a delegated approver who can decide the request
+      // must be able to use its comment thread. Reuse the effective-standing helper
+      // (role standing first; else an active-delegation lookup) rather than the
+      // base submit/review capabilities alone.
+      await assertViewApprovalsEffective(p, actor);
       if (!(await reads.getApprovalById(subjectId))) throw new NotFoundError('Approval', subjectId);
       return;
     }

@@ -101,6 +101,23 @@ describe('Track B4 — comments + @mentions', () => {
     expect(opsNotes.notifications.some((n: { kind: string }) => n.kind === 'Mention')).toBe(false);
   });
 
+  it('L-04: a delegated approver can use an approval comment thread; without delegation they cannot', async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const plus7 = new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10);
+    const pSub = await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'Discussed' } });
+    const approvalId = pSub.json().approval.approvalId as string;
+
+    // A visitor has no approval standing by role → refused the approval comment thread.
+    const denied = await post(tokens.visitor, '/api/v1/comments', { subjectType: 'Approval', subjectId: approvalId, body: 'nope' });
+    expect(denied.statusCode).toBe(403);
+
+    // The owner delegates to the visitor → they can now decide the request AND comment on it.
+    const grant = await post(tokens.owner, '/api/v1/delegations', { granteeIdentity: 'visitor@alpha.com', startsOn: today, endsOn: plus7, reason: 'cover reviews' });
+    expect(grant.statusCode, grant.body).toBe(201);
+    const ok = await post(tokens.visitor, '/api/v1/comments', { subjectType: 'Approval', subjectId: approvalId, body: 'via delegation' });
+    expect(ok.statusCode, ok.body).toBe(201);
+  });
+
   it('you comment where you can read; empty body, missing record, and cross-tenant are refused', async () => {
     // empty body → 400
     const empty = await post(tokens.ops, '/api/v1/comments', { subjectType: 'Person', subjectId: 'PER-0001', body: '   ' });
