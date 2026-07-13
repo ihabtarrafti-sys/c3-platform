@@ -147,8 +147,18 @@ export async function findOrSubmitDeactivatePerson(
   const open = await p.reads.forActor(actor).listApprovals({ statuses: [...OPEN_STATUSES] });
   const existing = open.find((a) => a.operationType === 'DeactivatePerson' && a.targetPersonId === input.personId);
   if (existing) return { approval: existing, created: false };
-  const approval = await submitDeactivatePerson(p, actor, command);
-  return { approval, created: true };
+  try {
+    const approval = await submitDeactivatePerson(p, actor, command);
+    return { approval, created: true };
+  } catch (err) {
+    // R3-N04: a concurrent drain created the open DeactivatePerson between our find and
+    // submit — caught either by assertNoOpenPersonOp or the 0062 DB unique. Re-find and
+    // converge onto that single request (created:false); otherwise the error is real.
+    const again = await p.reads.forActor(actor).listApprovals({ statuses: [...OPEN_STATUSES] });
+    const peer = again.find((a) => a.operationType === 'DeactivatePerson' && a.targetPersonId === input.personId);
+    if (peer) return { approval: peer, created: false };
+    throw err;
+  }
 }
 
 export async function submitReactivatePerson(
