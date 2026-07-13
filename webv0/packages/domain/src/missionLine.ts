@@ -343,6 +343,17 @@ export function computeMissionPnl(args: {
     }));
 
   // Native subtotals (income at its EFFECTIVE amount) + computable per-diems as expense.
+  // L-02: any aggregate that leaves the exact-integer range flips `unbounded`, which
+  // collapses the authoritative blended USD total to null (fail-closed) — a P&L never
+  // reports a silently-imprecise grand total. The native per-currency subtotals keep the
+  // frozen-v1 `number` shape; a single-currency subtotal past 2^53 minor units is not
+  // physically reachable, but if it ever were, `unbounded` refuses the blend.
+  let unbounded = false;
+  const trackAdd = (acc: number, add: number): number => {
+    const sum = acc + add;
+    if (!Number.isSafeInteger(sum)) unbounded = true;
+    return sum;
+  };
   const byCurrency = new Map<CurrencyCode, { incomeMinor: number; expenseMinor: number }>();
   const bucket = (currency: CurrencyCode) => {
     let b = byCurrency.get(currency);
@@ -354,11 +365,14 @@ export function computeMissionPnl(args: {
   };
   for (const line of args.lines) {
     const b = bucket(line.currency);
-    if (line.direction === 'Income') b.incomeMinor += effectiveAmountMinor(line);
-    else b.expenseMinor += line.amountMinor;
+    if (line.direction === 'Income') b.incomeMinor = trackAdd(b.incomeMinor, effectiveAmountMinor(line));
+    else b.expenseMinor = trackAdd(b.expenseMinor, line.amountMinor);
   }
   for (const e of entries) {
-    if (e.totalMinor != null) bucket(e.currency).expenseMinor += e.totalMinor;
+    if (e.totalMinor != null) {
+      const b = bucket(e.currency);
+      b.expenseMinor = trackAdd(b.expenseMinor, e.totalMinor);
+    }
   }
   const perCurrency: MissionPnlCurrencyTotal[] = [...byCurrency.entries()]
     .map(([currency, t]) => ({ currency, ...t }))
@@ -385,14 +399,14 @@ export function computeMissionPnl(args: {
   const snapshotUsd = (line: PnlLine): number =>
     Math.round(effectiveAmountMinor(line) * (line.currency === PIVOT_CURRENCY ? 1 : line.receivedUsdPerUnit!));
   const addTo = (m: Map<CurrencyCode, number>, currency: CurrencyCode, amount: number) =>
-    m.set(currency, (m.get(currency) ?? 0) + amount);
+    m.set(currency, trackAdd(m.get(currency) ?? 0, amount));
 
   const liveIncomeByCurrency = new Map<CurrencyCode, number>();
   const liveExpenseByCurrency = new Map<CurrencyCode, number>();
   let incomeUsdMinor = 0;
   let expenseUsdMinor = 0;
   for (const line of args.lines) {
-    if (hasSnapshot(line)) incomeUsdMinor += snapshotUsd(line);
+    if (hasSnapshot(line)) incomeUsdMinor = trackAdd(incomeUsdMinor, snapshotUsd(line));
     else if (line.direction === 'Income') addTo(liveIncomeByCurrency, line.currency, effectiveAmountMinor(line));
     else addTo(liveExpenseByCurrency, line.currency, line.amountMinor);
   }
@@ -401,11 +415,11 @@ export function computeMissionPnl(args: {
   }
   for (const [currency, subtotal] of liveIncomeByCurrency) {
     const usd = liveUsd(subtotal, currency);
-    if (usd !== null) incomeUsdMinor += usd;
+    if (usd !== null) incomeUsdMinor = trackAdd(incomeUsdMinor, usd);
   }
   for (const [currency, subtotal] of liveExpenseByCurrency) {
     const usd = liveUsd(subtotal, currency);
-    if (usd !== null) expenseUsdMinor += usd;
+    if (usd !== null) expenseUsdMinor = trackAdd(expenseUsdMinor, usd);
   }
 
   // S2: budget-vs-actual per (direction, category). Budgets blend off the live
@@ -420,14 +434,14 @@ export function computeMissionPnl(args: {
       m = new Map();
       mapM.set(key, m);
     }
-    m.set(currency, (m.get(currency) ?? 0) + amount);
+    m.set(currency, trackAdd(m.get(currency) ?? 0, amount)); // L-02: overflow flips `unbounded`
   };
   const catLive = new Map<string, Map<CurrencyCode, number>>();
   const catSnapshotUsd = new Map<string, number>();
   for (const line of args.lines) {
     const key = keyOf(line.direction, line.category);
     addCat(catActual, key, line.currency, effectiveAmountMinor(line));
-    if (hasSnapshot(line)) catSnapshotUsd.set(key, (catSnapshotUsd.get(key) ?? 0) + snapshotUsd(line));
+    if (hasSnapshot(line)) catSnapshotUsd.set(key, trackAdd(catSnapshotUsd.get(key) ?? 0, snapshotUsd(line)));
     else addCat(catLive, key, line.currency, effectiveAmountMinor(line));
   }
   for (const e of entries) {
@@ -441,7 +455,7 @@ export function computeMissionPnl(args: {
     let usd: number | null = catSnapshotUsd.get(key) ?? 0;
     for (const [currency, subtotal] of catLive.get(key) ?? new Map<CurrencyCode, number>()) {
       const c = liveUsd(subtotal, currency);
-      usd = usd === null || c === null ? null : usd + c;
+      usd = usd === null || c === null ? null : trackAdd(usd, c);
     }
     catActualUsd.set(key, usd);
   }
@@ -453,7 +467,7 @@ export function computeMissionPnl(args: {
     const usd = convertMinor(b.amountMinor, b.currency, PIVOT_CURRENCY, map);
     if (usd === null) missing.add(b.currency);
     const cur = catBudgetUsd.has(key) ? catBudgetUsd.get(key)! : 0;
-    catBudgetUsd.set(key, cur === null || usd === null ? null : cur + usd);
+    catBudgetUsd.set(key, cur === null || usd === null ? null : trackAdd(cur, usd));
   }
 
   const allKeys = [...new Set([...catActual.keys(), ...catBudget.keys()])];
@@ -484,8 +498,10 @@ export function computeMissionPnl(args: {
   const settlement = missionSettlement(args.lines);
 
   const missingRates = [...missing].sort((a, b) => a.localeCompare(b));
+  // L-02: the blended USD total is computable only when every rate is present AND no
+  // aggregate overflowed the exact-integer range — otherwise it is honestly not computable.
   const blended =
-    missingRates.length === 0
+    missingRates.length === 0 && !unbounded
       ? { incomeUsdMinor, expenseUsdMinor, profitUsdMinor: incomeUsdMinor - expenseUsdMinor }
       : null;
 

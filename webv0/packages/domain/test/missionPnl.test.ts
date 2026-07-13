@@ -312,3 +312,33 @@ describe('HARDEN-2 M-02 — fragmentation invariance (per-currency subtotal blen
     expect(two.blended!.incomeUsdMinor).toBe(2 * Math.round(5_001 * 0.265));
   });
 });
+
+describe('HARDEN-3.2 L-02 — money aggregate bounds (fail-closed past MAX_SAFE_INTEGER)', () => {
+  // A single line is capped at MAX_AMOUNT_MINOR (900_000_000_000). But nothing caps how
+  // many lines a mission carries, so a legal-per-line set can sum past the exact-integer
+  // ceiling (2^53-1). Beyond it, `+` silently rounds — a blended USD total would be a
+  // plausible-looking lie. The engine must instead WITHHOLD the blend (it is already the
+  // one nullable headline; the v1 per-currency/per-category rows stay numeric by contract).
+  const MAX_LINE = 900_000_000_000; // === MAX_AMOUNT_MINOR
+  // ceil(MAX_SAFE_INTEGER / MAX_LINE) = 10_008 → the 10,008th add is the one that crosses.
+  const usdLines = (count: number) =>
+    Array.from({ length: count }, () => line({ direction: 'Income', amountMinor: MAX_LINE, currency: 'USD' }));
+
+  it('lines each individually legal but summing past 2^53 collapse the blended USD total to null (never a silently-wrong number)', () => {
+    const naiveSum = 10_008 * MAX_LINE;
+    expect(Number.isSafeInteger(naiveSum)).toBe(false); // the aggregate is genuinely out of exact range
+
+    const pnl = computeMissionPnl({ startsOn: '2026-08-01', endsOn: null, lines: usdLines(10_008), participants: [], rates: [] });
+    // USD is the pivot — no rate can be missing, so the ONLY reason to withhold the blend is the bound.
+    expect(pnl.missingRates).toEqual([]);
+    expect(pnl.blended).toBeNull();
+  });
+
+  it('one line short of the boundary still blends (the guard is not over-eager)', () => {
+    const sum = 10_007 * MAX_LINE;
+    expect(Number.isSafeInteger(sum)).toBe(true); // last exact partial sum
+
+    const pnl = computeMissionPnl({ startsOn: '2026-08-01', endsOn: null, lines: usdLines(10_007), participants: [], rates: [] });
+    expect(pnl.blended).toEqual({ incomeUsdMinor: sum, expenseUsdMinor: 0, profitUsdMinor: sum });
+  });
+});

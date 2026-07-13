@@ -74,6 +74,9 @@ export interface ExitReport {
 const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
   { table: 'audit_event', trigger: 'audit_event_append_only' },
   { table: 'approval_event', trigger: 'approval_event_append_only' },
+  // L-03 (0064): comment DELETE is guarded everywhere; the exit ceremony is the sole
+  // exception — disable the guard for the data phase so erasure can remove comments.
+  { table: 'comment', trigger: 'comment_no_delete' },
 ];
 
 /**

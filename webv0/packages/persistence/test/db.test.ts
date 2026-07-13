@@ -73,7 +73,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -445,6 +445,31 @@ describe('migrations & schema', () => {
     } finally {
       await cA.end();
       await cB.end();
+    }
+  });
+
+  it('R3.2 L-03: a privileged comment DELETE is DB-refused; the exit ceremony (guard disabled) still erases it', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'cmtco' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const u = await admin.query<{ id: string }>(`INSERT INTO app_user (email, display_name, is_active) VALUES ('g@cmt.com','G',false) RETURNING id`);
+      await admin.query(`INSERT INTO tenant_membership (tenant_id, user_id) VALUES ($1,$2)`, [t.tenantId, u.rows[0]!.id]);
+      await admin.query(`UPDATE app_user SET is_active=false WHERE id IN (SELECT user_id FROM tenant_membership WHERE tenant_id=$1)`, [t.tenantId]);
+      await admin.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-C','P')`, [t.tenantId]);
+      await admin.query(`INSERT INTO comment (tenant_id, subject_type, subject_id, author, body) VALUES ($1,'Person','PER-C','a@x.com','a retained note')`, [t.tenantId]);
+
+      // A privileged single-row DELETE is refused (today it would succeed — red).
+      await expect(admin.query(`DELETE FROM comment WHERE tenant_id=$1`, [t.tenantId])).rejects.toThrow(/append-only|not permitted/i);
+      expect((await admin.query(`SELECT count(*)::int n FROM comment WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(1);
+
+      // The exit ceremony IS the exception — it disables comment_no_delete for the data
+      // phase, so erasure removes the comment (proving the sole bypass works).
+      await exitTenant(admin, { tenantSlug: 'cmtco', execute: true, confirmSlug: 'cmtco', secondConfirm: 'cmtco' });
+      expect((await admin.query(`SELECT count(*)::int n FROM comment WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+    } finally {
+      await admin.end();
     }
   });
 
