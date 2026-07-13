@@ -7348,6 +7348,23 @@
     },
     {
       "method": "POST",
+      "url": "/api/v1/departures/drain-deactivations",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "attempted": {
+              "t": "number"
+            },
+            "linked": {
+              "t": "number"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
       "url": "/api/v1/dev/login",
       "body": {
         "t": "object",
@@ -9059,6 +9076,26 @@
               "credentials",
               "people"
             ]
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/intake/drain-wipes",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "attempted": {
+              "t": "number"
+            },
+            "stillPending": {
+              "t": "number"
+            },
+            "wiped": {
+              "t": "number"
+            }
           }
         }
       }
