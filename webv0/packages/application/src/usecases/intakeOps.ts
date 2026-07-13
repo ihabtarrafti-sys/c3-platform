@@ -242,6 +242,7 @@ export interface WipeResult {
  * needs no separate cron.
  */
 export async function wipeRejectedIntakeBlobs(p: Persistence, storage: BlobWipePort, actor: Actor): Promise<WipeResult> {
+  assertManageIntake(actor); // M-02: owner-invocable drain is intake-admin only
   const pending = await p.reads.forActor(actor).listPendingIntakeRejectTombstones();
   if (pending.length === 0) return { attempted: 0, wiped: 0, stillPending: 0 };
 

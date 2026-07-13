@@ -1641,6 +1641,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     },
   );
 
+  // M-02: owner/ops-invocable drain of the rejected-intake wipe outbox. Resolves
+  // tombstones left PENDING by an earlier storage failure WITHOUT waiting for the
+  // next rejection to retry them — so private bytes cannot linger indefinitely.
+  // (assertManageIntake is enforced inside the use-case.)
+  r.post(
+    '/api/v1/intake/drain-wipes',
+    { schema: { response: { 200: z.object({ attempted: z.number().int(), wiped: z.number().int(), stillPending: z.number().int() }) } } },
+    async (req) => wipeRejectedIntakeBlobs(P, deps.documentStorage, actorOf(req)),
+  );
+
   // Attach a promoted submission's quarantined files to the CREATED person
   // (available once its AddPerson approval has executed): copy quarantine→live
   // via the existing S4 attach, then remove the quarantine blob.

@@ -294,6 +294,23 @@ describe('guest intake — reject wipes', () => {
     const [t2] = await adminQuery<{ deleted_at: string | null }>(`SELECT deleted_at FROM blob_tombstone WHERE storage_key=$1`, [key]);
     expect(t2!.deleted_at).not.toBeNull();
   });
+
+  it('M-02: the owner drain ENDPOINT resolves a pending wipe on demand (no new rejection, intake-admin only)', async () => {
+    const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
+    const alphaId = tenant!.id;
+    const key = `intake/${alphaId}/subZ/upZ`;
+    await adminQuery(`INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason) VALUES ($1, $2, 'intake', 'intake_reject')`, [alphaId, key]);
+
+    // A visitor cannot invoke the drain.
+    expect((await post(tokens.visitor, '/api/v1/intake/drain-wipes', {})).statusCode).toBe(403);
+
+    // Ops drains on demand — the pending tombstone is resolved without a new reject.
+    const res = await post(tokens.ops, '/api/v1/intake/drain-wipes', {});
+    expect(res.statusCode, res.body).toBe(200);
+    expect(res.json().attempted).toBeGreaterThanOrEqual(1);
+    const [t] = await adminQuery<{ deleted_at: string | null }>(`SELECT deleted_at FROM blob_tombstone WHERE storage_key=$1`, [key]);
+    expect(t!.deleted_at).not.toBeNull();
+  });
 });
 
 describe('guest intake — boundaries (roles, tenants, public scope)', () => {

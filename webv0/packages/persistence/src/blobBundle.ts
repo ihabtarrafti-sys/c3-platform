@@ -233,8 +233,12 @@ export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, 
     }
   }
 
+  // M-02: exit resolves EVERY pending tombstone for the tenant, not just the
+  // exit-reason ones — a rejected-intake wipe left pending by an earlier storage
+  // failure must be finished by the exit ceremony too, or private bytes could
+  // survive an erasure that reports itself complete.
   const pending = await db.query<{ id: string; storage_key: string }>(
-    `SELECT id, storage_key FROM blob_tombstone WHERE tenant_ref = $1 AND reason = 'exit' AND deleted_at IS NULL`,
+    `SELECT id, storage_key FROM blob_tombstone WHERE tenant_ref = $1 AND deleted_at IS NULL`,
     [tenantId],
   );
   let verified = 0;
