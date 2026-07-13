@@ -89,6 +89,17 @@ describe('payroll export', () => {
     expect(csv).not.toContain('Pending hotel');
   });
 
+  it('honest-numbers: the amount is the claim\'s own minor units, its own currency — never FX-converted', async () => {
+    // a non-USD claim with an odd minor amount prints verbatim (amountMinor/100), no rate applied.
+    const res = await post(tokens.ops, '/api/v1/claims', { category: 'Travel', description: 'Souq run', amountMinor: 4567, currency: 'AED', expenseOn: '2026-06-02' });
+    expect(res.statusCode, res.body).toBe(201);
+    const c = res.json().claim;
+    await approve(c.claimId, c.version);
+    const csv = (await get(tokens.finance, '/api/v1/claims/payroll-export')).body;
+    // 45.67 AED, not a USD-converted figure and not coerced to 0.
+    expect(csv).toContain(`${c.claimId},ops@a.com,,Travel,Souq run,45.67,AED,2026-06-02,Approved,`);
+  });
+
   it('quotes a description containing a comma (RFC-4180)', async () => {
     const c = await submitClaim('Taxi, tolls, and parking');
     await approve(c.claimId, c.version);

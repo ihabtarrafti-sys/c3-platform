@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import { IntakeLinkUnavailableError } from '@c3web/domain';
-import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
+import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, PayableClaimRow, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
@@ -699,6 +699,42 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           withTenantTx(pool, actor, 'read', async (db): Promise<Claim[]> => {
             const rows = await db.select().from(schema.claim).orderBy(desc(schema.claim.createdAt), desc(schema.claim.claimId));
             return rows.map(mapClaim);
+          }),
+
+        // L-05: payroll's scoped read — payable claims + payee name via LEFT JOIN,
+        // keyset-paginated by (created_at desc, claim_id desc) to match listClaims order.
+        // created_at is carried as ::text (full precision) so the cursor round-trips
+        // exactly. RLS (withTenantTx) tenant-isolates both claim and the joined person.
+        listPayableClaimsWithPayee: (after: { createdAt: string; claimId: string } | null, limit: number) =>
+          withTenantTx(pool, actor, 'read', async (db): Promise<PayableClaimRow[]> => {
+            const res = await db.execute(sql`
+              SELECT c.claim_id, c.submitted_by, c.person_id, c.category, c.description,
+                     c.amount_minor, c.currency, c.expense_on::text AS expense_on, c.status,
+                     c.payment_source_label, c.ref_no, c.reviewed_by,
+                     c.created_at::text AS created_at, p.full_name AS payee_name
+                FROM claim c
+                LEFT JOIN person p ON p.tenant_id = c.tenant_id AND p.person_id = c.person_id
+               WHERE c.status IN ('Approved', 'Paid')
+                 ${after ? sql`AND (c.created_at, c.claim_id) < (${after.createdAt}::timestamptz, ${after.claimId})` : sql``}
+               ORDER BY c.created_at DESC, c.claim_id DESC
+               LIMIT ${limit}
+            `);
+            return (res.rows as Array<Record<string, unknown>>).map((r) => ({
+              claimId: String(r.claim_id),
+              submittedBy: String(r.submitted_by),
+              personId: (r.person_id as string | null) ?? null,
+              payeeName: (r.payee_name as string | null) ?? null,
+              category: String(r.category),
+              description: String(r.description),
+              amountMinor: Number(r.amount_minor),
+              currency: String(r.currency),
+              expenseOn: String(r.expense_on),
+              status: String(r.status),
+              paymentSourceLabel: (r.payment_source_label as string | null) ?? null,
+              refNo: (r.ref_no as string | null) ?? null,
+              reviewedBy: (r.reviewed_by as string | null) ?? null,
+              createdAt: String(r.created_at),
+            }));
           }),
 
         listClaimsForSubmitter: (identity: string) =>

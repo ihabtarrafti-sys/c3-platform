@@ -175,6 +175,14 @@ export interface ReadStore {
   // S9: claims. Per-actor scoping is the use-case's job (own vs finance-all).
   listClaims(): Promise<Claim[]>;
   listClaimsForSubmitter(identity: string): Promise<Claim[]>;
+  /**
+   * L-05: payroll's scoped read — only PAYABLE claims (Approved/Paid), each with its
+   * payee display name via a LEFT JOIN on person (verbatim full_name, the same value
+   * `listPeople` returns; null when the claim names no person). Keyset-paginated by
+   * (createdAt desc, claimId desc) to match `listClaims` order, so the export never
+   * materialises the whole claim + person registers. `after` is the exclusive cursor.
+   */
+  listPayableClaimsWithPayee(after: { createdAt: string; claimId: string } | null, limit: number): Promise<PayableClaimRow[]>;
   getClaimById(claimId: string): Promise<Claim | null>;
   // S10: the actor's own notification inbox (newest first, capped).
   listNotifications(identity: string, limit: number): Promise<C3Notification[]>;
@@ -321,6 +329,26 @@ export interface NewPersonRow {
 }
 
 /** Fields written when submitting a new approval. */
+/** L-05: a payable payroll claim joined to its payee display name (for exportPayrollCsv). */
+export interface PayableClaimRow {
+  readonly claimId: string;
+  readonly submittedBy: string;
+  readonly personId: string | null;
+  /** person.full_name via LEFT JOIN (verbatim, as listPeople returns); null if unmatched. */
+  readonly payeeName: string | null;
+  readonly category: string;
+  readonly description: string;
+  readonly amountMinor: number;
+  readonly currency: string;
+  readonly expenseOn: string;
+  readonly status: string;
+  readonly paymentSourceLabel: string | null;
+  readonly refNo: string | null;
+  readonly reviewedBy: string | null;
+  /** the keyset cursor half (with claimId). */
+  readonly createdAt: string;
+}
+
 /** M-06: fields for a new revise-intent outbox row (the payload is pre-validated). */
 export interface NewRevisionIntent {
   readonly sourceApprovalId: string;
