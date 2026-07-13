@@ -598,11 +598,26 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
     case 'TerminateAgreement':
     case 'RemoveAgreementTerm':
     case 'RetireBeneficiary':
-    case 'ProvisionMember':
-    case 'DeactivateMember':
-    case 'ReactivateMember':
-    case 'ChangeRole':
       return payload as unknown as Record<string, unknown>;
+    // H-03.1: member operations name a member — ProvisionMember carries email +
+    // immutable external identity + display name; the others target a member id.
+    // That is member-directory data: omit it for readers without member-directory
+    // standing (incl. delegated readers whose ROLE can't read Members). The op
+    // type and the granted role survive; WHO the op names does not.
+    case 'ProvisionMember': {
+      if (d.members) return payload as unknown as Record<string, unknown>;
+      return { operationType: payload.operationType, input: { role: payload.input.role } };
+    }
+    case 'ChangeRole': {
+      if (d.members) return payload as unknown as Record<string, unknown>;
+      // keep the target role (non-identifying); drop targetUserId + email.
+      return { operationType: payload.operationType, input: { toRole: payload.input.toRole } };
+    }
+    case 'DeactivateMember':
+    case 'ReactivateMember': {
+      if (d.members) return payload as unknown as Record<string, unknown>;
+      return { operationType: payload.operationType, input: {} };
+    }
     default: {
       // FAIL-CLOSED (H-03): every op type above is handled, so `payload` narrows
       // to `never` here — a new op type without a projection case is a COMPILE

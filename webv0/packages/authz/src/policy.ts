@@ -306,10 +306,14 @@ export const canViewPersonPII = (role: C3Role): boolean => capabilitiesFor(role)
 export interface PayloadDisclosure {
   readonly pii: boolean;
   readonly financial: boolean;
+  /** Member-directory standing — may see who a member operation names (email +
+   *  immutable external identity + display name). Derived from role, like the
+   *  others: delegation grants standing to DECIDE, never to SEE more (H-03.1). */
+  readonly members: boolean;
 }
 export function disclosureOf(role: C3Role): PayloadDisclosure {
   const c = capabilitiesFor(role);
-  return { pii: c.canViewPersonPII, financial: c.canViewFinancials };
+  return { pii: c.canViewPersonPII, financial: c.canViewFinancials, members: c.canReadMembers };
 }
 
 export const canManageDelegations = (role: C3Role): boolean => capabilitiesFor(role).canManageDelegations;
