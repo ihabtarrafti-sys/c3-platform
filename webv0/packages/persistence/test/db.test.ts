@@ -72,7 +72,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -546,6 +546,67 @@ describe('migrations & schema', () => {
     } finally {
       await cA.end().catch(() => {});
       await cB.end().catch(() => {});
+    }
+  });
+
+  it('0053 (R2-N05): re-derives gated PII from the authoritative payload and strips the multiline notes residual', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'n5' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      const link = await admin.query(
+        `INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at) VALUES ($1,'th-n5','Onboarding','o@n5.com', now()+interval '1 day') RETURNING id`,
+        [t.tenantId],
+      );
+      const payload = JSON.stringify({ fullName: 'N5 Person', email: 'real@x.com', phone: '+971500000000', dateOfBirth: '1990-01-01', addressLine1: '12 Marina Walk', apparelSize: 'L', note: 'hello there' });
+      await admin.query(
+        `INSERT INTO intake_submission (tenant_id, link_id, kind, payload, status, reviewed_by, reviewed_at, promoted_approval_id, promoted_person_id)
+         VALUES ($1,$2,'Onboarding',$3::jsonb,'Promoted','o@n5.com', now(), 'APR-9999', 'PER-N5')`,
+        [t.tenantId, link.rows[0].id, payload],
+      );
+      // A person whose gated email was MANUFACTURED from a free-text note by 0045,
+      // and whose notes still carry a multiline address residual (0045 stripped
+      // only the first line of the address value).
+      const notes = 'Self-submitted via guest intake.\nAddress: 12 Marina Walk\nApt 4B\nDubai AE\nEmail: hacker@evil.com\nApparel size: L\nNote from joiner: hello there';
+      await admin.query(`INSERT INTO person (tenant_id, person_id, full_name, email, notes) VALUES ($1,'PER-N5','N5 Person','hacker@evil.com',$2)`, [t.tenantId, notes]);
+
+      // Run the R2-N05 corrective (exactly as 0053 does).
+      await admin.query(`UPDATE person p SET
+          date_of_birth = CASE WHEN (s.payload->>'dateOfBirth') ~ '^\\d{4}-\\d{2}-\\d{2}$' THEN (s.payload->>'dateOfBirth')::date ELSE NULL END,
+          email = NULLIF(btrim(s.payload->>'email'), ''),
+          phone = NULLIF(btrim(s.payload->>'phone'), ''),
+          address_line1 = NULLIF(btrim(s.payload->>'addressLine1'), '')
+          FROM intake_submission s
+         WHERE s.promoted_person_id = p.person_id AND s.payload IS NOT NULL AND p.notes LIKE 'Self-submitted via guest intake%'`);
+      await admin.query(`UPDATE person p SET notes =
+          CASE WHEN concat_ws(E'\\n',
+                 CASE WHEN NULLIF(btrim(s.payload->>'apparelSize'),'') IS NOT NULL THEN 'Apparel size: ' || btrim(s.payload->>'apparelSize') END,
+                 CASE WHEN NULLIF(btrim(s.payload->>'shoeSize'),'')    IS NOT NULL THEN 'Shoe size: '    || btrim(s.payload->>'shoeSize') END,
+                 CASE WHEN NULLIF(btrim(s.payload->>'note'),'')        IS NOT NULL THEN 'Note from joiner: ' || btrim(s.payload->>'note') END
+               ) = '' THEN 'Self-submitted via guest intake.'
+               ELSE 'Self-submitted via guest intake —' || E'\\n' || concat_ws(E'\\n',
+                 CASE WHEN NULLIF(btrim(s.payload->>'apparelSize'),'') IS NOT NULL THEN 'Apparel size: ' || btrim(s.payload->>'apparelSize') END,
+                 CASE WHEN NULLIF(btrim(s.payload->>'shoeSize'),'')    IS NOT NULL THEN 'Shoe size: '    || btrim(s.payload->>'shoeSize') END,
+                 CASE WHEN NULLIF(btrim(s.payload->>'note'),'')        IS NOT NULL THEN 'Note from joiner: ' || btrim(s.payload->>'note') END
+               ) END
+          FROM intake_submission s
+         WHERE s.promoted_person_id = p.person_id AND s.payload IS NOT NULL AND p.notes LIKE 'Self-submitted via guest intake%'`);
+
+      const [row] = (await admin.query(`SELECT email, address_line1, to_char(date_of_birth,'YYYY-MM-DD') AS dob, notes FROM person WHERE person_id='PER-N5'`)).rows;
+      // Authoritative re-derive: the manufactured email is replaced by the payload's.
+      expect(row.email).toBe('real@x.com');
+      expect(row.address_line1).toBe('12 Marina Walk');
+      expect(row.dob).toBe('1990-01-01');
+      // Notes: no PII residual (manufactured email, multiline address) survives…
+      expect(row.notes).not.toContain('hacker@evil.com');
+      expect(row.notes).not.toContain('Apt 4B');
+      expect(row.notes).not.toContain('Marina Walk');
+      // …and the non-PII content is preserved.
+      expect(row.notes).toContain('Apparel size: L');
+      expect(row.notes).toContain('Note from joiner: hello there');
+    } finally {
+      await admin.end();
     }
   });
 
