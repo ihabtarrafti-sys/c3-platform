@@ -1367,10 +1367,12 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
 
     // M-06: complete the intent — record the submitted successor (tx-3).
     async markRevisionCompleted(id: string, submittedApprovalId: string): Promise<void> {
+      // R3-N03: predicate the transition on status='Pending' so a losing drainer (a peer
+      // already completed this intent) can NEVER overwrite the winner's submitted_approval_id.
       await db
         .update(schema.approvalRevision)
         .set({ status: 'Completed', submittedApprovalId, updatedAt: new Date() })
-        .where(eq(schema.approvalRevision.id, id));
+        .where(and(eq(schema.approvalRevision.id, id), eq(schema.approvalRevision.status, 'Pending')));
     },
 
     // M-06: abandon the intent — a deterministic refusal (attempt 1) or the transient

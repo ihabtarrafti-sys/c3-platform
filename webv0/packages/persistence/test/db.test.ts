@@ -73,7 +73,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -376,6 +376,40 @@ describe('migrations & schema', () => {
       await writer.query('ROLLBACK').catch(() => {});
       await writer.end();
       await exiter.end();
+    }
+  });
+
+  it('R3-N03: a SECOND live successor per source is DB-refused under a real two-connection race (0061 partial-unique)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'forkco' });
+    const cA = new Client({ connectionString: db.adminUrl });
+    const cB = new Client({ connectionString: db.adminUrl });
+    await cA.connect();
+    await cB.connect();
+    const insApproval = (c: Client, aid: string, revOf: string | null, status: string) =>
+      c.query(
+        `INSERT INTO approval (tenant_id, approval_id, operation_type, target_person_id, target_id, status, payload, submitted_by, revision_of)
+         VALUES ($1,$2,'AddPerson','PENDING-ADDPERSON',NULL,$3,$4::jsonb,'u@x.com',$5)`,
+        [t.tenantId, aid, status, JSON.stringify({ operationType: 'AddPerson', input: { fullName: 'x' } }), revOf],
+      );
+    try {
+      await insApproval(cA, 'APR-SRC', null, 'Rejected'); // the source
+
+      // Two connections both try to create a LIVE successor for APR-SRC concurrently.
+      await cA.query('BEGIN');
+      await insApproval(cA, 'APR-S1', 'APR-SRC', 'Submitted'); // A's successor (uncommitted)
+      await cB.query('BEGIN');
+      const bInsert = insApproval(cB, 'APR-S2', 'APR-SRC', 'Submitted'); // BLOCKS on the unique
+      await cA.query('COMMIT'); // A wins → B must fail
+      await expect(bInsert).rejects.toThrow(/duplicate key|unique|approval_one_live_successor/i);
+      await cB.query('ROLLBACK').catch(() => {});
+
+      // exactly one live successor; a WITHDRAWN successor is still allowed (excluded).
+      expect((await cA.query(`SELECT count(*)::int n FROM approval WHERE revision_of='APR-SRC' AND status<>'Withdrawn'`)).rows[0].n).toBe(1);
+      await expect(insApproval(cA, 'APR-S3', 'APR-SRC', 'Withdrawn')).resolves.toBeDefined();
+    } finally {
+      await cA.end();
+      await cB.end();
     }
   });
 

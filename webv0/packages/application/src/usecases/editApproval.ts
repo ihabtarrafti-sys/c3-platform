@@ -223,6 +223,17 @@ function isTransientSubmitFailure(err: unknown): boolean {
   return true;
 }
 
+/**
+ * R3-N03: did the submit fail because a peer drainer already created the live successor
+ * (the 0061 partial-unique on (tenant_id, revision_of) refused the second)? A Postgres
+ * unique-violation is 23505. We re-probe on any 23505 and converge only if a successor is
+ * actually present, so a 23505 from an unrelated unique is handled safely by fall-through.
+ */
+function isLiveSuccessorConflict(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } };
+  return (e?.code ?? e?.cause?.code) === '23505';
+}
+
 function describeError(err: unknown): string {
   return err instanceof Error ? `${err.name}: ${err.message}`.slice(0, 1000) : String(err).slice(0, 1000);
 }
@@ -249,18 +260,26 @@ async function completeRevisionIntent(p: Persistence, actor: Actor, intent: Appr
     try {
       revised = await dispatchSubmit(p, actor, payload, intent.reason, intent.sourceApprovalId);
     } catch (err) {
-      if (!isTransientSubmitFailure(err)) {
-        await p.writes.transaction(actor, (tx) => tx.markRevisionAbandoned(intent.id, describeError(err)));
-        return { kind: 'abandoned', error: err as Error };
+      // R3-N03: a peer drainer already created the live successor — the 0061 DB unique
+      // refused THIS second submit. Re-probe and converge onto the peer's successor (no
+      // fork); if it isn't visible yet, fall through to the normal transient retry.
+      if (isLiveSuccessorConflict(err)) {
+        revised = await p.reads.forActor(actor).findSuccessorApproval(intent.sourceApprovalId);
       }
-      const attempts = await p.writes.transaction(actor, (tx) => tx.bumpRevisionAttempt(intent.id, describeError(err)));
-      if (attempts >= REVISION_MAX_ATTEMPTS) {
-        await p.writes.transaction(actor, (tx) =>
-          tx.markRevisionAbandoned(intent.id, `Giving up after ${attempts} transient attempt(s): ${describeError(err)}`),
-        );
-        return { kind: 'abandoned', error: err as Error };
+      if (!revised) {
+        if (!isTransientSubmitFailure(err)) {
+          await p.writes.transaction(actor, (tx) => tx.markRevisionAbandoned(intent.id, describeError(err)));
+          return { kind: 'abandoned', error: err as Error };
+        }
+        const attempts = await p.writes.transaction(actor, (tx) => tx.bumpRevisionAttempt(intent.id, describeError(err)));
+        if (attempts >= REVISION_MAX_ATTEMPTS) {
+          await p.writes.transaction(actor, (tx) =>
+            tx.markRevisionAbandoned(intent.id, `Giving up after ${attempts} transient attempt(s): ${describeError(err)}`),
+          );
+          return { kind: 'abandoned', error: err as Error };
+        }
+        throw err; // transient — intent stays Pending; a later drain retries it
       }
-      throw err; // transient — intent stays Pending; a later drain retries it
     }
   }
 
