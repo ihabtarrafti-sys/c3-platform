@@ -240,23 +240,23 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
         } else {
           log(`↳ skip ${file} (already applied)`);
         }
-        // R4-N11: verify the preflight's identity too (never clobbering the migration checksum).
+        // R4-N11 / R5-N10: verify the preflight's identity (never clobbering the migration
+        // checksum). "No preflight" is recorded as the explicit sentinel 'none' (NOT NULL), so a
+        // preflight ADDED to a migration that had none is a mismatch — a NULL would have been
+        // silently adopted. NULL only appears on legacy rows applied before this column existed.
         const storedPf = entry.preflight;
-        const currentPf = preflight?.checksum ?? null;
+        const currentPf = preflight?.checksum ?? 'none';
         if (storedPf === null || storedPf === undefined) {
-          if (currentPf !== null) {
-            await client.query('UPDATE _migrations SET preflight_checksum = $2 WHERE id = $1 AND preflight_checksum IS NULL', [file, currentPf]);
-            log(`↳ ${file}: preflight checksum adopted`);
-          }
-        } else if (currentPf === null) {
-          throw new Error(
-            `Preflight for ${file} was REMOVED after being recorded (ledger ${storedPf.slice(0, 12)}…, file now absent). ` +
-              'A recorded preflight is part of the migration\'s replay identity — restore it, or ship the change as a NEW migration.',
-          );
+          // Legacy row (pre-sentinel): adopt the current identity ('none' or a checksum) ONCE.
+          await client.query('UPDATE _migrations SET preflight_checksum = $2 WHERE id = $1 AND preflight_checksum IS NULL', [file, currentPf]);
+          log(`↳ ${file}: preflight identity adopted (${currentPf === 'none' ? 'none' : currentPf.slice(0, 12) + '…'})`);
         } else if (storedPf !== currentPf) {
+          const change =
+            storedPf === 'none' ? 'ADDED (none was recorded)' : currentPf === 'none' ? 'REMOVED (file now absent)' : 'EDITED';
           throw new Error(
-            `Preflight for ${file} was EDITED after being applied (ledger ${storedPf.slice(0, 12)}… ≠ file ${currentPf.slice(0, 12)}…). ` +
-              'A preflight is frozen with its migration — ship the correction as a NEW migration file.',
+            `Preflight for ${file} was ${change} after being applied (ledger '${storedPf === 'none' ? 'none' : storedPf.slice(0, 12) + '…'}' ≠ file '${currentPf === 'none' ? 'none' : currentPf.slice(0, 12) + '…'}'). ` +
+              'A preflight (or its absence) is part of the migration\'s replay identity — restore it, or ship the change as a NEW migration file. ' +
+              '(A deliberate change is a documented, explicit ledger update.)',
           );
         }
       } else {
@@ -272,7 +272,7 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
           await client.query('INSERT INTO _migrations (id, checksum, preflight_checksum) VALUES ($1, $2, $3)', [
             file,
             checksum,
-            preflight?.checksum ?? null,
+            preflight?.checksum ?? 'none', // R5-N10: explicit 'none' sentinel, never NULL, on a fresh apply
           ]);
           await client.query('COMMIT');
           applied.push(file);

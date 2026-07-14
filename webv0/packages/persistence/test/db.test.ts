@@ -2045,13 +2045,17 @@ describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.2 Batch D (R2-N04) �
   }, 120_000);
 });
 
-// R4-N11: a preflight is part of a migration's replay identity, but 3.2 recorded only the
-// migration's checksum — editing a preflight changed future rebuilds invisibly. 3.3 records a
-// separate nullable preflight-checksum and refuses a later edit. Real edge: apply a migration
-// with a THROWAWAY preflight (a file the test owns and can edit), then edit that file and rerun
-// → the ledger must detect the mismatch. Skipped when a managed admin URL is supplied (DB
+// R4-N11 / R5-N10: a preflight (OR ITS ABSENCE) is part of a migration's replay identity. 3.2
+// recorded only the migration checksum, so editing a preflight changed rebuilds invisibly. 3.3
+// recorded a nullable preflight-checksum and refused a later EDIT — but recorded NULL for "no
+// preflight", and the skip path adopted a NULL row silently, so a preflight ADDED later (a real
+// change to replay identity) slipped through unrefused. R5-N10 records an explicit 'none' sentinel
+// (never NULL) on apply, so ADD ('none'→checksum), REMOVE (checksum→'none') and EDIT
+// (checksum→checksum') are all mismatches; a legacy NULL row (pre-sentinel) adopts its current
+// identity ONCE. Real edge in every case: apply through 0048 with a THROWAWAY preflight the test
+// owns, then mutate the file/ledger and rerun. Skipped when a managed admin URL is supplied (DB
 // creation may be locked down); runs on the embedded path the gate uses.
-describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.3 Batch F (R4-N11) — preflight bound to the ledger', () => {
+describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.3/3.4 Batch F (R4-N11 + R5-N10) — preflight identity bound to the ledger', () => {
   const roles = {
     appRole: 'c3_app', appPassword: 'c3_app_dev_pw',
     authRole: 'c3_auth', authPassword: 'c3_auth_dev_pw',
@@ -2059,6 +2063,7 @@ describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.3 Batch F (R4-N11) �
     allowDevSecrets: true as const,
   };
   const TARGET_0048 = '0048_finance_check_hardening.sql';
+  const SHA_SELECT1 = createHash('sha256').update('SELECT 1;\n').digest('hex');
   const maint = () => { const u = new URL(db.adminUrl); u.pathname = '/postgres'; return u.href; };
 
   async function createEmptyDb(): Promise<{ url: string; name: string }> {
@@ -2083,28 +2088,113 @@ describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.3 Batch F (R4-N11) �
     await c.connect();
     try { return (await c.query(sql)).rows[0] as Record<string, unknown>; } finally { await c.end(); }
   }
-
-  it('records a preflight checksum on apply and REFUSES a later edit of that preflight', async () => {
-    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
+  async function exec(url: string, sql: string): Promise<void> {
+    const c = new Client({ connectionString: url });
+    await c.connect();
+    try { await c.query(sql); } finally { await c.end(); }
+  }
+  /** Apply through 0048; `pf` is the preflight body, or null for NO preflight file. */
+  function apply(url: string, pfDir: string, pf: string | null): ReturnType<typeof runMigrations> {
     const pfPath = join(pfDir, TARGET_0048);
-    writeFileSync(pfPath, 'SELECT 1;\n'); // a harmless idempotent preflight for 0048 (no rows seeded → no-op)
+    if (pf === null) { rmSync(pfPath, { force: true }); } else { writeFileSync(pfPath, pf); }
+    return runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 });
+  }
+
+  it('records a preflight checksum on apply and REFUSES a later EDIT of that preflight', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
     const { url, name } = await createEmptyDb();
     try {
-      // Apply through 0048 with the throwaway preflight → its checksum is recorded in the ledger.
-      await runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 });
-      const rec = await scalar(url, `SELECT preflight_checksum FROM _migrations WHERE id='${TARGET_0048}'`);
-      expect(rec.preflight_checksum).toBe(createHash('sha256').update('SELECT 1;\n').digest('hex'));
+      // Apply through 0048 with the throwaway preflight → its checksum is recorded (never 'none').
+      await apply(url, pfDir, 'SELECT 1;\n');
+      const rec = await scalar(url, `SELECT preflight_checksum, checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      expect(rec.preflight_checksum).toBe(SHA_SELECT1);
+      const migChecksum = rec.checksum;
 
       // Rerun UNCHANGED → stable, the checksum matches, no throw.
-      await expect(
-        runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 }),
-      ).resolves.toBeDefined();
+      await expect(apply(url, pfDir, 'SELECT 1;\n')).resolves.toBeDefined();
 
       // EDIT the preflight → rerun → the ledger detects the mismatch and REFUSES.
-      writeFileSync(pfPath, 'SELECT 2;\n');
-      await expect(
-        runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 }),
-      ).rejects.toThrow(/preflight for .* was edited/i);
+      await expect(apply(url, pfDir, 'SELECT 2;\n')).rejects.toThrow(/preflight for .* was edited/i);
+
+      // Non-clobber: the migration's OWN checksum was never touched by the preflight machinery.
+      const after = await scalar(url, `SELECT checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      expect(after.checksum).toBe(migChecksum);
+    } finally {
+      rmSync(pfDir, { recursive: true, force: true });
+      await dropDb(name);
+    }
+  }, 120_000);
+
+  it('R5-N10: records the explicit \'none\' sentinel for a migration with NO preflight (never NULL)', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
+    const { url, name } = await createEmptyDb();
+    try {
+      await apply(url, pfDir, null); // no preflight file for 0048
+      const rec = await scalar(url, `SELECT preflight_checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      expect(rec.preflight_checksum).toBe('none'); // the seal, not NULL
+      // Rerun with STILL no preflight → 'none' === 'none', stable, no throw.
+      await expect(apply(url, pfDir, null)).resolves.toBeDefined();
+    } finally {
+      rmSync(pfDir, { recursive: true, force: true });
+      await dropDb(name);
+    }
+  }, 120_000);
+
+  it('R5-N10: REFUSES a preflight ADDED after apply (\'none\' → checksum) — the gap 3.3 adopted silently', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
+    const { url, name } = await createEmptyDb();
+    try {
+      await apply(url, pfDir, null); // recorded 'none'
+      // Now ADD a preflight to a migration that shipped without one → rerun → REFUSE.
+      await expect(apply(url, pfDir, 'SELECT 1;\n')).rejects.toThrow(/preflight for .* was added.*none was recorded/i);
+    } finally {
+      rmSync(pfDir, { recursive: true, force: true });
+      await dropDb(name);
+    }
+  }, 120_000);
+
+  it('R5-N10: REFUSES a preflight REMOVED after apply (checksum → \'none\')', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
+    const { url, name } = await createEmptyDb();
+    try {
+      await apply(url, pfDir, 'SELECT 1;\n'); // recorded a checksum
+      // Now REMOVE the preflight file → rerun → REFUSE (the recorded checksum can't be satisfied).
+      await expect(apply(url, pfDir, null)).rejects.toThrow(/preflight for .* was removed.*file now absent/i);
+    } finally {
+      rmSync(pfDir, { recursive: true, force: true });
+      await dropDb(name);
+    }
+  }, 120_000);
+
+  it('R5-N10: a legacy NULL row (pre-sentinel) ADOPTS its current identity ONCE, then holds it', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
+    const { url, name } = await createEmptyDb();
+    try {
+      await apply(url, pfDir, 'SELECT 1;\n'); // recorded SHA_SELECT1
+      // Simulate a row applied BEFORE the sentinel existed: force the ledger to NULL.
+      await exec(url, `UPDATE _migrations SET preflight_checksum = NULL WHERE id='${TARGET_0048}'`);
+      // Rerun with the SAME preflight → the legacy NULL adopts the current checksum (no throw).
+      await expect(apply(url, pfDir, 'SELECT 1;\n')).resolves.toBeDefined();
+      const rec = await scalar(url, `SELECT preflight_checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      expect(rec.preflight_checksum).toBe(SHA_SELECT1);
+      // Adoption is a ONE-SHOT: now that it holds an identity, an EDIT is refused like any other.
+      await expect(apply(url, pfDir, 'SELECT 2;\n')).rejects.toThrow(/preflight for .* was edited/i);
+    } finally {
+      rmSync(pfDir, { recursive: true, force: true });
+      await dropDb(name);
+    }
+  }, 120_000);
+
+  it('R5-N10: a legacy NULL row with NO current preflight adopts \'none\' (not a false ADD-refusal)', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
+    const { url, name } = await createEmptyDb();
+    try {
+      await apply(url, pfDir, null); // records 'none'
+      await exec(url, `UPDATE _migrations SET preflight_checksum = NULL WHERE id='${TARGET_0048}'`); // legacy NULL
+      // Rerun with still-no-preflight → adopts 'none' (a NULL legacy row is not a recorded 'none').
+      await expect(apply(url, pfDir, null)).resolves.toBeDefined();
+      const rec = await scalar(url, `SELECT preflight_checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      expect(rec.preflight_checksum).toBe('none');
     } finally {
       rmSync(pfDir, { recursive: true, force: true });
       await dropDb(name);

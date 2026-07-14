@@ -115,6 +115,25 @@ describe('A2 (R3-N01) — export bundle is a verifier-accepted superset', () => 
     expect(existsSync(resolve(out, 'manifest.json'))).toBe(false);
   });
 
+  it('R5-N09: a REUSED output dir with a prior manifest.json — a failed verify leaves NO manifest', async () => {
+    const store = storageDir();
+    writeFileSync(join(store, TENANT, 'doc1'), 'the document');
+    const reader = createBlobReader({ DOCUMENTS_DIR: store })!;
+    const out = outDir();
+    // First: a clean full export publishes a valid manifest.json into the dir.
+    await writeAndVerifyExportBundle(out, makeResult([{ key: `${TENANT}/doc1`, bytes: 'the document', bundleName: 'documents/DOC-1__f', ownerRef: 'DOC-1' }]), reader, { skipDocBytes: false });
+    expect(existsSync(resolve(out, 'manifest.json'))).toBe(true);
+
+    // Now REUSE the same dir with a bundle whose self-verify FAILS (wrong row-file sha).
+    const bad = makeResult([{ key: `${TENANT}/doc1`, bytes: 'the document', bundleName: 'documents/DOC-1__f', ownerRef: 'DOC-1' }]);
+    bad.manifest.files[0]!.sha256 = sha('a different content');
+    await expect(writeAndVerifyExportBundle(out, bad, reader, { skipDocBytes: false })).rejects.toThrow();
+    reader.close();
+    // R5-N09: the PRIOR manifest.json was deleted at the start, so a failed verify leaves none —
+    // never a stale authorizing manifest. RED on the old code (the prior manifest survives).
+    expect(existsSync(resolve(out, 'manifest.json'))).toBe(false);
+  });
+
   it('R4-N10: a FAILED self-verify publishes NO manifest.json (verify before publish, not after)', async () => {
     const store = storageDir();
     writeFileSync(join(store, TENANT, 'doc1'), 'the document');

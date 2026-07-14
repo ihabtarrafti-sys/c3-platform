@@ -12,7 +12,7 @@
  * just wrote against the same `verifyExitBundle` — so it can never publish a manifest the
  * exit gate would later reject. This module is CLI-support (uses fs); the API never imports it.
  */
-import { mkdirSync, writeFileSync, renameSync, readdirSync, statSync, readFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, renameSync, readdirSync, statSync, readFileSync, rmSync } from 'node:fs';
 import { resolve, dirname, relative, join } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { ExportResult, ExportManifest, ManifestBlob } from './exportTenant';
@@ -67,6 +67,11 @@ export async function writeAndVerifyExportBundle(
   opts: { skipDocBytes: boolean },
 ): Promise<WriteBundleResult> {
   mkdirSync(outDir, { recursive: true });
+  // R5-N09: a REUSED output directory may hold a prior authorizing manifest.json. Delete any
+  // existing manifest (both names) at the START of the sequence, so a FAILED verify below leaves
+  // NO manifest at all — never a stale one that a slug-only glance might treat as fresh.
+  rmSync(resolve(outDir, 'manifest.json'), { force: true });
+  rmSync(resolve(outDir, 'manifest.rows-only.json'), { force: true });
   for (const f of result.files) writeFileSync(resolve(outDir, f.name), f.content, 'utf8');
 
   const write = (bundleName: string, bytes: Buffer): void => {
