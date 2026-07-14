@@ -77,36 +77,43 @@ export async function writeAndVerifyExportBundle(
 
   const orphanEntries: ManifestBlob[] = [];
   if (!opts.skipDocBytes) {
-    if (result.blobs.length > 0 && !reader) {
+    // R4-N02: the object-store reader is MANDATORY for a full (exit-authorizing) export — a
+    // null reader REFUSES even with ZERO DB blobs. The old guard only refused when the DB
+    // NAMED a blob, so an orphan-only tenant was exported row-only and its orphaned bytes were
+    // never returned or accounted for. A full export must be able to read the store.
+    if (!reader) {
       throw new Error(
-        `EXPORT REFUSED: ${result.blobs.length} storage object(s) exist but no blob storage is configured ` +
-          '(set R2_ENDPOINT/R2_ACCESS_KEY_ID/R2_SECRET_ACCESS_KEY/R2_BUCKET_DOCUMENTS or DOCUMENTS_DIR, or pass --no-doc-bytes to export rows only).',
+        'EXPORT REFUSED: no blob storage is configured — a full export MUST read the object store ' +
+          '(even a zero-DB-blob tenant may have orphaned objects). Set R2_ENDPOINT/R2_ACCESS_KEY_ID/' +
+          'R2_SECRET_ACCESS_KEY/R2_BUCKET_DOCUMENTS or DOCUMENTS_DIR, or pass --no-doc-bytes to export rows only.',
       );
     }
-    if (reader) {
-      await downloadBlobUniverse(reader, result.blobs, write);
-      // R3-N01: ALWAYS discover orphans when a reader is present (even with zero DB blobs —
-      // an orphan-only tenant must still return every byte), and index them in the manifest.
-      const orphans = await downloadOrphanBlobs(reader, result.manifest.tenant.id, result.blobs.map((b) => b.storageKey), write);
-      for (const c of orphans.captured) {
-        orphanEntries.push({ bundleName: c.bundleName, blobClass: 'orphan', sha256: c.sha256, ownerRef: `orphan ${c.storageKey}` });
-      }
+    await downloadBlobUniverse(reader, result.blobs, write);
+    // R3-N01: ALWAYS discover orphans (even with zero DB blobs — an orphan-only tenant must
+    // still return every byte), and index them in the manifest.
+    const orphans = await downloadOrphanBlobs(reader, result.manifest.tenant.id, result.blobs.map((b) => b.storageKey), write);
+    for (const c of orphans.captured) {
+      orphanEntries.push({ bundleName: c.bundleName, blobClass: 'orphan', sha256: c.sha256, ownerRef: `orphan ${c.storageKey}` });
     }
   }
 
   const manifest: ExportManifest = { ...result.manifest, blobs: [...result.manifest.blobs, ...orphanEntries] };
 
-  // H-06: publish the authorizing manifest LAST, atomically (write-temp + rename).
-  const tmp = resolve(outDir, 'manifest.json.tmp');
-  writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-  renameSync(tmp, resolve(outDir, 'manifest.json'));
-
-  // R3-N01: the export RE-VERIFIES the bundle it just wrote — it must pass the SAME strict
-  // verifier the exit gate runs, or it must not exist. Skipped only for the explicit
+  // R4-N10: VERIFY FIRST, publish LAST. The strict verifier runs against the row + blob files
+  // already on disk and the in-memory manifest (fsBundleReader excludes manifest.json, which
+  // isn't written yet) — so a FAILED verify throws with NO manifest.json present, never an
+  // invalid published one. R3-N01: this is the SAME strict verifier the exit gate runs, so the
+  // export can only publish a bundle the gate would accept. Skipped only for the explicit
   // rows-only mode (whose blob-less bundle the exit gate is meant to reject anyway).
   if (!opts.skipDocBytes) {
     await verifyExitBundle(manifest, fsBundleReader(outDir));
   }
+
+  // H-06: publish the authorizing manifest LAST, atomically (write-temp + rename), and ONLY
+  // after the bundle has verified — the manifest.json's existence attests a verified bundle.
+  const tmp = resolve(outDir, 'manifest.json.tmp');
+  writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
+  renameSync(tmp, resolve(outDir, 'manifest.json'));
 
   return { manifest, blobCount: result.blobs.length, orphanCount: orphanEntries.length };
 }

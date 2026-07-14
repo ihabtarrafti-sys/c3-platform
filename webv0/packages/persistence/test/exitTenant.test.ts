@@ -312,7 +312,7 @@ describe('exit ceremony — executed', () => {
     });
 
     // ── Phase 2 (finalize): the point of no return — remove the identity LAST. ───
-    const fin = await admin((c) => finalizeTenantExit(c, alphaId));
+    const fin = await admin((c) => finalizeTenantExit(c, alphaId, { listKeys: async () => [] }));
     expect(fin.removed).toBe(true);
 
     await admin(async (c) => {
@@ -339,6 +339,6 @@ describe('exit ceremony — executed', () => {
 
     // The erased slug is now unknown — a re-run refuses; finalize refuses too.
     await expect(admin((c) => exitTenant(c, { tenantSlug: 'alpha' }))).rejects.toThrow(/Unknown tenant/i);
-    await expect(admin((c) => finalizeTenantExit(c, alphaId))).rejects.toThrow(/not in the Exiting state/i);
+    await expect(admin((c) => finalizeTenantExit(c, alphaId, { listKeys: async () => [] }))).rejects.toThrow(/not in the Exiting state/i);
   });
 });

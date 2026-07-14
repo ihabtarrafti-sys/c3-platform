@@ -145,6 +145,14 @@ try {
     } else if (confirmSlug !== fr.rows[0]!.slug || process.env.C3_EXIT_SECOND_CONFIRM !== fr.rows[0]!.slug) {
       console.error(`Finalize refused: BOTH confirmations must match the tenant slug '${fr.rows[0]!.slug}' (dual authorization).`);
       process.exitCode = 2;
+    } else if (!blobReader) {
+      // R4-N02: finalize's re-list is MANDATORY — refuse up front with a clear message rather
+      // than letting finalizeTenantExit throw, when no object store is configured.
+      console.error(
+        'Finalize refused: no blob storage configured (set R2_*/DOCUMENTS_DIR) — finalize MUST re-list both ' +
+          'blob prefixes against the live store before removing identity.',
+      );
+      process.exitCode = 2;
     } else {
       // A4: pass the blob reader so finalize re-lists both prefixes fail-closed — a
       // survivor planted after the last sweep refuses the point-of-no-return.

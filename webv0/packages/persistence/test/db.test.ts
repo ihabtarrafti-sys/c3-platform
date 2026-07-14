@@ -77,7 +77,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -452,6 +452,52 @@ describe('migrations & schema', () => {
     }
   });
 
+  it('R4-N02: finalizeTenantExit REFUSES without an object-store reader (the re-list is mandatory)', async () => {
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      // The reader check is the FIRST thing finalize does (before touching the DB), so it fires
+      // regardless of tenant state. A null/absent reader must refuse with a reader-specific error
+      // — on the old optional-reader path it would instead skip the re-list and reach the DB.
+      await expect(finalizeTenantExit(admin, '00000000-0000-0000-0000-000000000000', null)).rejects.toThrow(/object-store reader|re-list both blob prefixes/i);
+      await expect(finalizeTenantExit(admin, '00000000-0000-0000-0000-000000000000')).rejects.toThrow(/object-store reader/i);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('R4-N03: the intake_tombstone_refused definer rejects keys outside the token tenant (no cross-tenant tombstone) (0067)', async () => {
+    await db.truncateAll();
+    const a = await db.seedTenant({ slug: 'tomba' });
+    const b = await db.seedTenant({ slug: 'tombb' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    const app = new Client({ connectionString: db.appUrl });
+    await admin.connect();
+    await app.connect();
+    try {
+      await admin.query(
+        `INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at) VALUES ($1,'tok-A','Onboarding','o@a.com', now()+interval '1 day')`,
+        [a.tenantId],
+      );
+      const bKey = `intake/${b.tenantId}/sub-1/up-1`; // a key that belongs to tenant B
+      const aKey = `intake/${a.tenantId}/sub-1/up-1`; // a key in the token tenant's own namespace
+
+      // The definer runs as owner (bypasses RLS); called as c3_app it must REFUSE a foreign key.
+      await expect(app.query(`SELECT intake_tombstone_refused('tok-A', ARRAY[$1])`, [bKey])).rejects.toThrow(/cross-tenant tombstone|outside the token tenant/i);
+      // A path-traversal escape under the right prefix is also refused.
+      await expect(app.query(`SELECT intake_tombstone_refused('tok-A', ARRAY[$1])`, [`intake/${a.tenantId}/../${b.tenantId}/x`])).rejects.toThrow(/cross-tenant|outside/i);
+      // NOTHING was recorded — no tombstone for B's key exists (checked as owner, RLS-bypassing).
+      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE storage_key=$1`, [bKey])).rows[0].n).toBe(0);
+
+      // A legitimate key in the token tenant's OWN namespace still records a tombstone.
+      expect((await app.query(`SELECT intake_tombstone_refused('tok-A', ARRAY[$1]) AS n`, [aKey])).rows[0].n).toBe(1);
+      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2 AND reason='intake_refused'`, [a.tenantId, aKey])).rows[0].n).toBe(1);
+    } finally {
+      await admin.end();
+      await app.end();
+    }
+  });
+
   it('R4-N06: ExecutionFailed counts as OPEN — a held ExecutionFailed DeactivatePerson refuses every open newcomer (0065)', async () => {
     await db.truncateAll();
     const t = await db.seedTenant({ slug: 'depco2' });
@@ -601,12 +647,12 @@ describe('migrations & schema', () => {
       expect(tomb.rows[0]!.deleted_at).toBeNull();
 
       // --finalize REFUSES while the tombstone is unswept — identity left intact.
-      await expect(finalizeTenantExit(admin, t.tenantId)).rejects.toThrow(/unswept|REFUSED/i);
+      await expect(finalizeTenantExit(admin, t.tenantId, { listKeys: async () => [] })).rejects.toThrow(/unswept|REFUSED/i);
       expect((await admin.query(`SELECT count(*)::int n FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].n).toBe(1);
 
       // Sweep resolves the tombstone → finalize succeeds, identity removed LAST.
       await admin.query(`UPDATE blob_tombstone SET deleted_at=now() WHERE tenant_ref=$1`, [t.tenantId]);
-      const fin = await finalizeTenantExit(admin, t.tenantId);
+      const fin = await finalizeTenantExit(admin, t.tenantId, { listKeys: async () => [] });
       expect(fin.removed).toBe(true);
       expect(fin.soleUsers).toBeGreaterThanOrEqual(1);
       expect((await admin.query(`SELECT count(*)::int n FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].n).toBe(0);

@@ -82,6 +82,30 @@ describe('A2 (R3-N01) — export bundle is a verifier-accepted superset', () => 
     await expect(verifyExitBundle(strippedManifest, fsBundleReader(out))).rejects.toThrow(/UNLISTED/i);
   });
 
+  it('R4-N02: a full export REFUSES with NO reader — even for a ZERO-DB-blob (orphan-only) tenant', async () => {
+    const out = outDir();
+    const result = makeResult([]); // zero DB blobs — the old guard only refused when the DB named one
+    await expect(writeAndVerifyExportBundle(out, result, null, { skipDocBytes: false })).rejects.toThrow(/EXPORT REFUSED|MUST read the object store/i);
+    // and nothing was published.
+    expect(existsSync(resolve(out, 'manifest.json'))).toBe(false);
+  });
+
+  it('R4-N10: a FAILED self-verify publishes NO manifest.json (verify before publish, not after)', async () => {
+    const store = storageDir();
+    writeFileSync(join(store, TENANT, 'doc1'), 'the document');
+    const reader = createBlobReader({ DOCUMENTS_DIR: store })!;
+    const out = outDir();
+    const result = makeResult([{ key: `${TENANT}/doc1`, bytes: 'the document', bundleName: 'documents/DOC-1__f', ownerRef: 'DOC-1' }]);
+    // Make the manifest's row-file sha WRONG so the strict self-verify FAILS at the verify step.
+    result.manifest.files[0]!.sha256 = sha('a different content');
+
+    await expect(writeAndVerifyExportBundle(out, result, reader, { skipDocBytes: false })).rejects.toThrow();
+    reader.close();
+    // The crux: a failed verify leaves NO authorizing manifest. On the old order (verify AFTER
+    // the rename) an invalid manifest.json would already be published — RED.
+    expect(existsSync(resolve(out, 'manifest.json'))).toBe(false);
+  });
+
   it('an orphan-only tenant (zero DB blobs) still discovers, returns, and indexes every byte', async () => {
     const store = storageDir();
     writeFileSync(join(store, TENANT, 'strayA'), 'stray A'); // only orphans exist

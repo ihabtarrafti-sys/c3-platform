@@ -294,16 +294,24 @@ export async function finalizeTenantExit(
   tenantId: string,
   reader?: PrefixLister | null,
 ): Promise<{ removed: true; soleUsers: number }> {
+  // R4-N02: the object-store reader is MANDATORY. Finalize is the point of no return — it must
+  // PROVE both prefixes are empty against the LIVE store, because a late in-flight upload can
+  // land under a prefix after the last sweep, invisible to the tombstone ledger. A null reader
+  // REFUSES rather than skipping the re-list (the old optional-reader path finalized blind).
+  if (!reader) {
+    throw new Error(
+      'Finalize REFUSED: no object-store reader supplied — finalize MUST re-list both blob prefixes ' +
+        'against the live store before removing identity (configure R2_*/DOCUMENTS_DIR). Identity left intact.',
+    );
+  }
   // The prefix re-list is a READ against the object store — do it BEFORE opening the
   // destructive transaction so a survivor refuses without having touched the DB.
-  if (reader) {
-    for (const prefix of tenantBlobPrefixes(tenantId)) {
-      const keys = await reader.listKeys(prefix);
-      if (keys.length > 0) {
-        throw new Error(
-          `Finalize REFUSED: ${keys.length} object(s) still present under '${prefix}' (planted after the last sweep?) — re-run the sweep and re-verify zero. Identity left intact.`,
-        );
-      }
+  for (const prefix of tenantBlobPrefixes(tenantId)) {
+    const keys = await reader.listKeys(prefix);
+    if (keys.length > 0) {
+      throw new Error(
+        `Finalize REFUSED: ${keys.length} object(s) still present under '${prefix}' (planted after the last sweep?) — re-run the sweep and re-verify zero. Identity left intact.`,
+      );
     }
   }
   await client.query('BEGIN');
