@@ -64,6 +64,12 @@ export interface MigrateConfig {
    * that would drift from the true migration history. Never set on a production path.
    */
   readonly targetInclusive?: string;
+  /**
+   * TEST-ONLY: override the directory preflights are read from (default: the package's
+   * `preflights/`). Lets a test point at a throwaway preflight it can edit, to prove the
+   * ledger detects a preflight change. Never set on a production path.
+   */
+  readonly preflightsDir?: string;
 }
 
 /** Published dev/default role passwords that must never reach a real environment. */
@@ -123,18 +129,28 @@ async function ensureRestrictedRole(client: Client, role: string, password: stri
   await client.query(`ALTER ROLE ${role} NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);
 }
 
+/** SHA-256 of file content with line endings normalized (git may check out LF or CRLF). */
+function sha256(text: string): string {
+  return createHash('sha256').update(text.replace(/\r\n/g, '\n')).digest('hex');
+}
+
+/** A migration's sibling preflight (content + checksum), or null if it has none. */
+function loadPreflight(dir: string, file: string): { sql: string; checksum: string } | null {
+  const path = join(dir, file);
+  if (!existsSync(path)) return null;
+  const sql = readFileSync(path, 'utf8');
+  return { sql, checksum: sha256(sql) };
+}
+
 /**
- * R2-N04 (Batch D): run a migration's sibling preflight, if one exists, on the given
- * client — which is ALREADY inside the migration's BEGIN/COMMIT. Logs whether it repaired
- * rows or was a no-op, so a DR replay leaves an operator trail (log-on-repair). A preflight
- * is plain multi-statement SQL; node-pg returns one result per statement, so the UPDATE row
- * counts are summed. If the preflight RAISEs (an incoherent shape it refuses to guess at),
- * the throw propagates and the caller rolls the whole migration back.
+ * R2-N04 (Batch D): run a migration's preflight SQL on the given client — which is ALREADY
+ * inside the migration's BEGIN/COMMIT. Logs whether it repaired rows or was a no-op, so a DR
+ * replay leaves an operator trail (log-on-repair). A preflight is plain multi-statement SQL;
+ * node-pg returns one result per statement, so the UPDATE row counts are summed. If the
+ * preflight RAISEs (an incoherent shape it refuses to guess at), the throw propagates and the
+ * caller rolls the whole migration back.
  */
-async function runPreflight(client: Client, file: string, log: (msg: string) => void): Promise<void> {
-  const preflightPath = join(PREFLIGHTS_DIR, file);
-  if (!existsSync(preflightPath)) return;
-  const sql = readFileSync(preflightPath, 'utf8');
+async function runPreflightSql(client: Client, file: string, sql: string, log: (msg: string) => void): Promise<void> {
   const res = (await client.query(sql)) as unknown as
     | { command?: string; rowCount?: number | null }
     | Array<{ command?: string; rowCount?: number | null }>;
@@ -188,23 +204,29 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
     `);
     // H-08: the checksum column arrives idempotently (the ledger predates it).
     await client.query('ALTER TABLE _migrations ADD COLUMN IF NOT EXISTS checksum text');
-    const ledger = new Map<string, string | null>(
-      (await client.query('SELECT id, checksum FROM _migrations')).rows.map(
-        (r: { id: string; checksum: string | null }) => [r.id, r.checksum] as const,
+    // R4-N11: a preflight is part of a migration's replay identity, but was never recorded —
+    // editing one changed future rebuilds invisibly. Record its checksum in its own nullable
+    // column (legacy rows carry NULL and adopt on first sighting; migration checksums untouched).
+    await client.query('ALTER TABLE _migrations ADD COLUMN IF NOT EXISTS preflight_checksum text');
+    const ledger = new Map<string, { checksum: string | null; preflight: string | null }>(
+      (await client.query('SELECT id, checksum, preflight_checksum FROM _migrations')).rows.map(
+        (r: { id: string; checksum: string | null; preflight_checksum: string | null }) =>
+          [r.id, { checksum: r.checksum, preflight: r.preflight_checksum }] as const,
       ),
     );
+    const preflightsDir = config.preflightsDir ?? PREFLIGHTS_DIR;
     const files = readdirSync(MIGRATIONS_DIR)
       .filter((f) => f.endsWith('.sql'))
       .sort();
 
     for (const file of files) {
       const sqlText = readFileSync(join(MIGRATIONS_DIR, file), 'utf8');
-      // Normalize line endings before hashing: git may check the same file out
-      // as LF or CRLF depending on platform; the CONTENT is what is frozen.
-      const checksum = createHash('sha256').update(sqlText.replace(/\r\n/g, '\n')).digest('hex');
+      const checksum = sha256(sqlText);
+      const preflight = loadPreflight(preflightsDir, file); // { sql, checksum } | null
 
       if (ledger.has(file)) {
-        const stored = ledger.get(file);
+        const entry = ledger.get(file)!;
+        const stored = entry.checksum;
         if (stored === null || stored === undefined) {
           // Applied before checksums existed (or via the manual staging paste):
           // adopt the current content as the frozen truth.
@@ -218,6 +240,25 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
         } else {
           log(`↳ skip ${file} (already applied)`);
         }
+        // R4-N11: verify the preflight's identity too (never clobbering the migration checksum).
+        const storedPf = entry.preflight;
+        const currentPf = preflight?.checksum ?? null;
+        if (storedPf === null || storedPf === undefined) {
+          if (currentPf !== null) {
+            await client.query('UPDATE _migrations SET preflight_checksum = $2 WHERE id = $1 AND preflight_checksum IS NULL', [file, currentPf]);
+            log(`↳ ${file}: preflight checksum adopted`);
+          }
+        } else if (currentPf === null) {
+          throw new Error(
+            `Preflight for ${file} was REMOVED after being recorded (ledger ${storedPf.slice(0, 12)}…, file now absent). ` +
+              'A recorded preflight is part of the migration\'s replay identity — restore it, or ship the change as a NEW migration.',
+          );
+        } else if (storedPf !== currentPf) {
+          throw new Error(
+            `Preflight for ${file} was EDITED after being applied (ledger ${storedPf.slice(0, 12)}… ≠ file ${currentPf.slice(0, 12)}…). ` +
+              'A preflight is frozen with its migration — ship the correction as a NEW migration file.',
+          );
+        }
       } else {
         log(`↳ apply ${file}`);
         await client.query('BEGIN');
@@ -226,9 +267,13 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
           // reached only when the migration is pending — a fresh replay / DR rebuild —
           // so on the live DB (migration already ledgered) it never runs. Atomic with the
           // migration: a later failure rolls the repair back too.
-          await runPreflight(client, file, log);
+          if (preflight) await runPreflightSql(client, file, preflight.sql, log);
           await client.query(sqlText);
-          await client.query('INSERT INTO _migrations (id, checksum) VALUES ($1, $2)', [file, checksum]);
+          await client.query('INSERT INTO _migrations (id, checksum, preflight_checksum) VALUES ($1, $2, $3)', [
+            file,
+            checksum,
+            preflight?.checksum ?? null,
+          ]);
           await client.query('COMMIT');
           applied.push(file);
         } catch (err) {

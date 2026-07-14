@@ -7,6 +7,10 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import type { Actor } from '@c3web/domain';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
@@ -1815,6 +1819,73 @@ describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.2 Batch D (R2-N04) �
       ]);
     } finally {
       await check.end();
+      await dropDb(name);
+    }
+  }, 120_000);
+});
+
+// R4-N11: a preflight is part of a migration's replay identity, but 3.2 recorded only the
+// migration's checksum — editing a preflight changed future rebuilds invisibly. 3.3 records a
+// separate nullable preflight-checksum and refuses a later edit. Real edge: apply a migration
+// with a THROWAWAY preflight (a file the test owns and can edit), then edit that file and rerun
+// → the ledger must detect the mismatch. Skipped when a managed admin URL is supplied (DB
+// creation may be locked down); runs on the embedded path the gate uses.
+describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.3 Batch F (R4-N11) — preflight bound to the ledger', () => {
+  const roles = {
+    appRole: 'c3_app', appPassword: 'c3_app_dev_pw',
+    authRole: 'c3_auth', authPassword: 'c3_auth_dev_pw',
+    backupRole: 'c3_backup', backupPassword: 'c3_backup_dev_pw',
+    allowDevSecrets: true as const,
+  };
+  const TARGET_0048 = '0048_finance_check_hardening.sql';
+  const maint = () => { const u = new URL(db.adminUrl); u.pathname = '/postgres'; return u.href; };
+
+  async function createEmptyDb(): Promise<{ url: string; name: string }> {
+    const name = `c3web_pfled_${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+    const target = new URL(db.adminUrl); target.pathname = `/${name}`;
+    const boot = new Client({ connectionString: maint() });
+    await boot.connect();
+    try {
+      await boot.query(`CREATE DATABASE ${name} WITH ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`);
+    } finally {
+      await boot.end();
+    }
+    return { url: target.href, name };
+  }
+  async function dropDb(name: string): Promise<void> {
+    const boot = new Client({ connectionString: maint() });
+    await boot.connect();
+    try { await boot.query(`DROP DATABASE IF EXISTS ${name}`); } catch { /* torn down in afterAll */ } finally { await boot.end(); }
+  }
+  async function scalar(url: string, sql: string): Promise<Record<string, unknown>> {
+    const c = new Client({ connectionString: url });
+    await c.connect();
+    try { return (await c.query(sql)).rows[0] as Record<string, unknown>; } finally { await c.end(); }
+  }
+
+  it('records a preflight checksum on apply and REFUSES a later edit of that preflight', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfled-'));
+    const pfPath = join(pfDir, TARGET_0048);
+    writeFileSync(pfPath, 'SELECT 1;\n'); // a harmless idempotent preflight for 0048 (no rows seeded → no-op)
+    const { url, name } = await createEmptyDb();
+    try {
+      // Apply through 0048 with the throwaway preflight → its checksum is recorded in the ledger.
+      await runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 });
+      const rec = await scalar(url, `SELECT preflight_checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      expect(rec.preflight_checksum).toBe(createHash('sha256').update('SELECT 1;\n').digest('hex'));
+
+      // Rerun UNCHANGED → stable, the checksum matches, no throw.
+      await expect(
+        runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 }),
+      ).resolves.toBeDefined();
+
+      // EDIT the preflight → rerun → the ledger detects the mismatch and REFUSES.
+      writeFileSync(pfPath, 'SELECT 2;\n');
+      await expect(
+        runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 }),
+      ).rejects.toThrow(/preflight for .* was edited/i);
+    } finally {
+      rmSync(pfDir, { recursive: true, force: true });
       await dropDb(name);
     }
   }, 120_000);
