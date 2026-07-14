@@ -73,7 +73,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -445,6 +445,38 @@ describe('migrations & schema', () => {
     } finally {
       await cA.end();
       await cB.end();
+    }
+  });
+
+  it('R4-N06: ExecutionFailed counts as OPEN — a held ExecutionFailed DeactivatePerson refuses every open newcomer (0065)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'depco2' });
+    const c = new Client({ connectionString: db.adminUrl });
+    await c.connect();
+    const insDeact = (aid: string, status: string) =>
+      c.query(
+        `INSERT INTO approval (tenant_id, approval_id, operation_type, target_person_id, target_id, status, payload, submitted_by)
+         VALUES ($1,$2,'DeactivatePerson','PER-Y',NULL,$3,$4::jsonb,'u@x.com')`,
+        [t.tenantId, aid, status, JSON.stringify({ operationType: 'DeactivatePerson', input: { personId: 'PER-Y' } })],
+      );
+    try {
+      // The incumbent is ExecutionFailed — the domain treats it as open/recoverable. Under the
+      // OLD (0062) index it was EXCLUDED, so a fresh Submitted slipped past the DB and coexisted
+      // (the bug). 0065 includes it, so the incumbent now blocks every open newcomer.
+      await insDeact('APR-EF', 'ExecutionFailed');
+      let apr = 0;
+      for (const status of ['Submitted', 'InReview', 'Approved', 'ExecutionFailed']) {
+        await expect(insDeact(`APR-N${apr++}`, status)).rejects.toThrow(/duplicate key|unique|deactivate_person/i);
+      }
+      // A terminal status is still allowed alongside (a person can be re-deactivated later).
+      await expect(insDeact('APR-TERM', 'Withdrawn')).resolves.toBeDefined();
+      expect(
+        (await c.query(
+          `SELECT count(*)::int n FROM approval WHERE operation_type='DeactivatePerson' AND target_person_id='PER-Y' AND status IN ('Submitted','InReview','Approved','ExecutionFailed')`,
+        )).rows[0].n,
+      ).toBe(1); // only the ExecutionFailed incumbent
+    } finally {
+      await c.end();
     }
   });
 
