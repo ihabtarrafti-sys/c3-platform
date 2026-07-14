@@ -901,10 +901,10 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
       const res = await pool.query('SELECT intake_tombstone_refused($1, $2) AS n', [tokenHash, storageKeys as string[]]);
       return Number(res.rows[0]?.n ?? 0);
     },
-    async acquireUploadLease(tokenHash: string): Promise<string | null> {
-      // R4-N01: token-keyed definer (tenant-first lock order); NULL = refused (dead link
-      // or Exiting tenant). The exit's data phase drains these to zero before sweeping.
-      const res = await pool.query('SELECT intake_lease_acquire($1) AS id', [tokenHash]);
+    async acquireUploadLease(tokenHash: string, ttlMs: number): Promise<string | null> {
+      // R4-N01/R5-N01: token-keyed definer (tenant-first lock order); NULL = refused (dead
+      // link or Exiting tenant). The API owns the TTL so it can enforce requestTimeout×2 ≤ TTL.
+      const res = await pool.query('SELECT intake_lease_acquire($1, $2) AS id', [tokenHash, ttlMs]);
       const id = res.rows[0]?.id;
       return id ? String(id) : null;
     },

@@ -34,6 +34,20 @@ export interface Deps {
    * generator/test; never set in production wiring.
    */
   routeCollector?: (route: { method: string | string[]; url: string; schema?: unknown }) => void;
+  /**
+   * R5-N01: the request lifetime bound (Fastify requestTimeout) and the intake upload-lease TTL.
+   * buildApp refuses to start unless requestTimeout > 0 && requestTimeout × 2 ≤ leaseTtl — so an
+   * HTTP request can never outlive its lease. Defaults 300000 / 900000; tests shrink them.
+   */
+  requestTimeoutMs?: number;
+  leaseTtlMs?: number;
+  /**
+   * TEST-ONLY: how often Node checks for expired request timeouts (default 30s). A test
+   * shrinks it so a short requestTimeout is DETECTED (and the stalled request aborted)
+   * promptly. Production leaves it undefined (Node's 30s default — a fine granularity under
+   * a 5-min requestTimeout / 15-min lease).
+   */
+  connectionsCheckingIntervalMs?: number;
   ready(): Promise<boolean>;
   close(): Promise<void>;
 }

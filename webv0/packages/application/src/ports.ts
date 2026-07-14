@@ -1158,7 +1158,7 @@ export interface GuestIntakePort {
    * The exit ceremony's data phase drains a tenant's unexpired leases to zero before it
    * enumerates and sweeps, so a request mid-upload can never land bytes after the sweep.
    */
-  acquireUploadLease(tokenHash: string): Promise<string | null>;
+  acquireUploadLease(tokenHash: string, ttlMs: number): Promise<string | null>;
   /** Release the lease when the request resolves (claimed OR refused+tombstoned). Idempotent. */
   releaseUploadLease(leaseId: string): Promise<void>;
 }

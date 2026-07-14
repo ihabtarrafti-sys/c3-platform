@@ -6,8 +6,9 @@
  * correlation id.
  */
 import { createHash, randomUUID } from 'node:crypto';
+import { createServer as createHttpServer } from 'node:http';
 import { z } from 'zod';
-import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest, type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
 import multipart from '@fastify/multipart';
@@ -400,7 +401,23 @@ export function buildApp(deps: Deps): FastifyInstance {
   // Correlation ids from clients are accepted only in a safe shape (log-injection guard).
   const CORRELATION_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
-  const app = Fastify({
+  // R5-N01: an HTTP request must NEVER outlive its in-flight upload lease (0069/0073), or a
+  // stalled upload could PUT bytes after the exit sweep listed the prefix. Fastify's
+  // requestTimeout defaults to 0 (UNLIMITED) — set it explicitly, and REFUSE TO BOOT unless
+  // requestTimeout > 0 AND requestTimeout × 2 ≤ leaseTtl. The invariant is then structural:
+  // the socket is destroyed (bytes discarded) well before the lease can expire, so the exit's
+  // drain-of-live-leases is sound. Both are injectable config (tests shrink them).
+  const requestTimeoutMs = deps.requestTimeoutMs ?? 300_000; // 5 min
+  const leaseTtlMs = deps.leaseTtlMs ?? 900_000; // 15 min (matches the historical 0069 default)
+  if (!(requestTimeoutMs > 0 && requestTimeoutMs * 2 <= leaseTtlMs)) {
+    throw new Error(
+      `Refusing to start: the upload-lease invariant is violated — requestTimeout (${requestTimeoutMs}ms) must be > 0 and ` +
+        `requestTimeout × 2 (${requestTimeoutMs * 2}ms) must be ≤ the intake upload-lease TTL (${leaseTtlMs}ms), ` +
+        'so no HTTP request can outlive its lease (see the 0069/0073 intake_upload_lease design).',
+    );
+  }
+
+  const fastifyOpts: FastifyServerOptions = {
     logger: loggerOptions(deps.env),
     // X-Forwarded-* headers are trusted ONLY when the deployment boundary
     // explicitly enables it (TRUST_PROXY=true behind a known proxy).
@@ -408,11 +425,23 @@ export function buildApp(deps: Deps): FastifyInstance {
     // Bounded request bodies: the largest legitimate payload (AddPerson) is
     // a few KB; 128 KiB leaves ample headroom.
     bodyLimit: 128 * 1024,
+    // R5-N01: bound the request lifetime (dominated by the lease TTL, asserted above).
+    requestTimeout: requestTimeoutMs,
     genReqId: (req) => {
       const h = req.headers['x-correlation-id'];
       return typeof h === 'string' && CORRELATION_RE.test(h) ? h : randomUUID();
     },
-  }).withTypeProvider<ZodTypeProvider>();
+  };
+  // R5-N01 (test-only): Node checks request timeouts every `connectionsCheckingInterval`
+  // (default 30s), so a short requestTimeout isn't detected promptly. When a test sets a small
+  // interval, wire a serverFactory that also pins headersTimeout ≤ requestTimeout (so the body
+  // stall is what times out). Production leaves this undefined → Node's 30s default.
+  if (deps.connectionsCheckingIntervalMs !== undefined) {
+    const interval = deps.connectionsCheckingIntervalMs;
+    fastifyOpts.serverFactory = (handler) =>
+      createHttpServer({ connectionsCheckingInterval: interval, requestTimeout: requestTimeoutMs, headersTimeout: requestTimeoutMs }, handler);
+  }
+  const app = Fastify(fastifyOpts).withTypeProvider<ZodTypeProvider>();
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
@@ -1773,7 +1802,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       // ceremony's data phase drains a tenant's unexpired leases to zero before it enumerates
       // and sweeps, so a request mid-upload can never land bytes after the sweep. A refused
       // acquire (link died / tenant Exiting since the peek) ends the request here, byte-free.
-      const leaseId = await P.guest.acquireUploadLease(tokenHash);
+      const leaseId = await P.guest.acquireUploadLease(tokenHash, deps.leaseTtlMs ?? 900_000);
       if (!leaseId) {
         return sendError(req, reply, 410, 'INTAKE_LINK_UNAVAILABLE', 'This intake link is no longer available. Ask your contact for a fresh link.');
       }
