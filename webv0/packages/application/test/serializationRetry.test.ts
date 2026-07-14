@@ -16,7 +16,7 @@ describe('withSerializationRetry', () => {
   });
 
   it('retries a 40001 serialization failure and converges on the next attempt', async () => {
-    const fn = vi.fn<[], Promise<string>>()
+    const fn = vi.fn()
       .mockRejectedValueOnce(pgErr('40001'))
       .mockResolvedValueOnce('converged');
     await expect(withSerializationRetry(fn, 3)).resolves.toBe('converged');
@@ -24,7 +24,7 @@ describe('withSerializationRetry', () => {
   });
 
   it('retries a 40P01 deadlock too', async () => {
-    const fn = vi.fn<[], Promise<string>>()
+    const fn = vi.fn()
       .mockRejectedValueOnce(pgErr('40P01'))
       .mockResolvedValueOnce('ok');
     await expect(withSerializationRetry(fn, 3)).resolves.toBe('ok');
