@@ -47,12 +47,21 @@ async function sha256File(path: string): Promise<string> {
 }
 
 /**
+ * R3-N06: the census transaction MUST be REPEATABLE READ so its snapshot is pinned at
+ * `pg_export_snapshot()` and shared with `pg_dump --snapshot` — under READ COMMITTED every
+ * statement takes a fresh snapshot and the census silently diverges from the dump. Exported
+ * (and used below) so the real-DB census test can prove exactly this isolation level.
+ */
+export const CENSUS_TX_BEGIN = 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY';
+
+/**
  * H-08 (Option A) / R3-N06: every blob object across all tenants, DB-authoritative.
  * Runs on a CALLER-SUPPLIED connection so all three class queries share ONE snapshot
  * (sequential in the caller's transaction — NOT Promise.all, which would be three
- * implicit txns). Deterministic order for stable coverage diffs.
+ * implicit txns). Deterministic order for stable coverage diffs. Exported for the
+ * real-DB same-snapshot census test.
  */
-async function enumerateBlobsInTx(c: Client): Promise<BlobArchiveEntry[]> {
+export async function enumerateBlobsInTx(c: Client): Promise<BlobArchiveEntry[]> {
   const q = async (sql: string, cls: BlobArchiveEntry['cls']): Promise<BlobArchiveEntry[]> =>
     (await c.query(sql)).rows.map((r: { key: string; sha: string }) => ({ storageKey: r.key, sha256: r.sha, cls }));
   const docs = await q(`SELECT storage_key AS key, sha256 AS sha FROM document WHERE sha256 ~ '^[a-f0-9]{64}$' ORDER BY storage_key`, 'document');
@@ -112,7 +121,7 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
       const c = new Client({ connectionString: env.databaseUrl });
       await c.connect();
       const io: CoherentIo = {
-        begin: async () => { await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'); },
+        begin: async () => { await c.query(CENSUS_TX_BEGIN); },
         exportSnapshot: async () => String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id),
         enumerate: () => enumerateBlobsInTx(c),
         // R4-N09: pg_dump with --lock-wait-timeout (via pgDumpArgs) + a bounded retry, so a

@@ -55,6 +55,12 @@ export default defineWorkspace([
       root: './apps/backup',
       environment: 'node',
       include: ['test/**/*.test.ts'],
+      // censusSnapshot.test.ts provisions a real PostgreSQL (embedded when DATABASE_URL is
+      // unset) — same generous timeouts + single fork as the persistence/api projects.
+      testTimeout: 60_000,
+      hookTimeout: 180_000,
+      pool: 'forks',
+      poolOptions: { forks: { singleFork: true } },
     },
   },
   {
