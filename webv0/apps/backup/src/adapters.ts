@@ -13,6 +13,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import type { BackupDeps } from './runner';
 import type { BackupEnv } from './env';
 import type { BlobArchiveEntry } from './manifest';
+import { coherentDumpAndCensusFlow, pgDumpArgs, runWithLockWaitRetry, type CoherentIo } from './coherentFlow';
 
 const ADVISORY_LOCK_KEY = 928_340_014; // arbitrary fixed key for the backup lock
 
@@ -104,25 +105,28 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
     // Per class: a count + a representative {storageKey, sha256} the restore
     // drill fetches + hash-checks. Only rows with a verifiable sha256 count.
     async coherentDumpAndCensus(dumpPath: string): Promise<{ bytes: number; blobs: BlobArchiveEntry[] }> {
+      // R3-N06: ONE coherent image — the blob census and pg_dump read the IDENTICAL MVCC
+      // snapshot, so no between-reads delete/insert can make them incoherent. The ordering
+      // and snapshot-threading are in coherentDumpAndCensusFlow (unit-tested); here we supply
+      // the real pg / pg_dump effects. READ ONLY + REPEATABLE READ takes no DML-blocking locks.
       const c = new Client({ connectionString: env.databaseUrl });
       await c.connect();
+      const io: CoherentIo = {
+        begin: async () => { await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'); },
+        exportSnapshot: async () => String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id),
+        enumerate: () => enumerateBlobsInTx(c),
+        // R4-N09: pg_dump with --lock-wait-timeout (via pgDumpArgs) + a bounded retry, so a
+        // lock-queue cycle fails fast and retries rather than hanging the exporter indefinitely.
+        runDump: (snapshotId) =>
+          runWithLockWaitRetry(() => run('pg_dump', pgDumpArgs(dumpPath, env.databaseUrl, snapshotId)), {
+            onRetry: (attempt) => console.warn(JSON.stringify({ event: 'backup.pg_dump_lock_retry', attempt })),
+          }),
+        commit: async () => { await c.query('COMMIT'); },
+        rollback: async () => { await c.query('ROLLBACK'); },
+        dumpBytes: async () => (await fs.stat(dumpPath)).size,
+      };
       try {
-        // R3-N06: ONE coherent image — the blob census and pg_dump read the IDENTICAL MVCC
-        // snapshot, so no between-reads delete/insert can make them incoherent. Order is
-        // LOAD-BEARING: export the snapshot, enumerate in this tx, run pg_dump ON that
-        // snapshot, and close the tx ONLY AFTER pg_dump fully finishes (closing it earlier
-        // invalidates the exported snapshot). READ ONLY + REPEATABLE READ takes no
-        // DML-blocking locks; pg_dump already holds a snapshot this long for its own dump.
-        await c.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-        const snapId = String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id);
-        const blobs = await enumerateBlobsInTx(c);
-        await run('pg_dump', ['-Fc', '-Z', '6', '--no-owner', '--no-privileges', `--snapshot=${snapId}`, '-f', dumpPath, env.databaseUrl]);
-        await c.query('COMMIT');
-        const st = await fs.stat(dumpPath);
-        return { bytes: st.size, blobs };
-      } catch (err) {
-        await c.query('ROLLBACK').catch(() => {});
-        throw err;
+        return await coherentDumpAndCensusFlow(io);
       } finally {
         await c.end();
       }

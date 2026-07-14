@@ -53,11 +53,31 @@ export type ArchiveExtract = (storageKey: string) => Promise<Buffer | null>;
  *  signed index for the rest. A real recovery extracts everything (see the loop below). */
 const DRILL_SHA_SAMPLE = 25;
 
-/** A strong random sample of the archive index, with every non-empty class represented. */
-function strongSample(entries: ValidatedBlobArchive['entries']): ValidatedBlobArchive['entries'] {
-  if (entries.length <= DRILL_SHA_SAMPLE) return entries;
-  const shuffled = [...entries].sort(() => Math.random() - 0.5);
-  const chosen = new Map(shuffled.slice(0, DRILL_SHA_SAMPLE).map((e) => [e.storageKey, e] as const));
+/** An injectable [0,1) source so the sampler is deterministic under test. */
+export type Rng = () => number;
+
+/**
+ * R4-N12: a SOUND without-replacement sample, with every non-empty class represented.
+ * The old `sort(() => Math.random() - 0.5)` is a biased shuffle (comparator is not a
+ * consistent order) and was untestable (non-injectable). This is a partial Fisher-Yates
+ * — draw `sampleSize` distinct entries uniformly, each remaining slot equally likely —
+ * with an injectable RNG so a drill can prove exactly which entries it checks.
+ */
+export function strongSample(
+  entries: ValidatedBlobArchive['entries'],
+  sampleSize: number = DRILL_SHA_SAMPLE,
+  rng: Rng = Math.random,
+): ValidatedBlobArchive['entries'] {
+  if (entries.length <= sampleSize) return entries;
+  const arr = [...entries];
+  // Partial Fisher-Yates: after i iterations, arr[0..i) holds i distinct uniform draws.
+  for (let i = 0; i < sampleSize; i++) {
+    const j = i + Math.floor(rng() * (arr.length - i));
+    const t = arr[i]!;
+    arr[i] = arr[j]!;
+    arr[j] = t;
+  }
+  const chosen = new Map(arr.slice(0, sampleSize).map((e) => [e.storageKey, e] as const));
   for (const cls of ['document', 'photo', 'intake'] as const) {
     if (![...chosen.values()].some((e) => e.cls === cls)) {
       const rep = entries.find((e) => e.cls === cls);
@@ -81,6 +101,7 @@ export async function verifyBlobArchiveRecovery(
   inventory: ValidatedBlobInventory,
   archive: ValidatedBlobArchive,
   extract: ArchiveExtract,
+  rng: Rng = Math.random,
 ): Promise<BlobRecoveryResult> {
   // (1) Completeness: the archive index must match the census count for every class.
   const archiveCount: Record<string, number> = { document: 0, photo: 0, intake: 0 };
@@ -92,7 +113,7 @@ export async function verifyBlobArchiveRecovery(
   }
 
   // (2) Full key presence + (3) sampled sha verification.
-  const sampleKeys = new Set(strongSample(archive.entries).map((e) => e.storageKey));
+  const sampleKeys = new Set(strongSample(archive.entries, DRILL_SHA_SAMPLE, rng).map((e) => e.storageKey));
   const verifiedClasses = new Set<string>();
   for (const e of archive.entries) {
     const bytes = await extract(e.storageKey);

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery, verifyBlobArchiveRecovery } from '../src/restore';
+import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery, verifyBlobArchiveRecovery, strongSample, type Rng } from '../src/restore';
 import type { ValidatedBlobInventory } from '../src/signing';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -136,5 +136,66 @@ describe('verifyBlobArchiveRecovery — H-08 Option A (recover from the independ
   it('R3-N06 completeness: the archive index count must match the census — a short class FAILS', async () => {
     const invExtra: ValidatedBlobInventory = { ...inv(), intake: { count: 3, sample: { storageKey: 'x', sha256: sha('x') } } };
     await expect(verifyBlobArchiveRecovery(invExtra, archive(), extractOf(fullStore()))).rejects.toThrow(/intake — manifest inventory 3 != archive index 0/i);
+  });
+});
+
+describe('R4-N12: the drill sampler is sound, deterministic, and injectable', () => {
+  // A deterministic LCG in [0,1) so a drill can prove EXACTLY which entries it sha-checks.
+  const seededRng = (seed: number): Rng => {
+    let s = seed >>> 0;
+    return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 2 ** 32; };
+  };
+  // 30 documents + 4 photos = 34 entries (> DRILL_SHA_SAMPLE of 25). Each object's bytes are
+  // its own key, so sha(bytes) === entry.sha256; a "corruption" rewrites the bytes.
+  const bigArchive = () => {
+    const entries = [
+      ...Array.from({ length: 30 }, (_v, i) => ({ storageKey: `tid/doc-${i}`, sha256: sha(`tid/doc-${i}`), cls: 'document' as const })),
+      ...Array.from({ length: 4 }, (_v, i) => ({ storageKey: `tid/photo-${i}`, sha256: sha(`tid/photo-${i}`), cls: 'photo' as const })),
+    ];
+    return { key: 'daily/x.dump.age.blobs.age', sha256: sha('a'), bytes: 1, entryCount: entries.length, entries };
+  };
+  const bigInv = (): ValidatedBlobInventory => ({
+    document: { count: 30, sample: { storageKey: 'tid/doc-0', sha256: sha('tid/doc-0') } },
+    photo: { count: 4, sample: { storageKey: 'tid/photo-0', sha256: sha('tid/photo-0') } },
+    intake: { count: 0, sample: null },
+  });
+  const storeOf = (a: ReturnType<typeof bigArchive>): Record<string, Buffer> =>
+    Object.fromEntries(a.entries.map((e) => [e.storageKey, Buffer.from(e.storageKey)]));
+  const extractOf = (store: Record<string, Buffer>) => async (k: string) => store[k] ?? null;
+
+  it('is DETERMINISTIC under a seeded RNG (the old Math.random sort was not) and covers every class', () => {
+    const a = bigArchive();
+    const s1 = strongSample(a.entries, 25, seededRng(7)).map((e) => e.storageKey).sort();
+    const s2 = strongSample(a.entries, 25, seededRng(7)).map((e) => e.storageKey).sort();
+    expect(s1).toEqual(s2); // same seed → identical sample (RED on the non-injectable Math.random sort)
+    expect(new Set(s1).size).toBe(s1.length); // without replacement — no key twice
+    expect(s1.length).toBeGreaterThanOrEqual(25);
+    const classes = new Set(strongSample(a.entries, 25, seededRng(7)).map((e) => e.cls));
+    expect(classes).toContain('document');
+    expect(classes).toContain('photo'); // every non-empty class represented
+  });
+
+  it('a sha-corruption INSIDE the sample is caught', async () => {
+    const a = bigArchive();
+    const sampled = new Set(strongSample(a.entries, 25, seededRng(7)).map((e) => e.storageKey));
+    const inKey = [...sampled][0]!;
+    const store = storeOf(a);
+    store[inKey] = Buffer.from('CORRUPT'); // present but wrong bytes
+    await expect(verifyBlobArchiveRecovery(bigInv(), a, extractOf(store), seededRng(7))).rejects.toThrow(/hash mismatch in archive/);
+  });
+
+  it('a MISSING object OUTSIDE the sample is still caught (full key presence, not just the sample)', async () => {
+    const a = bigArchive();
+    const sampled = new Set(strongSample(a.entries, 25, seededRng(7)).map((e) => e.storageKey));
+    const outKey = a.entries.find((e) => !sampled.has(e.storageKey))!.storageKey;
+    const store = storeOf(a);
+    delete store[outKey]; // unextractable
+    await expect(verifyBlobArchiveRecovery(bigInv(), a, extractOf(store), seededRng(7))).rejects.toThrow(/UNRECOVERABLE from the independent archive/);
+  });
+
+  it('a clean big archive passes (every object extracts; the sample hash-verifies)', async () => {
+    const a = bigArchive();
+    const res = await verifyBlobArchiveRecovery(bigInv(), a, extractOf(storeOf(a)), seededRng(7));
+    expect(res.verifiedClasses.sort()).toEqual(['document', 'photo']);
   });
 });

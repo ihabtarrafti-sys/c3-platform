@@ -277,4 +277,42 @@ describe('runBackup orchestration', () => {
     await expect(runBackup(env, deps)).rejects.toThrow(/verification/i);
     expect(rec.uploads).not.toContain('status/latest-success.json');
   });
+
+  it('R4-N04: the WEEKLY copy is self-contained — its manifest names a WEEKLY-prefixed blob archive that survives daily expiry', async () => {
+    const { deps, rec } = makeDeps({}, new Date('2026-07-05T02:15:00Z')); // Sunday → daily + weekly
+    await runBackup(env, deps);
+
+    // The weekly manifest names a weekly-prefixed dump AND a weekly-prefixed blob archive.
+    const weeklyManifestKey = rec.uploads.find((k) => k.startsWith('weekly/') && k.endsWith('.manifest.json'))!;
+    const weekly = JSON.parse(rec.bodies[weeklyManifestKey]!);
+    expect(weekly.objectKey.startsWith('weekly/')).toBe(true);
+    expect(weekly.blobArchive.key.startsWith('weekly/')).toBe(true); // RED on the daily-bound archive
+    // each retention copy owns a distinct blob archive under its own prefix.
+    const archiveKeys = rec.uploads.filter((k) => k.endsWith('.blobs.age'));
+    expect(archiveKeys).toHaveLength(2);
+    expect(archiveKeys.some((k) => k.startsWith('weekly/'))).toBe(true);
+    expect(archiveKeys.some((k) => k.startsWith('daily/'))).toBe(true);
+
+    // Simulate R2 lifecycle expiring EVERY daily/ object (15d) while weekly/ is retained (90d).
+    const survivors = new Set(rec.uploads.filter((k) => !k.startsWith('daily/')));
+    // The weekly copy's dump, manifest, and blob archive must ALL still be present.
+    expect(survivors.has(weekly.objectKey)).toBe(true);
+    expect(survivors.has(weeklyManifestKey)).toBe(true);
+    expect(survivors.has(weekly.blobArchive.key)).toBe(true); // the crux: recoverable without any daily object
+  });
+
+  it('un-stub coverage: an archive with the right KEYS but a wrong sha (or class) is REFUSED', async () => {
+    // Same keys as the census, but one object reports a different sha → incoherent archive.
+    const wrongSha = makeDeps({
+      snapshotBlobs: async (_p, blobs) => ({ entries: blobs.map((b, i) => (i === 0 ? { ...b, sha256: 'f'.repeat(64) } : b)) }),
+    });
+    await expect(runBackup(env, wrongSha.deps)).rejects.toThrow(/sha mismatch/i);
+    expect(wrongSha.rec.uploads).not.toContain('status/latest-success.json');
+
+    const wrongCls = makeDeps({
+      snapshotBlobs: async (_p, blobs) => ({ entries: blobs.map((b, i) => (i === 0 ? { ...b, cls: 'photo' as const } : b)) }),
+    });
+    await expect(runBackup(env, wrongCls.deps)).rejects.toThrow(/class mismatch/i);
+    expect(wrongCls.rec.uploads).not.toContain('status/latest-success.json');
+  });
 });

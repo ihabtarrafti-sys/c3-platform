@@ -81,43 +81,67 @@ function inventoryOf(blobs: BlobArchiveEntry[]): BlobInventory {
  * synchronized snapshot, a signed archive is provably complete, not merely non-empty.
  */
 function assertCoverage(census: BlobArchiveEntry[], captured: BlobArchiveEntry[]): void {
-  const want = new Set(census.map((b) => b.storageKey));
-  const got = new Set(captured.map((e) => e.storageKey));
+  const want = new Map(census.map((b) => [b.storageKey, b] as const));
+  const got = new Map(captured.map((e) => [e.storageKey, e] as const));
   if (got.size !== want.size) {
     throw new Error(`Blob archive coverage mismatch: census has ${want.size} object(s), archive captured ${got.size} — refusing an incomplete backup.`);
   }
-  for (const k of want) {
-    if (!got.has(k)) throw new Error(`Blob archive is MISSING census key '${k}' — refusing an incomplete backup.`);
+  // Full {key, sha, class} equality — not merely the key-set. A captured object whose bytes
+  // (sha) or class disagree with the census is an incoherent archive, refused like a gap.
+  for (const [k, c] of want) {
+    const g = got.get(k);
+    if (!g) throw new Error(`Blob archive is MISSING census key '${k}' — refusing an incomplete backup.`);
+    if (g.sha256 !== c.sha256) throw new Error(`Blob archive sha mismatch for '${k}' (census ${c.sha256}, archive ${g.sha256}) — refusing an incoherent backup.`);
+    if (g.cls !== c.cls) throw new Error(`Blob archive class mismatch for '${k}' (census ${c.cls}, archive ${g.cls}) — refusing an incoherent backup.`);
   }
 }
 
+/** The INDEPENDENT encrypted blob archive, encrypted ONCE and uploaded under each retention
+ *  copy's own prefix (R4-N04). */
+interface PreparedBlobArchive {
+  readonly encPath: string;
+  readonly sha256: string;
+  readonly bytes: number;
+  readonly entries: BlobArchiveEntry[];
+}
+
 /**
- * H-08 (Option A): build the INDEPENDENT encrypted blob archive from the COHERENT census
- * and upload it. Returns its descriptor, or null when there are no blobs.
+ * H-08 (Option A): build the INDEPENDENT encrypted blob archive from the COHERENT census —
+ * captured, coverage-checked, encrypted, plaintext dropped — but NOT yet uploaded. Returns
+ * null when there are no blobs. The caller uploads a copy under EACH retention key's prefix.
  */
-async function buildBlobArchive(
+async function prepareBlobArchive(
   env: BackupEnv,
   deps: BackupDeps,
   tempDir: string,
-  primaryKey: string,
   census: BlobArchiveEntry[],
-): Promise<BlobArchive | null> {
+): Promise<PreparedBlobArchive | null> {
   if (census.length === 0) return null;
   const plainPath = `${tempDir}/blobs.tar`;
   const encPath = `${tempDir}/blobs.tar.age`;
   const snap = await deps.snapshotBlobs(plainPath, census);
-  assertCoverage(census, snap.entries); // count + key, no silent skip
+  assertCoverage(census, snap.entries); // count + {key, sha, class}, no silent skip
 
   await deps.encrypt(plainPath, encPath, env.ageRecipient);
   await deps.removeFile(plainPath); // drop plaintext blobs immediately
   const sha256 = await deps.sha256File(encPath);
   const bytes = await deps.fileSize(encPath);
   if (bytes <= 0) throw new Error('Blob archive encryption produced an empty artifact.');
-  const key = `${primaryKey}.blobs.age`;
-  await deps.uploadFile(key, encPath, 'application/octet-stream');
-  await deps.verifyObject(key, sha256, bytes);
-  deps.log('backup.blob_archive', { key, entries: snap.entries.length, bytes });
-  return { key, sha256, bytes, entryCount: snap.entries.length, entries: snap.entries };
+  return { encPath, sha256, bytes, entries: snap.entries };
+}
+
+/**
+ * R4-N04: upload the prepared blob archive under a SPECIFIC retention copy's prefix
+ * (`<thatCopysObjectKey>.blobs.age`) and return the descriptor its manifest will name. Each
+ * retention copy thus references a blob archive under its OWN prefix — so a weekly manifest
+ * (retained 90d) never points at a daily-prefixed archive that expires first (15d).
+ */
+async function uploadBlobArchiveFor(deps: BackupDeps, objectKey: string, prepared: PreparedBlobArchive): Promise<BlobArchive> {
+  const key = `${objectKey}.blobs.age`;
+  await deps.uploadFile(key, prepared.encPath, 'application/octet-stream');
+  await deps.verifyObject(key, prepared.sha256, prepared.bytes);
+  deps.log('backup.blob_archive', { key, entries: prepared.entries.length, bytes: prepared.bytes });
+  return { key, sha256: prepared.sha256, bytes: prepared.bytes, entryCount: prepared.entries.length, entries: prepared.entries };
 }
 
 /**
@@ -187,11 +211,11 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
       );
     }
 
-    // H-08 (Option A): the independent encrypted blob snapshot (built + uploaded
-    // once, referenced by every retention copy's manifest).
-    const blobArchive = await buildBlobArchive(env, deps, tempDir, primaryKey, blobs);
+    // H-08 (Option A): the independent encrypted blob snapshot — encrypted ONCE here, then
+    // uploaded under EACH retention copy's own prefix in the loop below (R4-N04).
+    const preparedBlobs = await prepareBlobArchive(env, deps, tempDir, blobs);
 
-    const manifestFor = (key: string): string =>
+    const manifestFor = (key: string, blobArchive: BlobArchive | null): string =>
       serializeManifest({
         schema: 'c3-backup-manifest/1',
         environment: env.environmentLabel,
@@ -218,7 +242,10 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
     // Step 9–11: upload the object, a per-key signed manifest, and VERIFY EACH copy.
     const verifyPubPem = env.signingKeyPem ? publicKeyPemFromPrivate(env.signingKeyPem) : null;
     for (const { cls, key } of keys) {
-      const body = manifestFor(key); // throws if any secret leaks
+      // R4-N04: this retention copy gets its OWN blob archive under its OWN prefix, named by
+      // its OWN manifest — self-contained, so its lifecycle governs its own recoverability.
+      const blobArchive = preparedBlobs ? await uploadBlobArchiveFor(deps, key, preparedBlobs) : null;
+      const body = manifestFor(key, blobArchive); // throws if any secret leaks
       const mKey = manifestKey(key);
       const signature = env.signingKeyPem ? signManifestBytes(body, env.signingKeyPem) : null;
       await deps.uploadFile(key, encPath, 'application/octet-stream');
