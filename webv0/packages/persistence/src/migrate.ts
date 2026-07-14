@@ -23,6 +23,9 @@ const MIGRATIONS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'migr
 // before its SQL, but only when the migration is pending. See runMigrations for why.
 const PREFLIGHTS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'preflights');
 const ROLE_RE = /^[a-z_][a-z0-9_]*$/;
+// R6-N03: the migrator's single-flight advisory-lock key (class), paired with
+// hashtext(current_database()) so migrators of DIFFERENT databases on one cluster don't collide.
+const MIGRATOR_LOCK_KEY = 928_340_015;
 
 export interface MigrateConfig {
   /** Privileged connection (schema owner / superuser) used ONLY for migrations. */
@@ -70,6 +73,12 @@ export interface MigrateConfig {
    * ledger detects a preflight change. Never set on a production path.
    */
   readonly preflightsDir?: string;
+  /**
+   * TEST-ONLY: awaited immediately BEFORE a legacy-NULL preflight adoption write. Lets the
+   * two-runner discriminator hold both runners inside the snapshot→adopt window at once (a
+   * 2-party latch) — the exact overlap R6-N03 names. Never set on a production path.
+   */
+  readonly beforeAdoptHook?: (file: string) => Promise<void>;
 }
 
 /** Published dev/default role passwords that must never reach a real environment. */
@@ -187,6 +196,12 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
   // Force UTF-8: on Windows the server may default client_encoding to WIN1252,
   // which cannot represent the UTF-8 content of migration files.
   await client.query("SET client_encoding TO 'UTF8'");
+  // R6-N03: SINGLE-FLIGHT — the entire run holds a session advisory lock keyed to this database,
+  // so two concurrent migrators SERIALIZE by construction (the second WAITS — it does not fail).
+  // Without this, two runners could snapshot the ledger concurrently and both pass the legacy
+  // NULL-adoption check once. Released automatically when the session ends (the finally below).
+  await client.query('SELECT pg_advisory_lock($1, hashtext(current_database()))', [MIGRATOR_LOCK_KEY]);
+  log('↳ migrator single-flight lock acquired');
   const applied: string[] = [];
   try {
     await ensureRestrictedRole(client, config.appRole, appPassword, rotateRoleSecrets);
@@ -229,9 +244,23 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
         const stored = entry.checksum;
         if (stored === null || stored === undefined) {
           // Applied before checksums existed (or via the manual staging paste):
-          // adopt the current content as the frozen truth.
-          await client.query('UPDATE _migrations SET checksum = $2 WHERE id = $1 AND checksum IS NULL', [file, checksum]);
-          log(`↳ skip ${file} (already applied; checksum adopted)`);
+          // adopt the current content as the frozen truth. R6-N03: adoption is EXACTLY-ONCE —
+          // zero rows means another runner adopted between our snapshot and this write; re-read
+          // and REFUSE unless the stored identity equals ours (never proceed on a silent no-op).
+          const adopted = await client.query('UPDATE _migrations SET checksum = $2 WHERE id = $1 AND checksum IS NULL', [file, checksum]);
+          if (adopted.rowCount === 1) {
+            log(`↳ skip ${file} (already applied; checksum adopted)`);
+          } else {
+            const re = await client.query<{ checksum: string | null }>('SELECT checksum FROM _migrations WHERE id = $1', [file]);
+            const now = re.rows[0]?.checksum ?? null;
+            if (now !== checksum) {
+              throw new Error(
+                `Migration ${file}: a concurrent runner adopted checksum '${(now ?? 'NULL').slice(0, 12)}…' which differs from this runner's file ('${checksum.slice(0, 12)}…'). ` +
+                  'Adopt-once is single-use — reconcile the two deployments before re-running.',
+              );
+            }
+            log(`↳ skip ${file} (checksum adopted by a concurrent runner; verified equal)`);
+          }
         } else if (stored !== checksum) {
           throw new Error(
             `Migration ${file} was EDITED after being applied (ledger ${stored.slice(0, 12)}… ≠ file ${checksum.slice(0, 12)}…). ` +
@@ -248,8 +277,24 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
         const currentPf = preflight?.checksum ?? 'none';
         if (storedPf === null || storedPf === undefined) {
           // Legacy row (pre-sentinel): adopt the current identity ('none' or a checksum) ONCE.
-          await client.query('UPDATE _migrations SET preflight_checksum = $2 WHERE id = $1 AND preflight_checksum IS NULL', [file, currentPf]);
-          log(`↳ ${file}: preflight identity adopted (${currentPf === 'none' ? 'none' : currentPf.slice(0, 12) + '…'})`);
+          // R6-N03: exactly-once — a zero-row conditional write means a CONCURRENT runner adopted
+          // first; re-read and REFUSE unless its adopted identity equals ours. Never proceed on a
+          // silently-ignored no-op (two code versions must not both accept the same NULL state).
+          if (config.beforeAdoptHook) await config.beforeAdoptHook(file); // TEST-ONLY latch (R6-N03)
+          const adoptedPf = await client.query('UPDATE _migrations SET preflight_checksum = $2 WHERE id = $1 AND preflight_checksum IS NULL', [file, currentPf]);
+          if (adoptedPf.rowCount === 1) {
+            log(`↳ ${file}: preflight identity adopted (${currentPf === 'none' ? 'none' : currentPf.slice(0, 12) + '…'})`);
+          } else {
+            const re = await client.query<{ preflight_checksum: string | null }>('SELECT preflight_checksum FROM _migrations WHERE id = $1', [file]);
+            const now = re.rows[0]?.preflight_checksum ?? null;
+            if (now !== currentPf) {
+              throw new Error(
+                `Preflight for ${file}: a concurrent runner adopted identity '${(now ?? 'NULL').slice(0, 12)}…' which differs from this runner's ('${currentPf === 'none' ? 'none' : currentPf.slice(0, 12) + '…'}'). ` +
+                  'Adopt-once is single-use — reconcile the two deployments before re-running.',
+              );
+            }
+            log(`↳ ${file}: preflight identity adopted by a concurrent runner; verified equal`);
+          }
         } else if (storedPf !== currentPf) {
           const change =
             storedPf === 'none' ? 'ADDED (none was recorded)' : currentPf === 'none' ? 'REMOVED (file now absent)' : 'EDITED';

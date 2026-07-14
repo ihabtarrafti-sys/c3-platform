@@ -2201,6 +2201,79 @@ describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.3/3.4 Batch F (R4-N1
       await dropDb(name);
     }
   }, 120_000);
+
+  // C3 (R6-N03): adopt-once must hold across CONCURRENT runners, not just sequential reruns. Two
+  // real runMigrations calls race the same legacy-NULL ledger with DIFFERENT local preflights.
+  // The beforeAdoptHook latch holds each runner inside its snapshot→adopt window until the OTHER
+  // runner arrives too (or a grace timeout passes) — the EXACT overlap R6-N03 names, made
+  // deterministic. New code: the advisory single-flight lock means the second runner never even
+  // snapshots until the winner finished (it waits at the lock; its latch times out harmlessly) →
+  // exactly one adopts, the other refuses. Old code (no lock, zero-row UPDATE ignored): BOTH
+  // runners reach the latch together, both write, the loser's zero-row result is swallowed and it
+  // RESOLVES with a divergent identity — the exactly-one assertion goes RED.
+  it('C3 (R6-N03): two CONCURRENT runners with DIFFERENT preflights — exactly one adopts, the other REFUSES', async () => {
+    const pfDirA = mkdtempSync(join(tmpdir(), 'c3pfrunA-'));
+    const pfDirB = mkdtempSync(join(tmpdir(), 'c3pfrunB-'));
+    const { url, name } = await createEmptyDb();
+    try {
+      await apply(url, pfDirA, 'SELECT 1;\n'); // ledger through 0048 with P1
+      await exec(url, `UPDATE _migrations SET preflight_checksum = NULL WHERE id='${TARGET_0048}'`); // legacy NULL
+      writeFileSync(join(pfDirB, TARGET_0048), 'SELECT 2;\n'); // runner B believes a DIFFERENT preflight
+
+      // 2-party latch: resolves when both runners are inside their adoption window, or after a
+      // grace period (the single-flight lock legitimately prevents the overlap on new code).
+      let arrived = 0;
+      let releaseAll: () => void;
+      const bothArrived = new Promise<void>((r) => { releaseAll = r; });
+      const latch = async () => {
+        arrived += 1;
+        if (arrived >= 2) releaseAll!();
+        await Promise.race([bothArrived, new Promise<void>((r) => setTimeout(r, 1500))]);
+      };
+
+      const settle = (dir: string) =>
+        runMigrations({ adminConnectionString: url, ...roles, preflightsDir: dir, targetInclusive: TARGET_0048, beforeAdoptHook: latch })
+          .then(() => 'adopted' as const, (e: unknown) => e as Error);
+      // BOTH runners start together against the same DB (a real deployment overlap).
+      const [ra, rb] = await Promise.all([settle(pfDirA), settle(pfDirB)]);
+
+      const outcomes = [ra, rb];
+      const winners = outcomes.filter((o) => o === 'adopted');
+      const losers = outcomes.filter((o): o is Error => o instanceof Error);
+      // EXACTLY one adopts; the other refuses with a mismatch (never a silent double-accept).
+      expect(winners).toHaveLength(1);
+      expect(losers).toHaveLength(1);
+      expect(losers[0]!.message).toMatch(/concurrent runner adopted|was EDITED|was ADDED|was REMOVED/i);
+      // The ledger holds exactly ONE of the two identities (the winner's).
+      const rec = await scalar(url, `SELECT preflight_checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      const shaOf = (s: string) => createHash('sha256').update(s).digest('hex');
+      expect([shaOf('SELECT 1;\n'), shaOf('SELECT 2;\n')]).toContain(rec.preflight_checksum);
+    } finally {
+      rmSync(pfDirA, { recursive: true, force: true });
+      rmSync(pfDirB, { recursive: true, force: true });
+      await dropDb(name);
+    }
+  }, 120_000);
+
+  it('C3 (R6-N03): two CONCURRENT runners with the SAME preflight both complete (verified-equal, no false refusal)', async () => {
+    const pfDir = mkdtempSync(join(tmpdir(), 'c3pfrunS-'));
+    const { url, name } = await createEmptyDb();
+    try {
+      await apply(url, pfDir, 'SELECT 1;\n');
+      await exec(url, `UPDATE _migrations SET preflight_checksum = NULL WHERE id='${TARGET_0048}'`);
+      const settle = () =>
+        runMigrations({ adminConnectionString: url, ...roles, preflightsDir: pfDir, targetInclusive: TARGET_0048 })
+          .then(() => 'ok' as const, (e: unknown) => e as Error);
+      const [ra, rb] = await Promise.all([settle(), settle()]);
+      expect(ra).toBe('ok');
+      expect(rb).toBe('ok'); // identical identity → the second verifies-equal, never refuses
+      const rec = await scalar(url, `SELECT preflight_checksum FROM _migrations WHERE id='${TARGET_0048}'`);
+      expect(rec.preflight_checksum).toBe(createHash('sha256').update('SELECT 1;\n').digest('hex'));
+    } finally {
+      rmSync(pfDir, { recursive: true, force: true });
+      await dropDb(name);
+    }
+  }, 120_000);
 });
 
 // R4-N05: 0063 anchored revoke and pay on the head via FOR UPDATE, but that read-lock creates
