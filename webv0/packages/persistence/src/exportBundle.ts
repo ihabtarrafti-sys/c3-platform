@@ -28,7 +28,7 @@ export function fsBundleReader(bundleDir: string): ExitBundleReader {
     });
   return {
     async listEntries() {
-      return walk(bundleDir).filter((n) => n !== 'manifest.json');
+      return walk(bundleDir).filter((n) => n !== 'manifest.json' && n !== 'manifest.rows-only.json');
     },
     async sha256Of(name) {
       try {
@@ -97,7 +97,12 @@ export async function writeAndVerifyExportBundle(
     }
   }
 
-  const manifest: ExportManifest = { ...result.manifest, blobs: [...result.manifest.blobs, ...orphanEntries] };
+  // R5-N02: a rows-only export carries mode 'rows-only'; a full export is 'full'.
+  const manifest: ExportManifest = {
+    ...result.manifest,
+    mode: opts.skipDocBytes ? 'rows-only' : 'full',
+    blobs: [...result.manifest.blobs, ...orphanEntries],
+  };
 
   // R4-N10: VERIFY FIRST, publish LAST. The strict verifier runs against the row + blob files
   // already on disk and the in-memory manifest (fsBundleReader excludes manifest.json, which
@@ -109,11 +114,14 @@ export async function writeAndVerifyExportBundle(
     await verifyExitBundle(manifest, fsBundleReader(outDir));
   }
 
-  // H-06: publish the authorizing manifest LAST, atomically (write-temp + rename), and ONLY
-  // after the bundle has verified — the manifest.json's existence attests a verified bundle.
-  const tmp = resolve(outDir, 'manifest.json.tmp');
+  // R5-N02: publish the authorizing manifest as manifest.json ONLY for a full export. A
+  // rows-only bundle publishes manifest.rows-only.json — so the exit gate's manifest.json load
+  // never finds an authorizing file (the belt), and even a hand-rename is refused by the
+  // mode:'rows-only' body (the suspenders). H-06/R4-N10: atomic write-temp + rename, after verify.
+  const manifestName = opts.skipDocBytes ? 'manifest.rows-only.json' : 'manifest.json';
+  const tmp = resolve(outDir, `${manifestName}.tmp`);
   writeFileSync(tmp, JSON.stringify(manifest, null, 2) + '\n', 'utf8');
-  renameSync(tmp, resolve(outDir, 'manifest.json'));
+  renameSync(tmp, resolve(outDir, manifestName));
 
   return { manifest, blobCount: result.blobs.length, orphanCount: orphanEntries.length };
 }

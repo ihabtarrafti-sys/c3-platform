@@ -54,6 +54,13 @@ export interface ExportManifest {
   /** Every object the bundle must carry (documents + photos + intake quarantine). */
   readonly blobs: ManifestBlob[];
   readonly note: string;
+  /**
+   * R5-N02: 'full' = rows + EVERY object byte returned (the only shape that authorizes an
+   * erasure). 'rows-only' = a --no-doc-bytes bundle that INTENTIONALLY omits object bytes —
+   * the exit gate refuses it (belt: it is also published as manifest.rows-only.json, not
+   * manifest.json). Defaults to 'full'; writeAndVerifyExportBundle downgrades it for --no-doc-bytes.
+   */
+  readonly mode: 'full' | 'rows-only';
 }
 
 export interface ExportResult {
@@ -151,6 +158,7 @@ export async function exportTenant(client: Client, spec: ExportSpec): Promise<Ex
       blobs: blobs.map((b) => ({ bundleName: b.bundleName, blobClass: b.blobClass, sha256: b.sha256, ownerRef: b.ownerRef })),
       note:
         'Organization-scoped logical export. Shared users (members of another tenant) are profile-only (shared:true) with their external_identity withheld. Platform-level access_event and logs are out of scope. The blobs index lists every object (documents + photos + intake quarantine) the bundle carries.',
+      mode: 'full', // downgraded to 'rows-only' by writeAndVerifyExportBundle under --no-doc-bytes
     };
     return { manifest, files, blobs };
   } catch (err) {

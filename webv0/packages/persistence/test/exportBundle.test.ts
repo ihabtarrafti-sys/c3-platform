@@ -14,7 +14,7 @@ import { join, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import { createBlobReader } from '../src/blobBundle';
 import { writeAndVerifyExportBundle, fsBundleReader } from '../src/exportBundle';
-import { verifyExitBundle } from '../src/exitManifest';
+import { verifyExitBundle, validateExitManifest } from '../src/exitManifest';
 import type { ExportResult } from '../src/exportTenant';
 
 const TENANT = '11111111-2222-3333-4444-555555555555';
@@ -80,6 +80,31 @@ describe('A2 (R3-N01) — export bundle is a verifier-accepted superset', () => 
     // orphan bundles away.
     const strippedManifest = { ...written.manifest, blobs: written.manifest.blobs.filter((b) => b.blobClass !== 'orphan') };
     await expect(verifyExitBundle(strippedManifest, fsBundleReader(out))).rejects.toThrow(/UNLISTED/i);
+  });
+
+  it('R5-N02: a --no-doc-bytes export publishes manifest.rows-only.json (mode rows-only); the exit gate REFUSES it', async () => {
+    const out = outDir();
+    // rows-only export (no reader needed): omits object bytes, so it must be non-authorizing.
+    const written = await writeAndVerifyExportBundle(out, makeResult([]), null, { skipDocBytes: true });
+    expect(written.manifest.mode).toBe('rows-only');
+    // BELT: it is NOT published as manifest.json — the exit gate's manifest.json load can't find it.
+    expect(existsSync(resolve(out, 'manifest.json'))).toBe(false);
+    expect(existsSync(resolve(out, 'manifest.rows-only.json'))).toBe(true);
+    // SUSPENDERS: even hand-renamed to manifest.json, the exit gate refuses mode !== 'full'.
+    const rowsRaw = JSON.parse(readFileSync(resolve(out, 'manifest.rows-only.json'), 'utf8'));
+    expect(() => validateExitManifest(rowsRaw, { tenantSlug: 'x', liveTenantId: TENANT, liveMigrations: rowsRaw.schemaVersion, allowStale: true })).toThrow(/rows-only|not 'full'/i);
+
+    // The FULL-mode export of the same tenant authorizes (mode full, manifest.json present).
+    const store = storageDir();
+    writeFileSync(join(store, TENANT, 'orphan1'), 'a store-only orphan');
+    const reader = createBlobReader({ DOCUMENTS_DIR: store })!;
+    const out2 = outDir();
+    const full = await writeAndVerifyExportBundle(out2, makeResult([]), reader, { skipDocBytes: false });
+    reader.close();
+    expect(full.manifest.mode).toBe('full');
+    expect(existsSync(resolve(out2, 'manifest.json'))).toBe(true);
+    const fullRaw = JSON.parse(readFileSync(resolve(out2, 'manifest.json'), 'utf8'));
+    expect(() => validateExitManifest(fullRaw, { tenantSlug: 'x', liveTenantId: TENANT, liveMigrations: fullRaw.schemaVersion, allowStale: true })).not.toThrow();
   });
 
   it('R4-N02: a full export REFUSES with NO reader — even for a ZERO-DB-blob (orphan-only) tenant', async () => {

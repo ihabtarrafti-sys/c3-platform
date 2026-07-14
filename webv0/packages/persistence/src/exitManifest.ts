@@ -37,6 +37,8 @@ export interface ExitManifest {
   readonly files: Array<{ name: string; rows: number; sha256: string }>;
   readonly blobs: ManifestBlobEntry[];
   readonly note: string;
+  /** R5-N02: only a 'full' export authorizes erasure; 'rows-only' is refused. */
+  readonly mode: 'full' | 'rows-only';
 }
 
 export interface ManifestCheckContext {
@@ -94,12 +96,23 @@ export function parseExitManifest(raw: unknown): ExitManifest {
 
   if (typeof r.note !== 'string') reject('manifest.note is missing.');
 
-  return raw as unknown as ExitManifest;
+  // R5-N02: a present mode must be a known value; ABSENT mode is a legacy full export
+  // (coerced 'full'). validateExitManifest is what refuses a rows-only bundle.
+  if (r.mode !== undefined && r.mode !== 'full' && r.mode !== 'rows-only') reject("manifest.mode must be 'full' or 'rows-only'.");
+  const normalized = { ...r, mode: r.mode === 'rows-only' ? 'rows-only' : 'full' };
+  return normalized as unknown as ExitManifest;
 }
 
 /** Full gate: structure + identity + schema currency + freshness. */
 export function validateExitManifest(raw: unknown, ctx: ManifestCheckContext): ExitManifest {
   const m = parseExitManifest(raw);
+
+  // R5-N02: a rows-only export (--no-doc-bytes) NEVER authorizes an erasure — it omits object
+  // bytes that were never returned. Refuse it here (the suspenders; the belt is that it is
+  // published as manifest.rows-only.json, so the gate's manifest.json load won't even find it).
+  if (m.mode !== 'full') {
+    reject(`manifest.mode is '${m.mode}', not 'full' — a rows-only export does not return object bytes and cannot authorize an erasure. Re-export in full mode.`);
+  }
 
   if (m.tenant.slug !== ctx.tenantSlug) reject(`manifest is for tenant '${m.tenant.slug}', not '${ctx.tenantSlug}'.`);
   if (m.tenant.id !== ctx.liveTenantId) reject(`manifest tenant id ${m.tenant.id} does not match the live tenant ${ctx.liveTenantId}.`);

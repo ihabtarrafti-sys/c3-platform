@@ -42,7 +42,7 @@ function bundleReaderAt(bundleDir: string): ExitBundleReader {
     });
   return {
     async listEntries() {
-      return walk(bundleDir).filter((n) => n !== 'manifest.json');
+      return walk(bundleDir).filter((n) => n !== 'manifest.json' && n !== 'manifest.rows-only.json');
     },
     async sha256Of(name) {
       const full = resolve(bundleDir, name);
