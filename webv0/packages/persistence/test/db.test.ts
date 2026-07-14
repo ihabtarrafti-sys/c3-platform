@@ -79,7 +79,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -2701,11 +2701,10 @@ describe('HARDEN-3.5 C2 (R6-N02/R6-N06) — distribution invariant on EVERY muta
   });
 });
 
-// R5-N04: the write-ahead compensation path enforces 0067's namespace discipline at the app
-// boundary (a key must live under the tenant's own object namespace), and resolving an intent
-// marks it handled (deleted_at) so the drain — which only sweeps deleted_at IS NULL — ignores it.
-describe('HARDEN-3.4 Batch A (R5-N04) — compensation namespace discipline + intent resolution', () => {
-  it('insertBlobTombstone REFUSES a key outside the tenant namespace; resolveCompensationIntent marks a pending intent handled', async () => {
+// R5-N04 → HARDEN-3.5 B: CLASS-SPECIFIC namespace discipline (round-6 §6 tail) + the machine's
+// resolve edge (prepared → resolved, rowCount-enforced).
+describe('HARDEN-3.5 B — compensation namespace matrix + prepared→resolved', () => {
+  it('insertBlobTombstone enforces the CLASS namespace; resolveCompensationIntent is prepared→resolved (terminal, stamped)', async () => {
     await db.truncateAll();
     const a = await db.seedTenant({ slug: 'nsa' });
     const b = await db.seedTenant({ slug: 'nsb' });
@@ -2713,23 +2712,112 @@ describe('HARDEN-3.4 Batch A (R5-N04) — compensation namespace discipline + in
     const actorA = ownerActor(a.tenantId, 'o@nsa.com');
     const admin = new Client({ connectionString: db.adminUrl });
     await admin.connect();
+    const prep = { reason: 'compensation' as const, state: 'prepared' as const, preparedTtlMs: 60_000 };
     try {
-      // A foreign-tenant key and a path-traversal escape are both refused.
-      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${b.tenantId}/x`, blobClass: 'document', reason: 'compensation' }))).rejects.toThrow(/outside tenant|namespace/i);
-      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/../${b.tenantId}/x`, blobClass: 'document', reason: 'compensation' }))).rejects.toThrow(/outside tenant|namespace/i);
-      // Own-namespace keys (document prefix + intake prefix) are accepted.
-      await p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/ok`, blobClass: 'document', reason: 'compensation' }));
-      await p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `intake/${a.tenantId}/ok`, blobClass: 'intake', reason: 'compensation' }));
-      // The document intent is PENDING (drain would sweep it).
-      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2 AND deleted_at IS NULL`, [a.tenantId, `${a.tenantId}/ok`])).rows[0].n).toBe(1);
-      // Resolving it (success path) marks it handled → the drain now ignores it.
+      // A foreign-tenant key and a path-traversal escape are both refused…
+      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${b.tenantId}/x`, blobClass: 'document', ...prep }))).rejects.toThrow(/outside|namespace/i);
+      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/../${b.tenantId}/x`, blobClass: 'document', ...prep }))).rejects.toThrow(/outside|namespace/i);
+      // …and so is a CLASS-prefix mismatch (round-6 §6: either-prefix acceptance is dead).
+      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `intake/${a.tenantId}/x`, blobClass: 'document', ...prep }))).rejects.toThrow(/class namespace/i);
+      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/x`, blobClass: 'intake', ...prep }))).rejects.toThrow(/class namespace/i);
+      // Class-correct keys are accepted, born PREPARED (invisible to the drain).
+      await p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/ok`, blobClass: 'document', ...prep }));
+      await p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `intake/${a.tenantId}/ok`, blobClass: 'intake', ...prep }));
+      expect((await admin.query(`SELECT state FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`, [a.tenantId, `${a.tenantId}/ok`])).rows[0].state).toBe('prepared');
+      // A DUPLICATE prepare THROWS (the old ON CONFLICT DO NOTHING silently swallowed it).
+      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/ok`, blobClass: 'document', ...prep }))).rejects.toThrow();
+      // Resolving (the owning tx's success edge) is prepared→resolved with the terminal stamp.
       await p.writes.transaction(actorA, (tx) => tx.resolveCompensationIntent(`${a.tenantId}/ok`));
-      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2 AND deleted_at IS NULL`, [a.tenantId, `${a.tenantId}/ok`])).rows[0].n).toBe(0);
-      // The intake intent stays pending (never resolved) → the drain still owns it.
-      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2 AND deleted_at IS NULL`, [a.tenantId, `intake/${a.tenantId}/ok`])).rows[0].n).toBe(1);
+      const done = (await admin.query(`SELECT state, deleted_at FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`, [a.tenantId, `${a.tenantId}/ok`])).rows[0];
+      expect(done.state).toBe('resolved');
+      expect(done.deleted_at).not.toBeNull();
+      // Resolving it AGAIN (or a never-prepared key) THROWS — the zero-row no-op is dead.
+      await expect(p.writes.transaction(actorA, (tx) => tx.resolveCompensationIntent(`${a.tenantId}/ok`))).rejects.toThrow(/expected 1 prepared row/i);
+      await expect(p.writes.transaction(actorA, (tx) => tx.resolveCompensationIntent(`${a.tenantId}/never-prepared`))).rejects.toThrow(/expected 1 prepared row/i);
+      // The intake intent stays prepared (its request never declared an outcome) — the drain
+      // cannot see it; only the TTL or its owner may arm it.
+      expect((await admin.query(`SELECT state FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`, [a.tenantId, `intake/${a.tenantId}/ok`])).rows[0].state).toBe('prepared');
     } finally {
       await admin.end();
       await p.close();
     }
   });
+});
+
+// HARDEN-3.5 A-1: blob_tombstone.tenant_ref has NO FK (0046 — the ledger must survive erasure),
+// so nothing serialized a compensation pre-register against finalize's check-then-delete. The
+// 0076 interlock trigger (BEFORE INSERT, SECURITY DEFINER, tenant FOR SHARE) + finalize's tenant
+// FOR UPDATE (before its unswept check) make the window atomic BOTH ways.
+describe('HARDEN-3.5 A-1 — the finalize interlock closes the check-then-delete window', () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  it('a pre-register racing INSIDE the window BLOCKS on the interlock and FAILS tenant-missing after finalize commits', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'fin1' });
+    await db.adminQuery(`UPDATE tenant SET exit_state='Exiting' WHERE id=$1`, [t.tenantId]);
+    const p = createPersistence({ appConnectionString: db.appUrl });
+    const fin = new Client({ connectionString: db.adminUrl });
+    const obs = new Client({ connectionString: db.adminUrl });
+    await fin.connect(); await obs.connect();
+    try {
+      // Finalize's exact opening statements: pin the tenant FOR UPDATE, then the unswept check.
+      await fin.query('BEGIN');
+      const finPid = (await fin.query<{ pid: number }>('SELECT pg_backend_pid() pid')).rows[0]!.pid;
+      await fin.query(`SELECT slug FROM tenant WHERE id = $1 AND exit_state = 'Exiting' FOR UPDATE`, [t.tenantId]);
+      const unswept = await fin.query(`SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref = $1 AND deleted_at IS NULL`, [t.tenantId]);
+      expect(Number(unswept.rows[0].n)).toBe(0); // the check passes — the window is OPEN
+
+      // THE RACE: a staff pre-register fires inside the window. Its 0076 interlock trigger
+      // reads the tenant row FOR SHARE → it must BLOCK behind finalize's FOR UPDATE.
+      const key = `${t.tenantId}/window-race`;
+      const raceP = p.writes
+        .transaction(ownerActor(t.tenantId, 'o@fin1.com'), (tx) =>
+          tx.insertBlobTombstone({ storageKey: key, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs: 600_000 }),
+        )
+        .then(() => 'committed' as const, (e: unknown) => e as Error);
+      let blocked = false;
+      for (let i = 0; i < 200; i++) {
+        const r = await obs.query(`SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND pid <> $1 AND pid <> pg_backend_pid() AND state='active'`, [finPid]);
+        if (r.rows.length > 0) { blocked = true; break; }
+        await sleep(25);
+      }
+      expect(blocked).toBe(true); // the interlock FOR SHARE queued behind finalize's FOR UPDATE
+
+      // Finalize proceeds to the point of no return and COMMITS (identity gone).
+      await fin.query(`DELETE FROM tenant WHERE id = $1`, [t.tenantId]);
+      await fin.query('COMMIT');
+
+      // The pre-register resumes, re-reads the tenant row — GONE — and RAISES: the request
+      // refuses BEFORE any byte could be stored under a finalized tenant's prefix.
+      const res = await raceP;
+      expect(res).toBeInstanceOf(Error);
+      // Drizzle wraps the driver error — the interlock's RAISE lives on the cause chain.
+      const chain = [res, (res as { cause?: unknown }).cause, ((res as { cause?: { cause?: unknown } }).cause)?.cause]
+        .map((e) => String((e as Error | undefined)?.message ?? '')).join(' | ');
+      expect(chain).toMatch(/no longer exists|finalized/i);
+      const orphanRows = await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM blob_tombstone WHERE storage_key = $1`, [key]);
+      expect(Number(orphanRows[0]!.n)).toBe(0); // nothing was recorded for the dead tenant
+    } finally {
+      await fin.end().catch(() => {}); await obs.end().catch(() => {}); await p.close();
+    }
+  }, 40_000);
+
+  it('a prepared intent committed BEFORE finalize makes the REAL finalizeTenantExit REFUSE (unswept)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'fin2' });
+    await db.adminQuery(`UPDATE tenant SET exit_state='Exiting' WHERE id=$1`, [t.tenantId]);
+    const p = createPersistence({ appConnectionString: db.appUrl });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      await p.writes.transaction(ownerActor(t.tenantId, 'o@fin2.com'), (tx) =>
+        tx.insertBlobTombstone({ storageKey: `${t.tenantId}/pre-window`, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs: 600_000 }),
+      );
+      // prepared counts as UNSWEPT — the point of no return refuses while any live intent exists.
+      await expect(finalizeTenantExit(admin, t.tenantId, { listKeys: async () => [] })).rejects.toThrow(/unswept/i);
+      expect((await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM tenant WHERE id=$1`, [t.tenantId]))[0]!.n).toBe('1'); // identity intact
+    } finally {
+      await admin.end(); await p.close();
+    }
+  }, 40_000);
 });

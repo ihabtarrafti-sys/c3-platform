@@ -996,11 +996,28 @@ export interface WriteTx {
   markIntakeSubmissionRejected(submissionId: string, reviewedBy: string, decisionNote: string | null): Promise<IntakeSubmission | null>;
   /** Backfill the created person id on a promoted submission (post-execute file attach). Null = missing/not-Promoted. */
   setIntakeSubmissionPromotedPerson(submissionId: string, personId: string): Promise<IntakeSubmission | null>;
-  /** M-02: record a rejected-intake object for durable, retryable wiping (reason='intake_reject'). Idempotent per key. */
-  insertBlobTombstone(input: { storageKey: string; blobClass: 'document' | 'photo' | 'intake'; reason: 'intake_reject' | 'compensation' }): Promise<void>;
-  /** R5-N04: resolve a write-ahead compensation intent for a key, in the op's own tx (idempotent). */
+  /**
+   * HARDEN-3.5 B — the compensation state machine's INSERT edge. reason='compensation':
+   * state 'prepared' (pre-PUT; requires preparedTtlMs; NOT drainable) or 'armed' (a KNOWN
+   * orphan, drainable now); duplicates THROW. reason='intake_reject': armed-at-birth,
+   * idempotent per key. Keys are class-namespace-validated (document/photo vs intake prefixes).
+   */
+  insertBlobTombstone(input: {
+    storageKey: string;
+    blobClass: 'document' | 'photo' | 'intake';
+    reason: 'intake_reject' | 'compensation' | 'quarantine_cleanup';
+    state?: 'prepared' | 'armed';
+    preparedTtlMs?: number;
+  }): Promise<void>;
+  /** B: prepared→resolved in the owning row's tx. ZERO rows THROWS (aborts the registration — never metadata over swept bytes). */
   resolveCompensationIntent(storageKey: string): Promise<void>;
-  /** M-02: mark a wipe tombstone deleted (object verified gone) or record a retryable error + bump attempts. */
+  /** B: prepared→armed (the failure path — the byte is a confirmed orphan). Zero rows THROWS. */
+  armCompensationIntent(storageKey: string): Promise<void>;
+  /** B: TTL sweep — arm every prepared intent whose request is provably dead. Returns the count. */
+  armExpiredPreparedIntents(): Promise<number>;
+  /** B §4: purge terminal (resolved/swept) rows older than N days via the 0076 definer. */
+  purgeTerminalTombstones(olderThanDays: number): Promise<number>;
+  /** M-02: mark a wipe tombstone deleted (armed→swept; object verified gone) or record a retryable error + bump attempts. */
   resolveBlobTombstone(id: string, outcome: { deleted: boolean; error?: string }): Promise<void>;
 
   // ── Track B recurring subscriptions (direct-audited register) ──────────────
@@ -1153,6 +1170,18 @@ export interface GuestIntakePort {
    * / reject drain removes them. Returns the number of keys recorded.
    */
   tombstoneRefusedUploads(tokenHash: string, storageKeys: readonly string[]): Promise<number>;
+  /**
+   * HARDEN-3.5 B (site 5): pre-register ONE prepared compensation intent BEFORE that file's
+   * PUT (token-keyed definer; the key is namespace-validated INSIDE the definer per 0067's
+   * discipline). Throws on refusal — the caller must not store the byte.
+   */
+  prepareCompensation(tokenHash: string, storageKey: string, preparedTtlMs: number): Promise<void>;
+  /**
+   * B (site 5): arm the submission's prepared intents on a refused/failed submission
+   * (prepared→armed, token-keyed definer). Returns the number armed — the caller enforces
+   * it equals its key count (a mismatch means durability is NOT established).
+   */
+  armCompensation(tokenHash: string, storageKeys: readonly string[]): Promise<number>;
   /**
    * R4-N01: register an in-flight upload lease right after the token peek (token-keyed
    * SECURITY DEFINER gateway). NULL = refused (unknown token, non-Active link, or Exiting

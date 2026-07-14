@@ -74,7 +74,19 @@ export async function getDocumentForDownload(p: Persistence, actor: Actor, docum
 }
 
 /** Register the metadata AFTER the bytes landed in storage (owner/operations). */
-export async function attachDocument(p: Persistence, actor: Actor, input: DocumentAttachInput): Promise<C3Document> {
+export async function attachDocument(
+  p: Persistence,
+  actor: Actor,
+  input: DocumentAttachInput,
+  opts?: {
+    /**
+     * HARDEN-3.5 B (site 4): a byte that becomes a KNOWN orphan the instant this attach commits
+     * (the redundant intake-quarantine copy) is armed IN THE SAME TX — attach commits ⟺ its
+     * cleanup is durable; a rollback leaves neither the doc row nor a stray armed record.
+     */
+    armOrphanInTx?: { storageKey: string; blobClass: 'intake' };
+  },
+): Promise<C3Document> {
   assertSubmitApproval(actor);
   const parsed = documentAttachInputSchema.parse(input);
   await requireOwner(p, actor, parsed.ownerType, parsed.ownerId);
@@ -94,9 +106,15 @@ export async function attachDocument(p: Persistence, actor: Actor, input: Docume
       storageKey: parsed.storageKey,
       uploadedBy: actor.identity,
     });
-    // R5-N04: the blob is now referenced by this committed document row — resolve its
-    // write-ahead compensation intent IN THIS TX (a no-op for callers that didn't pre-register).
+    // B: the blob is now referenced by this committed document row — resolve its PREPARED
+    // compensation intent IN THIS TX. rowCount===1 enforced in persistence: every caller
+    // pre-registers, and a zombie registration (intent already armed/swept) ABORTS here.
     await tx.resolveCompensationIntent(parsed.storageKey);
+    if (opts?.armOrphanInTx) {
+      // 'quarantine_cleanup': the key's upload episode already RESOLVED at the claim — this is
+      // its second, independent episode (armed-at-birth; unique per (tenant, key, reason)).
+      await tx.insertBlobTombstone({ ...opts.armOrphanInTx, reason: 'quarantine_cleanup' });
+    }
     await tx.appendAuditEvent({
       entityType: parsed.ownerType,
       entityId: parsed.ownerId,

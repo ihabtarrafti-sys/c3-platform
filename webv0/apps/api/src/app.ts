@@ -315,7 +315,7 @@ import {
   voidInvoice,
   listInvoices,
   getInvoice,
-  linkInvoiceDocument,
+  attachInvoicePdfDocument,
   stageImport,
   exportDomainCsv,
   exportAuditCsv,
@@ -635,22 +635,35 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   const deadlineOf = (req: FastifyRequest): AbortSignal | undefined =>
     (req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal;
 
-  // R5-N04: WRITE-AHEAD compensation — record the intent to delete a storage key BEFORE any
-  // byte is stored, in its OWN committed tx. Returns false if the intent can't be recorded, so
-  // the caller REFUSES before the PUT (never a best-effort-after-failure that can be swallowed).
-  // On the operation's success the registration use case resolves this intent in the SAME tx.
+  // HARDEN-3.5 B: the compensation state machine's request-side edges.
+  // prepare: record a PREPARED intent BEFORE any byte is stored, in its OWN committed tx — the
+  // drain cannot touch it (only `armed` is drainable) until the owner declares failure or the
+  // TTL (deadline×2) proves the request dead. Returns false ⇒ the caller REFUSES before the PUT.
+  const preparedTtlMs = (deps.deadlineMs ?? 420_000) * 2;
   const preRegisterCompensation = async (
     storageKey: string,
     blobClass: 'document' | 'photo' | 'intake',
     req: FastifyRequest,
   ): Promise<boolean> => {
     try {
-      await P.writes.transaction(actorOf(req), (tx) => tx.insertBlobTombstone({ storageKey, blobClass, reason: 'compensation' }));
+      await P.writes.transaction(actorOf(req), (tx) =>
+        tx.insertBlobTombstone({ storageKey, blobClass, reason: 'compensation', state: 'prepared', preparedTtlMs }),
+      );
       return true;
     } catch (e) {
       req.log.error({ storageKey, err: String(e) }, 'compensation pre-register failed — refusing the upload before storing bytes');
       return false;
     }
+  };
+  // arm: the failure path — the byte is now a CONFIRMED orphan; arming makes it drainable
+  // immediately (before this, a failed upload's intent sat invisible until the TTL). The arm
+  // is durable-first; the delete stays best-effort (the drain finishes what it misses). An arm
+  // failure is loud but non-fatal: the TTL arms it anyway.
+  const armCompensation = async (storageKey: string, req: FastifyRequest): Promise<void> => {
+    await P.writes
+      .transaction(actorOf(req), (tx) => tx.armCompensationIntent(storageKey))
+      .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation arm failed — the prepared TTL will arm it'));
+    await deps.documentStorage.delete(storageKey).catch(() => {});
   };
 
   // ── health / readiness (public) ────────────────────────────────────────────
@@ -832,9 +845,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const person = await setPersonPhoto(P, actor, personId, { storageKey, contentType, sha256 });
         return reply.status(200).send({ person: toPersonDto(person, piiOf(req)) });
       } catch (err) {
-        // R5-N04: the pre-registered intent SURVIVES this failure (success would have resolved
-        // it in setPersonPhoto's tx) → the drain sweeps the orphan even if this delete fails.
-        await deps.documentStorage.delete(storageKey).catch(() => {});
+        // B: the failure path ARMS the prepared intent (drainable now) + best-effort delete.
+        await armCompensation(storageKey, req);
         throw err;
       }
     },
@@ -1642,8 +1654,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         });
         return reply.status(201).send({ document: toDocumentDto(doc) }); // attachDocument resolved the intent in-tx
       } catch (err) {
-        // R5-N04: the pre-registered intent survives → the drain sweeps the orphan.
-        await deps.documentStorage.delete(storageKey).catch(() => {});
+        // B: arm the prepared intent (drainable now) + best-effort delete.
+        await armCompensation(storageKey, req);
         throw err;
       }
     },
@@ -1805,32 +1817,34 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const body = await deps.documentStorage.get(upload.storageKey);
         if (!body) continue;
         const liveKey = `${actor.tenantId}/${randomUUID()}`;
-        // R5-N04 WRITE-AHEAD: pre-register the live-copy compensation intent BEFORE the PUT.
+        // B site 3: pre-register the live-copy's PREPARED intent BEFORE the PUT.
         if (!(await preRegisterCompensation(liveKey, 'document', req))) {
           throw new Error('Could not prepare storage for the attach.');
         }
         await deps.documentStorage.put(liveKey, body, upload.contentType, { signal: deadlineOf(req) });
         try {
-          await attachDocument(P, actor, {
-            ownerType: 'Person',
-            ownerId: personId,
-            fileName: upload.fileName,
-            contentType: upload.contentType,
-            sizeBytes: upload.sizeBytes,
-            sha256: upload.sha256,
-            storageKey: liveKey,
-            label: 'From guest intake',
-          }); // resolves the liveKey intent in-tx
+          // B site 4: the attach tx ALSO arms the now-redundant quarantine copy — attach
+          // commits ⟺ its cleanup is durable (no catch/log path can lose it anymore).
+          await attachDocument(
+            P,
+            actor,
+            {
+              ownerType: 'Person',
+              ownerId: personId,
+              fileName: upload.fileName,
+              contentType: upload.contentType,
+              sizeBytes: upload.sizeBytes,
+              sha256: upload.sha256,
+              storageKey: liveKey,
+              label: 'From guest intake',
+            },
+            { armOrphanInTx: { storageKey: upload.storageKey, blobClass: 'intake' } },
+          ); // resolves the liveKey intent + arms the quarantine tombstone, one tx
           attachedCount += 1;
-          // The quarantine copy is now redundant — tombstone it durably (a post-success cleanup;
-          // a failed delete leaves the retryable record for the wipe drain / exit sweep).
-          await P.writes
-            .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey: upload.storageKey, blobClass: 'intake', reason: 'compensation' }))
-            .catch((e) => req.log.error({ storageKey: upload.storageKey, err: String(e) }, 'quarantine tombstone write failed — object may strand until the exit sweep'));
-          await deps.documentStorage.delete(upload.storageKey).catch(() => {});
+          await deps.documentStorage.delete(upload.storageKey).catch(() => {}); // drain finishes any miss
         } catch (err) {
-          // R5-N04: the live copy's pre-registered intent survives the attach failure → drain sweeps it.
-          await deps.documentStorage.delete(liveKey).catch(() => {});
+          // B: the live copy's intent is armed (drainable now) + best-effort deleted.
+          await armCompensation(liveKey, req);
           throw err;
         }
       }
@@ -1891,26 +1905,24 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const uploads: IntakeUpload[] = [];
       const storedKeys: string[] = [];
       let failure: { status: number; code: string; msg: string } | null = null;
-      // R3-N02: discard stored bytes on ANY failure WITHOUT ever swallowing an orphan —
-      // durably tombstone first (survives a failed delete AND an Exiting tenant, since
-      // blob_tombstone is not quiesced), then best-effort delete; the reject drain / exit
-      // sweep finishes any the delete missed. Replaces the old swallowed `.catch(()=>{})`.
+      // B site 5: every stored byte ALREADY has a prepared intent (written before its PUT).
+      // Discarding = ARM those intents (prepared→armed, token-keyed definer, all-or-none
+      // namespace-validated) so the drain can sweep them NOW, then best-effort delete. The
+      // armed count must equal the stored-key count — anything less means durability is NOT
+      // established and the failure surfaces loudly (never swallowed).
       const discardStored = async () => {
         if (storedKeys.length === 0) return;
-        // R5-N04: the durable record must actually be written — a ZERO-row result for a
-        // non-empty key set (or a throw) means NOTHING was recorded and the bytes could strand.
-        // NEVER ignore it: surface it loudly (an error the caller sees as a 500), not swallowed.
-        let recorded = 0;
+        let armed = 0;
         try {
-          recorded = await P.guest.tombstoneRefusedUploads(tokenHash, storedKeys);
+          armed = await P.guest.armCompensation(tokenHash, storedKeys);
         } catch (e) {
-          req.log.error({ keys: storedKeys.length, err: String(e) }, 'R5-N04: refused-upload tombstone write FAILED');
+          req.log.error({ keys: storedKeys.length, err: String(e) }, 'B: refused-upload compensation ARM failed');
           throw e;
         }
         for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
-        if (recorded === 0) {
-          req.log.error({ keys: storedKeys.length }, 'R5-N04: refused-upload tombstone recorded ZERO rows for a non-empty key set');
-          throw new Error(`Refused-upload durability not established: 0 tombstones recorded for ${storedKeys.length} stored key(s).`);
+        if (armed !== storedKeys.length) {
+          req.log.error({ keys: storedKeys.length, armed }, 'B: refused-upload compensation armed FEWER rows than stored keys');
+          throw new Error(`Refused-upload durability not established: ${armed}/${storedKeys.length} compensation intents armed.`);
         }
       };
       try {
@@ -1945,18 +1957,31 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             const uploadId = randomUUID();
             // Quarantine key: tenant + submission scoped, server-generated.
             const storageKey = `intake/${peek.tenantId}/${submissionId}/${uploadId}`;
+            // B site 5: the PREPARED intent exists BEFORE this file's byte does (per-file, the
+            // minimal window — §8.3 as approved). A refused prepare fails the submission with
+            // ZERO bytes stored for this file.
+            try {
+              await P.guest.prepareCompensation(tokenHash, storageKey, preparedTtlMs);
+            } catch (e) {
+              req.log.error({ storageKey, err: String(e) }, 'B: intake compensation prepare failed — refusing before the PUT');
+              failure = { status: 500, code: 'STORAGE_UNAVAILABLE', msg: 'Could not prepare storage for the upload. Please retry.' };
+              continue;
+            }
+            // The key is "possibly stored" from the moment the PUT is issued — an aborted or
+            // failed PUT may still have landed bytes server-side, so it joins storedKeys FIRST
+            // (discardStored arms + best-effort-deletes it; the drain verifies the truth).
+            storedKeys.push(storageKey);
             try {
               await deps.documentStorage.put(storageKey, body, part.mimetype, { signal: deadlineOf(req) });
             } catch (putErr) {
               // A deadline abort mid-PUT: the byte cannot publish; surface the honest 408 and let
-              // the failure machinery compensate anything already stored. Other PUT errors rethrow.
+              // the failure machinery compensate anything possibly stored. Other PUT errors rethrow.
               if (deadlineOf(req)?.aborted) {
                 failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline. Nothing was kept; please retry.' };
                 continue;
               }
               throw putErr;
             }
-            storedKeys.push(storageKey);
             uploads.push({ uploadId, fileName: (part.filename || 'file').slice(0, 200), contentType: part.mimetype, sizeBytes: body.length, sha256, storageKey });
           } else if (part.fieldname === 'payload') {
             payloadRaw = typeof part.value === 'string' ? part.value : String(part.value);
@@ -2475,31 +2500,34 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     });
     const body = Buffer.from(pdf);
     const storageKey = `${actor.tenantId}/${randomUUID()}`;
-    // R5-N04 WRITE-AHEAD: pre-register the compensation intent BEFORE the PUT; refuse if it fails.
+    // B: pre-register the PREPARED intent BEFORE the PUT; refuse if it fails.
     try {
-      await P.writes.transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation' }));
+      await P.writes.transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs }));
     } catch (e) {
       r.log.error({ storageKey, err: String(e) }, 'compensation pre-register failed — refusing the PDF artifact before storing bytes');
       throw new Error('Could not prepare storage for the invoice PDF.');
     }
     await deps.documentStorage.put(storageKey, body, 'application/pdf', { signal });
     try {
-      const doc = await attachDocument(P, actor, {
-        ownerType: 'Invoice',
-        ownerId: invoice.invoiceId,
-        fileName: `${invoice.invoiceNumber}.pdf`,
+      // B site 6 (R6-N08): registration + linkage + intent resolution commit ATOMICALLY.
+      // A link failure (version conflict, anything) rolls the doc row back too — never a
+      // committed document row pointing at bytes the catch below is about to delete.
+      return await attachInvoicePdfDocument(P, actor, {
+        invoiceId: invoice.invoiceId,
+        expectedVersion: invoice.version,
+        invoiceNumber: invoice.invoiceNumber,
         contentType: 'application/pdf',
         sizeBytes: body.length,
         sha256: createHash('sha256').update(body).digest('hex'),
         storageKey,
-        label: null,
       });
-      // attachDocument resolved the intent in-tx; the blob is now the live invoice PDF, safe
-      // from the drain even though linkInvoiceDocument runs next (its failure leaves an honest
-      // documentId=null invoice, not an orphan — the intent is already resolved).
-      return await linkInvoiceDocument(P, actor, invoice.invoiceId, invoice.version, doc.documentId);
     } catch (err) {
-      // R5-N04: if the ATTACH failed the intent survives → the drain sweeps the orphan.
+      // The single tx threw ⇒ NO owning row exists ⇒ the bytes are a confirmed orphan: arm the
+      // intent (drainable now) + best-effort delete. An honest documentId=null invoice remains,
+      // with the existing retry endpoint.
+      await P.writes
+        .transaction(actor, (tx) => tx.armCompensationIntent(storageKey))
+        .catch((e) => r.log.error({ storageKey, err: String(e) }, 'compensation arm failed — the prepared TTL will arm it'));
       await deps.documentStorage.delete(storageKey).catch(() => {});
       throw err;
     }

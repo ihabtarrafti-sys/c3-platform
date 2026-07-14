@@ -356,11 +356,18 @@ export async function finalizeTenantExit(
   }
   await client.query('BEGIN');
   try {
-    const t = await client.query<{ slug: string }>(`SELECT slug FROM tenant WHERE id = $1 AND exit_state = 'Exiting'`, [tenantId]);
+    // HARDEN-3.5 A-1: pin the tenant row FOR UPDATE **before** the unswept-tombstone check.
+    // blob_tombstone.tenant_ref carries NO FK (0046 — the ledger must survive erasure), so the
+    // 0076 interlock trigger reads this row FOR SHARE on every tombstone INSERT: an in-flight
+    // pre-register either commits BEFORE this lock (the check below then SEES its row and
+    // refuses) or BLOCKS here until finalize commits and then fails tenant-missing. The
+    // check-then-delete window is atomic against pre-registers.
+    const t = await client.query<{ slug: string }>(`SELECT slug FROM tenant WHERE id = $1 AND exit_state = 'Exiting' FOR UPDATE`, [tenantId]);
     if (t.rowCount === 0) {
       throw new Error('Finalize refused: tenant is not in the Exiting state (already finalized, or the data phase never ran).');
     }
-    // Fail-closed re-verify: the sweep must have resolved every tombstone, and no
+    // Fail-closed re-verify: the sweep must have resolved every tombstone (prepared and armed
+    // rows BOTH count as unswept — deleted_at IS NULL covers the whole live machine), and no
     // DATA row may remain. Any straggler → refuse, leave identity intact.
     const unswept = await count(client, `SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref = $1 AND deleted_at IS NULL`, [tenantId]);
     if (unswept > 0) {

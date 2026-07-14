@@ -1218,49 +1218,121 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return rows[0] ? mapIntakeSubmission(rows[0]) : null;
     },
 
-    // ── M-02: the rejected-intake blob-wipe outbox ───────────────────────────
-    // R4-N01 widened it to the COMPENSATION paths too: any blob whose registration failed
-    // (or whose quarantine copy remains after an attach) is durably recorded BEFORE the
-    // best-effort delete — a failed delete can never strand bytes silently again.
-    async insertBlobTombstone(input: { storageKey: string; blobClass: 'document' | 'photo' | 'intake'; reason: 'intake_reject' | 'compensation' }): Promise<void> {
-      // R5-N04: namespace discipline at the DB boundary (0067's rule for the definer, here
-      // for the app path) — a compensation/wipe key MUST live under the acting tenant's own
-      // object namespace: `${tenantId}/…` (documents/photos) or `intake/${tenantId}/…`. Never
-      // record a key outside it (path traversal or another tenant's object).
+    // ── M-02 → HARDEN-3.5 B: the compensation STATE MACHINE on blob_tombstone ───────────────
+    // prepared (pre-PUT, NOT drainable) → armed (failure/TTL ⇒ drainable) → resolved/swept
+    // (terminal). Every transition carries a full prior-state predicate and rowCount === 1 —
+    // zero rows THROWS (no silent no-ops; a zombie registration must abort, never commit
+    // metadata over swept bytes).
+    async insertBlobTombstone(input: {
+      storageKey: string;
+      blobClass: 'document' | 'photo' | 'intake';
+      reason: 'intake_reject' | 'compensation' | 'quarantine_cleanup';
+      /** compensation only: 'prepared' (pre-PUT; requires preparedTtlMs) or 'armed' (a KNOWN orphan, e.g. the redundant quarantine copy). Default 'prepared'. */
+      state?: 'prepared' | 'armed';
+      /** prepared only: the TTL after which a drain may arm this intent (deadlineMs × 2). */
+      preparedTtlMs?: number;
+    }): Promise<void> {
+      // B: CLASS-SPECIFIC namespace discipline (round-6 §6 tail) — a document/photo key lives
+      // under `${tenantId}/…` and NEVER under intake/; an intake key lives under
+      // `intake/${tenantId}/…`. Path traversal always refuses.
       const key = input.storageKey;
-      const ownPrefix = `${tenantId}/`;
-      const intakePrefix = `intake/${tenantId}/`;
-      if (key.includes('..') || !(key.startsWith(ownPrefix) || key.startsWith(intakePrefix))) {
-        throw new Error(`Refusing a blob tombstone for '${key}': outside tenant ${tenantId}'s object namespace.`);
+      const requiredPrefix = input.blobClass === 'intake' ? `intake/${tenantId}/` : `${tenantId}/`;
+      if (key.includes('..') || !key.startsWith(requiredPrefix)) {
+        throw new Error(`Refusing a ${input.blobClass} tombstone for '${key}': outside the class namespace '${requiredPrefix}'.`);
       }
-      // Written in the reject transaction so a failed object delete can never
-      // orphan the bytes silently — the tombstone is the durable, retryable
-      // record. RLS scopes tenant_ref to the acting tenant; idempotent per key.
-      await db.execute(sql`
-        INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason)
-        VALUES (${tenantId}, ${key}, ${input.blobClass}, ${input.reason})
-        ON CONFLICT (tenant_ref, storage_key, reason) DO NOTHING
-      `);
+      if (input.reason === 'compensation' || input.reason === 'quarantine_cleanup') {
+        // quarantine_cleanup is a SECOND episode for a key whose upload episode already resolved
+        // (unique per (tenant, key, reason)) — always armed-at-birth (the copy is a known orphan).
+        const state = input.reason === 'quarantine_cleanup' ? 'armed' : (input.state ?? 'prepared');
+        // NO ON CONFLICT: compensation keys are fresh UUID paths — a duplicate is a bug and
+        // must SURFACE (the old DO NOTHING silently ignored its row count).
+        if (state === 'prepared') {
+          const ttl = input.preparedTtlMs;
+          if (!ttl || !Number.isInteger(ttl) || ttl <= 0) {
+            throw new Error('a prepared compensation intent requires a positive integer preparedTtlMs');
+          }
+          await db.execute(sql`
+            INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason, state, prepared_expires_at)
+            VALUES (${tenantId}, ${key}, ${input.blobClass}, 'compensation', 'prepared', now() + make_interval(secs => ${ttl} / 1000.0))
+          `);
+        } else {
+          await db.execute(sql`
+            INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason, state)
+            VALUES (${tenantId}, ${key}, ${input.blobClass}, ${input.reason}, 'armed')
+          `);
+        }
+      } else {
+        // The legacy reject path stays armed-at-birth and idempotent per key (a re-reject of
+        // the same submission legitimately re-records the same keys).
+        await db.execute(sql`
+          INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason, state)
+          VALUES (${tenantId}, ${key}, ${input.blobClass}, ${input.reason}, 'armed')
+          ON CONFLICT (tenant_ref, storage_key, reason) DO NOTHING
+        `);
+      }
     },
 
-    // R5-N04: resolve a write-ahead compensation intent for a storage key IN THE SAME
-    // transaction that commits the operation's DB row — so a SUCCESSFUL registration is never
-    // wrongly swept, while a FAILED one (tx rolls back) leaves the intent for the drain.
-    // blob_tombstone is append-only (R2-N06: c3_app has no DELETE), so "resolve" = mark it
-    // handled by setting deleted_at (the SAME column the drain sets on a confirmed sweep) —
-    // the drain and this method both filter `deleted_at IS NULL`, so a resolved intent is
-    // invisible to the sweep. Idempotent: 0 rows = no intent was pre-registered (a legit blob).
+    // B: prepared → resolved, IN the owning row's transaction. rowCount === 1 is LOAD-BEARING:
+    // zero rows means the drain TTL-armed (and possibly swept) this intent — the request blew
+    // its deadline — so the registration MUST abort rather than commit metadata over swept
+    // bytes (this closes R6-N01's second ordering, and makes the old false "zero-row raises"
+    // claim true for real).
     async resolveCompensationIntent(storageKey: string): Promise<void> {
-      await db.execute(sql`
-        UPDATE blob_tombstone SET deleted_at = now()
+      const res = await db.execute(sql`
+        UPDATE blob_tombstone SET state = 'resolved', deleted_at = now()
          WHERE tenant_ref = ${tenantId} AND storage_key = ${storageKey}
-           AND reason = 'compensation' AND deleted_at IS NULL
+           AND reason = 'compensation' AND state = 'prepared'
+        RETURNING id
       `);
+      if (res.rows.length !== 1) {
+        throw new Error(
+          `Compensation intent for '${storageKey}' could not be resolved (expected 1 prepared row, matched ${res.rows.length}) — ` +
+            'the intent was never prepared, or the drain already armed/swept it (the request outlived its deadline). Registration aborted.',
+        );
+      }
+    },
+
+    // B: prepared → armed (the owning request's failure path — the byte is now a confirmed
+    // orphan the drain must sweep). Zero rows THROWS: the intent was never prepared or was
+    // already TTL-armed; either way the caller's failure handling must know.
+    async armCompensationIntent(storageKey: string): Promise<void> {
+      const res = await db.execute(sql`
+        UPDATE blob_tombstone SET state = 'armed'
+         WHERE tenant_ref = ${tenantId} AND storage_key = ${storageKey}
+           AND reason = 'compensation' AND state = 'prepared'
+        RETURNING id
+      `);
+      if (res.rows.length !== 1) {
+        throw new Error(`Compensation intent for '${storageKey}' could not be armed (expected 1 prepared row, matched ${res.rows.length}).`);
+      }
+    },
+
+    // B: the drain's TTL sweep — prepared rows whose request is PROVABLY DEAD (the expiry is
+    // deadline×2 past arrival) become armed. Set-based; any count is legal.
+    async armExpiredPreparedIntents(): Promise<number> {
+      const res = await db.execute(sql`
+        UPDATE blob_tombstone SET state = 'armed'
+         WHERE tenant_ref = ${tenantId} AND reason = 'compensation'
+           AND state = 'prepared' AND prepared_expires_at < now()
+        RETURNING id
+      `);
+      return res.rows.length;
+    },
+
+    // B §4: bounded terminal-row retention via the 0076 definer (c3_app has no DELETE).
+    async purgeTerminalTombstones(olderThanDays: number): Promise<number> {
+      const res = await db.execute(sql`SELECT blob_tombstone_purge_terminal(${olderThanDays}) AS n`);
+      return Number((res.rows[0] as { n?: number | string } | undefined)?.n ?? 0);
     },
 
     async resolveBlobTombstone(id: string, outcome: { deleted: boolean; error?: string }): Promise<void> {
       if (outcome.deleted) {
-        await db.execute(sql`UPDATE blob_tombstone SET deleted_at = now(), attempts = attempts + 1 WHERE id = ${id}`);
+        // armed → swept (terminal). Zero rows is tolerated HERE AND ONLY HERE: a concurrent
+        // drain raced us to the same armed row — both verified the deletion, one recorded it.
+        await db.execute(sql`
+          UPDATE blob_tombstone SET state = 'swept', deleted_at = now(), attempts = attempts + 1
+           WHERE id = ${id} AND state = 'armed'
+        `);
       } else {
         await db.execute(sql`UPDATE blob_tombstone SET attempts = attempts + 1, last_error = ${(outcome.error ?? 'delete failed').slice(0, 500)} WHERE id = ${id}`);
       }

@@ -295,6 +295,61 @@ describe('guest intake — reject wipes', () => {
     expect(t2!.deleted_at).not.toBeNull();
   });
 
+  it("HARDEN-3.5 B (R6-N01): the drain CANNOT consume a PREPARED intent — the producer's registration then succeeds", async () => {
+    const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
+    const alphaId = tenant!.id;
+    const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
+    const key = `${alphaId}/r6n01-producer-mid-flight`;
+    // The producer pre-registers (prepared, TTL far away) — its PUT has NOT happened yet.
+    await deps.persistence.writes.transaction(actor, (tx) =>
+      tx.insertBlobTombstone({ storageKey: key, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs: 600_000 }),
+    );
+    // ROUND-6'S EXACT SCHEDULE: the drain runs BEFORE the PUT. Old code listed the pending
+    // intent, "deleted" the absent key, verified absence, and RESOLVED it — consuming the
+    // producer's only recovery record. The machine makes prepared INVISIBLE to the drain.
+    const working = { get: async (_k: string) => null, delete: async (_k: string) => {} };
+    const res = await wipeRejectedIntakeBlobs(deps.persistence, working, actor);
+    expect(res.attempted).toBe(0); // the drain saw NOTHING to consume
+    const [row] = await adminQuery<{ state: string }>(`SELECT state FROM blob_tombstone WHERE storage_key=$1`, [key]);
+    expect(row!.state).toBe('prepared'); // untouched
+    // The producer's PUT lands and its registration resolves the intent — exactly once.
+    await deps.persistence.writes.transaction(actor, (tx) => tx.resolveCompensationIntent(key));
+    const [after] = await adminQuery<{ state: string }>(`SELECT state FROM blob_tombstone WHERE storage_key=$1`, [key]);
+    expect(after!.state).toBe('resolved');
+  });
+
+  it('HARDEN-3.5 B (§5.7): the TTL-boundary race — success-resolve vs drain-arm serialize; exactly one wins, both outcomes lawful', async () => {
+    const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
+    const alphaId = tenant!.id;
+    const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
+    const key = `${alphaId}/ttl-boundary-race`;
+    // A prepared intent whose TTL expires almost immediately — the exact boundary.
+    await deps.persistence.writes.transaction(actor, (tx) =>
+      tx.insertBlobTombstone({ storageKey: key, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs: 1_000 }),
+    );
+    await new Promise((r) => setTimeout(r, 1_100)); // the row is now TTL-expired
+    // BOTH racers fire together: the owner's success resolve and the drain's TTL arm. Row-level
+    // locking serializes them on the single row; whoever loses sees the other's state.
+    const [resolveOutcome, armedCount] = await Promise.all([
+      deps.persistence.writes.transaction(actor, (tx) => tx.resolveCompensationIntent(key)).then(
+        () => 'resolved' as const,
+        (e: unknown) => e as Error,
+      ),
+      deps.persistence.writes.transaction(actor, (tx) => tx.armExpiredPreparedIntents()),
+    ]);
+    const [final] = await adminQuery<{ state: string }>(`SELECT state FROM blob_tombstone WHERE storage_key=$1`, [key]);
+    if (resolveOutcome === 'resolved') {
+      // The success tx won the row: terminal resolved; the arm sweep matched nothing (or ran first? no — then resolve would have thrown).
+      expect(final!.state).toBe('resolved');
+      expect(armedCount).toBe(0);
+    } else {
+      // The TTL arm won: the zombie registration ABORTED (rowCount!==1) — never metadata over a drained intent.
+      expect((resolveOutcome as Error).message).toMatch(/expected 1 prepared row/i);
+      expect(final!.state).toBe('armed');
+      expect(armedCount).toBe(1);
+    }
+  });
+
   it('M-02: the owner drain ENDPOINT resolves a pending wipe on demand (no new rejection, intake-admin only)', async () => {
     const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
     const alphaId = tenant!.id;
@@ -343,23 +398,30 @@ describe('guest intake — reject wipes', () => {
     const res = await app.inject({ method: 'POST', url: `/api/v1/intake/public/${link}`, body: form as never });
     expect(res.statusCode).toBe(400);
 
-    // The refused upload's bytes are recorded as a DURABLE wipe tombstone (reason
-    // 'intake_refused'), not swallowed — a failed best-effort delete can never strand them.
-    const tombs = await adminQuery<{ storage_key: string }>(
-      `SELECT storage_key FROM blob_tombstone WHERE tenant_ref=$1 AND reason='intake_refused'`,
+    // HARDEN-3.5 B: the refused upload's bytes were PRE-REGISTERED (a prepared intent existed
+    // BEFORE the PUT); the failure path ARMED it (prepared→armed) — durable and drainable NOW,
+    // never swallowed, never consumable by the drain while the request could still act.
+    const tombs = await adminQuery<{ storage_key: string; state: string }>(
+      `SELECT storage_key, state FROM blob_tombstone WHERE tenant_ref=$1 AND reason='compensation' AND deleted_at IS NULL`,
       [alphaId],
     );
     expect(tombs.length).toBe(1);
+    expect(tombs[0]!.state).toBe('armed');
     expect(tombs[0]!.storage_key).toMatch(new RegExp(`^intake/${alphaId}/`));
 
-    // the wipe drain covers intake_refused → the bytes are removed + the tombstone resolved.
+    // the wipe drain consumes ARMED rows → the bytes are removed + the row goes terminal (swept).
     const drain = await post(tokens.owner, '/api/v1/intake/drain-wipes', {});
     expect(drain.statusCode, drain.body).toBe(200);
     const [pending] = await adminQuery<{ n: number }>(
-      `SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref=$1 AND reason='intake_refused' AND deleted_at IS NULL`,
+      `SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref=$1 AND reason='compensation' AND deleted_at IS NULL`,
       [alphaId],
     );
     expect(pending!.n).toBe(0);
+    const [swept] = await adminQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref=$1 AND reason='compensation' AND state='swept'`,
+      [alphaId],
+    );
+    expect(swept!.n).toBe(1);
   });
 });
 

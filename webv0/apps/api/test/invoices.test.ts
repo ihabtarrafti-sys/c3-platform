@@ -17,6 +17,8 @@ import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
 import { buildDeps, type Deps } from '../src/deps';
 import { buildApp } from '../src/app';
+import { attachInvoicePdfDocument } from '@c3web/application';
+import type { Actor } from '@c3web/domain';
 
 let db: TestDatabase;
 let deps: Deps;
@@ -176,5 +178,44 @@ describe('invoices over HTTP (S6)', () => {
     const register = (await get(tokens.owner, '/api/v1/invoices')).json();
     expect(register.invoices).toHaveLength(3);
     expect(register.invoices.map((x: { status: string }) => x.status).sort()).toEqual(['Issued', 'Issued', 'Voided']);
+  });
+
+  it('HARDEN-3.5 B site 6 (R6-N08): a LINK failure rolls back the WHOLE registration — no dangling doc row, intent still prepared, no bytes deleted', async () => {
+    // Stage a real issued invoice (its own PDF already attached by the issue flow).
+    const gka = (await post(tokens.ops, '/api/v1/entities', { name: 'Geekay KSA', code: 'GKA', jurisdiction: 'KSA', localCurrency: 'SAR' })).entity;
+    const ended = (d: number) => new Date(Date.now() - d * 86_400_000).toISOString().slice(0, 10);
+    const mission = (await post(tokens.ops, '/api/v1/missions', { name: 'Atomic Cup', code: `SATR/${YEAR}/0009`, organizer: 'VSPN', startsOn: ended(20), endsOn: ended(3) })).mission;
+    const line = (await post(tokens.ops, `/api/v1/missions/${mission.missionId}/lines`, { direction: 'Income', category: 'PrizeMoney', label: 'Prize', amountMinor: 800000, currency: 'USD' })).line;
+    const inv = (await post(tokens.ops, '/api/v1/invoices', { missionId: mission.missionId, lineId: line.lineId, entityId: gka.entityId, billedToName: 'VSPN', billedToDetails: 'Riyadh', vatRateBps: 500, description: 'Prize' })).invoice;
+
+    const [tenant] = await db.adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
+    const actor: Actor = { identity: 'ops@alpha.com', displayName: 'Ops', role: 'operations', tenantId: tenant!.id };
+    const storageKey = `${tenant!.id}/r6n08-atomicity-probe`;
+    // The write-ahead intent + the (simulated) stored bytes exist; now the composed
+    // registration runs with a STALE invoice version so the LINK leg fails.
+    await deps.persistence.writes.transaction(actor, (tx) =>
+      tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs: 600_000 }),
+    );
+    await expect(
+      attachInvoicePdfDocument(deps.persistence, actor, {
+        invoiceId: inv.invoiceId,
+        expectedVersion: 0, // stale — the issue flow already bumped the version
+        invoiceNumber: inv.invoiceNumber,
+        contentType: 'application/pdf',
+        sizeBytes: 10,
+        sha256: 'a'.repeat(64),
+        storageKey,
+      }),
+    ).rejects.toThrow(/concurren|conflict/i);
+
+    // R6-N08's crux: NOTHING half-committed. The old two-tx shape left a COMMITTED document
+    // row (registration + resolve in tx-1) while the catch deleted the bytes — registered
+    // metadata pointing at nothing. The composed tx leaves NO doc row…
+    const docs = await db.adminQuery<{ n: number }>(`SELECT count(*)::int AS n FROM document WHERE storage_key=$1`, [storageKey]);
+    expect(docs[0]!.n).toBe(0);
+    // …and the intent is STILL PREPARED (the resolve rolled back with everything else), so the
+    // failure path can arm it and the drain reclaims the bytes.
+    const [intent] = await db.adminQuery<{ state: string }>(`SELECT state FROM blob_tombstone WHERE storage_key=$1`, [storageKey]);
+    expect(intent!.state).toBe('prepared');
   });
 });

@@ -233,10 +233,13 @@ export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, 
     }
   }
 
-  // M-02: exit resolves EVERY pending tombstone for the tenant, not just the
-  // exit-reason ones — a rejected-intake wipe left pending by an earlier storage
-  // failure must be finished by the exit ceremony too, or private bytes could
-  // survive an erasure that reports itself complete.
+  // M-02 → HARDEN-3.5 B: exit resolves EVERY live tombstone for the tenant, not just the
+  // exit-reason ones. The lease drain has already run and quiesce blocks new registrations, so
+  // ANY remaining `prepared` intent belongs to a request that can no longer register its byte —
+  // ARM them first (prepared→armed, the machine's legal edge; a zombie registration would then
+  // match zero prepared rows and ABORT), then sweep armed→swept. A late straggler byte is
+  // caught by finalize's fail-closed prefix re-list (A4).
+  await db.query(`UPDATE blob_tombstone SET state = 'armed' WHERE tenant_ref = $1 AND state = 'prepared'`, [tenantId]);
   const pending = await db.query<{ id: string; storage_key: string }>(
     `SELECT id, storage_key FROM blob_tombstone WHERE tenant_ref = $1 AND deleted_at IS NULL`,
     [tenantId],
@@ -245,7 +248,7 @@ export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, 
   let stillPending = 0;
   for (const row of pending.rows) {
     if ((await reader.get(row.storage_key)) === null) {
-      await db.query(`UPDATE blob_tombstone SET deleted_at = now(), attempts = attempts + 1 WHERE id = $1`, [row.id]);
+      await db.query(`UPDATE blob_tombstone SET state = 'swept', deleted_at = now(), attempts = attempts + 1 WHERE id = $1 AND state = 'armed'`, [row.id]);
       verified += 1;
     } else {
       await db.query(`UPDATE blob_tombstone SET attempts = attempts + 1, last_error = $2 WHERE id = $1`, [

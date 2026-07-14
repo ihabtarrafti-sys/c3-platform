@@ -24,6 +24,7 @@ import {
   assertLineInvoiceable,
   computeVatMinor,
   ConcurrencyError,
+  formatDocumentId,
   formatInvoiceId,
   formatInvoiceNumber,
   InvoiceRuleError,
@@ -211,6 +212,60 @@ export async function linkInvoiceDocument(p: Persistence, actor: Actor, invoiceI
   return p.writes.transaction(actor, async (tx) => {
     const linked = await tx.setInvoiceDocument(invoiceId, expectedVersion, documentId);
     if (!linked) throw new ConcurrencyError('Invoice', invoiceId);
+    return linked;
+  });
+}
+
+/**
+ * HARDEN-3.5 B site 6 (R6-N08): registration + linkage + compensation resolution in ONE
+ * transaction. The old flow committed the document row (resolving the intent) in tx-1, then
+ * linked in tx-2 — a tx-2 failure made the route's catch DELETE the bytes while the committed
+ * document row remained: registered metadata pointing at nothing. Here a link failure (version
+ * conflict, anything) rolls EVERYTHING back — no doc row, the intent still `prepared` (the
+ * route's failure path arms it), the bytes safely sweepable.
+ */
+export async function attachInvoicePdfDocument(
+  p: Persistence,
+  actor: Actor,
+  input: {
+    invoiceId: string;
+    expectedVersion: number;
+    invoiceNumber: string;
+    contentType: string;
+    sizeBytes: number;
+    sha256: string;
+    storageKey: string;
+  },
+): Promise<Invoice> {
+  assertManageMissions(actor);
+  assertViewFinancials(actor);
+  return p.writes.transaction(actor, async (tx) => {
+    const seq = await tx.allocateSequence('document');
+    const documentId = formatDocumentId(seq);
+    await tx.insertDocument({
+      documentId,
+      ownerType: 'Invoice',
+      ownerId: input.invoiceId,
+      fileName: `${input.invoiceNumber}.pdf`,
+      contentType: input.contentType,
+      sizeBytes: input.sizeBytes,
+      sha256: input.sha256,
+      label: null,
+      storageKey: input.storageKey,
+      uploadedBy: actor.identity,
+    });
+    // prepared → resolved, atomically with BOTH the doc row and the link (rowCount enforced).
+    await tx.resolveCompensationIntent(input.storageKey);
+    const linked = await tx.setInvoiceDocument(input.invoiceId, input.expectedVersion, documentId);
+    if (!linked) throw new ConcurrencyError('Invoice', input.invoiceId);
+    await tx.appendAuditEvent({
+      entityType: 'Invoice',
+      entityId: input.invoiceId,
+      action: 'DocumentAttached',
+      actor: actor.identity,
+      before: null,
+      after: { documentId, fileName: `${input.invoiceNumber}.pdf`, contentType: input.contentType, sizeBytes: input.sizeBytes, sha256: input.sha256, label: null },
+    });
     return linked;
   });
 }

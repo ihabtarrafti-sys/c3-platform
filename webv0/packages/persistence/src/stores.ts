@@ -538,14 +538,16 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return rows[0] ? mapIntakeSubmission(rows[0]) : null;
           }),
 
-        // M-02: outstanding blob wipes for this tenant (RLS-scoped by tenant_ref); the
-        // drain route deletes + verifies + resolves these. R4-N01: 'compensation' rides
-        // the same drain — a failed compensation delete is retried here, never stranded.
+        // M-02 → HARDEN-3.5 B: outstanding blob wipes for this tenant (RLS-scoped). The drain
+        // consumes ONLY `armed` rows — a `prepared` intent belongs to a request that may still
+        // act (R6-N01: the drain used to consume a pending intent BEFORE its PUT, then either
+        // orphan the late byte or delete a byte that gained an owner). prepared rows become
+        // armed only via the owner's failure path or the TTL sweep (provably-dead requests).
         listPendingIntakeRejectTombstones: () =>
           withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; storageKey: string }>> => {
             const res = await db.execute(sql`
               SELECT id, storage_key FROM blob_tombstone
-               WHERE reason IN ('intake_reject', 'intake_refused', 'compensation') AND deleted_at IS NULL
+               WHERE reason IN ('intake_reject', 'intake_refused', 'compensation', 'quarantine_cleanup') AND state = 'armed'
                ORDER BY created_at
             `);
             return res.rows.map((r) => ({ id: String(r.id), storageKey: String(r.storage_key) }));
@@ -901,6 +903,16 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
       const res = await pool.query('SELECT intake_tombstone_refused($1, $2) AS n', [tokenHash, storageKeys as string[]]);
       return Number(res.rows[0]?.n ?? 0);
     },
+    async prepareCompensation(tokenHash: string, storageKey: string, preparedTtlMs: number): Promise<void> {
+      // HARDEN-3.5 B (site 5): the prepared intent EXISTS before the byte does. The definer
+      // validates the key inside the token tenant's intake namespace (B-1, 0067 discipline).
+      await pool.query('SELECT intake_prepare_compensation($1, $2, $3)', [tokenHash, storageKey, preparedTtlMs]);
+    },
+    async armCompensation(tokenHash: string, storageKeys: readonly string[]): Promise<number> {
+      if (storageKeys.length === 0) return 0;
+      const res = await pool.query('SELECT intake_arm_compensation($1, $2) AS n', [tokenHash, storageKeys as string[]]);
+      return Number(res.rows[0]?.n ?? 0);
+    },
     async acquireUploadLease(tokenHash: string, ttlMs: number): Promise<string | null> {
       // R4-N01/R5-N01: token-keyed definer (tenant-first lock order); NULL = refused (dead
       // link or Exiting tenant). The API owns the TTL so it can enforce requestTimeout×2 ≤ TTL.
@@ -932,6 +944,28 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
            VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7) RETURNING *`,
           [submission.submissionId, tenantId, linkId, kind, JSON.stringify(submission.payload), JSON.stringify(submission.uploads), submission.submitterFingerprint],
         );
+        // HARDEN-3.5 B (B-3): resolve EXACTLY the keys this claim is committing — every stored
+        // file has a prepared intent (prepared before its PUT), so the count must equal. Fewer
+        // rows means the drain TTL-armed (maybe swept) one mid-flight: the request outlived its
+        // deadline, and the WHOLE claim aborts — never committed metadata over swept bytes.
+        // (A mid-submission file failure never reaches the claim: the route fails the whole
+        // submission and ARMS the stored keys instead.)
+        const claimKeys = (submission.uploads as ReadonlyArray<{ storageKey: string }>).map((u) => u.storageKey);
+        if (claimKeys.length > 0) {
+          const resolved = await client.query(
+            `UPDATE blob_tombstone SET state = 'resolved', deleted_at = now()
+              WHERE tenant_ref = $1 AND storage_key = ANY($2) AND reason = 'compensation' AND state = 'prepared'
+              RETURNING id`,
+            [tenantId, claimKeys],
+          );
+          if (resolved.rowCount !== claimKeys.length) {
+            await client.query('ROLLBACK');
+            throw new Error(
+              `Intake claim aborted: ${resolved.rowCount}/${claimKeys.length} prepared compensation intents could be resolved — ` +
+                'the request outlived its deadline (an intent was armed/swept) or an intent was never prepared.',
+            );
+          }
+        }
         await client.query('COMMIT');
         return { tenantId, linkId, kind, submission: mapIntakeSubmission(ins.rows[0]) };
       } catch (err) {

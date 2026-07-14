@@ -243,6 +243,13 @@ export interface WipeResult {
  */
 export async function wipeRejectedIntakeBlobs(p: Persistence, storage: BlobWipePort, actor: Actor): Promise<WipeResult> {
   assertManageIntake(actor); // M-02: owner-invocable drain is intake-admin only
+  // HARDEN-3.5 B: first, arm every prepared intent whose request is PROVABLY DEAD (the
+  // prepared TTL — deadline×2 — has passed), then purge terminal rows past retention. The
+  // drain itself consumes ONLY armed rows (a live request's prepared intent is untouchable).
+  await p.writes.transaction(actor, async (tx) => {
+    await tx.armExpiredPreparedIntents();
+    await tx.purgeTerminalTombstones(30);
+  });
   const pending = await p.reads.forActor(actor).listPendingIntakeRejectTombstones();
   if (pending.length === 0) return { attempted: 0, wiped: 0, stillPending: 0 };
 
