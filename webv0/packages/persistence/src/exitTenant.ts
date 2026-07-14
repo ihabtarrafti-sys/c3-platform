@@ -44,6 +44,11 @@ export interface ExitOptions {
   readonly execute?: boolean;
   /** Must equal the resolved slug to execute (typed by the requester). */
   readonly confirmSlug?: string;
+  /** R4-N01: how long the data phase waits for in-flight upload leases to drain to zero
+   *  before REFUSING (fail-closed; the exit resumes on a re-run). Default 60s. */
+  readonly leaseDrainTimeoutMs?: number;
+  /** R4-N01: the drain's poll interval. Default 500ms (tests shrink it). */
+  readonly leaseDrainPollMs?: number;
   /** Must equal the resolved slug to execute (typed by the second authorizer). */
   readonly secondConfirm?: string;
 }
@@ -153,6 +158,36 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
     } catch (e) {
       await client.query('ROLLBACK').catch(() => {});
       throw e;
+    }
+
+    // R4-N01: DRAIN the in-flight upload leases to zero BEFORE enumerating/sweeping. Exiting
+    // is committed and every link is revoked, so intake_lease_acquire refuses NEW leases (it
+    // takes the tenant lock first — 0068's order — so no acquire can slip past this point
+    // unobserved). Any lease still present is a request already streaming bytes: wait for it
+    // to RESOLVE (claim refused → tombstoned → released) so its object can never land after
+    // the sweep listed the prefix. Expired leases are dead requests (an HTTP upload cannot
+    // outlive its server timeout) and do not block. Fail-closed on timeout — re-run resumes.
+    {
+      const t0 = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [tenantSlug]);
+      const tid = t0.rows[0]!.id;
+      const timeoutMs = opts.leaseDrainTimeoutMs ?? 60_000;
+      const pollMs = opts.leaseDrainPollMs ?? 500;
+      const deadline = Date.now() + timeoutMs;
+      for (;;) {
+        const live = await count(
+          client,
+          `SELECT count(*)::int AS n FROM intake_upload_lease WHERE tenant_id = $1 AND expires_at > now()`,
+          [tid],
+        );
+        if (live === 0) break;
+        if (Date.now() >= deadline) {
+          throw new Error(
+            `Exit REFUSED: ${live} in-flight intake upload(s) still hold a lease after ${timeoutMs}ms — ` +
+              'wait for them to resolve (or expire) and re-run; the exit resumes from the Exiting state.',
+          );
+        }
+        await new Promise((r) => setTimeout(r, pollMs));
+      }
     }
   }
 

@@ -1219,7 +1219,10 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
     },
 
     // ── M-02: the rejected-intake blob-wipe outbox ───────────────────────────
-    async insertBlobTombstone(input: { storageKey: string; blobClass: 'intake'; reason: 'intake_reject' }): Promise<void> {
+    // R4-N01 widened it to the COMPENSATION paths too: any blob whose registration failed
+    // (or whose quarantine copy remains after an attach) is durably recorded BEFORE the
+    // best-effort delete — a failed delete can never strand bytes silently again.
+    async insertBlobTombstone(input: { storageKey: string; blobClass: 'document' | 'photo' | 'intake'; reason: 'intake_reject' | 'compensation' }): Promise<void> {
       // Written in the reject transaction so a failed object delete can never
       // orphan the bytes silently — the tombstone is the durable, retryable
       // record. RLS scopes tenant_ref to the acting tenant; idempotent per key.

@@ -312,20 +312,39 @@ describe('guest intake — reject wipes', () => {
     expect(t!.deleted_at).not.toBeNull();
   });
 
-  it('R3-N02: a claim refused mid-exit durably TOMBSTONES the stored bytes (never a swallowed orphan); the drain sweeps them', async () => {
+  it('R3-N02/R4-N01: an Exiting tenant refuses the upload BYTE-FREE at the lease (410, nothing stored, nothing to tombstone)', async () => {
     const link = await mintLink(tokens.ops);
     const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
     const alphaId = tenant!.id;
-    // Simulate the in-flight race: the public peek passed while Active, then the tenant
-    // transitions to Exiting (set directly — link NOT revoked — so the upload still reaches
-    // the claim, where the quiesce trigger refuses the intake_submission insert).
+    // The old race: peek passed while Active, tenant flips Exiting (link left alive). The
+    // 3.2 answer let the bytes land and tombstoned them at the refused claim. R4-N01's lease
+    // is STRONGER: the acquire (which checks the tenant, tenant-first lock order) refuses
+    // BEFORE any byte is stored — the request ends 410 with zero residue.
     await adminQuery(`UPDATE tenant SET exit_state='Exiting' WHERE id=$1`, [alphaId]);
 
     const res = await submitGuest(link, { fullName: 'Inflight Ivan' }, [{ name: 'p.pdf', type: 'application/pdf', bytes: PDF }]);
-    expect(res.statusCode).toBe(500); // the claim is refused by the Exiting quiesce trigger
+    expect(res.statusCode).toBe(410); // refused at the lease — before the multipart is consumed
+    // Nothing stored → nothing to tombstone: byte-free refusal.
+    const [tombs] = await adminQuery<{ n: number }>(`SELECT count(*)::int AS n FROM blob_tombstone WHERE tenant_ref=$1`, [alphaId]);
+    expect(tombs!.n).toBe(0);
+    await adminQuery(`UPDATE tenant SET exit_state='Active' WHERE id=$1`, [alphaId]); // restore for later tests
+  });
 
-    // R3-N02 fix: the refused claim's bytes are recorded as a DURABLE wipe tombstone
-    // (reason='intake_refused'), not swallowed. On today's code there is none → this is red.
+  it('R3-N02: a claim that fails AFTER bytes are stored durably TOMBSTONES them (never a swallowed orphan); the drain sweeps them', async () => {
+    const link = await mintLink(tokens.ops);
+    const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
+    const alphaId = tenant!.id;
+    // A REAL stored-bytes failure: the file is buffered + stored to quarantine as parts
+    // stream in, then the MALFORMED payload field fails the submission — discardStored runs
+    // with bytes already on the store.
+    const form = new FormData();
+    form.append('payload', '{not json');
+    form.append('files', new Blob([PDF], { type: 'application/pdf' }), 'p.pdf');
+    const res = await app.inject({ method: 'POST', url: `/api/v1/intake/public/${link}`, body: form as never });
+    expect(res.statusCode).toBe(400);
+
+    // The refused upload's bytes are recorded as a DURABLE wipe tombstone (reason
+    // 'intake_refused'), not swallowed — a failed best-effort delete can never strand them.
     const tombs = await adminQuery<{ storage_key: string }>(
       `SELECT storage_key FROM blob_tombstone WHERE tenant_ref=$1 AND reason='intake_refused'`,
       [alphaId],
@@ -333,7 +352,7 @@ describe('guest intake — reject wipes', () => {
     expect(tombs.length).toBe(1);
     expect(tombs[0]!.storage_key).toMatch(new RegExp(`^intake/${alphaId}/`));
 
-    // the wipe drain now covers intake_refused → the bytes are removed + the tombstone resolved.
+    // the wipe drain covers intake_refused → the bytes are removed + the tombstone resolved.
     const drain = await post(tokens.owner, '/api/v1/intake/drain-wipes', {});
     expect(drain.statusCode, drain.body).toBe(200);
     const [pending] = await adminQuery<{ n: number }>(

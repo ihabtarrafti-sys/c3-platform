@@ -531,13 +531,14 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return rows[0] ? mapIntakeSubmission(rows[0]) : null;
           }),
 
-        // M-02: outstanding rejected-intake blob wipes for this tenant (RLS-scoped
-        // by tenant_ref); the reject route deletes + verifies + resolves these.
+        // M-02: outstanding blob wipes for this tenant (RLS-scoped by tenant_ref); the
+        // drain route deletes + verifies + resolves these. R4-N01: 'compensation' rides
+        // the same drain — a failed compensation delete is retried here, never stranded.
         listPendingIntakeRejectTombstones: () =>
           withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; storageKey: string }>> => {
             const res = await db.execute(sql`
               SELECT id, storage_key FROM blob_tombstone
-               WHERE reason IN ('intake_reject', 'intake_refused') AND deleted_at IS NULL
+               WHERE reason IN ('intake_reject', 'intake_refused', 'compensation') AND deleted_at IS NULL
                ORDER BY created_at
             `);
             return res.rows.map((r) => ({ id: String(r.id), storageKey: String(r.storage_key) }));
@@ -886,6 +887,16 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
       // written even while the tenant is Exiting (blob_tombstone is not quiesced).
       const res = await pool.query('SELECT intake_tombstone_refused($1, $2) AS n', [tokenHash, storageKeys as string[]]);
       return Number(res.rows[0]?.n ?? 0);
+    },
+    async acquireUploadLease(tokenHash: string): Promise<string | null> {
+      // R4-N01: token-keyed definer (tenant-first lock order); NULL = refused (dead link
+      // or Exiting tenant). The exit's data phase drains these to zero before sweeping.
+      const res = await pool.query('SELECT intake_lease_acquire($1) AS id', [tokenHash]);
+      const id = res.rows[0]?.id;
+      return id ? String(id) : null;
+    },
+    async releaseUploadLease(leaseId: string): Promise<void> {
+      await pool.query('SELECT intake_lease_release($1)', [leaseId]);
     },
     async claimAndInsert(tokenHash: string, submission: NewGuestSubmission) {
       const client = await pool.connect();

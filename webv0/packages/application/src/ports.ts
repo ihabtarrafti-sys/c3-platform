@@ -997,7 +997,7 @@ export interface WriteTx {
   /** Backfill the created person id on a promoted submission (post-execute file attach). Null = missing/not-Promoted. */
   setIntakeSubmissionPromotedPerson(submissionId: string, personId: string): Promise<IntakeSubmission | null>;
   /** M-02: record a rejected-intake object for durable, retryable wiping (reason='intake_reject'). Idempotent per key. */
-  insertBlobTombstone(input: { storageKey: string; blobClass: 'intake'; reason: 'intake_reject' }): Promise<void>;
+  insertBlobTombstone(input: { storageKey: string; blobClass: 'document' | 'photo' | 'intake'; reason: 'intake_reject' | 'compensation' }): Promise<void>;
   /** M-02: mark a wipe tombstone deleted (object verified gone) or record a retryable error + bump attempts. */
   resolveBlobTombstone(id: string, outcome: { deleted: boolean; error?: string }): Promise<void>;
 
@@ -1151,6 +1151,16 @@ export interface GuestIntakePort {
    * / reject drain removes them. Returns the number of keys recorded.
    */
   tombstoneRefusedUploads(tokenHash: string, storageKeys: readonly string[]): Promise<number>;
+  /**
+   * R4-N01: register an in-flight upload lease right after the token peek (token-keyed
+   * SECURITY DEFINER gateway). NULL = refused (unknown token, non-Active link, or Exiting
+   * tenant — the acquire takes the tenant lock FIRST, so it serializes against Phase-0).
+   * The exit ceremony's data phase drains a tenant's unexpired leases to zero before it
+   * enumerates and sweeps, so a request mid-upload can never land bytes after the sweep.
+   */
+  acquireUploadLease(tokenHash: string): Promise<string | null>;
+  /** Release the lease when the request resolves (claimed OR refused+tombstoned). Idempotent. */
+  releaseUploadLease(leaseId: string): Promise<void>;
 }
 
 /** Everything a use-case needs from persistence. */

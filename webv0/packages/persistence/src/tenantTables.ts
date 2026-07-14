@@ -165,6 +165,10 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   // sandbox submission (child; exits first, before its link FK).
   { name: 'intake_link', exportSql: `SELECT * FROM intake_link WHERE tenant_id = $1 ORDER BY created_at, id`, exitRank: 9 },
   { name: 'intake_submission', exportSql: `SELECT * FROM intake_submission WHERE tenant_id = $1 ORDER BY submitted_at, id`, exitRank: 8 },
+  // HARDEN-3.3 (0069, R4-N01): transient in-flight upload leases. The exit's drain waits for
+  // LIVE leases to hit zero before the data phase; the erasure here only removes expired
+  // stragglers (dead requests). No FK to intake_link (token_hash text), so rank is free.
+  { name: 'intake_upload_lease', exportSql: `SELECT * FROM intake_upload_lease WHERE tenant_id = $1 ORDER BY acquired_at, id`, exitRank: 8 },
   // Track B (0041): recurring subscriptions — an independent leaf register.
   {
     name: 'subscription',

@@ -724,7 +724,11 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const person = await setPersonPhoto(P, actor, personId, { storageKey, contentType, sha256 });
         return reply.status(200).send({ person: toPersonDto(person, piiOf(req)) });
       } catch (err) {
-        // Compensation: the blob landed but the pointer set failed — remove it.
+        // Compensation (R4-N01): durable tombstone FIRST — the wipe drain / exit sweep owns
+        // the removal if the best-effort delete below fails. Never a silent strand.
+        await P.writes
+          .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'photo', reason: 'compensation' }))
+          .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
         await deps.documentStorage.delete(storageKey).catch(() => {});
         throw err;
       }
@@ -1516,7 +1520,10 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         });
         return reply.status(201).send({ document: toDocumentDto(doc) });
       } catch (err) {
-        // Compensation: the blob landed but registration failed — remove it.
+        // Compensation (R4-N01): durable tombstone FIRST, then best-effort delete.
+        await P.writes
+          .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation' }))
+          .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
         await deps.documentStorage.delete(storageKey).catch(() => {});
         throw err;
       }
@@ -1692,8 +1699,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             label: 'From guest intake',
           });
           attachedCount += 1;
+          // R4-N01: the quarantine copy is now redundant — tombstone it durably first, so a
+          // failed delete leaves a retryable record (wipe drain / exit sweep), never a strand.
+          await P.writes
+            .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey: upload.storageKey, blobClass: 'intake', reason: 'compensation' }))
+            .catch((e) => req.log.error({ storageKey: upload.storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
           await deps.documentStorage.delete(upload.storageKey).catch(() => {});
         } catch (err) {
+          // R4-N01: the live copy landed but the attach failed — tombstone first, then delete.
+          await P.writes
+            .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey: liveKey, blobClass: 'document', reason: 'compensation' }))
+            .catch((e) => req.log.error({ storageKey: liveKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
           await deps.documentStorage.delete(liveKey).catch(() => {});
           throw err;
         }
@@ -1737,6 +1753,15 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         return sendError(req, reply, 410, 'INTAKE_LINK_UNAVAILABLE', 'This intake link is no longer available. Ask your contact for a fresh link.');
       }
       const kind = peek.kind as IntakeKind;
+      // R4-N01: register the in-flight upload BEFORE any byte is buffered/stored. The exit
+      // ceremony's data phase drains a tenant's unexpired leases to zero before it enumerates
+      // and sweeps, so a request mid-upload can never land bytes after the sweep. A refused
+      // acquire (link died / tenant Exiting since the peek) ends the request here, byte-free.
+      const leaseId = await P.guest.acquireUploadLease(tokenHash);
+      if (!leaseId) {
+        return sendError(req, reply, 410, 'INTAKE_LINK_UNAVAILABLE', 'This intake link is no longer available. Ask your contact for a fresh link.');
+      }
+      try { // NOTE: body intentionally not re-indented — the finally below releases the lease
       const submissionId = randomUUID();
 
       // Parse multipart: one 'payload' field (JSON) + files (stored to
@@ -1819,6 +1844,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         // bytes are durably tombstoned (R3-N02) then best-effort deleted; never swallowed.
         await discardStored();
         throw err;
+      }
+      } finally {
+        // R4-N01: the request RESOLVED (claimed, or refused + tombstoned) — release the
+        // lease so a draining exit ceremony can proceed. A failed release self-heals at
+        // the lease's TTL expiry.
+        await P.guest.releaseUploadLease(leaseId).catch(() => {});
       }
     },
   );
@@ -2305,6 +2336,10 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       });
       return await linkInvoiceDocument(P, actor, invoice.invoiceId, invoice.version, doc.documentId);
     } catch (err) {
+      // Compensation (R4-N01): durable tombstone FIRST, then best-effort delete.
+      await P.writes
+        .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation' }))
+        .catch((e) => r.log.error({ storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
       await deps.documentStorage.delete(storageKey).catch(() => {});
       throw err;
     }
