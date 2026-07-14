@@ -583,6 +583,24 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   const P = deps.persistence;
   const actorOf = (req: FastifyRequest) => req.actor!;
 
+  // R5-N04: WRITE-AHEAD compensation — record the intent to delete a storage key BEFORE any
+  // byte is stored, in its OWN committed tx. Returns false if the intent can't be recorded, so
+  // the caller REFUSES before the PUT (never a best-effort-after-failure that can be swallowed).
+  // On the operation's success the registration use case resolves this intent in the SAME tx.
+  const preRegisterCompensation = async (
+    storageKey: string,
+    blobClass: 'document' | 'photo' | 'intake',
+    req: FastifyRequest,
+  ): Promise<boolean> => {
+    try {
+      await P.writes.transaction(actorOf(req), (tx) => tx.insertBlobTombstone({ storageKey, blobClass, reason: 'compensation' }));
+      return true;
+    } catch (e) {
+      req.log.error({ storageKey, err: String(e) }, 'compensation pre-register failed — refusing the upload before storing bytes');
+      return false;
+    }
+  };
+
   // ── health / readiness (public) ────────────────────────────────────────────
   const statusSchema = z.object({ status: z.string() });
   r.get('/health', { schema: { response: { 200: statusSchema } } }, async () => ({ status: 'ok' }));
@@ -751,16 +769,19 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       }
       const sha256 = createHash('sha256').update(body).digest('hex');
       const storageKey = `${actor.tenantId}/${randomUUID()}`;
+      // R5-N04 WRITE-AHEAD: pre-register the compensation intent BEFORE any byte is stored. If
+      // the intent can't be recorded, REFUSE before the PUT (store nothing) — durability is
+      // never a best-effort afterthought.
+      if (!(await preRegisterCompensation(storageKey, 'photo', req))) {
+        return sendError(req, reply, 500, 'STORAGE_UNAVAILABLE', 'Could not prepare storage for the upload. Please retry.');
+      }
       await deps.documentStorage.put(storageKey, body, contentType);
       try {
         const person = await setPersonPhoto(P, actor, personId, { storageKey, contentType, sha256 });
         return reply.status(200).send({ person: toPersonDto(person, piiOf(req)) });
       } catch (err) {
-        // Compensation (R4-N01): durable tombstone FIRST — the wipe drain / exit sweep owns
-        // the removal if the best-effort delete below fails. Never a silent strand.
-        await P.writes
-          .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'photo', reason: 'compensation' }))
-          .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
+        // R5-N04: the pre-registered intent SURVIVES this failure (success would have resolved
+        // it in setPersonPhoto's tx) → the drain sweeps the orphan even if this delete fails.
         await deps.documentStorage.delete(storageKey).catch(() => {});
         throw err;
       }
@@ -1551,6 +1572,10 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const sha256 = createHash('sha256').update(body).digest('hex');
       // Tenant-scoped, server-generated — never derived from user input.
       const storageKey = `${actor.tenantId}/${randomUUID()}`;
+      // R5-N04 WRITE-AHEAD: pre-register the compensation intent BEFORE the PUT.
+      if (!(await preRegisterCompensation(storageKey, 'document', req))) {
+        return sendError(req, reply, 500, 'STORAGE_UNAVAILABLE', 'Could not prepare storage for the upload. Please retry.');
+      }
       await deps.documentStorage.put(storageKey, body, contentType);
       try {
         const doc = await attachDocument(P, actor, {
@@ -1563,12 +1588,9 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
           storageKey,
           label: fieldVal('label') || null,
         });
-        return reply.status(201).send({ document: toDocumentDto(doc) });
+        return reply.status(201).send({ document: toDocumentDto(doc) }); // attachDocument resolved the intent in-tx
       } catch (err) {
-        // Compensation (R4-N01): durable tombstone FIRST, then best-effort delete.
-        await P.writes
-          .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation' }))
-          .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
+        // R5-N04: the pre-registered intent survives → the drain sweeps the orphan.
         await deps.documentStorage.delete(storageKey).catch(() => {});
         throw err;
       }
@@ -1731,6 +1753,10 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const body = await deps.documentStorage.get(upload.storageKey);
         if (!body) continue;
         const liveKey = `${actor.tenantId}/${randomUUID()}`;
+        // R5-N04 WRITE-AHEAD: pre-register the live-copy compensation intent BEFORE the PUT.
+        if (!(await preRegisterCompensation(liveKey, 'document', req))) {
+          throw new Error('Could not prepare storage for the attach.');
+        }
         await deps.documentStorage.put(liveKey, body, upload.contentType);
         try {
           await attachDocument(P, actor, {
@@ -1742,19 +1768,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             sha256: upload.sha256,
             storageKey: liveKey,
             label: 'From guest intake',
-          });
+          }); // resolves the liveKey intent in-tx
           attachedCount += 1;
-          // R4-N01: the quarantine copy is now redundant — tombstone it durably first, so a
-          // failed delete leaves a retryable record (wipe drain / exit sweep), never a strand.
+          // The quarantine copy is now redundant — tombstone it durably (a post-success cleanup;
+          // a failed delete leaves the retryable record for the wipe drain / exit sweep).
           await P.writes
             .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey: upload.storageKey, blobClass: 'intake', reason: 'compensation' }))
-            .catch((e) => req.log.error({ storageKey: upload.storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
+            .catch((e) => req.log.error({ storageKey: upload.storageKey, err: String(e) }, 'quarantine tombstone write failed — object may strand until the exit sweep'));
           await deps.documentStorage.delete(upload.storageKey).catch(() => {});
         } catch (err) {
-          // R4-N01: the live copy landed but the attach failed — tombstone first, then delete.
-          await P.writes
-            .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey: liveKey, blobClass: 'document', reason: 'compensation' }))
-            .catch((e) => req.log.error({ storageKey: liveKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
+          // R5-N04: the live copy's pre-registered intent survives the attach failure → drain sweeps it.
           await deps.documentStorage.delete(liveKey).catch(() => {});
           throw err;
         }
@@ -1822,8 +1845,21 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       // sweep finishes any the delete missed. Replaces the old swallowed `.catch(()=>{})`.
       const discardStored = async () => {
         if (storedKeys.length === 0) return;
-        await P.guest.tombstoneRefusedUploads(tokenHash, storedKeys).catch(() => {});
+        // R5-N04: the durable record must actually be written — a ZERO-row result for a
+        // non-empty key set (or a throw) means NOTHING was recorded and the bytes could strand.
+        // NEVER ignore it: surface it loudly (an error the caller sees as a 500), not swallowed.
+        let recorded = 0;
+        try {
+          recorded = await P.guest.tombstoneRefusedUploads(tokenHash, storedKeys);
+        } catch (e) {
+          req.log.error({ keys: storedKeys.length, err: String(e) }, 'R5-N04: refused-upload tombstone write FAILED');
+          throw e;
+        }
         for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        if (recorded === 0) {
+          req.log.error({ keys: storedKeys.length }, 'R5-N04: refused-upload tombstone recorded ZERO rows for a non-empty key set');
+          throw new Error(`Refused-upload durability not established: 0 tombstones recorded for ${storedKeys.length} stored key(s).`);
+        }
       };
       try {
         for await (const part of req.parts()) {
@@ -2367,6 +2403,13 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     });
     const body = Buffer.from(pdf);
     const storageKey = `${actor.tenantId}/${randomUUID()}`;
+    // R5-N04 WRITE-AHEAD: pre-register the compensation intent BEFORE the PUT; refuse if it fails.
+    try {
+      await P.writes.transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation' }));
+    } catch (e) {
+      r.log.error({ storageKey, err: String(e) }, 'compensation pre-register failed — refusing the PDF artifact before storing bytes');
+      throw new Error('Could not prepare storage for the invoice PDF.');
+    }
     await deps.documentStorage.put(storageKey, body, 'application/pdf');
     try {
       const doc = await attachDocument(P, actor, {
@@ -2379,12 +2422,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         storageKey,
         label: null,
       });
+      // attachDocument resolved the intent in-tx; the blob is now the live invoice PDF, safe
+      // from the drain even though linkInvoiceDocument runs next (its failure leaves an honest
+      // documentId=null invoice, not an orphan — the intent is already resolved).
       return await linkInvoiceDocument(P, actor, invoice.invoiceId, invoice.version, doc.documentId);
     } catch (err) {
-      // Compensation (R4-N01): durable tombstone FIRST, then best-effort delete.
-      await P.writes
-        .transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation' }))
-        .catch((e) => r.log.error({ storageKey, err: String(e) }, 'compensation tombstone write failed — object may strand until the exit sweep'));
+      // R5-N04: if the ATTACH failed the intent survives → the drain sweeps the orphan.
       await deps.documentStorage.delete(storageKey).catch(() => {});
       throw err;
     }

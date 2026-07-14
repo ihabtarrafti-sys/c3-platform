@@ -2380,3 +2380,36 @@ describe('HARDEN-3.4 Batch C (R5-N05/N06) — distribution INSERT invariant + co
     }, 120_000);
   });
 });
+
+// R5-N04: the write-ahead compensation path enforces 0067's namespace discipline at the app
+// boundary (a key must live under the tenant's own object namespace), and resolving an intent
+// marks it handled (deleted_at) so the drain — which only sweeps deleted_at IS NULL — ignores it.
+describe('HARDEN-3.4 Batch A (R5-N04) — compensation namespace discipline + intent resolution', () => {
+  it('insertBlobTombstone REFUSES a key outside the tenant namespace; resolveCompensationIntent marks a pending intent handled', async () => {
+    await db.truncateAll();
+    const a = await db.seedTenant({ slug: 'nsa' });
+    const b = await db.seedTenant({ slug: 'nsb' });
+    const p = createPersistence({ appConnectionString: db.appUrl });
+    const actorA = ownerActor(a.tenantId, 'o@nsa.com');
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      // A foreign-tenant key and a path-traversal escape are both refused.
+      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${b.tenantId}/x`, blobClass: 'document', reason: 'compensation' }))).rejects.toThrow(/outside tenant|namespace/i);
+      await expect(p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/../${b.tenantId}/x`, blobClass: 'document', reason: 'compensation' }))).rejects.toThrow(/outside tenant|namespace/i);
+      // Own-namespace keys (document prefix + intake prefix) are accepted.
+      await p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `${a.tenantId}/ok`, blobClass: 'document', reason: 'compensation' }));
+      await p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({ storageKey: `intake/${a.tenantId}/ok`, blobClass: 'intake', reason: 'compensation' }));
+      // The document intent is PENDING (drain would sweep it).
+      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2 AND deleted_at IS NULL`, [a.tenantId, `${a.tenantId}/ok`])).rows[0].n).toBe(1);
+      // Resolving it (success path) marks it handled → the drain now ignores it.
+      await p.writes.transaction(actorA, (tx) => tx.resolveCompensationIntent(`${a.tenantId}/ok`));
+      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2 AND deleted_at IS NULL`, [a.tenantId, `${a.tenantId}/ok`])).rows[0].n).toBe(0);
+      // The intake intent stays pending (never resolved) → the drain still owns it.
+      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2 AND deleted_at IS NULL`, [a.tenantId, `intake/${a.tenantId}/ok`])).rows[0].n).toBe(1);
+    } finally {
+      await admin.end();
+      await p.close();
+    }
+  });
+});

@@ -1223,13 +1223,38 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
     // (or whose quarantine copy remains after an attach) is durably recorded BEFORE the
     // best-effort delete — a failed delete can never strand bytes silently again.
     async insertBlobTombstone(input: { storageKey: string; blobClass: 'document' | 'photo' | 'intake'; reason: 'intake_reject' | 'compensation' }): Promise<void> {
+      // R5-N04: namespace discipline at the DB boundary (0067's rule for the definer, here
+      // for the app path) — a compensation/wipe key MUST live under the acting tenant's own
+      // object namespace: `${tenantId}/…` (documents/photos) or `intake/${tenantId}/…`. Never
+      // record a key outside it (path traversal or another tenant's object).
+      const key = input.storageKey;
+      const ownPrefix = `${tenantId}/`;
+      const intakePrefix = `intake/${tenantId}/`;
+      if (key.includes('..') || !(key.startsWith(ownPrefix) || key.startsWith(intakePrefix))) {
+        throw new Error(`Refusing a blob tombstone for '${key}': outside tenant ${tenantId}'s object namespace.`);
+      }
       // Written in the reject transaction so a failed object delete can never
       // orphan the bytes silently — the tombstone is the durable, retryable
       // record. RLS scopes tenant_ref to the acting tenant; idempotent per key.
       await db.execute(sql`
         INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason)
-        VALUES (${tenantId}, ${input.storageKey}, ${input.blobClass}, ${input.reason})
+        VALUES (${tenantId}, ${key}, ${input.blobClass}, ${input.reason})
         ON CONFLICT (tenant_ref, storage_key, reason) DO NOTHING
+      `);
+    },
+
+    // R5-N04: resolve a write-ahead compensation intent for a storage key IN THE SAME
+    // transaction that commits the operation's DB row — so a SUCCESSFUL registration is never
+    // wrongly swept, while a FAILED one (tx rolls back) leaves the intent for the drain.
+    // blob_tombstone is append-only (R2-N06: c3_app has no DELETE), so "resolve" = mark it
+    // handled by setting deleted_at (the SAME column the drain sets on a confirmed sweep) —
+    // the drain and this method both filter `deleted_at IS NULL`, so a resolved intent is
+    // invisible to the sweep. Idempotent: 0 rows = no intent was pre-registered (a legit blob).
+    async resolveCompensationIntent(storageKey: string): Promise<void> {
+      await db.execute(sql`
+        UPDATE blob_tombstone SET deleted_at = now()
+         WHERE tenant_ref = ${tenantId} AND storage_key = ${storageKey}
+           AND reason = 'compensation' AND deleted_at IS NULL
       `);
     },
 

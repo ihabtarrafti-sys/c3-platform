@@ -43,6 +43,9 @@ export async function setPersonPhoto(p: Persistence, actor: Actor, personId: str
     if (!current) throw new NotFoundError('Person', personId);
     const updated = await tx.setPersonPhoto(personId, { storageKey: ref.storageKey, contentType: ref.contentType, sha256: ref.sha256 });
     if (!updated) throw new NotFoundError('Person', personId);
+    // R5-N04: the blob is now referenced by a committed row — resolve its write-ahead
+    // compensation intent IN THIS TX, so a success is never swept and a failure leaves it.
+    await tx.resolveCompensationIntent(ref.storageKey);
     await tx.appendAuditEvent({
       entityType: 'Person',
       entityId: personId,

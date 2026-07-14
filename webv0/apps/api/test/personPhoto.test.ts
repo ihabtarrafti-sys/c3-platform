@@ -176,12 +176,12 @@ describe('person photo over HTTP (Track B)', () => {
     const blobsBefore = blobCount();
     expect((await uploadPhoto(tokens.ops, 'PER-9999', 'x.png', 'image/png', PNG)).statusCode).toBe(404);
     expect(blobCount()).toBe(blobsBefore);
-    // R4-N01: the compensation is TOMBSTONE-FIRST — a durable 'compensation' record was
-    // written BEFORE each best-effort delete, so a failed delete could never strand the
-    // bytes silently (the wipe drain / exit sweep owns the retry). TWO refused uploads
-    // compensated so far (the visitor's 403 write-gate one and this 404 one). RED on the
-    // old swallowed-delete code (no record at all).
-    const tomb = await db.adminQuery<{ n: number }>(`SELECT count(*)::int AS n FROM blob_tombstone WHERE reason = 'compensation' AND blob_class = 'photo'`);
+    // R5-N04: WRITE-AHEAD — the compensation intent is pre-registered BEFORE the PUT and
+    // resolved (deleted_at set) in the success tx; a FAILED upload leaves a PENDING intent
+    // (deleted_at NULL) for the drain. Two refused uploads (the visitor's 403 write-gate one and
+    // this 404 one) → two pending intents; the successful set/replace resolved theirs. RED on the
+    // old swallowed-delete code (no pending record at all).
+    const tomb = await db.adminQuery<{ n: number }>(`SELECT count(*)::int AS n FROM blob_tombstone WHERE reason = 'compensation' AND blob_class = 'photo' AND deleted_at IS NULL`);
     expect(tomb[0]!.n).toBe(2);
 
     // Tenant isolation: bravo's owner reaches nothing.

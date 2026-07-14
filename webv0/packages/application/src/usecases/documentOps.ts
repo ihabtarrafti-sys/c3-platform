@@ -94,6 +94,9 @@ export async function attachDocument(p: Persistence, actor: Actor, input: Docume
       storageKey: parsed.storageKey,
       uploadedBy: actor.identity,
     });
+    // R5-N04: the blob is now referenced by this committed document row — resolve its
+    // write-ahead compensation intent IN THIS TX (a no-op for callers that didn't pre-register).
+    await tx.resolveCompensationIntent(parsed.storageKey);
     await tx.appendAuditEvent({
       entityType: parsed.ownerType,
       entityId: parsed.ownerId,

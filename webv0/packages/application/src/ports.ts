@@ -998,6 +998,8 @@ export interface WriteTx {
   setIntakeSubmissionPromotedPerson(submissionId: string, personId: string): Promise<IntakeSubmission | null>;
   /** M-02: record a rejected-intake object for durable, retryable wiping (reason='intake_reject'). Idempotent per key. */
   insertBlobTombstone(input: { storageKey: string; blobClass: 'document' | 'photo' | 'intake'; reason: 'intake_reject' | 'compensation' }): Promise<void>;
+  /** R5-N04: resolve a write-ahead compensation intent for a key, in the op's own tx (idempotent). */
+  resolveCompensationIntent(storageKey: string): Promise<void>;
   /** M-02: mark a wipe tombstone deleted (object verified gone) or record a retryable error + bump attempts. */
   resolveBlobTombstone(id: string, outcome: { deleted: boolean; error?: string }): Promise<void>;
 
