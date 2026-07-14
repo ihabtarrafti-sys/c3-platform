@@ -401,19 +401,39 @@ export function buildApp(deps: Deps): FastifyInstance {
   // Correlation ids from clients are accepted only in a safe shape (log-injection guard).
   const CORRELATION_RE = /^[A-Za-z0-9_-]{1,64}$/;
 
-  // R5-N01: an HTTP request must NEVER outlive its in-flight upload lease (0069/0073), or a
-  // stalled upload could PUT bytes after the exit sweep listed the prefix. Fastify's
-  // requestTimeout defaults to 0 (UNLIMITED) — set it explicitly, and REFUSE TO BOOT unless
-  // requestTimeout > 0 AND requestTimeout × 2 ≤ leaseTtl. The invariant is then structural:
-  // the socket is destroyed (bytes discarded) well before the lease can expire, so the exit's
-  // drain-of-live-leases is sound. Both are injectable config (tests shrink them).
-  const requestTimeoutMs = deps.requestTimeoutMs ?? 300_000; // 5 min
+  // R5-N01 / HARDEN-3.5 A: an HTTP request must NEVER outlive its in-flight upload lease
+  // (0069/0073/0075), or a stalled upload could PUT bytes after the exit sweep listed the
+  // prefix. Round 6 (§4.1) proved the receive bound alone is NOT the invariant: a fully
+  // received request whose HANDLER/PUT stalls had no deadline at all. Now:
+  //   receiveTimeoutMs — Fastify requestTimeout, bounds request RECEIPT;
+  //   deadlineMs       — the WHOLE-request bound: an AbortController armed at arrival aborts
+  //                      every byte-producing operation (each storage PUT carries the signal);
+  //   leaseTtlMs       — the intake upload-lease TTL (DB-capped at 2h by 0075).
+  // Boot algebra (REFUSE TO BOOT on violation): 0 < receive ≤ deadline; deadline×2 ≤ lease ≤ 2h.
+  // Then publication after lease expiry is impossible by arithmetic: the lease outlives the
+  // deadline by ≥ one FULL deadline, dwarfing abort/detection slop (≤ seconds), so the exit's
+  // expired-leases-are-dead rule (exitTenant.ts) is a theorem, not an assumption. All three are
+  // env-configurable (R6-N05: REQUEST_RECEIVE_TIMEOUT_MS / REQUEST_DEADLINE_MS /
+  // INTAKE_LEASE_TTL_MS); tests shrink them.
+  const requestTimeoutMs = deps.requestTimeoutMs ?? 300_000; // 5 min receive
+  const deadlineMs = deps.deadlineMs ?? 420_000; // 7 min whole-request deadline
   const leaseTtlMs = deps.leaseTtlMs ?? 900_000; // 15 min (matches the historical 0069 default)
-  if (!(requestTimeoutMs > 0 && requestTimeoutMs * 2 <= leaseTtlMs)) {
+  const LEASE_DB_CAP_MS = 7_200_000; // 0075's ceiling — config may never exceed what the DB accepts
+  if (!(requestTimeoutMs > 0 && requestTimeoutMs <= deadlineMs)) {
     throw new Error(
-      `Refusing to start: the upload-lease invariant is violated — requestTimeout (${requestTimeoutMs}ms) must be > 0 and ` +
-        `requestTimeout × 2 (${requestTimeoutMs * 2}ms) must be ≤ the intake upload-lease TTL (${leaseTtlMs}ms), ` +
-        'so no HTTP request can outlive its lease (see the 0069/0073 intake_upload_lease design).',
+      `Refusing to start: receive timeout (${requestTimeoutMs}ms) must be > 0 and ≤ the request deadline (${deadlineMs}ms) — ` +
+        'receipt is part of the request lifetime (HARDEN-3.5 A boot algebra).',
+    );
+  }
+  if (!(deadlineMs * 2 <= leaseTtlMs)) {
+    throw new Error(
+      `Refusing to start: the upload-lease invariant is violated — deadline × 2 (${deadlineMs * 2}ms) must be ≤ the intake ` +
+        `upload-lease TTL (${leaseTtlMs}ms), so no request can outlive its lease (see the 0069/0073 intake_upload_lease design).`,
+    );
+  }
+  if (!(leaseTtlMs <= LEASE_DB_CAP_MS)) {
+    throw new Error(
+      `Refusing to start: INTAKE_LEASE_TTL_MS (${leaseTtlMs}ms) exceeds the DB-supported maximum (${LEASE_DB_CAP_MS}ms, migration 0075).`,
     );
   }
 
@@ -445,6 +465,28 @@ export function buildApp(deps: Deps): FastifyInstance {
 
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
+
+  // HARDEN-3.5 A: ONE request-scoped deadline that dominates ALL work. Armed at arrival with our
+  // OWN timer (no connectionsCheckingInterval slop); its signal is threaded into every
+  // byte-producing operation (the storage PUTs, the guest-intake part loop). When it fires,
+  // nothing can publish a byte — an in-flight PUT aborts, and no new one can start.
+  app.decorateRequest('deadlineSignal', undefined);
+  app.decorateRequest('deadlineTimer', undefined);
+  app.addHook('onRequest', async (req) => {
+    const controller = new AbortController();
+    (req as unknown as { deadlineSignal: AbortSignal }).deadlineSignal = controller.signal;
+    (req as unknown as { deadlineTimer: NodeJS.Timeout }).deadlineTimer = setTimeout(() => {
+      controller.abort(new Error(`REQUEST_DEADLINE_EXCEEDED: the request exceeded its ${deadlineMs}ms deadline`));
+    }, deadlineMs);
+  });
+  const clearDeadline = async (req: FastifyRequest) => {
+    const t = (req as unknown as { deadlineTimer?: NodeJS.Timeout }).deadlineTimer;
+    if (t) clearTimeout(t);
+  };
+  app.addHook('onResponse', clearDeadline);
+  app.addHook('onError', clearDeadline);
+  // The three timing values are a boot-visible decision (the deploy ceremony asserts them).
+  deps.logger.info({ receiveTimeoutMs: requestTimeoutMs, deadlineMs, leaseTtlMs }, 'upload-timing algebra validated');
 
   // S-03: contract capture — the generator/test collects every route's
   // method, url, and zod schemas. Absent in production wiring; zero effect.
@@ -553,6 +595,13 @@ export function buildApp(deps: Deps): FastifyInstance {
   });
 
   app.setErrorHandler((error, req, reply) => {
+    // HARDEN-3.5 A: any error surfacing after the request's deadline fired is, primarily, the
+    // deadline — surface an honest 408 with retry guidance (not a generic 500 from the aborted
+    // storage call), whatever shape the abort error took inside the SDK/fs layer.
+    if ((req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal?.aborted) {
+      return sendError(req, reply, 408, 'REQUEST_DEADLINE_EXCEEDED',
+        'The request exceeded its processing deadline and was aborted. Nothing was stored; please retry (smaller files or a faster connection help).');
+    }
     // zod request-validation errors surfaced by the type provider.
     const anyErr = error as { validation?: unknown; name?: string; issues?: unknown; statusCode?: number };
     if (anyErr.validation || anyErr.name === 'ZodError' || Array.isArray(anyErr.issues)) {
@@ -582,6 +631,9 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   const r = app.withTypeProvider<ZodTypeProvider>();
   const P = deps.persistence;
   const actorOf = (req: FastifyRequest) => req.actor!;
+  // HARDEN-3.5 A: the request's deadline signal — threaded into EVERY byte-producing operation.
+  const deadlineOf = (req: FastifyRequest): AbortSignal | undefined =>
+    (req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal;
 
   // R5-N04: WRITE-AHEAD compensation — record the intent to delete a storage key BEFORE any
   // byte is stored, in its OWN committed tx. Returns false if the intent can't be recorded, so
@@ -775,7 +827,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       if (!(await preRegisterCompensation(storageKey, 'photo', req))) {
         return sendError(req, reply, 500, 'STORAGE_UNAVAILABLE', 'Could not prepare storage for the upload. Please retry.');
       }
-      await deps.documentStorage.put(storageKey, body, contentType);
+      await deps.documentStorage.put(storageKey, body, contentType, { signal: deadlineOf(req) });
       try {
         const person = await setPersonPhoto(P, actor, personId, { storageKey, contentType, sha256 });
         return reply.status(200).send({ person: toPersonDto(person, piiOf(req)) });
@@ -1576,7 +1628,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       if (!(await preRegisterCompensation(storageKey, 'document', req))) {
         return sendError(req, reply, 500, 'STORAGE_UNAVAILABLE', 'Could not prepare storage for the upload. Please retry.');
       }
-      await deps.documentStorage.put(storageKey, body, contentType);
+      await deps.documentStorage.put(storageKey, body, contentType, { signal: deadlineOf(req) });
       try {
         const doc = await attachDocument(P, actor, {
           ownerType: fieldVal('ownerType') as DocumentOwnerType,
@@ -1757,7 +1809,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         if (!(await preRegisterCompensation(liveKey, 'document', req))) {
           throw new Error('Could not prepare storage for the attach.');
         }
-        await deps.documentStorage.put(liveKey, body, upload.contentType);
+        await deps.documentStorage.put(liveKey, body, upload.contentType, { signal: deadlineOf(req) });
         try {
           await attachDocument(P, actor, {
             ownerType: 'Person',
@@ -1863,6 +1915,11 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       };
       try {
         for await (const part of req.parts()) {
+          // HARDEN-3.5 A: the request deadline dominates the whole loop — once it fires, no
+          // further byte can be stored (remaining parts are drained + everything compensates).
+          if (!failure && deadlineOf(req)?.aborted) {
+            failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline. Nothing was kept; please retry.' };
+          }
           if (failure) {
             if (part.type === 'file') await part.toBuffer().catch(() => {}); // drain
             continue;
@@ -1888,7 +1945,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             const uploadId = randomUUID();
             // Quarantine key: tenant + submission scoped, server-generated.
             const storageKey = `intake/${peek.tenantId}/${submissionId}/${uploadId}`;
-            await deps.documentStorage.put(storageKey, body, part.mimetype);
+            try {
+              await deps.documentStorage.put(storageKey, body, part.mimetype, { signal: deadlineOf(req) });
+            } catch (putErr) {
+              // A deadline abort mid-PUT: the byte cannot publish; surface the honest 408 and let
+              // the failure machinery compensate anything already stored. Other PUT errors rethrow.
+              if (deadlineOf(req)?.aborted) {
+                failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline. Nothing was kept; please retry.' };
+                continue;
+              }
+              throw putErr;
+            }
             storedKeys.push(storageKey);
             uploads.push({ uploadId, fileName: (part.filename || 'file').slice(0, 200), contentType: part.mimetype, sizeBytes: body.length, sha256, storageKey });
           } else if (part.fieldname === 'payload') {
@@ -1914,6 +1981,11 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         return fail(400, 'VALIDATION', 'The submission form is malformed.');
       }
 
+      // HARDEN-3.5 A: never CLAIM past the deadline — a post-deadline claim would commit
+      // ownership of bytes whose request is already condemned; compensate + 408 instead.
+      if (deadlineOf(req)?.aborted) {
+        return fail(408, 'REQUEST_DEADLINE_EXCEEDED', 'The upload exceeded its processing deadline. Nothing was kept; please retry.');
+      }
       // A coarse, hashed fingerprint (IP + UA) for later abuse triage — never
       // raw PII, never used to widen access.
       const fingerprint = createHash('sha256').update(`${req.ip}|${req.headers['user-agent'] ?? ''}`).digest('hex').slice(0, 32);
@@ -2393,7 +2465,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // a DB tx): build → put bytes → register document (compensated) → link. A
   // failed artifact leaves an HONEST invoice with documentId=null plus a
   // retry endpoint — never a lie, never an orphan blob.
-  async function generateAndAttachInvoicePdf(actor: ReturnType<typeof actorOf>, invoice: import('@c3web/domain').Invoice) {
+  async function generateAndAttachInvoicePdf(actor: ReturnType<typeof actorOf>, invoice: import('@c3web/domain').Invoice, signal?: AbortSignal) {
     const reads = P.reads.forActor(actor);
     const [entity, mission] = await Promise.all([reads.getEntityById(invoice.entityId), reads.getMissionById(invoice.missionId)]);
     const pdf = await buildInvoicePdf({
@@ -2410,7 +2482,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       r.log.error({ storageKey, err: String(e) }, 'compensation pre-register failed — refusing the PDF artifact before storing bytes');
       throw new Error('Could not prepare storage for the invoice PDF.');
     }
-    await deps.documentStorage.put(storageKey, body, 'application/pdf');
+    await deps.documentStorage.put(storageKey, body, 'application/pdf', { signal });
     try {
       const doc = await attachDocument(P, actor, {
         ownerType: 'Invoice',
@@ -2459,7 +2531,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const actor = actorOf(req);
       const issued = await issueInvoice(P, actor, req.body as import('@c3web/domain').IssueInvoiceInput);
       try {
-        const linked = await generateAndAttachInvoicePdf(actor, issued);
+        const linked = await generateAndAttachInvoicePdf(actor, issued, deadlineOf(req));
         return reply.status(201).send({ invoice: toInvoiceDto(linked) });
       } catch (err) {
         req.log.error({ err, invoiceId: issued.invoiceId }, 'invoice PDF artifact failed after issue');
@@ -2479,7 +2551,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { invoiceId } = req.params as { invoiceId: string };
       const current = await getInvoice(P, actor, invoiceId);
       if (current.documentId) return { invoice: toInvoiceDto(current) }; // idempotent: the artifact exists
-      return { invoice: toInvoiceDto(await generateAndAttachInvoicePdf(actor, current)) };
+      return { invoice: toInvoiceDto(await generateAndAttachInvoicePdf(actor, current, deadlineOf(req))) };
     },
   );
 

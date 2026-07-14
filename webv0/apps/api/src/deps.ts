@@ -35,11 +35,15 @@ export interface Deps {
    */
   routeCollector?: (route: { method: string | string[]; url: string; schema?: unknown }) => void;
   /**
-   * R5-N01: the request lifetime bound (Fastify requestTimeout) and the intake upload-lease TTL.
-   * buildApp refuses to start unless requestTimeout > 0 && requestTimeout × 2 ≤ leaseTtl — so an
-   * HTTP request can never outlive its lease. Defaults 300000 / 900000; tests shrink them.
+   * R5-N01 / HARDEN-3.5 A: the upload-timing triple. `requestTimeoutMs` bounds request RECEIPT
+   * (Fastify requestTimeout); `deadlineMs` bounds the WHOLE request (an AbortController armed at
+   * arrival aborts every byte-producing op, incl. the storage PUT); `leaseTtlMs` is the intake
+   * upload-lease TTL. buildApp refuses to start unless receive ≤ deadline, deadline×2 ≤ lease,
+   * and lease ≤ the 0075 DB cap (2h). Defaults 300000 / 420000 / 900000; env-configurable
+   * (R6-N05); tests shrink them.
    */
   requestTimeoutMs?: number;
+  deadlineMs?: number;
   leaseTtlMs?: number;
   /**
    * TEST-ONLY: how often Node checks for expired request timeouts (default 30s). A test
@@ -84,6 +88,11 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     mailer,
     backupStatus,
     logger,
+    // R6-N05: the upload-timing triple flows from the environment (undefined = the documented
+    // defaults in buildApp). Production can finally configure a slow-link deployment.
+    requestTimeoutMs: env.requestReceiveTimeoutMs,
+    deadlineMs: env.requestDeadlineMs,
+    leaseTtlMs: env.intakeLeaseTtlMs,
     async ready() {
       try {
         await persistence.pool.query('SELECT 1');

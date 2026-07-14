@@ -21,8 +21,14 @@ import type { Env } from './env';
 
 export interface DocumentStorage {
   readonly driver: 'r2' | 'fs';
-  put(key: string, body: Buffer, contentType: string): Promise<void>;
-  get(key: string): Promise<Buffer | null>;
+  /**
+   * HARDEN-3.5 A: `opts.signal` is the request deadline — when it fires, the PUT ABORTS and
+   * cannot publish. A-2 note: the R2 driver uses SINGLE-SHOT PutObject (no multipart), so an
+   * aborted PUT publishes nothing server-side unless its full body had already reached R2 —
+   * which can only happen within the socket's lifetime, i.e. within seconds of the abort.
+   */
+  put(key: string, body: Buffer, contentType: string, opts?: { signal?: AbortSignal }): Promise<void>;
+  get(key: string, opts?: { signal?: AbortSignal }): Promise<Buffer | null>;
   /** Compensation only (failed registration) — never a user-facing operation. */
   delete(key: string): Promise<void>;
 }
@@ -39,17 +45,22 @@ function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): Docu
     endpoint: cfg.endpoint,
     credentials: { accessKeyId: cfg.accessKeyId, secretAccessKey: cfg.secretAccessKey },
     forcePathStyle: true,
+    // HARDEN-3.5 A (belt): even a signal-less call cannot hang a socket forever — the handler
+    // itself bounds connection establishment and per-request socket lifetime.
+    requestHandler: { connectionTimeout: 10_000, requestTimeout: 120_000 },
   });
   return {
     driver: 'r2',
-    async put(key, body, contentType) {
+    async put(key, body, contentType, opts) {
       assertSafeKey(key);
-      await s3.send(new PutObjectCommand({ Bucket: cfg.bucket, Key: key, Body: body, ContentType: contentType }));
+      // A-2: single-shot PutObject (never lib-storage multipart) — an aborted PUT publishes
+      // nothing; the request deadline's signal aborts it mid-flight.
+      await s3.send(new PutObjectCommand({ Bucket: cfg.bucket, Key: key, Body: body, ContentType: contentType }), { abortSignal: opts?.signal });
     },
-    async get(key) {
+    async get(key, opts) {
       assertSafeKey(key);
       try {
-        const res = await s3.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: key }));
+        const res = await s3.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: key }), { abortSignal: opts?.signal });
         const bytes = await res.Body?.transformToByteArray();
         return bytes ? Buffer.from(bytes) : null;
       } catch (err) {
@@ -67,16 +78,18 @@ function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): Docu
 function createFsStorage(dir: string): DocumentStorage {
   return {
     driver: 'fs',
-    async put(key, body) {
+    async put(key, body, _contentType, opts) {
       assertSafeKey(key);
+      // The deadline signal aborts the write exactly like the R2 driver (node:fs supports it).
+      if (opts?.signal?.aborted) throw (opts.signal.reason as Error) ?? new Error('aborted');
       const path = join(dir, key);
       await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, body);
+      await writeFile(path, body, { signal: opts?.signal });
     },
-    async get(key) {
+    async get(key, opts) {
       assertSafeKey(key);
       try {
-        return await readFile(join(dir, key));
+        return await readFile(join(dir, key), { signal: opts?.signal });
       } catch (err) {
         if ((err as { code?: string }).code === 'ENOENT') return null;
         throw err;

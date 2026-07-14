@@ -57,6 +57,16 @@ const rawSchema = z.object({
   // Track B: FX auto-fetch source. Defaults to a KEYLESS provider (no secret to
   // manage); override to a different endpoint returning { rates: units-per-USD }.
   FX_RATES_URL: z.string().url().optional(),
+
+  // R6-N05 / HARDEN-3.5 A: upload timing is CONFIGURATION, not a hard-coded discovery.
+  // All three are optional (defaults preserve today's 5min/7min/15min behavior); the boot
+  // algebra in buildApp refuses inconsistent values (receive ≤ deadline; deadline×2 ≤ lease ≤ 2h).
+  /** Fastify requestTimeout: max ms to RECEIVE a request body. Default 300000 (5 min). */
+  REQUEST_RECEIVE_TIMEOUT_MS: z.coerce.number().int().min(30_000).max(3_600_000).optional(),
+  /** The full request-lifetime deadline (aborts every byte-producing op). Default 420000 (7 min). */
+  REQUEST_DEADLINE_MS: z.coerce.number().int().min(30_000).max(3_600_000).optional(),
+  /** Intake upload-lease TTL. Default 900000 (15 min). DB-capped at 2h by migration 0075. */
+  INTAKE_LEASE_TTL_MS: z.coerce.number().int().min(60_000).max(7_200_000).optional(),
 });
 
 export type Env = {
@@ -84,6 +94,10 @@ export type Env = {
   backupStatus: { endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string } | null;
   /** Track B: FX auto-fetch source (keyless by default). */
   fxRatesUrl: string;
+  /** R6-N05: upload timing knobs (undefined = the documented defaults; validated in buildApp). */
+  requestReceiveTimeoutMs: number | undefined;
+  requestDeadlineMs: number | undefined;
+  intakeLeaseTtlMs: number | undefined;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -206,5 +220,8 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     smtp,
     backupStatus,
     fxRatesUrl: e.FX_RATES_URL ?? 'https://open.er-api.com/v6/latest/USD',
+    requestReceiveTimeoutMs: e.REQUEST_RECEIVE_TIMEOUT_MS,
+    requestDeadlineMs: e.REQUEST_DEADLINE_MS,
+    intakeLeaseTtlMs: e.INTAKE_LEASE_TTL_MS,
   };
 }
