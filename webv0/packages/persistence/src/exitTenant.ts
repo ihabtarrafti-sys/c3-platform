@@ -231,8 +231,13 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
     // the IDENTITY is removed last, by an explicit --finalize, only after the R2
     // sweep re-verifies zero remaining bytes. Nothing FKs to tenant_membership, so
     // holding it back is safe.
+    // R4-N01: ALSO keep intake_link until --finalize. It is the token→tenant attribution;
+    // deleting it here would leave a late refused-claim upload (bytes stored before the DB
+    // claim) UNATTRIBUTABLE, so intake_tombstone_refused could no longer resolve the tenant
+    // and the object would strand after identity is gone. It is revoked in Phase-0 (no new
+    // claims) and erased at finalize, after the relist proves both prefixes empty.
     for (const name of TENANT_TABLES) {
-      if (name === 'tenant_membership') continue; // kept until --finalize
+      if (name === 'tenant_membership' || name === 'intake_link') continue; // kept until --finalize
       await client.query(`DELETE FROM ${name} WHERE tenant_id = $1`, [tenant.id]);
     }
 
@@ -246,7 +251,7 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
     // triggers must be back on.
     let zero = true;
     for (const name of TENANT_TABLES) {
-      if (name === 'tenant_membership') continue;
+      if (name === 'tenant_membership' || name === 'intake_link') continue; // held until --finalize
       if ((await count(client, `SELECT count(*)::int AS n FROM ${name} WHERE tenant_id = $1`, [tenant.id])) !== 0) zero = false;
     }
     const tenantExiting = (await count(client, `SELECT count(*)::int AS n FROM tenant WHERE id = $1 AND exit_state = 'Exiting'`, [tenant.id])) === 1;
@@ -327,7 +332,8 @@ export async function finalizeTenantExit(
       throw new Error(`Finalize REFUSED: ${unswept} blob object(s) are still unswept — re-run the sweep and re-verify zero before finalizing. Identity left intact.`);
     }
     for (const name of TENANT_TABLES) {
-      if (name === 'tenant_membership') continue;
+      // tenant_membership + intake_link are HELD past the data phase (finalize erases them).
+      if (name === 'tenant_membership' || name === 'intake_link') continue;
       if ((await count(client, `SELECT count(*)::int AS n FROM ${name} WHERE tenant_id = $1`, [tenantId])) !== 0) {
         throw new Error(`Finalize REFUSED: ${name} still has rows — the data phase is incomplete. Identity left intact.`);
       }
@@ -337,6 +343,9 @@ export async function finalizeTenantExit(
     // the identity LAST, children first.
     const sole = await client.query<{ user_id: string }>(SOLE_USERS_SQL, [tenantId]);
     const soleIds = sole.rows.map((r) => r.user_id);
+    // R4-N01: erase the held-back token→tenant attribution now — after the mandatory relist
+    // above proved both prefixes empty (no in-flight upload can still need to be attributed).
+    await client.query(`DELETE FROM intake_link WHERE tenant_id = $1`, [tenantId]);
     await client.query(`DELETE FROM tenant_membership WHERE tenant_id = $1`, [tenantId]);
     if (soleIds.length > 0) {
       await client.query(`DELETE FROM external_identity WHERE user_id = ANY($1::uuid[])`, [soleIds]);

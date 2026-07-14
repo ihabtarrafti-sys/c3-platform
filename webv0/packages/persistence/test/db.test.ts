@@ -77,7 +77,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -449,6 +449,85 @@ describe('migrations & schema', () => {
     } finally {
       await cA.end();
       await cB.end();
+    }
+  });
+
+  it('R4-N01: intake_link SURVIVES the data phase (attribution stays live for a late refused upload); finalize erases it', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'attrco' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    const app = new Client({ connectionString: db.appUrl });
+    await admin.connect(); await app.connect();
+    try {
+      const u = await admin.query<{ id: string }>(`INSERT INTO app_user (email, display_name, is_active) VALUES ('g@attr.com','G',false) RETURNING id`);
+      await admin.query(`INSERT INTO tenant_membership (tenant_id, user_id) VALUES ($1,$2)`, [t.tenantId, u.rows[0]!.id]);
+      await admin.query(`INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at) VALUES ($1,'tok-attr','Onboarding','o@attr.com', now()+interval '1 day')`, [t.tenantId]);
+
+      // Data phase: DATA erased, identity + intake_link HELD (tenant Exiting).
+      await exitTenant(admin, { tenantSlug: 'attrco', execute: true, confirmSlug: 'attrco', secondConfirm: 'attrco' });
+
+      // R4-N01: the token→tenant attribution SURVIVED the data phase (old code deleted it here).
+      expect((await admin.query(`SELECT count(*)::int n FROM intake_link WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(1);
+      // So a late refused-claim upload can STILL be attributed + durably tombstoned via the token
+      // (on old code intake_tombstone_refused would resolve NULL and strand the bytes).
+      const key = `intake/${t.tenantId}/late-sub/late-up`;
+      expect((await app.query(`SELECT intake_tombstone_refused('tok-attr', ARRAY[$1]) AS n`, [key])).rows[0].n).toBe(1);
+      expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`, [t.tenantId, key])).rows[0].n).toBe(1);
+
+      // Sweep the late tombstone, then finalize (clean reader) → attribution erased LAST.
+      await admin.query(`UPDATE blob_tombstone SET deleted_at=now() WHERE tenant_ref=$1`, [t.tenantId]);
+      await finalizeTenantExit(admin, t.tenantId, { listKeys: async () => [] });
+      expect((await admin.query(`SELECT count(*)::int n FROM intake_link WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
+    } finally {
+      await admin.end(); await app.end();
+    }
+  });
+
+  it('R4-N08: intake_claim locks the TENANT before the intake_link (global order tenant → link) (0068)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'lockord' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    const hold = new Client({ connectionString: db.adminUrl });
+    const claim = new Client({ connectionString: db.adminUrl });
+    const obs = new Client({ connectionString: db.adminUrl });
+    await admin.connect(); await hold.connect(); await claim.connect(); await obs.connect();
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    try {
+      await admin.query(
+        `INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at) VALUES ($1,'tok-lo','Onboarding','o@lo.com', now()+interval '1 day')`,
+        [t.tenantId],
+      );
+      const claimPid = (await claim.query<{ pid: number }>('SELECT pg_backend_pid() pid')).rows[0]!.pid;
+
+      // An exit-style holder takes the TENANT row lock first (as Phase-0 does).
+      await hold.query('BEGIN');
+      await hold.query(`SELECT id FROM tenant WHERE id=$1 FOR NO KEY UPDATE`, [t.tenantId]);
+
+      // The claim fires. WITH the fix its FIRST lock is the tenant FOR SHARE → it BLOCKS on the
+      // holder and never reaches the link. WITHOUT the fix it grabs the link FOR UPDATE first.
+      await claim.query('BEGIN');
+      const claimP = claim.query(`SELECT link_id FROM intake_claim('tok-lo')`).then(() => 'done' as const, () => 'err' as const);
+
+      // Wait until the claim SETTLES: blocked on a lock (fixed) or idle-in-txn (old, it finished).
+      for (let i = 0; i < 200; i++) {
+        const r = await obs.query<{ wait_event_type: string | null; state: string | null }>(
+          'SELECT wait_event_type, state FROM pg_stat_activity WHERE pid=$1', [claimPid],
+        );
+        const row = r.rows[0];
+        if (row?.wait_event_type === 'Lock' || row?.state === 'idle in transaction') break;
+        await sleep(25);
+      }
+
+      // The crux: with tenant-first ordering the claim is blocked on the tenant and has NOT
+      // locked the link, so a third connection can lock the link immediately. With the old
+      // link-first order the claim already holds the link → this NOWAIT would fail (55P03).
+      await expect(obs.query(`SELECT id FROM intake_link WHERE token_hash='tok-lo' FOR UPDATE NOWAIT`)).resolves.toBeDefined();
+
+      await hold.query('ROLLBACK'); // release the tenant → the (fixed) claim converges
+      await claimP;
+      await claim.query('ROLLBACK').catch(() => {});
+    } finally {
+      await admin.end(); await hold.end(); await claim.end(); await obs.end();
     }
   });
 
