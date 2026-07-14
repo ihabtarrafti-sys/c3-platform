@@ -48,12 +48,14 @@ this deterministic staging; the `BACKUP_PAUSE_AFTER_CENSUS` hook (coherentFlow.t
     WHERE query ILIKE 'ALTER TABLE person ADD COLUMN drill_r4n09%';
    -- expect: wait_event_type = 'Lock', state = 'active'
 
-   -- …behind the exporter's REPEATABLE READ READ ONLY session:
-   SELECT pid, state, backend_xid IS NOT NULL OR backend_xmin IS NOT NULL AS holds_snapshot,
-          left(query, 60) AS q
-     FROM pg_stat_activity
-    WHERE application_name = '' AND state IN ('idle in transaction','active')
-      AND query ILIKE '%pg_export_snapshot%' OR query ILIKE '%FROM document%';
+   -- …behind the stable exporter session. Replace <S2_PID> with the DDL pid above.
+   SELECT a.pid, a.state,
+          a.backend_xid IS NOT NULL OR a.backend_xmin IS NOT NULL AS holds_snapshot,
+          left(a.query, 60) AS q
+     FROM pg_stat_activity AS a
+    WHERE a.application_name = 'c3-backup-exporter'
+      AND a.state IN ('idle in transaction','active')
+      AND a.pid = ANY(pg_blocking_pids(<S2_PID>));
    ```
 
    Record both `pid`s in the drill log.

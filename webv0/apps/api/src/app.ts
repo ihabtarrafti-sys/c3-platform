@@ -397,6 +397,20 @@ function sendError(req: FastifyRequest, reply: FastifyReply, status: number, cod
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
 }
 
+export function errorCausedBy(error: unknown, reason: unknown): boolean {
+  if (reason === undefined) return false;
+  let current: unknown = error;
+  const seen = new Set<unknown>();
+  while (current !== null && current !== undefined && !seen.has(current)) {
+    if (current === reason) return true;
+    seen.add(current);
+    current = typeof current === 'object' && 'cause' in current
+      ? (current as { cause?: unknown }).cause
+      : undefined;
+  }
+  return false;
+}
+
 export function buildApp(deps: Deps): FastifyInstance {
   // Correlation ids from clients are accepted only in a safe shape (log-injection guard).
   const CORRELATION_RE = /^[A-Za-z0-9_-]{1,64}$/;
@@ -485,6 +499,7 @@ export function buildApp(deps: Deps): FastifyInstance {
   };
   app.addHook('onResponse', clearDeadline);
   app.addHook('onError', clearDeadline);
+  app.addHook('onRequestAbort', clearDeadline);
   // The three timing values are a boot-visible decision (the deploy ceremony asserts them).
   deps.logger.info({ receiveTimeoutMs: requestTimeoutMs, deadlineMs, leaseTtlMs }, 'upload-timing algebra validated');
 
@@ -598,9 +613,10 @@ export function buildApp(deps: Deps): FastifyInstance {
     // HARDEN-3.5 A: any error surfacing after the request's deadline fired is, primarily, the
     // deadline — surface an honest 408 with retry guidance (not a generic 500 from the aborted
     // storage call), whatever shape the abort error took inside the SDK/fs layer.
-    if ((req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal?.aborted) {
+    const deadlineSignal = (req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal;
+    if (deadlineSignal?.aborted && errorCausedBy(error, deadlineSignal.reason)) {
       return sendError(req, reply, 408, 'REQUEST_DEADLINE_EXCEEDED',
-        'The request exceeded its processing deadline and was aborted. Nothing was stored; please retry (smaller files or a faster connection help).');
+        'The request exceeded its processing deadline and the affected operation was aborted; please retry.');
     }
     // zod request-validation errors surfaced by the type provider.
     const anyErr = error as { validation?: unknown; name?: string; issues?: unknown; statusCode?: number };
@@ -663,7 +679,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     await P.writes
       .transaction(actorOf(req), (tx) => tx.armCompensationIntent(storageKey))
       .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation arm failed — the prepared TTL will arm it'));
-    await deps.documentStorage.delete(storageKey).catch(() => {});
+    await deps.documentStorage.delete(storageKey, { signal: deadlineOf(req) }).catch(() => {});
   };
 
   // ── health / readiness (public) ────────────────────────────────────────────
@@ -856,7 +872,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const { personId } = req.params as { personId: string };
     const ref = await getPersonPhoto(P, actorOf(req), personId);
     if (!ref) return sendError(req, reply, 404, 'NOT_FOUND', 'This person has no photo.');
-    const body = await deps.documentStorage.get(ref.storageKey);
+    const body = await deps.documentStorage.get(ref.storageKey, { signal: deadlineOf(req) });
     if (!body) return sendError(req, reply, 404, 'NOT_FOUND', 'The stored image could not be found.');
     // Re-verify before serving — altered object-store bytes are a refusal.
     const actualSha = createHash('sha256').update(body).digest('hex');
@@ -1664,7 +1680,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   r.get('/api/v1/documents/:documentId/content', { schema: { params: documentIdParamSchema } }, async (req, reply) => {
     const { documentId } = req.params as { documentId: string };
     const doc = await getDocumentForDownload(P, actorOf(req), documentId);
-    const body = await deps.documentStorage.get(doc.storageKey);
+    const body = await deps.documentStorage.get(doc.storageKey, { signal: deadlineOf(req) });
     if (!body) return sendError(req, reply, 404, 'NOT_FOUND', 'The stored file could not be found.');
     // HARDEN-2 M-07: recompute the hash before serving — altered object-store
     // bytes are a refusal, never silently delivered "evidence".
@@ -1742,7 +1758,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const submission = await getSubmissionForReview(P, actorOf(req), submissionId);
       const upload = submission.uploads.find((u) => u.uploadId === uploadId);
       if (!upload) return sendError(req, reply, 404, 'NOT_FOUND', 'No such upload on this submission.');
-      const body = await deps.documentStorage.get(upload.storageKey);
+      const body = await deps.documentStorage.get(upload.storageKey, { signal: deadlineOf(req) });
       if (!body) return sendError(req, reply, 404, 'NOT_FOUND', 'The quarantined file could not be found.');
       const actualSha = createHash('sha256').update(body).digest('hex');
       if (actualSha !== upload.sha256) {
@@ -1814,7 +1830,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       for (const uploadId of uploadIds) {
         const upload = submission.uploads.find((u) => u.uploadId === uploadId);
         if (!upload) continue;
-        const body = await deps.documentStorage.get(upload.storageKey);
+        const body = await deps.documentStorage.get(upload.storageKey, { signal: deadlineOf(req) });
         if (!body) continue;
         const liveKey = `${actor.tenantId}/${randomUUID()}`;
         // B site 3: pre-register the live-copy's PREPARED intent BEFORE the PUT.
@@ -1841,7 +1857,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             { armOrphanInTx: { storageKey: upload.storageKey, blobClass: 'intake' } },
           ); // resolves the liveKey intent + arms the quarantine tombstone, one tx
           attachedCount += 1;
-          await deps.documentStorage.delete(upload.storageKey).catch(() => {}); // drain finishes any miss
+          await deps.documentStorage.delete(upload.storageKey, { signal: deadlineOf(req) }).catch(() => {}); // drain finishes any miss
         } catch (err) {
           // B: the live copy's intent is armed (drainable now) + best-effort deleted.
           await armCompensation(liveKey, req);
@@ -1895,7 +1911,11 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       if (!leaseId) {
         return sendError(req, reply, 410, 'INTAKE_LINK_UNAVAILABLE', 'This intake link is no longer available. Ask your contact for a fresh link.');
       }
-      try { // NOTE: body intentionally not re-indented — the finally below releases the lease
+      // HARDEN-3.6 T2: a rejected/aborted local PUT is not proof that the remote store will
+      // never publish. Only a committed claim closes that ambiguity; every other outcome keeps
+      // this lease as the publication fence until its bounded TTL expires.
+      let claimCommitted = false;
+      try { // NOTE: body intentionally not re-indented — the finally below conditionally releases the lease
       const submissionId = randomUUID();
 
       // Parse multipart: one 'payload' field (JSON) + files (stored to
@@ -1919,7 +1939,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
           req.log.error({ keys: storedKeys.length, err: String(e) }, 'B: refused-upload compensation ARM failed');
           throw e;
         }
-        for (const k of storedKeys) await deps.documentStorage.delete(k).catch(() => {});
+        for (const k of storedKeys) await deps.documentStorage.delete(k, { signal: deadlineOf(req) }).catch(() => {});
         if (armed !== storedKeys.length) {
           req.log.error({ keys: storedKeys.length, armed }, 'B: refused-upload compensation armed FEWER rows than stored keys');
           throw new Error(`Refused-upload durability not established: ${armed}/${storedKeys.length} compensation intents armed.`);
@@ -1974,8 +1994,9 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             try {
               await deps.documentStorage.put(storageKey, body, part.mimetype, { signal: deadlineOf(req) });
             } catch (putErr) {
-              // A deadline abort mid-PUT: the byte cannot publish; surface the honest 408 and let
-              // the failure machinery compensate anything possibly stored. Other PUT errors rethrow.
+              // A deadline abort mid-PUT rejects the local operation; the byte remains covered by
+              // its armed intent and the retained failure lease until remote ambiguity is closed.
+              // Other PUT errors rethrow through the same compensation/fence path.
               if (deadlineOf(req)?.aborted) {
                 failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline. Nothing was kept; please retry.' };
                 continue;
@@ -2015,7 +2036,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       // raw PII, never used to widen access.
       const fingerprint = createHash('sha256').update(`${req.ip}|${req.headers['user-agent'] ?? ''}`).digest('hex').slice(0, 32);
       try {
-        const submission = await submitGuestIntake(P, { tokenHash, submissionId, kind, payload, uploads, submitterFingerprint: fingerprint });
+      const submission = await submitGuestIntake(P, { tokenHash, submissionId, kind, payload, uploads, submitterFingerprint: fingerprint, signal: deadlineOf(req) });
+        claimCommitted = true;
         return reply.status(201).send({ ok: true as const, reference: submission.id.slice(0, 8).toUpperCase() });
       } catch (err) {
         // Claim lost the race / refused by the Exiting quiesce / payload invalid → the
@@ -2024,10 +2046,10 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         throw err;
       }
       } finally {
-        // R4-N01: the request RESOLVED (claimed, or refused + tombstoned) — release the
-        // lease so a draining exit ceremony can proceed. A failed release self-heals at
-        // the lease's TTL expiry.
-        await P.guest.releaseUploadLease(leaseId).catch(() => {});
+        // T2: release only after the claim COMMITTED. On every failure path the row expires
+        // naturally, keeping exit parked through the storage contract's indeterminate remote-
+        // commit window. A failed success-path release likewise self-heals at TTL expiry.
+        if (claimCommitted) await P.guest.releaseUploadLease(leaseId).catch(() => {});
       }
     },
   );
@@ -2528,7 +2550,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       await P.writes
         .transaction(actor, (tx) => tx.armCompensationIntent(storageKey))
         .catch((e) => r.log.error({ storageKey, err: String(e) }, 'compensation arm failed — the prepared TTL will arm it'));
-      await deps.documentStorage.delete(storageKey).catch(() => {});
+      await deps.documentStorage.delete(storageKey, { signal }).catch(() => {});
       throw err;
     }
   }

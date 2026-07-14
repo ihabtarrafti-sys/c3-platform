@@ -19,18 +19,24 @@ import { dirname, join } from 'node:path';
 import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import type { Env } from './env';
 
+export const R2_HTTP_HANDLER_OPTIONS = {
+  connectionTimeout: 10_000,
+  requestTimeout: 120_000,
+  throwOnRequestTimeout: true,
+} as const;
+
 export interface DocumentStorage {
   readonly driver: 'r2' | 'fs';
   /**
-   * HARDEN-3.5 A: `opts.signal` is the request deadline — when it fires, the PUT ABORTS and
-   * cannot publish. A-2 note: the R2 driver uses SINGLE-SHOT PutObject (no multipart), so an
-   * aborted PUT publishes nothing server-side unless its full body had already reached R2 —
-   * which can only happen within the socket's lifetime, i.e. within seconds of the abort.
+   * HARDEN-3.5 A / HARDEN-3.6 T2: `opts.signal` is the request deadline and aborts the local
+   * operation. A-2 uses SINGLE-SHOT PutObject (no multipart), but local rejection is not proof
+   * of remote non-publication after R2 received a full body; the upload lease fences that
+   * indeterminate completion window.
    */
   put(key: string, body: Buffer, contentType: string, opts?: { signal?: AbortSignal }): Promise<void>;
   get(key: string, opts?: { signal?: AbortSignal }): Promise<Buffer | null>;
   /** Compensation only (failed registration) — never a user-facing operation. */
-  delete(key: string): Promise<void>;
+  delete(key: string, opts?: { signal?: AbortSignal }): Promise<void>;
 }
 
 const SAFE_KEY = /^[a-zA-Z0-9/_-]+$/;
@@ -47,14 +53,14 @@ function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): Docu
     forcePathStyle: true,
     // HARDEN-3.5 A (belt): even a signal-less call cannot hang a socket forever — the handler
     // itself bounds connection establishment and per-request socket lifetime.
-    requestHandler: { connectionTimeout: 10_000, requestTimeout: 120_000 },
+    requestHandler: R2_HTTP_HANDLER_OPTIONS,
   });
   return {
     driver: 'r2',
     async put(key, body, contentType, opts) {
       assertSafeKey(key);
-      // A-2: single-shot PutObject (never lib-storage multipart) — an aborted PUT publishes
-      // nothing; the request deadline's signal aborts it mid-flight.
+      // A-2: single-shot PutObject (never lib-storage multipart). The signal aborts the local
+      // operation; T2's retained failure lease covers any indeterminate delayed remote commit.
       await s3.send(new PutObjectCommand({ Bucket: cfg.bucket, Key: key, Body: body, ContentType: contentType }), { abortSignal: opts?.signal });
     },
     async get(key, opts) {
@@ -68,9 +74,9 @@ function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): Docu
         throw err;
       }
     },
-    async delete(key) {
+    async delete(key, opts) {
       assertSafeKey(key);
-      await s3.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key }));
+      await s3.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key }), { abortSignal: opts?.signal });
     },
   };
 }
@@ -95,7 +101,7 @@ function createFsStorage(dir: string): DocumentStorage {
         throw err;
       }
     },
-    async delete(key) {
+    async delete(key, _opts) {
       assertSafeKey(key);
       await rm(join(dir, key), { force: true });
     },

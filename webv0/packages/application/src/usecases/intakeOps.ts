@@ -281,6 +281,7 @@ export interface SubmitGuestIntakeCommand {
   readonly payload: unknown;
   readonly uploads: readonly IntakeUpload[];
   readonly submitterFingerprint: string | null;
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -291,12 +292,13 @@ export interface SubmitGuestIntakeCommand {
  */
 export async function submitGuestIntake(p: Persistence, command: SubmitGuestIntakeCommand): Promise<IntakeSubmission> {
   const payload = parseIntakePayload(command.kind, command.payload);
+  command.signal?.throwIfAborted();
   const result = await p.guest.claimAndInsert(command.tokenHash, {
     submissionId: command.submissionId,
     payload,
     uploads: command.uploads,
     submitterFingerprint: command.submitterFingerprint,
-  });
+  }, { signal: command.signal });
   // Defensive: the claimed kind must match what the payload was validated as.
   if (result.kind !== command.kind) {
     throw new ConflictError('The intake link kind does not match the submission.', { expected: command.kind, actual: result.kind });

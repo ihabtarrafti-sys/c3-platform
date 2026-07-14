@@ -201,9 +201,9 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
   // Without this, two runners could snapshot the ledger concurrently and both pass the legacy
   // NULL-adoption check once. Released automatically when the session ends (the finally below).
   await client.query('SELECT pg_advisory_lock($1, hashtext(current_database()))', [MIGRATOR_LOCK_KEY]);
-  log('↳ migrator single-flight lock acquired');
   const applied: string[] = [];
   try {
+    log('↳ migrator single-flight lock acquired');
     await ensureRestrictedRole(client, config.appRole, appPassword, rotateRoleSecrets);
     // SELECT-only membership-resolution role for the API's auth boundary (the
     // running API never receives the privileged admin credentials).

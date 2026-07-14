@@ -1162,7 +1162,7 @@ export interface GuestIntakePort {
    * tenant. Throws IntakeLinkUnavailableError when the token is unclaimable —
    * the caller compensates (deletes any quarantined blobs).
    */
-  claimAndInsert(tokenHash: string, submission: NewGuestSubmission): Promise<{ tenantId: string; linkId: string; kind: string; submission: IntakeSubmission }>;
+  claimAndInsert(tokenHash: string, submission: NewGuestSubmission, opts?: { signal?: AbortSignal }): Promise<{ tenantId: string; linkId: string; kind: string; submission: IntakeSubmission }>;
   /**
    * R3-N02: durably tombstone the bytes of a REFUSED claim (token-keyed SECURITY
    * DEFINER gateway, since the public route has no actor and blob_tombstone is FORCE
@@ -1190,7 +1190,10 @@ export interface GuestIntakePort {
    * enumerates and sweeps, so a request mid-upload can never land bytes after the sweep.
    */
   acquireUploadLease(tokenHash: string, ttlMs: number): Promise<string | null>;
-  /** Release the lease when the request resolves (claimed OR refused+tombstoned). Idempotent. */
+  /**
+   * Release only after the handler observes a successfully committed claim. A failed/aborted
+   * upload keeps this publication fence until its bounded TTL expires; idempotent on success.
+   */
   releaseUploadLease(leaseId: string): Promise<void>;
 }
 

@@ -241,8 +241,9 @@ describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stall
     expect(blobCount(blobDir)).toBe(before);
     const subs = await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM intake_submission`);
     expect(Number(subs[0]!.n)).toBe(0);
-    // The lease was released on the failure path — the exit ceremony would not even wait.
+    // HARDEN-3.6 T2: local PUT rejection is remotely ambiguous, so failure retains the live
+    // lease as a publication fence until TTL expiry. Only a committed claim releases early.
     const leases = await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM intake_upload_lease WHERE expires_at > now()`);
-    expect(Number(leases[0]!.n)).toBe(0);
+    expect(Number(leases[0]!.n)).toBe(1);
   }, 20_000);
 });

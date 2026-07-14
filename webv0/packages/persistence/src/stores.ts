@@ -923,10 +923,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
     async releaseUploadLease(leaseId: string): Promise<void> {
       await pool.query('SELECT intake_lease_release($1)', [leaseId]);
     },
-    async claimAndInsert(tokenHash: string, submission: NewGuestSubmission) {
+    async claimAndInsert(tokenHash: string, submission: NewGuestSubmission, opts?: { signal?: AbortSignal }) {
+      opts?.signal?.throwIfAborted();
       const client = await pool.connect();
       try {
+        opts?.signal?.throwIfAborted();
         await client.query('BEGIN');
+        opts?.signal?.throwIfAborted();
         // Atomic validate + consume (row-locked) via the definer gateway.
         const claimed = await client.query('SELECT link_id, tenant_id, kind FROM intake_claim($1)', [tokenHash]);
         const c = claimed.rows[0];

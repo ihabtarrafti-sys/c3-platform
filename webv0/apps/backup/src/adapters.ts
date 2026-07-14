@@ -75,7 +75,7 @@ export async function enumerateBlobsInTx(c: Client): Promise<BlobArchiveEntry[]>
 }
 
 export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promise<void> } {
-  const lockClient = new Client({ connectionString: env.databaseUrl });
+  const lockClient = new Client({ connectionString: env.databaseUrl, application_name: 'c3-backup-exporter' });
   const s3 = new S3Client({
     region: 'auto',
     endpoint: env.r2Endpoint,

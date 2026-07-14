@@ -163,10 +163,11 @@ export async function exitTenant(client: Client, opts: ExitOptions): Promise<Exi
     // R4-N01: DRAIN the in-flight upload leases to zero BEFORE enumerating/sweeping. Exiting
     // is committed and every link is revoked, so intake_lease_acquire refuses NEW leases (it
     // takes the tenant lock first — 0068's order — so no acquire can slip past this point
-    // unobserved). Any lease still present is a request already streaming bytes: wait for it
-    // to RESOLVE (claim refused → tombstoned → released) so its object can never land after
-    // the sweep listed the prefix. Expired leases are dead requests (an HTTP upload cannot
-    // outlive its server timeout) and do not block. Fail-closed on timeout — re-run resumes.
+    // unobserved). Any lease still present covers a request whose storage publication may still
+    // be ambiguous: successful claims release it; failed/aborted requests deliberately retain it
+    // until TTL expiry so any delayed remote commit lands before the sweep. Expired leases are
+    // beyond the configured publication fence and do not block. Fail-closed on drain timeout —
+    // re-run resumes.
     {
       const t0 = await client.query<{ id: string }>('SELECT id FROM tenant WHERE slug = $1', [tenantSlug]);
       const tid = t0.rows[0]!.id;
