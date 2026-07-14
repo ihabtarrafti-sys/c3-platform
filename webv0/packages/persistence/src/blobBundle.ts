@@ -225,6 +225,31 @@ export interface TombstoneSweepResult {
 export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, tenantId: string): Promise<TombstoneSweepResult> {
   const prefixes = tenantBlobPrefixes(tenantId);
 
+  // HARDEN-3.6 T1: Design B's producer predicate is load-bearing. Only an EXPIRED prepared
+  // intent may be armed by exit. Any unexpired intent still represents a request that can
+  // publish/register, so park before deleting or even listing tenant bytes; the operator reruns
+  // after the bounded prepared TTL.
+  await db.query(
+    `UPDATE blob_tombstone SET state = 'armed'
+      WHERE tenant_ref = $1 AND state = 'prepared' AND prepared_expires_at < now()`,
+    [tenantId],
+  );
+  const livePrepared = await db.query<{ n: number; wait_seconds: number | null }>(
+    `SELECT count(*)::int AS n,
+            ceil(extract(epoch FROM (max(prepared_expires_at) - now())))::int AS wait_seconds
+       FROM blob_tombstone
+      WHERE tenant_ref = $1 AND state = 'prepared'`,
+    [tenantId],
+  );
+  const liveCount = Number(livePrepared.rows[0]?.n ?? 0);
+  if (liveCount > 0) {
+    const waitSeconds = Math.max(0, Number(livePrepared.rows[0]?.wait_seconds ?? 0));
+    throw new Error(
+      `Erasure sweep parked: ${liveCount} unexpired prepared upload intent(s) still protect live producers; ` +
+        `re-run after at most ${waitSeconds}s (the prepared TTL bound).`,
+    );
+  }
+
   const deletedObjects: string[] = [];
   for (const prefix of prefixes) {
     for (const key of await reader.listKeys(prefix)) {
@@ -233,13 +258,9 @@ export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, 
     }
   }
 
-  // M-02 → HARDEN-3.5 B: exit resolves EVERY live tombstone for the tenant, not just the
-  // exit-reason ones. The lease drain has already run and quiesce blocks new registrations, so
-  // ANY remaining `prepared` intent belongs to a request that can no longer register its byte —
-  // ARM them first (prepared→armed, the machine's legal edge; a zombie registration would then
-  // match zero prepared rows and ABORT), then sweep armed→swept. A late straggler byte is
-  // caught by finalize's fail-closed prefix re-list (A4).
-  await db.query(`UPDATE blob_tombstone SET state = 'armed' WHERE tenant_ref = $1 AND state = 'prepared'`, [tenantId]);
+  // M-02 → HARDEN-3.5 B / HARDEN-3.6 T1: all prepared rows reaching this point were armed
+  // only after expiry above. Sweep armed→swept; a zombie registration then matches zero and
+  // aborts. Unexpired producers never reach object deletion.
   const pending = await db.query<{ id: string; storage_key: string }>(
     `SELECT id, storage_key FROM blob_tombstone WHERE tenant_ref = $1 AND deleted_at IS NULL`,
     [tenantId],

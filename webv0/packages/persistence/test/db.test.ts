@@ -302,9 +302,10 @@ describe('migrations & schema', () => {
       await expect(admin.query(`UPDATE blob_tombstone SET blob_class = 'photo' WHERE id = $1`, [id])).rejects.toThrow(/identity is immutable/i);
       await expect(admin.query(`UPDATE blob_tombstone SET reason = 'intake_reject' WHERE id = $1`, [id])).rejects.toThrow(/identity is immutable/i);
 
-      // Resolution columns are writable; deleted_at set once is then monotonic.
+      // Resolution bookkeeping is writable; terminal timestamp rides the legal armed→swept
+      // transition, then remains monotonic (0077 state/timestamp coupling).
       await admin.query(`UPDATE blob_tombstone SET attempts = attempts + 1, last_error = 'retry' WHERE id = $1`, [id]);
-      await admin.query(`UPDATE blob_tombstone SET deleted_at = now() WHERE id = $1`, [id]);
+      await admin.query(`UPDATE blob_tombstone SET state='swept', deleted_at = now() WHERE id = $1`, [id]);
       await expect(admin.query(`UPDATE blob_tombstone SET deleted_at = NULL WHERE id = $1`, [id])).rejects.toThrow(/monotonic/i);
     } finally {
       await admin.end();
@@ -494,7 +495,7 @@ describe('migrations & schema', () => {
       expect((await admin.query(`SELECT count(*)::int n FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`, [t.tenantId, key])).rows[0].n).toBe(1);
 
       // Sweep the late tombstone, then finalize (clean reader) → attribution erased LAST.
-      await admin.query(`UPDATE blob_tombstone SET deleted_at=now() WHERE tenant_ref=$1`, [t.tenantId]);
+      await admin.query(`UPDATE blob_tombstone SET state='swept', deleted_at=now() WHERE tenant_ref=$1 AND state='armed'`, [t.tenantId]);
       await finalizeTenantExit(admin, t.tenantId, { listKeys: async () => [] });
       expect((await admin.query(`SELECT count(*)::int n FROM intake_link WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
     } finally {
@@ -875,7 +876,7 @@ describe('migrations & schema', () => {
       expect((await admin.query(`SELECT count(*)::int n FROM tenant WHERE id=$1`, [t.tenantId])).rows[0].n).toBe(1);
 
       // Sweep resolves the tombstone → finalize succeeds, identity removed LAST.
-      await admin.query(`UPDATE blob_tombstone SET deleted_at=now() WHERE tenant_ref=$1`, [t.tenantId]);
+      await admin.query(`UPDATE blob_tombstone SET state='swept', deleted_at=now() WHERE tenant_ref=$1 AND state='armed'`, [t.tenantId]);
       const fin = await finalizeTenantExit(admin, t.tenantId, { listKeys: async () => [] });
       expect(fin.removed).toBe(true);
       expect(fin.soleUsers).toBeGreaterThanOrEqual(1);
@@ -2796,6 +2797,23 @@ describe('HARDEN-3.6 T3 — state/timestamp coupling for every role', () => {
     } finally {
       await appClient.end().catch(() => {}); await admin.end().catch(() => {}); await local.close();
     }
+  });
+});
+
+describe('HARDEN-3.6 T1 — c3_app zombie resolver last line of defense', () => {
+  it('resolveCompensationIntent against an armed row throws the registration-aborted zombie message', async () => {
+    const key = `${tenantA}/t1-zombie`;
+    await p.writes.transaction(actorA, (tx) => tx.insertBlobTombstone({
+      storageKey: key, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs: 60_000,
+    }));
+    await p.writes.transaction(actorA, (tx) => tx.armCompensationIntent(key));
+    await expect(p.writes.transaction(actorA, (tx) => tx.resolveCompensationIntent(key)))
+      .rejects.toThrow(/drain already armed\/swept.*registration aborted/i);
+    const [row] = await db.adminQuery<{ state: string; deleted_at: Date | null }>(
+      `SELECT state, deleted_at FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`,
+      [tenantA, key],
+    );
+    expect(row).toEqual(expect.objectContaining({ state: 'armed', deleted_at: null }));
   });
 });
 

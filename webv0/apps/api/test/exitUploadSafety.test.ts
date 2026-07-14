@@ -1,7 +1,8 @@
 /**
  * HARDEN-3.6 composed exit/upload killers.
  *
- * T2 models the storage contract's worst legal outcome: the local PUT rejects on deadline
+ * T1 composes a real staff-document request with exit sweep/finalize. T2 models the storage
+ * contract's worst legal outcome: the local PUT rejects on deadline
  * abort, its immediate cleanup sees no object, and the remote store publishes later. The same
  * test runs the real lease drain, erasure sweep, and finalize ceremony.
  */
@@ -25,6 +26,7 @@ const PDF = Buffer.from('%PDF-1.4\n%c3 delayed remote commit\n%%EOF\n');
 let db: TestDatabase;
 let deps: Deps;
 let app: FastifyInstance;
+let t1App: FastifyInstance;
 const objects = new Map<string, Buffer>();
 
 let delayRemoteCommit = false;
@@ -33,6 +35,15 @@ let resolveLatePublication: () => void = () => {};
 let latePublishedAt = 0;
 let finalizeObserved: Promise<void> = Promise.resolve();
 let markFinalizeObserved: () => void = () => {};
+let stallStaffPut = false;
+let staffPutStarted: Promise<string> = Promise.resolve('');
+let markStaffPutStarted: (key: string) => void = () => {};
+let resumeStaffPut: () => void = () => {};
+
+function armStaffStall(): void {
+  stallStaffPut = true;
+  staffPutStarted = new Promise<string>((resolve) => { markStaffPutStarted = resolve; });
+}
 
 function armIndeterminateCommit(): void {
   delayRemoteCommit = true;
@@ -48,6 +59,13 @@ function armIndeterminateCommit(): void {
 const storage: DocumentStorage = {
   driver: 'fs',
   async put(key, body, _contentType, opts) {
+    if (stallStaffPut) {
+      stallStaffPut = false;
+      markStaffPutStarted(key);
+      await new Promise<void>((resolve) => { resumeStaffPut = resolve; });
+      objects.set(key, Buffer.from(body));
+      return;
+    }
     if (!delayRemoteCommit) {
       objects.set(key, Buffer.from(body));
       return;
@@ -129,6 +147,57 @@ async function stageGuest(slug: string): Promise<{ tenantId: string; token: stri
   return { tenantId: seeded.tenantId, token: link.json().token as string };
 }
 
+async function stageStaff(slug: string): Promise<{ tenantId: string; opsToken: string; personId: string }> {
+  const seeded = await db.seedTenant({
+    slug,
+    users: [
+      { key: 'ops', email: `ops@${slug}.test`, displayName: 'Ops', role: 'operations' },
+      { key: 'owner', email: `owner@${slug}.test`, displayName: 'Owner', role: 'owner' },
+    ],
+  });
+  const login = async (email: string, role: string) => {
+    const response = await t1App.inject({
+      method: 'POST', url: '/api/v1/dev/login',
+      payload: { email, displayName: role, role, tenantSlug: slug },
+    });
+    expect(response.statusCode, response.body).toBe(200);
+    return response.json().token as string;
+  };
+  const opsToken = await login(`ops@${slug}.test`, 'operations');
+  const ownerToken = await login(`owner@${slug}.test`, 'owner');
+  const auth = (token: string) => ({ authorization: `Bearer ${token}` });
+  const submitted = await t1App.inject({
+    method: 'POST', url: '/api/v1/approvals', headers: auth(opsToken),
+    payload: { input: { fullName: 'T1 Live Producer' } },
+  });
+  expect(submitted.statusCode, submitted.body).toBe(201);
+  const approval = submitted.json().approval;
+  const reviewed = await t1App.inject({
+    method: 'POST', url: `/api/v1/approvals/${approval.approvalId}/begin-review`, headers: auth(ownerToken),
+    payload: { expectedVersion: approval.version },
+  });
+  expect(reviewed.statusCode, reviewed.body).toBe(200);
+  const approved = await t1App.inject({
+    method: 'POST', url: `/api/v1/approvals/${approval.approvalId}/approve`, headers: auth(ownerToken),
+    payload: { expectedVersion: reviewed.json().approval.version },
+  });
+  expect(approved.statusCode, approved.body).toBe(200);
+  const executed = await t1App.inject({
+    method: 'POST', url: `/api/v1/approvals/${approval.approvalId}/execute`, headers: auth(ownerToken),
+    payload: { expectedVersion: approved.json().approval.version },
+  });
+  expect(executed.statusCode, executed.body).toBe(200);
+  return { tenantId: seeded.tenantId, opsToken, personId: executed.json().person.personId as string };
+}
+
+function staffDocumentForm(personId: string): FormData {
+  const form = new FormData();
+  form.append('ownerType', 'Person');
+  form.append('ownerId', personId);
+  form.append('file', new Blob([PDF], { type: 'application/pdf' }), 't1.pdf');
+  return form;
+}
+
 function guestForm(withFile: boolean): FormData {
   const form = new FormData();
   form.append('payload', JSON.stringify({ fullName: 'Delayed Commit', email: 'delayed@example.test' }));
@@ -157,11 +226,21 @@ beforeAll(async () => {
     leaseTtlMs: 6_000,
   });
   await app.ready();
+  t1App = buildApp({
+    ...deps,
+    documentStorage: storage,
+    requestTimeoutMs: 1_000,
+    deadlineMs: 3_000,
+    leaseTtlMs: 6_000,
+  });
+  await t1App.ready();
 }, 180_000);
 
 afterAll(async () => {
   markFinalizeObserved();
   await latePublication.catch(() => {});
+  resumeStaffPut();
+  await t1App?.close();
   await app?.close();
   await deps?.close();
   await db?.stop();
@@ -176,6 +255,77 @@ beforeEach(async () => {
   latePublishedAt = 0;
   finalizeObserved = Promise.resolve();
   markFinalizeObserved = () => {};
+  stallStaffPut = false;
+  staffPutStarted = Promise.resolve('');
+  markStaffPutStarted = () => {};
+  resumeStaffPut = () => {};
+});
+
+describe('HARDEN-3.6 T1 — exit never consumes an unexpired staff producer', () => {
+  it('parks sweep while live; post-expiry sweep/finalize wins and the resumed real route is refused with no byte or row', async () => {
+    const { tenantId, opsToken, personId } = await stageStaff('t1staff');
+    armStaffStall();
+    const routePromise = t1App.inject({
+      method: 'POST',
+      url: '/api/v1/documents',
+      headers: { authorization: `Bearer ${opsToken}` },
+      body: staffDocumentForm(personId) as never,
+    });
+    const storageKey = await staffPutStarted;
+    const [intent] = await db.adminQuery<{ state: string; prepared_expires_at: Date }>(
+      `SELECT state, prepared_expires_at FROM blob_tombstone
+        WHERE tenant_ref=$1 AND storage_key=$2 AND reason='compensation'`,
+      [tenantId, storageKey],
+    );
+    expect(intent?.state).toBe('prepared');
+
+    await db.adminQuery(
+      `UPDATE app_user SET is_active=false
+        WHERE id IN (SELECT user_id FROM tenant_membership WHERE tenant_id=$1)`,
+      [tenantId],
+    );
+    await withAdmin((client) => exitTenant(client, {
+      tenantSlug: 't1staff', execute: true, confirmSlug: 't1staff', secondConfirm: 't1staff',
+      leaseDrainTimeoutMs: 1_000, leaseDrainPollMs: 25,
+    }));
+
+    await withAdmin(async (client) => {
+      await expect(sweepTenantBlobErasure(client, reader, tenantId)).rejects.toThrow(/parked.*unexpired prepared/i);
+    });
+    expect((await db.adminQuery<{ state: string }>(
+      `SELECT state FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`, [tenantId, storageKey],
+    ))[0]?.state).toBe('prepared');
+
+    const remainingMs = Math.max(0, new Date(intent!.prepared_expires_at).getTime() - Date.now());
+    await new Promise((resolve) => setTimeout(resolve, remainingMs + 100));
+    const ceremony = await withAdmin(async (client) => {
+      const swept = await sweepTenantBlobErasure(client, reader, tenantId);
+      const finalized = await finalizeTenantExit(client, tenantId, reader);
+      return { swept, finalized };
+    });
+    expect(ceremony.finalized.removed).toBe(true);
+
+    resumeStaffPut();
+    const response = await routePromise;
+    expect(response.statusCode, response.body).toBe(404);
+    expect(response.json().error.code).toBe('NOT_FOUND'); // first real defense: document owner missing
+
+    const remainingKeys = [
+      ...(await reader.listKeys(`${tenantId}/`)),
+      ...(await reader.listKeys(`intake/${tenantId}/`)),
+    ];
+    const [terminal] = await db.adminQuery<{ state: string; deleted_at: Date | null }>(
+      `SELECT state, deleted_at FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`,
+      [tenantId, storageKey],
+    );
+    expect({
+      registeredDocuments: Number((await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM document WHERE tenant_id=$1`, [tenantId]))[0]!.n),
+      tenantRows: Number((await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM tenant WHERE id=$1`, [tenantId]))[0]!.n),
+      remainingKeys,
+      tombstoneState: terminal?.state,
+      tombstoneStamped: terminal?.deleted_at !== null,
+    }).toEqual({ registeredDocuments: 0, tenantRows: 0, remainingKeys: [], tombstoneState: 'swept', tombstoneStamped: true });
+  }, 30_000);
 });
 
 describe('HARDEN-3.6 T2 — the lease outlives indeterminate remote completion', () => {

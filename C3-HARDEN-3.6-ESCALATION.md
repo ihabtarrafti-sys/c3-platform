@@ -1,8 +1,16 @@
 # C3 HARDEN-3.6 — Escalation
 
+## Resolution (Neural, 2026-07-15)
+
+**Option 1 selected; Option 2 refused.** Neural ruled that the invariant requires the resumed
+route to be refused, not that it reach one prescribed layer. The production transaction order
+is unchanged. T1 now has a composed real-route property test plus a separate c3_app zero-row
+resolver discriminator. This file remains as the transparent record of the wall and ruling; it
+is no longer an active blocker.
+
 ## T1 — literal zero-row registration outcome is unreachable in the composed real-route schedule
 
-**Status:** STOPPED before commit. The production predicate change is straightforward, but the
+**Historical status at escalation:** STOPPED before commit. The production predicate change is straightforward, but the
 required composed acceptance cannot be made true by the currently approved T1 scope without
 softening the test or changing a staff registration transaction that the triage did not authorize.
 
@@ -53,5 +61,5 @@ One of these must be explicitly selected:
    before document insert, still in the same atomic transaction) so the literal zero-row outcome
    becomes reachable after exit.
 
-No T1 commit or RED-proof will be claimed until that choice is made. Work continues on T2–T9 as
-the triage instructs.
+Neural selected Option 1. The revised acceptance and RED-proof are recorded in
+`C3-HARDEN-3.6-EVIDENCE.md`; no production transaction was reordered.
