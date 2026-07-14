@@ -20,6 +20,13 @@ export interface PersistenceConfig {
   readonly appConnectionString: string;
   /** Optional pool tuning. */
   readonly max?: number;
+  /**
+   * TEST-ONLY: force write transactions to a stricter isolation level. Production runs at
+   * READ COMMITTED (the default). A test sets 'REPEATABLE READ' to reproduce the composed
+   * revoke/pay serialization race (R5-N06) — under RR the head write-conflict surfaces as a
+   * Drizzle-wrapped 40001 that the use case's own withSerializationRetry must converge.
+   */
+  readonly writeIsolation?: 'REPEATABLE READ';
 }
 
 export interface PersistenceHandle extends Persistence {
@@ -853,10 +860,16 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
   const writes: WriteStore = {
     transaction<T>(actor: Actor, fn: (tx: WriteTx) => Promise<T>): Promise<T> {
-      return withTenantTx(pool, actor, 'write', async (db) => {
-        const tx = makeWriteTx(db, actor);
-        return fn(tx);
-      });
+      return withTenantTx(
+        pool,
+        actor,
+        'write',
+        async (db) => {
+          const tx = makeWriteTx(db, actor);
+          return fn(tx);
+        },
+        config.writeIsolation,
+      );
     },
   };
 

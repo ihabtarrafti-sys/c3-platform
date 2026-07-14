@@ -22,6 +22,7 @@ export async function withTenantTx<T>(
   actor: Actor,
   mode: 'read' | 'write',
   fn: (db: Db, client: PoolClient) => Promise<T>,
+  writeIsolation?: 'REPEATABLE READ',
 ): Promise<T> {
   const tenantId = actor?.tenantId;
   if (!tenantId || !UUID_RE.test(tenantId)) {
@@ -31,7 +32,10 @@ export async function withTenantTx<T>(
 
   const client = await pool.connect();
   try {
-    await client.query(mode === 'read' ? 'BEGIN READ ONLY' : 'BEGIN');
+    // R5-N06 (test-only): a write tx may run at a stricter isolation to reproduce the composed
+    // serialization race. Production writes are READ COMMITTED; reads are READ ONLY.
+    const begin = mode === 'read' ? 'BEGIN READ ONLY' : writeIsolation === 'REPEATABLE READ' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN';
+    await client.query(begin);
     // is_local = true → transaction-scoped, auto-reset at COMMIT/ROLLBACK.
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
     const db = drizzle(client, { schema });

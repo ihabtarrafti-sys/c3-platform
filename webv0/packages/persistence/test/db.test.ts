@@ -7,6 +7,7 @@
  */
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
+import { markPayout, revokeDistribution, isRetryableSerializationError } from '@c3web/application';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -77,7 +78,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -2217,5 +2218,165 @@ describe('HARDEN-3.3 Batch B (R4-N05) — distribution revoke/pay isolation-safe
     await db.truncateAll();
     const tenantId = await seedLiveDistribution('distb-rc');
     await runRace('READ COMMITTED', tenantId);
+  });
+});
+
+// R5-N05: the revoke/pay guards were BEFORE UPDATE only while c3_app holds INSERT, so a
+// Revoked-head/Paid-share pair was directly INSERTable. 0072 extends both guards to INSERT and
+// stops the migration on historical violations. R5-N06: the retry classifier now walks the
+// cause chain (Drizzle wraps the SQLSTATE), so the COMPOSED revoke/pay race converges via retry.
+describe('HARDEN-3.4 Batch C (R5-N05/N06) — distribution INSERT invariant + composed retry', () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  async function seedLiveDist(admin: Client, tenantId: string): Promise<void> {
+    // One tx: the sum-check is a DEFERRED constraint evaluated at COMMIT.
+    await admin.query('BEGIN');
+    await admin.query(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-C','C','2026-06-01')`, [tenantId]);
+    await admin.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-C','P')`, [tenantId]);
+    await admin.query(`INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status) VALUES ($1,'PNL-C','MSN-C','Income','PrizeMoney','P',100000,'USD','Received')`, [tenantId]);
+    await admin.query(`INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by) VALUES ($1,'DIST-C','MSN-C','PNL-C',100000,'USD',0,0,'Live','o@c.com')`, [tenantId]);
+    await admin.query(`INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status) VALUES ($1,'DIST-C','PER-C',10000,100000,'Pending')`, [tenantId]);
+    await admin.query('COMMIT');
+  }
+
+  it('R5-N05: a Paid share INSERTED directly under a Revoked head is DB-refused (INSERT guard, not just UPDATE)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'distins' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      await seedLiveDist(admin, t.tenantId);
+      await admin.query(`UPDATE distribution SET status='Revoked', revoked_reason='x' WHERE distribution_id='DIST-C'`); // no Paid shares → allowed
+      // A DIRECT INSERT of a Paid share under the now-Revoked head — the UPDATE guard never
+      // sees it; the 0072 INSERT guard must refuse.
+      await expect(admin.query(
+        `INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status, paid_on, payment_source_label)
+         VALUES ($1,'DIST-C','PER-C2',1,1,'Paid','2026-06-15','Bank')`, [t.tenantId],
+      )).rejects.toThrow(/LIVE distribution|C3E:CONFLICT/i);
+
+      // And a Revoked head INSERTED over a Paid share is refused too. Seed a Paid share with
+      // triggers OFF (replica), then INSERT a Revoked head naming its distribution_id.
+      await admin.query(`SET session_replication_role = replica`);
+      await admin.query(`INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status, paid_on, payment_source_label) VALUES ($1,'DIST-D','PER-D',10000,100000,'Paid','2026-06-15','Bank')`, [t.tenantId]);
+      await admin.query(`SET session_replication_role = origin`);
+      await expect(admin.query(
+        `INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by)
+         VALUES ($1,'DIST-D','MSN-C','PNL-C',100000,'USD',0,0,'Revoked','o@c.com')`, [t.tenantId],
+      )).rejects.toThrow(/PAID shares|C3E:CONFLICT/i);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('R5-N06: the COMPOSED markPayout use case converges via retry when a concurrent revoke wins (Drizzle-wrapped 40001)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'distret' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    await seedLiveDist(admin, t.tenantId);
+
+    // A persistence handle whose WRITES run at REPEATABLE READ (test seam), so the head
+    // write-conflict surfaces as a Drizzle-wrapped 40001 the use case's retry must converge.
+    const pRR = createPersistence({ appConnectionString: db.appUrl, writeIsolation: 'REPEATABLE READ' });
+    const winner = new Client({ connectionString: db.appUrl });
+    const obs = new Client({ connectionString: db.adminUrl });
+    await winner.connect(); await obs.connect();
+    const actor = ownerActor(t.tenantId, 'owner@distret.com');
+    try {
+      const winnerPid = (await winner.query<{ pid: number }>('SELECT pg_backend_pid() pid')).rows[0]!.pid;
+
+      // The winner REVOKES the head and holds the lock (no Paid shares yet → allowed).
+      await winner.query('BEGIN');
+      await winner.query(`SELECT set_config('app.tenant_id',$1,true)`, [t.tenantId]);
+      await winner.query(`UPDATE distribution SET status='Revoked', revoked_reason='x' WHERE distribution_id='DIST-C'`);
+
+      // markPayout (the REAL use case, at RR) blocks on lockDistribution's FOR UPDATE.
+      const payP = markPayout(pRR, actor, 'DIST-C', 'PER-C', { expectedVersion: 0, paid: true, paymentSourceLabel: 'Bank' })
+        .then(() => 'paid' as const, (e: unknown) => e as Error);
+
+      // Barrier: wait until markPayout's backend is genuinely blocked on the head lock.
+      for (let i = 0; i < 200; i++) {
+        const r = await obs.query<{ pid: number }>(
+          `SELECT pid FROM pg_stat_activity WHERE wait_event_type='Lock' AND pid <> $1 AND pid <> pg_backend_pid() AND state='active'`, [winnerPid],
+        );
+        if (r.rows.length > 0) break;
+        await sleep(25);
+      }
+      await winner.query('COMMIT'); // head now Revoked → markPayout unblocks → RR 40001 → retry
+
+      const res = await payP;
+      // CONVERGED: on retry the fresh snapshot sees the Revoked head, so markPayout returns a
+      // clean domain ConflictError — NOT a surfaced raw serialization failure. On the old
+      // top-level-only classifier the 40001 would surface (message "could not serialize …").
+      expect(res).toBeInstanceOf(Error);
+      expect((res as Error).message, `expected a domain conflict, got: ${(res as Error).message}`).toMatch(/revoked|frozen|C3E:CONFLICT/i);
+      expect(isRetryableSerializationError(res)).toBe(false); // the surfaced error is NOT a 40001
+
+      // Invariant intact: the share stayed Pending under the Revoked head.
+      expect((await admin.query(`SELECT payout_status FROM distribution_share WHERE distribution_id='DIST-C'`)).rows[0].payout_status).toBe('Pending');
+      expect((await admin.query(`SELECT status FROM distribution WHERE distribution_id='DIST-C'`)).rows[0].status).toBe('Revoked');
+    } finally {
+      await winner.end(); await obs.end(); await pRR.close(); await admin.end();
+    }
+  }, 40_000);
+
+  // ── operator-stop migration fixtures (build-through, transactional rollback proven) ──────
+  describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('operator-stop migrations refuse over historical violations', () => {
+    const roles = { appRole: 'c3_app', appPassword: 'c3_app_dev_pw', authRole: 'c3_auth', authPassword: 'c3_auth_dev_pw', backupRole: 'c3_backup', backupPassword: 'c3_backup_dev_pw', allowDevSecrets: true as const };
+    const maint = () => { const u = new URL(db.adminUrl); u.pathname = '/postgres'; return u.href; };
+    async function freshThrough(target: string): Promise<{ url: string; name: string }> {
+      const name = `c3web_stop_${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+      const target2 = new URL(db.adminUrl); target2.pathname = `/${name}`;
+      const boot = new Client({ connectionString: maint() }); await boot.connect();
+      try { await boot.query(`CREATE DATABASE ${name} WITH ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`); } finally { await boot.end(); }
+      await runMigrations({ adminConnectionString: target2.href, ...roles, targetInclusive: target });
+      return { url: target2.href, name };
+    }
+    async function dropDb(name: string): Promise<void> {
+      const boot = new Client({ connectionString: maint() }); await boot.connect();
+      try { await boot.query(`DROP DATABASE IF EXISTS ${name}`); } catch { /* torn down in afterAll */ } finally { await boot.end(); }
+    }
+
+    it('0072 STOPS on a historical Revoked-head/Paid-share pair; the migration rolls back (not in the ledger)', async () => {
+      const { url, name } = await freshThrough('0071_definer_search_path_hardening.sql');
+      const c = new Client({ connectionString: url }); await c.connect();
+      try {
+        const t = (await c.query<{ id: string }>(`INSERT INTO tenant (slug, name) VALUES ('stopco','stopco') RETURNING id`)).rows[0]!.id;
+        // Seed the historical violation with triggers OFF (superuser, replica) — the 0063 window.
+        await c.query(`SET session_replication_role = replica`);
+        await c.query(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-S','S','2026-06-01')`, [t]);
+        await c.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-S','P')`, [t]);
+        await c.query(`INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, revoked_reason, created_by) VALUES ($1,'DIST-S','MSN-S','PNL-S',100000,'USD',0,0,'Revoked','historical','o@s.com')`, [t]);
+        await c.query(`INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status, paid_on, payment_source_label) VALUES ($1,'DIST-S','PER-S',10000,100000,'Paid','2026-06-15','Bank')`, [t]);
+        await c.query(`SET session_replication_role = origin`);
+      } finally { await c.end(); }
+      // Applying 0072 must STOP with the diagnostic; its tx rolls back so it never ledgers.
+      await expect(runMigrations({ adminConnectionString: url, ...roles })).rejects.toThrow(/Revoked-head \/ Paid-share|R5-N05/i);
+      const chk = new Client({ connectionString: url }); await chk.connect();
+      try {
+        expect((await chk.query(`SELECT count(*)::int n FROM _migrations WHERE id='0072_distribution_insert_invariant.sql'`)).rows[0].n).toBe(0);
+      } finally { await chk.end(); await dropDb(name); }
+    }, 120_000);
+
+    it('0065 STOPS on a historical duplicate open DeactivatePerson (the round-5-untested twin)', async () => {
+      const { url, name } = await freshThrough('0064_comment_delete_guard.sql');
+      const c = new Client({ connectionString: url }); await c.connect();
+      try {
+        const t = (await c.query<{ id: string }>(`INSERT INTO tenant (slug, name) VALUES ('stop65','stop65') RETURNING id`)).rows[0]!.id;
+        // At 0064 the 0062 index excludes ExecutionFailed, so an ExecutionFailed + a Submitted
+        // DeactivatePerson for the SAME person coexist — the historical duplicate 0065 forbids.
+        const ins = (aid: string, status: string) => c.query(
+          `INSERT INTO approval (tenant_id, approval_id, operation_type, target_person_id, target_id, status, payload, submitted_by)
+           VALUES ($1,$2,'DeactivatePerson','PER-Z',NULL,$3,$4::jsonb,'u@z.com')`,
+          [t, aid, status, JSON.stringify({ operationType: 'DeactivatePerson', input: { personId: 'PER-Z' } })],
+        );
+        await ins('APR-EF', 'ExecutionFailed');
+        await ins('APR-SU', 'Submitted');
+      } finally { await c.end(); }
+      await expect(runMigrations({ adminConnectionString: url, ...roles })).rejects.toThrow(/hold more than one OPEN DeactivatePerson|R4-N06/i);
+      const chk = new Client({ connectionString: url }); await chk.connect();
+      try {
+        expect((await chk.query(`SELECT count(*)::int n FROM _migrations WHERE id='0065_deactivate_open_status_align.sql'`)).rows[0].n).toBe(0);
+      } finally { await chk.end(); await dropDb(name); }
+    }, 120_000);
   });
 });

@@ -50,4 +50,14 @@ describe('withSerializationRetry', () => {
     expect(isRetryableSerializationError(new Error('no code'))).toBe(false);
     expect(isRetryableSerializationError(null)).toBe(false);
   });
+
+  it('R5-N06: walks the cause chain — a Drizzle-wrapped 40001 on err.cause.code is retryable', () => {
+    // Drizzle wraps the driver error: the SQLSTATE is on .cause (sometimes nested), not top.
+    const wrapped = Object.assign(new Error('Failed query'), { cause: pgErr('40001') });
+    const nested = Object.assign(new Error('outer'), { cause: Object.assign(new Error('mid'), { cause: pgErr('40P01') }) });
+    expect(isRetryableSerializationError(wrapped)).toBe(true);
+    expect(isRetryableSerializationError(nested)).toBe(true);
+    // a non-transient SQLSTATE on the cause is still not retryable.
+    expect(isRetryableSerializationError(Object.assign(new Error('x'), { cause: pgErr('23514') }))).toBe(false);
+  });
 });
