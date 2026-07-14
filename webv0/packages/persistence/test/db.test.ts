@@ -77,7 +77,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -480,6 +480,64 @@ describe('migrations & schema', () => {
       expect((await admin.query(`SELECT count(*)::int n FROM intake_link WHERE tenant_id=$1`, [t.tenantId])).rows[0].n).toBe(0);
     } finally {
       await admin.end(); await app.end();
+    }
+  });
+
+  it('R5-N03: EVERY SECURITY DEFINER function ends its search_path with pg_temp (catalog invariant) (0071)', async () => {
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    try {
+      // pg_proc.proconfig holds the SET clauses as 'key=value' strings. Assert every
+      // prosecdef function in public sets search_path AND that its LAST element is pg_temp —
+      // so any future definer missing it fails the gate (mirrors the tenantTables guard).
+      const rows = (await admin.query<{ sig: string; proconfig: string[] | null }>(`
+        SELECT p.oid::regprocedure::text AS sig, p.proconfig
+          FROM pg_proc p
+         WHERE p.prosecdef AND p.pronamespace = 'public'::regnamespace
+      `)).rows;
+      expect(rows.length).toBeGreaterThan(0);
+      const offenders: string[] = [];
+      for (const r of rows) {
+        const sp = (r.proconfig ?? []).find((c) => c.toLowerCase().startsWith('search_path='));
+        if (!sp) { offenders.push(`${r.sig} (no search_path)`); continue; }
+        const value = sp.slice('search_path='.length);
+        const last = value.split(',').map((s) => s.trim().replace(/^"|"$/g, '')).pop();
+        if (last !== 'pg_temp') offenders.push(`${r.sig} (ends '${last}')`);
+      }
+      expect(offenders, `definers missing a trailing pg_temp: ${offenders.join('; ')}`).toEqual([]);
+    } finally {
+      await admin.end();
+    }
+  });
+
+  it('R5-N03: a pg_temp table shadowing intake_link is IGNORED — the definer resolves the canonical table (0071)', async () => {
+    await db.truncateAll();
+    const real = await db.seedTenant({ slug: 'shadowco' });
+    const app = new Client({ connectionString: db.appUrl });
+    await app.connect();
+    try {
+      await app.query(`SELECT set_config('app.tenant_id',$1,true)`, [real.tenantId]); // harmless; definer is DEFINER-scoped
+      // As the restricted c3_app role, forge a temp intake_link that maps the attacker's
+      // token to a tenant of their choosing. Under 'search_path = public' this would be
+      // consulted FIRST; under 'public, pg_temp' it is ignored.
+      await app.query(`CREATE TEMPORARY TABLE intake_link (id uuid, tenant_id uuid, token_hash text, status text, kind text, expires_at timestamptz, used_count int, max_uses int, consumed_at timestamptz)`);
+      await app.query(`INSERT INTO intake_link (id, tenant_id, token_hash, status, kind, expires_at, used_count, max_uses) VALUES (gen_random_uuid(), $1, 'forged-tok', 'Active', 'Onboarding', now()+interval '1 day', 0, 1)`, [real.tenantId]);
+      // The forged token does NOT exist in public.intake_link → the definer must resolve NULL
+      // (returns 0), NOT the shadow's row. A shadow-consulting definer would tombstone.
+      const n = (await app.query(`SELECT intake_tombstone_refused('forged-tok', ARRAY['intake/${real.tenantId}/x/y']) AS n`)).rows[0]!.n;
+      expect(n).toBe(0); // canonical table has no such token → nothing attributed
+
+      // And a REAL token in the canonical table still works despite the shadow being present.
+      const admin = new Client({ connectionString: db.adminUrl });
+      await admin.connect();
+      try {
+        await admin.query(`INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at) VALUES ($1,'real-tok','Onboarding','o@s.com', now()+interval '1 day')`, [real.tenantId]);
+        expect((await app.query(`SELECT intake_tombstone_refused('real-tok', ARRAY['intake/${real.tenantId}/a/b']) AS n`)).rows[0]!.n).toBe(1);
+      } finally {
+        await admin.end();
+      }
+    } finally {
+      await app.end();
     }
   });
 
