@@ -56,12 +56,41 @@ const DRILL_SHA_SAMPLE = 25;
 /** An injectable [0,1) source so the sampler is deterministic under test. */
 export type Rng = () => number;
 
+/** The three blob classes, in a fixed order so the sampler consumes the RNG deterministically. */
+const BLOB_CLASSES = ['document', 'photo', 'intake'] as const;
+
 /**
- * R4-N12: a SOUND without-replacement sample, with every non-empty class represented.
- * The old `sort(() => Math.random() - 0.5)` is a biased shuffle (comparator is not a
- * consistent order) and was untestable (non-injectable). This is a partial Fisher-Yates
- * — draw `sampleSize` distinct entries uniformly, each remaining slot equally likely —
- * with an injectable RNG so a drill can prove exactly which entries it checks.
+ * Split `budget` across the non-empty classes as evenly as possible (round-robin, one slot at a
+ * time), never exceeding a class's own size. Every non-empty class gets ≥1 before any gets 2, so
+ * — as long as `budget ≥ (number of non-empty classes)` — every non-empty class is represented,
+ * and the quotas sum to `min(budget, Σ sizes)`. Deterministic; no RNG.
+ */
+function stratifiedQuota(sizes: number[], budget: number): number[] {
+  const quota = sizes.map(() => 0);
+  let remaining = budget;
+  let progress = true;
+  while (remaining > 0 && progress) {
+    progress = false;
+    for (let i = 0; i < sizes.length && remaining > 0; i++) {
+      if (quota[i]! < sizes[i]!) {
+        quota[i]!++;
+        remaining--;
+        progress = true;
+      }
+    }
+  }
+  return quota;
+}
+
+/**
+ * R4-N12 / R5-N11: a SOUND, STRATIFIED without-replacement sample. The old
+ * `sort(() => Math.random() - 0.5)` was a biased, non-injectable shuffle; R4-N12's partial
+ * Fisher-Yates then force-added the FIRST entry of any class the random draw missed — a
+ * forced-first-entry bias that over-sampled position 0 and could push the sample PAST the budget.
+ * This draws WITHIN each non-empty class (its own partial Fisher-Yates over an injectable RNG)
+ * under a stratified quota, so: every non-empty class is represented, the entry checked in each
+ * class is genuinely random (no forced index), and the total never exceeds `sampleSize`. It is an
+ * honest sample: an entry OUTSIDE the draw is not sha-verified (that is the documented contract).
  */
 export function strongSample(
   entries: ValidatedBlobArchive['entries'],
@@ -69,22 +98,24 @@ export function strongSample(
   rng: Rng = Math.random,
 ): ValidatedBlobArchive['entries'] {
   if (entries.length <= sampleSize) return entries;
-  const arr = [...entries];
-  // Partial Fisher-Yates: after i iterations, arr[0..i) holds i distinct uniform draws.
-  for (let i = 0; i < sampleSize; i++) {
-    const j = i + Math.floor(rng() * (arr.length - i));
-    const t = arr[i]!;
-    arr[i] = arr[j]!;
-    arr[j] = t;
-  }
-  const chosen = new Map(arr.slice(0, sampleSize).map((e) => [e.storageKey, e] as const));
-  for (const cls of ['document', 'photo', 'intake'] as const) {
-    if (![...chosen.values()].some((e) => e.cls === cls)) {
-      const rep = entries.find((e) => e.cls === cls);
-      if (rep) chosen.set(rep.storageKey, rep);
+  const buckets = BLOB_CLASSES.map((cls) => entries.filter((e) => e.cls === cls));
+  const quota = stratifiedQuota(buckets.map((b) => b.length), sampleSize);
+
+  const chosen: ValidatedBlobArchive['entries'][number][] = [];
+  for (let c = 0; c < buckets.length; c++) {
+    const arr = [...buckets[c]!];
+    const take = quota[c]!;
+    // Partial Fisher-Yates within the class: after i iterations arr[0..i) are distinct uniform
+    // draws — no entry is picked by position, so a class's first object has no special standing.
+    for (let i = 0; i < take; i++) {
+      const j = i + Math.floor(rng() * (arr.length - i));
+      const t = arr[i]!;
+      arr[i] = arr[j]!;
+      arr[j] = t;
     }
+    for (let i = 0; i < take; i++) chosen.push(arr[i]!);
   }
-  return [...chosen.values()];
+  return chosen;
 }
 
 /**

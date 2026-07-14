@@ -198,4 +198,64 @@ describe('R4-N12: the drill sampler is sound, deterministic, and injectable', ()
     const res = await verifyBlobArchiveRecovery(bigInv(), a, extractOf(storeOf(a)), seededRng(7));
     expect(res.verifiedClasses.sort()).toEqual(['document', 'photo']);
   });
+
+  // R5-N11: the stratified draw never EXCEEDS the ≤25 budget (the old forced-first-entry top-up
+  // could push it to 26+), samples WITHIN each non-empty class, and every non-empty class is
+  // represented by a genuinely random pick (not its first entry).
+  it('R5-N11: is a stratified draw capped at the budget, every non-empty class represented', () => {
+    // 30 docs + 4 photos + 6 intake = 40 entries (> 25). All three classes non-empty.
+    const entries = [
+      ...Array.from({ length: 30 }, (_v, i) => ({ storageKey: `tid/doc-${i}`, sha256: sha(`tid/doc-${i}`), cls: 'document' as const })),
+      ...Array.from({ length: 4 }, (_v, i) => ({ storageKey: `tid/photo-${i}`, sha256: sha(`tid/photo-${i}`), cls: 'photo' as const })),
+      ...Array.from({ length: 6 }, (_v, i) => ({ storageKey: `tid/intake-${i}`, sha256: sha(`tid/intake-${i}`), cls: 'intake' as const })),
+    ];
+    const s = strongSample(entries, 25, seededRng(3));
+    expect(s.length).toBeLessThanOrEqual(25); // never over budget (RED on the old top-up)
+    expect(s.length).toBe(25); // 40 entries → the budget is fully used
+    expect(new Set(s.map((e) => e.storageKey)).size).toBe(s.length); // without replacement
+    const byClass = new Set(s.map((e) => e.cls));
+    expect(byClass).toEqual(new Set(['document', 'photo', 'intake'])); // every non-empty class present
+    // The document class is under-quota (15 of 30), so WHICH 15 is a genuine random draw — not the
+    // first 15 by position. Two different RNGs must produce different in-class picks (old code force-
+    // added entry[0] of a missed class, a fixed index; here nothing is chosen by position).
+    const seed3 = strongSample(entries, 25, seededRng(3)).filter((e) => e.cls === 'document').map((e) => e.storageKey).sort();
+    const seed99 = strongSample(entries, 25, seededRng(99)).filter((e) => e.cls === 'document').map((e) => e.storageKey).sort();
+    expect(seed3).not.toEqual(seed99); // different RNG → different in-class draw (no forced index)
+  });
+
+  it('R5-N11: a present-but-CORRUPT entry OUTSIDE the sample is ACCEPTED (the honest sampling contract)', async () => {
+    const a = bigArchive();
+    const sampled = new Set(strongSample(a.entries, 25, seededRng(7)).map((e) => e.storageKey));
+    const outKey = a.entries.find((e) => !sampled.has(e.storageKey))!.storageKey;
+    const store = storeOf(a);
+    store[outKey] = Buffer.from('CORRUPT-BUT-PRESENT'); // wrong bytes, but the object still extracts
+    // The drill sha-checks only the SAMPLE — an out-of-sample corruption is NOT caught. That is the
+    // documented contract (a real recovery re-hashes everything for free while downloading it); we
+    // assert it TRUTHFULLY rather than pretending the sample proves the whole archive's integrity.
+    const res = await verifyBlobArchiveRecovery(bigInv(), a, extractOf(store), seededRng(7));
+    expect(res.verifiedClasses.sort()).toEqual(['document', 'photo']);
+  });
+
+  // R5-N11 DISCRIMINATOR: the forced-first-entry BIAS itself. A tiny class (5 photos) swamped by a
+  // huge one (400 docs): the old global 25-of-405 draw almost never hit a photo, so it force-added
+  // photo-0 EVERY time — a fixed-index over-sample where photo-1..4 were essentially never checked.
+  // The stratified draw gives photos a real quota and picks WITHIN the class, so every photo is
+  // sampled. Assertion: across many seeds, non-first photos are sampled at least as often as photo-0.
+  it('R5-N11: no forced-first-entry bias — a swamped small class is sampled uniformly, not always entry[0]', () => {
+    const entries = [
+      ...Array.from({ length: 400 }, (_v, i) => ({ storageKey: `tid/doc-${i}`, sha256: sha(`tid/doc-${i}`), cls: 'document' as const })),
+      ...Array.from({ length: 5 }, (_v, i) => ({ storageKey: `tid/photo-${i}`, sha256: sha(`tid/photo-${i}`), cls: 'photo' as const })),
+    ];
+    let firstCount = 0;
+    let otherCount = 0;
+    for (let seed = 1; seed <= 60; seed++) {
+      for (const e of strongSample(entries, 25, seededRng(seed))) {
+        if (e.cls !== 'photo') continue;
+        if (e.storageKey === 'tid/photo-0') firstCount++; else otherCount++;
+      }
+    }
+    // Stratified: photos get quota 5 (== class size) → all 5 sampled every seed (other=240, first=60).
+    // Old forced-first-entry: photo-0 dominates, photo-1..4 near-zero → otherCount < firstCount (RED).
+    expect(otherCount).toBeGreaterThan(firstCount);
+  });
 });
