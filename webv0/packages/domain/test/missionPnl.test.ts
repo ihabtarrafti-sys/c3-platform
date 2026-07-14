@@ -364,6 +364,36 @@ describe('HARDEN-3.3 Batch D (R4 L-02) — the /api/v2 tagged P&L says WHY an ag
     expect(pnl.v2.blended.profit).toEqual({ status: 'unavailable', reason: 'overflow' });
   });
 
+  it("R6-N04 (round-6's exact probe): a present-rate overflow is scoped to ITS slot — a 1-AED sibling category converts ok", () => {
+    // Same currency, two categories: Travel overflows on conversion (900,000,000,000 AED at a
+    // present rate of 1,000,000 usdPerUnit); Equipment holds 1 AED whose direct conversion is
+    // {ok, 1_000_000}. The old currency-global overflow set falsely marked Equipment's
+    // actualUsd/variance overflow too.
+    const pnl = computeMissionPnl({
+      startsOn: '2026-08-01',
+      endsOn: null,
+      lines: [
+        line({ direction: 'Expense', category: 'Travel', amountMinor: 900_000_000_000, currency: 'AED' }),
+        line({ direction: 'Expense', category: 'Equipment', amountMinor: 1, currency: 'AED' }),
+      ],
+      participants: [],
+      rates: [{ currency: 'AED', usdPerUnit: 1_000_000, updatedAt: '2026-07-10T00:00:00Z' }],
+    });
+    const travel = pnl.v2.perCategory.find((c) => c.category === 'Travel')!;
+    const equipment = pnl.v2.perCategory.find((c) => c.category === 'Equipment')!;
+    // The overflowing slot is honestly unavailable…
+    expect(travel.actualUsd).toEqual({ status: 'unavailable', reason: 'overflow' });
+    // …and the sibling category in the SAME currency is NOT contaminated (RED on the global set):
+    expect(equipment.actual.find((a) => a.currency === 'AED')!.amount).toEqual({ status: 'ok', amountMinor: 1 });
+    expect(equipment.actualUsd).toEqual({ status: 'ok', amountMinor: 1_000_000 });
+    expect(equipment.varianceUsd).toEqual({ status: 'ok', amountMinor: 1_000_000 }); // no budget → 0 budget
+    // The mission-level AED blend genuinely overflows (Travel poisons it) — v1 stays null,
+    // and the reason is overflow with the rate PRESENT.
+    expect(pnl.missingRates).toEqual([]);
+    expect(pnl.blended).toBeNull();
+    expect(pnl.v2.blended.expense).toEqual({ status: 'unavailable', reason: 'overflow' });
+  });
+
   it('R5-N07: a finite per-diem overflow MATERIALIZES tagged perCurrency + perCategory rows (never []); v1 blended null [Sentinel probe]', () => {
     // Sentinel's EXACT probe: a schema-valid per-diem cap (900,000,000,000, NOT 2^52) over a
     // 10,008-day finite mission — the product leaves the exact-integer range.

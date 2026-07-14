@@ -79,7 +79,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -579,6 +579,37 @@ describe('migrations & schema', () => {
       await admin.end(); await app.end(); await chk.end();
     }
   }, 40_000);
+
+  it('D3 (R6-N07): the lease TTL is DB-bounded — out-of-range values RAISE; an in-range TTL stores the exact expiry (0075)', async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'ttlbound' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    const app = new Client({ connectionString: db.appUrl });
+    await admin.connect(); await app.connect();
+    try {
+      await admin.query(`INSERT INTO intake_link (tenant_id, token_hash, kind, created_by, expires_at) VALUES ($1,'tok-ttl','Onboarding','o@t.com', now()+interval '1 day')`, [t.tenantId]);
+      // R6-N07: 0073 accepted the int4 maximum (≈24.8 DAYS — the exit drain waits 60s). 0075
+      // caps the parameter at 2h and floors it at 1s; each violation RAISEs loudly.
+      for (const bad of [2_147_483_647, 7_200_001, 999, 0, -1]) {
+        await expect(app.query(`SELECT intake_lease_acquire('tok-ttl', ${bad}) AS id`)).rejects.toThrow(/between 1000 ms .* and 7200000 ms|R6-N07/i);
+      }
+      // The boundary values are accepted, and the STORED expiry matches the requested TTL.
+      const atCap = (await app.query(`SELECT intake_lease_acquire('tok-ttl', 7200000) AS id`)).rows[0]!.id as string;
+      expect(atCap).toBeTruthy();
+      const row = await admin.query(
+        `SELECT extract(epoch FROM (expires_at - now())) AS secs FROM intake_upload_lease WHERE id = $1`, [atCap],
+      );
+      const secs = Number(row.rows[0]!.secs);
+      expect(secs).toBeGreaterThan(7195); // ~2h out (allow a few seconds of test latency)
+      expect(secs).toBeLessThanOrEqual(7200);
+      await app.query(`SELECT intake_lease_release($1)`, [atCap]);
+      const atFloor = (await app.query(`SELECT intake_lease_acquire('tok-ttl', 1000) AS id`)).rows[0]!.id as string;
+      expect(atFloor).toBeTruthy();
+      await app.query(`SELECT intake_lease_release($1)`, [atFloor]);
+    } finally {
+      await admin.end(); await app.end();
+    }
+  });
 
   it('R4-N08: intake_claim locks the TENANT before the intake_link (global order tenant → link) (0068)', async () => {
     await db.truncateAll();

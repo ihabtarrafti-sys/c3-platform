@@ -399,9 +399,10 @@ export function computeMissionPnl(args: {
     }
     return sum;
   };
-  // R5-N08: currencies whose PRESENT-rate USD conversion overflowed (distinct from a genuinely
-  // absent rate, which lands in `missing`). v2 tags these overflow, not missing_rate.
-  const overflowCurrencies = new Set<CurrencyCode>();
+  // R5-N08 / R6-N04: a PRESENT-rate USD conversion overflow is tagged on the EXACT SLOT whose
+  // conversion overflowed (via `overflowSlots`), never on the currency globally — a currency-wide
+  // set contaminated every other category holding a small amount of the same currency. A missing
+  // rate stays currency-global in `missing` (a rate is genuinely absent for the whole currency).
   // R4 L-02 / R5-N07: a FINITE mission whose per-diem product left the exact range is an
   // OVERFLOW. It poisons the blend (v1) AND — R5-N07 — MATERIALIZES its per-currency/
   // per-category rows tagged overflow (so v2 emits a row, never `[]`), unlike an open-ended
@@ -446,15 +447,17 @@ export function computeMissionPnl(args: {
   // A currency is UNBLENDABLE when some contribution needs the live table and
   // the table has no rate. An income line with its own snapshot never does.
   const missing = new Set<CurrencyCode>();
-  const liveUsd = (amountMinor: number, currency: CurrencyCode): number | null => {
+  const liveUsd = (slot: string, amountMinor: number, currency: CurrencyCode): number | null => {
     // R5-N08: distinguish an ABSENT rate (missing_rate) from a PRESENT-rate overflow. The
-    // former lists the currency in missingRates; the latter flips `unbounded` and marks the
-    // currency overflow so v2 tags it 'overflow', never 'missing_rate'.
+    // former lists the currency in missingRates; the latter flips `unbounded` and — R6-N04 —
+    // tags the CALLER'S slot (the exact roll-up whose conversion overflowed), never the
+    // currency globally, so an unrelated slot converting a small amount of the same currency
+    // stays `ok`.
     const r = convertMinorResult(amountMinor, currency, PIVOT_CURRENCY, map);
     if (r.ok) return r.value;
     if (r.reason === 'missing_rate') missing.add(currency);
     else {
-      overflowCurrencies.add(currency);
+      overflowSlots.add(slot);
       unbounded = true;
     }
     return null;
@@ -487,11 +490,11 @@ export function computeMissionPnl(args: {
     if (e.totalMinor != null) addTo('blendsub:expense', liveExpenseByCurrency, e.currency, e.totalMinor);
   }
   for (const [currency, subtotal] of liveIncomeByCurrency) {
-    const usd = liveUsd(subtotal, currency);
+    const usd = liveUsd('blend:income', subtotal, currency);
     if (usd !== null) incomeUsdMinor = trackAdd('blend:income', incomeUsdMinor, usd);
   }
   for (const [currency, subtotal] of liveExpenseByCurrency) {
-    const usd = liveUsd(subtotal, currency);
+    const usd = liveUsd('blend:expense', subtotal, currency);
     if (usd !== null) expenseUsdMinor = trackAdd('blend:expense', expenseUsdMinor, usd);
   }
 
@@ -539,7 +542,8 @@ export function computeMissionPnl(args: {
   for (const key of catActual.keys()) {
     let usd: number | null = catSnapshotUsd.get(key) ?? 0;
     for (const [currency, subtotal] of catLive.get(key) ?? new Map<CurrencyCode, number>()) {
-      const c = liveUsd(subtotal, currency);
+      // R6-N04: an overflow here tags THIS category's USD slot — not the currency globally.
+      const c = liveUsd(`catUsdA:${key}`, subtotal, currency);
       usd = usd === null || c === null ? null : trackAdd(`catUsdA:${key}`, usd, c);
     }
     catActualUsd.set(key, usd);
@@ -549,13 +553,14 @@ export function computeMissionPnl(args: {
   for (const b of budgets) {
     const key = keyOf(b.direction, b.category);
     addCat('catB', catBudget, key, b.currency, b.amountMinor);
-    // R5-N08: a present-rate budget overflow is an overflow, not a missing rate.
+    // R5-N08: a present-rate budget overflow is an overflow, not a missing rate. R6-N04: it
+    // tags THIS category's budget-USD slot, never the currency globally.
     const r = convertMinorResult(b.amountMinor, b.currency, PIVOT_CURRENCY, map);
     const usd = r.ok ? r.value : null;
     if (!r.ok) {
       if (r.reason === 'missing_rate') missing.add(b.currency);
       else {
-        overflowCurrencies.add(b.currency);
+        overflowSlots.add(`catUsdB:${key}`);
         unbounded = true;
       }
     }
@@ -634,13 +639,11 @@ export function computeMissionPnl(args: {
         list: readonly { currency: CurrencyCode; amountMinor: number }[],
       ): PnlAmount => {
         // A USD roll-up is OVERFLOW when its native subtotal overflowed, its USD sum
-        // overflowed, OR any contributing currency's PRESENT-rate conversion overflowed
-        // (R5-N08). Only a genuinely-absent rate — value null with NO overflow — is
-        // missing_rate. Overflow beats missing_rate.
-        if (
-          overflowSlots.has(usdSlot) ||
-          list.some((a) => overflowSlots.has(`${natSlot}:${key}:${a.currency}`) || overflowCurrencies.has(a.currency))
-        ) {
+        // overflowed, or ITS OWN conversion overflowed (R5-N08) — conversion overflows are
+        // tagged directly on `usdSlot` at conversion time (R6-N04: per slot, never per
+        // currency, so a sibling category holding a small amount of the same currency stays
+        // ok). Only a genuinely-absent rate — value null with NO overflow — is missing_rate.
+        if (overflowSlots.has(usdSlot) || list.some((a) => overflowSlots.has(`${natSlot}:${key}:${a.currency}`))) {
           return { status: 'unavailable', reason: 'overflow' };
         }
         return value === null ? { status: 'unavailable', reason: 'missing_rate' } : { status: 'ok', amountMinor: value };
