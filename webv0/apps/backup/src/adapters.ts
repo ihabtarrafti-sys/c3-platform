@@ -13,7 +13,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3
 import type { BackupDeps } from './runner';
 import type { BackupEnv } from './env';
 import type { BlobArchiveEntry } from './manifest';
-import { coherentDumpAndCensusFlow, pgDumpArgs, runWithLockWaitRetry, type CoherentIo } from './coherentFlow';
+import { coherentDumpAndCensusFlow, pgDumpArgs, runWithLockWaitRetry, resolveCensusPause, type CoherentIo } from './coherentFlow';
 
 const ADVISORY_LOCK_KEY = 928_340_014; // arbitrary fixed key for the backup lock
 
@@ -120,7 +120,10 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
       // the real pg / pg_dump effects. READ ONLY + REPEATABLE READ takes no DML-blocking locks.
       const c = new Client({ connectionString: env.databaseUrl });
       await c.connect();
+      // R4-N09 ceremony: null unless BACKUP_PAUSE_AFTER_CENSUS is explicitly set (inert default).
+      const censusPause = resolveCensusPause(process.env);
       const io: CoherentIo = {
+        ...(censusPause ? { pauseBeforeDump: censusPause } : {}),
         begin: async () => { await c.query(CENSUS_TX_BEGIN); },
         exportSnapshot: async () => String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id),
         enumerate: () => enumerateBlobsInTx(c),

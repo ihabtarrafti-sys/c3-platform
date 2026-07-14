@@ -10,6 +10,7 @@ import {
   pgDumpArgs,
   isPgLockTimeout,
   runWithLockWaitRetry,
+  resolveCensusPause,
   type CoherentIo,
 } from '../src/coherentFlow';
 import type { BlobArchiveEntry } from '../src/manifest';
@@ -57,6 +58,52 @@ describe('coherentDumpAndCensusFlow — ordering + snapshot threading (R3-N06 un
     await expect(coherentDumpAndCensusFlow(io)).rejects.toThrow(/pg_dump/);
     expect(calls).toContain('rollback');
     expect(calls).not.toContain('commit');
+  });
+});
+
+// HARDEN-3.5 Batch E (R4-N09 ceremony): the drill's ONLY deterministic staging point is a pause
+// between census and dump. It must be INERT unless explicitly armed, sit exactly inside the
+// snapshot window when armed, and refuse loudly on a mistyped value (never a silently ambiguous
+// paused-or-not backup).
+describe('R4-N09 ceremony pause — env-gated, inert by default', () => {
+  it('INERT: an unset/empty BACKUP_PAUSE_AFTER_CENSUS yields NO pause step at all', () => {
+    expect(resolveCensusPause({} as NodeJS.ProcessEnv)).toBeNull();
+    expect(resolveCensusPause({ BACKUP_PAUSE_AFTER_CENSUS: '' } as NodeJS.ProcessEnv)).toBeNull();
+    expect(resolveCensusPause({ BACKUP_PAUSE_AFTER_CENSUS: '   ' } as NodeJS.ProcessEnv)).toBeNull();
+  });
+
+  it('a mistyped value REFUSES the backup (loud, never ambiguous)', () => {
+    for (const bad of ['0', '-5', '601', 'garbage', '2.5']) {
+      expect(() => resolveCensusPause({ BACKUP_PAUSE_AFTER_CENSUS: bad } as NodeJS.ProcessEnv)).toThrow(/1\.\.600/);
+    }
+  });
+
+  it('an armed pause waits the requested seconds and logs the drill-window line', async () => {
+    const slept: number[] = [];
+    const logged: string[] = [];
+    const pause = resolveCensusPause(
+      { BACKUP_PAUSE_AFTER_CENSUS: '7' } as NodeJS.ProcessEnv,
+      async (ms) => { slept.push(ms); },
+      (msg) => logged.push(msg),
+    );
+    expect(pause).toBeTypeOf('function');
+    await pause!();
+    expect(slept).toEqual([7000]);
+    expect(logged.some((l) => l.includes('census_pause') && l.includes('drill window OPEN'))).toBe(true);
+  });
+
+  it('the armed pause sits EXACTLY inside the snapshot window: census before it, dump after it, commit last', async () => {
+    const { io, calls, dumpSnapshot } = recorderIo();
+    io.pauseBeforeDump = async () => { calls.push('pause'); };
+    await coherentDumpAndCensusFlow(io);
+    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'pause', 'runDump', 'commit', 'dumpBytes']);
+    expect(dumpSnapshot.id).toBe('SNAP-123'); // the pause never detaches the snapshot threading
+  });
+
+  it('INERT flow ordering is byte-identical to the pre-hook flow (no pause step exists)', async () => {
+    const { io, calls } = recorderIo(); // no pauseBeforeDump supplied
+    await coherentDumpAndCensusFlow(io);
+    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'runDump', 'commit', 'dumpBytes']);
   });
 });
 

@@ -25,6 +25,13 @@ export interface CoherentIo {
   rollback(): Promise<void>;
   /** The produced dump's size in bytes. */
   dumpBytes(): Promise<number>;
+  /**
+   * R4-N09 ceremony hook: an OPTIONAL pause between the census and the dump — the only window
+   * where the hosted lock-queue drill can deterministically queue its ACCESS EXCLUSIVE DDL
+   * behind the exporter. Absent (production default) ⇒ the flow is byte-identical to before.
+   * Supplied only by `resolveCensusPause` when BACKUP_PAUSE_AFTER_CENSUS is explicitly set.
+   */
+  pauseBeforeDump?: () => Promise<void>;
 }
 
 export async function coherentDumpAndCensusFlow(io: CoherentIo): Promise<{ bytes: number; blobs: BlobArchiveEntry[] }> {
@@ -32,6 +39,7 @@ export async function coherentDumpAndCensusFlow(io: CoherentIo): Promise<{ bytes
   try {
     const snapshotId = await io.exportSnapshot();
     const blobs = await io.enumerate();
+    if (io.pauseBeforeDump) await io.pauseBeforeDump(); // R4-N09 ceremony window (inert when absent)
     await io.runDump(snapshotId); // pg_dump ON that exact snapshot
     await io.commit(); // ONLY after the dump has fully finished
     const bytes = await io.dumpBytes();
@@ -40,6 +48,33 @@ export async function coherentDumpAndCensusFlow(io: CoherentIo): Promise<{ bytes
     await io.rollback().catch(() => {});
     throw err;
   }
+}
+
+/**
+ * R4-N09: resolve the ceremony pause from the environment. INERT BY DEFAULT — unset/empty ⇒
+ * null (no pause step exists at all). An explicit integer 1..600 (seconds) ⇒ a pause fn that
+ * logs loudly (the drill operator watches for this line, queues the DDL, then observes it
+ * waiting). Anything else ⇒ REFUSE the backup: a mistyped ceremony knob must fail loudly, never
+ * produce a silently-paused-or-not backup (the nightly retention margin absorbs one refused run).
+ */
+export function resolveCensusPause(
+  env: NodeJS.ProcessEnv,
+  sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => setTimeout(r, ms)),
+  log: (msg: string) => void = (msg) => console.warn(msg),
+): (() => Promise<void>) | null {
+  const raw = env.BACKUP_PAUSE_AFTER_CENSUS;
+  if (raw === undefined || raw.trim() === '') return null;
+  const secs = Number(raw.trim());
+  if (!Number.isInteger(secs) || secs < 1 || secs > 600) {
+    throw new Error(
+      `BACKUP_PAUSE_AFTER_CENSUS must be an integer 1..600 seconds (got '${raw}') — refusing a backup with an ambiguous ceremony pause.`,
+    );
+  }
+  return async () => {
+    log(JSON.stringify({ event: 'backup.census_pause', seconds: secs, note: 'R4-N09 drill window OPEN — queue the DDL now' }));
+    await sleep(secs * 1000);
+    log(JSON.stringify({ event: 'backup.census_pause_end', seconds: secs }));
+  };
 }
 
 /** pg_dump's default lock-wait-timeout (ms): fail fast rather than queue behind a waiter. */
