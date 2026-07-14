@@ -31,7 +31,7 @@ import { createHash } from 'node:crypto';
 import { resolve, dirname, relative, join } from 'node:path';
 import { exitTenant, finalizeTenantExit } from '../src/exitTenant';
 import { createBlobReader, sweepTenantBlobErasure } from '../src/blobBundle';
-import { validateExitManifest, verifyExitBundle, ManifestRejectedError, type ExitBundleReader } from '../src/exitManifest';
+import { validateExitManifest, verifyExitBundle, assertAuthorizingManifestPath, ManifestRejectedError, type ExitBundleReader } from '../src/exitManifest';
 
 /** H-06: a filesystem-backed reader over the export bundle directory. */
 function bundleReaderAt(bundleDir: string): ExitBundleReader {
@@ -177,6 +177,14 @@ try {
       process.exit(2);
     }
     const migs = await client.query<{ id: string }>('SELECT id FROM _migrations ORDER BY id');
+    // Round-6 §4.2: ONLY the canonical full-export `manifest.json` may authorize — refuse any
+    // other filename (e.g. the diagnostic manifest.rows-only.json, renamed or not) BEFORE reading.
+    try {
+      assertAuthorizingManifestPath(resolve(manifestPath!));
+    } catch (err) {
+      console.error(`\nEXIT REFUSED (data-return): ${(err as Error).message}`);
+      process.exit(2);
+    }
     let raw: unknown;
     try {
       raw = JSON.parse(readFileSync(resolve(manifestPath!), 'utf8'));

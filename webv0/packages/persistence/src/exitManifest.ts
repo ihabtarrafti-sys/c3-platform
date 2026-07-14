@@ -96,11 +96,30 @@ export function parseExitManifest(raw: unknown): ExitManifest {
 
   if (typeof r.note !== 'string') reject('manifest.note is missing.');
 
-  // R5-N02: a present mode must be a known value; ABSENT mode is a legacy full export
-  // (coerced 'full'). validateExitManifest is what refuses a rows-only bundle.
-  if (r.mode !== undefined && r.mode !== 'full' && r.mode !== 'rows-only') reject("manifest.mode must be 'full' or 'rows-only'.");
-  const normalized = { ...r, mode: r.mode === 'rows-only' ? 'rows-only' : 'full' };
-  return normalized as unknown as ExitManifest;
+  // R5-N02 / round-6 §4.2: `mode` must be EXPLICITLY PRESENT and a known literal. There is NO
+  // absent-mode normalization — the old coerce-to-'full' default meant DELETING one field from a
+  // rows-only (non-authorizing) manifest turned it into an authorizing one. Fail-open defaults
+  // die here; every current export writes the field, so a modeless file is hand-edited or stale.
+  if (r.mode !== 'full' && r.mode !== 'rows-only') {
+    reject("manifest.mode must be EXPLICITLY 'full' or 'rows-only' — an absent or unknown mode never authorizes (re-export to get a mode-carrying manifest).");
+  }
+  return r as unknown as ExitManifest;
+}
+
+/**
+ * Round-6 §4.2: the erasure-authorizing manifest may ONLY be the canonical `manifest.json` a full
+ * export published — the diagnostic rows-only artifact (`manifest.rows-only.json`) is structurally
+ * unacceptable NO MATTER what path an operator passes to `--manifest`. Enforced on the file NAME
+ * (the belt; the parsed literal mode is the suspenders).
+ */
+export function assertAuthorizingManifestPath(path: string): void {
+  const base = path.replace(/\\/g, '/').split('/').pop() ?? '';
+  if (base !== 'manifest.json') {
+    reject(
+      `--manifest must point at a full export's canonical manifest.json (got '${base}'). ` +
+        'A rows-only or renamed artifact cannot authorize an erasure.',
+    );
+  }
 }
 
 /** Full gate: structure + identity + schema currency + freshness. */

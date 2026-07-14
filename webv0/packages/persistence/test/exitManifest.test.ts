@@ -4,7 +4,7 @@
  * authorize an irreversible tenant erasure.
  */
 import { describe, expect, it } from 'vitest';
-import { validateExitManifest, parseExitManifest, verifyExitBundle, ManifestRejectedError, type ExitManifest, type ManifestCheckContext, type ExitBundleReader } from '../src/exitManifest';
+import { validateExitManifest, parseExitManifest, verifyExitBundle, assertAuthorizingManifestPath, ManifestRejectedError, type ExitManifest, type ManifestCheckContext, type ExitBundleReader } from '../src/exitManifest';
 
 const TENANT_ID = '11111111-2222-3333-4444-555555555555';
 const HEX = (c: string) => c.repeat(64);
@@ -17,6 +17,7 @@ function validManifest(overrides: Partial<ExitManifest> = {}): ExitManifest {
     files: [{ name: 'person.jsonl', rows: 2, sha256: HEX('a') }],
     blobs: [{ bundleName: 'documents/DOC-0001__c.pdf', blobClass: 'document', sha256: HEX('b'), ownerRef: 'DOC-0001' }],
     note: 'export',
+    mode: 'full', // C1 (round-6 §4.2): the literal must be EXPLICITLY present — no default
     ...overrides,
   };
 }
@@ -66,6 +67,39 @@ describe('H-06 — exit manifest validation', () => {
     const live = ctx({ liveMigrations: ['0001_schema.sql', '0002_rls.sql', '0046_blob_tombstone.sql'] });
     const forked = validManifest({ schemaVersion: ['0001_schema.sql', '0099_forked.sql', '0046_blob_tombstone.sql'] });
     expect(() => validateExitManifest(forked, live)).toThrow(/does not match the live schema/);
+  });
+});
+
+// C1 (R5-N02, round-6 §4.2): authorization requires the EXPLICIT literal. The old parser
+// normalized an ABSENT mode to 'full' — so deleting one field from a rows-only (diagnostic,
+// non-authorizing) manifest made it authorizing. No normalization survives; and the CLI only
+// accepts the canonical manifest.json filename, so the rows-only artifact is structurally
+// unacceptable no matter which path an operator passes.
+describe("C1 — exit authorization requires the explicit literal mode:'full'", () => {
+  it("ROUND-6'S EXACT BYPASS: deleting the mode field from a rows-only manifest is REFUSED (no absent-mode normalization)", () => {
+    // a current rows-only manifest: same tenant, same schema, real hashes — only the mode differs
+    const rowsOnly = { ...validManifest(), mode: 'rows-only' } as Record<string, unknown>;
+    delete rowsOnly.mode; // the one-field deletion that used to normalize to 'full'
+    expect(() => parseExitManifest(rowsOnly)).toThrow(/EXPLICITLY 'full' or 'rows-only'/i);
+    expect(() => validateExitManifest(rowsOnly, ctx())).toThrow(/EXPLICITLY 'full' or 'rows-only'/i);
+  });
+
+  it('a BLANK or unknown mode is refused (no coercion of any kind)', () => {
+    expect(() => parseExitManifest({ ...validManifest(), mode: '' })).toThrow(/EXPLICITLY 'full' or 'rows-only'/i);
+    expect(() => parseExitManifest({ ...validManifest(), mode: 'FULL' })).toThrow(/EXPLICITLY 'full' or 'rows-only'/i);
+    expect(() => parseExitManifest({ ...validManifest(), mode: null })).toThrow(/EXPLICITLY 'full' or 'rows-only'/i);
+  });
+
+  it("the rows-only LITERAL is refused by the gate; the explicit 'full' literal passes", () => {
+    expect(() => validateExitManifest(validManifest({ mode: 'rows-only' }), ctx())).toThrow(/rows-only|not 'full'/i);
+    expect(() => validateExitManifest(validManifest({ mode: 'full' }), ctx())).not.toThrow();
+  });
+
+  it('--manifest accepts ONLY a file named manifest.json (the diagnostic artifact is refused by NAME, renamed paths included)', () => {
+    expect(() => assertAuthorizingManifestPath('/exports/alpha/manifest.rows-only.json')).toThrow(/canonical manifest\.json/i);
+    expect(() => assertAuthorizingManifestPath('C:\\exports\\alpha\\rows.json')).toThrow(/canonical manifest\.json/i);
+    expect(() => assertAuthorizingManifestPath('/exports/alpha/manifest.json')).not.toThrow();
+    expect(() => assertAuthorizingManifestPath('C:\\exports\\alpha\\manifest.json')).not.toThrow();
   });
 });
 
