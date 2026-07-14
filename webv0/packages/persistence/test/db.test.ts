@@ -77,7 +77,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -1889,4 +1889,113 @@ describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('HARDEN-3.3 Batch F (R4-N11) �
       await dropDb(name);
     }
   }, 120_000);
+});
+
+// R4-N05: 0063 anchored revoke and pay on the head via FOR UPDATE, but that read-lock creates
+// no new head version — so a REPEATABLE READ revoker waiting behind the payer's read-lock never
+// gets a serialization failure, and its guard (frozen snapshot) never sees the Paid share:
+// Revoked head + Paid share commit. 0066 makes the pay guard WRITE the head, so revoke and pay
+// truly write-conflict. This test runs the race at BOTH isolation levels with a pg_stat_activity
+// observer barrier proving the revoke is blocked before the payer is released. The RR case is
+// the discriminator — RED on 0063's read-lock-only guard.
+describe('HARDEN-3.3 Batch B (R4-N05) — distribution revoke/pay isolation-safe', () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  async function waitUntilBlocked(obs: Client, pid: number): Promise<void> {
+    for (let i = 0; i < 200; i++) {
+      const r = await obs.query<{ wait_event_type: string | null }>(
+        'SELECT wait_event_type FROM pg_stat_activity WHERE pid = $1', [pid],
+      );
+      if (r.rows[0]?.wait_event_type === 'Lock') return;
+      await sleep(25);
+    }
+    throw new Error('the conflicting revoke never blocked on a lock (observer barrier timed out)');
+  }
+
+  async function seedLiveDistribution(slug: string): Promise<string> {
+    const t = await db.seedTenant({ slug });
+    const s = new Client({ connectionString: db.adminUrl });
+    await s.connect();
+    try {
+      // One tx: the distribution sum-check is a DEFERRED constraint trigger, evaluated at
+      // COMMIT once head + shares both exist (org_cut + Σshares == pool).
+      await s.query('BEGIN');
+      await s.query(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-B','B','2026-06-01')`, [t.tenantId]);
+      await s.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-B','P')`, [t.tenantId]);
+      await s.query(
+        `INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status)
+         VALUES ($1,'PNL-B','MSN-B','Income','PrizeMoney','P',100000,'USD','Received')`, [t.tenantId]);
+      await s.query(
+        `INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by)
+         VALUES ($1,'DIST-B','MSN-B','PNL-B',100000,'USD',0,0,'Live','o@b.com')`, [t.tenantId]);
+      await s.query(
+        `INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status)
+         VALUES ($1,'DIST-B','PER-B',10000,100000,'Pending')`, [t.tenantId]);
+      await s.query('COMMIT');
+    } finally {
+      await s.end();
+    }
+    return t.tenantId;
+  }
+
+  async function runRace(level: 'READ COMMITTED' | 'REPEATABLE READ', tenantId: string): Promise<void> {
+    const pay = new Client({ connectionString: db.appUrl });
+    const revoke = new Client({ connectionString: db.appUrl });
+    const obs = new Client({ connectionString: db.adminUrl });
+    await pay.connect(); await revoke.connect(); await obs.connect();
+    try {
+      const revokePid = (await revoke.query<{ pid: number }>('SELECT pg_backend_pid() pid')).rows[0]!.pid;
+
+      // Payer pays the share FIRST and holds it uncommitted — WITH the fix, the pay guard writes
+      // the head, so the head now carries the payer's uncommitted write-lock.
+      await pay.query(`BEGIN ISOLATION LEVEL ${level}`);
+      await pay.query(`SELECT set_config('app.tenant_id',$1,true)`, [tenantId]);
+      await pay.query(
+        `UPDATE distribution_share SET payout_status='Paid', paid_on='2026-06-15', payment_source_label='Bank'
+         WHERE distribution_id='DIST-B' AND person_id='PER-B'`,
+      );
+
+      // Revoker takes its snapshot (payer still uncommitted → it will never see the Paid share),
+      // then its head UPDATE blocks on the payer's head write-lock.
+      await revoke.query(`BEGIN ISOLATION LEVEL ${level}`);
+      await revoke.query(`SELECT set_config('app.tenant_id',$1,true)`, [tenantId]);
+      const revokePromise = revoke
+        .query(`UPDATE distribution SET status='Revoked', revoked_reason='x' WHERE distribution_id='DIST-B'`)
+        .then(() => 'resolved' as const);
+
+      // Observer barrier: prove the revoke is genuinely blocked before the payer is released.
+      await waitUntilBlocked(obs, revokePid);
+
+      await pay.query('COMMIT'); // payer wins → revoker unblocks
+
+      // The revoke MUST be refused: a serialization failure (40001) at REPEATABLE READ, or the
+      // C3E:CONFLICT trigger (it now re-reads the Paid share) at READ COMMITTED.
+      await expect(revokePromise).rejects.toThrow(/could not serialize|serialization failure|PAID shares|C3E:CONFLICT/i);
+      await revoke.query('ROLLBACK').catch(() => {});
+
+      // Invariant: a Paid share under a still-LIVE head (the revoke was refused).
+      const chk = new Client({ connectionString: db.adminUrl });
+      await chk.connect();
+      try {
+        expect((await chk.query(`SELECT status FROM distribution WHERE distribution_id='DIST-B'`)).rows[0].status).toBe('Live');
+        expect((await chk.query(`SELECT payout_status FROM distribution_share WHERE distribution_id='DIST-B'`)).rows[0].payout_status).toBe('Paid');
+      } finally {
+        await chk.end();
+      }
+    } finally {
+      await pay.end(); await revoke.end(); await obs.end();
+    }
+  }
+
+  it('REPEATABLE READ: the payer writes the head, so the revoker serializes (40001) — invariant holds', async () => {
+    await db.truncateAll();
+    const tenantId = await seedLiveDistribution('distb-rr');
+    await runRace('REPEATABLE READ', tenantId);
+  });
+
+  it('READ COMMITTED: the revoker blocks, re-reads the Paid share, and its guard refuses — invariant holds', async () => {
+    await db.truncateAll();
+    const tenantId = await seedLiveDistribution('distb-rc');
+    await runRace('READ COMMITTED', tenantId);
+  });
 });

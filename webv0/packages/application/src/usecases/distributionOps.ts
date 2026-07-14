@@ -36,6 +36,7 @@ import {
 } from '@c3web/domain';
 import { assertManageMissions, assertReadPeople, assertViewFinancials } from '@c3web/authz';
 import type { Persistence } from '../ports';
+import { withSerializationRetry } from './serializationRetry';
 
 export interface DistributionView {
   readonly distribution: Distribution;
@@ -190,7 +191,9 @@ export async function revokeDistribution(p: Persistence, actor: Actor, distribut
   const trimmed = reason.trim();
   if (trimmed === '') throw new ValidationError('A revoke reason is required.', { distributionId });
 
-  return p.writes.transaction(actor, async (tx) => {
+  // R4-N05: revoke and pay now write-conflict on the head (0066), so a transient
+  // serialization/deadlock failure is retried on a fresh snapshot rather than surfaced.
+  return withSerializationRetry(() => p.writes.transaction(actor, async (tx) => {
     // HARDEN-1 H-05: revoke and payout serialize on the SAME head lock —
     // the revoke-vs-pay race (Revoked head with a Paid share) is closed here
     // and made unrepresentable by the 0034 trigger.
@@ -213,7 +216,7 @@ export async function revokeDistribution(p: Persistence, actor: Actor, distribut
       after: { status: 'Revoked', reason: trimmed },
     });
     return { distribution: revoked, shares };
-  });
+  }));
 }
 
 export async function markPayout(
@@ -230,7 +233,9 @@ export async function markPayout(
     throw new ValidationError('A payment-source LABEL is required when marking a payout paid (never an account number).', { distributionId, personId });
   }
 
-  return p.writes.transaction(actor, async (tx) => {
+  // R4-N05: pay and revoke now write-conflict on the head (0066) — retry a transient
+  // serialization/deadlock failure on a fresh snapshot rather than 500.
+  return withSerializationRetry(() => p.writes.transaction(actor, async (tx) => {
     // HARDEN-1 H-05: the payout flip holds the head lock, so a concurrent
     // revoke waits behind it (and vice versa).
     const head = await tx.lockDistribution(distributionId);
@@ -262,5 +267,5 @@ export async function markPayout(
       },
     });
     return flipped;
-  });
+  }));
 }

@@ -8,6 +8,7 @@ export * from './usecases/submitCredentialOps';
 export * from './usecases/dataQualityOps';
 export * from './usecases/claimOps';
 export * from './usecases/distributionOps';
+export * from './usecases/serializationRetry';
 export * from './usecases/documentOps';
 export * from './usecases/importExportOps';
 export * from './usecases/invoiceOps';
