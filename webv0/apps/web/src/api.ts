@@ -31,7 +31,8 @@ import type {
   MissionDto,
   MissionFinanceSummaryDto,
   MissionLineDto,
-  MissionPnlDto,
+  MissionPnlV2Dto,
+  PnlAmountDto,
   MissionParticipantDto,
   DataQualityReportDto,
   InvoiceDto,
@@ -337,8 +338,10 @@ export function createApiClient(deps: ApiClientDeps) {
     submitRemoveMissionParticipant: (input: SubmitRemoveMissionParticipantRequest['input'], reason?: string) =>
       request<{ approval: ApprovalDto }>('POST', '/api/v1/missions/participants/removals', { input, ...(reason ? { reason } : {}) }),
     // Finance S4 + S2: mission P&L (canViewFinancials; lines direct-audited).
+    // R4 L-02: reads /api/v2 — tagged aggregates that SAY WHY a figure is unavailable
+    // (overflow / missing_rate / open_ended) instead of v1's overloaded nulls.
     missionPnl: (missionId: string) =>
-      request<{ lines: MissionLineDto[]; budgets: MissionBudgetDto[]; pnl: MissionPnlDto }>('GET', `/api/v1/missions/${missionId}/pnl`),
+      request<{ lines: MissionLineDto[]; budgets: MissionBudgetDto[]; pnl: MissionPnlV2Dto }>('GET', `/api/v2/missions/${missionId}/pnl`),
     missionsFinanceSummary: () => request<MissionFinanceSummaryDto>('GET', '/api/v1/missions/finance-summary'),
     setMissionLinePayment: (missionId: string, lineId: string, body: MissionLinePaymentBody) =>
       request<{ line: MissionLineDto }>('POST', `/api/v1/missions/${missionId}/lines/${lineId}/payment`, body),
@@ -593,4 +596,4 @@ export interface AuditEventDto {
 }
 
 export type ApiClient = ReturnType<typeof createApiClient>;
-export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, DocumentDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionFinanceSummaryDto, MissionLineDto, MissionPnlDto, MissionParticipantDto, PersonDto, MeResponse, TeamDto, TeamMembershipDto };
+export type { AgreementDto, AgreementTermDto, ApparelDto, ApprovalDto, CredentialDto, DocumentDto, JourneyDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionFinanceSummaryDto, MissionLineDto, MissionPnlV2Dto, PnlAmountDto, MissionParticipantDto, PersonDto, MeResponse, TeamDto, TeamMembershipDto };

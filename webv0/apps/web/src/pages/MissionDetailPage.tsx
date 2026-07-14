@@ -18,7 +18,7 @@ import {
   type PaymentStatus,
 } from '@c3web/domain';
 import { useEntities, useMission, useMissionAudit, useMissionParticipants, useMissionPnl, usePeople, usePerDiemPresets, useTeams } from '../queries';
-import { ApiError, type MissionLineDto } from '../api';
+import { ApiError, type MissionLineDto, type PnlAmountDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { PageHeader } from '../components/PageHeader';
@@ -53,6 +53,17 @@ const useStyles = makeStyles({
   pnlSubtle: { color: 'var(--c3-ink-70)', fontSize: '13px' },
   pnlProfit: { fontWeight: 600 },
 });
+
+// R4 L-02 (v2 P&L): a tagged amount renders its exact money, or an HONEST reason —
+// never a silently-rounded figure, never the wrong excuse.
+const PNL_REASON_LABEL = {
+  overflow: 'not computable — exceeds the exact range',
+  missing_rate: 'missing exchange rate',
+  open_ended: 'open-ended',
+} as const;
+function pnlAmountText(a: PnlAmountDto, currency: CurrencyCode): string {
+  return a.status === 'ok' ? formatMoney(a.amountMinor, currency) : `— (${PNL_REASON_LABEL[a.reason]})`;
+}
 
 export function MissionDetailPage() {
   const s = useStyles();
@@ -1141,9 +1152,11 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                 <td className={r.td}>Per-diem</td>
                 <td className={`${r.td} ${r.name}`}>{`Per-diem — ${e.personName}`}</td>
                 <td className={`${r.td} ${r.mono}`}>
-                  {e.totalMinor != null && e.days != null
-                    ? `${formatMoney(e.amountMinor, e.currency)}/day × ${e.days}d = ${formatMoney(e.totalMinor, e.currency)}`
-                    : `${formatMoney(e.amountMinor, e.currency)}/day`}
+                  {e.total.status === 'ok' && e.days != null
+                    ? `${formatMoney(e.amountMinor, e.currency)}/day × ${e.days}d = ${formatMoney(e.total.amountMinor, e.currency)}`
+                    : e.total.status === 'unavailable' && e.total.reason === 'overflow'
+                      ? `${formatMoney(e.amountMinor, e.currency)}/day — total ${PNL_REASON_LABEL.overflow}`
+                      : `${formatMoney(e.amountMinor, e.currency)}/day`}
                 </td>
                 <td className={r.td}>—</td>
                 {canManage && <td className={r.td} />}
@@ -1169,12 +1182,12 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
               <tr key={`${c.direction}-${c.category}`} className={r.row} data-testid={`pnl-category-${c.direction}-${c.category}`}>
                 <td className={r.td}>{c.direction}</td>
                 <td className={r.td}>{lineCategoryOf(c.category)}</td>
-                <td className={`${r.td} ${r.mono}`}>{c.budgetUsdMinor != null ? formatMoney(c.budgetUsdMinor, 'USD') : '—'}</td>
+                <td className={`${r.td} ${r.mono}`}>{pnlAmountText(c.budgetUsd, 'USD')}</td>
                 <td className={`${r.td} ${r.mono}`} data-testid={`pnl-category-actual-${c.direction}-${c.category}`}>
-                  {c.actualUsdMinor != null ? formatMoney(c.actualUsdMinor, 'USD') : '—'}
+                  {pnlAmountText(c.actualUsd, 'USD')}
                 </td>
                 <td className={`${r.td} ${r.mono}`} data-testid={`pnl-category-variance-${c.direction}-${c.category}`}>
-                  {c.varianceUsdMinor != null && c.budget.length > 0 ? formatMoney(c.varianceUsdMinor, 'USD') : '—'}
+                  {c.budget.length > 0 ? pnlAmountText(c.varianceUsd, 'USD') : '—'}
                 </td>
               </tr>
             ))}
@@ -1201,15 +1214,21 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
           )}
           {pnl.perCurrency.map((t) => (
             <span key={t.currency} className={s.pnlSubtle} data-testid={`pnl-currency-${t.currency}`}>
-              {`${t.currency}: income ${formatMoney(t.incomeMinor, t.currency)} · expenses ${formatMoney(t.expenseMinor, t.currency)}`}
+              {`${t.currency}: income ${pnlAmountText(t.income, t.currency)} · expenses ${pnlAmountText(t.expense, t.currency)}`}
             </span>
           ))}
-          {pnl.blended ? (
+          {pnl.blended.income.status === 'ok' && pnl.blended.expense.status === 'ok' && pnl.blended.profit.status === 'ok' ? (
             <>
-              <span data-testid="pnl-income-usd">{`Income ≈ ${formatMoney(pnl.blended.incomeUsdMinor, 'USD')}`}</span>
-              <span data-testid="pnl-expense-usd">{`Expenses ≈ ${formatMoney(pnl.blended.expenseUsdMinor, 'USD')}`}</span>
-              <span className={s.pnlProfit} data-testid="pnl-profit-usd">{`Profit ≈ ${formatMoney(pnl.blended.profitUsdMinor, 'USD')}`}</span>
+              <span data-testid="pnl-income-usd">{`Income ≈ ${formatMoney(pnl.blended.income.amountMinor, 'USD')}`}</span>
+              <span data-testid="pnl-expense-usd">{`Expenses ≈ ${formatMoney(pnl.blended.expense.amountMinor, 'USD')}`}</span>
+              <span className={s.pnlProfit} data-testid="pnl-profit-usd">{`Profit ≈ ${formatMoney(pnl.blended.profit.amountMinor, 'USD')}`}</span>
             </>
+          ) : pnl.blended.profit.status === 'unavailable' && pnl.blended.profit.reason === 'overflow' ? (
+            // R4 L-02: the HONEST reason — an overflow is a data-integrity refusal, never
+            // to be misreported as a missing exchange rate.
+            <span className={s.pnlSubtle} data-testid="pnl-overflow-note">
+              No USD total — an amount in this P&L exceeds the exactly-representable range, so a trustworthy total cannot be computed.
+            </span>
           ) : (
             <span className={s.pnlSubtle} data-testid="pnl-missing-rates">
               {`No USD total — missing exchange rate${pnl.missingRates.length > 1 ? 's' : ''} for ${pnl.missingRates.join(', ')} (set in Settings → Exchange rates).`}

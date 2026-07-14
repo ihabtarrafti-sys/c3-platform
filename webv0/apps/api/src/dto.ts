@@ -6,7 +6,7 @@ import { delegationState, ADD_PERSON_PII_FIELDS } from '@c3web/domain';
 import type { PayloadDisclosure } from '@c3web/authz';
 import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
-import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, SubscriptionDto, SavedViewDto, DepartureDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, PersonDto } from '@c3web/api-contracts';
+import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, SubscriptionDto, SavedViewDto, DepartureDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, MissionPnlV2Dto, PersonDto } from '@c3web/api-contracts';
 
 const equipmentDtoBase = (e: Kit | Apparel) => ({
   name: e.name,
@@ -420,6 +420,28 @@ export function toMissionBudgetDto(b: MissionBudget): MissionBudgetDto {
 }
 
 /** Derived P&L → wire (readonly domain arrays → the mutable wire shape). */
+/** R4 L-02: the /api/v2 P&L — the domain's tagged view, relayed verbatim (it already says
+ *  WHY every unavailable aggregate is unavailable; the serializer enforces the schema). */
+export function toMissionPnlV2Dto(pnl: MissionPnl): MissionPnlV2Dto {
+  const v2 = pnl.v2;
+  return {
+    perCurrency: v2.perCurrency.map((c) => ({ currency: c.currency, income: c.income, expense: c.expense })),
+    perDiem: { openEnded: v2.perDiem.openEnded, entries: v2.perDiem.entries.map((e) => ({ ...e })) },
+    perCategory: v2.perCategory.map((c) => ({
+      direction: c.direction,
+      category: c.category,
+      actual: c.actual.map((a) => ({ currency: a.currency, amount: a.amount })),
+      budget: c.budget.map((b) => ({ currency: b.currency, amount: b.amount })),
+      actualUsd: c.actualUsd,
+      budgetUsd: c.budgetUsd,
+      varianceUsd: c.varianceUsd,
+    })),
+    settlement: { ...pnl.settlement },
+    blended: v2.blended,
+    missingRates: [...pnl.missingRates],
+  };
+}
+
 export function toMissionPnlDto(pnl: MissionPnl): MissionPnlDto {
   return {
     perCurrency: pnl.perCurrency.map((t) => ({ ...t })),

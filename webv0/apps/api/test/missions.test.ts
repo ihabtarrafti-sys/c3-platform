@@ -289,6 +289,18 @@ describe('mission P&L over HTTP (Finance S4)', () => {
     pnl = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
     expect(pnl.json().lines).toHaveLength(1);
 
+    // R4 L-02: the /api/v2 P&L — bearer-guarded IDENTICALLY (versioning never widens
+    // access) and serving TAGGED aggregates that say why a figure is unavailable.
+    expect((await app.inject({ method: 'GET', url: `/api/v2/missions/${m.missionId}/pnl` })).statusCode).toBe(401); // no bearer → refused
+    const v2 = await app.inject({ method: 'GET', url: `/api/v2/missions/${m.missionId}/pnl`, headers: auth(tokens.owner) });
+    expect(v2.statusCode, v2.body).toBe(200);
+    // v2 agrees with v1 to the cent when everything is computable — same engine, tagged view.
+    expect(v2.json().pnl.blended.profit).toEqual({ status: 'ok', amountMinor: pnl.json().pnl.blended.profitUsdMinor });
+    expect(v2.json().pnl.perDiem.entries[0].total).toEqual({ status: 'ok', amountMinor: 375_000 });
+    for (const t of [tokens.legal, tokens.visitor]) {
+      expect((await app.inject({ method: 'GET', url: `/api/v2/missions/${m.missionId}/pnl`, headers: auth(t) })).statusCode).toBe(403);
+    }
+
     // Gating: finance reads the P&L but cannot write; legal and visitor get 403 on the read.
     const financeRead = await app.inject({ method: 'GET', url: `/api/v1/missions/${m.missionId}/pnl`, headers: auth(tokens.finance) });
     expect(financeRead.statusCode).toBe(200);

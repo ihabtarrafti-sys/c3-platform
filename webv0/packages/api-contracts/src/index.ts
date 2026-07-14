@@ -548,6 +548,53 @@ export const missionPnlResponseSchema = z.object({
   pnl: missionPnlSchema,
 });
 
+// ── /api/v2 P&L (R4 L-02) ────────────────────────────────────────────────────
+// Every potentially-unbounded aggregate is a TAGGED amount: exact, or unavailable
+// WITH ITS REASON (overflow / missing_rate / open_ended) — never one overloaded
+// null, never a silently-rounded number. v1 stays frozen; the web reads THIS.
+export const pnlUnavailableReasonSchema = z.enum(['overflow', 'missing_rate', 'open_ended']);
+export const pnlAmountSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('ok'), amountMinor: z.number().int() }),
+  z.object({ status: z.literal('unavailable'), reason: pnlUnavailableReasonSchema }),
+]);
+export type PnlAmountDto = z.infer<typeof pnlAmountSchema>;
+export const missionPnlV2Schema = z.object({
+  perCurrency: z.array(z.object({ currency: currencyCodeSchema, income: pnlAmountSchema, expense: pnlAmountSchema })),
+  perDiem: z.object({
+    openEnded: z.boolean(),
+    entries: z.array(
+      z.object({
+        personId: z.string(),
+        personName: z.string(),
+        amountMinor: z.number().int(),
+        currency: currencyCodeSchema,
+        days: z.number().int().nullable(),
+        total: pnlAmountSchema,
+      }),
+    ),
+  }),
+  perCategory: z.array(
+    z.object({
+      direction: z.enum(MISSION_LINE_DIRECTIONS),
+      category: z.string(),
+      actual: z.array(z.object({ currency: currencyCodeSchema, amount: pnlAmountSchema })),
+      budget: z.array(z.object({ currency: currencyCodeSchema, amount: pnlAmountSchema })),
+      actualUsd: pnlAmountSchema,
+      budgetUsd: pnlAmountSchema,
+      varianceUsd: pnlAmountSchema,
+    }),
+  ),
+  settlement: z.object({ outstandingIncomeCount: z.number().int(), incomeComplete: z.boolean() }),
+  blended: z.object({ income: pnlAmountSchema, expense: pnlAmountSchema, profit: pnlAmountSchema }),
+  missingRates: z.array(currencyCodeSchema),
+});
+export type MissionPnlV2Dto = z.infer<typeof missionPnlV2Schema>;
+export const missionPnlV2ResponseSchema = z.object({
+  lines: z.array(missionLineSchema),
+  budgets: z.array(missionBudgetSchema),
+  pnl: missionPnlV2Schema,
+});
+
 // ── import/export (S5): staging returns the batch approval; errors ride the
 //    structured envelope (422 IMPORT_INVALID with details.rows). Exports and
 //    templates are text/csv streams, not JSON.

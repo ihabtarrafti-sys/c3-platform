@@ -18809,6 +18809,673 @@
     },
     {
       "method": "GET",
+      "url": "/api/v2/missions/:missionId/pnl",
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "budgets": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "amountMinor": {
+                    "t": "number"
+                  },
+                  "category": {
+                    "t": "string"
+                  },
+                  "currency": {
+                    "t": "enum",
+                    "values": [
+                      "AED",
+                      "EUR",
+                      "GBP",
+                      "SAR",
+                      "USD"
+                    ]
+                  },
+                  "direction": {
+                    "t": "enum",
+                    "values": [
+                      "Expense",
+                      "Income"
+                    ]
+                  },
+                  "missionId": {
+                    "t": "string"
+                  },
+                  "updatedAt": {
+                    "t": "string"
+                  },
+                  "version": {
+                    "t": "number"
+                  }
+                }
+              }
+            },
+            "lines": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "amountMinor": {
+                    "t": "number"
+                  },
+                  "category": {
+                    "t": "string"
+                  },
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "currency": {
+                    "t": "enum",
+                    "values": [
+                      "AED",
+                      "EUR",
+                      "GBP",
+                      "SAR",
+                      "USD"
+                    ]
+                  },
+                  "direction": {
+                    "t": "enum",
+                    "values": [
+                      "Expense",
+                      "Income"
+                    ]
+                  },
+                  "isActive": {
+                    "t": "boolean"
+                  },
+                  "label": {
+                    "t": "string"
+                  },
+                  "lineId": {
+                    "t": "string"
+                  },
+                  "missionId": {
+                    "t": "string"
+                  },
+                  "paymentSourceLabel": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "paymentStatus": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "enum",
+                      "values": [
+                        "Expected",
+                        "Invoiced",
+                        "Received"
+                      ]
+                    }
+                  },
+                  "receivedAmountMinor": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "number"
+                    }
+                  },
+                  "receivedUsdPerUnit": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "number"
+                    }
+                  },
+                  "refNo": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "updatedAt": {
+                    "t": "string"
+                  },
+                  "version": {
+                    "t": "number"
+                  }
+                }
+              }
+            },
+            "pnl": {
+              "t": "object",
+              "keys": {
+                "blended": {
+                  "t": "object",
+                  "keys": {
+                    "expense": {
+                      "t": "union",
+                      "options": [
+                        {
+                          "t": "object",
+                          "keys": {
+                            "amountMinor": {
+                              "t": "number"
+                            },
+                            "status": {
+                              "t": "literal",
+                              "value": "ok"
+                            }
+                          }
+                        },
+                        {
+                          "t": "object",
+                          "keys": {
+                            "reason": {
+                              "t": "enum",
+                              "values": [
+                                "missing_rate",
+                                "open_ended",
+                                "overflow"
+                              ]
+                            },
+                            "status": {
+                              "t": "literal",
+                              "value": "unavailable"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "income": {
+                      "t": "union",
+                      "options": [
+                        {
+                          "t": "object",
+                          "keys": {
+                            "amountMinor": {
+                              "t": "number"
+                            },
+                            "status": {
+                              "t": "literal",
+                              "value": "ok"
+                            }
+                          }
+                        },
+                        {
+                          "t": "object",
+                          "keys": {
+                            "reason": {
+                              "t": "enum",
+                              "values": [
+                                "missing_rate",
+                                "open_ended",
+                                "overflow"
+                              ]
+                            },
+                            "status": {
+                              "t": "literal",
+                              "value": "unavailable"
+                            }
+                          }
+                        }
+                      ]
+                    },
+                    "profit": {
+                      "t": "union",
+                      "options": [
+                        {
+                          "t": "object",
+                          "keys": {
+                            "amountMinor": {
+                              "t": "number"
+                            },
+                            "status": {
+                              "t": "literal",
+                              "value": "ok"
+                            }
+                          }
+                        },
+                        {
+                          "t": "object",
+                          "keys": {
+                            "reason": {
+                              "t": "enum",
+                              "values": [
+                                "missing_rate",
+                                "open_ended",
+                                "overflow"
+                              ]
+                            },
+                            "status": {
+                              "t": "literal",
+                              "value": "unavailable"
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "missingRates": {
+                  "t": "array",
+                  "item": {
+                    "t": "enum",
+                    "values": [
+                      "AED",
+                      "EUR",
+                      "GBP",
+                      "SAR",
+                      "USD"
+                    ]
+                  }
+                },
+                "perCategory": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actual": {
+                        "t": "array",
+                        "item": {
+                          "t": "object",
+                          "keys": {
+                            "amount": {
+                              "t": "union",
+                              "options": [
+                                {
+                                  "t": "object",
+                                  "keys": {
+                                    "amountMinor": {
+                                      "t": "number"
+                                    },
+                                    "status": {
+                                      "t": "literal",
+                                      "value": "ok"
+                                    }
+                                  }
+                                },
+                                {
+                                  "t": "object",
+                                  "keys": {
+                                    "reason": {
+                                      "t": "enum",
+                                      "values": [
+                                        "missing_rate",
+                                        "open_ended",
+                                        "overflow"
+                                      ]
+                                    },
+                                    "status": {
+                                      "t": "literal",
+                                      "value": "unavailable"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "currency": {
+                              "t": "enum",
+                              "values": [
+                                "AED",
+                                "EUR",
+                                "GBP",
+                                "SAR",
+                                "USD"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "actualUsd": {
+                        "t": "union",
+                        "options": [
+                          {
+                            "t": "object",
+                            "keys": {
+                              "amountMinor": {
+                                "t": "number"
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "ok"
+                              }
+                            }
+                          },
+                          {
+                            "t": "object",
+                            "keys": {
+                              "reason": {
+                                "t": "enum",
+                                "values": [
+                                  "missing_rate",
+                                  "open_ended",
+                                  "overflow"
+                                ]
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "unavailable"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "budget": {
+                        "t": "array",
+                        "item": {
+                          "t": "object",
+                          "keys": {
+                            "amount": {
+                              "t": "union",
+                              "options": [
+                                {
+                                  "t": "object",
+                                  "keys": {
+                                    "amountMinor": {
+                                      "t": "number"
+                                    },
+                                    "status": {
+                                      "t": "literal",
+                                      "value": "ok"
+                                    }
+                                  }
+                                },
+                                {
+                                  "t": "object",
+                                  "keys": {
+                                    "reason": {
+                                      "t": "enum",
+                                      "values": [
+                                        "missing_rate",
+                                        "open_ended",
+                                        "overflow"
+                                      ]
+                                    },
+                                    "status": {
+                                      "t": "literal",
+                                      "value": "unavailable"
+                                    }
+                                  }
+                                }
+                              ]
+                            },
+                            "currency": {
+                              "t": "enum",
+                              "values": [
+                                "AED",
+                                "EUR",
+                                "GBP",
+                                "SAR",
+                                "USD"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "budgetUsd": {
+                        "t": "union",
+                        "options": [
+                          {
+                            "t": "object",
+                            "keys": {
+                              "amountMinor": {
+                                "t": "number"
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "ok"
+                              }
+                            }
+                          },
+                          {
+                            "t": "object",
+                            "keys": {
+                              "reason": {
+                                "t": "enum",
+                                "values": [
+                                  "missing_rate",
+                                  "open_ended",
+                                  "overflow"
+                                ]
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "unavailable"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "category": {
+                        "t": "string"
+                      },
+                      "direction": {
+                        "t": "enum",
+                        "values": [
+                          "Expense",
+                          "Income"
+                        ]
+                      },
+                      "varianceUsd": {
+                        "t": "union",
+                        "options": [
+                          {
+                            "t": "object",
+                            "keys": {
+                              "amountMinor": {
+                                "t": "number"
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "ok"
+                              }
+                            }
+                          },
+                          {
+                            "t": "object",
+                            "keys": {
+                              "reason": {
+                                "t": "enum",
+                                "values": [
+                                  "missing_rate",
+                                  "open_ended",
+                                  "overflow"
+                                ]
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "unavailable"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "perCurrency": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "currency": {
+                        "t": "enum",
+                        "values": [
+                          "AED",
+                          "EUR",
+                          "GBP",
+                          "SAR",
+                          "USD"
+                        ]
+                      },
+                      "expense": {
+                        "t": "union",
+                        "options": [
+                          {
+                            "t": "object",
+                            "keys": {
+                              "amountMinor": {
+                                "t": "number"
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "ok"
+                              }
+                            }
+                          },
+                          {
+                            "t": "object",
+                            "keys": {
+                              "reason": {
+                                "t": "enum",
+                                "values": [
+                                  "missing_rate",
+                                  "open_ended",
+                                  "overflow"
+                                ]
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "unavailable"
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      "income": {
+                        "t": "union",
+                        "options": [
+                          {
+                            "t": "object",
+                            "keys": {
+                              "amountMinor": {
+                                "t": "number"
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "ok"
+                              }
+                            }
+                          },
+                          {
+                            "t": "object",
+                            "keys": {
+                              "reason": {
+                                "t": "enum",
+                                "values": [
+                                  "missing_rate",
+                                  "open_ended",
+                                  "overflow"
+                                ]
+                              },
+                              "status": {
+                                "t": "literal",
+                                "value": "unavailable"
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    }
+                  }
+                },
+                "perDiem": {
+                  "t": "object",
+                  "keys": {
+                    "entries": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "amountMinor": {
+                            "t": "number"
+                          },
+                          "currency": {
+                            "t": "enum",
+                            "values": [
+                              "AED",
+                              "EUR",
+                              "GBP",
+                              "SAR",
+                              "USD"
+                            ]
+                          },
+                          "days": {
+                            "t": "nullable",
+                            "inner": {
+                              "t": "number"
+                            }
+                          },
+                          "personId": {
+                            "t": "string"
+                          },
+                          "personName": {
+                            "t": "string"
+                          },
+                          "total": {
+                            "t": "union",
+                            "options": [
+                              {
+                                "t": "object",
+                                "keys": {
+                                  "amountMinor": {
+                                    "t": "number"
+                                  },
+                                  "status": {
+                                    "t": "literal",
+                                    "value": "ok"
+                                  }
+                                }
+                              },
+                              {
+                                "t": "object",
+                                "keys": {
+                                  "reason": {
+                                    "t": "enum",
+                                    "values": [
+                                      "missing_rate",
+                                      "open_ended",
+                                      "overflow"
+                                    ]
+                                  },
+                                  "status": {
+                                    "t": "literal",
+                                    "value": "unavailable"
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "openEnded": {
+                      "t": "boolean"
+                    }
+                  }
+                },
+                "settlement": {
+                  "t": "object",
+                  "keys": {
+                    "incomeComplete": {
+                      "t": "boolean"
+                    },
+                    "outstandingIncomeCount": {
+                      "t": "number"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/health",
       "response": {
         "200": {

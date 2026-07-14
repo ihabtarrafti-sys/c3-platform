@@ -342,3 +342,70 @@ describe('HARDEN-3.2 L-02 — money aggregate bounds (fail-closed past MAX_SAFE_
     expect(pnl.blended).toEqual({ incomeUsdMinor: sum, expenseUsdMinor: 0, profitUsdMinor: sum });
   });
 });
+
+describe('HARDEN-3.3 Batch D (R4 L-02) — the /api/v2 tagged P&L says WHY an aggregate is unavailable', () => {
+  const MAX_LINE = 900_000_000_000;
+  const usdLines = (count: number) =>
+    Array.from({ length: count }, () => line({ direction: 'Income', amountMinor: MAX_LINE, currency: 'USD' }));
+
+  it('the 10,008-line overflow surfaces reason OVERFLOW through native + category + blended (never missing_rate, never a rounded number)', () => {
+    const pnl = computeMissionPnl({ startsOn: '2026-08-01', endsOn: null, lines: usdLines(10_008), participants: [], rates: [] });
+    // native USD income: unavailable(overflow) — the rounded v1 number is NOT re-served as ok.
+    const usd = pnl.v2.perCurrency.find((c) => c.currency === 'USD')!;
+    expect(usd.income).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(usd.expense).toEqual({ status: 'ok', amountMinor: 0 });
+    // category (PrizeMoney income): native amount + USD roll-up both carry overflow.
+    const cat = pnl.v2.perCategory.find((c) => c.category === 'PrizeMoney')!;
+    expect(cat.actual.find((a) => a.currency === 'USD')!.amount).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(cat.actualUsd).toEqual({ status: 'unavailable', reason: 'overflow' });
+    // blended: the reason is OVERFLOW — USD is the pivot, so missing_rate would be a lie.
+    expect(pnl.missingRates).toEqual([]);
+    expect(pnl.v2.blended.income).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(pnl.v2.blended.profit).toEqual({ status: 'unavailable', reason: 'overflow' });
+  });
+
+  it('a FINITE mission with an unsafe per-diem product poisons the blend (v1 null) and reports OVERFLOW (v2) — never a silent omission', () => {
+    const pnl = computeMissionPnl({
+      startsOn: '2026-08-01',
+      endsOn: '2026-08-15', // 15 inclusive days — FINITE, so the product is required money
+      lines: [line({ direction: 'Income', amountMinor: 1_000_000, currency: 'USD' })],
+      // Individually representable rate whose 15-day product leaves the exact-integer range.
+      participants: [participant({ perDiemAmountMinor: 2 ** 52, perDiemCurrency: 'USD' })],
+      rates: [],
+    });
+    expect(Number.isSafeInteger(2 ** 52 * 15)).toBe(false); // the product is genuinely unsafe
+    // v1: the blend COLLAPSES (before this fix it stayed non-null while silently omitting
+    // the per-diem — a plausible-looking lie).
+    expect(pnl.blended).toBeNull();
+    // v2: the entry says OVERFLOW — distinct from a legitimate open-ended exclusion.
+    expect(pnl.v2.perDiem.entries[0]!.total).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(pnl.v2.blended.income).toEqual({ status: 'unavailable', reason: 'overflow' });
+  });
+
+  it('an OPEN-ENDED mission reports reason open_ended (not overflow) and still blends the line money', () => {
+    const pnl = computeMissionPnl({
+      startsOn: '2026-08-01',
+      endsOn: null,
+      lines: [line({ direction: 'Income', amountMinor: 1_000_000, currency: 'USD' })],
+      participants: [participant({ perDiemAmountMinor: 10_000, perDiemCurrency: 'USD' })],
+      rates: [],
+    });
+    expect(pnl.v2.perDiem.openEnded).toBe(true);
+    expect(pnl.v2.perDiem.entries[0]!.total).toEqual({ status: 'unavailable', reason: 'open_ended' });
+    expect(pnl.v2.blended.income).toEqual({ status: 'ok', amountMinor: 1_000_000 }); // open-ended ≠ poisoned
+  });
+
+  it('a missing live rate reports missing_rate (not overflow) at the category USD and the blend', () => {
+    const pnl = computeMissionPnl({
+      startsOn: '2026-08-01',
+      endsOn: null,
+      lines: [line({ direction: 'Expense', amountMinor: 50_000, currency: 'EUR' })], // no EUR rate
+      participants: [],
+      rates: [],
+    });
+    const cat = pnl.v2.perCategory.find((c) => c.category === 'Travel')!;
+    expect(cat.actual.find((a) => a.currency === 'EUR')!.amount).toEqual({ status: 'ok', amountMinor: 50_000 }); // native is exact
+    expect(cat.actualUsd).toEqual({ status: 'unavailable', reason: 'missing_rate' });
+    expect(pnl.v2.blended.expense).toEqual({ status: 'unavailable', reason: 'missing_rate' });
+  });
+});

@@ -61,6 +61,7 @@ import {
   missionFinanceStageInputSchema,
   missionFinanceSummarySchema,
   missionPnlResponseSchema,
+  missionPnlV2ResponseSchema,
   importDomainParamSchema,
   exportDomainParamSchema,
   documentsListSchema,
@@ -389,7 +390,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toSavedViewDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toPersonDto } from './dto';
+import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toSavedViewDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toMissionPnlV2Dto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -486,7 +487,9 @@ export function buildApp(deps: Deps): FastifyInstance {
     // token in the PATH, not a bearer — it is the ONLY /api/v1 exemption beyond
     // the dev login. Everything under this prefix resolves its tenant from the
     // token server-side; no other /api/v1 route is reachable without a token.
-    if (!url.startsWith('/api/v1/') || url === '/api/v1/dev/login' || url.startsWith('/api/v1/intake/public/')) return;
+    // R4 L-02: /api/v2 is bearer-guarded IDENTICALLY (versioning never widens access).
+    const isVersionedApi = url.startsWith('/api/v1/') || url.startsWith('/api/v2/');
+    if (!isVersionedApi || url === '/api/v1/dev/login' || url.startsWith('/api/v1/intake/public/')) return;
 
     const header = req.headers.authorization;
     if (!header || !header.startsWith('Bearer ')) {
@@ -1297,6 +1300,19 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { missionId } = req.params as { missionId: string };
       const view = await getMissionPnl(P, actorOf(req), missionId);
       return { lines: view.lines.map(toMissionLineDto), budgets: view.budgets.map(toMissionBudgetDto), pnl: toMissionPnlDto(view.pnl) };
+    },
+  );
+
+  // R4 L-02: the /api/v2 P&L — every potentially-unbounded aggregate is TAGGED (exact, or
+  // unavailable WITH ITS REASON: overflow / missing_rate / open_ended). The v1 route above
+  // stays frozen; the web reads THIS one. Same gates (the use-case asserts financials).
+  r.get(
+    '/api/v2/missions/:missionId/pnl',
+    { schema: { params: missionIdParamSchema, response: { 200: missionPnlV2ResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      const view = await getMissionPnl(P, actorOf(req), missionId);
+      return { lines: view.lines.map(toMissionLineDto), budgets: view.budgets.map(toMissionBudgetDto), pnl: toMissionPnlV2Dto(view.pnl) };
     },
   );
 

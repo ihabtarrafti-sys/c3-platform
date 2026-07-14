@@ -278,6 +278,43 @@ export function missionSettlement(
   return { outstandingIncomeCount, incomeComplete: activeIncome.length > 0 && outstandingIncomeCount === 0 };
 }
 
+/** R4 L-02 (v2): WHY an aggregate is unavailable — explicit, never one overloaded null. */
+export type PnlUnavailableReason = 'overflow' | 'missing_rate' | 'open_ended';
+/** A money aggregate that is either exact or HONESTLY unavailable with its reason. */
+export type PnlAmount =
+  | { readonly status: 'ok'; readonly amountMinor: number }
+  | { readonly status: 'unavailable'; readonly reason: PnlUnavailableReason };
+
+/**
+ * R4 L-02: the /api/v2 P&L shape. Every potentially-unbounded aggregate is a tagged
+ * PnlAmount, so an overflow / missing rate / open-ended gap is REPORTED, never a
+ * silently-rounded number (v1's frozen `number` fields cannot say why — the UI reads this).
+ */
+export interface MissionPnlV2 {
+  readonly perCurrency: readonly { currency: CurrencyCode; income: PnlAmount; expense: PnlAmount }[];
+  readonly perDiem: {
+    readonly openEnded: boolean;
+    readonly entries: readonly {
+      personId: string;
+      personName: string;
+      amountMinor: number;
+      currency: CurrencyCode;
+      days: number | null;
+      total: PnlAmount;
+    }[];
+  };
+  readonly perCategory: readonly {
+    direction: MissionLineDirection;
+    category: string;
+    actual: readonly { currency: CurrencyCode; amount: PnlAmount }[];
+    budget: readonly { currency: CurrencyCode; amount: PnlAmount }[];
+    actualUsd: PnlAmount;
+    budgetUsd: PnlAmount;
+    varianceUsd: PnlAmount;
+  }[];
+  readonly blended: { income: PnlAmount; expense: PnlAmount; profit: PnlAmount };
+}
+
 export interface MissionPnl {
   /** Native subtotals, sorted by currency code (deterministic). */
   readonly perCurrency: readonly MissionPnlCurrencyTotal[];
@@ -302,6 +339,8 @@ export interface MissionPnl {
   } | null;
   /** Currencies present in the P&L that have no usable rate, sorted. */
   readonly missingRates: readonly CurrencyCode[];
+  /** R4 L-02: the tagged view served by /api/v2 (v1's serializer never emits it). */
+  readonly v2: MissionPnlV2;
 }
 
 type PnlLine = Pick<
@@ -349,11 +388,23 @@ export function computeMissionPnl(args: {
   // frozen-v1 `number` shape; a single-currency subtotal past 2^53 minor units is not
   // physically reachable, but if it ever were, `unbounded` refuses the blend.
   let unbounded = false;
-  const trackAdd = (acc: number, add: number): number => {
+  // R4 L-02 (v2): overflow is tracked PER SLOT so v2 can say WHICH aggregate left the exact
+  // range; any slot overflow also flips the global `unbounded` (v1's blended collapse).
+  const overflowSlots = new Set<string>();
+  const trackAdd = (slot: string, acc: number, add: number): number => {
     const sum = acc + add;
-    if (!Number.isSafeInteger(sum)) unbounded = true;
+    if (!Number.isSafeInteger(sum)) {
+      unbounded = true;
+      overflowSlots.add(slot);
+    }
     return sum;
   };
+  // R4 L-02: a FINITE mission whose per-diem product left the exact range is an OVERFLOW —
+  // it must poison the blend (v1) and carry the reason (v2), never be quietly omitted the
+  // way an open-ended (days=null) entry legitimately is.
+  for (const e of entries) {
+    if (e.days != null && e.totalMinor == null) unbounded = true;
+  }
   const byCurrency = new Map<CurrencyCode, { incomeMinor: number; expenseMinor: number }>();
   const bucket = (currency: CurrencyCode) => {
     let b = byCurrency.get(currency);
@@ -365,13 +416,13 @@ export function computeMissionPnl(args: {
   };
   for (const line of args.lines) {
     const b = bucket(line.currency);
-    if (line.direction === 'Income') b.incomeMinor = trackAdd(b.incomeMinor, effectiveAmountMinor(line));
-    else b.expenseMinor = trackAdd(b.expenseMinor, line.amountMinor);
+    if (line.direction === 'Income') b.incomeMinor = trackAdd(`cur:${line.currency}:income`, b.incomeMinor, effectiveAmountMinor(line));
+    else b.expenseMinor = trackAdd(`cur:${line.currency}:expense`, b.expenseMinor, line.amountMinor);
   }
   for (const e of entries) {
     if (e.totalMinor != null) {
       const b = bucket(e.currency);
-      b.expenseMinor = trackAdd(b.expenseMinor, e.totalMinor);
+      b.expenseMinor = trackAdd(`cur:${e.currency}:expense`, b.expenseMinor, e.totalMinor);
     }
   }
   const perCurrency: MissionPnlCurrencyTotal[] = [...byCurrency.entries()]
@@ -398,28 +449,28 @@ export function computeMissionPnl(args: {
   // even if a legacy non-unity value survives).
   const snapshotUsd = (line: PnlLine): number =>
     Math.round(effectiveAmountMinor(line) * (line.currency === PIVOT_CURRENCY ? 1 : line.receivedUsdPerUnit!));
-  const addTo = (m: Map<CurrencyCode, number>, currency: CurrencyCode, amount: number) =>
-    m.set(currency, trackAdd(m.get(currency) ?? 0, amount));
+  const addTo = (slot: string, m: Map<CurrencyCode, number>, currency: CurrencyCode, amount: number) =>
+    m.set(currency, trackAdd(`${slot}:${currency}`, m.get(currency) ?? 0, amount));
 
   const liveIncomeByCurrency = new Map<CurrencyCode, number>();
   const liveExpenseByCurrency = new Map<CurrencyCode, number>();
   let incomeUsdMinor = 0;
   let expenseUsdMinor = 0;
   for (const line of args.lines) {
-    if (hasSnapshot(line)) incomeUsdMinor = trackAdd(incomeUsdMinor, snapshotUsd(line));
-    else if (line.direction === 'Income') addTo(liveIncomeByCurrency, line.currency, effectiveAmountMinor(line));
-    else addTo(liveExpenseByCurrency, line.currency, line.amountMinor);
+    if (hasSnapshot(line)) incomeUsdMinor = trackAdd('blend:income', incomeUsdMinor, snapshotUsd(line));
+    else if (line.direction === 'Income') addTo('blendsub:income', liveIncomeByCurrency, line.currency, effectiveAmountMinor(line));
+    else addTo('blendsub:expense', liveExpenseByCurrency, line.currency, line.amountMinor);
   }
   for (const e of entries) {
-    if (e.totalMinor != null) addTo(liveExpenseByCurrency, e.currency, e.totalMinor);
+    if (e.totalMinor != null) addTo('blendsub:expense', liveExpenseByCurrency, e.currency, e.totalMinor);
   }
   for (const [currency, subtotal] of liveIncomeByCurrency) {
     const usd = liveUsd(subtotal, currency);
-    if (usd !== null) incomeUsdMinor = trackAdd(incomeUsdMinor, usd);
+    if (usd !== null) incomeUsdMinor = trackAdd('blend:income', incomeUsdMinor, usd);
   }
   for (const [currency, subtotal] of liveExpenseByCurrency) {
     const usd = liveUsd(subtotal, currency);
-    if (usd !== null) expenseUsdMinor = trackAdd(expenseUsdMinor, usd);
+    if (usd !== null) expenseUsdMinor = trackAdd('blend:expense', expenseUsdMinor, usd);
   }
 
   // S2: budget-vs-actual per (direction, category). Budgets blend off the live
@@ -428,34 +479,34 @@ export function computeMissionPnl(args: {
   // currency) subtotal; snapshot income lands per line.
   const keyOf = (d: MissionLineDirection, c: string) => `${d}:${c}`;
   const catActual = new Map<string, Map<CurrencyCode, number>>();
-  const addCat = (mapM: Map<string, Map<CurrencyCode, number>>, key: string, currency: CurrencyCode, amount: number) => {
+  const addCat = (slot: string, mapM: Map<string, Map<CurrencyCode, number>>, key: string, currency: CurrencyCode, amount: number) => {
     let m = mapM.get(key);
     if (!m) {
       m = new Map();
       mapM.set(key, m);
     }
-    m.set(currency, trackAdd(m.get(currency) ?? 0, amount)); // L-02: overflow flips `unbounded`
+    m.set(currency, trackAdd(`${slot}:${key}:${currency}`, m.get(currency) ?? 0, amount)); // L-02: overflow flips `unbounded`
   };
   const catLive = new Map<string, Map<CurrencyCode, number>>();
   const catSnapshotUsd = new Map<string, number>();
   for (const line of args.lines) {
     const key = keyOf(line.direction, line.category);
-    addCat(catActual, key, line.currency, effectiveAmountMinor(line));
-    if (hasSnapshot(line)) catSnapshotUsd.set(key, trackAdd(catSnapshotUsd.get(key) ?? 0, snapshotUsd(line)));
-    else addCat(catLive, key, line.currency, effectiveAmountMinor(line));
+    addCat('catA', catActual, key, line.currency, effectiveAmountMinor(line));
+    if (hasSnapshot(line)) catSnapshotUsd.set(key, trackAdd(`catUsdA:${key}`, catSnapshotUsd.get(key) ?? 0, snapshotUsd(line)));
+    else addCat('catLive', catLive, key, line.currency, effectiveAmountMinor(line));
   }
   for (const e of entries) {
     if (e.totalMinor == null) continue;
     const key = keyOf('Expense', PER_DIEM_CATEGORY);
-    addCat(catActual, key, e.currency, e.totalMinor);
-    addCat(catLive, key, e.currency, e.totalMinor);
+    addCat('catA', catActual, key, e.currency, e.totalMinor);
+    addCat('catLive', catLive, key, e.currency, e.totalMinor);
   }
   const catActualUsd = new Map<string, number | null>();
   for (const key of catActual.keys()) {
     let usd: number | null = catSnapshotUsd.get(key) ?? 0;
     for (const [currency, subtotal] of catLive.get(key) ?? new Map<CurrencyCode, number>()) {
       const c = liveUsd(subtotal, currency);
-      usd = usd === null || c === null ? null : trackAdd(usd, c);
+      usd = usd === null || c === null ? null : trackAdd(`catUsdA:${key}`, usd, c);
     }
     catActualUsd.set(key, usd);
   }
@@ -463,11 +514,11 @@ export function computeMissionPnl(args: {
   const catBudgetUsd = new Map<string, number | null>();
   for (const b of budgets) {
     const key = keyOf(b.direction, b.category);
-    addCat(catBudget, key, b.currency, b.amountMinor);
+    addCat('catB', catBudget, key, b.currency, b.amountMinor);
     const usd = convertMinor(b.amountMinor, b.currency, PIVOT_CURRENCY, map);
     if (usd === null) missing.add(b.currency);
     const cur = catBudgetUsd.has(key) ? catBudgetUsd.get(key)! : 0;
-    catBudgetUsd.set(key, cur === null || usd === null ? null : trackAdd(cur, usd));
+    catBudgetUsd.set(key, cur === null || usd === null ? null : trackAdd(`catUsdB:${key}`, cur, usd));
   }
 
   const allKeys = [...new Set([...catActual.keys(), ...catBudget.keys()])];
@@ -505,5 +556,81 @@ export function computeMissionPnl(args: {
       ? { incomeUsdMinor, expenseUsdMinor, profitUsdMinor: incomeUsdMinor - expenseUsdMinor }
       : null;
 
-  return { perCurrency, perDiem: { entries, openEnded }, perCategory, settlement, blended, missingRates };
+  // ── R4 L-02: the tagged /api/v2 view — every unavailable aggregate SAYS WHY. ──────────
+  const okOr = (slotOverflowed: boolean, amountMinor: number): PnlAmount =>
+    slotOverflowed ? { status: 'unavailable', reason: 'overflow' } : { status: 'ok', amountMinor };
+  const v2: MissionPnlV2 = {
+    perCurrency: perCurrency.map((t) => ({
+      currency: t.currency,
+      income: okOr(overflowSlots.has(`cur:${t.currency}:income`), t.incomeMinor),
+      expense: okOr(overflowSlots.has(`cur:${t.currency}:expense`), t.expenseMinor),
+    })),
+    perDiem: {
+      openEnded,
+      entries: entries.map((e) => ({
+        personId: e.personId,
+        personName: e.personName,
+        amountMinor: e.amountMinor,
+        currency: e.currency,
+        days: e.days,
+        // Distinct reasons: open-ended is a legitimate exclusion; a finite-mission product
+        // past 2^53 is an OVERFLOW (and has already poisoned the blend above).
+        total:
+          e.totalMinor != null
+            ? { status: 'ok', amountMinor: e.totalMinor }
+            : { status: 'unavailable', reason: e.days == null ? 'open_ended' : 'overflow' },
+      })),
+    },
+    perCategory: perCategory.map((c) => {
+      const key = keyOf(c.direction, c.category);
+      const nat = (slot: 'catA' | 'catB', list: readonly { currency: CurrencyCode; amountMinor: number }[]) =>
+        list.map((a) => ({ currency: a.currency, amount: okOr(overflowSlots.has(`${slot}:${key}:${a.currency}`), a.amountMinor) }));
+      const usdOf = (
+        usdSlot: string,
+        natSlot: 'catA' | 'catB',
+        value: number | null,
+        list: readonly { currency: CurrencyCode; amountMinor: number }[],
+      ): PnlAmount => {
+        // A USD roll-up over an overflowed native subtotal (or an overflowed USD sum) is
+        // garbage-in — report overflow; a null with clean adds means a rate was missing.
+        if (overflowSlots.has(usdSlot) || list.some((a) => overflowSlots.has(`${natSlot}:${key}:${a.currency}`))) {
+          return { status: 'unavailable', reason: 'overflow' };
+        }
+        return value === null ? { status: 'unavailable', reason: 'missing_rate' } : { status: 'ok', amountMinor: value };
+      };
+      const actualUsd = usdOf(`catUsdA:${key}`, 'catA', c.actualUsdMinor, c.actual);
+      const budgetUsd = usdOf(`catUsdB:${key}`, 'catB', c.budgetUsdMinor, c.budget);
+      const varianceUsd: PnlAmount =
+        actualUsd.status === 'ok' && budgetUsd.status === 'ok'
+          ? okOr(!Number.isSafeInteger(actualUsd.amountMinor - budgetUsd.amountMinor), actualUsd.amountMinor - budgetUsd.amountMinor)
+          : {
+              status: 'unavailable',
+              reason:
+                (actualUsd.status === 'unavailable' && actualUsd.reason === 'overflow') ||
+                (budgetUsd.status === 'unavailable' && budgetUsd.reason === 'overflow')
+                  ? 'overflow'
+                  : 'missing_rate',
+            };
+      return { direction: c.direction, category: c.category, actual: nat('catA', c.actual), budget: nat('catB', c.budget), actualUsd, budgetUsd, varianceUsd };
+    }),
+    blended: (() => {
+      // The blend mirrors v1's conservative collapse, but SAYS WHY: overflow anywhere in
+      // the P&L beats missing_rate (an untrustworthy figure is worse than an absent rate).
+      if (unbounded) {
+        const u = { status: 'unavailable' as const, reason: 'overflow' as const };
+        return { income: u, expense: u, profit: u };
+      }
+      if (missingRates.length > 0) {
+        const u = { status: 'unavailable' as const, reason: 'missing_rate' as const };
+        return { income: u, expense: u, profit: u };
+      }
+      return {
+        income: { status: 'ok' as const, amountMinor: incomeUsdMinor },
+        expense: { status: 'ok' as const, amountMinor: expenseUsdMinor },
+        profit: { status: 'ok' as const, amountMinor: incomeUsdMinor - expenseUsdMinor },
+      };
+    })(),
+  };
+
+  return { perCurrency, perDiem: { entries, openEnded }, perCategory, settlement, blended, missingRates, v2 };
 }
