@@ -96,7 +96,10 @@ const storage: DocumentStorage = {
     const value = objects.get(key);
     return value ? Buffer.from(value) : null;
   },
-  async delete(key) {
+  async delete(key, opts) {
+    if (!opts?.signal || opts.signal.aborted) {
+      throw opts?.signal?.reason instanceof Error ? opts.signal.reason : new Error('cleanup requires a live signal');
+    }
     objects.delete(key);
   },
 };

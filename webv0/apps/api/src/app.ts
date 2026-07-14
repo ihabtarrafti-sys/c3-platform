@@ -386,6 +386,7 @@ import {
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
+import { R2_HTTP_HANDLER_OPTIONS } from './storage';
 import { buildBankRegistrationForm } from './bankForm';
 import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
@@ -650,6 +651,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // HARDEN-3.5 A: the request's deadline signal — threaded into EVERY byte-producing operation.
   const deadlineOf = (req: FastifyRequest): AbortSignal | undefined =>
     (req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal;
+  // Cleanup does not publish bytes. If the request deadline has already fired, reusing that
+  // aborted signal would make R2 reject DELETE without sending it and could defeat the last
+  // best-effort cleanup after a post-expiry exit consumed the durable intent. Give cleanup its
+  // own bounded signal; the enforced R2 request timeout is the honest upper bound.
+  const compensationCleanupSignal = (signal?: AbortSignal): AbortSignal | undefined =>
+    signal?.aborted ? AbortSignal.timeout(R2_HTTP_HANDLER_OPTIONS.requestTimeout) : signal;
 
   // HARDEN-3.5 B: the compensation state machine's request-side edges.
   // prepare: record a PREPARED intent BEFORE any byte is stored, in its OWN committed tx — the
@@ -671,15 +678,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       return false;
     }
   };
-  // arm: the failure path — the byte is now a CONFIRMED orphan; arming makes it drainable
-  // immediately (before this, a failed upload's intent sat invisible until the TTL). The arm
-  // is durable-first; the delete stays best-effort (the drain finishes what it misses). An arm
-  // failure is loud but non-fatal: the TTL arms it anyway.
+  // arm: the failure path — the byte is now a CONFIRMED orphan. Try the durable transition
+  // first, then bounded best-effort deletion. The transition can honestly lose to an exit that
+  // already armed/swept the intent; in that terminal case no later drain is claimed, so the
+  // cleanup attempt still runs and any cleanup failure is logged explicitly.
   const armCompensation = async (storageKey: string, req: FastifyRequest): Promise<void> => {
     await P.writes
       .transaction(actorOf(req), (tx) => tx.armCompensationIntent(storageKey))
-      .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation arm failed — the prepared TTL will arm it'));
-    await deps.documentStorage.delete(storageKey, { signal: deadlineOf(req) }).catch(() => {});
+      .catch((e) => req.log.error({ storageKey, err: String(e) }, 'compensation intent could not transition — it may already be armed or swept; attempting bounded cleanup'));
+    await deps.documentStorage
+      .delete(storageKey, { signal: compensationCleanupSignal(deadlineOf(req)) })
+      .catch((e) => req.log.error({ storageKey, err: String(e) }, 'bounded compensation cleanup failed'));
   };
 
   // ── health / readiness (public) ────────────────────────────────────────────
@@ -861,7 +870,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const person = await setPersonPhoto(P, actor, personId, { storageKey, contentType, sha256 });
         return reply.status(200).send({ person: toPersonDto(person, piiOf(req)) });
       } catch (err) {
-        // B: the failure path ARMS the prepared intent (drainable now) + best-effort delete.
+        // B: the failure path attempts the durable arm transition, then bounded cleanup.
         await armCompensation(storageKey, req);
         throw err;
       }
@@ -1670,7 +1679,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         });
         return reply.status(201).send({ document: toDocumentDto(doc) }); // attachDocument resolved the intent in-tx
       } catch (err) {
-        // B: arm the prepared intent (drainable now) + best-effort delete.
+        // B: attempt the durable arm transition, then bounded cleanup.
         await armCompensation(storageKey, req);
         throw err;
       }
@@ -1859,7 +1868,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
           attachedCount += 1;
           await deps.documentStorage.delete(upload.storageKey, { signal: deadlineOf(req) }).catch(() => {}); // drain finishes any miss
         } catch (err) {
-          // B: the live copy's intent is armed (drainable now) + best-effort deleted.
+          // B: attempt to arm the live copy's intent, then perform bounded cleanup.
           await armCompensation(liveKey, req);
           throw err;
         }
@@ -2544,13 +2553,15 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         storageKey,
       });
     } catch (err) {
-      // The single tx threw ⇒ NO owning row exists ⇒ the bytes are a confirmed orphan: arm the
-      // intent (drainable now) + best-effort delete. An honest documentId=null invoice remains,
-      // with the existing retry endpoint.
+      // The single tx threw ⇒ NO owning row exists ⇒ the bytes are a confirmed orphan. Attempt
+      // the durable arm transition, then bounded cleanup. An honest documentId=null invoice
+      // remains, with the existing retry endpoint.
       await P.writes
         .transaction(actor, (tx) => tx.armCompensationIntent(storageKey))
-        .catch((e) => r.log.error({ storageKey, err: String(e) }, 'compensation arm failed — the prepared TTL will arm it'));
-      await deps.documentStorage.delete(storageKey, { signal }).catch(() => {});
+        .catch((e) => r.log.error({ storageKey, err: String(e) }, 'compensation intent could not transition — it may already be armed or swept; attempting bounded cleanup'));
+      await deps.documentStorage
+        .delete(storageKey, { signal: compensationCleanupSignal(signal) })
+        .catch((e) => r.log.error({ storageKey, err: String(e) }, 'bounded compensation cleanup failed'));
       throw err;
     }
   }
