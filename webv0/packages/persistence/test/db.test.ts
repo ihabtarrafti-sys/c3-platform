@@ -8,9 +8,10 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
 import { markPayout, revokeDistribution, isRetryableSerializationError } from '@c3web/application';
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import type { Actor } from '@c3web/domain';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
@@ -78,7 +79,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -2467,6 +2468,131 @@ describe('HARDEN-3.4 Batch C (R5-N05/N06) — distribution INSERT invariant + co
       try {
         expect((await chk.query(`SELECT count(*)::int n FROM _migrations WHERE id='0065_deactivate_open_status_align.sql'`)).rows[0].n).toBe(0);
       } finally { await chk.end(); await dropDb(name); }
+    }, 120_000);
+  });
+});
+
+// HARDEN-3.5 C2: round-6 proved the invariant still representable two ways. R6-N02 — 0072's
+// share guard skipped an UPDATE whose row was ALREADY Paid, so a reparent (change
+// distribution_id, keep payout_status='Paid') moved a Paid share under a Revoked head with
+// balanced deferred sums and committed. 0074 fires the guard on EVERY mutation whose NEW row is
+// Paid. R6-N06 — 0072 scanned and installed with no write-blocking lock, so DML could commit a
+// violating row between the clean scan and trigger creation; 0074's FIRST statement takes
+// SHARE ROW EXCLUSIVE on both tables, making scan+install one atomic window.
+describe('HARDEN-3.5 C2 (R6-N02/R6-N06) — distribution invariant on EVERY mutation, serialized install', () => {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+  /** DIST-A Live holds the Paid share; DIST-B Revoked holds a Pending share of equal size, so a
+   *  cross-swap of the two shares keeps BOTH deferred sums balanced (Sentinel's balancing move). */
+  async function seedReparentFixture(c: Client, tenantId: string): Promise<void> {
+    await c.query('BEGIN');
+    await c.query(`INSERT INTO mission (tenant_id, mission_id, name, starts_on) VALUES ($1,'MSN-R','R','2026-06-01')`, [tenantId]);
+    await c.query(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1,'PER-CA','A'), ($1,'PER-CB','B')`, [tenantId]);
+    await c.query(`INSERT INTO mission_line (tenant_id, line_id, mission_id, direction, category, label, amount_minor, currency, payment_status) VALUES ($1,'PNL-R','MSN-R','Income','PrizeMoney','P',200000,'USD','Received')`, [tenantId]);
+    await c.query(`INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, created_by) VALUES ($1,'DIST-RA','MSN-R','PNL-R',100000,'USD',0,0,'Live','o@r.com')`, [tenantId]);
+    // The Paid share sits under the LIVE head (the guard allows this — head is Live).
+    await c.query(`INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status, paid_on, payment_source_label) VALUES ($1,'DIST-RA','PER-CA',10000,100000,'Paid','2026-06-15','Bank')`, [tenantId]);
+    // The Revoked head is inserted with NO Paid shares (allowed), holding a Pending twin.
+    await c.query(`INSERT INTO distribution (tenant_id, distribution_id, mission_id, line_id, pool_minor, currency, org_share_bps, org_cut_minor, status, revoked_reason, created_by) VALUES ($1,'DIST-RB','MSN-R','PNL-R',100000,'USD',0,0,'Revoked','test','o@r.com')`, [tenantId]);
+    await c.query(`INSERT INTO distribution_share (tenant_id, distribution_id, person_id, share_bps, amount_minor, payout_status) VALUES ($1,'DIST-RB','PER-CB',10000,100000,'Pending')`, [tenantId]);
+    await c.query('COMMIT');
+  }
+
+  /** The violating transaction: swap the two shares' parents (sums stay balanced). The FIRST
+   *  update is the R6-N02 bypass — a row that stays Paid while its distribution_id changes. */
+  async function attemptReparent(conn: Client, tenantId: string, asApp: boolean): Promise<'committed' | Error> {
+    try {
+      await conn.query('BEGIN');
+      if (asApp) await conn.query(`SELECT set_config('app.tenant_id',$1,true)`, [tenantId]);
+      await conn.query(`UPDATE distribution_share SET distribution_id='DIST-RB' WHERE tenant_id=$1 AND distribution_id='DIST-RA' AND person_id='PER-CA'`, [tenantId]);
+      await conn.query(`UPDATE distribution_share SET distribution_id='DIST-RA' WHERE tenant_id=$1 AND distribution_id='DIST-RB' AND person_id='PER-CB'`, [tenantId]);
+      await conn.query('COMMIT');
+      return 'committed';
+    } catch (e) {
+      await conn.query('ROLLBACK').catch(() => {});
+      return e as Error;
+    }
+  }
+
+  it("R6-N02 (round-6's exact probe): reparenting an already-Paid share onto a Revoked head is DB-refused for the real c3_app role", async () => {
+    await db.truncateAll();
+    const t = await db.seedTenant({ slug: 'reparent' });
+    const admin = new Client({ connectionString: db.adminUrl });
+    const app = new Client({ connectionString: db.appUrl });
+    await admin.connect(); await app.connect();
+    try {
+      await seedReparentFixture(admin, t.tenantId);
+      const res = await attemptReparent(app, t.tenantId, true);
+      // 0074: the share UPDATE itself is refused (NEW row is Paid → its CURRENT parent must be
+      // Live). On 0072's transition predicate the whole balanced swap COMMITS — RED.
+      expect(res).toBeInstanceOf(Error);
+      expect((res as Error).message).toMatch(/LIVE distribution|C3E:CONFLICT/i);
+      const bad = await admin.query(
+        `SELECT count(*)::int n FROM distribution d JOIN distribution_share s ON s.tenant_id=d.tenant_id AND s.distribution_id=d.distribution_id WHERE d.status='Revoked' AND s.payout_status='Paid'`,
+      );
+      expect(bad.rows[0].n).toBe(0); // the invariant is NOT representable
+    } finally {
+      await app.end(); await admin.end();
+    }
+  });
+
+  describe.skipIf(!!process.env.DATABASE_ADMIN_URL)('R6-N06: the 0074 scan/install window is serialized against concurrent DML', () => {
+    const roles = { appRole: 'c3_app', appPassword: 'c3_app_dev_pw', authRole: 'c3_auth', authPassword: 'c3_auth_dev_pw', backupRole: 'c3_backup', backupPassword: 'c3_backup_dev_pw', allowDevSecrets: true as const };
+    const maint = () => { const u = new URL(db.adminUrl); u.pathname = '/postgres'; return u.href; };
+
+    it('a violating reparent racing the migration BLOCKS at the lock and is refused by the installed guard', async () => {
+      // A fresh DB through 0073 (i.e. 0072's guards active, 0074 NOT yet applied).
+      const name = `c3web_win_${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
+      const dbUrl = new URL(db.adminUrl); dbUrl.pathname = `/${name}`;
+      const boot = new Client({ connectionString: maint() }); await boot.connect();
+      try { await boot.query(`CREATE DATABASE ${name} WITH ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`); } finally { await boot.end(); }
+      const m = new Client({ connectionString: dbUrl.href }); // the "migrator"
+      const w = new Client({ connectionString: dbUrl.href }); // the racing writer
+      const obs = new Client({ connectionString: dbUrl.href });
+      try {
+        await runMigrations({ adminConnectionString: dbUrl.href, ...roles, targetInclusive: '0073_intake_lease_ttl_param.sql' });
+        await m.connect(); await w.connect(); await obs.connect();
+        const t = (await m.query<{ id: string }>(`INSERT INTO tenant (slug, name) VALUES ('winrace','winrace') RETURNING id`)).rows[0]!.id;
+        await seedReparentFixture(m, t);
+
+        // Replay the REAL 0074 file in its marked sections, holding the migration tx open
+        // across a staged race (the exact scan→install window R6-N06 names).
+        const file = readFileSync(fileURLToPath(new URL('../migrations/0074_distribution_every_mutation_invariant.sql', import.meta.url)), 'utf8');
+        const lockSql = file.slice(file.indexOf('-- §lock'), file.indexOf('-- §scan'));
+        const scanSql = file.slice(file.indexOf('-- §scan'), file.indexOf('-- §install'));
+        const installSql = file.slice(file.indexOf('-- §install'));
+
+        await m.query('BEGIN');
+        await m.query(lockSql); // R6-N06: the fix — SHARE ROW EXCLUSIVE before the scan
+        await m.query(scanSql); // the historical scan sees a clean state
+        const mPid = (await m.query<{ pid: number }>('SELECT pg_backend_pid() pid')).rows[0]!.pid;
+
+        // THE RACE: the violating reparent fires DURING the window. With the lock it must
+        // BLOCK; without it (neutered file) it commits between scan and install.
+        const raceP = attemptReparent(w, t, false);
+        let blocked = false;
+        for (let i = 0; i < 200; i++) {
+          const r = await obs.query(`SELECT 1 FROM pg_stat_activity WHERE wait_event_type='Lock' AND pid <> $1 AND pid <> pg_backend_pid() AND state='active'`, [mPid]);
+          if (r.rows.length > 0) { blocked = true; break; }
+          await sleep(25);
+        }
+        expect(blocked).toBe(true); // the writer queued behind the migration's lock
+
+        await m.query(installSql); // guards installed inside the still-locked window
+        await m.query('COMMIT'); // lock released — the writer resumes against the NEW guard
+
+        const res = await raceP;
+        expect(res).toBeInstanceOf(Error); // refused by the freshly installed every-mutation guard
+        expect((res as Error).message).toMatch(/LIVE distribution|C3E:CONFLICT/i);
+        const bad = await m.query(
+          `SELECT count(*)::int n FROM distribution d JOIN distribution_share s ON s.tenant_id=d.tenant_id AND s.distribution_id=d.distribution_id WHERE d.status='Revoked' AND s.payout_status='Paid'`,
+        );
+        expect(bad.rows[0].n).toBe(0); // nothing slipped through the window
+      } finally {
+        await m.end().catch(() => {}); await w.end().catch(() => {}); await obs.end().catch(() => {});
+        const boot2 = new Client({ connectionString: maint() }); await boot2.connect();
+        try { await boot2.query(`DROP DATABASE IF EXISTS ${name}`); } catch { /* temp DB */ } finally { await boot2.end(); }
+      }
     }, 120_000);
   });
 });
