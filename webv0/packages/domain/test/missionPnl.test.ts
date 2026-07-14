@@ -364,22 +364,54 @@ describe('HARDEN-3.3 Batch D (R4 L-02) — the /api/v2 tagged P&L says WHY an ag
     expect(pnl.v2.blended.profit).toEqual({ status: 'unavailable', reason: 'overflow' });
   });
 
-  it('a FINITE mission with an unsafe per-diem product poisons the blend (v1 null) and reports OVERFLOW (v2) — never a silent omission', () => {
+  it('R5-N07: a finite per-diem overflow MATERIALIZES tagged perCurrency + perCategory rows (never []); v1 blended null [Sentinel probe]', () => {
+    // Sentinel's EXACT probe: a schema-valid per-diem cap (900,000,000,000, NOT 2^52) over a
+    // 10,008-day finite mission — the product leaves the exact-integer range.
+    const CAP = 900_000_000_000;
+    const pnl = computeMissionPnl({
+      startsOn: '2000-01-01',
+      endsOn: '2027-05-26', // 10,008 inclusive days
+      lines: [line({ direction: 'Income', amountMinor: 1_000_000, currency: 'USD' })],
+      participants: [participant({ perDiemAmountMinor: CAP, perDiemCurrency: 'SAR' })],
+      rates: [{ currency: 'SAR', usdPerUnit: 0.2666, updatedAt: '2026-07-10T00:00:00Z' }],
+    });
+    expect(pnl.perDiem.entries[0]!.days).toBe(10_008);
+    expect(Number.isSafeInteger(CAP * 10_008)).toBe(false); // the product is genuinely unsafe
+
+    // v2 emits the row — not [] (the round-5 miss): per-diem total, the SAR currency, and the
+    // PerDiem category are all present and tagged overflow.
+    expect(pnl.v2.perDiem.entries[0]!.total).toEqual({ status: 'unavailable', reason: 'overflow' });
+    const sar = pnl.v2.perCurrency.find((c) => c.currency === 'SAR');
+    expect(sar, 'a SAR perCurrency row is materialized').toBeTruthy();
+    expect(sar!.expense).toEqual({ status: 'unavailable', reason: 'overflow' });
+    const perDiemCat = pnl.v2.perCategory.find((c) => c.category === 'PerDiem');
+    expect(perDiemCat, 'a PerDiem perCategory row is materialized').toBeTruthy();
+    expect(perDiemCat!.actualUsd).toEqual({ status: 'unavailable', reason: 'overflow' });
+    // all blended values overflow; v1 blended collapses to null.
+    expect(pnl.v2.blended.income).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(pnl.v2.blended.profit).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(pnl.blended).toBeNull();
+  });
+
+  it('R5-N08: a PRESENT-rate conversion overflow is tagged overflow (not missing_rate); missingRates=[] [Sentinel probe]', () => {
+    // Sentinel's EXACT probe: one 900,000,000,000 AED line with a PRESENT schema-valid rate
+    // of 1,000,000 (usdPerUnit) — the conversion product overflows though the rate exists.
     const pnl = computeMissionPnl({
       startsOn: '2026-08-01',
-      endsOn: '2026-08-15', // 15 inclusive days — FINITE, so the product is required money
-      lines: [line({ direction: 'Income', amountMinor: 1_000_000, currency: 'USD' })],
-      // Individually representable rate whose 15-day product leaves the exact-integer range.
-      participants: [participant({ perDiemAmountMinor: 2 ** 52, perDiemCurrency: 'USD' })],
-      rates: [],
+      endsOn: null,
+      lines: [line({ direction: 'Expense', amountMinor: 900_000_000_000, currency: 'AED' })],
+      participants: [],
+      rates: [{ currency: 'AED', usdPerUnit: 1_000_000, updatedAt: '2026-07-10T00:00:00Z' }],
     });
-    expect(Number.isSafeInteger(2 ** 52 * 15)).toBe(false); // the product is genuinely unsafe
-    // v1: the blend COLLAPSES (before this fix it stayed non-null while silently omitting
-    // the per-diem — a plausible-looking lie).
-    expect(pnl.blended).toBeNull();
-    // v2: the entry says OVERFLOW — distinct from a legitimate open-ended exclusion.
-    expect(pnl.v2.perDiem.entries[0]!.total).toEqual({ status: 'unavailable', reason: 'overflow' });
-    expect(pnl.v2.blended.income).toEqual({ status: 'unavailable', reason: 'overflow' });
+    // native AED is exact; the USD side is overflow, NOT missing_rate; and the rate is present
+    // so missingRates is empty (the round-5 mislabel).
+    const aed = pnl.v2.perCurrency.find((c) => c.currency === 'AED')!;
+    expect(aed.expense).toEqual({ status: 'ok', amountMinor: 900_000_000_000 });
+    const cat = pnl.v2.perCategory.find((c) => c.category === 'Travel')!;
+    expect(cat.actual.find((a) => a.currency === 'AED')!.amount).toEqual({ status: 'ok', amountMinor: 900_000_000_000 });
+    expect(cat.actualUsd).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(pnl.v2.blended.expense).toEqual({ status: 'unavailable', reason: 'overflow' });
+    expect(pnl.missingRates).toEqual([]); // the rate IS present — never a false missing_rate
   });
 
   it('an OPEN-ENDED mission reports reason open_ended (not overflow) and still blends the line money', () => {

@@ -100,25 +100,42 @@ export function usdPerUnitMap(rates: readonly FxRate[]): Record<string, number> 
  * shows native-only rather than inventing a number). Rounds to the target's
  * minor unit.
  */
+/**
+ * R5-N08: a conversion is EITHER exact, OR unavailable for a DISCRIMINATED reason — an absent
+ * rate ('missing_rate') is a different failure from a present-rate product that leaves the
+ * exact-integer range ('overflow'). Collapsing both to null mislabels a real overflow as a
+ * missing rate. `convertMinor` stays a thin `value|null` wrapper for existing callers.
+ */
+export type ConvertResult = { readonly ok: true; readonly value: number } | { readonly ok: false; readonly reason: 'missing_rate' | 'overflow' };
+
+export function convertMinorResult(
+  amountMinor: number,
+  from: CurrencyCode,
+  to: CurrencyCode,
+  usdPerUnit: Record<string, number>,
+): ConvertResult {
+  if (from === to) return { ok: true, value: amountMinor };
+  const rf = usdPerUnit[from];
+  const rt = usdPerUnit[to];
+  if (!rf || !rt) return { ok: false, reason: 'missing_rate' };
+  // L-02: refuse a conversion whose intermediate or result would leave the IEEE-754
+  // exact-integer range — a silently-imprecise money value is worse than none. The check
+  // divides (never multiplies) to test the product safely. The rate IS present here, so this
+  // is an OVERFLOW, not a missing rate.
+  if (amountMinor > Number.MAX_SAFE_INTEGER / rf) return { ok: false, reason: 'overflow' };
+  const result = Math.round((amountMinor * rf) / rt);
+  if (!Number.isSafeInteger(result)) return { ok: false, reason: 'overflow' };
+  return { ok: true, value: result };
+}
+
 export function convertMinor(
   amountMinor: number,
   from: CurrencyCode,
   to: CurrencyCode,
   usdPerUnit: Record<string, number>,
 ): number | null {
-  if (from === to) return amountMinor;
-  const rf = usdPerUnit[from];
-  const rt = usdPerUnit[to];
-  if (!rf || !rt) return null;
-  // L-02: refuse a conversion whose intermediate or result would leave the
-  // IEEE-754 exact-integer range — a silently-imprecise money value is worse than
-  // none (the caller then shows native-only). The check divides (never multiplies)
-  // to test the product safely. A BigInt/decimal rework may follow; the bound
-  // ships now.
-  if (amountMinor > Number.MAX_SAFE_INTEGER / rf) return null;
-  const result = Math.round((amountMinor * rf) / rt);
-  if (!Number.isSafeInteger(result)) return null;
-  return result;
+  const r = convertMinorResult(amountMinor, from, to, usdPerUnit);
+  return r.ok ? r.value : null;
 }
 
 /** Format an integer minor amount in its currency, e.g. 100000 AED → "AED 1,000.00". */
