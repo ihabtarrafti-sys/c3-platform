@@ -16,6 +16,17 @@ import type { BlobArchiveEntry } from './manifest';
 import { coherentDumpAndCensusFlow, pgDumpArgs, runWithLockWaitRetry, resolveCensusPause, type CoherentIo } from './coherentFlow';
 
 const ADVISORY_LOCK_KEY = 928_340_014; // arbitrary fixed key for the backup lock
+const EXPORTER_APPLICATION_NAME = 'c3-backup-exporter';
+
+async function enforceExporterApplicationName(client: Client): Promise<void> {
+  const applied = await client.query<{ application_name: string }>(
+    `SELECT set_config('application_name', $1, false) AS application_name`,
+    [EXPORTER_APPLICATION_NAME],
+  );
+  if (applied.rows[0]?.application_name !== EXPORTER_APPLICATION_NAME) {
+    throw new Error('Failed to establish the authoritative backup exporter application_name.');
+  }
+}
 
 /** Spawn a command, fail on non-zero. Never logs args (may carry a URL). */
 function run(cmd: string, args: string[], opts: { env?: NodeJS.ProcessEnv } = {}): Promise<void> {
@@ -75,7 +86,7 @@ export async function enumerateBlobsInTx(c: Client): Promise<BlobArchiveEntry[]>
 }
 
 export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promise<void> } {
-  const lockClient = new Client({ connectionString: env.databaseUrl, application_name: 'c3-backup-exporter' });
+  const lockClient = new Client({ connectionString: env.databaseUrl, application_name: EXPORTER_APPLICATION_NAME });
   const s3 = new S3Client({
     region: 'auto',
     endpoint: env.r2Endpoint,
@@ -120,26 +131,30 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
       // the real pg / pg_dump effects. READ ONLY + REPEATABLE READ takes no DML-blocking locks.
       // HARDEN-3.7 U5: this is the actual snapshot/census session observed by the R4-N09
       // runbook. Naming only the advisory-lock client leaves the blocking session invisible.
-      const c = new Client({ connectionString: env.databaseUrl, application_name: 'c3-backup-exporter' });
+      const c = new Client({ connectionString: env.databaseUrl, application_name: EXPORTER_APPLICATION_NAME });
       await c.connect();
-      // R4-N09 ceremony: null unless BACKUP_PAUSE_AFTER_CENSUS is explicitly set (inert default).
-      const censusPause = resolveCensusPause(process.env);
-      const io: CoherentIo = {
-        ...(censusPause ? { pauseBeforeDump: censusPause } : {}),
-        begin: async () => { await c.query(CENSUS_TX_BEGIN); },
-        exportSnapshot: async () => String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id),
-        enumerate: () => enumerateBlobsInTx(c),
-        // R4-N09: pg_dump with --lock-wait-timeout (via pgDumpArgs) + a bounded retry, so a
-        // lock-queue cycle fails fast and retries rather than hanging the exporter indefinitely.
-        runDump: (snapshotId) =>
-          runWithLockWaitRetry(() => run('pg_dump', pgDumpArgs(dumpPath, env.databaseUrl, snapshotId)), {
-            onRetry: (attempt) => console.warn(JSON.stringify({ event: 'backup.pg_dump_lock_retry', attempt })),
-          }),
-        commit: async () => { await c.query('COMMIT'); },
-        rollback: async () => { await c.query('ROLLBACK'); },
-        dumpBytes: async () => (await fs.stat(dumpPath)).size,
-      };
       try {
+        // H3 / R9-N03: node-postgres lets connection-string query parameters override
+        // explicit Client options. Re-assert and verify the runbook identity on the live
+        // snapshot session so `?application_name=...` cannot hide its blocker PID.
+        await enforceExporterApplicationName(c);
+        // R4-N09 ceremony: null unless BACKUP_PAUSE_AFTER_CENSUS is explicitly set (inert default).
+        const censusPause = resolveCensusPause(process.env);
+        const io: CoherentIo = {
+          ...(censusPause ? { pauseBeforeDump: censusPause } : {}),
+          begin: async () => { await c.query(CENSUS_TX_BEGIN); },
+          exportSnapshot: async () => String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id),
+          enumerate: () => enumerateBlobsInTx(c),
+          // R4-N09: pg_dump with --lock-wait-timeout (via pgDumpArgs) + a bounded retry, so a
+          // lock-queue cycle fails fast and retries rather than hanging the exporter indefinitely.
+          runDump: (snapshotId) =>
+            runWithLockWaitRetry(() => run('pg_dump', pgDumpArgs(dumpPath, env.databaseUrl, snapshotId)), {
+              onRetry: (attempt) => console.warn(JSON.stringify({ event: 'backup.pg_dump_lock_retry', attempt })),
+            }),
+          commit: async () => { await c.query('COMMIT'); },
+          rollback: async () => { await c.query('ROLLBACK'); },
+          dumpBytes: async () => (await fs.stat(dumpPath)).size,
+        };
         return await coherentDumpAndCensusFlow(io);
       } finally {
         await c.end();

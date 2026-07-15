@@ -110,15 +110,17 @@ describe('R3-N06 (achievable-real half) — the census reads INSIDE the exported
   });
 });
 
-describe('HARDEN-3.7 U5 — the production snapshot session is runbook-observable', () => {
-  it('createBackupDeps + ceremony pause exposes the exact blocking c3-backup-exporter PID', async () => {
+describe('HARDEN-3.8 H3 / U5 — the production snapshot session is runbook-observable', () => {
+  it('createBackupDeps defeats a hostile URL application_name and exposes the exact exporter blocker PID', async () => {
     const tenant = await db.seedTenant({ slug: 'u5-observer' });
     await db.adminQuery(
       `INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1, 'PER-U5', 'Observer Probe')`,
       [tenant.tenantId],
     );
+    const hostileDatabaseUrl = new URL(db.backupUrl);
+    hostileDatabaseUrl.searchParams.set('application_name', 'evil');
     const env: BackupEnv = {
-      databaseUrl: db.backupUrl,
+      databaseUrl: hostileDatabaseUrl.toString(),
       r2Endpoint: 'http://127.0.0.1:1',
       r2Bucket: 'unused',
       r2AccessKeyId: 'unused',
@@ -175,8 +177,9 @@ describe('HARDEN-3.7 U5 — the production snapshot session is runbook-observabl
       }, { timeout: 2_000, interval: 25 });
 
       expect(observed[0]).toMatchObject({ holds_snapshot: true });
-      // RED: remove application_name from the snapshot Client in createBackupDeps and the exact
-      // observer returns [] even though the DDL remains genuinely blocked.
+      // RED: remove the post-connect authoritative set_config in createBackupDeps. The hostile
+      // URL then overrides the explicit Client option, so this exact observer returns [] even
+      // though the DDL remains genuinely blocked.
       expect(observed[0]!.pid).not.toBe(ddlPid);
 
       // Cancel only the drill DDL after observing it. This keeps the test independent of whether
