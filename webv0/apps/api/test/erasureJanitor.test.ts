@@ -114,10 +114,10 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
       await admin.end();
     }
 
-    // The real janitor completes the named confused-deputy schedule. RED: remove
-    // only the 0079 constraint trigger and this becomes
-    // { commitRefused:false, authorityRows:1, stragglersDestroyed:1,
-    //   liveObjectPresent:false }.
+    // Integrated RED: remove only the 0079 constraint trigger and the canonical
+    // live authority commits. H5 then refuses its live-tenant audit before any
+    // delete: { commitRefused:false, authorityRows:1, janitorFailures:1,
+    // stragglersDestroyed:0, liveObjectPresent:true }.
     const janitor = await runErasureJanitorPass(deps.persistence.pool, deps.documentStorage, deps.logger, 'owner');
     const authorityRows = (await db.adminQuery<{ n: number }>(
       `SELECT count(*)::int AS n FROM erased_tenant_prefix WHERE tenant_ref=$1`,
@@ -126,11 +126,13 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     expect({
       commitRefused,
       authorityRows,
+      janitorFailures: janitor.failures,
       stragglersDestroyed: janitor.stragglersDestroyed,
       liveObjectPresent: (await deps.documentStorage.get(liveKey)) !== null,
     }).toEqual({
       commitRefused: true,
       authorityRows: 0,
+      janitorFailures: 0,
       stragglersDestroyed: 0,
       liveObjectPresent: true,
     });
