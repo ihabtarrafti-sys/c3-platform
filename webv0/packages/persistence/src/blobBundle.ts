@@ -225,6 +225,24 @@ export interface TombstoneSweepResult {
 export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, tenantId: string): Promise<TombstoneSweepResult> {
   const prefixes = tenantBlobPrefixes(tenantId);
 
+  const assertNoPreparedProducer = async (): Promise<void> => {
+    const livePrepared = await db.query<{ n: number; wait_seconds: number | null }>(
+      `SELECT count(*)::int AS n,
+              ceil(extract(epoch FROM (max(prepared_expires_at) - now())))::int AS wait_seconds
+         FROM blob_tombstone
+        WHERE tenant_ref = $1 AND state = 'prepared'`,
+      [tenantId],
+    );
+    const liveCount = Number(livePrepared.rows[0]?.n ?? 0);
+    if (liveCount > 0) {
+      const waitSeconds = Math.max(0, Number(livePrepared.rows[0]?.wait_seconds ?? 0));
+      throw new Error(
+        `Erasure sweep parked: ${liveCount} prepared upload intent(s) still protect producer state; ` +
+          `re-run after at most ${waitSeconds}s (the prepared TTL bound).`,
+      );
+    }
+  };
+
   // HARDEN-3.6 T1: Design B's producer predicate is load-bearing. Only an EXPIRED prepared
   // intent may be armed by exit. Any unexpired intent still represents a request that can
   // publish/register, so park before deleting or even listing tenant bytes; the operator reruns
@@ -234,21 +252,13 @@ export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, 
       WHERE tenant_ref = $1 AND state = 'prepared' AND prepared_expires_at < now()`,
     [tenantId],
   );
-  const livePrepared = await db.query<{ n: number; wait_seconds: number | null }>(
-    `SELECT count(*)::int AS n,
-            ceil(extract(epoch FROM (max(prepared_expires_at) - now())))::int AS wait_seconds
-       FROM blob_tombstone
-      WHERE tenant_ref = $1 AND state = 'prepared'`,
-    [tenantId],
-  );
-  const liveCount = Number(livePrepared.rows[0]?.n ?? 0);
-  if (liveCount > 0) {
-    const waitSeconds = Math.max(0, Number(livePrepared.rows[0]?.wait_seconds ?? 0));
-    throw new Error(
-      `Erasure sweep parked: ${liveCount} prepared upload intent(s) still protect producer state; ` +
-        `re-run after at most ${waitSeconds}s (the prepared TTL bound).`,
-    );
-  }
+  await assertNoPreparedProducer();
+
+  // HARDEN-3.7 U3: close the named census/use window. A producer inserted after the first
+  // census is observed here, immediately before the first storage enumeration/deletion, and
+  // parks the pass. This is deliberately a narrow re-census, not a claim of global SQL/storage
+  // serialization; finalize's unswept-row interlock remains authoritative afterwards.
+  await assertNoPreparedProducer();
 
   const deletedObjects: string[] = [];
   for (const prefix of prefixes) {
@@ -269,8 +279,14 @@ export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, 
   let stillPending = 0;
   for (const row of pending.rows) {
     if ((await reader.get(row.storage_key)) === null) {
-      await db.query(`UPDATE blob_tombstone SET state = 'swept', deleted_at = now(), attempts = attempts + 1 WHERE id = $1 AND state = 'armed'`, [row.id]);
-      verified += 1;
+      const marked = await db.query<{ id: string }>(
+        `UPDATE blob_tombstone
+            SET state = 'swept', deleted_at = now(), attempts = attempts + 1
+          WHERE id = $1 AND state = 'armed'
+        RETURNING id`,
+        [row.id],
+      );
+      if (marked.rows.length === 1) verified += 1;
     } else {
       await db.query(`UPDATE blob_tombstone SET attempts = attempts + 1, last_error = $2 WHERE id = $1`, [
         row.id,
