@@ -46,4 +46,3 @@ GRANT SELECT ON erased_tenant_prefix TO c3_app;
 GRANT UPDATE (last_swept_at, last_result, straggler_count)
   ON erased_tenant_prefix TO c3_app;
 GRANT SELECT ON erased_tenant_prefix TO c3_backup;
-

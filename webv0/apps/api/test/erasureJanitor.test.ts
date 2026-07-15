@@ -355,9 +355,15 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     };
     const first = runErasureJanitorPass(deps.persistence.pool, storage, deps.logger, 'interval');
     await locked;
-    const second = await runErasureJanitorPass(deps.persistence.pool, storage, deps.logger, 'interval');
+    let second;
+    try {
+      second = await runErasureJanitorPass(deps.persistence.pool, storage, deps.logger, 'interval');
+    } finally {
+      // Release the owning pass even when a RED mutation makes the assertion
+      // below fail; the discriminator must never strand a pool client.
+      releaseLocked();
+    }
     expect(second).toMatchObject({ recordsSeen: 1, recordsSwept: 0, recordsSkipped: 1, stragglersDestroyed: 0 });
-    releaseLocked();
     expect(await first).toMatchObject({ recordsSeen: 1, recordsSwept: 1, recordsSkipped: 0, stragglersDestroyed: 1 });
     expect(objects.size).toBe(0);
     expect((await db.adminQuery<{ n: number }>(
