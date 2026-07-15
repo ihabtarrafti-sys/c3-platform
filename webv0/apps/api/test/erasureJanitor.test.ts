@@ -351,7 +351,7 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
       expect(bounded).toMatchObject({ kind: 'result', result: { incomplete: true } });
     } finally {
       releaseBlocked();
-      await first;
+      await Promise.all([first, second]);
     }
   });
 
