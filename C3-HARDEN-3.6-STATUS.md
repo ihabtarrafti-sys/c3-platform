@@ -1,7 +1,8 @@
 # C3 HARDEN-3.6 — Status
 
-**State:** Neural selected Option 1 and the revised T1 acceptance is built. Full finish-line
-verification is in progress. No round-8-ready claim is made.
+**State:** Neural selected Option 1, the revised T1 acceptance is built, and local finish-line
+verification is complete. Final push and remote equality follow this status commit. No
+round-8-ready claim is made.
 
 ## Item map
 
@@ -15,7 +16,7 @@ verification is in progress. No round-8-ready claim is made.
 | T6 | Built + hook-path and causal GREEN/RED proofs | `webv0/apps/api/test/uploadLease.test.ts`; `webv0/apps/api/test/deadlineCausality.test.ts` |
 | T7 | Built + exact-SQL GREEN/RED proof | `webv0/apps/backup/src/adapters.ts`; `webv0/docs/runbooks/R4-N09-lock-queue-ceremony.md`; `webv0/packages/persistence/test/db.test.ts` |
 | T8 | Built + GREEN/RED proof | `webv0/packages/persistence/src/migrate.ts`; `webv0/packages/persistence/test/db.test.ts` |
-| T9 | Written; final run totals pending | corrections in `C3-HARDEN-3.6-EVIDENCE.md` |
+| T9 | Written + final verification recorded | corrections in `C3-HARDEN-3.6-EVIDENCE.md`; this verification record |
 
 ## Commit map
 
@@ -23,6 +24,7 @@ verification is in progress. No round-8-ready claim is made.
 - `f513a56` — `HARDEN-3.6 T1 (R7-N01): park exit on live prepared producers`, implementing Neural's Option-1 ruling.
 - `d604d4e` — `HARDEN-3.6 T1 (R7-N01): bound post-deadline cleanup`, the transparent follow-up closing the pre-aborted R2 DELETE gap found while falsifying the evidence claim.
 - `3c88a9b` — `HARDEN-3.6 T9 (R7 evidence): correct global claims and narratives`.
+- `277331b` — `HARDEN-3.6 T6 (R7-N07): prove client-abort timer cleanup`.
 - The final evidence/verification commit is created after gate ×2 and e2e; its hash is therefore reported in the final handoff rather than predicted here.
 
 ## Migration map
@@ -35,7 +37,9 @@ verification is in progress. No round-8-ready claim is made.
 - T1 bounded-cleanup GREEN: focused composed route 1/1. Cleanup RED: returning the original aborted signal left one tenant key while registered rows remained zero; restored.
 - T6 client-abort hook RED: with only the production `onRequestAbort` hook removed, the later real-hook probe observed the exact request timer but `clearedInsideAbortHook` was false; restored GREEN.
 - Final complete focused set: GREEN, 7 files / 110 tests in 277.99s (`exitUploadSafety`, `uploadLease`, `claimDeadline`, `deadlineCausality`, `storageTimeout`, full `db.test`, `coherentFlow`).
-- Required full gate ×2 and e2e: pending; results are recorded only after execution.
+- `npm run gate` pass 1: GREEN / `webv0 gate: PASSED`; 569 tracked files passed the NUL/truncation audit, all 9 typecheck projects passed, 111 test files / 879 tests passed (Vitest 1328.98s; command wall 1431.5s), and 16 emitted production-bundle files passed the dev-auth exclusion check.
+- `npm run gate` pass 2: GREEN / `webv0 gate: PASSED`; the same 569-file audit, all 9 typecheck projects, 111 test files / 879 tests (Vitest 1203.32s; command wall 1301.6s), and 16-file production-bundle check passed independently.
+- `npm run e2e`: GREEN, 25/25 Playwright tests in 11.1m (command wall 672.1s), including the protected `webv0/apps/web/e2e/addPerson.spec.ts` unchanged.
 
 ## Cost envelopes
 
