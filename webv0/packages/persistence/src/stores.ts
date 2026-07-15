@@ -6,7 +6,7 @@ import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
 import { IntakeLinkUnavailableError } from '@c3web/domain';
-import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, PayableClaimRow, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTx } from '@c3web/application';
+import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, PayableClaimRow, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTransactionOptions, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx } from './tenantContext';
 import { makeWriteTx } from './writeTx';
@@ -20,6 +20,11 @@ export interface PersistenceConfig {
   readonly appConnectionString: string;
   /** Optional pool tuning. */
   readonly max?: number;
+  /**
+   * HARDEN-3.7 U4: maximum wait for a new connection or a saturated-pool checkout.
+   * Production defaults to 10s, below the API's supported 30s minimum request deadline.
+   */
+  readonly poolCheckoutTimeoutMs?: number;
   /**
    * TEST-ONLY: force write transactions to a stricter isolation level. Production runs at
    * READ COMMITTED (the default). A test sets 'REPEATABLE READ' to reproduce the composed
@@ -40,6 +45,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
   const pool = new Pool({
     connectionString: config.appConnectionString,
     max: config.max ?? 10,
+    connectionTimeoutMillis: config.poolCheckoutTimeoutMs ?? 10_000,
     options: '-c client_encoding=UTF8',
   });
 
@@ -861,7 +867,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
   };
 
   const writes: WriteStore = {
-    transaction<T>(actor: Actor, fn: (tx: WriteTx) => Promise<T>): Promise<T> {
+    transaction<T>(actor: Actor, fn: (tx: WriteTx) => Promise<T>, options?: WriteTransactionOptions): Promise<T> {
       return withTenantTx(
         pool,
         actor,
@@ -871,6 +877,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           return fn(tx);
         },
         config.writeIsolation,
+        options?.signal,
       );
     },
   };

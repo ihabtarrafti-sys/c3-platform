@@ -23,6 +23,7 @@ export async function withTenantTx<T>(
   mode: 'read' | 'write',
   fn: (db: Db, client: PoolClient) => Promise<T>,
   writeIsolation?: 'REPEATABLE READ',
+  signal?: AbortSignal,
 ): Promise<T> {
   const tenantId = actor?.tenantId;
   if (!tenantId || !UUID_RE.test(tenantId)) {
@@ -30,23 +31,33 @@ export async function withTenantTx<T>(
     throw new TenantContextMissingError();
   }
 
+  // HARDEN-3.7 U4: never join the checkout queue after the caller has expired. A signal that
+  // fires while queued is checked again immediately after the bounded pool checkout.
+  signal?.throwIfAborted();
   const client = await pool.connect();
+  let transactionStarted = false;
   try {
+    signal?.throwIfAborted();
     // R5-N06 (test-only): a write tx may run at a stricter isolation to reproduce the composed
     // serialization race. Production writes are READ COMMITTED; reads are READ ONLY.
     const begin = mode === 'read' ? 'BEGIN READ ONLY' : writeIsolation === 'REPEATABLE READ' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN';
     await client.query(begin);
+    transactionStarted = true;
+    signal?.throwIfAborted();
     // is_local = true → transaction-scoped, auto-reset at COMMIT/ROLLBACK.
     await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
     const db = drizzle(client, { schema });
+    signal?.throwIfAborted();
     const result = await fn(db, client);
     await client.query('COMMIT');
     return result;
   } catch (err) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {
-      /* ignore rollback failure */
+    if (transactionStarted) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        /* ignore rollback failure */
+      }
     }
     throw err;
   } finally {

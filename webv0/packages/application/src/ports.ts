@@ -1123,9 +1123,18 @@ export interface WriteTx {
   deactivateAgreementTerm(termId: string, expectedVersion: number): Promise<AgreementTerm | null>;
 }
 
+export interface WriteTransactionOptions {
+  /**
+   * Optional caller lifetime gate. Concrete stores must check it before checkout and again
+   * after checkout/BEGIN, before invoking the write callback. It is deliberately opt-in:
+   * post-abort compensation writes must remain able to arm durable cleanup state.
+   */
+  readonly signal?: AbortSignal;
+}
+
 export interface WriteStore {
   /** Run fn in ONE tenant-bound transaction; commit on resolve, rollback on throw. */
-  transaction<T>(actor: Actor, fn: (tx: WriteTx) => Promise<T>): Promise<T>;
+  transaction<T>(actor: Actor, fn: (tx: WriteTx) => Promise<T>, options?: WriteTransactionOptions): Promise<T>;
 }
 
 /** A tenant-scoped read store factory (opens a read-only tenant-bound tx). */
@@ -1187,12 +1196,14 @@ export interface GuestIntakePort {
    * SECURITY DEFINER gateway). NULL = refused (unknown token, non-Active link, or Exiting
    * tenant — the acquire takes the tenant lock FIRST, so it serializes against Phase-0).
    * The exit ceremony's data phase drains a tenant's unexpired leases to zero before it
-   * enumerates and sweeps, so a request mid-upload can never land bytes after the sweep.
+   * enumerates and sweeps, so the local request cannot stay active across that sweep. This does
+   * not bound a provider-side publication after local abort/lease expiry.
    */
   acquireUploadLease(tokenHash: string, ttlMs: number): Promise<string | null>;
   /**
    * Release only after the handler observes a successfully committed claim. A failed/aborted
-   * upload keeps this publication fence until its bounded TTL expires; idempotent on success.
+   * upload retains the lease through its configured TTL; idempotent on success. The TTL is not
+   * represented as a maximum provider-publication latency.
    */
   releaseUploadLease(leaseId: string): Promise<void>;
 }

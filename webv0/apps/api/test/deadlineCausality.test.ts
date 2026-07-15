@@ -14,3 +14,28 @@ describe('HARDEN-3.6 T6 — causal deadline mapping', () => {
     expect(errorCausedBy(validation, reason)).toBe(false);
   });
 });
+
+describe('HARDEN-3.7 U7 — cause traversal is cycle-safe and depth-bounded', () => {
+  const wrappedAtDepth = (reason: Error, depth: number): Error => {
+    let current = reason;
+    for (let i = 0; i < depth; i += 1) current = new Error(`wrapper-${i}`, { cause: current });
+    return current;
+  };
+
+  it('still recognizes a reason exactly 32 cause edges deep', () => {
+    const reason = new Error('deadline');
+    expect(errorCausedBy(wrappedAtDepth(reason, 32), reason)).toBe(true);
+  });
+
+  it('never follows a 33rd cause edge', () => {
+    const reason = new Error('deadline');
+    // RED: the old unbounded traversal returns true for this chain.
+    expect(errorCausedBy(wrappedAtDepth(reason, 33), reason)).toBe(false);
+  });
+
+  it('terminates on a cycle without finding an unrelated reason', () => {
+    const cyclic = new Error('cycle') as Error & { cause?: unknown };
+    cyclic.cause = cyclic;
+    expect(errorCausedBy(cyclic, new Error('other'))).toBe(false);
+  });
+});

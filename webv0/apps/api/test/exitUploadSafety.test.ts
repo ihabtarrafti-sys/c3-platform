@@ -219,8 +219,8 @@ beforeAll(async () => {
     DOCUMENTS_DIR: mkdtempSync(join(tmpdir(), 'c3-exit-upload-')),
   } as NodeJS.ProcessEnv);
   deps = buildDeps(env, createLogger(env));
-  // Short deadline, deliberately longer lease: the fake remote commit lands after local abort
-  // but before the 6s publication fence expires.
+  // Short deadline, deliberately longer lease: this favorable fake schedule lands its remote
+  // commit after local abort but before the finite 6s lease expires.
   app = buildApp({
     ...deps,
     documentStorage: storage,
@@ -331,7 +331,7 @@ describe('HARDEN-3.6 T1 — exit never consumes an unexpired staff producer', ()
   }, 30_000);
 });
 
-describe('HARDEN-3.6 T2 — the lease outlives indeterminate remote completion', () => {
+describe('HARDEN-3.6 T2 — favorable schedule: delayed publication precedes lease expiry', () => {
   it('retains the failed-upload lease; delayed publication lands before exit sweep and is erased before finalize', async () => {
     const { tenantId, token } = await stageGuest('t2delay');
     armIndeterminateCommit();

@@ -5,10 +5,11 @@
  *      requestTimeout × 2 ≤ leaseTtl (Fastify's requestTimeout defaults to 0 = unlimited);
  *   2. the REAL edge — with a short config (requestTimeout 2s / lease TTL 6s), a multipart
  *      upload that stalls mid-stream is ABORTED by the server before the lease could expire,
- *      and no bytes are retained.
+ *      and the local filesystem seam publishes no bytes.
  */
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createConnection, type Socket } from 'node:net';
+import { createServer, type Server as HttpServer } from 'node:http';
 import { readdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +19,7 @@ import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
 import { buildDeps, type Deps } from '../src/deps';
 import { buildApp } from '../src/app';
+import { createDocumentStorage } from '../src/storage';
 
 let db: TestDatabase;
 let deps: Deps;
@@ -235,13 +237,14 @@ describe('R5-N01: a stalled multipart upload is aborted before the lease can exp
 // HARDEN-3.5 A — round-6 §4.1, THE open schedule: the body arrives COMPLETE inside the receive
 // window, then the STORAGE PUT stalls. Before this wave nothing bounded post-receipt work — the
 // handler could resume after lease expiry + sweep + finalize and publish. Now the request-scoped
-// deadline's AbortSignal rides every byte-producing operation: the stalled PUT is ABORTED at the
-// deadline, the route answers an honest 408, nothing is retained, the claim never runs, and the
-// lease is retained to TTL so a later remote completion remains fenced from exit.
+// deadline's AbortSignal rides every byte-producing operation. On this local seam the stalled PUT
+// rejects at the deadline, the route answers an honest 408, no file is published, the claim never
+// runs, and the lease remains live until TTL. This does not bound remote publication after TTL.
 describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stalls is aborted by the deadline', () => {
   let app: FastifyInstance;
   let token: string;
   let stallArmed = false;
+  let rejectUnrelatedAfterAbort = false;
 
   beforeAll(async () => {
     await db.truncateAll();
@@ -254,7 +257,11 @@ describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stall
       put: (key, body, contentType, opts) => {
         if (!stallArmed) return deps.documentStorage.put(key, body, contentType, opts);
         return new Promise<void>((_resolve, reject) => {
-          const abort = () => reject((opts?.signal?.reason as Error) ?? new Error('aborted'));
+          const abort = () => reject(
+            rejectUnrelatedAfterAbort
+              ? Object.assign(new Error('unrelated storage validation failed after abort'), { statusCode: 422, code: 'UNRELATED_STORAGE_ERROR' })
+              : ((opts?.signal?.reason as Error) ?? new Error('aborted')),
+          );
           if (opts?.signal?.aborted) return abort();
           opts?.signal?.addEventListener('abort', abort);
         });
@@ -273,7 +280,7 @@ describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stall
     await app?.close();
   });
 
-  it('the PUT is ABORTED by the deadline signal: honest 408, nothing retained, no claim, lease retained to TTL', async () => {
+  it('the PUT is ABORTED by the deadline signal: honest 408, local seam publishes nothing, no claim, lease retained to TTL', async () => {
     const before = blobCount(blobDir);
     stallArmed = true;
     const form = new FormData();
@@ -294,15 +301,181 @@ describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stall
     // Aborted at ~deadline (1.5s): decisively after arming, decisively before the 3s lease TTL.
     expect(reply.statusCode, reply.body).toBe(408);
     expect(reply.json().error.code).toBe('REQUEST_DEADLINE_EXCEEDED');
+    expect(reply.json().error.message).not.toContain('Nothing was kept');
     expect(elapsed).toBeGreaterThan(1_200);
     expect(elapsed).toBeLessThan(3_000);
-    // Nothing was retained (the aborted PUT published nothing) and NO submission was claimed.
+    // The local seam published nothing and NO submission was claimed.
     expect(blobCount(blobDir)).toBe(before);
     const subs = await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM intake_submission`);
     expect(Number(subs[0]!.n)).toBe(0);
-    // HARDEN-3.6 T2: local PUT rejection is remotely ambiguous, so failure retains the live
-    // lease as a publication fence until TTL expiry. Only a committed claim releases early.
+    // HARDEN-3.6 T2: local PUT rejection is remotely ambiguous, so failure retains finite cleanup
+    // authority until TTL expiry. Only a committed claim releases early; TTL is not a publication bound.
     const leases = await db.adminQuery<{ n: string }>(`SELECT count(*) AS n FROM intake_upload_lease WHERE expires_at > now()`);
     expect(Number(leases[0]!.n)).toBe(1);
   }, 20_000);
+
+  it('HARDEN-3.7 U6: an unrelated PUT error after abort preserves its own 422/code', async () => {
+    stallArmed = true;
+    rejectUnrelatedAfterAbort = true;
+    const form = new FormData();
+    form.append('payload', JSON.stringify({ fullName: 'Unrelated Error', email: 'unrelated@x.com' }));
+    form.append('file', new Blob([Buffer.from('%PDF-1.4 unrelated')], { type: 'application/pdf' }), 'unrelated.pdf');
+    try {
+      const res = await app.inject({ method: 'POST', url: `/api/v1/intake/public/${token}`, body: form as never });
+      // RED: the old guest catch looked only at signal.aborted and relabelled this as 408.
+      expect(res.statusCode, res.body).toBe(422);
+      expect(res.json().error.code).toBe('UNRELATED_STORAGE_ERROR');
+    } finally {
+      stallArmed = false;
+      rejectUnrelatedAfterAbort = false;
+    }
+  }, 20_000);
+});
+
+describe('HARDEN-3.7 U2 — client disconnect aborts a production R2 PUT', () => {
+  let app: FastifyInstance;
+  let appPort: number;
+  let r2: HttpServer;
+  let token: string;
+  let publicToken: string;
+  let observeAbort: ((req: FastifyRequest) => void) | null = null;
+  let putStarted: Promise<void>;
+  let markPutStarted: () => void;
+  let putSocketClosed: Promise<void>;
+  let markPutSocketClosed: () => void;
+  let activePutSocket: Socket | null = null;
+
+  beforeAll(async () => {
+    await db.truncateAll();
+    const tenant = await db.seedTenant({
+      slug: 'u2-r2-abort',
+      users: [{ key: 'ops', email: 'ops@u2.test', displayName: 'Ops', role: 'operations' }],
+    });
+    await db.adminQuery(
+      `INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1, 'PER-U2', 'U2 Target')`,
+      [tenant.tenantId],
+    );
+
+    putStarted = new Promise<void>((resolve) => { markPutStarted = resolve; });
+    putSocketClosed = new Promise<void>((resolve) => { markPutSocketClosed = resolve; });
+    r2 = createServer((req, res) => {
+      if (req.method === 'PUT') {
+        markPutStarted();
+        activePutSocket = req.socket;
+        req.socket.once('close', () => markPutSocketClosed());
+        req.resume();
+        // Deliberately never answer: only the production SDK abortSignal can cancel this PUT.
+        return;
+      }
+      if (req.method === 'DELETE') {
+        req.resume();
+        res.writeHead(204).end();
+        return;
+      }
+      req.resume();
+      res.writeHead(404, { 'content-type': 'application/xml' }).end('<Error><Code>NoSuchKey</Code></Error>');
+    });
+    await new Promise<void>((resolve, reject) => {
+      r2.once('error', reject);
+      r2.listen(0, '127.0.0.1', resolve);
+    });
+    const r2Port = (r2.address() as { port: number }).port;
+    const r2Storage = createDocumentStorage({
+      driver: 'r2',
+      endpoint: `http://127.0.0.1:${r2Port}`,
+      accessKeyId: 'u2-access',
+      secretAccessKey: 'u2-secret',
+      bucket: 'documents',
+    });
+    app = buildApp({
+      ...deps,
+      documentStorage: r2Storage,
+      requestTimeoutMs: 5_000,
+      deadlineMs: 10_000,
+      leaseTtlMs: 20_000,
+      connectionsCheckingIntervalMs: 100,
+    });
+    app.addHook('onRequestAbort', async (req) => observeAbort?.(req));
+    await app.ready();
+    await app.listen({ port: 0, host: '127.0.0.1' });
+    appPort = (app.server.address() as { port: number }).port;
+    const login = await app.inject({
+      method: 'POST',
+      url: '/api/v1/dev/login',
+      payload: { email: 'ops@u2.test', displayName: 'Ops', role: 'operations', tenantSlug: 'u2-r2-abort' },
+    });
+    token = login.json().token as string;
+    const link = await app.inject({
+      method: 'POST',
+      url: '/api/v1/intake/links',
+      headers: { authorization: `Bearer ${token}` },
+      payload: { kind: 'Onboarding', label: 'U2 real R2 abort' },
+    });
+    expect(link.statusCode, link.body).toBe(201);
+    publicToken = link.json().token as string;
+  }, 60_000);
+
+  afterAll(async () => {
+    await app?.close();
+    await new Promise<void>((resolve) => r2?.close(() => resolve()));
+  });
+
+  it('aborts the request signal first and closes the real outbound SDK socket', async () => {
+    let abortSnapshot: { aborted: boolean; reason: string } | null = null;
+    observeAbort = (req) => {
+      const signal = (req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal;
+      abortSnapshot = { aborted: signal?.aborted === true, reason: String(signal?.reason ?? '') };
+    };
+    const socket: Socket = createConnection({ port: appPort, host: '127.0.0.1' });
+    socket.on('error', () => {});
+    try {
+      await new Promise<void>((resolve, reject) => {
+        socket.once('connect', resolve);
+        socket.once('error', reject);
+      });
+      const boundary = '----c3u2realr2';
+      // Complete the first guest file part (the route stores files as they stream), then begin
+      // the payload part and leave it open. The production PutObject is active while the inbound
+      // multipart request is still abortable.
+      const body =
+        `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="file"; filename="u2.pdf"\r\n' +
+        'Content-Type: application/pdf\r\n\r\n' +
+        '%PDF-1.4\n%c3 u2 real driver\n%%EOF\n' +
+        `\r\n--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="payload"\r\n\r\n' +
+        '{"fullName":"still incoming';
+      socket.write(
+        `POST /api/v1/intake/public/${publicToken} HTTP/1.1\r\n` +
+        `Host: 127.0.0.1:${appPort}\r\n` +
+        `Content-Type: multipart/form-data; boundary=${boundary}\r\n` +
+        `Content-Length: ${Buffer.byteLength(body, 'binary') + 1000}\r\n` +
+        'Connection: close\r\n\r\n',
+        'ascii',
+      );
+      socket.write(body, 'binary');
+      await Promise.race([
+        putStarted,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('production R2 PUT never started')), 4_000)),
+      ]);
+
+      socket.destroy();
+      await vi.waitFor(() => expect(abortSnapshot).not.toBeNull(), { timeout: 2_000, interval: 20 });
+      expect(abortSnapshot).toMatchObject({ aborted: true });
+      expect(abortSnapshot!.reason).toContain('CLIENT_DISCONNECTED');
+      await Promise.race([
+        putSocketClosed,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('outbound R2 PUT socket stayed open after client disconnect')), 2_000)),
+      ]);
+      // RED: the old onRequestAbort hook only cleared the timer; signal=false and this outbound
+      // socket remained live until the SDK's much longer request timeout.
+    } finally {
+      observeAbort = null;
+      socket.destroy();
+      // RED runs deliberately detach production cancellation. Close the local test peer so the
+      // SDK request and Fastify handler cannot outlive the discriminator process.
+      activePutSocket?.destroy();
+      activePutSocket = null;
+    }
+  }, 15_000);
 });

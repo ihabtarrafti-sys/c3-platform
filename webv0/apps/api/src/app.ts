@@ -402,12 +402,17 @@ export function errorCausedBy(error: unknown, reason: unknown): boolean {
   if (reason === undefined) return false;
   let current: unknown = error;
   const seen = new Set<unknown>();
+  let traversedCauseEdges = 0;
   while (current !== null && current !== undefined && !seen.has(current)) {
     if (current === reason) return true;
+    // HARDEN-3.7 U7: hostile error graphs must not make error mapping perform unbounded work.
+    // The node at exactly 32 cause edges is still inspected; a 33rd edge is never followed.
+    if (traversedCauseEdges >= 32) return false;
     seen.add(current);
     current = typeof current === 'object' && 'cause' in current
       ? (current as { cause?: unknown }).cause
       : undefined;
+    traversedCauseEdges += 1;
   }
   return false;
 }
@@ -425,11 +430,10 @@ export function buildApp(deps: Deps): FastifyInstance {
   //                      every byte-producing operation (each storage PUT carries the signal);
   //   leaseTtlMs       — the intake upload-lease TTL (DB-capped at 2h by 0075).
   // Boot algebra (REFUSE TO BOOT on violation): 0 < receive ≤ deadline; deadline×2 ≤ lease ≤ 2h.
-  // Then publication after lease expiry is impossible by arithmetic: the lease outlives the
-  // deadline by ≥ one FULL deadline, dwarfing abort/detection slop (≤ seconds), so the exit's
-  // expired-leases-are-dead rule (exitTenant.ts) is a theorem, not an assumption. All three are
-  // env-configurable (R6-N05: REQUEST_RECEIVE_TIMEOUT_MS / REQUEST_DEADLINE_MS /
-  // INTAKE_LEASE_TTL_MS); tests shrink them.
+  // This algebra bounds the LOCAL request and keeps its DB lease alive for at least one further
+  // deadline interval. It does not manufacture an R2 maximum: a locally rejected PUT can still
+  // publish after lease expiry. All three are env-configurable (R6-N05:
+  // REQUEST_RECEIVE_TIMEOUT_MS / REQUEST_DEADLINE_MS / INTAKE_LEASE_TTL_MS); tests shrink them.
   const requestTimeoutMs = deps.requestTimeoutMs ?? 300_000; // 5 min receive
   const deadlineMs = deps.deadlineMs ?? 420_000; // 7 min whole-request deadline
   const leaseTtlMs = deps.leaseTtlMs ?? 900_000; // 15 min (matches the historical 0069 default)
@@ -483,12 +487,14 @@ export function buildApp(deps: Deps): FastifyInstance {
 
   // HARDEN-3.5 A: ONE request-scoped deadline gates byte/storage work and claim entry. Armed
   // at arrival with our OWN timer; its signal is threaded into every byte-producing operation.
-  // Once fired, every later/in-flight PUT carries the aborted signal; indeterminate remote
-  // completion remains covered by compensation and, for guest intake, the retained lease.
+  // Once fired, every later/in-flight PUT carries the aborted signal. A local rejection does not
+  // prove remote non-publication; compensation and the guest lease retain finite cleanup authority.
   app.decorateRequest('deadlineSignal', undefined);
+  app.decorateRequest('deadlineController', undefined);
   app.decorateRequest('deadlineTimer', undefined);
   app.addHook('onRequest', async (req) => {
     const controller = new AbortController();
+    (req as unknown as { deadlineController: AbortController }).deadlineController = controller;
     (req as unknown as { deadlineSignal: AbortSignal }).deadlineSignal = controller.signal;
     (req as unknown as { deadlineTimer: NodeJS.Timeout }).deadlineTimer = setTimeout(() => {
       controller.abort(new Error(`REQUEST_DEADLINE_EXCEEDED: the request exceeded its ${deadlineMs}ms deadline`));
@@ -500,7 +506,16 @@ export function buildApp(deps: Deps): FastifyInstance {
   };
   app.addHook('onResponse', clearDeadline);
   app.addHook('onError', clearDeadline);
-  app.addHook('onRequestAbort', clearDeadline);
+  app.addHook('onRequestAbort', async (req) => {
+    // HARDEN-3.7 U2: clearing the timer is not cancellation. A peer disconnect aborts the
+    // same signal carried by active storage work. AbortController preserves an earlier
+    // deadline reason, so a disconnect cannot overwrite the causal first failure.
+    const controller = (req as unknown as { deadlineController?: AbortController }).deadlineController;
+    if (controller && !controller.signal.aborted) {
+      controller.abort(new Error('CLIENT_DISCONNECTED: the request peer disconnected'));
+    }
+    await clearDeadline(req);
+  });
   // The three timing values are a boot-visible decision (the deploy ceremony asserts them).
   deps.logger.info({ receiveTimeoutMs: requestTimeoutMs, deadlineMs, leaseTtlMs }, 'upload-timing algebra validated');
 
@@ -671,6 +686,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     try {
       await P.writes.transaction(actorOf(req), (tx) =>
         tx.insertBlobTombstone({ storageKey, blobClass, reason: 'compensation', state: 'prepared', preparedTtlMs }),
+        { signal: deadlineOf(req) },
       );
       return true;
     } catch (e) {
@@ -865,8 +881,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       if (!(await preRegisterCompensation(storageKey, 'photo', req))) {
         return sendError(req, reply, 500, 'STORAGE_UNAVAILABLE', 'Could not prepare storage for the upload. Please retry.');
       }
-      await deps.documentStorage.put(storageKey, body, contentType, { signal: deadlineOf(req) });
       try {
+        await deps.documentStorage.put(storageKey, body, contentType, { signal: deadlineOf(req) });
         const person = await setPersonPhoto(P, actor, personId, { storageKey, contentType, sha256 });
         return reply.status(200).send({ person: toPersonDto(person, piiOf(req)) });
       } catch (err) {
@@ -1665,8 +1681,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       if (!(await preRegisterCompensation(storageKey, 'document', req))) {
         return sendError(req, reply, 500, 'STORAGE_UNAVAILABLE', 'Could not prepare storage for the upload. Please retry.');
       }
-      await deps.documentStorage.put(storageKey, body, contentType, { signal: deadlineOf(req) });
       try {
+        await deps.documentStorage.put(storageKey, body, contentType, { signal: deadlineOf(req) });
         const doc = await attachDocument(P, actor, {
           ownerType: fieldVal('ownerType') as DocumentOwnerType,
           ownerId: fieldVal('ownerId'),
@@ -1816,7 +1832,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
 
   // M-02: owner/ops-invocable drain of the rejected-intake wipe outbox. Resolves
   // tombstones left PENDING by an earlier storage failure WITHOUT waiting for the
-  // next rejection to retry them — so private bytes cannot linger indefinitely.
+  // next rejection to retry them. This is an on-demand retry door, not a coded cadence claim.
   // (assertManageIntake is enforced inside the use-case.)
   r.post(
     '/api/v1/intake/drain-wipes',
@@ -1846,8 +1862,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         if (!(await preRegisterCompensation(liveKey, 'document', req))) {
           throw new Error('Could not prepare storage for the attach.');
         }
-        await deps.documentStorage.put(liveKey, body, upload.contentType, { signal: deadlineOf(req) });
         try {
+          await deps.documentStorage.put(liveKey, body, upload.contentType, { signal: deadlineOf(req) });
           // B site 4: the attach tx ALSO arms the now-redundant quarantine copy — attach
           // commits ⟺ its cleanup is durable (no catch/log path can lose it anymore).
           await attachDocument(
@@ -1914,15 +1930,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const kind = peek.kind as IntakeKind;
       // R4-N01: register the in-flight upload BEFORE any byte is buffered/stored. The exit
       // ceremony's data phase drains a tenant's unexpired leases to zero before it enumerates
-      // and sweeps, so a request mid-upload can never land bytes after the sweep. A refused
+      // and sweeps, so the LOCAL handler cannot remain active across that sweep. A refused
       // acquire (link died / tenant Exiting since the peek) ends the request here, byte-free.
       const leaseId = await P.guest.acquireUploadLease(tokenHash, deps.leaseTtlMs ?? 900_000);
       if (!leaseId) {
         return sendError(req, reply, 410, 'INTAKE_LINK_UNAVAILABLE', 'This intake link is no longer available. Ask your contact for a fresh link.');
       }
       // HARDEN-3.6 T2: a rejected/aborted local PUT is not proof that the remote store will
-      // never publish. Only a committed claim closes that ambiguity; every other outcome keeps
-      // this lease as the publication fence until its bounded TTL expires.
+      // never publish. Only a committed claim closes the local ownership question; every other
+      // outcome retains the lease through its configured TTL, without claiming that TTL bounds
+      // the provider's publication latency.
       let claimCommitted = false;
       try { // NOTE: body intentionally not re-indented — the finally below conditionally releases the lease
       const submissionId = randomUUID();
@@ -1959,7 +1976,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
           // HARDEN-3.5 A: the request deadline dominates the whole loop — once it fires, no
           // further byte can be stored (remaining parts are drained + everything compensates).
           if (!failure && deadlineOf(req)?.aborted) {
-            failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline. Nothing was kept; please retry.' };
+            failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline; please retry.' };
           }
           if (failure) {
             if (part.type === 'file') await part.toBuffer().catch(() => {}); // drain
@@ -2003,11 +2020,13 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             try {
               await deps.documentStorage.put(storageKey, body, part.mimetype, { signal: deadlineOf(req) });
             } catch (putErr) {
-              // A deadline abort mid-PUT rejects the local operation; the byte remains covered by
-              // its armed intent and the retained failure lease until remote ambiguity is closed.
-              // Other PUT errors rethrow through the same compensation/fence path.
-              if (deadlineOf(req)?.aborted) {
-                failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline. Nothing was kept; please retry.' };
+              // A deadline abort mid-PUT rejects the local operation. Its intent is armed and the
+              // failure lease is retained through its configured TTL; neither fact is proof of
+              // provider non-publication after that TTL. Other PUT errors rethrow through the
+              // same compensation path.
+              const signal = deadlineOf(req);
+              if (signal?.aborted && errorCausedBy(putErr, signal.reason)) {
+                failure = { status: 408, code: 'REQUEST_DEADLINE_EXCEEDED', msg: 'The upload exceeded its processing deadline; please retry.' };
                 continue;
               }
               throw putErr;
@@ -2039,7 +2058,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       // HARDEN-3.5 A: never CLAIM past the deadline — a post-deadline claim would commit
       // ownership of bytes whose request is already condemned; compensate + 408 instead.
       if (deadlineOf(req)?.aborted) {
-        return fail(408, 'REQUEST_DEADLINE_EXCEEDED', 'The upload exceeded its processing deadline. Nothing was kept; please retry.');
+        return fail(408, 'REQUEST_DEADLINE_EXCEEDED', 'The upload exceeded its processing deadline; please retry.');
       }
       // A coarse, hashed fingerprint (IP + UA) for later abuse triage — never
       // raw PII, never used to widen access.
@@ -2055,9 +2074,9 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         throw err;
       }
       } finally {
-        // T2: release only after the claim COMMITTED. On every failure path the row expires
-        // naturally, keeping exit parked through the storage contract's indeterminate remote-
-        // commit window. A failed success-path release likewise self-heals at TTL expiry.
+        // T2: release only after the claim COMMITTED. On every failure path the row keeps exit
+        // parked until its finite TTL; the storage contract supplies no matching publication bound.
+        // A failed success-path release likewise self-heals at TTL expiry.
         if (claimCommitted) await P.guest.releaseUploadLease(leaseId).catch(() => {});
       }
     },
@@ -2533,13 +2552,17 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     const storageKey = `${actor.tenantId}/${randomUUID()}`;
     // B: pre-register the PREPARED intent BEFORE the PUT; refuse if it fails.
     try {
-      await P.writes.transaction(actor, (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs }));
+      await P.writes.transaction(
+        actor,
+        (tx) => tx.insertBlobTombstone({ storageKey, blobClass: 'document', reason: 'compensation', state: 'prepared', preparedTtlMs }),
+        { signal },
+      );
     } catch (e) {
       r.log.error({ storageKey, err: String(e) }, 'compensation pre-register failed — refusing the PDF artifact before storing bytes');
       throw new Error('Could not prepare storage for the invoice PDF.');
     }
-    await deps.documentStorage.put(storageKey, body, 'application/pdf', { signal });
     try {
+      await deps.documentStorage.put(storageKey, body, 'application/pdf', { signal });
       // B site 6 (R6-N08): registration + linkage + intent resolution commit ATOMICALLY.
       // A link failure (version conflict, anything) rolls the doc row back too — never a
       // committed document row pointing at bytes the catch below is about to delete.

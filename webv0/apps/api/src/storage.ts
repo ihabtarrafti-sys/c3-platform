@@ -30,7 +30,7 @@ export interface DocumentStorage {
   /**
    * HARDEN-3.5 A / HARDEN-3.6 T2: `opts.signal` is the request deadline and aborts the local
    * operation. A-2 uses SINGLE-SHOT PutObject (no multipart), but local rejection is not proof
-   * of remote non-publication after R2 received a full body; the upload lease fences that
+   * of remote non-publication after R2 received a full body; R2 publishes no maximum for that
    * indeterminate completion window.
    */
   put(key: string, body: Buffer, contentType: string, opts?: { signal?: AbortSignal }): Promise<void>;
@@ -60,7 +60,7 @@ function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): Docu
     async put(key, body, contentType, opts) {
       assertSafeKey(key);
       // A-2: single-shot PutObject (never lib-storage multipart). The signal aborts the local
-      // operation; T2's retained failure lease covers any indeterminate delayed remote commit.
+      // operation. The retained failure lease bounds local exit parking, not R2 publication.
       await s3.send(new PutObjectCommand({ Bucket: cfg.bucket, Key: key, Body: body, ContentType: contentType }), { abortSignal: opts?.signal });
     },
     async get(key, opts) {
