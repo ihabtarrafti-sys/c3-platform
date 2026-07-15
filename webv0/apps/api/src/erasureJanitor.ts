@@ -25,7 +25,7 @@ export interface ErasureJanitorResult {
   readonly recordsSkipped: number;
   readonly stragglersDestroyed: number;
   readonly failures: number;
-  /** True means at least one authority row was skipped/failed, so an owner must rerun. */
+  /** True means an owner must rerun: a row skipped/failed, or no fresh owner pass was performed. */
   readonly incomplete: boolean;
 }
 
