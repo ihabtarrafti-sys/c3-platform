@@ -71,7 +71,10 @@ describe('HARDEN-3.7 U4 — signal-gated pre-registration and bounded pool check
   });
 
   it('a saturated checkout fails within the configured bound and the pool remains usable', async () => {
-    const p = createPersistence({ appConnectionString: db.appUrl, max: 1, poolCheckoutTimeoutMs: 100 });
+    // pg-pool applies this same bound while establishing the holder's first physical
+    // connection. Keep enough setup headroom for the full parallel gate while still proving
+    // that a saturated checkout cannot consume the API's 30s request-deadline floor.
+    const p = createPersistence({ appConnectionString: db.appUrl, max: 1, poolCheckoutTimeoutMs: 2_000 });
     const holder = await p.pool.connect();
     let holderReleased = false;
     const started = Date.now();
@@ -82,13 +85,13 @@ describe('HARDEN-3.7 U4 — signal-gated pre-registration and bounded pool check
       );
       const outcome = await Promise.race([
         checkout,
-        new Promise<'still-pending'>((resolve) => setTimeout(() => resolve('still-pending'), 400)),
+        new Promise<'still-pending'>((resolve) => setTimeout(() => resolve('still-pending'), 6_000)),
       ]);
       expect(outcome).not.toBe('still-pending');
       expect(String((outcome as Error).message ?? outcome)).toMatch(/timeout exceeded when trying to connect/i);
       const elapsed = Date.now() - started;
-      expect(elapsed).toBeGreaterThanOrEqual(70);
-      expect(elapsed).toBeLessThan(1_000);
+      expect(elapsed).toBeGreaterThanOrEqual(1_500);
+      expect(elapsed).toBeLessThan(5_000);
       expect(p.pool.waitingCount).toBe(0);
       holder.release();
       holderReleased = true;
