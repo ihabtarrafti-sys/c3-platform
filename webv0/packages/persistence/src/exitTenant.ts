@@ -382,10 +382,18 @@ export async function finalizeTenantExit(
       }
     }
 
-    // Recompute the sole-user set from the still-present memberships, then remove
-    // the identity LAST, children first.
+    // Recompute the sole-user set from the still-present memberships, then arm the
+    // PERMANENT post-finalize janitor authority before removing identity. 0078 is
+    // deliberately FK-free and has no retirement path: this INSERT and the tenant
+    // DELETE commit or roll back together, so identity gone ⇔ janitor armed.
     const sole = await client.query<{ user_id: string }>(SOLE_USERS_SQL, [tenantId]);
     const soleIds = sole.rows.map((r) => r.user_id);
+    const [docPrefix, intakePrefix] = tenantBlobPrefixes(tenantId);
+    await client.query(
+      `INSERT INTO erased_tenant_prefix (tenant_ref, doc_prefix, intake_prefix)
+       VALUES ($1, $2, $3)`,
+      [tenantId, docPrefix, intakePrefix],
+    );
     // R4-N01: erase the held-back token→tenant attribution now — after the mandatory relist
     // above proved both prefixes empty (no in-flight upload can still need to be attributed).
     await client.query(`DELETE FROM intake_link WHERE tenant_id = $1`, [tenantId]);
@@ -396,12 +404,19 @@ export async function finalizeTenantExit(
     }
     await client.query(`DELETE FROM tenant WHERE id = $1`, [tenantId]);
 
-    // Post-check: identity is gone.
+    // Post-check: identity is gone AND the permanent authority survived with both
+    // canonical prefixes. Removing either side makes this transaction refuse.
     const tenantGone = (await count(client, `SELECT count(*)::int AS n FROM tenant WHERE id = $1`, [tenantId])) === 0;
     const membershipsGone = (await count(client, `SELECT count(*)::int AS n FROM tenant_membership WHERE tenant_id = $1`, [tenantId])) === 0;
     const usersGone = soleIds.length === 0 || (await count(client, `SELECT count(*)::int AS n FROM app_user WHERE id = ANY($1::uuid[])`, [soleIds])) === 0;
-    if (!tenantGone || !membershipsGone || !usersGone) {
-      throw new Error('Finalize post-check failed inside the transaction — rolling back (identity not removed).');
+    const authorityArmed = (await count(
+      client,
+      `SELECT count(*)::int AS n FROM erased_tenant_prefix
+        WHERE tenant_ref = $1 AND doc_prefix = $2 AND intake_prefix = $3`,
+      [tenantId, docPrefix, intakePrefix],
+    )) === 1;
+    if (!tenantGone || !membershipsGone || !usersGone || !authorityArmed) {
+      throw new Error('Finalize post-check failed inside the transaction — rolling back (identity and permanent janitor authority remain atomic).');
     }
     await client.query('COMMIT');
     return { removed: true, soleUsers: soleIds.length };

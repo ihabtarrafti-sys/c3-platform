@@ -17251,6 +17251,32 @@
       }
     },
     {
+      "method": "POST",
+      "url": "/api/v1/settings/erasure-janitor/run",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "failures": {
+              "t": "number"
+            },
+            "recordsSeen": {
+              "t": "number"
+            },
+            "recordsSkipped": {
+              "t": "number"
+            },
+            "recordsSwept": {
+              "t": "number"
+            },
+            "stragglersDestroyed": {
+              "t": "number"
+            }
+          }
+        }
+      }
+    },
+    {
       "method": "GET",
       "url": "/api/v1/settings/per-diem-presets",
       "response": {

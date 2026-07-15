@@ -9,6 +9,7 @@
  *     (DATABASE_ADMIN_URL) must NOT be given to a production API process.
  */
 import { z } from 'zod';
+import { DEFAULT_ERASURE_JANITOR_INTERVAL_MS, MAX_ERASURE_JANITOR_INTERVAL_MS } from './erasureJanitor';
 
 const rawSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -67,6 +68,9 @@ const rawSchema = z.object({
   REQUEST_DEADLINE_MS: z.coerce.number().int().min(30_000).max(3_600_000).optional(),
   /** Intake upload-lease TTL. Default 900000 (15 min). DB-capped at 2h by migration 0075. */
   INTAKE_LEASE_TTL_MS: z.coerce.number().int().min(60_000).max(7_200_000).optional(),
+  /** J′: permanent erased-prefix sweep cadence. Never slower than daily; tests shrink it. */
+  ERASURE_JANITOR_INTERVAL_MS: z.coerce.number().int().positive().max(MAX_ERASURE_JANITOR_INTERVAL_MS)
+    .default(DEFAULT_ERASURE_JANITOR_INTERVAL_MS),
 });
 
 export type Env = {
@@ -98,6 +102,8 @@ export type Env = {
   requestReceiveTimeoutMs: number | undefined;
   requestDeadlineMs: number | undefined;
   intakeLeaseTtlMs: number | undefined;
+  /** J′: API-process interval; schema caps it at one day. */
+  erasureJanitorIntervalMs: number;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -223,5 +229,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     requestReceiveTimeoutMs: e.REQUEST_RECEIVE_TIMEOUT_MS,
     requestDeadlineMs: e.REQUEST_DEADLINE_MS,
     intakeLeaseTtlMs: e.INTAKE_LEASE_TTL_MS,
+    erasureJanitorIntervalMs: e.ERASURE_JANITOR_INTERVAL_MS,
   };
 }

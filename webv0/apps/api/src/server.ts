@@ -9,6 +9,7 @@ import { loadEnv } from './env';
 import { createLogger } from './logger';
 import { buildDeps } from './deps';
 import { buildApp } from './app';
+import { createErasureJanitorScheduler } from './erasureJanitor';
 
 function loadDotenvIfPresent(): void {
   const path = join(process.cwd(), '.env');
@@ -31,9 +32,11 @@ async function main(): Promise<void> {
   const logger = createLogger(env);
   const deps = buildDeps(env, logger);
   const app = buildApp(deps);
+  const janitorScheduler = createErasureJanitorScheduler(deps.erasureJanitor, logger);
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'shutting down');
+    await janitorScheduler.close();
     await app.close();
     await deps.close();
     process.exit(0);
@@ -41,6 +44,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
+  // J′: catch any publication that landed during downtime BEFORE accepting new
+  // traffic, then retain a daily-or-faster in-process cadence until shutdown.
+  await janitorScheduler.start();
   await app.listen({ port: env.port, host: '0.0.0.0' });
   logger.info({ port: env.port, authProvider: env.authProvider }, 'C3 Web V0 API listening');
 }

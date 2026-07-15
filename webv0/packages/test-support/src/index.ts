@@ -269,7 +269,7 @@ export async function startTestDatabase(): Promise<TestDatabase> {
       await adminQuery(`BEGIN;
         SET LOCAL session_replication_role = 'replica';
         TRUNCATE
-          audit_event, approval_event, person, approval, business_id_counter,
+          erased_tenant_prefix, audit_event, approval_event, person, approval, business_id_counter,
           role_assignment, tenant_membership, external_identity, app_user, tenant RESTART IDENTITY CASCADE;
         COMMIT`);
     },

@@ -96,6 +96,9 @@ const storage: DocumentStorage = {
     const value = objects.get(key);
     return value ? Buffer.from(value) : null;
   },
+  async listKeys(prefix) {
+    return [...objects.keys()].filter((key) => key.startsWith(prefix)).sort();
+  },
   async delete(key, opts) {
     if (!opts?.signal || opts.signal.aborted) {
       throw opts?.signal?.reason instanceof Error ? opts.signal.reason : new Error('cleanup requires a live signal');

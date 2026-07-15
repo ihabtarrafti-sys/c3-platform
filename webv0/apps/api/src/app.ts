@@ -213,7 +213,7 @@ import {
   versionedRequestSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { DOCUMENT_MAX_BYTES, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
+import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
 import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations, assertManageEntities } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
@@ -2180,6 +2180,33 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     assertManageDelegations(actorOf(req)); // owner-only, same standing as delegations
     return deps.backupStatus();
   });
+
+  // HARDEN-3.7 J′: owner drill/manual invocation of the SAME permanent-prefix
+  // pass used by API boot and the daily interval. It returns aggregates only;
+  // dead tenant identifiers/prefixes never cross the response boundary.
+  r.post(
+    '/api/v1/settings/erasure-janitor/run',
+    {
+      schema: {
+        response: {
+          200: z.object({
+            recordsSeen: z.number().int().nonnegative(),
+            recordsSwept: z.number().int().nonnegative(),
+            recordsSkipped: z.number().int().nonnegative(),
+            stragglersDestroyed: z.number().int().nonnegative(),
+            failures: z.number().int().nonnegative(),
+          }),
+        },
+      },
+    },
+    async (req) => {
+      const actor = actorOf(req);
+      if (actor.role !== 'owner') {
+        throw new ForbiddenError('Only an owner may invoke the post-finalize erasure janitor.', { role: actor.role });
+      }
+      return deps.erasureJanitor.run('owner');
+    },
+  );
 
   // ── per-diem presets (HARDEN-2: the S2 rider) — owner/ops quick-pick config ─
   r.get('/api/v1/settings/per-diem-presets', { schema: { response: { 200: perDiemPresetsResponseSchema } } }, async (req) => {

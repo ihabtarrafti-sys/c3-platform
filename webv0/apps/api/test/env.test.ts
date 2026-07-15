@@ -165,4 +165,17 @@ describe('provider configuration guards', () => {
     expect(loadEnv(devOk as NodeJS.ProcessEnv).trustProxy).toBe(false);
     expect(loadEnv({ ...devOk, TRUST_PROXY: 'true' } as NodeJS.ProcessEnv).trustProxy).toBe(true);
   });
+
+  it('HARDEN-3.7 J\u2032 bounds the test-shrinkable janitor cadence at one day', () => {
+    const devOk = {
+      ...base,
+      AUTH_PROVIDER: 'dev',
+      DEV_AUTH_SECRET: 'jprime-env-secret-000000000',
+      DATABASE_ADMIN_URL: 'postgres://a:b@db:5432/c3web',
+    };
+    expect(loadEnv(devOk as NodeJS.ProcessEnv).erasureJanitorIntervalMs).toBe(86_400_000);
+    expect(loadEnv({ ...devOk, ERASURE_JANITOR_INTERVAL_MS: '25' } as NodeJS.ProcessEnv).erasureJanitorIntervalMs).toBe(25);
+    expect(() => loadEnv({ ...devOk, ERASURE_JANITOR_INTERVAL_MS: '0' } as NodeJS.ProcessEnv)).toThrow(/greater than 0/i);
+    expect(() => loadEnv({ ...devOk, ERASURE_JANITOR_INTERVAL_MS: '86400001' } as NodeJS.ProcessEnv)).toThrow(/less than or equal/i);
+  });
 });

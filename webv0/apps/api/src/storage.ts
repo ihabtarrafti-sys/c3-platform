@@ -10,13 +10,13 @@
  *     strict character check (keys are server-generated UUID paths, but the
  *     check makes traversal structurally impossible anyway).
  *
- * `delete` exists ONLY for the attach compensation path (blob stored, metadata
- * registration failed) — the API never exposes deletion; removal is the soft
- * metadata flip.
+ * `delete` serves attach compensation and the permanent post-finalize erasure
+ * janitor. Neither operation accepts a user-selected key or exposes general
+ * deletion through the API.
  */
-import { mkdir, readFile, rm, writeFile } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
-import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
+import { dirname, join, relative, sep } from 'node:path';
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import type { Env } from './env';
 
 export const R2_HTTP_HANDLER_OPTIONS = {
@@ -35,7 +35,9 @@ export interface DocumentStorage {
    */
   put(key: string, body: Buffer, contentType: string, opts?: { signal?: AbortSignal }): Promise<void>;
   get(key: string, opts?: { signal?: AbortSignal }): Promise<Buffer | null>;
-  /** Compensation only (failed registration) — never a user-facing operation. */
+  /** Every key below a server-generated prefix. J′ uses this only for finalized tenants. */
+  listKeys(prefix: string): Promise<string[]>;
+  /** Compensation or permanent erased-prefix janitor; never a user-facing key. */
   delete(key: string, opts?: { signal?: AbortSignal }): Promise<void>;
 }
 
@@ -74,6 +76,26 @@ function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): Docu
         throw err;
       }
     },
+    async listKeys(prefix) {
+      assertSafeKey(prefix);
+      const keys: string[] = [];
+      let token: string | undefined;
+      do {
+        const res = await s3.send(new ListObjectsV2Command({
+          Bucket: cfg.bucket,
+          Prefix: prefix,
+          ContinuationToken: token,
+        }));
+        for (const object of res.Contents ?? []) {
+          if (object.Key?.startsWith(prefix)) keys.push(object.Key);
+        }
+        if (res.IsTruncated && !res.NextContinuationToken) {
+          throw new Error('R2 returned a truncated object listing without a continuation token.');
+        }
+        token = res.IsTruncated ? res.NextContinuationToken : undefined;
+      } while (token);
+      return keys.sort();
+    },
     async delete(key, opts) {
       assertSafeKey(key);
       await s3.send(new DeleteObjectCommand({ Bucket: cfg.bucket, Key: key }), { abortSignal: opts?.signal });
@@ -100,6 +122,26 @@ function createFsStorage(dir: string): DocumentStorage {
         if ((err as { code?: string }).code === 'ENOENT') return null;
         throw err;
       }
+    },
+    async listKeys(prefix) {
+      assertSafeKey(prefix);
+      const out: string[] = [];
+      const walk = async (path: string): Promise<void> => {
+        let entries;
+        try {
+          entries = await readdir(path, { withFileTypes: true });
+        } catch (err) {
+          if ((err as { code?: string }).code === 'ENOENT') return;
+          throw err;
+        }
+        for (const entry of entries) {
+          const child = join(path, entry.name);
+          if (entry.isDirectory()) await walk(child);
+          else out.push(relative(dir, child).split(sep).join('/'));
+        }
+      };
+      await walk(join(dir, prefix));
+      return out.sort();
     },
     async delete(key, _opts) {
       assertSafeKey(key);

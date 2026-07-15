@@ -14,6 +14,7 @@ import { createDocumentStorage, type DocumentStorage } from './storage';
 import { createMailer, type Mailer } from './mailer';
 import { createBackupStatusReader, type BackupStatusView } from './backupStatus';
 import { createFxProvider, type FxProvider } from './fxProvider';
+import { createErasureJanitorService, type ErasureJanitorService } from './erasureJanitor';
 
 export interface Deps {
   env: Env;
@@ -28,6 +29,8 @@ export interface Deps {
   /** Tier 0.5 backup tile; always callable, honest when unconfigured. */
   backupStatus: () => Promise<BackupStatusView>;
   logger: Logger;
+  /** J′: permanent dead-prefix authority. Construction is inert; server.ts owns scheduling. */
+  erasureJanitor: ErasureJanitorService;
   /**
    * S-03: contract capture — when present, buildApp reports every registered
    * route (method, url, zod schemas) here. Used ONLY by the contract
@@ -62,6 +65,12 @@ export function buildDeps(env: Env, logger: Logger): Deps {
   const fxProvider = createFxProvider(env.fxRatesUrl, logger);
   const mailer = createMailer(env, logger);
   const backupStatus = createBackupStatusReader(env);
+  const erasureJanitor = createErasureJanitorService({
+    pool: persistence.pool,
+    storage: documentStorage,
+    logger,
+    intervalMs: env.erasureJanitorIntervalMs,
+  });
 
   // Membership resolution: production Entra uses the SELECT-only c3_auth role.
   // The dev IdP needs the privileged directory (it provisions memberships) and
@@ -88,6 +97,7 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     mailer,
     backupStatus,
     logger,
+    erasureJanitor,
     // R6-N05: the upload-timing triple flows from the environment (undefined = the documented
     // defaults in buildApp). Production can finally configure a slow-link deployment.
     requestTimeoutMs: env.requestReceiveTimeoutMs,
