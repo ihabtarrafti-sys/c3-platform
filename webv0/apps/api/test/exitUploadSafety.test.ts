@@ -293,7 +293,7 @@ describe('HARDEN-3.6 T1 — exit never consumes an unexpired staff producer', ()
     }));
 
     await withAdmin(async (client) => {
-      await expect(sweepTenantBlobErasure(client, reader, tenantId)).rejects.toThrow(/parked.*unexpired prepared/i);
+      await expect(sweepTenantBlobErasure(client, reader, tenantId)).rejects.toThrow(/parked.*prepared upload intent/i);
     });
     expect((await db.adminQuery<{ state: string }>(
       `SELECT state FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`, [tenantId, storageKey],

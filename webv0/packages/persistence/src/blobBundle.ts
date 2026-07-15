@@ -245,7 +245,7 @@ export async function sweepTenantBlobErasure(db: Queryable, reader: BlobReader, 
   if (liveCount > 0) {
     const waitSeconds = Math.max(0, Number(livePrepared.rows[0]?.wait_seconds ?? 0));
     throw new Error(
-      `Erasure sweep parked: ${liveCount} unexpired prepared upload intent(s) still protect live producers; ` +
+      `Erasure sweep parked: ${liveCount} prepared upload intent(s) still protect producer state; ` +
         `re-run after at most ${waitSeconds}s (the prepared TTL bound).`,
     );
   }

@@ -611,9 +611,9 @@ export function buildApp(deps: Deps): FastifyInstance {
   });
 
   app.setErrorHandler((error, req, reply) => {
-    // HARDEN-3.5 A: any error surfacing after the request's deadline fired is, primarily, the
-    // deadline — surface an honest 408 with retry guidance (not a generic 500 from the aborted
-    // storage call), whatever shape the abort error took inside the SDK/fs layer.
+    // HARDEN-3.6 T6: signal state alone cannot relabel an unrelated error. Surface 408 only
+    // when the actual deadline reason appears in the surfaced error's identity/cause chain;
+    // otherwise preserve the error's own mapping below.
     const deadlineSignal = (req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal;
     if (deadlineSignal?.aborted && errorCausedBy(error, deadlineSignal.reason)) {
       return sendError(req, reply, 408, 'REQUEST_DEADLINE_EXCEEDED',
