@@ -79,7 +79,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql', '0080_platform_erasure_audit.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -188,6 +188,106 @@ describe('migrations & schema', () => {
       expect((await backup.query(`SELECT count(*)::int AS n FROM erased_tenant_prefix`)).rows[0].n).toBe(1);
     } finally {
       await Promise.all([admin.end(), app.end(), auth.end(), backup.end()]);
+    }
+  });
+
+  it('HARDEN-3.8 H5: only the narrow gateway appends a durable no-PII platform audit row', async () => {
+    const admin = new Client({ connectionString: db.adminUrl });
+    const app = new Client({ connectionString: db.appUrl });
+    await Promise.all([admin.connect(), app.connect()]);
+    const dead = '00000000-0000-4000-8000-000000000080';
+    const action = 'post_finalize_erasure_straggler_caught';
+    try {
+      const posture = await admin.query<{
+        tenant_nullable: string; foreign_keys: number; rls: boolean; force_rls: boolean;
+        shape_validated: boolean; insert_policy: boolean; security_definer: boolean;
+        safe_search_path: boolean; app_execute: boolean; auth_execute: boolean; backup_execute: boolean;
+      }>(
+        `SELECT
+           (SELECT is_nullable FROM information_schema.columns
+             WHERE table_schema='public' AND table_name='audit_event' AND column_name='tenant_id') AS tenant_nullable,
+           (SELECT count(*)::int FROM pg_constraint
+             WHERE conrelid='audit_event'::regclass AND contype='f' AND conkey = ARRAY[
+               (SELECT attnum FROM pg_attribute WHERE attrelid='audit_event'::regclass AND attname='tenant_id')
+             ]) AS foreign_keys,
+           (SELECT relrowsecurity FROM pg_class WHERE oid='audit_event'::regclass) AS rls,
+           (SELECT relforcerowsecurity FROM pg_class WHERE oid='audit_event'::regclass) AS force_rls,
+           EXISTS (SELECT 1 FROM pg_constraint
+             WHERE conrelid='audit_event'::regclass
+               AND conname='audit_event_platform_erasure_shape_chk' AND convalidated) AS shape_validated,
+           EXISTS (SELECT 1 FROM pg_policy
+             WHERE polrelid='audit_event'::regclass
+               AND polname='audit_event_platform_erasure_insert' AND polcmd='a') AS insert_policy,
+           (SELECT prosecdef FROM pg_proc
+             WHERE oid='append_post_finalize_erasure_straggler_audit(uuid,bigint,text)'::regprocedure) AS security_definer,
+           (SELECT coalesce(proconfig[array_length(proconfig, 1)] ~ 'pg_temp$', false) FROM pg_proc
+             WHERE oid='append_post_finalize_erasure_straggler_audit(uuid,bigint,text)'::regprocedure) AS safe_search_path,
+           has_function_privilege('c3_app',
+             'append_post_finalize_erasure_straggler_audit(uuid,bigint,text)', 'EXECUTE') AS app_execute,
+           has_function_privilege('c3_auth',
+             'append_post_finalize_erasure_straggler_audit(uuid,bigint,text)', 'EXECUTE') AS auth_execute,
+           has_function_privilege('c3_backup',
+             'append_post_finalize_erasure_straggler_audit(uuid,bigint,text)', 'EXECUTE') AS backup_execute`,
+      );
+      expect(posture.rows[0]).toEqual({
+        tenant_nullable: 'YES', foreign_keys: 1, rls: true, force_rls: true,
+        shape_validated: true, insert_policy: true, security_definer: true,
+        safe_search_path: true, app_execute: true, auth_execute: false, backup_execute: false,
+      });
+
+      await admin.query(
+        `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix)
+         VALUES ($1,$2,$3)`,
+        [dead, `${dead}/`, `intake/${dead}/`],
+      );
+      const after = JSON.stringify({ trigger: 'owner', stragglersCaught: 2 });
+      await expect(app.query(
+        `INSERT INTO audit_event
+           (tenant_id,entity_type,entity_id,action,actor,before,after)
+         VALUES (NULL,'platform',$1,$2,'c3-erasure-janitor',NULL,$3::jsonb)`,
+        [dead, action, after],
+      )).rejects.toThrow(/row-level security/i);
+      await expect(admin.query(
+        `INSERT INTO audit_event
+           (tenant_id,entity_type,entity_id,action,actor,before,after)
+         VALUES (NULL,'platform',$1,$2,'c3-erasure-janitor',NULL,$3::jsonb)`,
+        [dead, action, JSON.stringify({ trigger: 'owner', stragglersCaught: 2, storageKey: `${dead}/secret` })],
+      )).rejects.toThrow(/audit_event_platform_erasure_shape_chk/i);
+      await expect(admin.query(
+        `INSERT INTO audit_event
+           (tenant_id,entity_type,entity_id,action,actor,before,after)
+         VALUES ($1::uuid,'platform',$1::text,$2,'c3-erasure-janitor',NULL,$3::jsonb)`,
+        [tenantA, action, after],
+      )).rejects.toThrow(/audit_event_platform_erasure_shape_chk/i);
+
+      await app.query(
+        `SELECT append_post_finalize_erasure_straggler_audit($1,$2,$3)`,
+        [dead, 2, 'owner'],
+      );
+      expect((await app.query(
+        `SELECT count(*)::int AS n FROM audit_event WHERE action=$1`, [action],
+      )).rows[0].n).toBe(0);
+      const events = await admin.query<{
+        tenant_id: string | null; entity_type: string; entity_id: string;
+        action: string; actor: string; before: unknown; after: Record<string, unknown>;
+      }>(
+        `SELECT tenant_id,entity_type,entity_id,action,actor,before,after
+           FROM audit_event WHERE action=$1`,
+        [action],
+      );
+      expect(events.rows).toEqual([{
+        tenant_id: null,
+        entity_type: 'platform',
+        entity_id: dead,
+        action,
+        actor: 'c3-erasure-janitor',
+        before: null,
+        after: { trigger: 'owner', stragglersCaught: 2 },
+      }]);
+      expect(JSON.stringify(events.rows)).not.toContain(`${dead}/`);
+      expect(JSON.stringify(events.rows)).not.toContain('intake/');
+    } finally {
+      await Promise.all([admin.end(), app.end()]);
     }
   });
 

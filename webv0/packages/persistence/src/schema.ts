@@ -565,7 +565,9 @@ export const approvalEvent = pgTable('approval_event', {
 
 export const auditEvent = pgTable('audit_event', {
   id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id').notNull(),
+  // NULL is reserved by 0080 for the tightly constrained platform-level
+  // post-finalize erasure event; ordinary audit rows remain tenant-owned.
+  tenantId: uuid('tenant_id'),
   entityType: text('entity_type').notNull(),
   entityId: text('entity_id').notNull(),
   action: text('action').notNull(),
