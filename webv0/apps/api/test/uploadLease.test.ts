@@ -7,12 +7,12 @@
  *      upload that stalls mid-stream is ABORTED by the server before the lease could expire,
  *      and no bytes are retained.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createConnection, type Socket } from 'node:net';
 import { readdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
@@ -102,6 +102,7 @@ describe('R5-N01: a stalled multipart upload is aborted before the lease can exp
   let app: FastifyInstance;
   let port: number;
   let token: string;
+  let requestAbortProbe: ((req: FastifyRequest) => void) | null = null;
 
   beforeAll(async () => {
     await db.truncateAll();
@@ -111,6 +112,9 @@ describe('R5-N01: a stalled multipart upload is aborted before the lease can exp
     // boots). The small connectionsCheckingInterval makes the 2s receive timeout DETECTED
     // promptly (Node's default is 30s).
     app = buildApp({ ...deps, requestTimeoutMs: 2_000, deadlineMs: 3_000, leaseTtlMs: 6_000, connectionsCheckingIntervalMs: 200 });
+    // Registered AFTER buildApp's production hooks: the T6 test snapshots whether the real
+    // clearDeadline hook already cleared this request's exact timer inside onRequestAbort.
+    app.addHook('onRequestAbort', async (req) => requestAbortProbe?.(req));
     await app.ready();
     await app.listen({ port: 0, host: '127.0.0.1' });
     port = (app.server.address() as { port: number }).port;
@@ -125,6 +129,61 @@ describe('R5-N01: a stalled multipart upload is aborted before the lease can exp
   afterAll(async () => {
     await app?.close();
   });
+
+  it('HARDEN-3.6 T6: a client abort clears the exact request deadline timer through onRequestAbort', async () => {
+    const setTimeoutSpy = vi.spyOn(globalThis, 'setTimeout');
+    const clearTimeoutSpy = vi.spyOn(globalThis, 'clearTimeout');
+    const socket: Socket = createConnection({ port, host: '127.0.0.1' });
+    let abortSnapshot: { timer: NodeJS.Timeout | undefined; clearedInsideAbortHook: boolean } | undefined;
+    requestAbortProbe = (req) => {
+      const timer = (req as unknown as { deadlineTimer?: NodeJS.Timeout }).deadlineTimer;
+      abortSnapshot = {
+        timer,
+        clearedInsideAbortHook: clearTimeoutSpy.mock.calls.some(([cleared]) => cleared === timer),
+      };
+    };
+    try {
+      await new Promise<void>((resolve, reject) => {
+        socket.once('connect', resolve);
+        socket.once('error', reject);
+      });
+      const callsBeforeRequest = setTimeoutSpy.mock.calls.length;
+      const boundary = '----c3clientabortboundary';
+      socket.write(
+        `POST /api/v1/intake/public/${token} HTTP/1.1\r\n` +
+        `Host: 127.0.0.1:${port}\r\n` +
+        `Content-Type: multipart/form-data; boundary=${boundary}\r\n` +
+        'Content-Length: 100000\r\n' +
+        'Connection: close\r\n\r\n' +
+        `--${boundary}\r\n` +
+        'Content-Disposition: form-data; name="file"; filename="abort.pdf"\r\n' +
+        'Content-Type: application/pdf\r\n\r\n' +
+        '%PDF-1.4\n',
+      );
+
+      let deadlineTimerIndex = -1;
+      await vi.waitFor(() => {
+        deadlineTimerIndex = setTimeoutSpy.mock.calls.findIndex(
+          (call, index) => index >= callsBeforeRequest && call[1] === 3_000,
+        );
+        expect(deadlineTimerIndex).toBeGreaterThanOrEqual(0);
+      }, { timeout: 1_000, interval: 10 });
+      const deadlineTimer = setTimeoutSpy.mock.results[deadlineTimerIndex]?.value;
+      expect(deadlineTimer).toBeDefined();
+
+      socket.destroy();
+      await vi.waitFor(() => {
+        expect(abortSnapshot).toBeDefined();
+      }, { timeout: 1_500, interval: 25 });
+      expect(abortSnapshot?.timer).toBe(deadlineTimer);
+      expect(abortSnapshot?.clearedInsideAbortHook).toBe(true);
+    } finally {
+      requestAbortProbe = null;
+      socket.destroy();
+      clearTimeoutSpy.mockRestore();
+      setTimeoutSpy.mockRestore();
+    }
+  }, 10_000);
 
   it('the server destroys the socket at requestTimeout (~2s), well before the 6s lease TTL, with no bytes retained', async () => {
     const before = blobCount(blobDir);
@@ -177,8 +236,8 @@ describe('R5-N01: a stalled multipart upload is aborted before the lease can exp
 // window, then the STORAGE PUT stalls. Before this wave nothing bounded post-receipt work — the
 // handler could resume after lease expiry + sweep + finalize and publish. Now the request-scoped
 // deadline's AbortSignal rides every byte-producing operation: the stalled PUT is ABORTED at the
-// deadline, the route answers an honest 408, nothing is retained, the claim never runs, the lease
-// is released, and a subsequent exit executes clean.
+// deadline, the route answers an honest 408, nothing is retained, the claim never runs, and the
+// lease is retained to TTL so a later remote completion remains fenced from exit.
 describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stalls is aborted by the deadline', () => {
   let app: FastifyInstance;
   let token: string;
@@ -214,7 +273,7 @@ describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stall
     await app?.close();
   });
 
-  it('the PUT is ABORTED by the deadline signal: honest 408, nothing retained, no claim, lease released, exit clean', async () => {
+  it('the PUT is ABORTED by the deadline signal: honest 408, nothing retained, no claim, lease retained to TTL', async () => {
     const before = blobCount(blobDir);
     stallArmed = true;
     const form = new FormData();

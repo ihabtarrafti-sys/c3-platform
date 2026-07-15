@@ -481,10 +481,10 @@ export function buildApp(deps: Deps): FastifyInstance {
   app.setValidatorCompiler(validatorCompiler);
   app.setSerializerCompiler(serializerCompiler);
 
-  // HARDEN-3.5 A: ONE request-scoped deadline that dominates ALL work. Armed at arrival with our
-  // OWN timer (no connectionsCheckingInterval slop); its signal is threaded into every
-  // byte-producing operation (the storage PUTs, the guest-intake part loop). When it fires,
-  // nothing can publish a byte — an in-flight PUT aborts, and no new one can start.
+  // HARDEN-3.5 A: ONE request-scoped deadline gates byte/storage work and claim entry. Armed
+  // at arrival with our OWN timer; its signal is threaded into every byte-producing operation.
+  // Once fired, every later/in-flight PUT carries the aborted signal; indeterminate remote
+  // completion remains covered by compensation and, for guest intake, the retained lease.
   app.decorateRequest('deadlineSignal', undefined);
   app.decorateRequest('deadlineTimer', undefined);
   app.addHook('onRequest', async (req) => {
