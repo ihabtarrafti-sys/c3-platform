@@ -89,6 +89,53 @@ beforeEach(async () => {
 });
 
 describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
+  it('HARDEN-3.8 H1 refuses privileged canonical authority for a live tenant at COMMIT', async () => {
+    const live = await db.seedTenant({ slug: 'h38-live-authority' });
+    const liveKey = `${live.tenantId}/must-survive`;
+    await deps.documentStorage.put(liveKey, LIVE_BYTE, 'application/octet-stream');
+    const admin = new Client({ connectionString: db.adminUrl });
+    await admin.connect();
+    let commitRefused = false;
+    try {
+      await admin.query('BEGIN');
+      await admin.query(
+        `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix)
+         VALUES ($1,$2,$3)`,
+        [live.tenantId, `${live.tenantId}/`, `intake/${live.tenantId}/`],
+      );
+      try {
+        await admin.query('COMMIT');
+      } catch (error) {
+        commitRefused = true;
+        expect(String((error as Error).message)).toMatch(/ERASED_PREFIX_LIVE_TENANT|dead-only/i);
+        await admin.query('ROLLBACK').catch(() => undefined);
+      }
+    } finally {
+      await admin.end();
+    }
+
+    // The real janitor completes the named confused-deputy schedule. RED: remove
+    // only the 0079 constraint trigger and this becomes
+    // { commitRefused:false, authorityRows:1, stragglersDestroyed:1,
+    //   liveObjectPresent:false }.
+    const janitor = await runErasureJanitorPass(deps.persistence.pool, deps.documentStorage, deps.logger, 'owner');
+    const authorityRows = (await db.adminQuery<{ n: number }>(
+      `SELECT count(*)::int AS n FROM erased_tenant_prefix WHERE tenant_ref=$1`,
+      [live.tenantId],
+    ))[0]!.n;
+    expect({
+      commitRefused,
+      authorityRows,
+      stragglersDestroyed: janitor.stragglersDestroyed,
+      liveObjectPresent: (await deps.documentStorage.get(liveKey)) !== null,
+    }).toEqual({
+      commitRefused: true,
+      authorityRows: 0,
+      stragglersDestroyed: 0,
+      liveObjectPresent: true,
+    });
+  });
+
   it('kills real day-8 bytes via owner, boot, and interval while preserving live bytes and permanent authority', async () => {
     const dead = await db.seedTenant({
       slug: 'jprime-dead',
