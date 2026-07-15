@@ -192,17 +192,19 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
   const backupPassword = config.backupPassword ?? 'c3_backup_dev_pw';
 
   const client = new Client({ connectionString: config.adminConnectionString });
-  await client.connect();
-  // Force UTF-8: on Windows the server may default client_encoding to WIN1252,
-  // which cannot represent the UTF-8 content of migration files.
-  await client.query("SET client_encoding TO 'UTF8'");
-  // R6-N03: SINGLE-FLIGHT — the entire run holds a session advisory lock keyed to this database,
-  // so two concurrent migrators SERIALIZE by construction (the second WAITS — it does not fail).
-  // Without this, two runners could snapshot the ledger concurrently and both pass the legacy
-  // NULL-adoption check once. Released automatically when the session ends (the finally below).
-  await client.query('SELECT pg_advisory_lock($1, hashtext(current_database()))', [MIGRATOR_LOCK_KEY]);
   const applied: string[] = [];
   try {
+    // HARDEN-3.7 U8: cleanup authority begins before the first effect. Connection, encoding,
+    // and advisory-lock failures all pass through the same unconditional session teardown.
+    await client.connect();
+    // Force UTF-8: on Windows the server may default client_encoding to WIN1252,
+    // which cannot represent the UTF-8 content of migration files.
+    await client.query("SET client_encoding TO 'UTF8'");
+    // R6-N03: SINGLE-FLIGHT — the entire run holds a session advisory lock keyed to this database,
+    // so two concurrent migrators SERIALIZE by construction (the second WAITS — it does not fail).
+    // Without this, two runners could snapshot the ledger concurrently and both pass the legacy
+    // NULL-adoption check once. Released automatically when the session ends (the finally below).
+    await client.query('SELECT pg_advisory_lock($1, hashtext(current_database()))', [MIGRATOR_LOCK_KEY]);
     log('↳ migrator single-flight lock acquired');
     await ensureRestrictedRole(client, config.appRole, appPassword, rotateRoleSecrets);
     // SELECT-only membership-resolution role for the API's auth boundary (the
