@@ -4,9 +4,9 @@
 boot/daily/owner scheduler. J′, migration 0078, U1–U8, and Batch E are implemented,
 RED-falsified, restored, and focused-GREEN. The ruling/register's cadence formula and unqualified
 “next pass” claim are stopped in `C3-HARDEN-3.7-ESCALATION.md`; they are not silently certified
-here. Full gate ×2 and e2e are not claimed until rerun below. The owner-authored residual-risk
-register is untouched, and this record makes no round-9 declaration. Final push and remote
-equality follow the final verification commit.
+here. On the same committed implementation/evidence checkpoint, full gate ×2 and e2e are GREEN
+as recorded below. The owner-authored residual-risk register is untouched, and this record makes
+no round-9 declaration. Final push and remote equality follow the final verification commit.
 
 ## Item map
 
@@ -53,9 +53,9 @@ equality follow the final verification commit.
 - Unsuccessful full-gate attempt A: NUL audit and all 9 typechecks passed, then 115/116 files and 908/909 tests passed; U4's 100 ms discriminator failed at its initial holder `pool.connect()` before saturation with `Connection terminated due to connection timeout`. It is not counted.
 - The exact U4 test then passed focused 1/1, but unsuccessful full-gate attempt B reproduced the same setup-only line-75 failure after 827.1 s with the same 115/116-file and 908/909-test totals. This proved the 100 ms setup bound was not a reliable full-gate discriminator; it is not counted.
 - U4 test-only stabilization: configured bound 2,000 ms; focused GREEN completed the saturated checkout in 2.04 s. With production timeout mapping set to zero, focused RED remained `still-pending` at 6,000 ms; after restoration, focused GREEN completed in 2.03 s and reused the pool successfully.
-- `npm run gate` qualifying pass 1: **pending on current J′/U4-stabilized HEAD; no claim yet**.
-- `npm run gate` qualifying pass 2: **pending on current J′/U4-stabilized HEAD; no claim yet**.
-- `npm run e2e`: **pending on current J′/U4-stabilized HEAD; no claim yet**.
+- `npm run gate` qualifying pass 1 on committed checkpoint `c72bc5f`: **GREEN** in 842.5 s wall time. NUL/truncation audit: 576 tracked files clean; typecheck: 9/9 projects; tests: 116/116 files and 909/909 tests; Entra production bundle: 16 emitted files free of dev-auth material.
+- `npm run gate` qualifying pass 2 on unchanged `c72bc5f`: **GREEN** in 730.3 s wall time. NUL/truncation audit: 576 tracked files clean; typecheck: 9/9 projects; tests: 116/116 files and 909/909 tests; Entra production bundle: 16 emitted files free of dev-auth material.
+- `npm run e2e` on unchanged `c72bc5f`: **GREEN**, 25/25 Playwright tests in 7.1 minutes (426.7 s wall time), including the untouched `apps/web/e2e/addPerson.spec.ts`.
 
 The exact production neuters, observed RED failures, restored results, globally bounded claims,
 falsification attempts, Round-8 corrections, and cost envelopes are recorded in

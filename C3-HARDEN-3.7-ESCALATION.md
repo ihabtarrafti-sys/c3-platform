@@ -64,7 +64,8 @@ failed-pass retry), or specify and justify a different definition/enforcement me
 the existing formula true. Temper cannot edit the protected register or silently redefine its
 terms. Per the charter's escalate-not-improvise law
 (`C:\Projects\C3-APEX-TEMPER-CHARTER.md:53-64`), the bound claim stops here while all runnable
-focused/gate/e2e verification continues.
+focused/gate/e2e verification continues. That verification subsequently completed GREEN and is
+recorded without resolving or hiding this wall in `C3-HARDEN-3.7-STATUS.md`.
 
 ## Original J finite-retirement escalation — HISTORICAL
 
