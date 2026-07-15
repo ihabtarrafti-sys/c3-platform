@@ -16,11 +16,15 @@
  * (READ COMMITTED) → every census statement takes a FRESH snapshot, the concurrently
  * committed photo appears in the census, and the not-in-census assertion fails.
  */
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { Client } from 'pg';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
-import { CENSUS_TX_BEGIN, enumerateBlobsInTx } from '../src/adapters';
+import { CENSUS_TX_BEGIN, createBackupDeps, enumerateBlobsInTx } from '../src/adapters';
 import { coherentDumpAndCensusFlow, type CoherentIo } from '../src/coherentFlow';
+import type { BackupEnv } from '../src/env';
 
 let db: TestDatabase;
 
@@ -104,4 +108,95 @@ describe('R3-N06 (achievable-real half) — the census reads INSIDE the exported
     );
     expect(Number(fresh[0]!.n)).toBe(1);
   });
+});
+
+describe('HARDEN-3.7 U5 — the production snapshot session is runbook-observable', () => {
+  it('createBackupDeps + ceremony pause exposes the exact blocking c3-backup-exporter PID', async () => {
+    const tenant = await db.seedTenant({ slug: 'u5-observer' });
+    await db.adminQuery(
+      `INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1, 'PER-U5', 'Observer Probe')`,
+      [tenant.tenantId],
+    );
+    const env: BackupEnv = {
+      databaseUrl: db.backupUrl,
+      r2Endpoint: 'http://127.0.0.1:1',
+      r2Bucket: 'unused',
+      r2AccessKeyId: 'unused',
+      r2SecretAccessKey: 'unused',
+      ageRecipient: 'age1unused',
+      sourceCommit: 'u5test',
+      mode: 'manual',
+      environmentLabel: 'test',
+      signingKeyPem: null,
+      allowUnsigned: true,
+    };
+    const deps = createBackupDeps(env);
+    const ddl = new Client({ connectionString: db.adminUrl });
+    const observer = new Client({ connectionString: db.adminUrl });
+    const temp = mkdtempSync(join(tmpdir(), 'c3-u5-observer-'));
+    const oldPause = process.env.BACKUP_PAUSE_AFTER_CENSUS;
+    process.env.BACKUP_PAUSE_AFTER_CENSUS = '3';
+    let openPause!: () => void;
+    const pauseOpened = new Promise<void>((resolve) => { openPause = resolve; });
+    const warn = vi.spyOn(console, 'warn').mockImplementation((msg?: unknown) => {
+      if (String(msg).includes('backup.census_pause') && !String(msg).includes('pause_end')) openPause();
+    });
+    let ddlPid: number | null = null;
+    let ddlRun: Promise<unknown> | undefined;
+    let flow: Promise<unknown> | undefined;
+
+    try {
+      await ddl.connect();
+      await observer.connect();
+      ddlPid = Number((await ddl.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
+      flow = deps.coherentDumpAndCensus(join(temp, 'dump.pgc'));
+      await Promise.race([
+        pauseOpened,
+        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('production census pause never opened')), 5_000)),
+      ]);
+
+      // The runbook's S2 statement, deliberately queued behind the open census snapshot.
+      ddlRun = ddl.query('ALTER TABLE person ADD COLUMN u5_observer_probe boolean');
+      type ObserverRow = { pid: number; state: string; holds_snapshot: boolean };
+      let observed: ObserverRow[] = [];
+      await vi.waitFor(async () => {
+        // Exact R4-N09 observer predicate: named session AND in-tx state AND a member of the
+        // DDL backend's real pg_blocking_pids set.
+        observed = (await observer.query<ObserverRow>(
+          `SELECT a.pid, a.state,
+                  a.backend_xid IS NOT NULL OR a.backend_xmin IS NOT NULL AS holds_snapshot
+             FROM pg_stat_activity AS a
+            WHERE a.application_name = 'c3-backup-exporter'
+              AND a.state IN ('idle in transaction','active')
+              AND a.pid = ANY(pg_blocking_pids($1))`,
+          [ddlPid],
+        )).rows;
+        expect(observed).toHaveLength(1);
+      }, { timeout: 2_000, interval: 25 });
+
+      expect(observed[0]).toMatchObject({ holds_snapshot: true });
+      // RED: remove application_name from the snapshot Client in createBackupDeps and the exact
+      // observer returns [] even though the DDL remains genuinely blocked.
+      expect(observed[0]!.pid).not.toBe(ddlPid);
+
+      // Cancel only the drill DDL after observing it. This keeps the test independent of whether
+      // pg_dump happens to be installed on the host and prevents the adapter's bounded retry path.
+      await observer.query('SELECT pg_cancel_backend($1)', [ddlPid]);
+      await ddlRun.catch(() => undefined);
+      await flow.catch(() => undefined); // binary absent is allowed; U5 certifies the live session.
+    } finally {
+      if (oldPause === undefined) delete process.env.BACKUP_PAUSE_AFTER_CENSUS;
+      else process.env.BACKUP_PAUSE_AFTER_CENSUS = oldPause;
+      warn.mockRestore();
+      if (ddlPid !== null) {
+        await observer.query('SELECT pg_cancel_backend($1)', [ddlPid]).catch(() => undefined);
+      }
+      await ddlRun?.catch(() => undefined);
+      await flow?.catch(() => undefined);
+      await ddl.end().catch(() => undefined);
+      await observer.end().catch(() => undefined);
+      await deps.close();
+      rmSync(temp, { recursive: true, force: true });
+    }
+  }, 30_000);
 });

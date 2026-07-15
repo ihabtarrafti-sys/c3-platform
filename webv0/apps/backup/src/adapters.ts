@@ -118,7 +118,9 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
       // snapshot, so no between-reads delete/insert can make them incoherent. The ordering
       // and snapshot-threading are in coherentDumpAndCensusFlow (unit-tested); here we supply
       // the real pg / pg_dump effects. READ ONLY + REPEATABLE READ takes no DML-blocking locks.
-      const c = new Client({ connectionString: env.databaseUrl });
+      // HARDEN-3.7 U5: this is the actual snapshot/census session observed by the R4-N09
+      // runbook. Naming only the advisory-lock client leaves the blocking session invisible.
+      const c = new Client({ connectionString: env.databaseUrl, application_name: 'c3-backup-exporter' });
       await c.connect();
       // R4-N09 ceremony: null unless BACKUP_PAUSE_AFTER_CENSUS is explicitly set (inert default).
       const censusPause = resolveCensusPause(process.env);

@@ -2591,6 +2591,45 @@ describe('HARDEN-3.4 Batch C (R5-N05/N06) — distribution INSERT invariant + co
         expect((await chk.query(`SELECT count(*)::int n FROM _migrations WHERE id='0065_deactivate_open_status_align.sql'`)).rows[0].n).toBe(0);
       } finally { await chk.end(); await dropDb(name); }
     }, 120_000);
+
+    it('0077 STOPS on a populated state/timestamp violation legal through 0076 and installs nothing', async () => {
+      const { url, name } = await freshThrough('0076_compensation_state_machine.sql');
+      const c = new Client({ connectionString: url }); await c.connect();
+      let tenantId = '';
+      const storageKey = 'dirty-before-0077';
+      try {
+        tenantId = (await c.query<{ id: string }>(
+          `INSERT INTO tenant (slug, name) VALUES ('stop77','stop77') RETURNING id`,
+        )).rows[0]!.id;
+        // Legal at 0076: the one-way terminal-stamp CHECK permits a live state carrying a stamp.
+        // 0077's bundled populated-data preflight must refuse this exact historical shape.
+        await c.query(
+          `INSERT INTO blob_tombstone
+             (tenant_ref, storage_key, blob_class, reason, state, prepared_expires_at, deleted_at)
+           VALUES ($1, $2, 'document', 'compensation', 'prepared', now() + interval '1 hour', now())`,
+          [tenantId, storageKey],
+        );
+      } finally { await c.end(); }
+
+      await expect(runMigrations({ adminConnectionString: url, ...roles }))
+        .rejects.toThrow(/0077 preflight:.*state\/deleted_at coupling violations/i);
+
+      const chk = new Client({ connectionString: url }); await chk.connect();
+      try {
+        expect((await chk.query(
+          `SELECT count(*)::int n FROM _migrations WHERE id='0077_tombstone_state_timestamp_coupling.sql'`,
+        )).rows[0].n).toBe(0);
+        expect((await chk.query(
+          `SELECT count(*)::int n FROM pg_constraint WHERE conname='blob_tombstone_state_timestamp_coupling_chk'`,
+        )).rows[0].n).toBe(0);
+        const row = (await chk.query<{ state: string; deleted_at: Date | null }>(
+          `SELECT state, deleted_at FROM blob_tombstone WHERE tenant_ref=$1 AND storage_key=$2`,
+          [tenantId, storageKey],
+        )).rows[0]!;
+        expect(row.state).toBe('prepared');
+        expect(row.deleted_at).not.toBeNull();
+      } finally { await chk.end(); await dropDb(name); }
+    }, 120_000);
   });
 });
 
@@ -2815,43 +2854,6 @@ describe('HARDEN-3.6 T1 — c3_app zombie resolver last line of defense', () => 
     );
     expect(row).toEqual(expect.objectContaining({ state: 'armed', deleted_at: null }));
   });
-});
-
-describe('HARDEN-3.6 T7 — executable exporter lock observer', () => {
-  it('the runbook observer identifies the stable exporter through the DDL blocker relationship', async () => {
-    const exporter = new Client({ connectionString: db.adminUrl, application_name: 'c3-backup-exporter' });
-    const ddl = new Client({ connectionString: db.adminUrl, application_name: 'c3-t7-ddl' });
-    const observer = new Client({ connectionString: db.adminUrl });
-    await exporter.connect(); await ddl.connect(); await observer.connect();
-    try {
-      await exporter.query('BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY');
-      await exporter.query('SELECT count(*) FROM person');
-      const exporterPid = (await exporter.query<{ pid: number }>('SELECT pg_backend_pid() pid')).rows[0]!.pid;
-      const ddlPid = (await ddl.query<{ pid: number }>('SELECT pg_backend_pid() pid')).rows[0]!.pid;
-      const ddlPromise = ddl.query('ALTER TABLE person ADD COLUMN drill_r4n09 boolean').then(() => 'done', (e: unknown) => e);
-      let row: { pid: number; holds_snapshot: boolean } | undefined;
-      for (let i = 0; i < 200; i++) {
-        row = (await observer.query<{ pid: number; holds_snapshot: boolean }>(
-          `SELECT a.pid, a.state,
-                  a.backend_xid IS NOT NULL OR a.backend_xmin IS NOT NULL AS holds_snapshot,
-                  left(a.query, 60) AS q
-             FROM pg_stat_activity AS a
-            WHERE a.application_name = 'c3-backup-exporter'
-              AND a.state IN ('idle in transaction','active')
-              AND a.pid = ANY(pg_blocking_pids($1))`,
-          [ddlPid],
-        )).rows[0];
-        if (row) break;
-        await new Promise((resolve) => setTimeout(resolve, 25));
-      }
-      expect(row).toMatchObject({ pid: exporterPid, holds_snapshot: true });
-      await exporter.query('ROLLBACK');
-      await ddlPromise;
-      await ddl.query('ALTER TABLE person DROP COLUMN IF EXISTS drill_r4n09');
-    } finally {
-      await exporter.end().catch(() => {}); await ddl.end().catch(() => {}); await observer.end().catch(() => {});
-    }
-  }, 40_000);
 });
 
 // HARDEN-3.5 A-1: blob_tombstone.tenant_ref has NO FK (0046 — the ledger must survive erasure),
