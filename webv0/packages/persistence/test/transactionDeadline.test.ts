@@ -20,6 +20,12 @@ afterAll(async () => {
 });
 
 describe('HARDEN-3.7 U4 — signal-gated pre-registration and bounded pool checkout', () => {
+  it('refuses a zero checkout timeout instead of silently restoring an unbounded queue', () => {
+    // RED: pg-pool treats connectionTimeoutMillis=0 as no timeout.
+    expect(() => createPersistence({ appConnectionString: db.appUrl, poolCheckoutTimeoutMs: 0 }))
+      .toThrow(/poolCheckoutTimeoutMs must be a positive safe integer/i);
+  });
+
   it('a signal fired while queued is re-checked after checkout, before callback/insert', async () => {
     const p = createPersistence({ appConnectionString: db.appUrl, max: 1, poolCheckoutTimeoutMs: 2_000 });
     const holder = await p.pool.connect();

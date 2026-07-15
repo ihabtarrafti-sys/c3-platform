@@ -1945,8 +1945,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const submissionId = randomUUID();
 
       // Parse multipart: one 'payload' field (JSON) + files (stored to
-      // quarantine as we go). On any failure we drain the remaining parts and
-      // compensate (delete stored blobs) — no orphans.
+      // quarantine as we go). On any failure we drain the remaining parts, arm durable
+      // compensation, and attempt deletion; local rejection is not remote non-publication.
       let payloadRaw: string | null = null;
       const uploads: IntakeUpload[] = [];
       const storedKeys: string[] = [];
@@ -2538,8 +2538,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── invoices (S6): the outward claim — issue, PDF artifact, void, register ─
   // The PDF is generated AFTER the issue transaction (external I/O never rides
   // a DB tx): build → put bytes → register document (compensated) → link. A
-  // failed artifact leaves an HONEST invoice with documentId=null plus a
-  // retry endpoint — never a lie, never an orphan blob.
+  // failed artifact leaves an HONEST invoice with documentId=null plus a retry endpoint;
+  // the durable compensation path owns any unregistered storage outcome.
   async function generateAndAttachInvoicePdf(actor: ReturnType<typeof actorOf>, invoice: import('@c3web/domain').Invoice, signal?: AbortSignal) {
     const reads = P.reads.forActor(actor);
     const [entity, mission] = await Promise.all([reads.getEntityById(invoice.entityId), reads.getMissionById(invoice.missionId)]);

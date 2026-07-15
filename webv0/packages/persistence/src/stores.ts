@@ -40,12 +40,16 @@ export interface PersistenceHandle extends Persistence {
 }
 
 export function createPersistence(config: PersistenceConfig): PersistenceHandle {
+  const poolCheckoutTimeoutMs = config.poolCheckoutTimeoutMs ?? 10_000;
+  if (!Number.isSafeInteger(poolCheckoutTimeoutMs) || poolCheckoutTimeoutMs <= 0) {
+    throw new Error('poolCheckoutTimeoutMs must be a positive safe integer.');
+  }
   // Force UTF-8 at connection startup (avoids a racing per-connection SET, and
   // guards against a client locale defaulting to WIN1252 on Windows).
   const pool = new Pool({
     connectionString: config.appConnectionString,
     max: config.max ?? 10,
-    connectionTimeoutMillis: config.poolCheckoutTimeoutMs ?? 10_000,
+    connectionTimeoutMillis: poolCheckoutTimeoutMs,
     options: '-c client_encoding=UTF8',
   });
 

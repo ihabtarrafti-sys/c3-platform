@@ -10,7 +10,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createConnection, type Socket } from 'node:net';
 import { createServer, type Server as HttpServer } from 'node:http';
-import { readdirSync, mkdtempSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { FastifyInstance, FastifyRequest } from 'fastify';
@@ -187,7 +187,7 @@ describe('R5-N01: a stalled multipart upload is aborted before the lease can exp
     }
   }, 10_000);
 
-  it('the server destroys the socket at requestTimeout (~2s), well before the 6s lease TTL, with no bytes retained', async () => {
+  it('the server destroys the socket at requestTimeout (~2s), before lease TTL, and the local seam publishes no bytes', async () => {
     const before = blobCount(blobDir);
     const socket: Socket = createConnection({ port, host: '127.0.0.1' });
     const boundary = '----c3leaseboundary';
@@ -330,6 +330,12 @@ describe('HARDEN-3.5 A (§4.1): a fully-received request whose storage PUT stall
       rejectUnrelatedAfterAbort = false;
     }
   }, 20_000);
+
+  it('HARDEN-3.7 U6: no API branch retains the forbidden storage-finality wording', () => {
+    const appSource = readFileSync(new URL('../src/app.ts', import.meta.url), 'utf8');
+    // RED: restoring any old guest 408 message makes this inventory non-empty.
+    expect(appSource.match(/Nothing was kept/g) ?? []).toHaveLength(0);
+  });
 });
 
 describe('HARDEN-3.7 U2 — client disconnect aborts a production R2 PUT', () => {
@@ -461,12 +467,15 @@ describe('HARDEN-3.7 U2 — client disconnect aborts a production R2 PUT', () =>
 
       socket.destroy();
       await vi.waitFor(() => expect(abortSnapshot).not.toBeNull(), { timeout: 2_000, interval: 20 });
-      expect(abortSnapshot).toMatchObject({ aborted: true });
-      expect(abortSnapshot!.reason).toContain('CLIENT_DISCONNECTED');
-      await Promise.race([
-        putSocketClosed,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('outbound R2 PUT socket stayed open after client disconnect')), 2_000)),
+      const closeOutcome = await Promise.race([
+        putSocketClosed.then(() => 'closed' as const),
+        new Promise<'still-open'>((resolve) => setTimeout(() => resolve('still-open'), 2_000)),
       ]);
+      expect({ abortSnapshot, closeOutcome }).toMatchObject({
+        abortSnapshot: { aborted: true },
+        closeOutcome: 'closed',
+      });
+      expect(abortSnapshot!.reason).toContain('CLIENT_DISCONNECTED');
       // RED: the old onRequestAbort hook only cleared the timer; signal=false and this outbound
       // socket remained live until the SDK's much longer request timeout.
     } finally {
