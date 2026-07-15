@@ -25,6 +25,12 @@ export const R2_HTTP_HANDLER_OPTIONS = {
   throwOnRequestTimeout: true,
 } as const;
 
+export interface StorageListOptions {
+  readonly signal?: AbortSignal;
+  /** Called only after a complete, valid listing page/directory observation. */
+  readonly onProgress?: () => void;
+}
+
 export interface DocumentStorage {
   readonly driver: 'r2' | 'fs';
   /**
@@ -36,7 +42,7 @@ export interface DocumentStorage {
   put(key: string, body: Buffer, contentType: string, opts?: { signal?: AbortSignal }): Promise<void>;
   get(key: string, opts?: { signal?: AbortSignal }): Promise<Buffer | null>;
   /** Every key below a server-generated prefix. J′ uses this only for finalized tenants. */
-  listKeys(prefix: string): Promise<string[]>;
+  listKeys(prefix: string, opts?: StorageListOptions): Promise<string[]>;
   /** Compensation or permanent erased-prefix janitor; never a user-facing key. */
   delete(key: string, opts?: { signal?: AbortSignal }): Promise<void>;
 }
@@ -45,6 +51,11 @@ const SAFE_KEY = /^[a-zA-Z0-9/_-]+$/;
 
 function assertSafeKey(key: string): void {
   if (!SAFE_KEY.test(key) || key.includes('..')) throw new Error('Unsafe storage key.');
+}
+
+function throwIfAborted(signal: AbortSignal | undefined): void {
+  if (!signal?.aborted) return;
+  throw signal.reason instanceof Error ? signal.reason : new Error('Storage operation aborted.');
 }
 
 function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): DocumentStorage {
@@ -76,23 +87,30 @@ function createR2Storage(cfg: Extract<Env['documents'], { driver: 'r2' }>): Docu
         throw err;
       }
     },
-    async listKeys(prefix) {
+    async listKeys(prefix, opts) {
       assertSafeKey(prefix);
       const keys: string[] = [];
+      const seenTokens = new Set<string>();
       let token: string | undefined;
       do {
         const res = await s3.send(new ListObjectsV2Command({
           Bucket: cfg.bucket,
           Prefix: prefix,
           ContinuationToken: token,
-        }));
+        }), { abortSignal: opts?.signal });
         for (const object of res.Contents ?? []) {
           if (object.Key?.startsWith(prefix)) keys.push(object.Key);
         }
         if (res.IsTruncated && !res.NextContinuationToken) {
           throw new Error('R2 returned a truncated object listing without a continuation token.');
         }
-        token = res.IsTruncated ? res.NextContinuationToken : undefined;
+        const nextToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+        if (nextToken && (nextToken === token || seenTokens.has(nextToken))) {
+          throw new Error('R2 returned a repeated or cyclic continuation token; refusing non-progressing listing.');
+        }
+        if (nextToken) seenTokens.add(nextToken);
+        opts?.onProgress?.();
+        token = nextToken;
       } while (token);
       return keys.sort();
     },
@@ -123,18 +141,25 @@ function createFsStorage(dir: string): DocumentStorage {
         throw err;
       }
     },
-    async listKeys(prefix) {
+    async listKeys(prefix, opts) {
       assertSafeKey(prefix);
       const out: string[] = [];
       const walk = async (path: string): Promise<void> => {
+        throwIfAborted(opts?.signal);
         let entries;
         try {
           entries = await readdir(path, { withFileTypes: true });
         } catch (err) {
-          if ((err as { code?: string }).code === 'ENOENT') return;
+          if ((err as { code?: string }).code === 'ENOENT') {
+            opts?.onProgress?.();
+            return;
+          }
           throw err;
         }
+        throwIfAborted(opts?.signal);
+        opts?.onProgress?.();
         for (const entry of entries) {
+          throwIfAborted(opts?.signal);
           const child = join(path, entry.name);
           if (entry.isDirectory()) await walk(child);
           else out.push(relative(dir, child).split(sep).join('/'));
@@ -143,8 +168,9 @@ function createFsStorage(dir: string): DocumentStorage {
       await walk(join(dir, prefix));
       return out.sort();
     },
-    async delete(key, _opts) {
+    async delete(key, opts) {
       assertSafeKey(key);
+      throwIfAborted(opts?.signal);
       await rm(join(dir, key), { force: true });
     },
   };
