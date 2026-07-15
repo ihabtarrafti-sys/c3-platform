@@ -174,8 +174,13 @@ describe('provider configuration guards', () => {
       DATABASE_ADMIN_URL: 'postgres://a:b@db:5432/c3web',
     };
     expect(loadEnv(devOk as NodeJS.ProcessEnv).erasureJanitorIntervalMs).toBe(86_400_000);
+    expect(loadEnv(devOk as NodeJS.ProcessEnv).erasureJanitorBootReadinessBudgetMs).toBe(30_000);
     expect(loadEnv({ ...devOk, ERASURE_JANITOR_INTERVAL_MS: '25' } as NodeJS.ProcessEnv).erasureJanitorIntervalMs).toBe(25);
+    expect(loadEnv({ ...devOk, ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS: '25' } as NodeJS.ProcessEnv)
+      .erasureJanitorBootReadinessBudgetMs).toBe(25);
     expect(() => loadEnv({ ...devOk, ERASURE_JANITOR_INTERVAL_MS: '0' } as NodeJS.ProcessEnv)).toThrow(/greater than 0/i);
     expect(() => loadEnv({ ...devOk, ERASURE_JANITOR_INTERVAL_MS: '86400001' } as NodeJS.ProcessEnv)).toThrow(/less than or equal/i);
+    expect(() => loadEnv({ ...devOk, ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS: '300001' } as NodeJS.ProcessEnv))
+      .toThrow(/less than or equal/i);
   });
 });

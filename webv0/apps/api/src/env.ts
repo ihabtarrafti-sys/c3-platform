@@ -9,7 +9,12 @@
  *     (DATABASE_ADMIN_URL) must NOT be given to a production API process.
  */
 import { z } from 'zod';
-import { DEFAULT_ERASURE_JANITOR_INTERVAL_MS, MAX_ERASURE_JANITOR_INTERVAL_MS } from './erasureJanitor';
+import {
+  DEFAULT_ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS,
+  DEFAULT_ERASURE_JANITOR_INTERVAL_MS,
+  MAX_ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS,
+  MAX_ERASURE_JANITOR_INTERVAL_MS,
+} from './erasureJanitor';
 
 const rawSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -71,6 +76,10 @@ const rawSchema = z.object({
   /** J′: permanent erased-prefix sweep cadence. Never slower than daily; tests shrink it. */
   ERASURE_JANITOR_INTERVAL_MS: z.coerce.number().int().positive().max(MAX_ERASURE_JANITOR_INTERVAL_MS)
     .default(DEFAULT_ERASURE_JANITOR_INTERVAL_MS),
+  /** H6: readiness waits this long; the already-started safety pass is never cancelled. */
+  ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS: z.coerce.number().int().positive()
+    .max(MAX_ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS)
+    .default(DEFAULT_ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS),
 });
 
 export type Env = {
@@ -104,6 +113,8 @@ export type Env = {
   intakeLeaseTtlMs: number | undefined;
   /** J′: API-process interval; schema caps it at one day. */
   erasureJanitorIntervalMs: number;
+  /** H6: bounded pre-listen wait; expiration does not stop the boot pass. */
+  erasureJanitorBootReadinessBudgetMs: number;
 };
 
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
@@ -230,5 +241,6 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     requestDeadlineMs: e.REQUEST_DEADLINE_MS,
     intakeLeaseTtlMs: e.INTAKE_LEASE_TTL_MS,
     erasureJanitorIntervalMs: e.ERASURE_JANITOR_INTERVAL_MS,
+    erasureJanitorBootReadinessBudgetMs: e.ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS,
   };
 }

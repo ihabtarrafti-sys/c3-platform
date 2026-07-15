@@ -32,7 +32,9 @@ async function main(): Promise<void> {
   const logger = createLogger(env);
   const deps = buildDeps(env, logger);
   const app = buildApp(deps);
-  const janitorScheduler = createErasureJanitorScheduler(deps.erasureJanitor, logger);
+  const janitorScheduler = createErasureJanitorScheduler(deps.erasureJanitor, logger, {
+    bootReadinessBudgetMs: env.erasureJanitorBootReadinessBudgetMs,
+  });
 
   const shutdown = async (signal: string) => {
     logger.info({ signal }, 'shutting down');
@@ -44,8 +46,9 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'));
   process.on('SIGTERM', () => void shutdown('SIGTERM'));
 
-  // J′: catch any publication that landed during downtime BEFORE accepting new
-  // traffic, then retain a daily-or-faster in-process cadence until shutdown.
+  // J′/H6: start the safety pass before accepting traffic. Readiness waits only
+  // its configured budget; an over-budget pass remains observed and continues
+  // in the background. The daily-or-faster cadence remains armed until shutdown.
   await janitorScheduler.start();
   await app.listen({ port: env.port, host: '0.0.0.0' });
   logger.info({ port: env.port, authProvider: env.authProvider }, 'C3 Web V0 API listening');

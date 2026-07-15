@@ -17260,6 +17260,9 @@
             "failures": {
               "t": "number"
             },
+            "incomplete": {
+              "t": "boolean"
+            },
             "recordsSeen": {
               "t": "number"
             },

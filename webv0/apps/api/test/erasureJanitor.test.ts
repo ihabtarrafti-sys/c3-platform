@@ -10,7 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import { Client } from 'pg';
+import { Client, type Pool } from 'pg';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { exitTenant, finalizeTenantExit } from '../../../packages/persistence/src/exitTenant';
 import { loadEnv } from '../src/env';
@@ -199,8 +199,9 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     });
     expect(invoked.statusCode, invoked.body).toBe(200);
     expect(Object.keys(invoked.json()).sort()).toEqual([
-      'failures', 'recordsSeen', 'recordsSkipped', 'recordsSwept', 'stragglersDestroyed',
+      'failures', 'incomplete', 'recordsSeen', 'recordsSkipped', 'recordsSwept', 'stragglersDestroyed',
     ]);
+    expect(invoked.json().incomplete).toBe(false);
     expect(JSON.stringify(invoked.json())).not.toContain(dead.tenantId);
     expect(JSON.stringify(invoked.json())).not.toContain('intake/');
     expect(await deps.documentStorage.get(endpointKey)).toBeNull();
@@ -219,7 +220,8 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     const scheduler = createErasureJanitorScheduler(deps.erasureJanitor, deps.logger);
     let schedulerClosed = false;
     try {
-      // start() is the production server's blocking boot catch-up.
+      // Production starts the boot safety pass before readiness and waits up to
+      // its budget. This small real pass completes within that budget.
       await scheduler.start();
       expect(await deps.documentStorage.get(deadBootDoc)).toBeNull();
       expect(await deps.documentStorage.get(deadBootIntake)).toBeNull();
@@ -310,6 +312,49 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     expect(objects.has(lateKey)).toBe(false);
   });
 
+  it('returns an explicit rerun signal instead of coalescing with an already-active owner pass', async () => {
+    const dead = '00000000-0000-4000-8000-000000000088';
+    await db.adminQuery(
+      `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`,
+      [dead, `${dead}/`, `intake/${dead}/`],
+    );
+    let markBlocked!: () => void;
+    let releaseBlocked!: () => void;
+    const blocked = new Promise<void>((resolve) => { markBlocked = resolve; });
+    const release = new Promise<void>((resolve) => { releaseBlocked = resolve; });
+    let blockOnce = true;
+    const storage: DocumentStorage = {
+      driver: 'fs',
+      async put() {},
+      async get() { return null; },
+      async listKeys() {
+        if (blockOnce) {
+          blockOnce = false;
+          markBlocked();
+          await release;
+        }
+        return [];
+      },
+      async delete() {},
+    };
+    const service = createErasureJanitorService({
+      pool: deps.persistence.pool, storage, logger: deps.logger, intervalMs: INTERVAL_MS,
+    });
+    const first = service.run('owner');
+    await blocked;
+    const second = service.run('owner');
+    const bounded = await Promise.race([
+      second.then((result) => ({ kind: 'result' as const, result })),
+      new Promise<{ kind: 'timeout' }>((resolve) => setTimeout(() => resolve({ kind: 'timeout' }), 150)),
+    ]);
+    try {
+      expect(bounded).toMatchObject({ kind: 'result', result: { incomplete: true } });
+    } finally {
+      releaseBlocked();
+      await first;
+    }
+  });
+
   it('records every discovered catch even when a later deletion fails and leaves authority retryable', async () => {
     const dead = '00000000-0000-4000-8000-000000000083';
     await db.adminQuery(
@@ -330,19 +375,80 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
       },
     };
     const result = await runErasureJanitorPass(deps.persistence.pool, storage, deps.logger, 'owner');
-    expect(result).toMatchObject({ recordsSwept: 0, failures: 1, stragglersDestroyed: 1 });
+    expect(result).toMatchObject({ recordsSwept: 0, failures: 1, stragglersDestroyed: 1, incomplete: true });
     const row = (await db.adminQuery<{ last_swept_at: Date | null; last_result: string; straggler_count: string }>(
       `SELECT last_swept_at,last_result,straggler_count::text FROM erased_tenant_prefix WHERE tenant_ref=$1`, [dead],
     ))[0]!;
     expect(row.last_swept_at).toBeNull();
     expect(JSON.parse(row.last_result)).toEqual({ status: 'failed', trigger: 'owner' });
     expect(Number(row.straggler_count)).toBe(2);
+    const audit = await db.adminQuery<{
+      tenant_id: string | null; entity_type: string; entity_id: string;
+      action: string; actor: string; before: unknown; after: Record<string, unknown>;
+    }>(
+      `SELECT tenant_id,entity_type,entity_id,action,actor,before,after
+         FROM audit_event
+        WHERE action='post_finalize_erasure_straggler_caught'`,
+    );
+    expect(audit).toEqual([{
+      tenant_id: null,
+      entity_type: 'platform',
+      entity_id: dead,
+      action: 'post_finalize_erasure_straggler_caught',
+      actor: 'c3-erasure-janitor',
+      before: null,
+      after: { trigger: 'owner', stragglersCaught: 2 },
+    }]);
     expect(objects.has(first)).toBe(false);
     expect(objects.has(second)).toBe(true);
     expect(warnSpy.mock.calls.some((call) =>
       (call[0] as { event?: string; stragglersCaught?: number }).event === 'post_finalize_erasure_straggler_caught'
       && (call[0] as { stragglersCaught?: number }).stragglersCaught === 2,
     )).toBe(true);
+  });
+
+  it('rolls catch telemetry back and retains the object when durable audit insertion fails', async () => {
+    const dead = '00000000-0000-4000-8000-000000000092';
+    const key = `${dead}/audit-must-commit-first`;
+    await db.adminQuery(
+      `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`,
+      [dead, `${dead}/`, `intake/${dead}/`],
+    );
+    await deps.documentStorage.put(key, BYTE, 'application/octet-stream');
+    await db.adminQuery(`
+      CREATE FUNCTION public.h38_reject_erasure_audit() RETURNS trigger
+      LANGUAGE plpgsql AS $fn$
+      BEGIN
+        RAISE EXCEPTION 'injected durable audit failure';
+      END
+      $fn$;
+      CREATE TRIGGER h38_reject_erasure_audit
+      BEFORE INSERT ON audit_event
+      FOR EACH ROW
+      WHEN (NEW.action = 'post_finalize_erasure_straggler_caught')
+      EXECUTE FUNCTION public.h38_reject_erasure_audit();
+    `);
+    try {
+      const result = await runErasureJanitorPass(
+        deps.persistence.pool, deps.documentStorage, deps.logger, 'owner', { progressTimeoutMs: 1_000 },
+      );
+      expect(result).toMatchObject({ recordsSwept: 0, failures: 1, incomplete: true });
+      expect(await deps.documentStorage.get(key)).toEqual(BYTE);
+      const state = (await db.adminQuery<{ authority: number; count: number; audits: number }>(
+        `SELECT
+           (SELECT count(*)::int FROM erased_tenant_prefix WHERE tenant_ref=$1) AS authority,
+           (SELECT straggler_count::int FROM erased_tenant_prefix WHERE tenant_ref=$1) AS count,
+           (SELECT count(*)::int FROM audit_event
+             WHERE action='post_finalize_erasure_straggler_caught' AND entity_id=$1::text) AS audits`,
+        [dead],
+      ))[0]!;
+      expect(state).toEqual({ authority: 1, count: 0, audits: 0 });
+    } finally {
+      await db.adminQuery(`
+        DROP TRIGGER IF EXISTS h38_reject_erasure_audit ON audit_event;
+        DROP FUNCTION IF EXISTS public.h38_reject_erasure_audit();
+      `);
+    }
   });
 
   it('converges when another straggler appears during the same list-delete-relist pass', async () => {
@@ -404,18 +510,217 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     await locked;
     let second;
     try {
-      second = await runErasureJanitorPass(deps.persistence.pool, storage, deps.logger, 'interval');
+      second = await runErasureJanitorPass(deps.persistence.pool, storage, deps.logger, 'owner');
     } finally {
       // Release the owning pass even when a RED mutation makes the assertion
       // below fail; the discriminator must never strand a pool client.
       releaseLocked();
     }
-    expect(second).toMatchObject({ recordsSeen: 1, recordsSwept: 0, recordsSkipped: 1, stragglersDestroyed: 0 });
-    expect(await first).toMatchObject({ recordsSeen: 1, recordsSwept: 1, recordsSkipped: 0, stragglersDestroyed: 1 });
+    expect(second).toMatchObject({
+      recordsSeen: 1, recordsSwept: 0, recordsSkipped: 1, stragglersDestroyed: 0, incomplete: true,
+    });
+    expect(await first).toMatchObject({
+      recordsSeen: 1, recordsSwept: 1, recordsSkipped: 0, stragglersDestroyed: 1, incomplete: false,
+    });
     expect(objects.size).toBe(0);
     expect((await db.adminQuery<{ n: number }>(
       `SELECT straggler_count::int AS n FROM erased_tenant_prefix WHERE tenant_ref=$1`, [dead],
     ))[0]!.n).toBe(1);
+  });
+
+  it('bounds a non-cooperative storage call and releases the row for a later pass', async () => {
+    const dead = '00000000-0000-4000-8000-000000000089';
+    await db.adminQuery(
+      `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`,
+      [dead, `${dead}/`, `intake/${dead}/`],
+    );
+    const key = `${dead}/stuck-list`;
+    const objects = new Map<string, Buffer>([[key, BYTE]]);
+    let markLocked!: () => void;
+    let releaseStuck!: () => void;
+    const locked = new Promise<void>((resolve) => { markLocked = resolve; });
+    const stuck = new Promise<void>((resolve) => { releaseStuck = resolve; });
+    let blockOnce = true;
+    const storage: DocumentStorage = {
+      driver: 'fs',
+      async put(storageKey, body) { objects.set(storageKey, Buffer.from(body)); },
+      async get(storageKey) { return objects.get(storageKey) ?? null; },
+      async listKeys(prefix) {
+        if (blockOnce) {
+          blockOnce = false;
+          markLocked();
+          await stuck; // deliberately ignores AbortSignal
+        }
+        return [...objects.keys()].filter((storageKey) => storageKey.startsWith(prefix)).sort();
+      },
+      async delete(storageKey) { objects.delete(storageKey); },
+    };
+    const first = runErasureJanitorPass(
+      deps.persistence.pool, storage, deps.logger, 'interval', { progressTimeoutMs: 50 },
+    );
+    await locked;
+    const whileLocked = await runErasureJanitorPass(
+      deps.persistence.pool, storage, deps.logger, 'owner', { progressTimeoutMs: 50 },
+    );
+    const bounded = await Promise.race([
+      first.then((result) => ({ kind: 'result' as const, result })),
+      new Promise<{ kind: 'timeout' }>((resolve) => setTimeout(() => resolve({ kind: 'timeout' }), 250)),
+    ]);
+    releaseStuck();
+    try {
+      expect(whileLocked).toMatchObject({ recordsSkipped: 1, incomplete: true });
+      expect(bounded).toMatchObject({ kind: 'result', result: { failures: 1, incomplete: true } });
+      const retry = await runErasureJanitorPass(
+        deps.persistence.pool, storage, deps.logger, 'owner', { progressTimeoutMs: 50 },
+      );
+      expect(retry).toMatchObject({ recordsSwept: 1, stragglersDestroyed: 1, incomplete: false });
+      expect(objects.size).toBe(0);
+    } finally {
+      releaseStuck();
+      await first.catch(() => undefined);
+    }
+  });
+
+  it('fails a real cyclic R2 pass closed and releases its authority row for retry', async () => {
+    const dead = '00000000-0000-4000-8000-000000000093';
+    const prefix = `${dead}/`;
+    await db.adminQuery(
+      `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`,
+      [dead, prefix, `intake/${dead}/`],
+    );
+    const repeatedToken = 'opaque-composed-cycle';
+    let cyclic = true;
+    let cyclicRequests = 0;
+    const peer: HttpServer = createServer((req, res) => {
+      const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+      if (req.method !== 'GET' || url.searchParams.get('list-type') !== '2') {
+        req.resume();
+        res.writeHead(404).end();
+        return;
+      }
+      if (!cyclic) {
+        res.writeHead(200, { 'content-type': 'application/xml' });
+        res.end(
+          `<?xml version="1.0" encoding="UTF-8"?>` +
+          `<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">` +
+          `<Name>documents</Name><Prefix>${url.searchParams.get('prefix') ?? ''}</Prefix>` +
+          `<KeyCount>0</KeyCount><MaxKeys>1000</MaxKeys><IsTruncated>false</IsTruncated>` +
+          `</ListBucketResult>`,
+        );
+        return;
+      }
+      cyclicRequests += 1;
+      // RED cleanup: an absent cycle guard reaches this bounded stall after
+      // several advancing callbacks; the janitor deadline then aborts it.
+      if (cyclicRequests > 8) return;
+      res.writeHead(200, { 'content-type': 'application/xml' });
+      res.end(
+        `<?xml version="1.0" encoding="UTF-8"?>` +
+        `<ListBucketResult xmlns="http://s3.amazonaws.com/doc/2006-03-01/">` +
+        `<Name>documents</Name><Prefix>${prefix}</Prefix><KeyCount>1</KeyCount><MaxKeys>1000</MaxKeys>` +
+        `<IsTruncated>true</IsTruncated><NextContinuationToken>${repeatedToken}</NextContinuationToken>` +
+        `<Contents><Key>${prefix}straggler</Key><LastModified>2026-07-15T00:00:00.000Z</LastModified>` +
+        `<ETag>&quot;etag&quot;</ETag><Size>1</Size><StorageClass>STANDARD</StorageClass></Contents>` +
+        `</ListBucketResult>`,
+      );
+    });
+    await new Promise<void>((resolve, reject) => {
+      peer.once('error', reject);
+      peer.listen(0, '127.0.0.1', resolve);
+    });
+    try {
+      const port = (peer.address() as { port: number }).port;
+      const storage = createDocumentStorage({
+        driver: 'r2', endpoint: `http://127.0.0.1:${port}`,
+        accessKeyId: 'h2-composed-access', secretAccessKey: 'h2-composed-secret', bucket: 'documents',
+      });
+      const failed = await runErasureJanitorPass(
+        deps.persistence.pool, storage, deps.logger, 'owner', { progressTimeoutMs: 80 },
+      );
+      expect(failed).toMatchObject({ recordsSwept: 0, failures: 1, incomplete: true });
+      expect(cyclicRequests).toBe(2);
+      expect((await db.adminQuery<{ swept: boolean }>(
+        `SELECT last_swept_at IS NOT NULL AS swept FROM erased_tenant_prefix WHERE tenant_ref=$1`, [dead],
+      ))[0]!.swept).toBe(false);
+
+      cyclic = false;
+      const retry = await runErasureJanitorPass(
+        deps.persistence.pool, storage, deps.logger, 'owner', { progressTimeoutMs: 500 },
+      );
+      expect(retry).toMatchObject({ recordsSwept: 1, failures: 0, incomplete: false });
+    } finally {
+      await new Promise<void>((resolve) => peer.close(() => resolve()));
+    }
+  }, 10_000);
+
+  it('counts a pool checkout failure per candidate and continues the pass', async () => {
+    const first = '00000000-0000-4000-8000-000000000090';
+    const second = '00000000-0000-4000-8000-000000000091';
+    await db.adminQuery(
+      `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix,finalized_at) VALUES
+       ($1,$2,$3,now()-interval '2 days'),($4,$5,$6,now()-interval '1 day')`,
+      [first, `${first}/`, `intake/${first}/`, second, `${second}/`, `intake/${second}/`],
+    );
+    let checkoutCalls = 0;
+    const realPool = deps.persistence.pool;
+    const checkoutFaultPool = {
+      query: realPool.query.bind(realPool),
+      async connect() {
+        checkoutCalls += 1;
+        if (checkoutCalls === 1) throw new Error('injected checkout failure');
+        return realPool.connect();
+      },
+    } as unknown as Pool;
+    const result = await runErasureJanitorPass(
+      checkoutFaultPool, deps.documentStorage, deps.logger, 'boot', { progressTimeoutMs: 1_000 },
+    );
+    expect(result).toMatchObject({
+      recordsSeen: 2, recordsSwept: 1, recordsSkipped: 0, failures: 1, incomplete: true,
+    });
+    const rows = await db.adminQuery<{ tenant_ref: string; swept: boolean }>(
+      `SELECT tenant_ref, last_swept_at IS NOT NULL AS swept
+         FROM erased_tenant_prefix ORDER BY finalized_at, tenant_ref`,
+    );
+    expect(rows).toEqual([
+      { tenant_ref: first, swept: false },
+      { tenant_ref: second, swept: true },
+    ]);
+  });
+
+  it('starts boot before readiness but releases startup at the documented budget', async () => {
+    let releaseBoot!: (result: Awaited<ReturnType<typeof runErasureJanitorPass>>) => void;
+    const boot = new Promise<Awaited<ReturnType<typeof runErasureJanitorPass>>>((resolve) => {
+      releaseBoot = resolve;
+    });
+    const empty = {
+      recordsSeen: 0, recordsSwept: 0, recordsSkipped: 0,
+      stragglersDestroyed: 0, failures: 0, incomplete: false,
+    };
+    const run = vi.fn((trigger: 'boot' | 'interval' | 'owner') =>
+      trigger === 'boot' ? boot : Promise.resolve(empty));
+    const scheduler = createErasureJanitorScheduler(
+      { intervalMs: 10_000, run },
+      deps.logger,
+      { bootReadinessBudgetMs: 40 },
+    );
+    const start = scheduler.start();
+    const bounded = await Promise.race([
+      start.then(() => 'ready' as const),
+      new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 200)),
+    ]);
+    try {
+      expect(run).toHaveBeenCalledWith('boot');
+      expect(bounded).toBe('ready');
+      expect(warnSpy.mock.calls.some((call) =>
+        (call[0] as { event?: string; bootReadinessBudgetMs?: number }).event
+          === 'post_finalize_erasure_janitor_boot_readiness_budget_exhausted'
+        && (call[0] as { bootReadinessBudgetMs?: number }).bootReadinessBudgetMs === 40,
+      )).toBe(true);
+    } finally {
+      releaseBoot(empty);
+      await start;
+      await scheduler.close();
+    }
   });
 
   it('contains no application retirement path for permanent authority', () => {

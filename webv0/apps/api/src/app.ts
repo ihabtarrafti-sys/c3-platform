@@ -2195,6 +2195,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
             recordsSkipped: z.number().int().nonnegative(),
             stragglersDestroyed: z.number().int().nonnegative(),
             failures: z.number().int().nonnegative(),
+            incomplete: z.boolean(),
           }),
         },
       },
