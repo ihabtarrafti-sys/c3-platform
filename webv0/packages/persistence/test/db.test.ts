@@ -79,7 +79,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql', '0080_platform_erasure_audit.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql', '0080_platform_erasure_audit.sql', '0081_erased_tenant_prefix_no_resurrection.sql', '0082_erased_tenant_prefix_dead_only_serialization.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -130,6 +130,34 @@ describe('migrations & schema', () => {
       expect(deadOnlyTrigger.rows).toHaveLength(1);
       expect(deadOnlyTrigger.rows[0]).toMatchObject({ deferrable: true, initially_deferred: true });
       expect(deadOnlyTrigger.rows[0]!.definition).toMatch(/AFTER INSERT OR UPDATE OF tenant_ref/i);
+      const noResurrectionTrigger = await admin.query<{
+        deferrable: boolean; initially_deferred: boolean; definition: string;
+      }>(
+        `SELECT tgdeferrable AS deferrable,
+                tginitdeferred AS initially_deferred,
+                pg_get_triggerdef(oid) AS definition
+           FROM pg_trigger
+          WHERE tgrelid='tenant'::regclass
+            AND tgname='tenant_no_erased_prefix_resurrection'
+            AND NOT tgisinternal`,
+      );
+      expect(noResurrectionTrigger.rows).toHaveLength(1);
+      expect(noResurrectionTrigger.rows[0]).toMatchObject({ deferrable: true, initially_deferred: true });
+      expect(noResurrectionTrigger.rows[0]!.definition).toMatch(/AFTER INSERT OR UPDATE OF id/i);
+      const serializedGuards = await admin.query<{ definition: string }>(
+        `SELECT pg_get_functiondef(oid) AS definition
+           FROM pg_proc
+          WHERE pronamespace='public'::regnamespace
+            AND proname IN (
+              'erased_tenant_prefix_dead_only_guard',
+              'erased_tenant_prefix_no_resurrection_guard'
+            )
+          ORDER BY proname`,
+      );
+      expect(serializedGuards.rows).toHaveLength(2);
+      for (const guard of serializedGuards.rows) {
+        expect(guard.definition).toMatch(/pg_advisory_xact_lock[\s\S]*hashtextextended/i);
+      }
 
       const grants = await admin.query<{
         app_select: boolean; app_insert: boolean; app_delete: boolean;
@@ -164,6 +192,16 @@ describe('migrations & schema', () => {
          VALUES ($1, $2, $3)`,
         [dead, `${dead}/`, `intake/${dead}/`],
       );
+      await admin.query('BEGIN');
+      await admin.query(
+        `INSERT INTO tenant (id, slug, name) VALUES ($1, 'h38-resurrected', 'Must Not Resurrect')`,
+        [dead],
+      );
+      await expect(admin.query('COMMIT')).rejects.toThrow(/ERASED_PREFIX_LIVE_TENANT|resurrect/i);
+      await admin.query('ROLLBACK').catch(() => undefined);
+      expect((await admin.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM tenant WHERE id=$1`, [dead],
+      )).rows[0]!.n).toBe(0);
       await expect(admin.query(
         `INSERT INTO erased_tenant_prefix (tenant_ref, doc_prefix, intake_prefix)
          VALUES ('00000000-0000-4000-8000-000000000080','neighbour/','intake/00000000-0000-4000-8000-000000000080/')`,
@@ -188,6 +226,55 @@ describe('migrations & schema', () => {
       expect((await backup.query(`SELECT count(*)::int AS n FROM erased_tenant_prefix`)).rows[0].n).toBe(1);
     } finally {
       await Promise.all([admin.end(), app.end(), auth.end(), backup.end()]);
+    }
+  });
+
+  it('HARDEN-3.8 H1 serializes concurrent authority and tenant creation for one UUID', async () => {
+    const authority = new Client({ connectionString: db.adminUrl });
+    const tenant = new Client({ connectionString: db.adminUrl });
+    const ref = '00000000-0000-4000-8000-000000000082';
+    await Promise.all([authority.connect(), tenant.connect()]);
+    try {
+      await Promise.all([authority.query('BEGIN'), tenant.query('BEGIN')]);
+      await authority.query(
+        `INSERT INTO erased_tenant_prefix (tenant_ref, doc_prefix, intake_prefix)
+         VALUES ($1, $2, $3)`,
+        [ref, `${ref}/`, `intake/${ref}/`],
+      );
+      await tenant.query(
+        `INSERT INTO tenant (id, slug, name) VALUES ($1, 'h38-concurrent', 'Concurrent Dead-Only Probe')`,
+        [ref],
+      );
+
+      const commits = await Promise.allSettled([
+        authority.query('COMMIT'),
+        tenant.query('COMMIT'),
+      ]);
+      expect(commits.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(commits.filter((result) => result.status === 'rejected')).toHaveLength(1);
+      expect(String((commits.find((result) => result.status === 'rejected') as PromiseRejectedResult).reason))
+        .toMatch(/ERASED_PREFIX_LIVE_TENANT|dead-only|resurrect/i);
+
+      const state = (await db.adminQuery<{
+        tenant_exists: boolean; authority_exists: boolean; live_join: boolean;
+      }>(
+        `SELECT
+           EXISTS (SELECT 1 FROM tenant WHERE id=$1) AS tenant_exists,
+           EXISTS (SELECT 1 FROM erased_tenant_prefix WHERE tenant_ref=$1) AS authority_exists,
+           EXISTS (
+             SELECT 1 FROM tenant t JOIN erased_tenant_prefix e ON e.tenant_ref=t.id
+              WHERE t.id=$1
+           ) AS live_join`,
+        [ref],
+      ))[0]!;
+      expect(Number(state.tenant_exists) + Number(state.authority_exists)).toBe(1);
+      expect(state.live_join).toBe(false);
+    } finally {
+      await Promise.all([
+        authority.query('ROLLBACK').catch(() => undefined),
+        tenant.query('ROLLBACK').catch(() => undefined),
+      ]);
+      await Promise.all([authority.end(), tenant.end()]);
     }
   });
 
