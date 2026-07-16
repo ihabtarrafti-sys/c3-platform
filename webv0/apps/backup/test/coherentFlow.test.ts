@@ -143,6 +143,9 @@ describe('runWithLockWaitRetry (R4-N09 bounded retry)', () => {
   it('classifies pg_dump lock-timeout messages', () => {
     expect(isPgLockTimeout(lockErr())).toBe(true);
     expect(isPgLockTimeout(new Error('could not obtain lock on relation'))).toBe(true);
+    expect(isPgLockTimeout(new Error(
+      'pg_dump: error: query failed: ERROR:  canceling statement due to statement timeout',
+    ))).toBe(true);
     expect(isPgLockTimeout(new Error('syntax error'))).toBe(false);
   });
 });

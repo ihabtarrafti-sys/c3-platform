@@ -103,7 +103,7 @@ export function pgDumpArgs(dumpPath: string, databaseUrl: string, snapshotId: st
 /** Recognise pg_dump's lock-wait-timeout failure (the transient case worth a bounded retry). */
 export function isPgLockTimeout(err: unknown): boolean {
   const msg = String((err as { message?: unknown } | null)?.message ?? err ?? '');
-  return /lock[_ -]?wait[_ -]?timeout|canceling statement due to lock timeout|could not obtain lock/i.test(msg);
+  return /lock[_ -]?wait[_ -]?timeout|canceling statement due to (?:lock|statement) timeout|could not obtain lock/i.test(msg);
 }
 
 export interface LockRetryOptions {
