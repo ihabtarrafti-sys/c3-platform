@@ -1,7 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppShell } from './components/AppShell';
 import { useSession } from './session';
-import { SituationRoomPage } from './pages/SituationRoomPage';
+import { HomePage } from './pages/HomePage';
 import { AuthCallback } from './pages/AuthCallback';
 import { PeoplePage } from './pages/PeoplePage';
 import { PersonProfilePage } from './pages/PersonProfilePage';
@@ -43,8 +43,10 @@ import { AgreementDetailPage } from './pages/AgreementDetailPage';
  * deliberate sign-in screen with the deep link preserved.
  */
 /**
- * The landing surface (Sprint 43): operational roles land in the Situation
- * Room — the cockpit is where work starts; everyone else lands on People.
+ * The landing surface (re-skin chapter, screen 03): operational roles land
+ * at Home — where the day starts; everyone else lands on People. The
+ * /situation path is kept as the canonical URL (deep links, e2e) — the
+ * war-room NAME retired, not the route.
  */
 function HomeRedirect() {
   const { me } = useSession();
@@ -62,7 +64,7 @@ export const router = createBrowserRouter([
     element: <AppShell />,
     children: [
       { index: true, element: <HomeRedirect /> },
-      { path: 'situation', element: <SituationRoomPage /> },
+      { path: 'situation', element: <HomePage /> },
       { path: 'people', element: <PeoplePage /> },
       { path: 'people/:personId', element: <PersonProfilePage /> },
       { path: 'people/:personId/one-pager', element: <OnePagerPage /> },

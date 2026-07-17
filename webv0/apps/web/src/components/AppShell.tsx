@@ -252,11 +252,14 @@ function NavItem({
   label,
   icon,
   onNavigate,
+  testId,
 }: {
   to: string;
   label: string;
   icon: React.ReactNode;
   onNavigate: () => void;
+  /** Stable machine id when the visible label diverges from it (e.g. Home keeps nav-situation). */
+  testId?: string;
 }) {
   return (
     <li>
@@ -265,7 +268,7 @@ function NavItem({
         to={to}
         className={({ isActive }) => (isActive ? 'lt-navitem is-current' : 'lt-navitem')}
         onClick={onNavigate}
-        data-testid={`nav-${label.toLowerCase()}`}
+        data-testid={testId ?? `nav-${label.toLowerCase()}`}
       >
         {icon}
         <span>{label}</span>
@@ -325,7 +328,9 @@ export function AppShell() {
           <p className="lt-kicker">Your whole company</p>
           <ul className="lt-navlist">
             {me?.capabilities.canViewSituation && (
-              <NavItem to="/situation" label="Situation" icon={<SituationIcon />} onNavigate={closeNav} />
+              // Screen 03: the label is Home (the war-room name retired); the
+              // machine id stays nav-situation — the e2e suite's contract.
+              <NavItem to="/situation" label="Home" testId="nav-situation" icon={<SituationIcon />} onNavigate={closeNav} />
             )}
             {me?.capabilities.canViewSituation && (
               <NavItem to="/calendar" label="Calendar" icon={<CalendarIcon />} onNavigate={closeNav} />
