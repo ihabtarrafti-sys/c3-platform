@@ -378,12 +378,15 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     };
     const result = await runErasureJanitorPass(deps.persistence.pool, storage, deps.logger, 'owner');
     expect(result).toMatchObject({ recordsSwept: 0, failures: 1, stragglersDestroyed: 1, incomplete: true });
-    const row = (await db.adminQuery<{ last_swept_at: Date | null; last_result: string; straggler_count: string }>(
-      `SELECT last_swept_at,last_result,straggler_count::text FROM erased_tenant_prefix WHERE tenant_ref=$1`, [dead],
+    const row = (await db.adminQuery<{ last_swept_at: Date | null; last_result: string; straggler_count: string; pending_destroy: string[] }>(
+      `SELECT last_swept_at,last_result,straggler_count::text,pending_destroy FROM erased_tenant_prefix WHERE tenant_ref=$1`, [dead],
     ))[0]!;
-    expect(row.last_swept_at).toBeNull();
-    expect(JSON.parse(row.last_result)).toEqual({ status: 'failed', trigger: 'owner' });
+    // R10-N01: Phase 1 durably committed the catch (last_swept_at set, counter + audit) BEFORE
+    // any delete; Phase 2 destroyed `first` and left `second` in the outbox for the next pass.
+    expect(row.last_swept_at).not.toBeNull();
+    expect(JSON.parse(row.last_result)).toEqual({ status: 'stragglers_destroyed', trigger: 'owner', stragglersCaught: 2 });
     expect(Number(row.straggler_count)).toBe(2);
+    expect(row.pending_destroy).toEqual([second]);
     const audit = await db.adminQuery<{
       tenant_id: string | null; entity_type: string; entity_id: string;
       action: string; actor: string; before: unknown; after: Record<string, unknown>;
@@ -797,5 +800,106 @@ describe('HARDEN-3.7 J\u2032 — composed permanent erasure janitor', () => {
     } finally {
       await new Promise<void>((resolve) => peer.close(() => resolve()));
     }
+  });
+});
+
+// R10-N01: the committed pre-delete outbox. The catch (counter + audit + caught keys) is
+// COMMITTED before any byte is destroyed; a crash after DeleteObject but before the confirming
+// commit can no longer lose the promised record. Real-PG, real fs storage, real pass primitive.
+describe('R10-N01 — committed pre-delete erasure outbox', () => {
+  const DEAD = '00000000-0000-4000-8000-0000000000c1';
+  const seedDeadAuthority = async (tenantRef: string) => {
+    await db.adminQuery(
+      `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`,
+      [tenantRef, `${tenantRef}/`, `intake/${tenantRef}/`],
+    );
+  };
+  const auditCount = async (tenantRef: string) => Number((await db.adminQuery<{ n: string }>(
+    `SELECT count(*) AS n FROM audit_event WHERE action='post_finalize_erasure_straggler_caught' AND entity_id=$1`, [tenantRef],
+  ))[0]!.n);
+  const row = async (tenantRef: string) => (await db.adminQuery<{ straggler_count: string; pending_destroy: string[]; after: unknown }>(
+    `SELECT e.straggler_count, e.pending_destroy,
+            (SELECT a.after FROM audit_event a WHERE a.action='post_finalize_erasure_straggler_caught' AND a.entity_id=e.tenant_ref::text LIMIT 1) AS after
+       FROM erased_tenant_prefix e WHERE e.tenant_ref=$1`, [tenantRef],
+  ))[0]!;
+
+  it('commits the catch BEFORE any delete, keeps keys OUT of audit_event, then destroys and clears pending', async () => {
+    await seedDeadAuthority(DEAD);
+    const straggler = `${DEAD}/late-publication`;
+    await deps.documentStorage.put(straggler, BYTE, 'application/octet-stream');
+
+    // The delete seam OBSERVES committed DB state (a separate connection sees only committed
+    // rows) at the instant of deletion: the catch MUST already be durable. On single-tx code the
+    // delete runs inside the still-open transaction, so the observer sees NO audit yet → RED.
+    const observer = new Client({ connectionString: db.adminUrl });
+    await observer.connect();
+    let auditAtDelete = -1;
+    let pendingAtDelete: string[] = [];
+    const seam: DocumentStorage = {
+      ...deps.documentStorage,
+      delete: async (key, opts) => {
+        auditAtDelete = Number((await observer.query<{ n: string }>(
+          `SELECT count(*) AS n FROM audit_event WHERE action='post_finalize_erasure_straggler_caught' AND entity_id=$1`, [DEAD],
+        )).rows[0]!.n);
+        pendingAtDelete = (await observer.query<{ pending_destroy: string[] }>(
+          `SELECT pending_destroy FROM erased_tenant_prefix WHERE tenant_ref=$1`, [DEAD],
+        )).rows[0]!.pending_destroy;
+        return deps.documentStorage.delete(key, opts);
+      },
+    };
+    try {
+      const result = await runErasureJanitorPass(deps.persistence.pool, seam, deps.logger, 'owner');
+      expect(auditAtDelete, 'the catch audit must be COMMITTED before the byte is destroyed').toBe(1);
+      expect(pendingAtDelete).toContain(straggler);
+      expect(result.stragglersDestroyed).toBe(1);
+      expect(result.incomplete).toBe(false);
+    } finally {
+      await observer.end();
+    }
+    // Destroyed, pending cleared, exactly one audit — and its payload carries NO key material.
+    expect(await deps.documentStorage.get(straggler)).toBeNull();
+    const r = await row(DEAD);
+    expect(r.pending_destroy).toEqual([]);
+    expect(Number(r.straggler_count)).toBe(1);
+    expect(r.after).toEqual({ trigger: 'owner', stragglersCaught: 1 });
+    expect(JSON.stringify(r.after)).not.toContain(DEAD); // condition 2: no key/prefix in audit_event
+    expect(await auditCount(DEAD)).toBe(1);
+  });
+
+  it('per-key confirm: a partial destroy failure leaves the rest pending; recovery double-destroys nothing and double-counts nothing', async () => {
+    const dead = '00000000-0000-4000-8000-0000000000c2';
+    await seedDeadAuthority(dead);
+    const k1 = `${dead}/one`;
+    const k2 = `intake/${dead}/two`;
+    await deps.documentStorage.put(k1, BYTE, 'application/octet-stream');
+    await deps.documentStorage.put(k2, BYTE, 'application/octet-stream');
+
+    // Pass 1: delete k1 succeeds, k2 throws (a provider hiccup). k1 confirmed+removed; k2 stays
+    // pending. The catch (count=2, one audit) is durable regardless.
+    const failing: DocumentStorage = {
+      ...deps.documentStorage,
+      delete: async (key, opts) => {
+        if (key === k2) throw new Error('provider delete failed');
+        return deps.documentStorage.delete(key, opts);
+      },
+    };
+    const pass1 = await runErasureJanitorPass(deps.persistence.pool, failing, deps.logger, 'interval');
+    expect(pass1.incomplete).toBe(true); // pending_destroy non-empty at pass end
+    let r = await row(dead);
+    expect(Number(r.straggler_count)).toBe(2);          // both caught, once
+    expect(await auditCount(dead)).toBe(1);             // one catch event for the batch of 2
+    expect(r.pending_destroy).toEqual([k2]);            // k1 confirmed+removed, k2 remains
+    expect(await deps.documentStorage.get(k1)).toBeNull();
+    expect(await deps.documentStorage.get(k2)).not.toBeNull();
+
+    // Pass 2 with working storage: k2 is already pending (no NEW catch, no second count/event);
+    // it is deleted and confirmed. Idempotent — nothing double-counted or double-audited.
+    const pass2 = await runErasureJanitorPass(deps.persistence.pool, deps.documentStorage, deps.logger, 'interval');
+    expect(pass2.incomplete).toBe(false);
+    r = await row(dead);
+    expect(Number(r.straggler_count)).toBe(2);          // UNCHANGED — no double count
+    expect(await auditCount(dead)).toBe(1);             // UNCHANGED — no second event
+    expect(r.pending_destroy).toEqual([]);
+    expect(await deps.documentStorage.get(k2)).toBeNull();
   });
 });

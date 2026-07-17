@@ -79,7 +79,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql', '0080_platform_erasure_audit.sql', '0081_erased_tenant_prefix_no_resurrection.sql', '0082_erased_tenant_prefix_dead_only_serialization.sql', '0083_erased_tenant_prefix_isolation_guard.sql', '0084_erasure_straggler_count_via_gateway.sql', '0085_erasure_audit_shape_two_valued.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql', '0080_platform_erasure_audit.sql', '0081_erased_tenant_prefix_no_resurrection.sql', '0082_erased_tenant_prefix_dead_only_serialization.sql', '0083_erased_tenant_prefix_isolation_guard.sql', '0084_erasure_straggler_count_via_gateway.sql', '0085_erasure_audit_shape_two_valued.sql', '0086_erasure_pending_destroy_outbox.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -108,6 +108,7 @@ describe('migrations & schema', () => {
       expect(columns.rows.map((row) => row.column_name)).toEqual([
         'tenant_ref', 'doc_prefix', 'intake_prefix', 'finalized_at',
         'last_swept_at', 'last_result', 'straggler_count',
+        'pending_destroy', // R10-N01: the committed pre-delete outbox column
       ]);
       const posture = await admin.query<{ foreign_keys: number; rls: boolean }>(
         `SELECT
@@ -582,8 +583,50 @@ describe('migrations & schema', () => {
       expect((await admin.query<{ n: number }>(
         `SELECT count(*)::int AS n FROM audit_event WHERE action=$1 AND entity_id=$2`, [action, dead],
       )).rows[0]!.n).toBe(1);
+      // GREEN PATH (Neural condition): the legitimate GATEWAY insert must still pass THROUGH the
+      // new belt trigger untouched — a belt that chokes the suspenders would be a new finding.
+      await admin.query(`SELECT append_post_finalize_erasure_straggler_audit($1, $2::bigint, $3)`, [dead, 4, 'boot']);
+      expect((await admin.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM audit_event WHERE action=$1 AND entity_id=$2`, [action, dead],
+      )).rows[0]!.n).toBe(2); // both the direct insert and the gateway insert survived the trigger
     } finally {
       await admin.end();
+    }
+  });
+
+  it('R10-N01 condition 1: a pending_destroy write is outside the identity guard stack (any isolation, no deadlock vs a different-tenant finalize)', async () => {
+    const app = new Client({ connectionString: db.appUrl });
+    const app2 = new Client({ connectionString: db.appUrl });
+    const admin = new Client({ connectionString: db.adminUrl });
+    await Promise.all([app.connect(), app2.connect(), admin.connect()]);
+    const deadA = '00000000-0000-4000-8000-0000000000d1';
+    const deadB = '00000000-0000-4000-8000-0000000000d2';
+    try {
+      await admin.query(`INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`, [deadA, `${deadA}/`, `intake/${deadA}/`]);
+      // (a)+(c): c3_app writes pending_destroy at READ COMMITTED — succeeds. The dead-only guard
+      // fires only AFTER UPDATE OF tenant_ref, so this non-identity write never invokes it, and
+      // the 0083 isolation guard (which lives inside that guard) never refuses it…
+      await app.query(`UPDATE erased_tenant_prefix SET pending_destroy = '["`+deadA+`/k1"]'::jsonb WHERE tenant_ref = $1`, [deadA]);
+      // …and even at REPEATABLE READ it is NOT refused — proving the guard genuinely does not fire
+      // for a pending_destroy-only write (were it firing, 0083 would RAISE "require READ COMMITTED").
+      await app.query('BEGIN ISOLATION LEVEL REPEATABLE READ');
+      await app.query(`UPDATE erased_tenant_prefix SET pending_destroy = '["`+deadA+`/k2"]'::jsonb WHERE tenant_ref = $1`, [deadA]);
+      await app.query('COMMIT');
+      expect((await admin.query<{ pending_destroy: string[] }>(`SELECT pending_destroy FROM erased_tenant_prefix WHERE tenant_ref=$1`, [deadA])).rows[0]!.pending_destroy)
+        .toEqual([`${deadA}/k2`]);
+
+      // (b): a pending_destroy write on A held open, concurrent with a finalize-style authority
+      // INSERT for a DIFFERENT dead tenant B (which DOES fire the dead-only guard + its advisory
+      // lock on B's key). Different keys ⇒ no shared lock ⇒ no deadlock; both commit.
+      await app2.query('BEGIN');
+      await app2.query(`UPDATE erased_tenant_prefix SET pending_destroy = '["`+deadA+`/held"]'::jsonb WHERE tenant_ref = $1`, [deadA]);
+      await admin.query('BEGIN');
+      await admin.query(`INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`, [deadB, `${deadB}/`, `intake/${deadB}/`]);
+      await admin.query('COMMIT'); // B's dead-only guard runs + commits without waiting on A
+      await app2.query('COMMIT');
+      expect((await admin.query<{ n: string }>(`SELECT count(*) AS n FROM erased_tenant_prefix WHERE tenant_ref IN ($1,$2)`, [deadA, deadB])).rows[0]!.n).toBe('2');
+    } finally {
+      await Promise.all([app.end(), app2.end(), admin.end()]);
     }
   });
 

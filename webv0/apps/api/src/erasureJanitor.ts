@@ -16,6 +16,10 @@ export const MAX_ERASURE_JANITOR_INTERVAL_MS = DEFAULT_ERASURE_JANITOR_INTERVAL_
 export const DEFAULT_ERASURE_JANITOR_PROGRESS_TIMEOUT_MS = 120_000;
 export const DEFAULT_ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS = 30_000;
 export const MAX_ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS = 300_000;
+// R10-N01 condition 4: a screaming-provider pathology (an unbounded, growing
+// pending-destroy backlog for one dead tenant) should be LOUD, not a silently
+// growing jsonb. No behaviour change — just a structured warning past this bound.
+export const ERASURE_PENDING_DESTROY_LOUD_THRESHOLD = 1_000;
 
 export type ErasureJanitorTrigger = 'boot' | 'interval' | 'owner';
 
@@ -38,6 +42,7 @@ interface ErasedPrefixRow {
   tenant_ref: string;
   doc_prefix: string;
   intake_prefix: string;
+  pending_destroy: string[];
 }
 
 interface ErasureJanitorPassOptions {
@@ -138,7 +143,7 @@ export async function runErasureJanitorPass(
       await client.query('BEGIN');
       inTransaction = true;
       const locked = await client.query<ErasedPrefixRow>(
-        `SELECT tenant_ref, doc_prefix, intake_prefix
+        `SELECT tenant_ref, doc_prefix, intake_prefix, pending_destroy
            FROM erased_tenant_prefix
           WHERE tenant_ref = $1
           FOR UPDATE SKIP LOCKED`,
@@ -154,10 +159,15 @@ export async function runErasureJanitorPass(
       progressDeadline = createProgressDeadline(progressTimeoutMs);
 
       const prefixes = [lockedRow.doc_prefix, lockedRow.intake_prefix];
-      // A publication may become visible between the first list and the
-      // completion observation. Keep converging until a full two-prefix list is
-      // empty; anything that appears after that observation belongs to the next
-      // pass, and the permanent row remains authoritative for it.
+      // R10-N01: the OUTBOX. `pending` holds keys whose catch is already durable but whose byte
+      // is not yet confirmed destroyed — seeded from pending_destroy so a key caught by a prior
+      // pass that died before its confirming commit is re-destroyed and NEVER re-counted.
+      const pending = new Set<string>(Array.isArray(lockedRow.pending_destroy) ? lockedRow.pending_destroy : []);
+
+      // ── PHASE 1 — COMMIT every catch BEFORE any byte is destroyed. ─────────────────────────
+      // A publication may become visible between lists; keep converging until a full two-prefix
+      // list adds nothing NEW to pending. A key already in `pending` is excluded from newlyCaught,
+      // so a re-discovered key produces no second count and no second audit event.
       for (;;) {
         const present = new Set<string>();
         for (const prefix of prefixes) {
@@ -173,68 +183,96 @@ export async function runErasureJanitorPass(
             present.add(key);
           }
         }
-        if (present.size === 0) break;
-
-        const newlyCaught = [...present].filter((key) => !caught.has(key));
-        for (const key of newlyCaught) caught.add(key);
-        if (newlyCaught.length > 0) {
-          // Count discoveries before storage deletion. If a later delete/list
-          // fails, the catch remains durable when the failure transaction can
-          // commit, and the permanent row remains available for retry.
-          // R10-N02: the gateway now owns BOTH the counter increment and the audit
-          // event as one least-privileged transition (c3_app can no longer write
-          // straggler_count directly); an absent authority RAISEs inside it.
-          const telemetry = await client.query(
-            `SELECT append_post_finalize_erasure_straggler_audit(
-                      $1, $2::bigint, $3::text
-                    ) AS audit_id`,
-            [lockedRow.tenant_ref, newlyCaught.length, trigger],
-          );
-          if (telemetry.rowCount !== 1) {
-            throw new Error('post-finalize erasure telemetry authority disappeared while locked');
-          }
-          logger.warn(
-            {
-              event: 'post_finalize_erasure_straggler_caught',
-              tenantRef: lockedRow.tenant_ref,
-              trigger,
-              stragglersCaught: newlyCaught.length,
-            },
-            'post-finalize erasure janitor caught storage straggler(s)',
-          );
+        const newlyCaught = [...present].filter((key) => !pending.has(key));
+        if (newlyCaught.length === 0) break;
+        for (const key of newlyCaught) { pending.add(key); caught.add(key); }
+        // R10-N02: the gateway owns count + event as one least-privileged transition; only the
+        // COUNT and trigger cross it. R10-N01 condition 2: the caught KEYS go to pending_destroy,
+        // NEVER to audit_event (the 0080 event shape stays key-free and tenant-independent).
+        const telemetry = await client.query(
+          `SELECT append_post_finalize_erasure_straggler_audit($1, $2::bigint, $3::text) AS audit_id`,
+          [lockedRow.tenant_ref, newlyCaught.length, trigger],
+        );
+        if (telemetry.rowCount !== 1) {
+          throw new Error('post-finalize erasure telemetry authority disappeared while locked');
         }
-        for (const key of present) {
-          await progressDeadline.waitFor(storage.delete(key, { signal: progressDeadline.signal }));
-          progressDeadline.onProgress();
-          destroyed.add(key);
+        await client.query(
+          `UPDATE erased_tenant_prefix SET pending_destroy = pending_destroy || $2::jsonb WHERE tenant_ref = $1`,
+          [lockedRow.tenant_ref, JSON.stringify(newlyCaught)],
+        );
+        logger.warn(
+          { event: 'post_finalize_erasure_straggler_caught', tenantRef: lockedRow.tenant_ref, trigger, stragglersCaught: newlyCaught.length },
+          'post-finalize erasure janitor caught storage straggler(s)',
+        );
+        if (pending.size > ERASURE_PENDING_DESTROY_LOUD_THRESHOLD) {
+          logger.warn(
+            { event: 'post_finalize_erasure_pending_destroy_high', tenantRef: lockedRow.tenant_ref, pendingDestroy: pending.size },
+            'post-finalize erasure pending-destroy backlog exceeds the sanity threshold',
+          );
         }
       }
-
-      const passResult = JSON.stringify({
-        status: caught.size > 0 ? 'stragglers_destroyed' : 'clean',
-        trigger,
-        stragglersCaught: caught.size,
-      });
-      await client.query(
-        `UPDATE erased_tenant_prefix
-            SET last_swept_at = now(),
-                last_result = $2
-          WHERE tenant_ref = $1`,
-        [lockedRow.tenant_ref, passResult],
-      );
-      await client.query('COMMIT');
+      await client.query(`UPDATE erased_tenant_prefix SET last_swept_at = now() WHERE tenant_ref = $1`, [lockedRow.tenant_ref]);
+      await client.query('COMMIT'); // ← THE CATCH IS NOW DURABLE; the bytes still exist.
       inTransaction = false;
-      recordsSwept += 1;
-      stragglersDestroyed += destroyed.size;
 
-      if (caught.size > 0) {
+      // ── PHASE 2 — destroy + confirm, per key, idempotent. ─────────────────────────────────
+      // A key leaves pending_destroy ONLY after ITS delete returns success-or-absent (S3 delete
+      // is idempotent). A partial failure leaves the remaining keys pending and the pass
+      // incomplete — never a batch-confirm on partial success.
+      let unconfirmed = pending.size;
+      {
+        await client.query('BEGIN');
+        inTransaction = true;
+        const confirmed: string[] = [];
+        let destroyError: unknown;
+        for (const key of pending) {
+          try {
+            await progressDeadline.waitFor(storage.delete(key, { signal: progressDeadline.signal }));
+          } catch (e) {
+            destroyError = e;
+            break; // leave this key and the rest pending for the next pass
+          }
+          progressDeadline.onProgress();
+          destroyed.add(key);
+          confirmed.push(key);
+        }
+        await client.query(
+          `UPDATE erased_tenant_prefix
+              SET pending_destroy = coalesce(
+                    (SELECT jsonb_agg(k) FROM jsonb_array_elements_text(pending_destroy) AS k WHERE NOT (k = ANY($2::text[]))),
+                    '[]'::jsonb),
+                  last_result = $3
+            WHERE tenant_ref = $1`,
+          [
+            lockedRow.tenant_ref,
+            confirmed,
+            JSON.stringify({ status: destroyed.size > 0 ? 'stragglers_destroyed' : 'clean', trigger, stragglersCaught: caught.size }),
+          ],
+        );
+        await client.query('COMMIT');
+        inTransaction = false;
+        unconfirmed = pending.size - confirmed.length;
+        if (destroyError) {
+          logger.error(
+            { err: destroyError, event: 'post_finalize_erasure_janitor_destroy_failure', tenantRef: lockedRow.tenant_ref, trigger, unconfirmed },
+            'post-finalize erasure janitor delete failed; caught keys remain pending (audit already durable)',
+          );
+        }
+      }
+      stragglersDestroyed += destroyed.size;
+      if (unconfirmed > 0) {
+        // pending_destroy non-empty at pass end ⇒ this candidate is incomplete (owner must rerun).
+        failures += 1;
+        logger.warn(
+          { event: 'post_finalize_erasure_pending_destroy_unconfirmed', tenantRef: lockedRow.tenant_ref, trigger, unconfirmed },
+          'post-finalize erasure janitor left straggler(s) pending destroy for the next pass',
+        );
+      } else {
+        recordsSwept += 1;
+      }
+      if (destroyed.size > 0) {
         logger.info(
-          {
-            event: 'post_finalize_erasure_straggler_destroyed',
-            tenantRef: lockedRow.tenant_ref,
-            trigger,
-            stragglersDestroyed: destroyed.size,
-          },
+          { event: 'post_finalize_erasure_straggler_destroyed', tenantRef: lockedRow.tenant_ref, trigger, stragglersDestroyed: destroyed.size },
           'post-finalize erasure janitor destroyed storage straggler(s)',
         );
       }
