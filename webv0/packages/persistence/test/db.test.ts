@@ -79,7 +79,7 @@ describe('migrations & schema', () => {
     await client.connect();
     try {
       const migs = await client.query('SELECT id FROM _migrations ORDER BY id');
-      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql', '0080_platform_erasure_audit.sql', '0081_erased_tenant_prefix_no_resurrection.sql', '0082_erased_tenant_prefix_dead_only_serialization.sql', '0083_erased_tenant_prefix_isolation_guard.sql', '0084_erasure_straggler_count_via_gateway.sql']);
+      expect(migs.rows.map((r) => r.id)).toEqual(['0001_schema.sql', '0002_rls.sql', '0003_grants.sql', '0004_auth_role_grants.sql', '0005_external_identity.sql', '0006_backup_role_grants.sql', '0007_access_events.sql', '0008_member_admin.sql', '0009_credentials.sql', '0010_journeys.sql', '0011_kit_apparel.sql', '0012_missions.sql', '0013_agreements.sql', '0014_withdrawn_status.sql', '0015_equipment_status.sql', '0016_entities.sql', '0017_money_foundation.sql', '0018_per_diem.sql', '0019_agreement_terms.sql', '0020_governed_agreement_terms.sql', '0021_mission_lines.sql', '0022_entity_level_agreements.sql', '0023_mission_finance_upgrade.sql', '0024_documents.sql', '0025_import_batches.sql', '0026_invoices.sql', '0027_teams.sql', '0028_distributions.sql', '0029_claims.sql', '0030_notifications.sql', '0031_delegations.sql', '0032_people_v2.sql', '0033_credentials_v2_beneficiaries.sql', '0034_harden1.sql', '0035_beneficiary_payee_anchor.sql', '0036_harden2_closure.sql', '0037_tenant_settings.sql', '0038_request_corrections.sql', '0039_comments.sql', '0040_guest_intake.sql', '0041_subscriptions.sql', '0042_departures.sql', '0043_person_photo.sql', '0044_saved_views.sql', '0045_scrub_intake_pii.sql', '0046_blob_tombstone.sql', '0047_reactivate_credential_op.sql', '0048_finance_check_hardening.sql', '0049_settlement_race_guards.sql', '0050_provision_identity_lock.sql', '0051_tombstone_immutability.sql', '0052_settlement_race_guards_v2.sql', '0053_migration_correctives.sql', '0054_departure_deactivation_outbox.sql', '0055_journey_dates_and_comment_immutability.sql', '0056_tenant_exit_state.sql', '0057_exit_quiesce_definer.sql', '0058_approval_revision_outbox.sql', '0059_exit_quiesce_lock.sql', '0060_intake_refused_tombstone.sql', '0061_revision_live_successor_unique.sql', '0062_one_open_deactivate_person.sql', '0063_distribution_share_pay_lock.sql', '0064_comment_delete_guard.sql', '0065_deactivate_open_status_align.sql', '0066_distribution_share_pay_head_write.sql', '0067_intake_tombstone_key_guard.sql', '0068_intake_claim_lock_order.sql', '0069_intake_upload_lease.sql', '0070_compensation_tombstone.sql', '0071_definer_search_path_hardening.sql', '0072_distribution_insert_invariant.sql', '0073_intake_lease_ttl_param.sql', '0074_distribution_every_mutation_invariant.sql', '0075_intake_lease_ttl_bounds.sql', '0076_compensation_state_machine.sql', '0077_tombstone_state_timestamp_coupling.sql', '0078_erased_tenant_prefix.sql', '0079_erased_tenant_prefix_dead_only.sql', '0080_platform_erasure_audit.sql', '0081_erased_tenant_prefix_no_resurrection.sql', '0082_erased_tenant_prefix_dead_only_serialization.sql', '0083_erased_tenant_prefix_isolation_guard.sql', '0084_erasure_straggler_count_via_gateway.sql', '0085_erasure_audit_shape_two_valued.sql']);
       const tables = await client.query(
         `SELECT table_name FROM information_schema.tables WHERE table_schema='public' ORDER BY table_name`,
       );
@@ -420,7 +420,9 @@ describe('migrations & schema', () => {
            (tenant_id,entity_type,entity_id,action,actor,before,after)
          VALUES ($1::uuid,'platform',$1::text,$2,'c3-erasure-janitor',NULL,$3::jsonb)`,
         [tenantA, action, after],
-      )).rejects.toThrow(/audit_event_platform_erasure_shape_chk/i);
+        // R10-N03: a reserved-action row carrying a tenant_id is now caught by the authority
+        // trigger (an earlier, stronger guard) before the shape CHECK — both reject it.
+      )).rejects.toThrow(/audit_event_platform_erasure_shape_chk|must not carry a tenant_id/i);
 
       await expect(app.query(
         `SELECT append_post_finalize_erasure_straggler_audit($1,$2,$3)`,
@@ -532,6 +534,56 @@ describe('migrations & schema', () => {
       )).rejects.toThrow(/permanent authority is absent/i);
     } finally {
       await Promise.all([admin.end(), app.end()]);
+    }
+  });
+
+  it('R10-N03: the platform audit CHECK is two-valued (no JSON-null hole) and a direct privileged insert is authority-gated', async () => {
+    const admin = new Client({ connectionString: db.adminUrl }); // c3_admin owns the gateway fn → the platform policy admits its direct INSERT
+    await admin.connect();
+    const dead = '00000000-0000-4000-8000-0000000000b1';
+    const action = 'post_finalize_erasure_straggler_caught';
+    const ins = (entityId: string, after: unknown) =>
+      admin.query(
+        `INSERT INTO audit_event (tenant_id,entity_type,entity_id,action,actor,before,after)
+         VALUES (NULL,'platform',$1,$2,'c3-erasure-janitor',NULL,$3::jsonb)`,
+        [entityId, action, JSON.stringify(after)],
+      );
+    try {
+      await admin.query(
+        `INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`,
+        [dead, `${dead}/`, `intake/${dead}/`],
+      );
+      // (a) THE JSON-NULL HOLE: {"trigger": null, …}. `after->>'trigger' IN (...)` is UNKNOWN,
+      // which the OLD CHECK accepted. The two-valued rebuild (jsonb_typeof='string' + IS TRUE)
+      // rejects it. RED before 0085 — the row inserts.
+      await expect(ins(dead, { trigger: null, stragglersCaught: 5 }))
+        .rejects.toThrow(/audit_event_platform_erasure_shape_chk/i);
+      // A JSON-null stragglersCaught is likewise refused (typeof 'null' ≠ 'number').
+      await expect(ins(dead, { trigger: 'owner', stragglersCaught: null }))
+        .rejects.toThrow(/audit_event_platform_erasure_shape_chk/i);
+
+      // (b) DIRECT PRIVILEGED INSERT BYPASS — the function owner could mint an exact row
+      // without the gateway's live/authority checks. The BEFORE INSERT trigger now re-enforces
+      // them on every reserved-action row. RED before 0085 — all three insert.
+      // absent authority:
+      await expect(ins('00000000-0000-4000-8000-0000000000b2', { trigger: 'owner', stragglersCaught: 1 }))
+        .rejects.toThrow(/requires an existing erased authority/i);
+      // still-live tenant (author an authority row for a live tenant, then attempt the event):
+      const live = '00000000-0000-4000-8000-0000000000b3';
+      await admin.query('BEGIN');
+      await admin.query(`INSERT INTO tenant (id, slug, name) VALUES ($1, 'r10n03-live', 'Live Probe')`, [live]);
+      await admin.query(`INSERT INTO erased_tenant_prefix (tenant_ref,doc_prefix,intake_prefix) VALUES ($1,$2,$3)`, [live, `${live}/`, `intake/${live}/`]);
+      await expect(ins(live, { trigger: 'owner', stragglersCaught: 1 }))
+        .rejects.toThrow(/still-live tenant/i);
+      await admin.query('ROLLBACK').catch(() => undefined);
+
+      // The legitimate direct path still works: a real dead authority, valid shape → inserted.
+      await ins(dead, { trigger: 'owner', stragglersCaught: 2 });
+      expect((await admin.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM audit_event WHERE action=$1 AND entity_id=$2`, [action, dead],
+      )).rows[0]!.n).toBe(1);
+    } finally {
+      await admin.end();
     }
   });
 
