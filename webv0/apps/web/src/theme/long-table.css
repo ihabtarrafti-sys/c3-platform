@@ -1,0 +1,414 @@
+/*
+ * long-table.css — signature screen 02 (The Long Table frame), re-skin
+ * chapter. Lifted faithfully from Aura's locked 02-long-table-shell
+ * (c3-brand signature.css v1.2.0), scoped under lt-* classes. Composed ONLY
+ * from the canonical brand tokens — no screen-local color literals.
+ *
+ * Glass law: the rail, room bar, cards, and every content surface are
+ * OPAQUE. The only glass in the shell belongs to floating overlays
+ * (menus/popovers/command room — screens 05/06), never this frame.
+ */
+
+.lt-shell {
+  display: grid;
+  min-height: 100vh;
+  grid-template-columns: 244px minmax(0, 1fr);
+  background: var(--c3-ground-canvas);
+  color: var(--c3-ink-default);
+  font-family: var(--c3-font-family-human);
+}
+
+/* ── the rail: a persistent, opaque, sunken room edge ── */
+.lt-rail {
+  position: sticky;
+  z-index: 20;
+  top: 0;
+  display: flex;
+  min-height: 100vh;
+  max-height: 100vh;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: var(--c3-space-5) var(--c3-space-4);
+  border-right: 1px solid var(--c3-border-subtle);
+  background: var(--c3-ground-sunken);
+}
+
+.lt-lockup {
+  display: grid;
+  grid-template-columns: var(--c3-space-10) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-items: center;
+  gap: 0 var(--c3-space-3);
+  padding: var(--c3-space-2);
+  color: var(--c3-ink-strong);
+}
+
+.lt-lockup__mark {
+  grid-row: 1 / 3;
+  width: var(--c3-space-10);
+}
+
+.lt-lockup__mark img {
+  display: block;
+  max-width: 100%;
+}
+
+img.lt-lockup__art--light {
+  display: none;
+}
+
+[data-c3-theme='fresh-light'] img.lt-lockup__art--dark {
+  display: none;
+}
+
+[data-c3-theme='fresh-light'] img.lt-lockup__art--light {
+  display: block;
+}
+
+.lt-lockup__name {
+  font-size: var(--c3-font-size-lead);
+  font-weight: var(--c3-font-weight-brand);
+  letter-spacing: var(--c3-letter-spacing-tight);
+  line-height: var(--c3-line-height-tight);
+}
+
+.lt-lockup__room {
+  overflow: hidden;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── living navigation ── */
+.lt-nav {
+  position: relative;
+  margin-top: var(--c3-space-8);
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.lt-living-line {
+  position: absolute;
+  top: var(--c3-space-10);
+  bottom: var(--c3-space-2);
+  left: var(--c3-space-3);
+  width: var(--c3-space-1);
+  border-radius: var(--c3-radius-pill);
+  background: linear-gradient(var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.lt-kicker {
+  margin: 0 var(--c3-space-2) var(--c3-space-3);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  line-height: var(--c3-line-height-snug);
+  text-transform: uppercase;
+}
+
+.lt-navlist {
+  display: grid;
+  gap: var(--c3-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lt-navitem {
+  position: relative;
+  display: grid;
+  min-height: var(--c3-space-10);
+  box-sizing: border-box;
+  grid-template-columns: var(--c3-space-6) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--c3-radius-md);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-text);
+  text-decoration: none;
+  transition:
+    background var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle),
+    color var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle);
+}
+
+.lt-navitem:hover,
+.lt-navitem.is-current {
+  color: var(--c3-ink-strong);
+  background: var(--c3-action-soft);
+}
+
+/* Current = shape + ink + line position, never color alone. */
+.lt-navitem.is-current {
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+.lt-navitem.is-current::before {
+  content: '';
+  position: absolute;
+  top: var(--c3-space-2);
+  bottom: var(--c3-space-2);
+  left: calc(var(--c3-space-1) * -1);
+  width: var(--c3-space-1);
+  border-radius: var(--c3-radius-pill);
+  background: var(--c3-accent-blue);
+}
+
+.lt-navitem svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* ── rail footer: appearance controls + the account corner ── */
+.lt-rail-footer {
+  position: relative;
+  display: grid;
+  gap: var(--c3-space-3);
+  margin-top: auto;
+  padding-top: var(--c3-space-3);
+}
+
+.lt-chip-row {
+  display: flex;
+  gap: var(--c3-space-1);
+  padding: var(--c3-space-1);
+  border: 1px solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+}
+
+.lt-chip {
+  display: inline-flex;
+  min-height: var(--c3-space-8);
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: 1px solid transparent;
+  border-radius: var(--c3-radius-md);
+  color: var(--c3-ink-muted);
+  background: transparent;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-semibold);
+  transition:
+    background var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle),
+    color var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle);
+}
+
+.lt-chip:hover {
+  color: var(--c3-ink-strong);
+  border-color: var(--c3-action-focus);
+  background: var(--c3-action-soft);
+}
+
+.lt-chip:focus-visible {
+  outline: var(--c3-space-1) solid var(--c3-action-focus);
+  outline-offset: var(--c3-space-1);
+}
+
+.lt-account {
+  display: grid;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  border: 1px solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg) var(--c3-radius-lg) var(--c3-radius-lg) var(--c3-radius-xs);
+  background: var(--c3-surface-base);
+}
+
+.lt-account__row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--c3-space-3);
+}
+
+.lt-account__copy {
+  display: grid;
+  min-width: 0;
+}
+
+.lt-account__copy strong {
+  overflow: hidden;
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lt-account__copy span {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  text-transform: capitalize;
+}
+
+.lt-presence {
+  width: var(--c3-space-2);
+  height: var(--c3-space-2);
+  border-radius: var(--c3-radius-pill);
+  background: var(--c3-state-presence);
+  animation: lt-presence-breathe var(--c3-motion-duration-breathe) var(--c3-motion-ease-gentle) infinite;
+}
+
+@keyframes lt-presence-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
+.lt-signout {
+  display: inline-flex;
+  min-height: var(--c3-space-8);
+  align-items: center;
+  justify-content: center;
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: 1px solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  color: var(--c3-ink-muted);
+  background: var(--c3-surface-subtle);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-semibold);
+  transition:
+    background var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle),
+    color var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle);
+}
+
+.lt-signout:hover {
+  color: var(--c3-ink-strong);
+  border-color: var(--c3-action-focus);
+  background: var(--c3-action-soft);
+}
+
+.lt-signout:focus-visible {
+  outline: var(--c3-space-1) solid var(--c3-action-focus);
+  outline-offset: var(--c3-space-1);
+}
+
+/* ── the room ── */
+.lt-room {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--c3-ground-canvas);
+}
+
+.lt-roombar {
+  position: sticky;
+  z-index: 15;
+  top: 0;
+  display: flex;
+  min-height: var(--c3-space-16);
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-5);
+  box-sizing: border-box;
+  padding: var(--c3-space-3) var(--c3-space-6);
+  border-bottom: 1px solid var(--c3-border-subtle);
+  background: var(--c3-surface-base);
+}
+
+.lt-roombar__context {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+  min-width: 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.lt-roombar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+}
+
+.lt-env {
+  padding: var(--c3-space-1) var(--c3-space-3);
+  border: 1px solid var(--c3-state-warning);
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-state-warning);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  line-height: var(--c3-line-height-snug);
+  text-transform: uppercase;
+}
+
+.lt-menu-button {
+  display: none;
+  min-height: var(--c3-space-8);
+  align-items: center;
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: 1px solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  color: var(--c3-ink-muted);
+  background: var(--c3-surface-subtle);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+/* ── responsive: the rail becomes an overlay; everything stays one action away ── */
+@media (max-width: 899px) {
+  .lt-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lt-rail {
+    display: none;
+  }
+
+  .lt-rail.is-open {
+    position: fixed;
+    z-index: 40;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    display: flex;
+    width: 244px;
+    box-shadow: var(--c3-shadow-room);
+  }
+
+  .lt-menu-button {
+    display: inline-flex;
+  }
+}
+
+.lt-scrim {
+  display: none;
+}
+
+@media (max-width: 899px) {
+  .lt-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 30;
+    background: var(--c3-overlay-dim);
+  }
+}
+
+/* ── reduced motion: presence goes still ── */
+@media (prefers-reduced-motion: reduce) {
+  .lt-presence {
+    animation: none;
+  }
+}

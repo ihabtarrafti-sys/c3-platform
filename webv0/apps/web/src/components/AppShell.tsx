@@ -1,13 +1,6 @@
 import { useState } from 'react';
 import { NavLink, Outlet, useLocation } from 'react-router-dom';
-import {
-  Avatar,
-  Button,
-  MessageBar,
-  MessageBarBody,
-  Spinner,
-  makeStyles,
-} from '@fluentui/react-components';
+import { Avatar, Button, MessageBar, MessageBarBody, Spinner, makeStyles } from '@fluentui/react-components';
 import { useSession, useNotify } from '../session';
 import { useThemeMode } from '../theme/mode';
 import { GlobalSearch } from './GlobalSearch';
@@ -16,153 +9,25 @@ import { IS_ENTRA } from '../auth';
 import { LoginGate } from '../pages/LoginGate';
 import { EntraSignIn, AccessNotProvisioned } from '../pages/EntraSignIn';
 import { ENV_LABEL, SHOW_ENV } from '../theme/env';
+import '../theme/long-table.css';
 
 /**
- * The C3 shell — Concept C "Split Authority" (Part A). Three always-present
- * zones when authenticated: the IdentityBar (who you are — Command Black, calm),
- * the NavRail (primary navigation only), and the work area (what you may do).
- * Canonical design authority: c3-governance/product/design/A-PRODUCT-FOUNDATION.md.
+ * The C3 shell — signature screen 02, "The Long Table frame" (re-skin
+ * chapter). A persistent opaque rail (brand lockup, living navigation held
+ * together by the living line, appearance controls, the account corner) plus
+ * the room (a sticky room bar and the opaque work surface beneath it).
  *
- * Increment 1 scope = shell + tokens only. The full Identity dropdown menu and
- * the human-readable RoleBadge (Part A.9: owner -> "Platform Owner") land in the
- * increment that also updates the addPerson E2E, which currently asserts the raw
- * role string on `role-display` and clicks a directly-visible `logout`.
+ * Glass law: nothing in this frame is glass — the rail sits on the sunken
+ * ground, the room bar on surface-base. Floating overlays (menus, popovers,
+ * the command room) are the only glass, and they live in their own
+ * components. The living line means relationship and presence, never alerts.
+ *
+ * The account corner keeps `role-display` and a directly-visible `logout` —
+ * the addPerson e2e contract (never fold them into a disclosure menu).
  */
 
 const useStyles = makeStyles({
-  root: {
-    display: 'flex',
-    flexDirection: 'column',
-    minHeight: '100vh',
-    backgroundColor: 'transparent', // the E ground + ambient glow live on <body>
-    fontFamily: 'var(--c3-font-base)',
-  },
-
-  // ── IdentityBar — T1 glass chrome (Direction E): floats over the ground ──
-  identityBar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-    height: 'var(--c3-identitybar-h)',
-    flexShrink: 0,
-    paddingLeft: '20px',
-    paddingRight: '20px',
-    backgroundColor: 'var(--c3-glass-chrome-bg)',
-    backdropFilter: 'var(--c3-backdrop-chrome)',
-    boxShadow: 'var(--c3-rim)',
-    borderBottom: '1px solid var(--c3-line)',
-    color: 'var(--c3-ink)',
-    position: 'sticky',
-    top: 0,
-    zIndex: 30,
-  },
-  brand: { display: 'flex', alignItems: 'center', gap: '10px' },
-  markTile: {
-    width: '26px',
-    height: '26px',
-    borderRadius: '8px',
-    backgroundColor: 'var(--c3-brand)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  mark: { width: '16px', height: '15px', display: 'block' },
-  wordmark: { fontSize: '16px', fontWeight: 600, letterSpacing: '0.02em' },
-  tenant: {
-    fontFamily: 'var(--c3-font-mono)',
-    fontSize: '12.5px',
-    color: 'var(--c3-ink-muted)',
-    paddingLeft: '12px',
-    borderLeft: '1px solid var(--c3-line)',
-  },
-  spacer: { flexGrow: 1 },
-  envBadge: {
-    fontFamily: 'var(--c3-font-mono)',
-    fontSize: '11px',
-    fontWeight: 500,
-    letterSpacing: '0.14em',
-    color: 'var(--c3-attention)',
-    border: '1px solid var(--c3-attention)',
-    borderRadius: '999px',
-    padding: '2px 10px',
-  },
-  identity: { display: 'flex', alignItems: 'center', gap: '10px' },
-  identityText: { display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.2 },
-  identityName: { fontSize: '13px', fontWeight: 600 },
-  identityRole: { fontSize: '11px', color: 'var(--c3-ink-muted)', textTransform: 'capitalize' },
-  signOut: {
-    color: 'var(--c3-ink)',
-    minWidth: 'auto',
-    ':hover': { color: 'var(--c3-ink)', backgroundColor: 'var(--c3-hover)' },
-    ':hover:active': { color: 'var(--c3-ink)' },
-  },
-  chromeToggle: {
-    color: 'var(--c3-ink-muted)',
-    minWidth: 'auto',
-    ':hover': { color: 'var(--c3-ink)', backgroundColor: 'var(--c3-hover)' },
-  },
-  menuButton: {
-    display: 'none',
-    color: 'var(--c3-ink)',
-    ':hover': { color: 'var(--c3-ink)', backgroundColor: 'var(--c3-hover)' },
-    '@media (max-width: 899px)': { display: 'inline-flex' },
-  },
-
-  // ── body row: NavRail (T1 glass) + work ───────────────────────────────────
-  body: { display: 'flex', flexGrow: 1, minHeight: 0 },
-  navRail: {
-    width: 'var(--c3-rail-w)',
-    flexShrink: 0,
-    backgroundColor: 'var(--c3-glass-chrome-bg)',
-    backdropFilter: 'var(--c3-backdrop-chrome)',
-    borderRight: '1px solid var(--c3-line)',
-    paddingTop: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    rowGap: '2px',
-    '@media (max-width: 899px)': { display: 'none' },
-  },
-  navRailOpen: {
-    '@media (max-width: 899px)': {
-      display: 'flex',
-      position: 'fixed',
-      top: 'var(--c3-identitybar-h)',
-      bottom: 0,
-      left: 0,
-      width: 'var(--c3-rail-w)',
-      zIndex: 20,
-      boxShadow: 'var(--c3-e2)',
-    },
-  },
-  navLink: { textDecoration: 'none', display: 'block' },
-  navItem: {
-    display: 'flex',
-    alignItems: 'center',
-    columnGap: '12px',
-    height: '40px',
-    paddingLeft: '21px',
-    paddingRight: '16px',
-    color: 'var(--c3-ink-muted)',
-    fontSize: '14px',
-    fontWeight: 400,
-    borderLeft: '3px solid transparent',
-    cursor: 'pointer',
-    transitionProperty: 'background-color, color',
-    transitionDuration: 'var(--c3-dur-state)',
-    transitionTimingFunction: 'var(--c3-ease)',
-    ':hover': { backgroundColor: 'var(--c3-hover)', color: 'var(--c3-ink)' },
-  },
-  // E: indigo carries the structural role — active nav is brand, not red.
-  navItemActive: {
-    color: 'var(--c3-ink)',
-    fontWeight: 600,
-    borderLeftColor: 'var(--c3-brand)',
-    backgroundColor: 'var(--c3-active-tint)',
-  },
-  navIcon: { width: '20px', height: '20px', flexShrink: 0 },
-
-  // ── work area ─────────────────────────────────────────────────────────────
+  // ── work area (measure preserved from S46: calm 1200 / command 1520) ──
   work: { flexGrow: 1, minWidth: 0, display: 'flex', flexDirection: 'column' },
   canvas: {
     width: '100%',
@@ -173,25 +38,14 @@ const useStyles = makeStyles({
     boxSizing: 'border-box',
     '@media (max-width: 899px)': { padding: '16px' },
   },
-  // S46 approved relaxation #3 — hybrid density: registers and the cockpit
-  // earn command width; detail/reading surfaces keep the calm measure.
   canvasWide: { maxWidth: '1520px' },
   notices: { display: 'flex', flexDirection: 'column', rowGap: '8px', marginBottom: '16px' },
-  // A.8: NotificationRegion fade-in — each notice announces itself in 180ms
-  // (collapses to instant under prefers-reduced-motion via the global rule).
-  notice: { animationName: 'c3-enter', animationDuration: 'var(--c3-dur-enter)', animationTimingFunction: 'var(--c3-ease)' },
-  center: { display: 'flex', justifyContent: 'center', padding: '48px' },
-  scrim: {
-    display: 'none',
-    '@media (max-width: 899px)': {
-      display: 'block',
-      position: 'fixed',
-      inset: 0,
-      top: 'var(--c3-identitybar-h)',
-      backgroundColor: 'rgba(4, 6, 12, 0.5)',
-      zIndex: 10,
-    },
+  notice: {
+    animationName: 'c3-enter',
+    animationDuration: 'var(--c3-dur-enter)',
+    animationTimingFunction: 'var(--c3-ease)',
   },
+  center: { display: 'flex', justifyContent: 'center', padding: '48px' },
 });
 
 function PeopleIcon({ className }: { className?: string }) {
@@ -404,20 +258,19 @@ function NavItem({
   icon: React.ReactNode;
   onNavigate: () => void;
 }) {
-  const s = useStyles();
   return (
-    <NavLink to={to} className={s.navLink} onClick={onNavigate}>
-      {({ isActive }) => (
-        <div
-          className={isActive ? `${s.navItem} ${s.navItemActive}` : s.navItem}
-          data-testid={`nav-${label.toLowerCase()}`}
-          aria-current={isActive ? 'page' : undefined}
-        >
-          {icon}
-          {label}
-        </div>
-      )}
-    </NavLink>
+    <li>
+      {/* NavLink stamps aria-current="page" on the active anchor natively. */}
+      <NavLink
+        to={to}
+        className={({ isActive }) => (isActive ? 'lt-navitem is-current' : 'lt-navitem')}
+        onClick={onNavigate}
+        data-testid={`nav-${label.toLowerCase()}`}
+      >
+        {icon}
+        <span>{label}</span>
+      </NavLink>
+    </li>
   );
 }
 
@@ -449,180 +302,144 @@ export function AppShell() {
     return <AccessNotProvisioned identity={providerSession?.identity ?? 'This account'} onSignOut={() => void signOut()} />;
   }
 
+  const closeNav = () => setNavOpen(false);
+
   return (
-    <div className={s.root}>
-      <header className={s.identityBar}>
-        <Button
-          className={s.menuButton}
-          appearance="transparent"
-          aria-label={navOpen ? 'Close navigation' : 'Open navigation'}
-          aria-expanded={navOpen}
-          onClick={() => setNavOpen((v) => !v)}
-        >
-          {navOpen ? 'Close' : 'Menu'}
-        </Button>
-        <div className={s.brand}>
-          <span className={s.markTile}>
-            <img className={s.mark} src="/brand/c3-symbol-white.svg" alt="" aria-hidden="true" />
+    <div className="lt-shell">
+      <aside className={navOpen ? 'lt-rail is-open' : 'lt-rail'} aria-label="C3 navigation">
+        <div className="lt-lockup">
+          <span className="lt-lockup__mark" aria-hidden="true">
+            <img className="lt-lockup__art--dark" src="/brand/gather-on-dark.svg" alt="" width="40" height="30" />
+            <img className="lt-lockup__art--light" src="/brand/gather-on-light.svg" alt="" width="40" height="30" />
           </span>
-          <span className={s.wordmark}>C3</span>
-        </div>
-        {me?.tenantSlug && (
-          <span className={s.tenant} data-testid="tenant-indicator" title="Current organization">
-            {me.tenantSlug}
-          </span>
-        )}
-        <div className={s.spacer} />
-        <GlobalSearch />
-        {SHOW_ENV && (
-          <span className={s.envBadge} data-testid="env-badge">
-            {ENV_LABEL}
-          </span>
-        )}
-        <Button
-          appearance="transparent"
-          className={s.chromeToggle}
-          onClick={toggleMode}
-          data-testid="mode-toggle"
-          aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-          title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-        >
-          ◐
-        </Button>
-        <Button
-          appearance="transparent"
-          className={s.chromeToggle}
-          onClick={toggleEffects}
-          data-testid="effects-toggle"
-          aria-label={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
-          title={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
-        >
-          ✦
-        </Button>
-        <NotificationBell />
-        <div className={s.identity}>
-          <Avatar name={me?.displayName ?? undefined} size={28} color="neutral" />
-          <div className={s.identityText}>
-            <span className={s.identityName}>{me?.displayName}</span>
-            <span className={s.identityRole} data-testid="role-display">
-              {me?.role}
+          <span className="lt-lockup__name">C3</span>
+          {me?.tenantSlug && (
+            <span className="lt-lockup__room" data-testid="tenant-indicator" title="Current organization">
+              {me.tenantSlug}
             </span>
+          )}
+        </div>
+
+        <nav className="lt-nav" aria-label="Primary">
+          <span className="lt-living-line" aria-hidden="true" />
+          <p className="lt-kicker">Your whole company</p>
+          <ul className="lt-navlist">
+            {me?.capabilities.canViewSituation && (
+              <NavItem to="/situation" label="Situation" icon={<SituationIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canViewSituation && (
+              <NavItem to="/calendar" label="Calendar" icon={<CalendarIcon />} onNavigate={closeNav} />
+            )}
+            <NavItem to="/people" label="People" icon={<PeopleIcon />} onNavigate={closeNav} />
+            <NavItem to="/credentials" label="Credentials" icon={<CredentialsIcon />} onNavigate={closeNav} />
+            <NavItem to="/journeys" label="Journeys" icon={<JourneysIcon />} onNavigate={closeNav} />
+            <NavItem to="/kit" label="Kit" icon={<KitIcon />} onNavigate={closeNav} />
+            <NavItem to="/apparel" label="Apparel" icon={<ApparelIcon />} onNavigate={closeNav} />
+            <NavItem to="/missions" label="Missions" icon={<MissionsIcon />} onNavigate={closeNav} />
+            <NavItem to="/teams" label="Teams" icon={<TeamsIcon />} onNavigate={closeNav} />
+            {me?.capabilities.canViewFinancials && (
+              <NavItem to="/invoices" label="Invoices" icon={<InvoicesIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canViewFinancials && (
+              <NavItem to="/subscriptions" label="Subscriptions" icon={<SubscriptionsIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canReadClaims && (
+              <NavItem to="/claims" label="Claims" icon={<ClaimsIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canReadAgreements && (
+              <NavItem to="/agreements" label="Agreements" icon={<AgreementsIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canManageEntities && (
+              <NavItem to="/entities" label="Entities" icon={<EntitiesIcon />} onNavigate={closeNav} />
+            )}
+            <NavItem to="/approvals" label="Approvals" icon={<ApprovalsIcon />} onNavigate={closeNav} />
+            {me?.capabilities.canReadMembers && (
+              <NavItem to="/members" label="Members" icon={<MembersIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canManageIntake && (
+              <NavItem to="/intake" label="Guest intake" icon={<IntakeIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canViewSituation && (
+              <NavItem to="/departures" label="Departures" icon={<DepartureIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canManageEntities && (
+              <NavItem to="/activity" label="Activity" icon={<ActivityIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canManageEntities && (
+              <NavItem to="/recycle-bin" label="Recycle bin" icon={<RecycleBinIcon />} onNavigate={closeNav} />
+            )}
+            {me?.capabilities.canManageEntities && (
+              <NavItem to="/settings" label="Settings" icon={<SettingsIcon />} onNavigate={closeNav} />
+            )}
+          </ul>
+        </nav>
+
+        <div className="lt-rail-footer">
+          <div className="lt-chip-row" role="group" aria-label="Appearance">
+            <button
+              type="button"
+              className="lt-chip"
+              onClick={toggleMode}
+              data-testid="mode-toggle"
+              aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+              title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              <span aria-hidden="true">◐</span>
+              <span>{mode === 'dark' ? 'Fresh light' : 'Cozy dark'}</span>
+            </button>
+            <button
+              type="button"
+              className="lt-chip"
+              onClick={toggleEffects}
+              data-testid="effects-toggle"
+              aria-label={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
+              title={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
+            >
+              <span aria-hidden="true">✦</span>
+              <span>{effectsReduced ? 'Full effects' : 'Calm effects'}</span>
+            </button>
+          </div>
+          <div className="lt-account">
+            <div className="lt-account__row">
+              <Avatar name={me?.displayName ?? undefined} size={28} color="neutral" />
+              <span className="lt-account__copy">
+                <strong>{me?.displayName}</strong>
+                <span data-testid="role-display">{me?.role}</span>
+              </span>
+              <span className="lt-presence" aria-hidden="true" />
+            </div>
+            <button type="button" className="lt-signout" onClick={() => void signOut()} data-testid="logout">
+              Sign out
+            </button>
           </div>
         </div>
-        <Button appearance="transparent" className={s.signOut} onClick={() => void signOut()} data-testid="logout">
-          Sign out
-        </Button>
-      </header>
+      </aside>
 
-      <div className={s.body}>
-        {navOpen && <div className={s.scrim} onClick={() => setNavOpen(false)} aria-hidden="true" />}
-        <nav
-          className={navOpen ? `${s.navRail} ${s.navRailOpen}` : s.navRail}
-          aria-label="Primary"
-        >
-          {me?.capabilities.canViewSituation && (
-            <NavItem to="/situation" label="Situation" icon={<SituationIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          )}
-          {me?.capabilities.canViewSituation && (
-            <NavItem to="/calendar" label="Calendar" icon={<CalendarIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          )}
-          <NavItem to="/people" label="People" icon={<PeopleIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          <NavItem
-            to="/credentials"
-            label="Credentials"
-            icon={<CredentialsIcon className={s.navIcon} />}
-            onNavigate={() => setNavOpen(false)}
-          />
-          <NavItem
-            to="/journeys"
-            label="Journeys"
-            icon={<JourneysIcon className={s.navIcon} />}
-            onNavigate={() => setNavOpen(false)}
-          />
-          <NavItem to="/kit" label="Kit" icon={<KitIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          <NavItem to="/apparel" label="Apparel" icon={<ApparelIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          <NavItem to="/missions" label="Missions" icon={<MissionsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          <NavItem to="/teams" label="Teams" icon={<TeamsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          {me?.capabilities.canViewFinancials && (
-            <NavItem
-              to="/invoices"
-              label="Invoices"
-              icon={<InvoicesIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-          {me?.capabilities.canViewFinancials && (
-            <NavItem to="/subscriptions" label="Subscriptions" icon={<SubscriptionsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          )}
-          {me?.capabilities.canReadClaims && (
-            <NavItem to='/claims' label='Claims' icon={<ClaimsIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          )}
-          {me?.capabilities.canReadAgreements && (
-            <NavItem
-              to="/agreements"
-              label="Agreements"
-              icon={<AgreementsIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-          {me?.capabilities.canManageEntities && (
-            <NavItem
-              to="/entities"
-              label="Entities"
-              icon={<EntitiesIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-          <NavItem
-            to="/approvals"
-            label="Approvals"
-            icon={<ApprovalsIcon className={s.navIcon} />}
-            onNavigate={() => setNavOpen(false)}
-          />
-          {me?.capabilities.canReadMembers && (
-            <NavItem
-              to="/members"
-              label="Members"
-              icon={<MembersIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-          {me?.capabilities.canManageIntake && (
-            <NavItem
-              to="/intake"
-              label="Guest intake"
-              icon={<IntakeIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-          {me?.capabilities.canViewSituation && (
-            <NavItem to="/departures" label="Departures" icon={<DepartureIcon className={s.navIcon} />} onNavigate={() => setNavOpen(false)} />
-          )}
-          {me?.capabilities.canManageEntities && (
-            <NavItem
-              to="/activity"
-              label="Activity"
-              icon={<ActivityIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-          {me?.capabilities.canManageEntities && (
-            <NavItem
-              to="/recycle-bin"
-              label="Recycle bin"
-              icon={<RecycleBinIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-          {me?.capabilities.canManageEntities && (
-            <NavItem
-              to="/settings"
-              label="Settings"
-              icon={<SettingsIcon className={s.navIcon} />}
-              onNavigate={() => setNavOpen(false)}
-            />
-          )}
-        </nav>
+      {navOpen && <div className="lt-scrim" onClick={closeNav} aria-hidden="true" />}
+
+      <div className="lt-room">
+        <header className="lt-roombar">
+          <div className="lt-roombar__context">
+            <button
+              type="button"
+              className="lt-menu-button"
+              aria-label={navOpen ? 'Close navigation' : 'Open navigation'}
+              aria-expanded={navOpen}
+              onClick={() => setNavOpen((v) => !v)}
+            >
+              {navOpen ? 'Close' : 'Menu'}
+            </button>
+          </div>
+          <div className="lt-roombar__actions">
+            <GlobalSearch />
+            {SHOW_ENV && (
+              <span className="lt-env" data-testid="env-badge">
+                {ENV_LABEL}
+              </span>
+            )}
+            <NotificationBell />
+          </div>
+        </header>
 
         <main className={s.work}>
           <div className={WIDE_ROUTES.test(location.pathname) ? `${s.canvas} ${s.canvasWide}` : s.canvas}>
