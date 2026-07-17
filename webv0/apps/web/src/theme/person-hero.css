@@ -1,0 +1,42 @@
+/*
+ * person-hero.css — signature screen 04 (the person), re-skin chapter.
+ * The person is C3's signature object: the profile leads with a warm,
+ * OPAQUE hero where their portrait and stable facts gather — a place, not
+ * a dossier. Composed only from brand tokens; no glass on this screen.
+ *
+ * The living thread on the hero's edge means relationship and continuity,
+ * never progress enforcement.
+ */
+
+.ph-hero {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--c3-space-6);
+  align-items: start;
+  overflow: hidden;
+  margin-bottom: var(--c3-space-6);
+  padding: var(--c3-space-6) var(--c3-space-6) var(--c3-space-6) calc(var(--c3-space-6) + var(--c3-space-2));
+  border: 1px solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-xl) var(--c3-radius-xl) var(--c3-radius-xl) var(--c3-radius-sm);
+  background: var(--c3-surface-base);
+  box-shadow: var(--c3-shadow-soft);
+}
+
+.ph-hero::before {
+  content: '';
+  position: absolute;
+  top: var(--c3-space-4);
+  bottom: var(--c3-space-4);
+  left: var(--c3-space-2);
+  width: var(--c3-space-1);
+  border-radius: var(--c3-radius-pill);
+  background: linear-gradient(var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+  opacity: 0.72;
+}
+
+@media (max-width: 760px) {
+  .ph-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

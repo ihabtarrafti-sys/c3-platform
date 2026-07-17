@@ -24,6 +24,7 @@ import { PersonV2Sections } from '../components/PersonV2Sections';
 import { BeneficiarySection, CredentialFactsAction } from '../components/PersonS12Sections';
 import { ErrorState, LoadingState } from '../components/states';
 import { PersonActions } from '../components/PersonActions';
+import '../theme/person-hero.css';
 import { PersonPhotoControl } from '../components/PersonPhotoControl';
 import { useRegisterStyles } from '../components/registerStyles';
 import { agreementRenewalStateOf, approvalStatusOf, auditActionOf, credentialStatusOf, formatUsdCents, journeyStatusOf, operationOf } from '../labels';
@@ -93,6 +94,9 @@ export function PersonProfilePage() {
       {isLoading && <LoadingState label="Loading person…" />}
       {data && (
         <>
+          {/* Screen 04: the identity hero — portrait + stable facts gathered on
+              one opaque surface with the living thread. Components unchanged. */}
+          <section className="ph-hero" aria-label="Identity">
           <PersonPhotoControl
             personId={data.person.personId}
             name={data.person.fullName}
@@ -133,6 +137,7 @@ export function PersonProfilePage() {
               },
             ]}
           />
+          </section>
           <PersonV2Sections person={data.person} />
           <BeneficiarySection personId={data.person.personId} />
           <PersonActions personId={data.person.personId} personName={data.person.fullName} />
