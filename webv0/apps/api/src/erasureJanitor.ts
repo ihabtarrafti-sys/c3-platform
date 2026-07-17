@@ -181,17 +181,13 @@ export async function runErasureJanitorPass(
           // Count discoveries before storage deletion. If a later delete/list
           // fails, the catch remains durable when the failure transaction can
           // commit, and the permanent row remains available for retry.
+          // R10-N02: the gateway now owns BOTH the counter increment and the audit
+          // event as one least-privileged transition (c3_app can no longer write
+          // straggler_count directly); an absent authority RAISEs inside it.
           const telemetry = await client.query(
-            `WITH caught AS (
-               UPDATE erased_tenant_prefix
-                  SET straggler_count = straggler_count + $2::bigint
-                WHERE tenant_ref = $1
-                RETURNING tenant_ref
-             )
-             SELECT append_post_finalize_erasure_straggler_audit(
-                      tenant_ref, $2::bigint, $3::text
-                    ) AS audit_id
-               FROM caught`,
+            `SELECT append_post_finalize_erasure_straggler_audit(
+                      $1, $2::bigint, $3::text
+                    ) AS audit_id`,
             [lockedRow.tenant_ref, newlyCaught.length, trigger],
           );
           if (telemetry.rowCount !== 1) {
