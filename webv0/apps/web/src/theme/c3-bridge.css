@@ -1,0 +1,87 @@
+/*
+ * c3-bridge.css — TRANSITIONAL PLUMBING (re-skin chapter, Phase 0).
+ *
+ * ⚠️ SUNSET: this file exists ONLY to re-skin the app onto the owner-LOCKED identity
+ * (The Long Table · Afterglow + Blue Hour, c3-brand v1.2.0) WITHOUT touching the 44 files /
+ * 477 usages that read the outgoing S47 "Direction E — Liquid Glass" token names. It redefines
+ * each S47 component token in terms of a canonical brand token (theme/brand/c3.tokens.css,
+ * consumed byte-identical — never forked). Components keep their names; the VALUES now come from
+ * the locked identity, and follow [data-c3-theme="cozy-dark"|"fresh-light"] automatically because
+ * the brand vars do. Strategy-B (rename every usage to the brand vocabulary) is the later hygiene
+ * pass; this dual vocabulary MUST NOT become permanent.
+ *
+ * GLASS IS FLOATING-ONLY (identity law, enforced HERE, not in Phase-1 polish): a persistent
+ * "chrome" surface maps to an OPAQUE brand surface with NO backdrop; only the ephemeral "float"
+ * tier reaches --c3-glass-*. The glass-audit test asserts no persistent token resolves to glass.
+ *
+ * Load order (main.tsx): brand tokens → c3-tokens.css (S47) → THIS FILE (wins the :root cascade).
+ */
+
+:root {
+  /* ── ground & opaque surfaces → the warm aubergine ground ── */
+  --c3-ground: var(--c3-ground-canvas);
+  --c3-surface-data: var(--c3-surface-base); /* T0 matte data — registers, forms, governed */
+  --c3-surface-raised: var(--c3-surface-elevated); /* opaque raised (was the glass stand-in) */
+  --c3-line: var(--c3-border-subtle); /* hairline */
+
+  /* ── ink (warm, softly stepped) ── */
+  --c3-ink: var(--c3-ink-default);
+  --c3-ink-mid: var(--c3-ink-muted);
+  --c3-ink-muted: var(--c3-ink-quiet);
+  --c3-ink-faint: var(--c3-ink-quiet);
+
+  /* ── brand & meaning — indigo-as-brand RETIRES; blue is life/action ── */
+  --c3-brand: var(--c3-action-primary); /* identity, active nav, focus, links */
+  --c3-brand-ink: var(--c3-accent-blue); /* blue legible as text on the dark ground */
+  --c3-attention: var(--c3-state-danger); /* "red = attention" → the brand's coral danger */
+  --c3-status-steady: var(--c3-state-success);
+  --c3-status-warn: var(--c3-state-warning);
+  --c3-status-danger: var(--c3-state-danger);
+  --c3-status-info: var(--c3-state-info);
+  --c3-status-neutral: var(--c3-ink-quiet);
+
+  /* ── interaction (primitives the brand system doesn't name — derived, never forked) ── */
+  --c3-hover: color-mix(in srgb, var(--c3-ink-default) 6%, transparent);
+  --c3-active-tint: var(--c3-action-soft);
+
+  /* ── glass tiers — THE AUDIT LIVES HERE ──
+   * chrome = PERSISTENT (rail, identity bar, nav): OPAQUE, no backdrop. NEVER --c3-glass-*.
+   * float  = EPHEMERAL (menus, popovers, toasts, command UI): the brand's Blue Hour glass. */
+  --c3-glass-chrome-bg: var(--c3-surface-elevated);
+  --c3-glass-float-bg: var(--c3-glass-fill);
+  --c3-backdrop-chrome: none;
+  --c3-backdrop-float: blur(var(--c3-glass-blur)) saturate(var(--c3-glass-saturate));
+  --c3-rim: inset 0 1px 0 var(--c3-border-subtle);
+
+  /* ── elevation & attention glow ── */
+  --c3-e1: 0 1px 2px var(--c3-overlay-dim);
+  --c3-e2: var(--c3-shadow-room);
+  --c3-glow-attention: 0 0 26px color-mix(in srgb, var(--c3-state-danger) 20%, transparent);
+  --c3-sweep-tint: color-mix(in srgb, var(--c3-ink-default) 5%, transparent);
+
+  /* ── ambient ground glow → re-tinted to the blue-as-life wash ── */
+  --c3-ambient:
+    radial-gradient(1100px at 85% -10%, var(--c3-accent-blue-wash), transparent 60%),
+    radial-gradient(900px at -10% 110%, var(--c3-accent-aqua-wash), transparent 55%);
+}
+
+/* ── the reduced-effects / reduced-transparency contract, preserved on the new material ──
+ * Placed AFTER the base map so it wins: every glass surface becomes opaque, backdrops off. */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --c3-glass-chrome-bg: var(--c3-surface-elevated);
+    --c3-glass-float-bg: var(--c3-surface-elevated);
+    --c3-backdrop-chrome: none;
+    --c3-backdrop-float: none;
+    --c3-rim: none;
+    --c3-ambient: none;
+  }
+}
+[data-c3-effects='reduced'] {
+  --c3-glass-chrome-bg: var(--c3-surface-elevated);
+  --c3-glass-float-bg: var(--c3-surface-elevated);
+  --c3-backdrop-chrome: none;
+  --c3-backdrop-float: none;
+  --c3-rim: none;
+  --c3-ambient: none;
+}

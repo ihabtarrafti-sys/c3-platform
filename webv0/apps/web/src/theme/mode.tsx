@@ -35,7 +35,9 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    document.documentElement.dataset.c3Mode = mode;
+    // Re-skin: the locked identity keys on data-c3-theme with cozy-dark/fresh-light. The internal
+    // dark/light concept maps 1:1; the DOM attribute + the brand token file speak the locked names.
+    document.documentElement.dataset.c3Theme = mode === 'dark' ? 'cozy-dark' : 'fresh-light';
     try {
       localStorage.setItem('c3-mode', mode);
     } catch {

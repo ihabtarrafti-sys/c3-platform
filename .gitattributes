@@ -6,3 +6,8 @@
 #   packages/c3-runtime/dist/c3-runtime.js (legacy tracked dist — S30 hygiene note:
 #   a stale CRLF working copy predating this rule was restored 2026-07-04)
 c3-runtime.js -text
+
+# Re-skin chapter: the vendored C3 identity tokens are consumed byte-identical from the
+# c3-brand repo (v1.2.0, sha256 427d906…) and integrity-checked by a web test. Never apply
+# CRLF/LF normalization, or the byte-identity check fails on a Windows checkout.
+webv0/apps/web/src/theme/brand/c3.tokens.css -text

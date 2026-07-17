@@ -1,0 +1,194 @@
+/**
+ * C3 identity tokens — The Long Table · Afterglow + Blue Hour
+ * Cozy dark is the default. Set data-c3-theme on html or a scoped container.
+ * The product beneath stays opaque; c3-glass-* is only for floating chrome.
+ */
+
+:root,
+[data-c3-theme="cozy-dark"] {
+  color-scheme: dark;
+
+  /* Ground + tactile opaque surfaces */
+  --c3-ground-canvas: #1c151a;
+  --c3-ground-sunken: #171116;
+  --c3-surface-base: #241a21;
+  --c3-surface-subtle: #2b1d26;
+  --c3-surface-elevated: #34232d;
+  --c3-surface-raised: #3b2832;
+
+  /* Ink stays warm and softly stepped for long daily hours. */
+  --c3-ink-default: #f7ead7;
+  --c3-ink-strong: #fff7eb;
+  --c3-ink-muted: #cfbec1;
+  --c3-ink-quiet: #a8949b;
+  --c3-border-subtle: rgba(247, 234, 215, 0.095);
+  --c3-border-strong: rgba(247, 234, 215, 0.17);
+
+  /* Blue is life/action/conversation; warm accents belong to people. */
+  --c3-accent-blue: #66a9f2;
+  --c3-accent-sky: #8cc8ff;
+  --c3-accent-periwinkle: #9a91f2;
+  --c3-accent-aqua: #58bfb4;
+  --c3-accent-coral: #ef7867;
+  --c3-accent-amber: #e9ad58;
+  --c3-accent-rose: #da8fa0;
+  --c3-accent-blue-wash: rgba(102, 169, 242, 0.12);
+  --c3-accent-aqua-wash: rgba(88, 191, 180, 0.1);
+  --c3-accent-coral-wash: rgba(239, 120, 103, 0.1);
+
+  /* Semantic aliases keep product meaning stable across themes. */
+  --c3-action-primary: var(--c3-accent-blue);
+  --c3-action-primary-hover: var(--c3-accent-sky);
+  --c3-action-ink: #17253c;
+  --c3-action-focus: var(--c3-accent-sky);
+  --c3-action-soft: var(--c3-accent-blue-wash);
+  --c3-state-info: var(--c3-accent-blue);
+  --c3-state-success: var(--c3-accent-aqua);
+  --c3-state-warning: var(--c3-accent-amber);
+  --c3-state-danger: var(--c3-accent-coral);
+  --c3-state-knowledge: var(--c3-accent-periwinkle);
+  --c3-state-people: var(--c3-accent-rose);
+  --c3-state-heart: var(--c3-accent-coral);
+  --c3-state-readiness: var(--c3-accent-aqua);
+  --c3-state-presence: var(--c3-accent-aqua);
+
+  --c3-shadow-room: 0 32px 90px rgba(8, 3, 7, 0.38);
+  --c3-shadow-soft: 0 13px 35px rgba(8, 3, 7, 0.22);
+  --c3-overlay-dim: rgba(23, 17, 22, 0.58);
+
+  /* Blue Hour glass: floating menus, toasts, popovers, and command UI only. */
+  --c3-glass-fill: rgba(46, 34, 43, 0.7);
+  --c3-glass-fill-strong: rgba(31, 24, 29, 0.82);
+  --c3-glass-fallback: #30212a;
+  --c3-glass-edge: rgba(247, 234, 215, 0.16);
+  --c3-glass-highlight: rgba(140, 200, 255, 0.14);
+  --c3-glass-shadow: 0 18px 48px rgba(7, 4, 6, 0.42), inset 0 1px 0 rgba(247, 234, 215, 0.12), inset 0 -1px 0 rgba(102, 169, 242, 0.08);
+  --c3-glass-blur: 24px;
+  --c3-glass-saturate: 130%;
+
+  /* Typography */
+  --c3-font-family-human: "Segoe UI Variable", "Segoe UI", Aptos, sans-serif;
+  --c3-font-family-editorial: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --c3-font-weight-regular: 400;
+  --c3-font-weight-text: 520;
+  --c3-font-weight-semibold: 680;
+  --c3-font-weight-brand: 730;
+  --c3-font-weight-bold: 760;
+  --c3-font-weight-heavy: 820;
+  --c3-font-size-caption: 0.75rem;
+  --c3-font-size-body-small: 0.875rem;
+  --c3-font-size-body: 1rem;
+  --c3-font-size-lead: 1.25rem;
+  --c3-font-size-title: 2rem;
+  --c3-font-size-display: 3.25rem;
+  --c3-line-height-tight: 1.05;
+  --c3-line-height-snug: 1.2;
+  --c3-line-height-body: 1.45;
+  --c3-line-height-comfortable: 1.6;
+  --c3-letter-spacing-tight: -0.04em;
+  --c3-letter-spacing-normal: 0em;
+  --c3-letter-spacing-label: 0.12em;
+
+  /* Geometry */
+  --c3-radius-xs: 4px;
+  --c3-radius-sm: 8px;
+  --c3-radius-md: 12px;
+  --c3-radius-lg: 16px;
+  --c3-radius-xl: 20px;
+  --c3-radius-2xl: 25px;
+  --c3-radius-pill: 999px;
+  --c3-space-0: 0px;
+  --c3-space-1: 4px;
+  --c3-space-2: 8px;
+  --c3-space-3: 12px;
+  --c3-space-4: 16px;
+  --c3-space-5: 20px;
+  --c3-space-6: 24px;
+  --c3-space-8: 32px;
+  --c3-space-10: 40px;
+  --c3-space-12: 48px;
+  --c3-space-16: 64px;
+
+  /* Motion settles into place; ambient motion never demands attention. */
+  --c3-motion-duration-instant: 0ms;
+  --c3-motion-duration-fast: 160ms;
+  --c3-motion-duration-base: 240ms;
+  --c3-motion-duration-settle: 420ms;
+  --c3-motion-duration-breathe: 3600ms;
+  --c3-motion-duration-travel: 7000ms;
+  --c3-motion-duration-room: 28000ms;
+  --c3-motion-ease-signature: cubic-bezier(0.22, 1, 0.36, 1);
+  --c3-motion-ease-gentle: ease-in-out;
+  --c3-motion-ease-linear: linear;
+}
+
+[data-c3-theme="fresh-light"] {
+  color-scheme: light;
+
+  --c3-ground-canvas: #edf6ff;
+  --c3-ground-sunken: #dcecff;
+  --c3-surface-base: #f8fbff;
+  --c3-surface-subtle: #edf5ff;
+  --c3-surface-elevated: #e2effd;
+  --c3-surface-raised: #d5e8fb;
+  --c3-ink-default: #17253c;
+  --c3-ink-strong: #0d1c33;
+  --c3-ink-muted: #53667e;
+  --c3-ink-quiet: #5d7086;
+  --c3-border-subtle: rgba(23, 51, 88, 0.1);
+  --c3-border-strong: rgba(23, 51, 88, 0.18);
+
+  --c3-accent-blue: #286fce;
+  --c3-accent-sky: #4f9feb;
+  --c3-accent-periwinkle: #776fd2;
+  --c3-accent-aqua: #2b8a92;
+  --c3-accent-coral: #cf5a62;
+  --c3-accent-amber: #ba741f;
+  --c3-accent-rose: #ba5c78;
+  --c3-accent-blue-wash: rgba(40, 111, 206, 0.11);
+  --c3-accent-aqua-wash: rgba(43, 138, 146, 0.08);
+  --c3-accent-coral-wash: rgba(207, 90, 98, 0.08);
+
+  --c3-action-primary: var(--c3-accent-blue);
+  --c3-action-primary-hover: #1d55a3;
+  --c3-action-ink: #f8fbff;
+  --c3-action-focus: var(--c3-accent-blue);
+  --c3-action-soft: var(--c3-accent-blue-wash);
+  --c3-state-info: var(--c3-accent-blue);
+  --c3-state-success: var(--c3-accent-aqua);
+  --c3-state-warning: var(--c3-accent-amber);
+  --c3-state-danger: var(--c3-accent-coral);
+  --c3-state-knowledge: var(--c3-accent-periwinkle);
+  --c3-state-people: var(--c3-accent-rose);
+  --c3-state-heart: var(--c3-accent-coral);
+  --c3-state-readiness: var(--c3-accent-aqua);
+  --c3-state-presence: var(--c3-accent-aqua);
+
+  --c3-shadow-room: 0 32px 84px rgba(38, 81, 131, 0.17);
+  --c3-shadow-soft: 0 13px 32px rgba(38, 81, 131, 0.1);
+  --c3-overlay-dim: rgba(23, 37, 60, 0.18);
+
+  --c3-glass-fill: rgba(213, 232, 251, 0.62);
+  --c3-glass-fill-strong: rgba(237, 246, 255, 0.82);
+  --c3-glass-fallback: #edf7ff;
+  --c3-glass-edge: rgba(40, 111, 206, 0.22);
+  --c3-glass-highlight: rgba(255, 255, 255, 0.45);
+  --c3-glass-shadow: 0 18px 48px rgba(39, 93, 142, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.82), inset 0 -1px 0 rgba(40, 111, 206, 0.08);
+  --c3-glass-blur: 22px;
+  --c3-glass-saturate: 140%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root,
+  [data-c3-theme="cozy-dark"],
+  [data-c3-theme="fresh-light"] {
+    --c3-motion-duration-fast: 0ms;
+    --c3-motion-duration-base: 0ms;
+    --c3-motion-duration-settle: 0ms;
+    --c3-motion-duration-breathe: 0ms;
+    --c3-motion-duration-travel: 0ms;
+    --c3-motion-duration-room: 0ms;
+    --c3-motion-ease-signature: linear;
+    --c3-motion-ease-gentle: linear;
+  }
+}
