@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 82 62" role="img" aria-labelledby="title desc">
+  <title id="title">C3 Gather Mark — Balanced</title>
+  <desc id="desc">Three cream upholstered seats gather around a blue table with a centered amber point.</desc>
+  <g id="seats" fill="#f7ead7" fill-rule="evenodd">
+    <path id="seat-north" d="M10 0C4.477 0 0 4.477 0 10v3c0 2.761 2.239 5 5 5h10c2.761 0 5-2.239 5-5v-3C20 4.477 15.523 0 10 0Zm0 5c2.761 0 5 2.239 5 5v5H5v-5c0-2.761 2.239-5 5-5Z" transform="translate(31 1)"/>
+    <path id="seat-west" d="M5 0h10c2.761 0 5 2.239 5 5v3c0 5.523-4.477 10-10 10S0 13.523 0 8V5c0-2.761 2.239-5 5-5Zm2 3h6c1.105 0 2 .895 2 2v3c0 2.761-2.239 5-5 5S5 10.761 5 8V5c0-1.105.895-2 2-2Z" transform="translate(6 43) rotate(11 10 9)"/>
+    <path id="seat-east" d="M5 0h10c2.761 0 5 2.239 5 5v3c0 5.523-4.477 10-10 10S0 13.523 0 8V5c0-2.761 2.239-5 5-5Zm2 3h6c1.105 0 2 .895 2 2v3c0 2.761-2.239 5-5 5S5 10.761 5 8V5c0-1.105.895-2 2-2Z" transform="translate(56 43) rotate(-11 10 9)"/>
+  </g>
+  <g id="hearthline">
+    <rect x="14" y="29" width="54" height="7" rx="3.5" fill="#66a9f2"/>
+    <rect x="38" y="30" width="6" height="5" rx="2.5" fill="#e9ad58"/>
+  </g>
+</svg>

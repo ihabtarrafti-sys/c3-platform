@@ -1,99 +1,86 @@
 import type { ReactNode } from 'react';
-import { makeStyles } from '@fluentui/react-components';
 import { ENV_LABEL, SHOW_ENV } from '../theme/env';
+import '../theme/front-door.css';
 
 /**
- * Pre-authentication surface — Concept C "Split Authority", identity register.
- * A focused Command Black backdrop (the LOGIN-UX-SPECIFICATION permits login on
- * Command Black), the A2.2 mark + C3 wordmark on top, and one calm light card
- * for the surface-specific content (sign in / callback / access-not-provisioned).
- * Reading is quiet; there is no navigation and no domain action here.
+ * Pre-authentication surface — signature screen 01, "the front door"
+ * (The Long Table · Afterglow + Blue Hour, re-skin chapter). The Gather room
+ * composition carries the warmth; the opaque routing panel carries the
+ * product. There is no navigation and no domain action here, and no glass:
+ * authentication content needs an opaque, stable reading surface.
+ *
+ * The Gather artwork is the approved brand asset, vendored byte-identical
+ * from c3-brand — never redrawn, recolored, or morphed.
  */
-const useStyles = makeStyles({
-  // E (S47): the pre-auth surface sits on the ambient ground in both modes;
-  // the card is matte data surface. Mode-agnostic by token.
-  root: {
-    minHeight: '100vh',
-    boxSizing: 'border-box',
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: '32px 16px',
-    position: 'relative',
-    backgroundColor: 'transparent',
-    color: 'var(--c3-ink)',
-    fontFamily: 'var(--c3-font-base)',
-  },
-  envBadge: {
-    position: 'absolute',
-    top: '20px',
-    right: '20px',
-    fontFamily: 'var(--c3-font-mono)',
-    fontSize: '11px',
-    fontWeight: 500,
-    letterSpacing: '0.14em',
-    color: 'var(--c3-signal-red)',
-    border: '1px solid var(--c3-signal-red)',
-    borderRadius: 'var(--c3-radius)',
-    padding: '2px 8px',
-  },
-  column: { width: '100%', maxWidth: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center' },
-  markTile: {
-    width: '46px',
-    height: '46px',
-    borderRadius: '12px',
-    backgroundColor: 'var(--c3-brand)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: '14px',
-  },
-  mark: { width: '26px', height: '24px', display: 'block' },
-  wordmark: { fontSize: '22px', fontWeight: 600, letterSpacing: '0.02em', marginBottom: '24px' },
-  card: {
-    width: '100%',
-    boxSizing: 'border-box',
-    backgroundColor: 'var(--c3-surface-data)',
-    color: 'var(--c3-ink)',
-    border: '1px solid var(--c3-line)',
-    borderRadius: 'var(--c3-radius-data)',
-    boxShadow: 'var(--c3-e1)',
-    padding: '24px',
-    display: 'flex',
-    flexDirection: 'column',
-    rowGap: '14px',
-  },
-  support: { marginTop: '20px', fontSize: '12.5px', color: 'var(--c3-ink-muted)', textAlign: 'center' },
-  supportLink: {
-    color: 'var(--c3-brand-ink)',
-    textDecoration: 'none',
-    ':hover': { textDecoration: 'underline' },
-  },
-});
-
 export function AuthScreen({ children }: { children: ReactNode }) {
-  const s = useStyles();
   return (
-    <div className={s.root}>
-      {SHOW_ENV && (
-        <span className={s.envBadge} data-testid="env-badge">
-          {ENV_LABEL}
-        </span>
-      )}
-      <div className={s.column}>
-        <span className={s.markTile}>
-          <img className={s.mark} src="/brand/c3-symbol-white.svg" alt="" aria-hidden="true" />
-        </span>
-        <div className={s.wordmark}>C3</div>
-        <div className={s.card}>{children}</div>
-        <div className={s.support}>
-          Need help?{' '}
-          <a className={s.supportLink} href="mailto:team@c3hq.org">
-            team@c3hq.org
-          </a>
-        </div>
+    <div className="front-door-screen">
+      <div className="fd-ambient" aria-hidden="true">
+        <span className="fd-ambient__shape fd-ambient__shape--near" />
+        <span className="fd-ambient__shape fd-ambient__shape--far" />
       </div>
+
+      <header className="fd-header">
+        <div className="fd-lockup" role="img" aria-label="C3">
+          <span className="fd-lockup__mark" aria-hidden="true">
+            <img
+              className="fd-lockup__image fd-lockup__image--dark"
+              src="/brand/gather-lockup-horizontal-dark.svg"
+              alt=""
+              width="196"
+              height="62"
+            />
+            <img
+              className="fd-lockup__image fd-lockup__image--light"
+              src="/brand/gather-lockup-horizontal-light.svg"
+              alt=""
+              width="196"
+              height="62"
+            />
+          </span>
+        </div>
+        {SHOW_ENV && (
+          <span className="fd-env" data-testid="env-badge">
+            {ENV_LABEL}
+          </span>
+        )}
+      </header>
+
+      <main className="fd-main">
+        <div className="fd-welcome" aria-hidden="true">
+          <div className="fd-room">
+            <span className="fd-room__halo" />
+            <span className="fd-room__seat fd-room__seat--north" />
+            <span className="fd-room__seat fd-room__seat--west" />
+            <span className="fd-room__seat fd-room__seat--east" />
+            <span className="fd-room__table" />
+            <span className="fd-room__hearth" />
+          </div>
+          <div className="fd-welcome-mark">
+            <img
+              className="fd-welcome-mark__image fd-welcome-mark__image--dark"
+              src="/brand/gather-balanced.svg"
+              alt=""
+              width="82"
+              height="62"
+            />
+            <img
+              className="fd-welcome-mark__image fd-welcome-mark__image--light"
+              src="/brand/gather-on-light.svg"
+              alt=""
+              width="82"
+              height="62"
+            />
+          </div>
+        </div>
+
+        <section className="fd-panel" aria-label="Sign in">
+          {children}
+          <p className="fd-help">
+            Need help? <a href="mailto:team@c3hq.org">team@c3hq.org</a>
+          </p>
+        </section>
+      </main>
     </div>
   );
 }

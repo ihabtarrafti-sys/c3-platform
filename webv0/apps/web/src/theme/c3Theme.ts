@@ -1,118 +1,101 @@
 import { webDarkTheme, webLightTheme, type Theme } from '@fluentui/react-components';
 
 /**
- * C3 Fluent v9 themes — Direction E (S47, forward identity): indigo carries
- * the brand in every Fluent slot; red is reserved for attention and is NEVER
- * a brand slot. Dark-first; the light set is the same system inverted.
+ * C3 Fluent v9 themes — re-skin chapter: every overridden slot references a
+ * LOCKED brand token (theme/brand/c3.tokens.css, The Long Table · Afterglow +
+ * Blue Hour v1.2.0) via var(), so Fluent components follow
+ * [data-c3-theme="cozy-dark"|"fresh-light"] from the single token source —
+ * no literal colors live here. Blue is life/action; warm accents are people's.
  *
- * Neutrals are aligned to the E ground/surface tokens so Fluent components
- * (inputs, dialogs, dropdowns, menus) sit natively on the E surfaces instead
- * of Fluent's own grays. Canonical: docs/design/S47-direction-e-adoption.md.
+ * Fluent theme values become CSS custom properties on the FluentProvider, so
+ * var() references are legal and resolve against the brand cascade at
+ * use-time. The web(Dark|Light)Theme bases still supply every slot we don't
+ * override, which is why the dark/light split remains.
  */
 
 const type = {
-  fontFamilyBase: '"IBM Plex Sans", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
+  fontFamilyBase: 'var(--c3-font-family-human)',
   fontFamilyMonospace: '"IBM Plex Mono", ui-monospace, SFMono-Regular, Consolas, monospace',
 } as const;
 
-// Motion v2 (S46 clock): one C3 ease on Fluent's slots.
+// Motion settles into place (brand motion tokens; reduced-motion collapses them).
 const motion = {
-  durationFast: '130ms',
-  durationNormal: '200ms',
-  durationGentle: '280ms',
-  curveEasyEase: 'cubic-bezier(0.22, 1, 0.36, 1)',
-  curveDecelerateMid: 'cubic-bezier(0.22, 1, 0.36, 1)',
-  curveAccelerateMid: 'cubic-bezier(0.22, 1, 0.36, 1)',
+  durationFast: 'var(--c3-motion-duration-fast)',
+  durationNormal: 'var(--c3-motion-duration-base)',
+  durationGentle: 'var(--c3-motion-duration-settle)',
+  curveEasyEase: 'var(--c3-motion-ease-signature)',
+  curveDecelerateMid: 'var(--c3-motion-ease-signature)',
+  curveAccelerateMid: 'var(--c3-motion-ease-signature)',
+} as const;
+
+/** Brand-token slot map shared by both themes; the tokens flip per data-c3-theme. */
+const brandSlots = {
+  // surfaces — tactile opaque brand surfaces
+  colorNeutralBackground1: 'var(--c3-surface-base)',
+  colorNeutralBackground1Hover: 'var(--c3-surface-subtle)',
+  colorNeutralBackground1Pressed: 'var(--c3-ground-sunken)',
+  colorNeutralBackground2: 'var(--c3-surface-subtle)',
+  colorNeutralBackground3: 'var(--c3-ground-sunken)',
+  colorNeutralBackground4: 'var(--c3-ground-canvas)',
+  colorNeutralBackground6: 'var(--c3-surface-elevated)',
+  colorSubtleBackgroundHover: 'color-mix(in srgb, var(--c3-ink-default) 6%, transparent)',
+  colorSubtleBackgroundPressed: 'color-mix(in srgb, var(--c3-ink-default) 10%, transparent)',
+
+  // ink — warm, softly stepped
+  colorNeutralForeground1: 'var(--c3-ink-default)',
+  colorNeutralForeground2: 'var(--c3-ink-muted)',
+  colorNeutralForeground3: 'var(--c3-ink-quiet)',
+  colorNeutralForeground4: 'var(--c3-ink-quiet)',
+  colorNeutralForegroundDisabled: 'var(--c3-ink-quiet)',
+
+  // strokes
+  colorNeutralStroke1: 'var(--c3-border-strong)',
+  colorNeutralStroke2: 'var(--c3-border-subtle)',
+  colorNeutralStroke3: 'var(--c3-border-subtle)',
+  colorNeutralStrokeAccessible: 'var(--c3-ink-quiet)',
+
+  // brand = the blue-as-life action tokens (never a warm people accent)
+  colorBrandBackground: 'var(--c3-action-primary)',
+  colorBrandBackgroundHover: 'var(--c3-action-primary-hover)',
+  colorBrandBackgroundPressed: 'var(--c3-action-primary-hover)',
+  colorBrandBackgroundSelected: 'var(--c3-action-primary)',
+  colorCompoundBrandBackground: 'var(--c3-action-primary)',
+  colorCompoundBrandBackgroundHover: 'var(--c3-action-primary-hover)',
+  colorCompoundBrandBackgroundPressed: 'var(--c3-action-primary-hover)',
+  colorCompoundBrandForeground1: 'var(--c3-accent-blue)',
+  colorCompoundBrandForeground1Hover: 'var(--c3-accent-sky)',
+  colorCompoundBrandForeground1Pressed: 'var(--c3-accent-blue)',
+  colorCompoundBrandStroke: 'var(--c3-action-primary)',
+  colorCompoundBrandStrokeHover: 'var(--c3-action-primary-hover)',
+  colorBrandForeground1: 'var(--c3-accent-blue)',
+  colorBrandForeground2: 'var(--c3-accent-sky)',
+  colorBrandForegroundLink: 'var(--c3-accent-blue)',
+  colorBrandForegroundLinkHover: 'var(--c3-accent-sky)',
+  colorBrandForegroundLinkPressed: 'var(--c3-accent-blue)',
+  colorBrandForegroundLinkSelected: 'var(--c3-accent-blue)',
+  colorBrandStroke1: 'var(--c3-action-primary)',
+  colorBrandStroke2: 'var(--c3-border-strong)',
+  colorNeutralForegroundOnBrand: 'var(--c3-action-ink)',
+  colorNeutralForeground2BrandHover: 'var(--c3-accent-blue)',
+  colorNeutralForeground2BrandPressed: 'var(--c3-accent-blue)',
+  colorNeutralForeground2BrandSelected: 'var(--c3-accent-blue)',
+  colorNeutralForeground3BrandHover: 'var(--c3-accent-blue)',
+  colorNeutralForeground3BrandSelected: 'var(--c3-accent-blue)',
+
+  // focus follows the brand focus token
+  colorStrokeFocus2: 'var(--c3-action-focus)',
 } as const;
 
 export const c3DarkTheme: Theme = {
   ...webDarkTheme,
   ...type,
   ...motion,
-
-  // surfaces aligned to E ground/surface
-  colorNeutralBackground1: '#13151e',
-  colorNeutralBackground1Hover: '#191c28',
-  colorNeutralBackground1Pressed: '#0f111a',
-  colorNeutralBackground2: '#191c28',
-  colorNeutralBackground3: '#0f111a',
-  colorNeutralBackground4: '#0a0c14',
-  colorNeutralBackground6: '#191c28',
-  colorSubtleBackgroundHover: 'rgba(255, 255, 255, 0.05)',
-  colorSubtleBackgroundPressed: 'rgba(255, 255, 255, 0.08)',
-
-  // ink
-  colorNeutralForeground1: '#eef0f6',
-  colorNeutralForeground2: '#c2c7d4',
-  colorNeutralForeground3: '#868d9e',
-  colorNeutralForeground4: '#5a6070',
-  colorNeutralForegroundDisabled: '#5a6070',
-
-  // strokes
-  colorNeutralStroke1: '#2b2e3a',
-  colorNeutralStroke2: '#232633',
-  colorNeutralStroke3: '#232633',
-  colorNeutralStrokeAccessible: '#868d9e',
-
-  // brand = indigo (never red)
-  colorBrandBackground: '#5666f0',
-  colorBrandBackgroundHover: '#6875f2',
-  colorBrandBackgroundPressed: '#4553d8',
-  colorBrandBackgroundSelected: '#5666f0',
-  colorCompoundBrandBackground: '#5666f0',
-  colorCompoundBrandBackgroundHover: '#6875f2',
-  colorCompoundBrandBackgroundPressed: '#4553d8',
-  colorCompoundBrandForeground1: '#a6b0ff',
-  colorCompoundBrandForeground1Hover: '#bcc4ff',
-  colorCompoundBrandForeground1Pressed: '#8f9bff',
-  colorCompoundBrandStroke: '#5666f0',
-  colorCompoundBrandStrokeHover: '#6875f2',
-  colorBrandForeground1: '#a6b0ff',
-  colorBrandForeground2: '#8f9bff',
-  colorBrandForegroundLink: '#a6b0ff',
-  colorBrandForegroundLinkHover: '#bcc4ff',
-  colorBrandForegroundLinkPressed: '#8f9bff',
-  colorBrandForegroundLinkSelected: '#a6b0ff',
-  colorBrandStroke1: '#5666f0',
-  colorBrandStroke2: '#2b2e3a',
-  colorNeutralForeground2BrandHover: '#a6b0ff',
-  colorNeutralForeground2BrandPressed: '#8f9bff',
-  colorNeutralForeground2BrandSelected: '#a6b0ff',
-  colorNeutralForeground3BrandHover: '#a6b0ff',
-  colorNeutralForeground3BrandSelected: '#a6b0ff',
+  ...brandSlots,
 };
 
 export const c3LightTheme: Theme = {
   ...webLightTheme,
   ...type,
   ...motion,
-
-  colorNeutralStroke1: '#e2e4ee',
-  colorNeutralStroke2: '#e9ebf3',
-
-  colorBrandBackground: '#4b57db',
-  colorBrandBackgroundHover: '#5a66e8',
-  colorBrandBackgroundPressed: '#3a44c4',
-  colorBrandBackgroundSelected: '#4b57db',
-  colorCompoundBrandBackground: '#4b57db',
-  colorCompoundBrandBackgroundHover: '#5a66e8',
-  colorCompoundBrandBackgroundPressed: '#3a44c4',
-  colorCompoundBrandForeground1: '#3a44c4',
-  colorCompoundBrandForeground1Hover: '#4b57db',
-  colorCompoundBrandForeground1Pressed: '#2f38a8',
-  colorCompoundBrandStroke: '#4b57db',
-  colorCompoundBrandStrokeHover: '#5a66e8',
-  colorBrandForeground1: '#3a44c4',
-  colorBrandForeground2: '#4b57db',
-  colorBrandForegroundLink: '#3a44c4',
-  colorBrandForegroundLinkHover: '#2f38a8',
-  colorBrandForegroundLinkPressed: '#2f38a8',
-  colorBrandForegroundLinkSelected: '#3a44c4',
-  colorBrandStroke1: '#4b57db',
-  colorBrandStroke2: '#e2e4ee',
-  colorNeutralForeground2BrandHover: '#3a44c4',
-  colorNeutralForeground2BrandPressed: '#2f38a8',
-  colorNeutralForeground2BrandSelected: '#3a44c4',
-  colorNeutralForeground3BrandHover: '#3a44c4',
-  colorNeutralForeground3BrandSelected: '#3a44c4',
+  ...brandSlots,
 };

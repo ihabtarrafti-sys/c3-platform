@@ -1,0 +1,506 @@
+/*
+ * front-door.css — signature screen 01 (the front door), re-skin chapter.
+ * Lifted faithfully from Aura's locked 01-sign-in composition
+ * (c3-brand/public/signature-screens/signature.css v1.2.0) and scoped under
+ * .front-door-screen so nothing leaks into the shell. Composed ONLY from the
+ * canonical brand tokens — no screen-local color literals.
+ *
+ * Truthfulness boundary (spec §truthfulness): the real product renders only
+ * routes that exist — Microsoft Entra (staging/prod) and the signed dev IdP
+ * (dev builds). The mockup's designed-target routes (email discovery, Google,
+ * org SSO, native password) are NOT built here.
+ *
+ * Glass law: the routing panel and everything in it is OPAQUE. No glass on
+ * this screen (the mockup's only glass is its prototype preview dock, which
+ * has no product counterpart).
+ */
+
+.front-door-screen {
+  position: relative;
+  display: grid;
+  min-height: 100vh;
+  overflow: hidden;
+  box-sizing: border-box;
+  grid-template-rows: auto 1fr;
+  color: var(--c3-ink-default);
+  font-family: var(--c3-font-family-human);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-text);
+  line-height: var(--c3-line-height-body);
+  background:
+    radial-gradient(circle at 18% 54%, color-mix(in srgb, var(--c3-accent-coral), transparent 84%), transparent 36%),
+    radial-gradient(circle at 82% 18%, color-mix(in srgb, var(--c3-accent-blue), transparent 82%), transparent 34%),
+    var(--c3-ground-canvas);
+}
+
+.front-door-screen *,
+.front-door-screen *::before,
+.front-door-screen *::after {
+  box-sizing: border-box;
+}
+
+/* ── ambient room shapes ── */
+.fd-ambient {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.fd-ambient__shape {
+  position: absolute;
+  border: 1px solid var(--c3-border-subtle);
+  border-radius: 46% 54% 52% 48%;
+  background: var(--c3-surface-subtle);
+  opacity: 0.48;
+  animation: fd-room-breathe var(--c3-motion-duration-room) var(--c3-motion-ease-gentle) infinite alternate;
+}
+
+.fd-ambient__shape--near {
+  width: min(42vw, 620px);
+  aspect-ratio: 1;
+  left: -14vw;
+  bottom: -26vw;
+}
+
+.fd-ambient__shape--far {
+  width: min(32vw, 460px);
+  aspect-ratio: 1;
+  top: -18vw;
+  right: -8vw;
+  animation-direction: alternate-reverse;
+}
+
+@keyframes fd-room-breathe {
+  from {
+    transform: translateY(0) rotate(0deg);
+  }
+  to {
+    transform: translateY(var(--c3-space-4)) rotate(2deg);
+  }
+}
+
+/* ── masthead ── */
+.fd-header {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-6);
+  padding: var(--c3-space-6) clamp(var(--c3-space-5), 4vw, var(--c3-space-12));
+}
+
+.fd-lockup {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-3);
+  min-width: 0;
+}
+
+.fd-lockup__mark {
+  width: 112px;
+}
+
+.fd-lockup__mark img,
+.fd-welcome-mark img {
+  display: block;
+  max-width: 100%;
+}
+
+/* Theme-conditional artwork: exactly one variant renders. These follow the
+ * generic display rules above and carry the img element for specificity. */
+img.fd-lockup__image--light,
+img.fd-welcome-mark__image--light {
+  display: none;
+}
+
+[data-c3-theme='fresh-light'] img.fd-lockup__image--dark,
+[data-c3-theme='fresh-light'] img.fd-welcome-mark__image--dark {
+  display: none;
+}
+
+[data-c3-theme='fresh-light'] img.fd-lockup__image--light,
+[data-c3-theme='fresh-light'] img.fd-welcome-mark__image--light {
+  display: block;
+}
+
+/* Environment marker — a quiet warning chip, not an alarm. */
+.fd-env {
+  padding: var(--c3-space-1) var(--c3-space-3);
+  border: 1px solid var(--c3-state-warning);
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-state-warning);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  line-height: var(--c3-line-height-snug);
+  text-transform: uppercase;
+}
+
+/* ── the front-door composition: welcome room + routing panel ── */
+.fd-main {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  width: min(1180px, calc(100% - var(--c3-space-10)));
+  margin: auto;
+  grid-template-columns: minmax(0, 1.15fr) minmax(360px, 0.85fr);
+  align-items: center;
+  gap: clamp(var(--c3-space-10), 8vw, var(--c3-space-16));
+  padding: var(--c3-space-10) 0;
+}
+
+.fd-welcome {
+  position: relative;
+  display: grid;
+  min-height: 520px;
+  place-items: center;
+}
+
+.fd-room {
+  position: relative;
+  width: min(46vw, 520px);
+  aspect-ratio: 1;
+  border: 1px solid var(--c3-border-subtle);
+  border-radius: 48% 52% 45% 55%;
+  background: var(--c3-surface-subtle);
+  box-shadow: var(--c3-shadow-room);
+  transform: rotate(-3deg);
+}
+
+.fd-room__halo {
+  position: absolute;
+  inset: 12%;
+  border: 1px solid var(--c3-border-strong);
+  border-radius: 50%;
+  background: var(--c3-ground-sunken);
+}
+
+.fd-room__seat {
+  position: absolute;
+  z-index: 2;
+  width: 22%;
+  aspect-ratio: 1.15;
+  border: var(--c3-space-2) solid var(--c3-accent-blue);
+  border-radius: var(--c3-radius-2xl) var(--c3-radius-2xl) var(--c3-radius-md) var(--c3-radius-md);
+  background: var(--c3-surface-raised);
+  box-shadow: var(--c3-shadow-soft);
+}
+
+.fd-room__seat--north {
+  top: 9%;
+  left: 39%;
+}
+
+.fd-room__seat--west {
+  left: 10%;
+  bottom: 14%;
+  transform: rotate(13deg);
+  border-color: var(--c3-accent-coral);
+}
+
+.fd-room__seat--east {
+  right: 10%;
+  bottom: 14%;
+  transform: rotate(-13deg);
+  border-color: var(--c3-accent-aqua);
+}
+
+.fd-room__table {
+  position: absolute;
+  z-index: 3;
+  top: 49%;
+  right: 19%;
+  left: 19%;
+  height: var(--c3-space-3);
+  border-radius: var(--c3-radius-pill);
+  background: linear-gradient(90deg, var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+  box-shadow: var(--c3-shadow-soft);
+}
+
+.fd-room__hearth {
+  position: absolute;
+  z-index: 4;
+  top: calc(50% - var(--c3-space-1));
+  left: calc(50% - var(--c3-space-2));
+  width: var(--c3-space-4);
+  height: var(--c3-space-4);
+  border-radius: var(--c3-radius-pill);
+  background: var(--c3-accent-amber);
+  box-shadow: 0 0 var(--c3-space-8) var(--c3-accent-amber);
+}
+
+.fd-welcome-mark {
+  position: absolute;
+  right: var(--c3-space-4);
+  bottom: var(--c3-space-12);
+  width: 82px;
+  padding: var(--c3-space-3);
+  border: 1px solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-xl) var(--c3-radius-xl) var(--c3-radius-xl) var(--c3-radius-sm);
+  background: var(--c3-surface-base);
+  box-shadow: var(--c3-shadow-soft);
+}
+
+/* ── the routing panel: opaque, stable, comfortably readable ── */
+.fd-panel {
+  min-height: 510px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  gap: var(--c3-space-5);
+  padding: clamp(var(--c3-space-8), 4vw, var(--c3-space-12));
+  border: 1px solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-2xl) var(--c3-radius-2xl) var(--c3-radius-2xl) var(--c3-radius-sm);
+  background: var(--c3-surface-base);
+  box-shadow: var(--c3-shadow-room);
+}
+
+/* One state at a time inside the panel; a state wrapper keeps the rhythm. */
+.fd-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--c3-space-5);
+}
+
+/* ── state typography ── */
+.fd-eyebrow {
+  margin: 0;
+  color: var(--c3-accent-blue);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  line-height: var(--c3-line-height-snug);
+  text-transform: uppercase;
+}
+
+.fd-h1 {
+  margin: 0;
+  max-width: 480px;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(1.5rem, 2.4vw, 2.25rem);
+  font-weight: var(--c3-font-weight-regular);
+  letter-spacing: var(--c3-letter-spacing-tight);
+  line-height: var(--c3-line-height-snug);
+}
+
+.fd-h1:focus-visible {
+  outline: none;
+}
+
+.fd-support {
+  margin: 0;
+  max-width: 440px;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body);
+  line-height: var(--c3-line-height-comfortable);
+}
+
+.fd-note {
+  margin: 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.fd-notice {
+  margin: 0;
+  color: var(--c3-state-danger);
+  font-size: var(--c3-font-size-caption);
+}
+
+/* ── actions ── */
+.fd-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--c3-space-2);
+  min-height: var(--c3-space-10);
+  padding: var(--c3-space-3) var(--c3-space-5);
+  border: 1px solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+  text-decoration: none;
+  transition:
+    transform var(--c3-motion-duration-fast) var(--c3-motion-ease-signature),
+    color var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle),
+    border-color var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle),
+    background var(--c3-motion-duration-fast) var(--c3-motion-ease-gentle);
+}
+
+.fd-action:focus-visible {
+  outline: var(--c3-space-1) solid var(--c3-action-focus);
+  outline-offset: var(--c3-space-1);
+}
+
+.fd-action--primary {
+  border-color: var(--c3-action-primary);
+  color: var(--c3-action-ink);
+  background: var(--c3-action-primary);
+}
+
+.fd-action--primary:hover {
+  border-color: var(--c3-action-primary-hover);
+  background: var(--c3-action-primary-hover);
+  transform: translateY(calc(var(--c3-space-1) * -1));
+}
+
+.fd-action--quiet {
+  color: var(--c3-ink-muted);
+  background: var(--c3-surface-subtle);
+}
+
+.fd-action--quiet:hover {
+  color: var(--c3-ink-strong);
+  border-color: var(--c3-action-focus);
+  background: var(--c3-action-soft);
+}
+
+.fd-action--entra {
+  min-width: 250px;
+}
+
+.fd-mswindow {
+  display: grid;
+  width: var(--c3-space-5);
+  height: var(--c3-space-5);
+  grid-template-columns: 1fr 1fr;
+  gap: var(--c3-space-1);
+}
+
+.fd-mswindow i {
+  background: currentColor;
+}
+
+.fd-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c3-space-3);
+}
+
+/* ── the dev-IdP slot: quiet, separated, truthfully labelled ── */
+.fd-slot {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--c3-space-3);
+  padding-top: var(--c3-space-5);
+  border-top: 1px solid var(--c3-border-subtle);
+}
+
+/* ── state symbols (decorative, aria-hidden) ── */
+.fd-symbol {
+  position: relative;
+  width: var(--c3-space-16);
+  height: var(--c3-space-16);
+}
+
+.fd-symbol__orbit {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--c3-border-strong);
+  border-top-color: var(--c3-accent-blue);
+  border-radius: var(--c3-radius-pill);
+  animation: fd-orbit var(--c3-motion-duration-travel) var(--c3-motion-ease-linear) infinite;
+}
+
+.fd-symbol__center {
+  position: absolute;
+  inset: 38%;
+  border-radius: var(--c3-radius-pill);
+  background: var(--c3-accent-blue);
+}
+
+@keyframes fd-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fd-symbol__door {
+  position: absolute;
+  inset: 8% 28%;
+  border: 2px solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg) var(--c3-radius-lg) var(--c3-radius-xs) var(--c3-radius-xs);
+  background: var(--c3-surface-subtle);
+}
+
+.fd-symbol__heart {
+  position: absolute;
+  right: 18%;
+  bottom: 12%;
+  color: var(--c3-accent-coral);
+  font-size: var(--c3-font-size-lead);
+  line-height: 1;
+}
+
+.fd-symbol__keyline {
+  position: absolute;
+  top: 48%;
+  left: 34%;
+  width: 32%;
+  height: 2px;
+  background: var(--c3-accent-amber);
+}
+
+/* ── support line ── */
+.fd-help {
+  margin: 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.fd-help a {
+  color: var(--c3-accent-blue);
+  text-decoration: none;
+}
+
+.fd-help a:hover {
+  text-decoration: underline;
+}
+
+/* ── responsive: single readable column, no horizontal scrolling ── */
+@media (max-width: 980px) {
+  .fd-main {
+    grid-template-columns: minmax(0, 1fr);
+    padding: var(--c3-space-6) 0 var(--c3-space-10);
+  }
+
+  .fd-welcome {
+    min-height: 300px;
+  }
+
+  .fd-room {
+    width: min(70vw, 340px);
+  }
+
+  .fd-welcome-mark {
+    right: var(--c3-space-2);
+    bottom: var(--c3-space-4);
+  }
+}
+
+@media (max-width: 520px) {
+  .fd-welcome {
+    display: none;
+  }
+
+  .fd-panel {
+    min-height: 0;
+  }
+}
+
+/* ── reduced motion: ambient breathing and the orbit go still ── */
+@media (prefers-reduced-motion: reduce) {
+  .fd-ambient__shape,
+  .fd-symbol__orbit {
+    animation: none;
+  }
+}

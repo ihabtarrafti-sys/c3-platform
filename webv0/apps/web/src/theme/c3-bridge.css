@@ -44,6 +44,10 @@
   --c3-hover: color-mix(in srgb, var(--c3-ink-default) 6%, transparent);
   --c3-active-tint: var(--c3-action-soft);
 
+  /* ── application type → the brand's human family (editorial serif is per-screen);
+   *    mono stays Plex Mono — the brand names no mono and data columns keep it. ── */
+  --c3-font-base: var(--c3-font-family-human);
+
   /* ── glass tiers — THE AUDIT LIVES HERE ──
    * chrome = PERSISTENT (rail, identity bar, nav): OPAQUE, no backdrop. NEVER --c3-glass-*.
    * float  = EPHEMERAL (menus, popovers, toasts, command UI): the brand's Blue Hour glass. */

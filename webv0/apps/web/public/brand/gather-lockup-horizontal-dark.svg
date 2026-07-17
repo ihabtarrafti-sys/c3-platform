@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 196 62" role="img" aria-labelledby="title desc">
+  <title id="title">C3 Gather horizontal lockup — dark</title>
+  <desc id="desc">The Balanced Gather Mark paired with the vector C3 wordform for aubergine and other approved dark grounds.</desc>
+  <g id="gather-mark">
+    <g id="seats" fill="#f7ead7" fill-rule="evenodd">
+      <path d="M10 0C4.477 0 0 4.477 0 10v3c0 2.761 2.239 5 5 5h10c2.761 0 5-2.239 5-5v-3C20 4.477 15.523 0 10 0Zm0 5c2.761 0 5 2.239 5 5v5H5v-5c0-2.761 2.239-5 5-5Z" transform="translate(31 1)"/>
+      <path d="M5 0h10c2.761 0 5 2.239 5 5v3c0 5.523-4.477 10-10 10S0 13.523 0 8V5c0-2.761 2.239-5 5-5Zm2 3h6c1.105 0 2 .895 2 2v3c0 2.761-2.239 5-5 5S5 10.761 5 8V5c0-1.105.895-2 2-2Z" transform="translate(6 43) rotate(11 10 9)"/>
+      <path d="M5 0h10c2.761 0 5 2.239 5 5v3c0 5.523-4.477 10-10 10S0 13.523 0 8V5c0-2.761 2.239-5 5-5Zm2 3h6c1.105 0 2 .895 2 2v3c0 2.761-2.239 5-5 5S5 10.761 5 8V5c0-1.105.895-2 2-2Z" transform="translate(56 43) rotate(-11 10 9)"/>
+    </g>
+    <rect x="14" y="29" width="54" height="7" rx="3.5" fill="#66a9f2"/>
+    <rect x="38" y="30" width="6" height="5" rx="2.5" fill="#e9ad58"/>
+  </g>
+  <g id="c3-wordform" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path id="letter-c" d="M137 11C130 5 118 4 109 9c-9 5-13 15-11 26 2 13 12 21 25 21 6 0 11-2 15-6" stroke="#f7ead7" stroke-width="8"/>
+    <path id="number-3" d="M153 11c10-5 22-2 22 8 0 8-7 12-16 12 10 0 18 4 18 13 0 12-14 16-26 10" stroke="#66a9f2" stroke-width="7" transform="skewX(-7) translate(5 0)"/>
+  </g>
+</svg>

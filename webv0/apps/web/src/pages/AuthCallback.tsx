@@ -1,15 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Spinner, Text, makeStyles } from '@fluentui/react-components';
 import { authClient } from '../auth';
 import { useSession } from '../session';
 import { AuthScreen } from '../components/AuthScreen';
-
-const useStyles = makeStyles({
-  row: { display: 'flex', alignItems: 'center', columnGap: '10px' },
-  heading: { fontSize: '18px', fontWeight: 600 },
-  error: { fontSize: '13px', color: 'var(--c3-status-blocked)' },
-});
 
 /** Safe internal-path check: only same-origin relative paths are restored. */
 export function safeInternalPath(candidate: string | null | undefined): string {
@@ -19,11 +12,12 @@ export function safeInternalPath(candidate: string | null | undefined): string {
 
 /**
  * /auth/callback — completes the Entra authorization-code (PKCE) redirect and
- * restores the intended deep link carried through the state parameter. Renders
- * on the pre-auth AuthScreen (it sits outside the protected shell).
+ * restores the intended deep link carried through the state parameter.
+ * Signature-01 states: the return leg of the sign-in handoff (calm orbit,
+ * polite status), or the error voice — which never accuses the account and
+ * stays distinct from access-denied (AccessNotProvisioned owns that).
  */
 export function AuthCallback() {
-  const s = useStyles();
   const navigate = useNavigate();
   const { refresh } = useSession();
   const [error, setError] = useState<string | null>(null);
@@ -43,16 +37,26 @@ export function AuthCallback() {
   return (
     <AuthScreen>
       {error ? (
-        <div aria-live="assertive">
-          <div className={s.heading}>Sign-in didn’t complete</div>
-          <Text className={s.error} data-testid="callback-error">
+        <div className="fd-state" aria-live="assertive">
+          <div className="fd-symbol" aria-hidden="true">
+            <span className="fd-symbol__door" />
+            <span className="fd-symbol__keyline" />
+          </div>
+          <p className="fd-eyebrow">Something interrupted the route</p>
+          <h1 className="fd-h1">The front door didn’t open.</h1>
+          <p className="fd-support">This may be temporary; we haven’t confirmed an account problem.</p>
+          <p className="fd-notice" data-testid="callback-error">
             {error}
-          </Text>
+          </p>
         </div>
       ) : (
-        <div className={s.row} data-testid="callback-progress">
-          <Spinner size="tiny" />
-          <Text>Completing sign-in…</Text>
+        <div className="fd-state" data-testid="callback-progress" role="status" aria-live="polite">
+          <div className="fd-symbol" aria-hidden="true">
+            <span className="fd-symbol__orbit" />
+            <span className="fd-symbol__center" />
+          </div>
+          <p className="fd-eyebrow">Sign-in handoff</p>
+          <h1 className="fd-h1">Completing sign-in…</h1>
         </div>
       )}
     </AuthScreen>
