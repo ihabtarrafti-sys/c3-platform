@@ -18,6 +18,8 @@ import EmbeddedPostgres from 'embedded-postgres';
 import { Client } from 'pg';
 import { runMigrations } from '@c3web/persistence';
 
+export { instrumentPool, type QueryRecorder, type QueryStats } from './queryStats';
+
 const APP_ROLE = 'c3_app';
 const APP_PW = 'c3_app_test_pw';
 const AUTH_ROLE = 'c3_auth';
