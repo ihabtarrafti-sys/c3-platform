@@ -79,6 +79,14 @@
     --c3-backdrop-float: none;
     --c3-rim: none;
     --c3-ambient: none;
+    /* Brand glass collapses too (the identity expects reduced-transparency
+     * handling; the token file leaves it to the consumer — that's us). */
+    --c3-glass-fill: var(--c3-surface-elevated);
+    --c3-glass-fill-strong: var(--c3-surface-elevated);
+    --c3-glass-blur: 0px;
+    --c3-glass-saturate: 100%;
+    --c3-glass-edge: var(--c3-border-strong);
+    --c3-glass-shadow: var(--c3-shadow-soft);
   }
 }
 [data-c3-effects='reduced'] {
@@ -88,4 +96,10 @@
   --c3-backdrop-float: none;
   --c3-rim: none;
   --c3-ambient: none;
+  --c3-glass-fill: var(--c3-surface-elevated);
+  --c3-glass-fill-strong: var(--c3-surface-elevated);
+  --c3-glass-blur: 0px;
+  --c3-glass-saturate: 100%;
+  --c3-glass-edge: var(--c3-border-strong);
+  --c3-glass-shadow: var(--c3-shadow-soft);
 }

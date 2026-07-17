@@ -103,7 +103,7 @@ function routeFor(kind: string, id: string, parentId: string | null): string {
 
 /** S3.1 command palette: navigation ACTIONS matched on the same surface. */
 const NAV_ACTIONS: ReadonlyArray<{ label: string; route: string }> = [
-  { label: 'Go to Situation Room', route: '/situation' },
+  { label: 'Go to Home', route: '/situation' },
   { label: 'Go to People', route: '/people' },
   { label: 'Go to Credentials', route: '/credentials' },
   { label: 'Go to Journeys', route: '/journeys' },
@@ -124,6 +124,10 @@ const NAV_ACTIONS: ReadonlyArray<{ label: string; route: string }> = [
 const useStyles = makeStyles({
   root: { position: 'relative', width: '260px', '@media (max-width: 899px)': { display: 'none' } },
   input: { width: '100%' },
+  // Screen 05 (re-skin): the results panel is an EPHEMERAL floating surface —
+  // the one place Blue Hour glass legitimately lives. (This also fixes the
+  // undefined --c3-panel background it silently rode before.) The reduced-
+  // effects contract collapses the brand glass tokens to opaque automatically.
   panel: {
     position: 'absolute',
     top: 'calc(100% + 6px)',
@@ -131,10 +135,11 @@ const useStyles = makeStyles({
     right: 0,
     maxHeight: '420px',
     overflowY: 'auto',
-    backgroundColor: 'var(--c3-panel)',
-    border: '1px solid var(--c3-line)',
-    borderRadius: 'var(--c3-radius)',
-    boxShadow: 'var(--c3-e2)',
+    backgroundColor: 'var(--c3-glass-fill-strong)',
+    backdropFilter: 'blur(var(--c3-glass-blur)) saturate(var(--c3-glass-saturate))',
+    border: '1px solid var(--c3-glass-edge)',
+    borderRadius: 'var(--c3-radius-lg)',
+    boxShadow: 'var(--c3-glass-shadow)',
     zIndex: 40,
     padding: '6px',
   },
