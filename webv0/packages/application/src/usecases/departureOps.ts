@@ -21,7 +21,7 @@ import {
   NotFoundError,
 } from '@c3web/domain';
 import { assertSubmitApproval, assertViewApprovals } from '@c3web/authz';
-import type { Persistence } from '../ports';
+import type { Persistence, ReadStore } from '../ports';
 import { findOrSubmitDeactivatePerson } from './submitPersonOps';
 
 export interface DepartureWithReadiness {
@@ -31,10 +31,9 @@ export interface DepartureWithReadiness {
   readonly openItems: readonly DepartureOpenItem[];
 }
 
-export async function listDepartures(p: Persistence, actor: Actor): Promise<DepartureWithReadiness[]> {
-  assertViewApprovals(actor); // operational surface (owner/operations)
-  const reads = p.reads.forActor(actor);
-  const [departures, people, agreements, participants, credentials, kit, apparel] = await Promise.all([
+/** The 7-register read the readiness engine runs over — shared by both load paths (L-05b). */
+function loadDepartureRegisters(reads: ReadStore) {
+  return Promise.all([
     reads.listDepartures(),
     reads.listPeople(),
     reads.listAgreements(),
@@ -43,6 +42,26 @@ export async function listDepartures(p: Persistence, actor: Actor): Promise<Depa
     reads.listKit(),
     reads.listApparel(),
   ]);
+}
+
+type DepartureRegisters = Awaited<ReturnType<typeof loadDepartureRegisters>>;
+
+/** Scoped path (L-05b): one coherent tenant transaction. Harness-gated against listDeparturesFullLoad. */
+export async function listDepartures(p: Persistence, actor: Actor): Promise<DepartureWithReadiness[]> {
+  assertViewApprovals(actor); // operational surface (owner/operations)
+  const registers = await p.reads.forActor(actor).batch((r) => loadDepartureRegisters(r));
+  return assembleDepartures(registers);
+}
+
+/** The full-load reference path — the equivalence harness's truth oracle; not called in production. */
+export async function listDeparturesFullLoad(p: Persistence, actor: Actor): Promise<DepartureWithReadiness[]> {
+  assertViewApprovals(actor);
+  const registers = await loadDepartureRegisters(p.reads.forActor(actor));
+  return assembleDepartures(registers);
+}
+
+function assembleDepartures(registers: DepartureRegisters): DepartureWithReadiness[] {
+  const [departures, people, agreements, participants, credentials, kit, apparel] = registers;
   const nameById = new Map(people.map((x) => [x.personId, x.fullName]));
   const input = {
     agreements: agreements.map((a) => ({ agreementId: a.agreementId, personId: a.personId, agreementType: a.agreementType, endsOn: a.endsOn, status: a.status })),

@@ -36,6 +36,15 @@ export function canonicalize(view: unknown): string {
 function sortKeys(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(sortKeys);
   if (value !== null && typeof value === 'object') {
+    // Adversarial-review fix: a Date/Map/Set/class instance has no enumerable
+    // keys, so it would canonicalize to {} and let two DIFFERENT values
+    // compare equal — a silent false negative in the very instrument that
+    // gates FIX-FIRST-class failures. Refuse instead of silently passing.
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== Object.prototype && proto !== null) {
+      const name = (value as object).constructor?.name ?? 'unknown';
+      throw new Error(`canonicalize: non-canonical value (${name}) — engine views must be plain JSON data`);
+    }
     const src = value as Record<string, unknown>;
     const out: Record<string, unknown> = {};
     for (const key of Object.keys(src).sort()) out[key] = sortKeys(src[key]);

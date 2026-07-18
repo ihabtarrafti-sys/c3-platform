@@ -93,6 +93,15 @@ export interface TenantSearchRow {
 }
 
 export interface ReadStore {
+  /**
+   * L-05b: run several reads of THIS store inside ONE tenant read transaction —
+   * a coherent snapshot (REPEATABLE READ READ ONLY in the SQL store) and one
+   * BEGIN/set_config/COMMIT instead of one per read. The callback receives a
+   * ReadStore whose methods are bound to the open transaction; calling batch
+   * again inside it reuses the same transaction. Queries are identical to the
+   * per-call path — only the transaction strategy differs.
+   */
+  batch<T>(fn: (reads: ReadStore) => Promise<T>): Promise<T>;
   listPeople(): Promise<Person[]>;
   getPersonById(personId: string): Promise<Person | null>;
   listApprovals(filter?: { statuses?: ApprovalStatus[] }): Promise<Approval[]>;

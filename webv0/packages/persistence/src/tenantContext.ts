@@ -22,7 +22,7 @@ export async function withTenantTx<T>(
   actor: Actor,
   mode: 'read' | 'write',
   fn: (db: Db, client: PoolClient) => Promise<T>,
-  writeIsolation?: 'REPEATABLE READ',
+  isolation?: 'REPEATABLE READ',
   signal?: AbortSignal,
 ): Promise<T> {
   const tenantId = actor?.tenantId;
@@ -40,7 +40,17 @@ export async function withTenantTx<T>(
     signal?.throwIfAborted();
     // R5-N06 (test-only): a write tx may run at a stricter isolation to reproduce the composed
     // serialization race. Production writes are READ COMMITTED; reads are READ ONLY.
-    const begin = mode === 'read' ? 'BEGIN READ ONLY' : writeIsolation === 'REPEATABLE READ' ? 'BEGIN ISOLATION LEVEL REPEATABLE READ' : 'BEGIN';
+    // L-05b: a batched read may ask for REPEATABLE READ so every SELECT in the
+    // transaction shares ONE snapshot — a genuinely coherent one-pass register
+    // read (a read-only RR tx cannot hit serialization failures).
+    const begin =
+      mode === 'read'
+        ? isolation === 'REPEATABLE READ'
+          ? 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY'
+          : 'BEGIN READ ONLY'
+        : isolation === 'REPEATABLE READ'
+          ? 'BEGIN ISOLATION LEVEL REPEATABLE READ'
+          : 'BEGIN';
     await client.query(begin);
     transactionStarted = true;
     signal?.throwIfAborted();

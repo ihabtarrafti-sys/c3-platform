@@ -8,14 +8,11 @@
  */
 import { buildCalendar, type Actor, type CalendarItem } from '@c3web/domain';
 import { assertReadAgreements, assertViewApprovals } from '@c3web/authz';
-import type { Persistence } from '../ports';
+import type { Persistence, ReadStore } from '../ports';
 
-export async function getCalendar(p: Persistence, actor: Actor, horizonDays: number): Promise<CalendarItem[]> {
-  assertViewApprovals(actor); // operational surface: owner/operations
-  assertReadAgreements(actor); // both hold it; fail closed regardless
-  const reads = p.reads.forActor(actor);
-
-  const [credentials, agreements, missions, delegations, people, subscriptions] = await Promise.all([
+/** The 6-register read buildCalendar runs over — shared by both load paths (L-05b). */
+function loadCalendarRegisters(reads: ReadStore) {
+  return Promise.all([
     reads.listCredentials(),
     reads.listAgreements(),
     reads.listMissions(),
@@ -23,6 +20,28 @@ export async function getCalendar(p: Persistence, actor: Actor, horizonDays: num
     reads.listPeople(),
     reads.listSubscriptions(),
   ]);
+}
+
+type CalendarRegisters = Awaited<ReturnType<typeof loadCalendarRegisters>>;
+
+/** Scoped path (L-05b): one coherent tenant transaction. Harness-gated against getCalendarFullLoad. */
+export async function getCalendar(p: Persistence, actor: Actor, horizonDays: number): Promise<CalendarItem[]> {
+  assertViewApprovals(actor); // operational surface: owner/operations
+  assertReadAgreements(actor); // both hold it; fail closed regardless
+  const registers = await p.reads.forActor(actor).batch((r) => loadCalendarRegisters(r));
+  return assembleCalendar(registers, horizonDays);
+}
+
+/** The full-load reference path — the equivalence harness's truth oracle; not called in production. */
+export async function getCalendarFullLoad(p: Persistence, actor: Actor, horizonDays: number): Promise<CalendarItem[]> {
+  assertViewApprovals(actor);
+  assertReadAgreements(actor);
+  const registers = await loadCalendarRegisters(p.reads.forActor(actor));
+  return assembleCalendar(registers, horizonDays);
+}
+
+function assembleCalendar(registers: CalendarRegisters, horizonDays: number): CalendarItem[] {
+  const [credentials, agreements, missions, delegations, people, subscriptions] = registers;
 
   const nameById = new Map(people.map((x) => [x.personId, x.fullName]));
   const todayIso = new Date().toISOString().slice(0, 10);

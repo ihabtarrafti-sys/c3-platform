@@ -12,7 +12,7 @@
 import { composeSituation, PENDING_STATUSES, SITUATION_CHECKS, type Actor, type Signal } from '@c3web/domain';
 import { assertReadAgreements, assertViewApprovals } from '@c3web/authz';
 import { sweepSignalNotifications } from './notificationOps';
-import type { Persistence } from '../ports';
+import type { Persistence, ReadStore } from '../ports';
 
 export interface SituationCounts {
   readonly activeMissions: number;
@@ -35,12 +35,11 @@ function utcTodayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export async function getSituation(p: Persistence, actor: Actor): Promise<SituationView> {
-  assertViewApprovals(actor); // operational surface: owner/operations
-  assertReadAgreements(actor); // both operational roles hold it; fail closed regardless
-  const reads = p.reads.forActor(actor);
-
-  const [people, credentials, agreements, missions, participants, approvals, journeys, members, missionLines, invoices, teams, teamMemberships, distributions, claims, delegations, departures] = await Promise.all([
+/** The 16-register read the signal engine runs over — defined ONCE, shared by
+ *  both loading strategies (L-05b: the scoped path may not diverge in WHAT it
+ *  reads, only in how the reads are transacted). */
+function loadSituationRegisters(reads: ReadStore) {
+  return Promise.all([
     reads.listPeople(),
     reads.listCredentials(),
     reads.listAgreements(),
@@ -58,6 +57,37 @@ export async function getSituation(p: Persistence, actor: Actor): Promise<Situat
     reads.listDelegations(),
     reads.listDepartures(),
   ]);
+}
+
+type SituationRegisters = Awaited<ReturnType<typeof loadSituationRegisters>>;
+
+/**
+ * The scoped read path (L-05b): all 16 registers in ONE coherent tenant
+ * transaction — the "one-pass read" the design always described, now literal
+ * (one snapshot, one BEGIN/COMMIT instead of sixteen). Gated by the
+ * output-equivalence harness against getSituationFullLoad.
+ */
+export async function getSituation(p: Persistence, actor: Actor): Promise<SituationView> {
+  assertViewApprovals(actor); // operational surface: owner/operations
+  assertReadAgreements(actor); // both operational roles hold it; fail closed regardless
+  const registers = await p.reads.forActor(actor).batch((r) => loadSituationRegisters(r));
+  return assembleSituationView(p, actor, registers);
+}
+
+/**
+ * The full-load reference path — one transaction per register, exactly the
+ * pre-L-05b behavior. This is the equivalence harness's truth oracle
+ * (packages/persistence/test/l05b.test.ts); it is not called in production.
+ */
+export async function getSituationFullLoad(p: Persistence, actor: Actor): Promise<SituationView> {
+  assertViewApprovals(actor);
+  assertReadAgreements(actor);
+  const registers = await loadSituationRegisters(p.reads.forActor(actor));
+  return assembleSituationView(p, actor, registers);
+}
+
+async function assembleSituationView(p: Persistence, actor: Actor, registers: SituationRegisters): Promise<SituationView> {
+  const [people, credentials, agreements, missions, participants, approvals, journeys, members, missionLines, invoices, teams, teamMemberships, distributions, claims, delegations, departures] = registers;
 
   const todayIso = utcTodayIso();
   const signals = composeSituation({

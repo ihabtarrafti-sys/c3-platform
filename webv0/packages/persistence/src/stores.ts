@@ -8,7 +8,7 @@ import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent,
 import { IntakeLinkUnavailableError } from '@c3web/domain';
 import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, PayableClaimRow, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTransactionOptions, WriteTx } from '@c3web/application';
 import * as schema from './schema';
-import { withTenantTx } from './tenantContext';
+import { withTenantTx, type Db } from './tenantContext';
 import { makeWriteTx } from './writeTx';
 import { buildSearchQuery } from './searchSql';
 import { buildRecycleQuery } from './recycleSql';
@@ -55,21 +55,28 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
   const reads = {
     forActor(actor: Actor): ReadStore {
-      return {
+      // L-05b: every read is written against an executor. The per-call path
+      // gives each read its own tenant tx (unchanged behavior); batch() serves
+      // every read in the callback from ONE coherent REPEATABLE READ READ ONLY
+      // tenant tx — identical queries, one snapshot, a fraction of the round
+      // trips. The queries below exist exactly once, shared by both paths.
+      type ReadExec = <T>(q: (db: Db) => Promise<T>) => Promise<T>;
+      const build = (exec: ReadExec, batch: ReadStore['batch']): ReadStore => ({
+        batch,
         listPeople: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Person[]> => {
+          exec(async (db): Promise<Person[]> => {
             const rows = await db.select().from(schema.person).orderBy(asc(schema.person.personId));
             return rows.map(mapPerson);
           }),
 
         getPersonById: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Person | null> => {
+          exec(async (db): Promise<Person | null> => {
             const rows = await db.select().from(schema.person).where(eq(schema.person.personId, personId)).limit(1);
             return rows[0] ? mapPerson(rows[0]) : null;
           }),
 
         listApprovals: (filter?: { statuses?: ApprovalStatus[] }) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Approval[]> => {
+          exec(async (db): Promise<Approval[]> => {
             const base = db.select().from(schema.approval);
             const rows = filter?.statuses?.length
               ? await base.where(inArray(schema.approval.status, filter.statuses)).orderBy(desc(schema.approval.approvalId))
@@ -78,7 +85,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getApprovalById: (approvalId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Approval | null> => {
+          exec(async (db): Promise<Approval | null> => {
             const rows = await db
               .select()
               .from(schema.approval)
@@ -88,7 +95,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         listApprovalEvents: (approvalId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<ApprovalEvent[]> => {
+          exec(async (db): Promise<ApprovalEvent[]> => {
             const rows = await db
               .select()
               .from(schema.approvalEvent)
@@ -99,13 +106,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // S5: the whole tenant audit stream (the audit-trail export), oldest first.
         listAllAuditEvents: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<AuditEvent[]> => {
+          exec(async (db): Promise<AuditEvent[]> => {
             const rows = await db.select().from(schema.auditEvent).orderBy(asc(schema.auditEvent.at));
             return rows.map(mapAuditEvent);
           }),
 
         listAuditEventsForEntity: (entityType: string, entityId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<AuditEvent[]> => {
+          exec(async (db): Promise<AuditEvent[]> => {
             const rows = await db
               .select()
               .from(schema.auditEvent)
@@ -116,13 +123,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Sprint 36: credentials — drizzle-only reads (mode:'string' dates).
         listCredentials: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Credential[]> => {
+          exec(async (db): Promise<Credential[]> => {
             const rows = await db.select().from(schema.credential).orderBy(asc(schema.credential.credentialId));
             return rows.map(mapCredential);
           }),
 
         listCredentialsForPerson: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Credential[]> => {
+          exec(async (db): Promise<Credential[]> => {
             const rows = await db
               .select()
               .from(schema.credential)
@@ -132,7 +139,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getCredentialById: (credentialId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Credential | null> => {
+          exec(async (db): Promise<Credential | null> => {
             const rows = await db
               .select()
               .from(schema.credential)
@@ -143,13 +150,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Sprint 37: journeys — drizzle-only reads (mode:'string' dates).
         listJourneys: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Journey[]> => {
+          exec(async (db): Promise<Journey[]> => {
             const rows = await db.select().from(schema.journey).orderBy(asc(schema.journey.journeyId));
             return rows.map(mapJourney);
           }),
 
         listJourneysForPerson: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Journey[]> => {
+          exec(async (db): Promise<Journey[]> => {
             const rows = await db
               .select()
               .from(schema.journey)
@@ -159,32 +166,32 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getJourneyById: (journeyId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Journey | null> => {
+          exec(async (db): Promise<Journey | null> => {
             const rows = await db.select().from(schema.journey).where(eq(schema.journey.journeyId, journeyId)).limit(1);
             return rows[0] ? mapJourney(rows[0]) : null;
           }),
 
         // Sprint 38: equipment reads (drizzle-only).
         listKit: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Kit[]> => {
+          exec(async (db): Promise<Kit[]> => {
             const rows = await db.select().from(schema.kit).orderBy(asc(schema.kit.kitId));
             return rows.map(mapKit);
           }),
 
         getKitById: (kitId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Kit | null> => {
+          exec(async (db): Promise<Kit | null> => {
             const rows = await db.select().from(schema.kit).where(eq(schema.kit.kitId, kitId)).limit(1);
             return rows[0] ? mapKit(rows[0]) : null;
           }),
 
         listApparel: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Apparel[]> => {
+          exec(async (db): Promise<Apparel[]> => {
             const rows = await db.select().from(schema.apparel).orderBy(asc(schema.apparel.apparelId));
             return rows.map(mapApparel);
           }),
 
         getApparelById: (apparelId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Apparel | null> => {
+          exec(async (db): Promise<Apparel | null> => {
             const rows = await db.select().from(schema.apparel).where(eq(schema.apparel.apparelId, apparelId)).limit(1);
             return rows[0] ? mapApparel(rows[0]) : null;
           }),
@@ -192,19 +199,19 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // Sprint 39: missions (shell drizzle-only; participants joined with
         // the person's display name for the register).
         listMissions: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Mission[]> => {
+          exec(async (db): Promise<Mission[]> => {
             const rows = await db.select().from(schema.mission).orderBy(asc(schema.mission.missionId));
             return rows.map(mapMission);
           }),
 
         getMissionById: (missionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Mission | null> => {
+          exec(async (db): Promise<Mission | null> => {
             const rows = await db.select().from(schema.mission).where(eq(schema.mission.missionId, missionId)).limit(1);
             return rows[0] ? mapMission(rows[0]) : null;
           }),
 
         listMissionParticipants: (missionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<MissionParticipant[]> => {
+          exec(async (db): Promise<MissionParticipant[]> => {
             const res = await db.execute(sql`
               SELECT mp.*, p.full_name AS person_name
                 FROM mission_participant mp
@@ -216,7 +223,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getMissionParticipant: (missionId: string, personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<MissionParticipant | null> => {
+          exec(async (db): Promise<MissionParticipant | null> => {
             const res = await db.execute(sql`
               SELECT mp.*, p.full_name AS person_name
                 FROM mission_participant mp
@@ -229,7 +236,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Finance S4: the mission's ACTIVE income/expense lines, oldest first.
         listMissionLines: (missionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<MissionLine[]> => {
+          exec(async (db): Promise<MissionLine[]> => {
             const rows = await db
               .select()
               .from(schema.missionLine)
@@ -240,7 +247,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // S2: the mission's budgets; org-wide bulk reads for the finance dashboard.
         listMissionBudgets: (missionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<MissionBudget[]> => {
+          exec(async (db): Promise<MissionBudget[]> => {
             const rows = await db
               .select()
               .from(schema.missionBudget)
@@ -250,7 +257,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         listAllMissionLines: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<MissionLine[]> => {
+          exec(async (db): Promise<MissionLine[]> => {
             const rows = await db
               .select()
               .from(schema.missionLine)
@@ -260,7 +267,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         listAllMissionBudgets: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<MissionBudget[]> => {
+          exec(async (db): Promise<MissionBudget[]> => {
             const rows = await db.select().from(schema.missionBudget).orderBy(asc(schema.missionBudget.missionId));
             return rows.map(mapMissionBudget);
           }),
@@ -268,13 +275,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // Sprint 41: agreements (drizzle-only; financial omission is the
         // application query layer's job, per-actor).
         listAgreements: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Agreement[]> => {
+          exec(async (db): Promise<Agreement[]> => {
             const rows = await db.select().from(schema.agreement).orderBy(asc(schema.agreement.agreementId));
             return rows.map(mapAgreement);
           }),
 
         listAgreementsForPerson: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Agreement[]> => {
+          exec(async (db): Promise<Agreement[]> => {
             const rows = await db
               .select()
               .from(schema.agreement)
@@ -284,14 +291,14 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getAgreementById: (agreementId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Agreement | null> => {
+          exec(async (db): Promise<Agreement | null> => {
             const rows = await db.select().from(schema.agreement).where(eq(schema.agreement.agreementId, agreementId)).limit(1);
             return rows[0] ? mapAgreement(rows[0]) : null;
           }),
 
         // Finance S3: the ACTIVE financial terms of an agreement, oldest first.
         listAgreementTerms: (agreementId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<AgreementTerm[]> => {
+          exec(async (db): Promise<AgreementTerm[]> => {
             const rows = await db
               .select()
               .from(schema.agreementTerm)
@@ -302,20 +309,20 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // S48: entities (the tenant's legal operating entities).
         listEntities: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Entity[]> => {
+          exec(async (db): Promise<Entity[]> => {
             const rows = await db.select().from(schema.entity).orderBy(asc(schema.entity.entityId));
             return rows.map(mapEntity);
           }),
 
         getEntityById: (entityId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Entity | null> => {
+          exec(async (db): Promise<Entity | null> => {
             const rows = await db.select().from(schema.entity).where(eq(schema.entity.entityId, entityId)).limit(1);
             return rows[0] ? mapEntity(rows[0]) : null;
           }),
 
         // S4: documents attached to an owning record (ACTIVE rows, newest first).
         listDocuments: (ownerType: string, ownerId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<C3Document[]> => {
+          exec(async (db): Promise<C3Document[]> => {
             const rows = await db
               .select()
               .from(schema.document)
@@ -332,39 +339,39 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Finance S1: the tenant's editable FX rates (value of 1 unit in USD).
         listFxRates: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<FxRate[]> => {
+          exec(async (db): Promise<FxRate[]> => {
             const rows = await db.select().from(schema.fxRate).orderBy(asc(schema.fxRate.currency));
             return rows.map(mapFxRate);
           }),
 
         // S6: invoices — the register (newest first; voided rows ride along, honestly labeled).
         listInvoices: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Invoice[]> => {
+          exec(async (db): Promise<Invoice[]> => {
             const rows = await db.select().from(schema.invoice).orderBy(desc(schema.invoice.createdAt), desc(schema.invoice.invoiceId));
             return rows.map(mapInvoice);
           }),
 
         getInvoiceById: (invoiceId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Invoice | null> => {
+          exec(async (db): Promise<Invoice | null> => {
             const rows = await db.select().from(schema.invoice).where(eq(schema.invoice.invoiceId, invoiceId)).limit(1);
             return rows[0] ? mapInvoice(rows[0]) : null;
           }),
 
         // S7: teams + memberships (memberships join the person's display name).
         listTeams: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Team[]> => {
+          exec(async (db): Promise<Team[]> => {
             const rows = await db.select().from(schema.team).orderBy(asc(schema.team.teamId));
             return rows.map(mapTeam);
           }),
 
         getTeamById: (teamId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Team | null> => {
+          exec(async (db): Promise<Team | null> => {
             const rows = await db.select().from(schema.team).where(eq(schema.team.teamId, teamId)).limit(1);
             return rows[0] ? mapTeam(rows[0]) : null;
           }),
 
         listTeamMembers: (teamId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<TeamMembership[]> => {
+          exec(async (db): Promise<TeamMembership[]> => {
             const res = await db.execute(sql`
               SELECT tm.*, p.full_name AS person_name
                 FROM team_membership tm
@@ -376,7 +383,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         listTeamMembershipsForPerson: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<TeamMembership[]> => {
+          exec(async (db): Promise<TeamMembership[]> => {
             const res = await db.execute(sql`
               SELECT tm.*, p.full_name AS person_name
                 FROM team_membership tm
@@ -388,7 +395,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         listAllTeamMemberships: () =>
-          withTenantTx(pool, actor, 'read', async (db) => {
+          exec(async (db) => {
             const rows = await db
               .select({
                 teamId: schema.teamMembership.teamId,
@@ -401,7 +408,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // S8: distributions (shares join the person's display name).
         listDistributionsForMission: (missionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Distribution[]> => {
+          exec(async (db): Promise<Distribution[]> => {
             const rows = await db
               .select()
               .from(schema.distribution)
@@ -411,13 +418,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getDistributionById: (distributionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Distribution | null> => {
+          exec(async (db): Promise<Distribution | null> => {
             const rows = await db.select().from(schema.distribution).where(eq(schema.distribution.distributionId, distributionId)).limit(1);
             return rows[0] ? mapDistribution(rows[0]) : null;
           }),
 
         listDistributionShares: (distributionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<DistributionShare[]> => {
+          exec(async (db): Promise<DistributionShare[]> => {
             const res = await db.execute(sql`
               SELECT ds.*, p.full_name AS person_name
                 FROM distribution_share ds
@@ -430,7 +437,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // M-04: one query for every share on the mission (grouped by the caller).
         listDistributionSharesForMission: (missionId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<DistributionShare[]> => {
+          exec(async (db): Promise<DistributionShare[]> => {
             const res = await db.execute(sql`
               SELECT ds.*, p.full_name AS person_name
                 FROM distribution_share ds
@@ -444,7 +451,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // M-04: the roster's PrizeSharePersonal candidates in one query.
         listPrizeShareTermsForPeople: (personIds: readonly string[]) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ personId: string; agreementId: string; termId: string; percentBps: number }>> => {
+          exec(async (db): Promise<Array<{ personId: string; agreementId: string; termId: string; percentBps: number }>> => {
             if (personIds.length === 0) return [];
             const res = await db.execute(sql`
               SELECT a.person_id, t.agreement_id, t.term_id, t.percent_bps
@@ -470,7 +477,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // S10: the actor's own inbox (newest first, capped).
         listNotifications: (identity: string, limit: number) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<C3Notification[]> => {
+          exec(async (db): Promise<C3Notification[]> => {
             const rows = await db
               .select()
               .from(schema.notification)
@@ -491,13 +498,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Tier 0.5: delegations (owner reads all; the active-check serves gates).
         listDelegations: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Delegation[]> => {
+          exec(async (db): Promise<Delegation[]> => {
             const rows = await db.select().from(schema.delegation).orderBy(desc(schema.delegation.createdAt));
             return rows.map(mapDelegation);
           }),
 
         findUnrevokedDelegationId: (granteeIdentity: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<string | null> => {
+          exec(async (db): Promise<string | null> => {
             const res = await db.execute(sql`
               SELECT delegation_id FROM delegation
                WHERE grantee_identity = ${granteeIdentity} AND revoked_at IS NULL
@@ -507,7 +514,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         hasActiveDelegation: (identity: string, onDate: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<boolean> => {
+          exec(async (db): Promise<boolean> => {
             const res = await db.execute(sql`
               SELECT 1 FROM delegation
                WHERE grantee_identity = ${identity} AND revoked_at IS NULL
@@ -519,7 +526,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Track B4: the comment thread on a record (oldest first).
         listCommentsForSubject: (subjectType: string, subjectId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Comment[]> => {
+          exec(async (db): Promise<Comment[]> => {
             const rows = await db
               .select()
               .from(schema.comment)
@@ -530,20 +537,20 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Track B6: the tenant's guest-intake links (newest first).
         listIntakeLinks: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<IntakeLink[]> => {
+          exec(async (db): Promise<IntakeLink[]> => {
             const rows = await db.select().from(schema.intakeLink).orderBy(desc(schema.intakeLink.createdAt));
             return rows.map(mapIntakeLink);
           }),
 
         // Track B6: the sandbox — every submission, newest first (all statuses).
         listIntakeSubmissions: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<IntakeSubmission[]> => {
+          exec(async (db): Promise<IntakeSubmission[]> => {
             const rows = await db.select().from(schema.intakeSubmission).orderBy(desc(schema.intakeSubmission.submittedAt));
             return rows.map(mapIntakeSubmission);
           }),
 
         getIntakeSubmissionById: (id: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<IntakeSubmission | null> => {
+          exec(async (db): Promise<IntakeSubmission | null> => {
             const rows = await db.select().from(schema.intakeSubmission).where(eq(schema.intakeSubmission.id, id)).limit(1);
             return rows[0] ? mapIntakeSubmission(rows[0]) : null;
           }),
@@ -554,7 +561,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // orphan the late byte or delete a byte that gained an owner). prepared rows become
         // armed only via the owner's failure path or the TTL sweep (provably-dead requests).
         listPendingIntakeRejectTombstones: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; storageKey: string }>> => {
+          exec(async (db): Promise<Array<{ id: string; storageKey: string }>> => {
             const res = await db.execute(sql`
               SELECT id, storage_key FROM blob_tombstone
                WHERE reason IN ('intake_reject', 'intake_refused', 'compensation', 'quarantine_cleanup') AND state = 'armed'
@@ -565,14 +572,14 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Track B: recurring subscriptions (newest first).
         listSubscriptions: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Subscription[]> => {
+          exec(async (db): Promise<Subscription[]> => {
             const rows = await db.select().from(schema.subscription).orderBy(desc(schema.subscription.createdAt));
             return rows.map(mapSubscription);
           }),
 
         // Track B: this user's ACTIVE saved views for a register (newest first).
         listSavedViews: (userIdentity: string, register: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<SavedView[]> => {
+          exec(async (db): Promise<SavedView[]> => {
             const rows = await db
               .select()
               .from(schema.savedView)
@@ -583,7 +590,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Track B: departures (all statuses, newest first).
         listDepartures: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Departure[]> => {
+          exec(async (db): Promise<Departure[]> => {
             const rows = await db.select().from(schema.departure).orderBy(desc(schema.departure.initiatedOn), desc(schema.departure.createdAt));
             return rows.map(mapDeparture);
           }),
@@ -591,7 +598,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // M-03: the outbox — Completed departures whose deactivation hand-off is
         // still outstanding (requested, not yet linked to an approval).
         listDeparturesAwaitingDeactivation: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Departure[]> => {
+          exec(async (db): Promise<Departure[]> => {
             const rows = await db
               .select()
               .from(schema.departure)
@@ -602,7 +609,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // M-06: the revise-intent outbox — Pending intents whose submit/link is still
         // outstanding (a crash after tx-1). The drain finishes them idempotently.
         listPendingRevisionIntents: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<ApprovalRevision[]> => {
+          exec(async (db): Promise<ApprovalRevision[]> => {
             const rows = await db
               .select()
               .from(schema.approvalRevision)
@@ -615,7 +622,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // successor for this source? (revisionOf stamped at submit; a Withdrawn row is
         // an abandoned attempt, not the live successor.)
         findSuccessorApproval: (sourceApprovalId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Approval | null> => {
+          exec(async (db): Promise<Approval | null> => {
             const rows = await db
               .select()
               .from(schema.approval)
@@ -626,7 +633,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Track B3: the activity feed — a keyset page of the audit stream.
         listActivityFeed: (limit: number, before: { at: string; id: string } | null) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Array<{ id: string; at: string; actor: string; action: string; entityType: string; entityId: string }>> => {
+          exec(async (db): Promise<Array<{ id: string; at: string; actor: string; action: string; entityType: string; entityId: string }>> => {
             const res = await db.execute(sql`
               SELECT id, at, actor, action, entity_type, entity_id
                 FROM audit_event
@@ -649,7 +656,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // Track B2: the recycle bin — one UNION over the soft-delete domains.
         listRecycleBin: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<RecycleItem[]> => {
+          exec(async (db): Promise<RecycleItem[]> => {
             const res = await db.execute(buildRecycleQuery());
             return res.rows.map((r) => {
               const row = r as Record<string, unknown>;
@@ -669,14 +676,14 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // HARDEN-2 (0037): one settings row (null = the code-side defaults).
         getTenantSetting: (key: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<{ value: unknown; version: number } | null> => {
+          exec(async (db): Promise<{ value: unknown; version: number } | null> => {
             const rows = await db.select().from(schema.tenantSetting).where(eq(schema.tenantSetting.key, key)).limit(1);
             return rows[0] ? { value: rows[0].value, version: rows[0].version } : null;
           }),
 
         // S3.1 + M-04: global search — ONE ranked, per-domain-limited statement.
         searchTenant: (spec: TenantSearchSpec) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<TenantSearchRow[]> => {
+          exec(async (db): Promise<TenantSearchRow[]> => {
             if (spec.domains.length === 0) return [];
             const res = await db.execute(buildSearchQuery(spec));
             return res.rows.map((r) => {
@@ -693,13 +700,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
 
         // S12: the beneficiary registry (finance-gated at the usecase).
         listBeneficiaries: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Beneficiary[]> => {
+          exec(async (db): Promise<Beneficiary[]> => {
             const rows = await db.select().from(schema.beneficiary).orderBy(asc(schema.beneficiary.beneficiaryId));
             return rows.map(mapBeneficiary);
           }),
 
         listBeneficiariesForPerson: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Beneficiary[]> => {
+          exec(async (db): Promise<Beneficiary[]> => {
             const rows = await db
               .select()
               .from(schema.beneficiary)
@@ -709,14 +716,14 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getBeneficiaryById: (beneficiaryId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Beneficiary | null> => {
+          exec(async (db): Promise<Beneficiary | null> => {
             const rows = await db.select().from(schema.beneficiary).where(eq(schema.beneficiary.beneficiaryId, beneficiaryId)).limit(1);
             return rows[0] ? mapBeneficiary(rows[0]) : null;
           }),
 
         // S9: claims (per-actor scoping is the use-case's job).
         listClaims: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Claim[]> => {
+          exec(async (db): Promise<Claim[]> => {
             const rows = await db.select().from(schema.claim).orderBy(desc(schema.claim.createdAt), desc(schema.claim.claimId));
             return rows.map(mapClaim);
           }),
@@ -726,7 +733,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // created_at is carried as ::text (full precision) so the cursor round-trips
         // exactly. RLS (withTenantTx) tenant-isolates both claim and the joined person.
         listPayableClaimsWithPayee: (after: { createdAt: string; claimId: string } | null, limit: number) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<PayableClaimRow[]> => {
+          exec(async (db): Promise<PayableClaimRow[]> => {
             const res = await db.execute(sql`
               SELECT c.claim_id, c.submitted_by, c.person_id, c.category, c.description,
                      c.amount_minor, c.currency, c.expense_on::text AS expense_on, c.status,
@@ -758,7 +765,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         listClaimsForSubmitter: (identity: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Claim[]> => {
+          exec(async (db): Promise<Claim[]> => {
             const rows = await db
               .select()
               .from(schema.claim)
@@ -768,13 +775,13 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         getClaimById: (claimId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Claim | null> => {
+          exec(async (db): Promise<Claim | null> => {
             const rows = await db.select().from(schema.claim).where(eq(schema.claim.claimId, claimId)).limit(1);
             return rows[0] ? mapClaim(rows[0]) : null;
           }),
 
         listDistributionsWithPending: () =>
-          withTenantTx(pool, actor, 'read', async (db) => {
+          exec(async (db) => {
             const res = await db.execute(sql`
               SELECT d.distribution_id, d.mission_id, d.status, d.created_at, d.currency,
                      COUNT(ds.id) FILTER (WHERE ds.payout_status = 'Pending')::int AS pending_count,
@@ -801,7 +808,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // Sprint 42: the person hub — memberships joined with the mission's
         // identity; approvals scoped by the target person column.
         listMissionMembershipsForPerson: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<PersonMissionMembership[]> => {
+          exec(async (db): Promise<PersonMissionMembership[]> => {
             const res = await db.execute(sql`
               SELECT mp.mission_id, m.name AS mission_name, m.is_active AS mission_is_active,
                      mp.role, mp.is_active
@@ -820,7 +827,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         listApprovalsForPerson: (personId: string) =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Approval[]> => {
+          exec(async (db): Promise<Approval[]> => {
             const rows = await db
               .select()
               .from(schema.approval)
@@ -833,7 +840,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // name so org/team P&L can roll REAL per-diem expense in — the slim
         // Sprint-43 projection was why summaries silently understated expense.
         listAllMissionParticipants: () =>
-          withTenantTx(pool, actor, 'read', async (db) => {
+          exec(async (db) => {
             const res = await db.execute(sql`
               SELECT mp.mission_id, mp.person_id, p.full_name AS person_name, mp.role, mp.is_active,
                      mp.per_diem_amount_minor, mp.per_diem_currency
@@ -854,7 +861,7 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
         // Sprint 35: the member directory is read through the tenant-scoped
         // member_list() SECURITY DEFINER gateway — c3_app has no table access.
         listMembers: () =>
-          withTenantTx(pool, actor, 'read', async (db): Promise<Member[]> => {
+          exec(async (db): Promise<Member[]> => {
             const res = await db.execute(sql`SELECT * FROM member_list()`);
             return (res.rows as Array<{ user_id: string; email: string; display_name: string; role: string; is_active: boolean; created_at: Date | string }>).map((r) => ({
               userId: r.user_id,
@@ -866,7 +873,22 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
             }));
           }),
+      });
+
+      // Reads bound to an OPEN transaction: batch() inside them is reentrant
+      // (same snapshot), never a nested BEGIN.
+      const txReads = (db: Db): ReadStore => {
+        const r: ReadStore = build(
+          (q) => q(db),
+          (fn) => fn(r),
+        );
+        return r;
       };
+
+      return build(
+        (q) => withTenantTx(pool, actor, 'read', (db) => q(db)),
+        (fn) => withTenantTx(pool, actor, 'read', (db) => fn(txReads(db)), 'REPEATABLE READ'),
+      );
     },
   };
 

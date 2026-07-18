@@ -42,7 +42,9 @@ export class FakePersistence implements Persistence {
   reads = {
     forActor: (actor: Actor): ReadStore => {
       const s = this.store(actor.tenantId);
-      return {
+      const store: ReadStore = {
+        // L-05b: the fake has no transactions — batch just replays against itself.
+        batch: (fn) => fn(store),
         listPeople: async () => [...s.people].sort((a, b) => a.personId.localeCompare(b.personId)),
         getPersonById: async (personId) => s.people.find((p) => p.personId === personId) ?? null,
         listApprovals: async (filter) =>
@@ -63,6 +65,7 @@ export class FakePersistence implements Persistence {
         listBeneficiariesForPerson: async () => [],
         getBeneficiaryById: async () => null,
       };
+      return store;
     },
   };
 

@@ -16,9 +16,17 @@
  */
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { Actor } from '@c3web/domain';
-import { getSituation, getCalendar, listDepartures } from '@c3web/application';
+import {
+  getSituation,
+  getSituationFullLoad,
+  getCalendar,
+  getCalendarFullLoad,
+  listDepartures,
+  listDeparturesFullLoad,
+} from '@c3web/application';
 import { startTestDatabase, instrumentPool, type TestDatabase, type QueryRecorder } from '@c3web/test-support';
 import { createPersistence, type PersistenceHandle } from '../src/index';
+import { withTenantTx, sql } from '../src/tenantContext';
 import { assertSurfaceEquivalence, canonicalize, EquivalenceViolation, type EngineSurface } from './l05bHarness';
 
 let db: TestDatabase;
@@ -137,24 +145,28 @@ afterAll(async () => {
   await db?.stop();
 });
 
-// ── the three engine surfaces, canonical (full-load) paths ──
+// ── the three engine surfaces: FullLoad = the truth oracle; the production
+//    functions are the SCOPED paths (Phase 2) gated by the harness ──
 const situationSurface: EngineSurface = {
   name: 'situation',
-  run: (actor) => getSituation(p, actor),
+  run: (actor) => getSituationFullLoad(p, actor),
+  runScoped: (actor) => getSituation(p, actor),
 };
 const calendarSurface: EngineSurface = {
   name: 'calendar',
-  run: (actor) => getCalendar(p, actor, CAL_HORIZON_DAYS),
+  run: (actor) => getCalendarFullLoad(p, actor, CAL_HORIZON_DAYS),
+  runScoped: (actor) => getCalendar(p, actor, CAL_HORIZON_DAYS),
 };
 const departuresSurface: EngineSurface = {
   name: 'departures',
-  run: (actor) => listDepartures(p, actor),
+  run: (actor) => listDeparturesFullLoad(p, actor),
+  runScoped: (actor) => listDepartures(p, actor),
 };
 
 describe('L-05b — query-count instrumentation (the perf-budget mechanism)', () => {
   it('tallies statements and rows for the situation full-load path, recording the baseline', async () => {
     recorder.reset();
-    const view = await getSituation(p, owner);
+    const view = await getSituationFullLoad(p, owner);
     const baseline = recorder.snapshot();
 
     // 16 parallel register reads, each inside its own tenant tx → at least one
@@ -163,7 +175,7 @@ describe('L-05b — query-count instrumentation (the perf-budget mechanism)', ()
     expect(baseline.rows).toBeGreaterThan(20);
     expect(view.signals.length).toBeGreaterThan(0);
 
-    // The number a future scoped loader must beat — printed into the record.
+    // The number the scoped loader must beat — printed into the record.
     // eslint-disable-next-line no-console
     console.log(`[L-05b baseline] situation full-load: ${baseline.statements} statements, ${baseline.rows} rows`);
   });
@@ -171,17 +183,70 @@ describe('L-05b — query-count instrumentation (the perf-budget mechanism)', ()
   it('resets cleanly between measurements', async () => {
     recorder.reset();
     expect(recorder.snapshot()).toEqual({ statements: 0, rows: 0 });
-    await getCalendar(p, owner, CAL_HORIZON_DAYS);
+    await getCalendarFullLoad(p, owner, CAL_HORIZON_DAYS);
     const cal = recorder.snapshot();
     expect(cal.statements).toBeGreaterThanOrEqual(6); // 6 register reads + tx overhead
     // eslint-disable-next-line no-console
     console.log(`[L-05b baseline] calendar full-load: ${cal.statements} statements, ${cal.rows} rows`);
     recorder.reset();
-    await listDepartures(p, owner);
+    await listDeparturesFullLoad(p, owner);
     const dep = recorder.snapshot();
     expect(dep.statements).toBeGreaterThanOrEqual(7); // 7 register reads + tx overhead
     // eslint-disable-next-line no-console
     console.log(`[L-05b baseline] departures full-load: ${dep.statements} statements, ${dep.rows} rows`);
+  });
+});
+
+describe('Phase 2 — the scoped loaders beat their full-load baselines', () => {
+  it('situation: one coherent transaction, strictly fewer round trips', async () => {
+    // Warm-up first: getSituation sweeps signal notifications (idempotent by
+    // key); one prior full-load call makes both measured runs sweep-neutral,
+    // so the comparison is loaders-only, not dedupe noise.
+    await getSituationFullLoad(p, owner);
+
+    recorder.reset();
+    await getSituationFullLoad(p, owner);
+    const full = recorder.snapshot();
+    recorder.reset();
+    await getSituation(p, owner);
+    const scoped = recorder.snapshot();
+
+    // eslint-disable-next-line no-console
+    console.log(`[L-05b phase 2] situation: full ${full.statements} → scoped ${scoped.statements} statements`);
+    expect(scoped.statements).toBeLessThan(full.statements);
+    // Identical queries — only the transacting changed. The row delta is
+    // EXACTLY the per-transaction `SELECT set_config` row (1 each) from the
+    // 15 retired transactions (16 → 1); a scoped path that dropped or added
+    // a register would shift this by that register's row count and fail.
+    expect(full.rows - scoped.rows).toBe(15);
+  });
+
+  it('calendar: one coherent transaction, strictly fewer round trips', async () => {
+    recorder.reset();
+    await getCalendarFullLoad(p, owner, CAL_HORIZON_DAYS);
+    const full = recorder.snapshot();
+    recorder.reset();
+    await getCalendar(p, owner, CAL_HORIZON_DAYS);
+    const scoped = recorder.snapshot();
+    // eslint-disable-next-line no-console
+    console.log(`[L-05b phase 2] calendar: full ${full.statements} → scoped ${scoped.statements} statements`);
+    expect(scoped.statements).toBeLessThan(full.statements);
+    expect(scoped.statements).toBeLessThanOrEqual(12); // BEGIN + set_config + 6 SELECT + COMMIT + headroom
+    expect(full.rows - scoped.rows).toBe(5); // the set_config row from each of the 5 retired txs (6 → 1)
+  });
+
+  it('departures: one coherent transaction, strictly fewer round trips', async () => {
+    recorder.reset();
+    await listDeparturesFullLoad(p, owner);
+    const full = recorder.snapshot();
+    recorder.reset();
+    await listDepartures(p, owner);
+    const scoped = recorder.snapshot();
+    // eslint-disable-next-line no-console
+    console.log(`[L-05b phase 2] departures: full ${full.statements} → scoped ${scoped.statements} statements`);
+    expect(scoped.statements).toBeLessThan(full.statements);
+    expect(scoped.statements).toBeLessThanOrEqual(13); // BEGIN + set_config + 7 SELECT + COMMIT + headroom
+    expect(full.rows - scoped.rows).toBe(6); // the set_config row from each of the 6 retired txs (7 → 1)
   });
 });
 
@@ -244,5 +309,60 @@ describe('L-05b — the harness itself discriminates (RED self-check)', () => {
   it('canonicalize is field-order independent (byte-identity is semantic, not incidental)', () => {
     expect(canonicalize({ b: 1, a: [{ y: 2, x: 3 }] })).toBe(canonicalize({ a: [{ x: 3, y: 2 }], b: 1 }));
     expect(canonicalize({ a: 1 })).not.toBe(canonicalize({ a: 2 }));
+  });
+
+  it('canonicalize REFUSES non-plain values (two different Dates must never silently compare equal)', () => {
+    // Adversarial-review fix: Date/Map/Set have no enumerable keys and would
+    // all canonicalize to {} — a false-negative class in the gate itself.
+    expect(() => canonicalize({ ts: new Date() })).toThrow(/non-canonical/);
+    expect(() => canonicalize({ m: new Map([['k', 1]]) })).toThrow(/non-canonical/);
+    expect(() => canonicalize({ s: new Set([1]) })).toThrow(/non-canonical/);
+  });
+});
+
+describe('Phase 2 — the coherent snapshot is REAL (adversarial-review fixes)', () => {
+  // These run LAST: the torn-read probe commits a person row mid-test, and
+  // every fixture-shaped expectation above must see the original fixture.
+
+  it('withTenantTx honors REPEATABLE READ READ ONLY for a batched read', async () => {
+    const row = await withTenantTx(
+      p.pool,
+      owner,
+      'read',
+      async (db) => {
+        const res = await db.execute(
+          sql`SELECT current_setting('transaction_isolation') AS iso, current_setting('transaction_read_only') AS ro`,
+        );
+        return res.rows[0] as { iso: string; ro: string };
+      },
+      'REPEATABLE READ',
+    );
+    expect(row.iso).toBe('repeatable read');
+    expect(row.ro).toBe('on');
+  });
+
+  it('a mid-batch commit is INVISIBLE inside the batch, and a nested batch shares the SAME snapshot', async () => {
+    // The marquee property, end-to-end through the REAL reads.forActor().batch
+    // path: under the old per-read READ COMMITTED transacting (or a silently
+    // ignored isolation argument) the second and nested reads WOULD see the
+    // committed insert and this test fails — it discriminates the isolation.
+    const reads = p.reads.forActor(owner);
+    await reads.batch(async (r) => {
+      const first = (await r.listPeople()).map((x) => x.personId);
+      await db.adminQuery(`INSERT INTO person (tenant_id, person_id, full_name) VALUES ($1, 'PER-L5RR', 'Torn Read Probe')`, [
+        owner.tenantId,
+      ]);
+      const second = (await r.listPeople()).map((x) => x.personId);
+      expect(second).toEqual(first);
+      // Reentrant batch: the ports.ts contract says it reuses the open
+      // transaction — proven here because a NEW transaction (at any isolation)
+      // would see the committed row.
+      const nested = (await r.batch((r2) => r2.listPeople())).map((x) => x.personId);
+      expect(nested).toEqual(first);
+      return null;
+    });
+    // A fresh per-call transaction afterwards sees the committed row.
+    const after = await reads.listPeople();
+    expect(after.some((x) => x.personId === 'PER-L5RR')).toBe(true);
   });
 });
