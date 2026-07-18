@@ -30,6 +30,9 @@ export class FakePersistence implements Persistence {
   private stores = new Map<string, Store>();
   failNextPersonInsert = false;
 
+  /** The fake never serves guest-intake flows — any call fails loudly. */
+  readonly guest = null as unknown as Persistence['guest'];
+
   private store(tenantId: string): Store {
     let s = this.stores.get(tenantId);
     if (!s) {
@@ -40,34 +43,46 @@ export class FakePersistence implements Persistence {
   }
 
   reads = {
-    forActor: (actor: Actor): ReadStore => {
-      const s = this.store(actor.tenantId);
-      const store: ReadStore = {
-        // L-05b: the fake has no transactions — batch just replays against itself.
-        batch: (fn) => fn(store),
-        listPeople: async () => [...s.people].sort((a, b) => a.personId.localeCompare(b.personId)),
-        getPersonById: async (personId) => s.people.find((p) => p.personId === personId) ?? null,
-        listApprovals: async (filter) =>
-          s.approvals
-            .filter((a) => !filter?.statuses || filter.statuses.includes(a.status))
-            .sort((a, b) => b.approvalId.localeCompare(a.approvalId)),
-        getApprovalById: async (approvalId) => s.approvals.find((a) => a.approvalId === approvalId) ?? null,
-        listApprovalEvents: async (approvalId) =>
-          s.approvalEvents.filter((e) => e.approvalId === approvalId),
-        listAuditEventsForEntity: async (entityType, entityId) =>
-          s.auditEvents.filter((e) => e.entityType === entityType && e.entityId === entityId),
-        // Tier 0.5: the fake tenant has no delegations — role gates decide alone.
-        listDelegations: async () => [],
-        hasActiveDelegation: async () => false,
-        findUnrevokedDelegationId: async () => null,
-        // S12: the fake tenant has no beneficiaries.
-        listBeneficiaries: async () => [],
-        listBeneficiariesForPerson: async () => [],
-        getBeneficiaryById: async () => null,
-      };
-      return store;
-    },
+    forActor: (actor: Actor): ReadStore => this.buildReads(this.store(actor.tenantId)),
   };
+
+  /**
+   * Reads over one Store state. batch() mirrors the REAL store's REPEATABLE
+   * READ semantics (Neural F1): it deep-copies the tenant state at entry and
+   * serves every read in the callback from that frozen copy, so a mid-batch
+   * write is INVISIBLE inside the batch — exactly what the SQL side's
+   * torn-read probe certifies. A nested batch re-clones the already-frozen
+   * copy: same data, same one-snapshot semantics.
+   *
+   * The fake implements only the subset the use-case tests exercise;
+   * `satisfies Partial<ReadStore>` keeps every IMPLEMENTED signature
+   * tsc-checked (the test dir is typechecked since F1), and a call to an
+   * unimplemented method fails loudly at the call site.
+   */
+  private buildReads(s: Store): ReadStore {
+    const partial = {
+      batch: <T>(fn: (r: ReadStore) => Promise<T>): Promise<T> => fn(this.buildReads(structuredClone(s))),
+      listPeople: async () => [...s.people].sort((a, b) => a.personId.localeCompare(b.personId)),
+      getPersonById: async (personId: string) => s.people.find((p) => p.personId === personId) ?? null,
+      listApprovals: async (filter?: { statuses?: ApprovalStatus[] }) =>
+        s.approvals
+          .filter((a) => !filter?.statuses || filter.statuses.includes(a.status))
+          .sort((a, b) => b.approvalId.localeCompare(a.approvalId)),
+      getApprovalById: async (approvalId: string) => s.approvals.find((a) => a.approvalId === approvalId) ?? null,
+      listApprovalEvents: async (approvalId: string) => s.approvalEvents.filter((e) => e.approvalId === approvalId),
+      listAuditEventsForEntity: async (entityType: string, entityId: string) =>
+        s.auditEvents.filter((e) => e.entityType === entityType && e.entityId === entityId),
+      // Tier 0.5: the fake tenant has no delegations — role gates decide alone.
+      listDelegations: async () => [],
+      hasActiveDelegation: async () => false,
+      findUnrevokedDelegationId: async () => null,
+      // S12: the fake tenant has no beneficiaries.
+      listBeneficiaries: async () => [],
+      listBeneficiariesForPerson: async () => [],
+      getBeneficiaryById: async () => null,
+    } satisfies Partial<ReadStore>;
+    return partial as unknown as ReadStore;
+  }
 
   writes = {
     transaction: <T>(actor: Actor, fn: (tx: WriteTx) => Promise<T>): Promise<T> => fn(this.makeTx(actor)),
@@ -76,7 +91,10 @@ export class FakePersistence implements Persistence {
   private makeTx(actor: Actor): WriteTx {
     const s = this.store(actor.tenantId);
     const nowIso = () => new Date().toISOString();
-    return {
+    // The fake implements only the WriteTx subset the use-case tests exercise
+    // (satisfies keeps those signatures tsc-checked); anything else fails
+    // loudly at the call site.
+    const tx = {
       allocateSequence: async (kind) => {
         const next = (s.counters.get(kind) ?? 0) + 1;
         s.counters.set(kind, next);
@@ -101,6 +119,9 @@ export class FakePersistence implements Persistence {
           executedAt: null,
           executionError: null,
           version: 0,
+          editCount: 0,
+          revisionOf: null,
+          supersededBy: null,
           createdAt: nowIso(),
           updatedAt: nowIso(),
         };
@@ -154,11 +175,30 @@ export class FakePersistence implements Persistence {
           currentGameTitle: row.currentGameTitle,
           primaryDepartment: row.primaryDepartment,
           notes: row.notes,
+          // People-v2 / photo fields: the fake person starts empty, like a
+          // freshly executed AddPerson before any identity/contact edits.
+          entityId: null,
+          firstName: null,
+          lastName: null,
+          dateOfBirth: null,
+          otherNationalities: [],
+          addressLine1: null,
+          addressLine2: null,
+          addressCity: null,
+          addressCountry: null,
+          phone: null,
+          email: null,
+          dateOfJoining: null,
+          position: null,
+          photoStorageKey: null,
+          photoContentType: null,
+          photoSha256: null,
+          photoUpdatedAt: null,
           isActive: true,
           version: 0,
           createdAt: nowIso(),
           updatedAt: nowIso(),
-          createdByApprovalId: row.createdByApprovalId,
+          createdByApprovalId: row.createdByApprovalId ?? undefined,
         };
         s.people.push(person);
         return person;
@@ -188,6 +228,7 @@ export class FakePersistence implements Persistence {
           after: evt.after ?? null,
         } as AuditEvent);
       },
-    };
+    } satisfies Partial<WriteTx>;
+    return tx as unknown as WriteTx;
   }
 }

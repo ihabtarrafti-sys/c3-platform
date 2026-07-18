@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   type Actor,
+  addPersonInputSchema,
   ApprovalNotApprovedError,
   ConcurrencyError,
   ForbiddenError,
@@ -31,8 +32,26 @@ beforeEach(() => {
 });
 
 async function submitByOps() {
-  return submitAddPerson(p, ops, { input: { fullName: 'Jordan Reyes' } });
+  return submitAddPerson(p, ops, { input: addPersonInputSchema.parse({ fullName: 'Jordan Reyes' }) });
 }
+
+describe('fake batch semantics (Neural F1)', () => {
+  it('a mid-batch write is INVISIBLE inside the batch — the fake mirrors the real RR snapshot', async () => {
+    await submitByOps();
+    await p.reads.forActor(ops).batch(async (r) => {
+      const before = await r.listApprovals();
+      // A WRITE lands mid-batch (a second governed submit)…
+      await submitAddPerson(p, ops, { input: addPersonInputSchema.parse({ fullName: 'Mid Batch' }) });
+      // …and stays invisible inside the batch's snapshot, exactly as the SQL
+      // side's torn-read probe certifies for the real REPEATABLE READ tx.
+      const after = await r.listApprovals();
+      expect(after.length).toBe(before.length);
+      return null;
+    });
+    // A fresh read outside the batch sees both submissions.
+    expect((await p.reads.forActor(ops).listApprovals()).length).toBe(2);
+  });
+});
 
 describe('submitAddPerson', () => {
   it('operations submits a Submitted approval with a canonical APR id and pending target', async () => {
@@ -45,7 +64,7 @@ describe('submitAddPerson', () => {
   });
 
   it('read-only roles may not submit', async () => {
-    await expect(submitAddPerson(p, visitor, { input: { fullName: 'x' } })).rejects.toThrow(ForbiddenError);
+    await expect(submitAddPerson(p, visitor, { input: addPersonInputSchema.parse({ fullName: 'x' }) })).rejects.toThrow(ForbiddenError);
   });
 });
 
@@ -66,7 +85,7 @@ describe('review family', () => {
   });
 
   it('the submitter (even if owner) may not review their own request', async () => {
-    const a = await submitAddPerson(p, owner, { input: { fullName: 'Self' } });
+    const a = await submitAddPerson(p, owner, { input: addPersonInputSchema.parse({ fullName: 'Self' }) });
     await expect(beginReview(p, owner, a.approvalId, a.version)).rejects.toThrow(SelfReviewError);
   });
 
@@ -119,7 +138,7 @@ describe('executeApproval', () => {
   });
 
   it('the submitter may not execute their own request', async () => {
-    const a = await submitAddPerson(p, owner, { input: { fullName: 'Self' } });
+    const a = await submitAddPerson(p, owner, { input: addPersonInputSchema.parse({ fullName: 'Self' }) });
     const r = await beginReview(p, owner2, a.approvalId, a.version);
     const approved = await approveApproval(p, owner2, r.approvalId, r.version);
     await expect(executeApproval(p, owner, approved.approvalId, approved.version)).rejects.toThrow(SelfReviewError);
