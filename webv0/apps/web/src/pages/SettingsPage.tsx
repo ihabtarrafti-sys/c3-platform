@@ -33,6 +33,9 @@ const useStyles = makeStyles({
   head: {
     display: 'flex',
     alignItems: 'baseline',
+    // QA sweep: a flexGrow spacer (FX head) starves meta's auto margin, so
+    // title and meta collide without an explicit gap.
+    columnGap: '10px',
     padding: '14px 20px',
     borderBottom: '1px solid var(--c3-line)',
   },

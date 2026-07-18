@@ -176,11 +176,11 @@
 }
 
 .hh-domains small {
-  overflow: hidden;
+  /* QA sweep: the hint copy must be READABLE — ellipsizing it at every width
+   * defeated its purpose. Hints wrap instead. */
   color: var(--c3-ink-quiet);
   font-size: var(--c3-font-size-caption);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  line-height: var(--c3-line-height-snug);
 }
 
 /* ── section headings ── */

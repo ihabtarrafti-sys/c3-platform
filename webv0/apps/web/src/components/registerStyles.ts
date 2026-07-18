@@ -20,6 +20,10 @@ export const useRegisterStyles = makeStyles({
     borderRadius: 'var(--c3-radius-data)',
     boxShadow: 'var(--c3-e1)',
     overflow: 'hidden',
+    // QA sweep: on narrow viewports a wide register must scroll INSIDE its
+    // own container — never expand the page body past the viewport (the page
+    // must not scroll horizontally; the room bar only spans the viewport).
+    '@media (max-width: 640px)': { display: 'block', overflowX: 'auto', WebkitOverflowScrolling: 'touch' },
   },
   th: {
     textAlign: 'left',

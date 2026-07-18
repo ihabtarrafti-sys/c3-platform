@@ -33,8 +33,10 @@ const useStyles = makeStyles({
   },
   badge: {
     position: 'absolute',
-    top: '2px',
-    right: '0px',
+    // QA sweep: anchored over the glyph, a 2-digit badge covered most of the
+    // bell — offset to the icon's top-right corner instead.
+    top: '-4px',
+    right: '-6px',
     minWidth: '16px',
     height: '16px',
     padding: '0 4px',
