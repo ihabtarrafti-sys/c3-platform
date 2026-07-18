@@ -11,8 +11,15 @@
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { sweepStaleEmbeddedPg } from '@c3web/test-support';
 
 const webv0Root = join(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Windows embedded-PG teardown occasionally leaks processes/data dirs; piled
+// up across runs they degrade the machine until tests flake on timeouts. The
+// sweep is age-gated (≥60min), kills only postgres.exe whose cmdline names a
+// c3web-pg-* dir, and logs everything it touches (see test-support).
+await sweepStaleEmbeddedPg();
 
 function step(label: string, args: string[]): void {
   console.log(`\n═══ ${label} ═══`);

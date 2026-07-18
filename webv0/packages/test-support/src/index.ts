@@ -119,6 +119,90 @@ async function removeDirWithRetry(dir: string): Promise<void> {
   }
 }
 
+/**
+ * Best-effort janitor for Windows embedded-PG leakage (QA-sweep hardening).
+ * On Windows, stop()/rmSync can fail with EBUSY, deliberately leaving temp
+ * dirs (see removeDirWithRetry) — and occasionally the postgres process
+ * itself. Across many gate runs these pile up (observed: 38 live postgres.exe
+ * + 256 c3web-pg-* dirs) until unrelated tests flake on timeouts.
+ *
+ * Conservative by construction (Neural conditions):
+ *  - a process is killed ONLY when BOTH the exe name is postgres.exe AND its
+ *    command line references a c3web-pg-* dir — a real PostgreSQL on this
+ *    machine is unkillable by this sweep;
+ *  - dirs/processes younger than AGE_MS are NEVER touched (a currently
+ *    running test's instance is minutes old);
+ *  - every swept dir/process is LOGGED — no silent cleanup;
+ *  - never throws: a janitor must not fail a run.
+ *
+ * Called once per gate run (scripts/gate.mts); also exported for manual use.
+ */
+export async function sweepStaleEmbeddedPg(): Promise<void> {
+  const AGE_MS = 60 * 60 * 1000;
+  const now = Date.now();
+  const log = (line: string) => console.log(`[pg-sweep] ${line}`);
+  try {
+    const { execSync } = await import('node:child_process');
+    const { readdirSync, statSync } = await import('node:fs');
+
+    // 1. Orphaned postgres processes (Windows-only leak). Protect young ones.
+    const protectedDirs = new Set<string>();
+    if (process.platform === 'win32') {
+      let rows: Array<{ ProcessId?: number; CommandLine?: string | null }> = [];
+      try {
+        const out = execSync(
+          `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='postgres.exe'\\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress"`,
+          { encoding: 'utf8', timeout: 30_000 },
+        ).trim();
+        if (out) {
+          const parsed = JSON.parse(out) as unknown;
+          rows = Array.isArray(parsed) ? parsed : [parsed as { ProcessId?: number; CommandLine?: string | null }];
+        }
+      } catch {
+        /* listing failed — fall through to the dir sweep only */
+      }
+      for (const row of rows) {
+        const token = (row.CommandLine ?? '').match(/c3web-pg-[A-Za-z0-9]+/)?.[0];
+        if (!token || !row.ProcessId) continue; // NOT ours — never touch
+        const dir = join(tmpdir(), token);
+        let dirAge = Infinity; // dir already gone → definitely orphaned
+        try {
+          dirAge = now - statSync(dir).mtimeMs;
+        } catch {
+          /* missing dir — orphaned */
+        }
+        if (dirAge < AGE_MS) {
+          protectedDirs.add(token); // a live test's instance — leave it alone
+          continue;
+        }
+        try {
+          execSync(`taskkill /PID ${row.ProcessId} /F`, { timeout: 15_000 });
+          log(`killed orphaned postgres.exe pid=${row.ProcessId} (${token}, age ${Math.round(dirAge / 60000)}min)`);
+        } catch {
+          log(`could not kill pid=${row.ProcessId} (${token}) — skipping its dir`);
+          protectedDirs.add(token);
+        }
+      }
+    }
+
+    // 2. Leaked data dirs, age-gated and never a protected (live) one.
+    for (const name of readdirSync(tmpdir())) {
+      if (!name.startsWith('c3web-pg-') || protectedDirs.has(name)) continue;
+      const dir = join(tmpdir(), name);
+      try {
+        const age = now - statSync(dir).mtimeMs;
+        if (age < AGE_MS) continue;
+        await removeDirWithRetry(dir);
+        log(`removed leaked data dir ${name} (age ${Math.round(age / 60000)}min)`);
+      } catch {
+        /* stat/remove raced or failed — leave it for the next sweep */
+      }
+    }
+  } catch {
+    /* the janitor never fails a run */
+  }
+}
+
 export async function startTestDatabase(): Promise<TestDatabase> {
   const envAdmin = process.env.DATABASE_ADMIN_URL;
   const envApp = process.env.DATABASE_URL;
