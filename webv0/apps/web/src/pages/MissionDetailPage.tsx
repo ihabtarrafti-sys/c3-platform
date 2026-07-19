@@ -43,14 +43,14 @@ import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf }
 
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
   h2Row: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: '12px', flexWrap: 'wrap' },
   headerActions: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '8px' },
   personSelect: { minWidth: '260px' },
-  rosterIntro: { fontSize: '13px', color: 'var(--c3-ink-70)', margin: '0 0 12px' },
+  rosterIntro: { fontSize: '13px', color: 'var(--c3-ink-muted)', margin: '0 0 12px' },
   pnlTotals: { marginTop: '12px', display: 'flex', flexDirection: 'column', rowGap: '4px', fontSize: '14px' },
-  pnlSubtle: { color: 'var(--c3-ink-70)', fontSize: '13px' },
+  pnlSubtle: { color: 'var(--c3-ink-muted)', fontSize: '13px' },
   pnlProfit: { fontWeight: 600 },
 });
 
@@ -429,7 +429,7 @@ export function MissionDetailPage() {
               </div>
             )}
             {canSubmit && m.isActive && (
-              <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-hairline)' }}>
+              <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-border-subtle)' }}>
                 <Field label="Bulk add — pick several people, one role">
                   <Dropdown
                     multiselect

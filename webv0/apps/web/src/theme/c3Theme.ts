@@ -43,7 +43,7 @@ const brandSlots = {
 
   // ink — warm, softly stepped
   colorNeutralForeground1: 'var(--c3-ink-default)',
-  colorNeutralForeground2: 'var(--c3-ink-muted)',
+  colorNeutralForeground2: 'var(--c3-ink-quiet)',
   colorNeutralForeground3: 'var(--c3-ink-quiet)',
   colorNeutralForeground4: 'var(--c3-ink-quiet)',
   colorNeutralForegroundDisabled: 'var(--c3-ink-quiet)',

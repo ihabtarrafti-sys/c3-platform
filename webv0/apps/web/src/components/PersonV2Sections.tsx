@@ -29,7 +29,7 @@ const useStyles = makeStyles({
     fontWeight: 700,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: 'var(--c3-ink-mid)',
+    color: 'var(--c3-ink-muted)',
     marginBottom: '8px',
   },
   row: { display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' },

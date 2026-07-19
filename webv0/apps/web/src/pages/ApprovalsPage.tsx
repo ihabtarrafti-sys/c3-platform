@@ -9,7 +9,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/states';
 import { useRegisterStyles } from '../components/registerStyles';
 import { approvalStatusOf, operationOf } from '../labels';
 
-const useStyles = makeStyles({ denied: { fontSize: '14px', color: 'var(--c3-ink-70)' } });
+const useStyles = makeStyles({ denied: { fontSize: '14px', color: 'var(--c3-ink-muted)' } });
 
 export function ApprovalsPage() {
   const r = useRegisterStyles();

@@ -21,12 +21,12 @@ import { BackupStatusSection, DelegationSection } from '../components/SettingsGo
 const PIVOT = 'USD';
 
 const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-mid)', maxWidth: '640px', marginBottom: '18px' },
+  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '640px', marginBottom: '18px' },
   panel: {
     maxWidth: '720px',
-    border: '1px solid var(--c3-line)',
+    border: '1px solid var(--c3-border-subtle)',
     borderRadius: 'var(--c3-radius-data)',
-    backgroundColor: 'var(--c3-surface-data)',
+    backgroundColor: 'var(--c3-surface-base)',
     boxShadow: 'var(--c3-e1)',
     overflow: 'hidden',
   },
@@ -37,30 +37,30 @@ const useStyles = makeStyles({
     // title and meta collide without an explicit gap.
     columnGap: '10px',
     padding: '14px 20px',
-    borderBottom: '1px solid var(--c3-line)',
+    borderBottom: '1px solid var(--c3-border-subtle)',
   },
-  title: { fontSize: '14px', fontWeight: 600, color: 'var(--c3-ink)' },
+  title: { fontSize: '14px', fontWeight: 600, color: 'var(--c3-ink-default)' },
   meta: {
     marginLeft: 'auto',
     fontFamily: 'var(--c3-font-mono)',
     fontSize: '10.5px',
     letterSpacing: '0.14em',
     textTransform: 'uppercase',
-    color: 'var(--c3-ink-muted)',
+    color: 'var(--c3-ink-quiet)',
   },
   row: {
     display: 'flex',
     alignItems: 'center',
     columnGap: '16px',
     padding: '12px 20px',
-    borderBottom: '1px solid var(--c3-line)',
+    borderBottom: '1px solid var(--c3-border-subtle)',
     flexWrap: 'wrap',
   },
-  cur: { fontFamily: 'var(--c3-font-mono)', fontSize: '14px', fontWeight: 600, width: '48px', color: 'var(--c3-ink)' },
-  eq: { fontSize: '13px', color: 'var(--c3-ink-mid)', whiteSpace: 'nowrap' },
+  cur: { fontFamily: 'var(--c3-font-mono)', fontSize: '14px', fontWeight: 600, width: '48px', color: 'var(--c3-ink-default)' },
+  eq: { fontSize: '13px', color: 'var(--c3-ink-muted)', whiteSpace: 'nowrap' },
   rateInput: { width: '120px' },
-  inverse: { fontFamily: 'var(--c3-font-mono)', fontSize: '12px', color: 'var(--c3-ink-muted)', minWidth: '160px' },
-  pivotNote: { fontSize: '13px', color: 'var(--c3-ink-muted)' },
+  inverse: { fontFamily: 'var(--c3-font-mono)', fontSize: '12px', color: 'var(--c3-ink-quiet)', minWidth: '160px' },
+  pivotNote: { fontSize: '13px', color: 'var(--c3-ink-quiet)' },
 });
 
 function RateRow({ currency, current, onSaved }: { currency: string; current: number | undefined; onSaved: () => void }) {
@@ -94,7 +94,7 @@ function RateRow({ currency, current, onSaved }: { currency: string; current: nu
         value={value}
         onChange={(_, d) => setValue(d.value)}
         placeholder="0.00"
-        contentAfter={<span style={{ fontSize: 12, color: 'var(--c3-ink-muted)' }}>{PIVOT}</span>}
+        contentAfter={<span style={{ fontSize: 12, color: 'var(--c3-ink-quiet)' }}>{PIVOT}</span>}
         data-testid={`fx-rate-${currency}`}
       />
       <span className={s.inverse}>
@@ -425,7 +425,7 @@ function ImportExportSection() {
         )}
         {errors.length > 0 && (
           <div style={{ padding: '12px 20px' }} data-testid="import-errors">
-            <span className={s.eq} style={{ color: 'var(--c3-attention)' }}>
+            <span className={s.eq} style={{ color: 'var(--c3-state-danger)' }}>
               {`${errorCount} validation error${errorCount === 1 ? '' : 's'} — nothing was imported${errorCount > errors.length ? ` (showing first ${errors.length})` : ''}:`}
             </span>
             <ul style={{ margin: '8px 0 0', paddingLeft: '18px' }}>

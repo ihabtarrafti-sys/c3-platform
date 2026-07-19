@@ -29,13 +29,13 @@ const useStyles = makeStyles({
     fontWeight: 700,
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
-    color: 'var(--c3-ink-mid)',
+    color: 'var(--c3-ink-muted)',
     marginBottom: '8px',
   },
   row: { display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '10px' },
   two: { display: 'flex', gap: '10px', '> *': { flexGrow: 1 } },
-  law: { fontSize: '12px', color: 'var(--c3-ink-muted)', marginTop: '6px' },
+  law: { fontSize: '12px', color: 'var(--c3-ink-quiet)', marginTop: '6px' },
 });
 
 function useSubmitToast() {

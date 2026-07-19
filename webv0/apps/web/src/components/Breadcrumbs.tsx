@@ -24,9 +24,9 @@ const useStyles = makeStyles({
     fontSize: '12.5px',
   },
   item: { display: 'flex', alignItems: 'center', columnGap: '6px' },
-  link: { color: 'var(--c3-ink-50)', textDecoration: 'none', ':hover': { textDecoration: 'underline' } },
-  current: { color: 'var(--c3-ink-70)' },
-  sep: { color: 'var(--c3-ink-35)' },
+  link: { color: 'var(--c3-ink-quiet)', textDecoration: 'none', ':hover': { textDecoration: 'underline' } },
+  current: { color: 'var(--c3-ink-muted)' },
+  sep: { color: 'var(--c3-ink-quiet)' },
 });
 
 export function Breadcrumbs({ crumbs }: { crumbs: Crumb[] }) {

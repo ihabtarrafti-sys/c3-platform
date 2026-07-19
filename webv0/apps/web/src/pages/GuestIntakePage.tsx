@@ -27,23 +27,23 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     rowGap: '18px',
   },
-  brand: { fontFamily: 'var(--c3-font-mono)', fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--c3-ink-muted)' },
-  title: { fontSize: '26px', fontWeight: 600, color: 'var(--c3-ink)', margin: 0 },
-  lede: { fontSize: '13.5px', lineHeight: '20px', color: 'var(--c3-ink-mid)' },
+  brand: { fontFamily: 'var(--c3-font-mono)', fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)' },
+  title: { fontSize: '26px', fontWeight: 600, color: 'var(--c3-ink-default)', margin: 0 },
+  lede: { fontSize: '13.5px', lineHeight: '20px', color: 'var(--c3-ink-muted)' },
   group: { display: 'flex', flexDirection: 'column', rowGap: '12px' },
-  groupTitle: { fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-muted)', fontFamily: 'var(--c3-font-mono)', marginTop: '8px' },
+  groupTitle: { fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', marginTop: '8px' },
   twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '12px', rowGap: '12px' },
-  fileNote: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
+  fileNote: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
   panel: {
     padding: '18px 20px',
-    border: '1px solid var(--c3-hairline)',
+    border: '1px solid var(--c3-border-subtle)',
     borderRadius: 'var(--c3-radius-md, 14px)',
-    backgroundColor: 'var(--c3-surface, transparent)',
+    backgroundColor: 'var(--c3-surface-base, transparent)',
     display: 'flex',
     flexDirection: 'column',
     rowGap: '10px',
   },
-  ok: { color: 'var(--c3-ink)', fontSize: '15px', fontWeight: 600 },
+  ok: { color: 'var(--c3-ink-default)', fontSize: '15px', fontWeight: 600 },
   actions: { marginTop: '6px' },
 });
 
@@ -194,7 +194,7 @@ export function GuestIntakePage() {
                 <Textarea value={f.note ?? ''} onChange={set('note')} data-testid="guest-note" />
               </Field>
 
-              {error && <p className={s.lede} data-testid="guest-error" style={{ color: 'var(--c3-danger, #d13438)' }}>{error}</p>}
+              {error && <p className={s.lede} data-testid="guest-error" style={{ color: 'var(--c3-state-danger, #d13438)' }}>{error}</p>}
 
               <div className={s.actions}>
                 <Button appearance="primary" onClick={submit} disabled={!canSubmit} data-testid="guest-submit">

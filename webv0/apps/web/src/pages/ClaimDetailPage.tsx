@@ -25,7 +25,7 @@ import { auditActionOf, claimStatusOf, formatMinor, lineCategoryOf } from '../la
 
 const useStyles = makeStyles({
   section: { marginTop: '28px' },
-  h2: { fontSize: '16px', fontWeight: 600, color: 'var(--c3-ink)', margin: '0 0 12px' },
+  h2: { fontSize: '16px', fontWeight: 600, color: 'var(--c3-ink-default)', margin: '0 0 12px' },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '8px', minWidth: '300px' },
   actions: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
 });
@@ -191,7 +191,7 @@ export function ClaimDetailPage() {
         <>
           <DefinitionList items={items} />
           {isOwn && c.status !== 'Rejected' && c.status !== 'Paid' && (
-            <p data-testid="claim-own-note" style={{ fontSize: '13px', color: 'var(--c3-ink-muted)' }}>
+            <p data-testid="claim-own-note" style={{ fontSize: '13px', color: 'var(--c3-ink-quiet)' }}>
               This is your claim — someone else with finance standing decides it. Attach the receipt below.
             </p>
           )}

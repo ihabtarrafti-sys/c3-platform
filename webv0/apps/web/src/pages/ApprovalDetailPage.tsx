@@ -20,19 +20,19 @@ import { agreementTermKindOf, approvalStatusOf, operationOf } from '../labels';
 
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
   decision: {
     marginTop: '24px',
     padding: '16px',
-    border: '1px solid var(--c3-hairline)',
+    border: '1px solid var(--c3-border-subtle)',
     borderRadius: 'var(--c3-radius)',
-    backgroundColor: 'var(--c3-identity-white)',
+    backgroundColor: 'var(--c3-surface-base)',
     maxWidth: '640px',
   },
-  decisionNote: { fontSize: '12.5px', color: 'var(--c3-ink-50)', marginBottom: '12px' },
+  decisionNote: { fontSize: '12.5px', color: 'var(--c3-ink-quiet)', marginBottom: '12px' },
   decisionRow: { display: 'flex', columnGap: '10px', rowGap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' },
-  ownNote: { fontSize: '13px', color: 'var(--c3-ink-70)', marginTop: '16px', maxWidth: '640px' },
-  idLink: { fontFamily: 'var(--c3-font-mono)', fontSize: '13px', color: 'var(--c3-command-black)' },
+  ownNote: { fontSize: '13px', color: 'var(--c3-ink-muted)', marginTop: '16px', maxWidth: '640px' },
+  idLink: { fontFamily: 'var(--c3-font-mono)', fontSize: '13px', color: 'var(--c3-ink-strong)' },
 });
 
 export function ApprovalDetailPage() {
@@ -543,7 +543,7 @@ function ProposedChange({ payload }: { payload: ApprovalPayloadDto }) {
           fontWeight: 700,
           letterSpacing: '0.08em',
           textTransform: 'uppercase',
-          color: 'var(--c3-ink-mid)',
+          color: 'var(--c3-ink-muted)',
           marginBottom: 8,
         }}
       >

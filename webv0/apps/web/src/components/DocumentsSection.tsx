@@ -17,21 +17,21 @@ import { GovernedAction } from './GovernedAction';
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
   h2Row: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: '12px', flexWrap: 'wrap' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
   list: { display: 'flex', flexDirection: 'column', rowGap: '6px' },
   rowItem: {
     display: 'flex',
     alignItems: 'center',
     columnGap: '12px',
     padding: '10px 14px',
-    border: '1px solid var(--c3-line)',
+    border: '1px solid var(--c3-border-subtle)',
     borderRadius: 'var(--c3-radius)',
-    backgroundColor: 'var(--c3-panel)',
+    backgroundColor: 'var(--c3-surface-elevated)',
   },
-  name: { fontSize: '14px', color: 'var(--c3-ink)', overflowWrap: 'anywhere' },
-  meta: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-muted)', whiteSpace: 'nowrap' },
+  name: { fontSize: '14px', color: 'var(--c3-ink-default)', overflowWrap: 'anywhere' },
+  meta: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-quiet)', whiteSpace: 'nowrap' },
   spacer: { flexGrow: 1 },
-  empty: { fontSize: '13px', color: 'var(--c3-ink-muted)' },
+  empty: { fontSize: '13px', color: 'var(--c3-ink-quiet)' },
 });
 
 function formatSize(bytes: number): string {

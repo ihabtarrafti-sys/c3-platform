@@ -44,7 +44,7 @@ function localTodayIso(): string {
 
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
   h2Row: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: '12px', flexWrap: 'wrap' },
   headerActions: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '8px' },

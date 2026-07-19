@@ -126,7 +126,7 @@ const useStyles = makeStyles({
   input: { width: '100%' },
   // Screen 05 (re-skin): the results panel is an EPHEMERAL floating surface —
   // the one place Blue Hour glass legitimately lives. (This also fixes the
-  // undefined --c3-panel background it silently rode before.) The reduced-
+  // undefined --c3-surface-elevated background it silently rode before.) The reduced-
   // effects contract collapses the brand glass tokens to opaque automatically.
   panel: {
     position: 'absolute',
@@ -148,7 +148,7 @@ const useStyles = makeStyles({
     fontSize: '10.5px',
     letterSpacing: '0.12em',
     textTransform: 'uppercase',
-    color: 'var(--c3-ink-muted)',
+    color: 'var(--c3-ink-quiet)',
     padding: '8px 10px 4px',
   },
   hit: {
@@ -160,29 +160,29 @@ const useStyles = makeStyles({
     cursor: 'pointer',
     ':hover': { backgroundColor: 'var(--c3-hover)' },
   },
-  hitTitle: { fontSize: '13.5px', color: 'var(--c3-ink)', display: 'flex', alignItems: 'baseline', columnGap: '8px' },
-  hitId: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-muted)' },
-  hitSub: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
-  empty: { padding: '12px 10px', fontSize: '13px', color: 'var(--c3-ink-muted)' },
+  hitTitle: { fontSize: '13.5px', color: 'var(--c3-ink-default)', display: 'flex', alignItems: 'baseline', columnGap: '8px' },
+  hitId: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-quiet)' },
+  hitSub: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
+  empty: { padding: '12px 10px', fontSize: '13px', color: 'var(--c3-ink-quiet)' },
   chips: { display: 'flex', flexWrap: 'wrap', gap: '4px', padding: '6px 8px 2px' },
   chip: {
     fontFamily: 'var(--c3-font-mono)',
     fontSize: '10.5px',
     letterSpacing: '0.06em',
-    color: 'var(--c3-ink-mid)',
+    color: 'var(--c3-ink-muted)',
     backgroundColor: 'transparent',
-    border: '1px solid var(--c3-hairline)',
+    border: '1px solid var(--c3-border-subtle)',
     borderRadius: '999px',
     padding: '2px 9px',
     cursor: 'pointer',
     ':hover': { backgroundColor: 'var(--c3-hover)' },
   },
   chipActive: {
-    color: 'var(--c3-ink)',
-    borderTopColor: 'var(--c3-brand)',
-    borderRightColor: 'var(--c3-brand)',
-    borderBottomColor: 'var(--c3-brand)',
-    borderLeftColor: 'var(--c3-brand)',
+    color: 'var(--c3-ink-default)',
+    borderTopColor: 'var(--c3-action-primary)',
+    borderRightColor: 'var(--c3-action-primary)',
+    borderBottomColor: 'var(--c3-action-primary)',
+    borderLeftColor: 'var(--c3-action-primary)',
     backgroundColor: 'var(--c3-hover)',
   },
 });

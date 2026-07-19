@@ -1,0 +1,172 @@
+/*
+ * c3-app.css — the app's OWN primitives, derived from the locked brand
+ * tokens (theme/brand/c3.tokens.css, The Long Table · Afterglow + Blue Hour
+ * v1.2.0). Strategy-B closed the Phase-0 bridge: every component now speaks
+ * the brand vocabulary directly, and THIS file is the only place app-local
+ * token names live — each one either a value the brand deliberately does not
+ * name (mono type, the approved S46 motion clock, shell geometry) or a
+ * primitive DERIVED from brand tokens (never forked literals).
+ *
+ * GLASS IS FLOATING-ONLY (identity law): the chrome tier (rail, room bar,
+ * persistent surfaces) is OPAQUE with no backdrop; only the float tier
+ * (menus, popovers, command UI) reaches the brand's Blue Hour glass. The
+ * glass-audit test (test/identityTokens.test.ts) asserts this file's tiers.
+ */
+
+:root {
+  /* ── application type: mono for data (the brand names no mono) ── */
+  --c3-font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Consolas, monospace;
+
+  /* ── the approved S46 motion clock (predates the brand motion scale;
+   *    kept verbatim — the drawer/notice choreography was tuned to it).
+   *    The shared ease IS the brand signature curve. ── */
+  --c3-dur-state: 130ms;
+  --c3-dur-enter: 200ms;
+  --c3-dur-drawer: 280ms;
+  --c3-dur-rise: 480ms;
+  --c3-dur-sweep: 2600ms;
+  --c3-dur-pulse: 2400ms;
+  --c3-ease: var(--c3-motion-ease-signature);
+
+  /* ── app radius steps (14/18/20 — surfaces tuned to these before the
+   *    brand geometry scale existed; visual continuity preserved) ── */
+  --c3-radius-data: 14px;
+  --c3-radius-chrome: 18px;
+  --c3-radius-float: 20px;
+  --c3-radius: var(--c3-radius-data);
+
+  /* ── shell geometry ── */
+  --c3-content-max: 1200px;
+  --c3-rail-w: 244px;
+  --c3-identitybar-h: 56px;
+
+  /* ── interaction primitives (derived, never forked) ── */
+  --c3-hover: color-mix(in srgb, var(--c3-ink-default) 6%, transparent);
+
+  /* ── elevation & attention ── */
+  --c3-e1: 0 1px 2px var(--c3-overlay-dim);
+  --c3-e2: var(--c3-shadow-room);
+  --c3-glow-attention: 0 0 26px color-mix(in srgb, var(--c3-state-danger) 20%, transparent);
+  --c3-sweep-tint: color-mix(in srgb, var(--c3-ink-default) 5%, transparent);
+
+  /* ── ambient ground glow — the blue-as-life wash ── */
+  --c3-ambient:
+    radial-gradient(1100px at 85% -10%, var(--c3-accent-blue-wash), transparent 60%),
+    radial-gradient(900px at -10% 110%, var(--c3-accent-aqua-wash), transparent 55%);
+
+  /* ── glass tiers — THE AUDIT LIVES HERE ──
+   * chrome = PERSISTENT (rail, room bar, nav): OPAQUE, no backdrop. NEVER glass.
+   * float  = EPHEMERAL (menus, popovers, toasts, command UI): Blue Hour glass. */
+  --c3-glass-chrome-bg: var(--c3-surface-elevated);
+  --c3-glass-float-bg: var(--c3-glass-fill);
+  --c3-backdrop-chrome: none;
+  --c3-backdrop-float: blur(var(--c3-glass-blur)) saturate(var(--c3-glass-saturate));
+  --c3-rim: inset 0 1px 0 var(--c3-border-subtle);
+}
+
+/* ── the reduced-effects / reduced-transparency contract: every glass
+ * surface (app tiers AND the brand glass tokens — the identity expects the
+ * consumer to implement reduced handling) becomes opaque, backdrops off. ── */
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --c3-glass-chrome-bg: var(--c3-surface-elevated);
+    --c3-glass-float-bg: var(--c3-surface-elevated);
+    --c3-backdrop-chrome: none;
+    --c3-backdrop-float: none;
+    --c3-rim: none;
+    --c3-ambient: none;
+    --c3-glass-fill: var(--c3-surface-elevated);
+    --c3-glass-fill-strong: var(--c3-surface-elevated);
+    --c3-glass-blur: 0px;
+    --c3-glass-saturate: 100%;
+    --c3-glass-edge: var(--c3-border-strong);
+    --c3-glass-shadow: var(--c3-shadow-soft);
+  }
+}
+[data-c3-effects='reduced'] {
+  --c3-glass-chrome-bg: var(--c3-surface-elevated);
+  --c3-glass-float-bg: var(--c3-surface-elevated);
+  --c3-backdrop-chrome: none;
+  --c3-backdrop-float: none;
+  --c3-rim: none;
+  --c3-ambient: none;
+  --c3-glass-fill: var(--c3-surface-elevated);
+  --c3-glass-fill-strong: var(--c3-surface-elevated);
+  --c3-glass-blur: 0px;
+  --c3-glass-saturate: 100%;
+  --c3-glass-edge: var(--c3-border-strong);
+  --c3-glass-shadow: var(--c3-shadow-soft);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: var(--c3-ground-canvas);
+  background-image: var(--c3-ambient);
+  background-attachment: fixed;
+  color: var(--c3-ink-default);
+  font-family: var(--c3-font-family-human);
+  font-size: 14px;
+  line-height: 22px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Enter choreography for surfaces that announce themselves (notices). */
+@keyframes c3-enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Rise/sweep/pulse — the cockpit-era choreography, kept for consumers. */
+@keyframes c3-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes c3-sweep {
+  from {
+    transform: translateX(-120%);
+  }
+  to {
+    transform: translateX(420%);
+  }
+}
+@keyframes c3-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.35;
+    transform: scale(0.72);
+  }
+}
+
+/* Reduced motion is a contract — every transition/animation collapses,
+   states change instantly, nothing loses meaning. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

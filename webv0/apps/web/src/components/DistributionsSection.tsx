@@ -20,15 +20,15 @@ import { useRegisterStyles } from './registerStyles';
 
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
   h2Row: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: '12px', flexWrap: 'wrap' },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '8px', minWidth: '340px' },
   shareRow: { display: 'flex', alignItems: 'center', columnGap: '8px' },
   shareName: { flexGrow: 1, fontSize: '13px' },
   bpsInput: { width: '90px' },
-  subtle: { fontSize: '12.5px', color: 'var(--c3-ink-muted)' },
-  head: { fontSize: '13px', color: 'var(--c3-ink-mid)', margin: '0 0 8px' },
-  card: { border: '1px solid var(--c3-line)', borderRadius: 'var(--c3-radius-data)', padding: '12px 16px', marginBottom: '12px', backgroundColor: 'var(--c3-surface-data)' },
+  subtle: { fontSize: '12.5px', color: 'var(--c3-ink-quiet)' },
+  head: { fontSize: '13px', color: 'var(--c3-ink-muted)', margin: '0 0 8px' },
+  card: { border: '1px solid var(--c3-border-subtle)', borderRadius: 'var(--c3-radius-data)', padding: '12px 16px', marginBottom: '12px', backgroundColor: 'var(--c3-surface-base)' },
   cardHead: { display: 'flex', alignItems: 'baseline', columnGap: '12px', flexWrap: 'wrap', marginBottom: '8px' },
   mono: { fontFamily: 'var(--c3-font-mono)' },
 });

@@ -26,10 +26,10 @@ const useStyles = makeStyles({
     '@media (max-width: 640px)': { gridTemplateColumns: '1fr', rowGap: '4px' },
   },
   pair: { display: 'contents' },
-  dt: { margin: 0, fontSize: '12.5px', fontWeight: 600, color: 'var(--c3-ink-50)' },
-  dd: { margin: 0, fontSize: '14px', color: 'var(--c3-command-black)' },
+  dt: { margin: 0, fontSize: '12.5px', fontWeight: 600, color: 'var(--c3-ink-quiet)' },
+  dd: { margin: 0, fontSize: '14px', color: 'var(--c3-ink-strong)' },
   mono: { fontFamily: 'var(--c3-font-mono)', fontSize: '13px' },
-  unset: { color: 'var(--c3-ink-35)' },
+  unset: { color: 'var(--c3-ink-quiet)' },
 });
 
 function isEmpty(v: ReactNode): boolean {

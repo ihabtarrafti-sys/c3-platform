@@ -17,18 +17,18 @@ import { useNotify, useSession } from '../session';
 
 const useStyles = makeStyles({
   section: { marginTop: '32px', maxWidth: '720px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink)', margin: '0 0 12px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-default)', margin: '0 0 12px' },
   list: { display: 'flex', flexDirection: 'column', rowGap: '2px', marginBottom: '16px' },
-  empty: { fontSize: '13px', color: 'var(--c3-ink-muted)', padding: '8px 0 16px' },
-  item: { padding: '10px 0', borderBottom: '1px solid var(--c3-hairline)' },
+  empty: { fontSize: '13px', color: 'var(--c3-ink-quiet)', padding: '8px 0 16px' },
+  item: { padding: '10px 0', borderBottom: '1px solid var(--c3-border-subtle)' },
   head: { display: 'flex', alignItems: 'baseline', columnGap: '8px', marginBottom: '3px' },
-  author: { fontSize: '13px', fontWeight: 600, color: 'var(--c3-ink)' },
-  when: { fontFamily: 'var(--c3-font-mono)', fontSize: '11px', color: 'var(--c3-ink-muted)' },
-  body: { fontSize: '13.5px', lineHeight: '19px', color: 'var(--c3-ink)', whiteSpace: 'pre-wrap' },
-  mentions: { marginTop: '4px', fontSize: '11.5px', color: 'var(--c3-brand)', fontFamily: 'var(--c3-font-mono)' },
+  author: { fontSize: '13px', fontWeight: 600, color: 'var(--c3-ink-default)' },
+  when: { fontFamily: 'var(--c3-font-mono)', fontSize: '11px', color: 'var(--c3-ink-quiet)' },
+  body: { fontSize: '13.5px', lineHeight: '19px', color: 'var(--c3-ink-default)', whiteSpace: 'pre-wrap' },
+  mentions: { marginTop: '4px', fontSize: '11.5px', color: 'var(--c3-action-primary)', fontFamily: 'var(--c3-font-mono)' },
   composer: { display: 'flex', flexDirection: 'column', rowGap: '8px' },
   composerRow: { display: 'flex', columnGap: '10px', alignItems: 'flex-start', flexWrap: 'wrap' },
-  mentionLabel: { fontSize: '12px', color: 'var(--c3-ink-mid)', marginBottom: '2px' },
+  mentionLabel: { fontSize: '12px', color: 'var(--c3-ink-muted)', marginBottom: '2px' },
 });
 
 function fmt(iso: string): string {

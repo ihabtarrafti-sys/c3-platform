@@ -19,7 +19,7 @@ import { GovernedAction } from './GovernedAction';
 const useStyles = makeStyles({
   root: { display: 'flex', alignItems: 'center', columnGap: '16px', marginBottom: '20px', flexWrap: 'wrap', rowGap: '10px' },
   controls: { display: 'flex', columnGap: '8px', rowGap: '8px', flexWrap: 'wrap' },
-  hint: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
+  hint: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
 });
 
 export function PersonPhotoControl({

@@ -15,21 +15,21 @@ import { EmptyState, ErrorState, LoadingState } from '../components/states';
  */
 
 const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-mid)', maxWidth: '640px', marginBottom: '18px' },
+  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '640px', marginBottom: '18px' },
   list: { display: 'flex', flexDirection: 'column', maxWidth: '720px' },
   row: {
     display: 'flex',
     alignItems: 'baseline',
     columnGap: '12px',
     padding: '11px 4px',
-    borderBottom: '1px solid var(--c3-hairline)',
+    borderBottom: '1px solid var(--c3-border-subtle)',
   },
-  when: { fontFamily: 'var(--c3-font-mono)', fontSize: '11px', color: 'var(--c3-ink-muted)', minWidth: '128px', flexShrink: 0 },
+  when: { fontFamily: 'var(--c3-font-mono)', fontSize: '11px', color: 'var(--c3-ink-quiet)', minWidth: '128px', flexShrink: 0 },
   body: { display: 'flex', flexDirection: 'column', rowGap: '2px', flex: 1 },
-  headline: { fontSize: '13.5px', color: 'var(--c3-ink)' },
-  target: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-brand)' },
-  targetPlain: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-muted)' },
-  actor: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
+  headline: { fontSize: '13.5px', color: 'var(--c3-ink-default)' },
+  target: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-action-primary)' },
+  targetPlain: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-quiet)' },
+  actor: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
   more: { marginTop: '16px' },
 });
 

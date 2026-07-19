@@ -162,11 +162,11 @@ const useStyles = makeStyles({
     flexDirection: 'column',
     rowGap: '8px',
     padding: '8px 10px',
-    border: '1px solid var(--c3-hairline)',
+    border: '1px solid var(--c3-border-subtle)',
     borderRadius: 'var(--c3-radius)',
   },
-  nestedTitle: { fontSize: '12px', fontWeight: 600, color: 'var(--c3-ink-mid)' },
-  zodError: { fontSize: '12.5px', color: 'var(--c3-attention)', whiteSpace: 'pre-wrap' },
+  nestedTitle: { fontSize: '12px', fontWeight: 600, color: 'var(--c3-ink-muted)' },
+  zodError: { fontSize: '12.5px', color: 'var(--c3-state-danger)', whiteSpace: 'pre-wrap' },
 });
 
 export function CorrectionDialog({

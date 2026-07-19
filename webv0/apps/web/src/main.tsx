@@ -8,13 +8,14 @@ import { NotificationProvider, SessionProvider } from './session';
 import { c3DarkTheme, c3LightTheme } from './theme/c3Theme';
 import { ThemeModeProvider, useThemeMode } from './theme/mode';
 import './theme/fonts.css';
-// Re-skin chapter (Phase 0): the LOCKED identity tokens (Afterglow + Blue Hour, v1.2.0) are the
-// source of truth; the S47 file keeps the body/keyframe/effects scaffolding; the bridge (LAST)
-// redefines every S47 --c3-* onto a brand token so the locked look renders with zero component
-// edits. See c3-bridge.css (transitional; Strategy-B rename is later hygiene).
+// Strategy-B (re-skin chapter closed): the LOCKED identity tokens (Afterglow +
+// Blue Hour v1.2.0, vendored byte-identical + sha-pinned) are the sole value
+// source; c3-app.css carries only the app's OWN primitives (mono type, motion
+// clock, shell geometry, derived glass tiers) plus the body/keyframe/reduced
+// contracts. The Phase-0 bridge and the S47 token file are retired — every
+// component speaks the brand vocabulary directly.
 import './theme/brand/c3.tokens.css';
-import './theme/c3-tokens.css';
-import './theme/c3-bridge.css';
+import './theme/c3-app.css';
 
 // Build marker (real runtime statement so it survives minification and changes
 // the emitted chunk hash). This forces a fresh asset URL so Cloudflare serves

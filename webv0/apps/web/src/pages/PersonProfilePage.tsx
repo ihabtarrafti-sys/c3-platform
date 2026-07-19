@@ -37,7 +37,7 @@ function localTodayIso(): string {
 
 const useStyles = makeStyles({
   section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-command-black)', margin: '0 0 12px' },
+  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
 });
 
 export function PersonProfilePage() {

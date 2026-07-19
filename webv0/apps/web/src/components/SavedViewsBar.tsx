@@ -17,10 +17,10 @@ import { useNotify } from '../session';
 
 const useStyles = makeStyles({
   bar: { display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', margin: '0 0 14px' },
-  label: { fontSize: '12px', color: 'var(--c3-ink-muted)', fontFamily: 'var(--c3-font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' },
+  label: { fontSize: '12px', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', textTransform: 'uppercase', letterSpacing: '0.06em' },
   chip: { display: 'inline-flex', alignItems: 'center', gap: '2px' },
   saveRow: { display: 'inline-flex', alignItems: 'center', gap: '6px' },
-  empty: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
+  empty: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
 });
 
 export function SavedViewsBar({

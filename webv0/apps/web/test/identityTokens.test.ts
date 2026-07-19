@@ -38,20 +38,21 @@ describe('identity token integrity (Phase 0)', () => {
     expect(sha, `vendored tokens drifted from c3-brand ${LOCKED_IDENTITY_VERSION} — a brand bump must be a deliberate, Neural-sequenced update to this pin, not a silent refresh`).toBe(LOCKED_TOKENS_SHA256);
   });
 
-  it('the app consumes the brand tokens as the source of truth, with the bridge loaded last', () => {
+  it('the app consumes the brand tokens as the source of truth, app primitives after (Strategy-B: no bridge, no S47 file)', () => {
     const main = lf(readFileSync(join(themeDir, '..', 'main.tsx'), 'utf8'));
     const brandAt = main.indexOf("theme/brand/c3.tokens.css");
-    const s47At = main.indexOf("theme/c3-tokens.css");
-    const bridgeAt = main.indexOf("theme/c3-bridge.css");
+    const appAt = main.indexOf("theme/c3-app.css");
     expect(brandAt, 'brand tokens not imported').toBeGreaterThan(-1);
-    expect(bridgeAt, 'bridge not imported').toBeGreaterThan(-1);
-    // The bridge must win the :root cascade → it loads AFTER the S47 file it overrides.
-    expect(bridgeAt).toBeGreaterThan(s47At);
+    expect(appAt, 'app primitives not imported').toBeGreaterThan(-1);
+    expect(appAt).toBeGreaterThan(brandAt); // derived primitives resolve against the brand
+    // The sunset is REAL: the bridge and the S47 token file must never return.
+    expect(main).not.toContain('c3-bridge.css');
+    expect(main).not.toContain('theme/c3-tokens.css');
   });
 });
 
-describe('GLASS AUDIT — glass is floating-only (identity law, enforced in the bridge)', () => {
-  const bridge = read('c3-bridge.css');
+describe('GLASS AUDIT — glass is floating-only (identity law, enforced in the app primitives)', () => {
+  const bridge = read('c3-app.css');
 
   it('persistent CHROME surfaces map to OPAQUE brand surfaces, never to --c3-glass-*', () => {
     // The chrome background is an opaque brand surface (the rail / identity bar / nav never blur).

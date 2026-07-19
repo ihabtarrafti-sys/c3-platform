@@ -30,24 +30,24 @@ const KIND_LABEL: Record<CalendarItemDto['kind'], string> = {
 };
 
 const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-mid)', maxWidth: '660px', marginBottom: '16px' },
+  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '660px', marginBottom: '16px' },
   controls: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px', alignItems: 'center' },
-  controlLabel: { fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c3-ink-muted)', fontFamily: 'var(--c3-font-mono)', marginRight: '4px' },
+  controlLabel: { fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', marginRight: '4px' },
   chips: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' },
   chip: {
-    fontFamily: 'var(--c3-font-mono)', fontSize: '11px', letterSpacing: '0.06em', color: 'var(--c3-ink-mid)',
-    backgroundColor: 'transparent', border: '1px solid var(--c3-hairline)', borderRadius: '999px', padding: '3px 11px',
+    fontFamily: 'var(--c3-font-mono)', fontSize: '11px', letterSpacing: '0.06em', color: 'var(--c3-ink-muted)',
+    backgroundColor: 'transparent', border: '1px solid var(--c3-border-subtle)', borderRadius: '999px', padding: '3px 11px',
     cursor: 'pointer', ':hover': { backgroundColor: 'var(--c3-hover)' },
   },
-  chipActive: { color: 'var(--c3-ink)', borderTopColor: 'var(--c3-brand)', borderRightColor: 'var(--c3-brand)', borderBottomColor: 'var(--c3-brand)', borderLeftColor: 'var(--c3-brand)', backgroundColor: 'var(--c3-hover)' },
+  chipActive: { color: 'var(--c3-ink-default)', borderTopColor: 'var(--c3-action-primary)', borderRightColor: 'var(--c3-action-primary)', borderBottomColor: 'var(--c3-action-primary)', borderLeftColor: 'var(--c3-action-primary)', backgroundColor: 'var(--c3-hover)' },
   bucket: { marginTop: '20px' },
-  bucketTitle: { fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-muted)', fontFamily: 'var(--c3-font-mono)', marginBottom: '8px' },
+  bucketTitle: { fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', marginBottom: '8px' },
   when: { display: 'flex', flexDirection: 'column', rowGap: '2px', minWidth: '110px' },
-  date: { fontSize: '13px', color: 'var(--c3-ink)' },
-  rel: { fontSize: '11.5px', color: 'var(--c3-ink-muted)', fontFamily: 'var(--c3-font-mono)' },
-  title: { fontSize: '13.5px', color: 'var(--c3-ink)' },
-  sub: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
-  open: { fontSize: '12.5px', color: 'var(--c3-brand)' },
+  date: { fontSize: '13px', color: 'var(--c3-ink-default)' },
+  rel: { fontSize: '11.5px', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)' },
+  title: { fontSize: '13.5px', color: 'var(--c3-ink-default)' },
+  sub: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
+  open: { fontSize: '12.5px', color: 'var(--c3-action-primary)' },
 });
 
 function relLabel(d: number): string {

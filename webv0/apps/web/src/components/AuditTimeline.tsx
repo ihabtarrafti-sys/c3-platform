@@ -21,13 +21,13 @@ const useStyles = makeStyles({
     gridTemplateColumns: 'max-content 1fr',
     columnGap: '16px',
     padding: '12px 0',
-    borderBottom: '1px solid var(--c3-hairline)',
+    borderBottom: '1px solid var(--c3-border-subtle)',
     '@media (max-width: 640px)': { gridTemplateColumns: '1fr', rowGap: '2px' },
   },
-  ts: { fontFamily: 'var(--c3-font-mono)', fontSize: '12.5px', color: 'var(--c3-ink-50)', whiteSpace: 'nowrap' },
-  action: { fontSize: '14px', fontWeight: 500, color: 'var(--c3-command-black)' },
-  actor: { fontSize: '12.5px', color: 'var(--c3-ink-50)', marginTop: '2px' },
-  detail: { fontSize: '13px', color: 'var(--c3-ink-70)', marginTop: '4px' },
+  ts: { fontFamily: 'var(--c3-font-mono)', fontSize: '12.5px', color: 'var(--c3-ink-quiet)', whiteSpace: 'nowrap' },
+  action: { fontSize: '14px', fontWeight: 500, color: 'var(--c3-ink-strong)' },
+  actor: { fontSize: '12.5px', color: 'var(--c3-ink-quiet)', marginTop: '2px' },
+  detail: { fontSize: '13px', color: 'var(--c3-ink-muted)', marginTop: '4px' },
 });
 
 export function AuditTimeline({

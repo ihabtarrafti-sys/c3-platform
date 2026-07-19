@@ -24,12 +24,12 @@ import { useRegisterStyles } from '../components/registerStyles';
  */
 
 const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-mid)', maxWidth: '660px', marginBottom: '16px' },
+  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '660px', marginBottom: '16px' },
   bar: { display: 'flex', justifyContent: 'flex-end', marginBottom: '12px' },
-  amount: { fontFamily: 'var(--c3-font-mono)', fontSize: '13px', color: 'var(--c3-ink)' },
-  cadence: { fontSize: '11.5px', color: 'var(--c3-ink-muted)', fontFamily: 'var(--c3-font-mono)' },
-  vendor: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
-  meta: { fontSize: '12.5px', color: 'var(--c3-ink-mid)' },
+  amount: { fontFamily: 'var(--c3-font-mono)', fontSize: '13px', color: 'var(--c3-ink-default)' },
+  cadence: { fontSize: '11.5px', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)' },
+  vendor: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
+  meta: { fontSize: '12.5px', color: 'var(--c3-ink-muted)' },
   actions: { display: 'flex', gap: '6px' },
   form: { display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '12px', rowGap: '12px', minWidth: '440px' },
   full: { gridColumn: '1 / -1' },

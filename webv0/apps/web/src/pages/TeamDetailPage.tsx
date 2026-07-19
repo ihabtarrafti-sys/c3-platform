@@ -28,10 +28,10 @@ import { auditActionOf, formatMinor } from '../labels';
 const useStyles = makeStyles({
   section: { marginTop: '28px' },
   h2Row: { display: 'flex', alignItems: 'center', columnGap: '16px', marginBottom: '12px' },
-  h2: { fontSize: '16px', fontWeight: 600, color: 'var(--c3-ink)', margin: 0 },
+  h2: { fontSize: '16px', fontWeight: 600, color: 'var(--c3-ink-default)', margin: 0 },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '10px', minWidth: '320px' },
-  hint: { fontSize: '12px', color: 'var(--c3-ink-muted)' },
-  notice: { fontSize: '13px', color: 'var(--c3-attention)', margin: '8px 0' },
+  hint: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
+  notice: { fontSize: '13px', color: 'var(--c3-state-danger)', margin: '8px 0' },
   totalRow: { fontWeight: 600 },
 });
 

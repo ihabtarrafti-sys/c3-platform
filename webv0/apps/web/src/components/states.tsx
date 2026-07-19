@@ -15,20 +15,20 @@ const useStyles = makeStyles({
     alignItems: 'center',
     rowGap: '12px',
   },
-  emptyText: { fontSize: '14px', color: 'var(--c3-ink-70)' },
-  loading: { padding: '24px 0', fontSize: '13px', color: 'var(--c3-ink-50)' },
+  emptyText: { fontSize: '14px', color: 'var(--c3-ink-muted)' },
+  loading: { padding: '24px 0', fontSize: '13px', color: 'var(--c3-ink-quiet)' },
   error: {
     padding: '16px',
-    border: '1px solid var(--c3-hairline)',
-    borderLeft: '3px solid var(--c3-status-blocked)',
+    border: '1px solid var(--c3-border-subtle)',
+    borderLeft: '3px solid var(--c3-state-danger)',
     borderRadius: 'var(--c3-radius)',
-    backgroundColor: 'var(--c3-identity-white)',
+    backgroundColor: 'var(--c3-surface-base)',
     display: 'flex',
     flexDirection: 'column',
     rowGap: '6px',
   },
-  errorMsg: { fontSize: '14px', color: 'var(--c3-command-black)' },
-  ref: { fontFamily: 'var(--c3-font-mono)', fontSize: '12.5px', color: 'var(--c3-ink-50)' },
+  errorMsg: { fontSize: '14px', color: 'var(--c3-ink-strong)' },
+  ref: { fontFamily: 'var(--c3-font-mono)', fontSize: '12.5px', color: 'var(--c3-ink-quiet)' },
 });
 
 export function EmptyState({

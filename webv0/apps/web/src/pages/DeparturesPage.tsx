@@ -22,17 +22,17 @@ import { useRegisterStyles } from '../components/registerStyles';
  */
 
 const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-mid)', maxWidth: '680px', marginBottom: '16px' },
+  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '680px', marginBottom: '16px' },
   starter: { display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: '12px', marginBottom: '24px' },
-  card: { border: '1px solid var(--c3-hairline)', borderRadius: 'var(--c3-radius-md, 14px)', padding: '16px 18px', marginBottom: '14px', display: 'flex', flexDirection: 'column', rowGap: '10px' },
+  card: { border: '1px solid var(--c3-border-subtle)', borderRadius: 'var(--c3-radius-md, 14px)', padding: '16px 18px', marginBottom: '14px', display: 'flex', flexDirection: 'column', rowGap: '10px' },
   head: { display: 'flex', alignItems: 'baseline', columnGap: '10px' },
-  name: { fontSize: '15px', fontWeight: 600, color: 'var(--c3-ink)' },
-  depId: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-muted)' },
-  meta: { fontSize: '12.5px', color: 'var(--c3-ink-mid)' },
-  itemsTitle: { fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-muted)', fontFamily: 'var(--c3-font-mono)' },
-  item: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--c3-ink)' },
-  itemKind: { fontFamily: 'var(--c3-font-mono)', fontSize: '10.5px', letterSpacing: '0.06em', color: 'var(--c3-ink-muted)', minWidth: '74px' },
-  clear: { fontSize: '13px', color: 'var(--c3-status-ready, #2ea043)' },
+  name: { fontSize: '15px', fontWeight: 600, color: 'var(--c3-ink-default)' },
+  depId: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-quiet)' },
+  meta: { fontSize: '12.5px', color: 'var(--c3-ink-muted)' },
+  itemsTitle: { fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)' },
+  item: { display: 'flex', alignItems: 'center', gap: '10px', fontSize: '13px', color: 'var(--c3-ink-default)' },
+  itemKind: { fontFamily: 'var(--c3-font-mono)', fontSize: '10.5px', letterSpacing: '0.06em', color: 'var(--c3-ink-quiet)', minWidth: '74px' },
+  clear: { fontSize: '13px', color: 'var(--c3-state-success, #2ea043)' },
   actions: { display: 'flex', gap: '8px', marginTop: '4px' },
   fields: { display: 'flex', flexDirection: 'column', rowGap: '10px', minWidth: '320px' },
 });

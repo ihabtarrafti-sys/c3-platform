@@ -27,21 +27,21 @@ const useStyles = makeStyles({
   // this component fronts BOTH governed submits and direct-audited confirms,
   // so the surface makes no semantic claim; the copy does.
   surface: {
-    borderTop: '3px solid var(--c3-command-black)',
+    borderTop: '3px solid var(--c3-ink-strong)',
     borderRadius: 'var(--c3-radius)',
     boxShadow: 'var(--c3-e2)',
     maxWidth: '480px',
   },
-  title: { fontSize: '17px', lineHeight: '24px', fontWeight: 600, color: 'var(--c3-command-black)' },
-  body: { display: 'flex', flexDirection: 'column', rowGap: '14px', fontSize: '14px', color: 'var(--c3-ink-70)' },
+  title: { fontSize: '17px', lineHeight: '24px', fontWeight: 600, color: 'var(--c3-ink-strong)' },
+  body: { display: 'flex', flexDirection: 'column', rowGap: '14px', fontSize: '14px', color: 'var(--c3-ink-muted)' },
   description: {
     fontSize: '13px',
     lineHeight: '20px',
-    color: 'var(--c3-ink-70)',
-    borderLeft: '2px solid var(--c3-hairline)',
+    color: 'var(--c3-ink-muted)',
+    borderLeft: '2px solid var(--c3-border-subtle)',
     paddingLeft: '12px',
   },
-  actions: { borderTop: '1px solid var(--c3-hairline)', paddingTop: '12px', marginTop: '4px' },
+  actions: { borderTop: '1px solid var(--c3-border-subtle)', paddingTop: '12px', marginTop: '4px' },
 });
 
 export function GovernedAction({

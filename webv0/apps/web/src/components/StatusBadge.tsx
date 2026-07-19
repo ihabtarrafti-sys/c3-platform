@@ -9,14 +9,14 @@ import { makeStyles } from '@fluentui/react-components';
 export type StatusVariant = 'ready' | 'pending' | 'blocked' | 'neutral' | 'info' | 'signal';
 
 const COLOR: Record<StatusVariant, string> = {
-  ready: 'var(--c3-status-ready)',
-  pending: 'var(--c3-status-pending)',
-  blocked: 'var(--c3-status-blocked)',
-  neutral: 'var(--c3-status-neutral)',
-  info: 'var(--c3-status-info)',
+  ready: 'var(--c3-state-success)',
+  pending: 'var(--c3-state-warning)',
+  blocked: 'var(--c3-state-danger)',
+  neutral: 'var(--c3-ink-quiet)',
+  info: 'var(--c3-state-info)',
   // S46 (approved relaxation #4): Signal Red as TEXT for the one state that
   // demands the eye — agreement "Expired". Never on governed flows.
-  signal: 'var(--c3-signal-red)',
+  signal: 'var(--c3-state-danger)',
 };
 
 const useStyles = makeStyles({
