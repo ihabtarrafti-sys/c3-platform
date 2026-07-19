@@ -152,7 +152,7 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
 
   const addAction = canManage ? (
     <Button appearance="primary" onClick={() => setShowForm(true)} data-testid={`add-${config.testPrefix}-toggle`}>
-      {`Add ${config.title} Item`}
+      {`Add ${config.title.toLowerCase()} item`}
     </Button>
   ) : undefined;
 
@@ -217,7 +217,7 @@ export function EquipmentPage({ config }: { config: EquipmentPageConfig }) {
           action={
             canManage ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid={`${config.testPrefix}-empty-add`}>
-                {`Add ${config.title} Item`}
+                {`Add ${config.title.toLowerCase()} item`}
               </Button>
             ) : undefined
           }

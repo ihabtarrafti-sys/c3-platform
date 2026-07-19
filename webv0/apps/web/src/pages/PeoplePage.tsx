@@ -107,7 +107,7 @@ export function PeoplePage() {
 
   const addAction = canSubmit ? (
     <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-person-toggle">
-      Add Person
+      Add person
     </Button>
   ) : undefined;
 
@@ -188,7 +188,7 @@ export function PeoplePage() {
           action={
             canSubmit ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="people-empty-add">
-                Add Person
+                Add person
               </Button>
             ) : undefined
           }

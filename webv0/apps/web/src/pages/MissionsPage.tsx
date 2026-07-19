@@ -78,7 +78,7 @@ export function MissionsPage() {
       )}
       {canManage && (
         <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-mission-toggle">
-          Add Mission
+          Add mission
         </Button>
       )}
     </>
@@ -161,7 +161,7 @@ export function MissionsPage() {
           action={
             canManage ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="missions-empty-add">
-                Add Mission
+                Add mission
               </Button>
             ) : undefined
           }

@@ -92,7 +92,7 @@ export function CredentialsPage() {
 
   const addAction = canSubmit ? (
     <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-credential-toggle">
-      Add Credential
+      Add credential
     </Button>
   ) : undefined;
 
@@ -169,7 +169,7 @@ export function CredentialsPage() {
           action={
             canSubmit ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="credentials-empty-add">
-                Add Credential
+                Add credential
               </Button>
             ) : undefined
           }

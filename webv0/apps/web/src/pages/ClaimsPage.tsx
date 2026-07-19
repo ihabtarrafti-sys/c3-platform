@@ -108,7 +108,7 @@ export function ClaimsPage() {
             )}
             {canSubmit && (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
-                Submit Claim
+                Submit claim
               </Button>
             )}
           </div>

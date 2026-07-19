@@ -73,7 +73,7 @@ export function TeamsPage() {
         actions={
           canManage ? (
             <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-team-toggle">
-              Add Team
+              Add team
             </Button>
           ) : undefined
         }
@@ -154,7 +154,7 @@ export function TeamsPage() {
           action={
             canManage ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="teams-empty-add">
-                Add Team
+                Add team
               </Button>
             ) : undefined
           }

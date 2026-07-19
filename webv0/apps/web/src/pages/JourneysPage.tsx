@@ -111,7 +111,7 @@ export function JourneysPage() {
 
   const addAction = canSubmit ? (
     <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="initiate-journey-toggle">
-      Initiate Journey
+      Initiate journey
     </Button>
   ) : undefined;
 
@@ -185,7 +185,7 @@ export function JourneysPage() {
           action={
             canSubmit ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="journeys-empty-add">
-                Initiate Journey
+                Initiate journey
               </Button>
             ) : undefined
           }
