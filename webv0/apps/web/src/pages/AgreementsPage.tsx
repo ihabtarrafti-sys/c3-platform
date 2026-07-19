@@ -130,7 +130,7 @@ export function AgreementsPage() {
 
   const addAction = canSubmit ? (
     <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-agreement-toggle">
-      Add Agreement
+      Add agreement
     </Button>
   ) : undefined;
 
@@ -273,7 +273,7 @@ export function AgreementsPage() {
           action={
             canSubmit && filter === 'all' ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="agreements-empty-add">
-                Add Agreement
+                Add agreement
               </Button>
             ) : undefined
           }

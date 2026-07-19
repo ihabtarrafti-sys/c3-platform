@@ -89,7 +89,7 @@ export function EntitiesPage() {
 
   const addAction = canManage ? (
     <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-entity-toggle">
-      Add Entity
+      Add entity
     </Button>
   ) : undefined;
 
@@ -174,7 +174,7 @@ export function EntitiesPage() {
           action={
             canManage ? (
               <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="entities-empty-add">
-                Add Entity
+                Add entity
               </Button>
             ) : undefined
           }

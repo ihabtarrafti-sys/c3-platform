@@ -28,6 +28,9 @@ export function InvoicesPage() {
   const canSee = me?.capabilities.canViewFinancials ?? false;
   const canAct = (me?.capabilities.canManageMissions ?? false) && canSee;
   const { data, isLoading, isError, error } = useInvoices(canSee);
+  // Polish wave #11: the Actions column exists only while an Issued invoice
+  // can still be acted on — a header over uniformly empty cells reads dead.
+  const showActions = canAct && (data?.invoices.some((i) => i.status === 'Issued') ?? false);
   const [voidReason, setVoidReason] = useState<Record<string, string>>({});
 
   if (!canSee) {
@@ -98,7 +101,7 @@ export function InvoicesPage() {
               <th className={r.th}>Issued</th>
               <th className={r.th}>Status</th>
               <th className={r.th}>Paper</th>
-              {canAct && <th className={r.th}>Actions</th>}
+              {showActions && <th className={r.th}>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -141,7 +144,7 @@ export function InvoicesPage() {
                     '—'
                   )}
                 </td>
-                {canAct && (
+                {showActions && (
                   <td className={r.td}>
                     {inv.status === 'Issued' && (
                       <GovernedAction

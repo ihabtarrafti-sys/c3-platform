@@ -59,6 +59,10 @@ export function JourneysPage() {
   const { data, isLoading, isError, error } = useJourneys();
   const canSubmit = me?.capabilities.canSubmitApproval ?? false;
   const canOperate = me?.capabilities.canOperateJourneys ?? false;
+  // Polish wave #10: the Lifecycle column exists only when some row actually
+  // has lifecycle actions — a header over uniformly empty cells reads dead.
+  const showLifecycle =
+    canOperate && (data?.journeys.some((j) => journeyTransitionsFrom(j.status as JourneyStatus).length > 0) ?? false);
   const people = usePeople(canSubmit);
 
   const [showForm, setShowForm] = useState(false);
@@ -198,7 +202,7 @@ export function JourneysPage() {
                 <th className={r.th}>Started</th>
                 <th className={r.th}>Ended</th>
                 <th className={r.th}>Status</th>
-                {canOperate && <th className={r.th}>Lifecycle</th>}
+                {showLifecycle && <th className={r.th}>Lifecycle</th>}
               </tr>
             </thead>
             <tbody>
@@ -221,7 +225,7 @@ export function JourneysPage() {
                         {badge.label}
                       </StatusBadge>
                     </td>
-                    {canOperate && (
+                    {showLifecycle && (
                       <td className={r.td}>
                         <div className={s.actionsCell}>
                           {actions.map((action) => (

@@ -29,6 +29,14 @@ const useStyles = makeStyles({
   composer: { display: 'flex', flexDirection: 'column', rowGap: '8px' },
   composerRow: { display: 'flex', columnGap: '10px', alignItems: 'flex-start', flexWrap: 'wrap' },
   mentionLabel: { fontSize: '12px', color: 'var(--c3-ink-muted)', marginBottom: '2px' },
+  // Polish wave #12: the mention picker wears the brand control affordance
+  // (border, radius, surface) instead of reading as a bare native control.
+  mentionControl: {
+    border: '1px solid var(--c3-border-strong)',
+    borderRadius: 'var(--c3-radius-md)',
+    backgroundColor: 'var(--c3-surface-base)',
+    padding: '2px 6px',
+  },
 });
 
 function fmt(iso: string): string {
@@ -106,7 +114,7 @@ export function CommentThread({ subjectType, subjectId }: { subjectType: Comment
               onOptionSelect={(_, d) => setMentions(d.selectedOptions)}
               data-testid="comment-mentions"
             >
-              <TagPickerControl>
+              <TagPickerControl className={s.mentionControl}>
                 <TagPickerGroup>
                   {mentions.map((m) => (
                     <Tag key={m} value={m} shape="rounded">
