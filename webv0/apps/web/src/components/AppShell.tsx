@@ -389,8 +389,10 @@ export function AppShell() {
               aria-label={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
               title={mode === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
             >
+              {/* Polish wave #7: the chip names the CURRENT state; the
+                  action lives in the aria-label/title. */}
               <span aria-hidden="true">◐</span>
-              <span>{mode === 'dark' ? 'Fresh light' : 'Cozy dark'}</span>
+              <span>{mode === 'dark' ? 'Cozy dark' : 'Fresh light'}</span>
             </button>
             <button
               type="button"
@@ -401,7 +403,7 @@ export function AppShell() {
               title={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
             >
               <span aria-hidden="true">✦</span>
-              <span>{effectsReduced ? 'Full effects' : 'Calm effects'}</span>
+              <span>{effectsReduced ? 'Calm effects' : 'Full effects'}</span>
             </button>
           </div>
           <div className="lt-account">

@@ -47,7 +47,8 @@ const useStyles = makeStyles({
   rel: { fontSize: '11.5px', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)' },
   title: { fontSize: '13.5px', color: 'var(--c3-ink-default)' },
   sub: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-  open: { fontSize: '12.5px', color: 'var(--c3-action-primary)' },
+  // Polish wave #8: the arrow never orphans onto its own line.
+  open: { fontSize: '12.5px', color: 'var(--c3-action-primary)', whiteSpace: 'nowrap' },
 });
 
 function relLabel(d: number): string {

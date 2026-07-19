@@ -41,12 +41,18 @@ const brandSlots = {
   colorSubtleBackgroundHover: 'color-mix(in srgb, var(--c3-ink-default) 6%, transparent)',
   colorSubtleBackgroundPressed: 'color-mix(in srgb, var(--c3-ink-default) 10%, transparent)',
 
-  // ink — warm, softly stepped
+  // ink — warm, softly stepped (Polish wave #6: Foreground2 back to the
+  // brand's middle step, restoring the three-step text hierarchy)
   colorNeutralForeground1: 'var(--c3-ink-default)',
-  colorNeutralForeground2: 'var(--c3-ink-quiet)',
+  colorNeutralForeground2: 'var(--c3-ink-muted)',
   colorNeutralForeground3: 'var(--c3-ink-quiet)',
   colorNeutralForeground4: 'var(--c3-ink-quiet)',
   colorNeutralForegroundDisabled: 'var(--c3-ink-quiet)',
+
+  // disabled controls read as PROPER quiet controls, not dead near-ground
+  // rectangles (Polish wave #6: standard secondary affordance)
+  colorNeutralBackgroundDisabled: 'var(--c3-surface-subtle)',
+  colorNeutralStrokeDisabled: 'var(--c3-border-subtle)',
 
   // strokes
   colorNeutralStroke1: 'var(--c3-border-strong)',

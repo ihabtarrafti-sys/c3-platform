@@ -191,8 +191,10 @@ img.lt-lockup__art--light {
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  gap: var(--c3-space-2);
-  padding: var(--c3-space-2) var(--c3-space-3);
+  gap: var(--c3-space-1);
+  /* Polish wave #7/#9: labels never wrap into cramped two-line chips. */
+  white-space: nowrap;
+  padding: var(--c3-space-2);
   border: 1px solid transparent;
   border-radius: var(--c3-radius-md);
   color: var(--c3-ink-muted);

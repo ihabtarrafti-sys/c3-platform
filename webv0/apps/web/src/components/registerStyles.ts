@@ -59,6 +59,15 @@ export const useRegisterStyles = makeStyles({
     textDecoration: 'none',
     ':hover': { textDecoration: 'underline' },
   },
+  /** A link on a human NAME (not a code) — sans, per the type law:
+   *  mono is reserved for codes, dates, and amounts (owner ruling #4). */
+  nameLink: {
+    fontSize: '14px',
+    fontWeight: 500,
+    color: 'var(--c3-accent-blue)',
+    textDecoration: 'none',
+    ':hover': { textDecoration: 'underline' },
+  },
   name: { color: 'var(--c3-ink-strong)' },
   count: { marginTop: '12px', fontSize: '12.5px', color: 'var(--c3-ink-quiet)' },
 });

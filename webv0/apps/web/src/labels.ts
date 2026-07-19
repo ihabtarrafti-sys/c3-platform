@@ -157,7 +157,9 @@ const EQUIPMENT_STATUS: Record<string, { label: string; variant: StatusVariant }
   Received: { label: 'Received', variant: 'neutral' },
   InProgress: { label: 'In progress', variant: 'info' },
   OnHold: { label: 'On hold', variant: 'pending' },
-  ReadyForShipment: { label: 'Ready for shipment', variant: 'info' },
+  // Polish wave (owner ruling #3): a fulfillment state is not an action —
+  // blue is reserved for clickable; the chip goes neutral.
+  ReadyForShipment: { label: 'Ready for shipment', variant: 'neutral' },
   InTransit: { label: 'In transit', variant: 'info' },
   Delivered: { label: 'Delivered', variant: 'ready' },
   Done: { label: 'Done', variant: 'ready' },

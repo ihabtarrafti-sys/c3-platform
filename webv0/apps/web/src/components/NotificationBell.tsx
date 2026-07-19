@@ -41,8 +41,10 @@ const useStyles = makeStyles({
     height: '16px',
     padding: '0 4px',
     borderRadius: '8px',
-    backgroundColor: 'var(--c3-state-danger)',
-    color: '#ffffff',
+    // Polish wave (owner ruling #2): an unread count is a nudge, never an
+    // alarm — the badge wears the action blue, not danger.
+    backgroundColor: 'var(--c3-action-primary)',
+    color: 'var(--c3-action-ink)',
     fontSize: '10px',
     fontWeight: 700,
     lineHeight: '16px',

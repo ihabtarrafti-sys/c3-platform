@@ -68,7 +68,7 @@ export function MissionFinancePage() {
               <tr key={m.missionId} className={r.row} data-testid={`finance-row-${m.missionId}`}>
                 <td className={`${r.td} ${r.mono}`}>{m.code ?? '—'}</td>
                 <td className={r.td}>
-                  <Link className={r.idLink} to={`/missions/${m.missionId}`} data-testid={`finance-link-${m.missionId}`}>
+                  <Link className={r.nameLink} to={`/missions/${m.missionId}`} data-testid={`finance-link-${m.missionId}`}>
                     {m.name}
                   </Link>
                 </td>
@@ -80,7 +80,15 @@ export function MissionFinancePage() {
                 <td className={`${r.td} ${r.mono}`}>{m.blended ? formatMoney(m.blended.incomeUsdMinor, 'USD') : '—'}</td>
                 <td className={`${r.td} ${r.mono}`}>{m.blended ? formatMoney(m.blended.expenseUsdMinor, 'USD') : '—'}</td>
                 <td className={`${r.td} ${r.mono}`} data-testid={`finance-profit-${m.missionId}`}>
-                  {m.blended ? formatMoney(m.blended.profitUsdMinor, 'USD') : `rates missing: ${m.missingRates.join(', ')}`}
+                  {m.blended ? (
+                    formatMoney(m.blended.profitUsdMinor, 'USD')
+                  ) : (
+                    // Polish wave (owner ruling #5): a data-quality warning
+                    // speaks up in amber — honest numbers are never muted.
+                    <span style={{ color: 'var(--c3-state-warning)', fontWeight: 600 }}>
+                      rates missing: {m.missingRates.join(', ')}
+                    </span>
+                  )}
                 </td>
                 <td className={r.td} data-testid={`finance-outstanding-${m.missionId}`}>
                   {m.outstandingIncomeCount > 0 ? `${m.outstandingIncomeCount} income` : '—'}
