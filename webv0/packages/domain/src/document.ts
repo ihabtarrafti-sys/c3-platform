@@ -20,8 +20,14 @@
 
 import { z } from 'zod';
 
-/** What a document may attach to. V1 UI mounts Agreement/Mission/Person. */
-export const DOCUMENT_OWNER_TYPES = ['Agreement', 'Mission', 'Person', 'Credential', 'Entity', 'Invoice', 'Claim'] as const;
+/**
+ * What a document may attach to. V1 UI mounts Agreement/Mission/Person.
+ * CommsMessage/CommsObligation are SERVER-OWNED (Comms build): created only by
+ * the Comms module's own use-cases, never the generic /documents endpoints, and
+ * read-authorized record-scoped (thread participation + module entitlement) — the
+ * generic owner-gate fails closed on them (documentOps.ts).
+ */
+export const DOCUMENT_OWNER_TYPES = ['Agreement', 'Mission', 'Person', 'Credential', 'Entity', 'Invoice', 'Claim', 'CommsMessage', 'CommsObligation'] as const;
 export type DocumentOwnerType = (typeof DOCUMENT_OWNER_TYPES)[number];
 
 /** Server-enforced upload ceiling (bytes). */
@@ -113,7 +119,7 @@ export interface C3Document {
 
 const ownerIdField = z
   .string()
-  .regex(/^(AGR|MSN|PER|CRED|ENT|INV|CLM)-\d{4,}$/, 'ownerId must be a canonical business id');
+  .regex(/^(AGR|MSN|PER|CRED|ENT|INV|CLM|MSG|OBL)-\d{4,}$/, 'ownerId must be a canonical business id');
 
 /** The attach metadata the API supplies after receiving + hashing the bytes. */
 export const documentAttachInputSchema = z
@@ -142,7 +148,9 @@ export const documentAttachInputSchema = z
       (v.ownerType === 'Credential' && v.ownerId.startsWith('CRED-')) ||
       (v.ownerType === 'Entity' && v.ownerId.startsWith('ENT-')) ||
       (v.ownerType === 'Invoice' && v.ownerId.startsWith('INV-')) ||
-      (v.ownerType === 'Claim' && v.ownerId.startsWith('CLM-')),
+      (v.ownerType === 'Claim' && v.ownerId.startsWith('CLM-')) ||
+      (v.ownerType === 'CommsMessage' && v.ownerId.startsWith('MSG-')) ||
+      (v.ownerType === 'CommsObligation' && v.ownerId.startsWith('OBL-')),
     { message: 'The owner id does not match the owner type.', path: ['ownerId'] },
   );
 export type DocumentAttachInput = z.infer<typeof documentAttachInputSchema>;

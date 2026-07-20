@@ -8142,6 +8142,8 @@
             "values": [
               "Agreement",
               "Claim",
+              "CommsMessage",
+              "CommsObligation",
               "Credential",
               "Entity",
               "Invoice",
@@ -8186,6 +8188,8 @@
                     "values": [
                       "Agreement",
                       "Claim",
+                      "CommsMessage",
+                      "CommsObligation",
                       "Credential",
                       "Entity",
                       "Invoice",
@@ -8248,6 +8252,8 @@
                   "values": [
                     "Agreement",
                     "Claim",
+                    "CommsMessage",
+                    "CommsObligation",
                     "Credential",
                     "Entity",
                     "Invoice",
@@ -8337,6 +8343,8 @@
                   "values": [
                     "Agreement",
                     "Claim",
+                    "CommsMessage",
+                    "CommsObligation",
                     "Credential",
                     "Entity",
                     "Invoice",

@@ -1636,8 +1636,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   r.get(
     '/api/v1/documents',
     { schema: { querystring: documentsQuerySchema, response: { 200: documentsListSchema } } },
-    async (req) => {
+    async (req, reply) => {
       const { ownerType, ownerId } = req.query as { ownerType: DocumentOwnerType; ownerId: string };
+      // Comms attachments are managed by the Comms module — never the generic surface.
+      if (ownerType === 'CommsMessage' || ownerType === 'CommsObligation') {
+        return sendError(req, reply, 400, 'VALIDATION', 'Comms documents are managed by the Comms module.');
+      }
       return { documents: (await listDocuments(P, actorOf(req), ownerType, ownerId)).map(toDocumentDto) };
     },
   );
@@ -1656,6 +1660,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         const f = fields[name] as { value?: unknown } | undefined;
         return f && typeof f.value === 'string' ? f.value : '';
       };
+      // Comms attachments are managed by the Comms module — refuse the server-owned
+      // types on the generic surface BEFORE any byte work (storage PUT, hashing).
+      const requestedOwnerType = fieldVal('ownerType');
+      if (requestedOwnerType === 'CommsMessage' || requestedOwnerType === 'CommsObligation') {
+        return sendError(req, reply, 400, 'VALIDATION', 'Comms documents are managed by the Comms module.');
+      }
       const contentType = file.mimetype;
       if (!isAllowedDocumentContentType(contentType)) {
         return sendError(req, reply, 415, 'UNSUPPORTED_TYPE', 'This file type is not allowed.');

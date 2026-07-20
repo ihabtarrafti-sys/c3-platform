@@ -622,7 +622,11 @@ export const documentResponseSchema = z.object({ document: documentSchema });
 export const documentIdParamSchema = z.object({ documentId: z.string().regex(/^DOC-\d{4,}$/) });
 export const documentsQuerySchema = z.object({
   ownerType: z.enum(DOCUMENT_OWNER_TYPES),
-  ownerId: z.string().regex(/^(AGR|MSN|PER|CRED|ENT)-\d{4,}$/),
+  // Regenerated from the owner-type→prefix map. Fixes the live bug: INV/CLM were
+  // missing while the ownerType enum accepts them, so the Claim documents section
+  // (ClaimDetailPage) 400'd. MSG/OBL (Comms) pass schema then the route refuses
+  // the server-owned types (documents.ts §D) — still fail-closed.
+  ownerId: z.string().regex(/^(AGR|MSN|PER|CRED|ENT|INV|CLM|MSG|OBL)-\d{4,}$/),
 });
 export const documentRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
 

@@ -122,6 +122,35 @@ beforeEach(async () => {
   tokens.ownerB = await login('owner@bravo.com', 'owner', 'bravo');
 });
 
+describe('documents — Comms server-owned types + the query-regex fix (0089)', () => {
+  const pdf = Buffer.from('%PDF-1.4\n%%EOF\n');
+
+  it('the generic LIST endpoint refuses the server-owned Comms types (managed by the Comms module)', async () => {
+    for (const [ownerType, ownerId] of [['CommsMessage', 'MSG-0001'], ['CommsObligation', 'OBL-0001']] as const) {
+      const res = await app.inject({ method: 'GET', url: `/api/v1/documents?ownerType=${ownerType}&ownerId=${ownerId}`, headers: auth(tokens.ops) });
+      expect(res.statusCode, res.body).toBe(400);
+      expect(res.body).toMatch(/Comms module/i);
+    }
+  });
+
+  it('the generic ATTACH endpoint refuses the server-owned Comms types (before any byte work)', async () => {
+    const res = await uploadDoc(tokens.ops, 'CommsMessage', 'MSG-0001', 'x.pdf', 'application/pdf', pdf);
+    expect(res.statusCode, res.body).toBe(400);
+    expect(res.body).toMatch(/Comms module/i);
+  });
+
+  it('regression: the Claim/Invoice documents query no longer 400s on the ownerId regex (the live bug)', async () => {
+    // Pre-0089 the query ownerId regex omitted CLM-/INV- while its ownerType enum
+    // accepted them, so the Claim documents section 400'd at schema validation.
+    // Now the query passes validation and reaches the record guard (404 for a
+    // non-existent record) — proving the schema accepts the canonical id.
+    const claim = await app.inject({ method: 'GET', url: '/api/v1/documents?ownerType=Claim&ownerId=CLM-9999', headers: auth(tokens.owner) });
+    expect(claim.statusCode, claim.body).toBe(404);
+    const invoice = await app.inject({ method: 'GET', url: '/api/v1/documents?ownerType=Invoice&ownerId=INV-9999', headers: auth(tokens.owner) });
+    expect(invoice.statusCode, invoice.body).toBe(404);
+  });
+});
+
 describe('documents over HTTP (S4)', () => {
   it('upload → list → byte-identical download → soft remove; gates and compensation hold', async () => {
     // An agreement to hang the paper on (governed create).
