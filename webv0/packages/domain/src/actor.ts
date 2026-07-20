@@ -10,6 +10,12 @@
 import type { C3Role } from './roles';
 
 export interface Actor {
+  /**
+   * Stable participant surrogate (uuid = app_user.id). The permanent identity
+   * key: never recycled the way an email/UPN can be. Resolved server-side at the
+   * auth boundary; carried into `app.user_id` for participant-aware RLS.
+   */
+  readonly userId: string;
   /** Canonical identity (bare email/UPN), already normalized at the boundary. */
   readonly identity: string;
   /** Display name for audit/history rendering. */

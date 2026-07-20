@@ -21,6 +21,8 @@ export interface ExternalIdentityKey {
 }
 
 export interface ResolvedMembership {
+  /** Stable participant surrogate (uuid = app_user.id) — the permanent identity key. */
+  readonly userId: string;
   readonly tenantId: string;
   readonly tenantSlug: string;
   readonly role: string;
@@ -34,6 +36,10 @@ export interface AdminDirectory {
   /** Resolve an authenticated external identity to tenant + role. Fail-closed:
    *  unknown identity, inactive user, or missing membership/role => null. */
   resolveMembership(key: ExternalIdentityKey): Promise<ResolvedMembership | null>;
+  /** Resolve an external identity to just the stable app_user.id (uuid). Used by
+   *  the dev adapter to obtain a SERVER-resolved userId (never a self-asserted
+   *  token claim). Fail-closed: unknown identity or inactive user => null. */
+  resolveUserId(key: ExternalIdentityKey): Promise<string | null>;
   /** DEV-ONLY provisioning used by the dev IdP login (privileged connection). */
   upsertDevMembership(tenantId: string, email: string, displayName: string, role: string): Promise<void>;
   close(): Promise<void>;
@@ -50,7 +56,7 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
 
     async resolveMembership(key: ExternalIdentityKey): Promise<ResolvedMembership | null> {
       const r = await pool.query(
-        `SELECT t.id AS tenant_id, t.slug AS tenant_slug, ra.role AS role,
+        `SELECT u.id AS user_id, t.id AS tenant_id, t.slug AS tenant_slug, ra.role AS role,
                 u.email AS email, u.display_name AS display_name
            FROM external_identity ei
            JOIN app_user u        ON u.id = ei.user_id AND u.is_active = true
@@ -65,12 +71,29 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
       const row = r.rows[0];
       if (!row) return null;
       return {
+        userId: row.user_id,
         tenantId: row.tenant_id,
         tenantSlug: row.tenant_slug,
         role: row.role,
         email: row.email,
         displayName: row.display_name,
       };
+    },
+
+    async resolveUserId(key: ExternalIdentityKey): Promise<string | null> {
+      // The stable app_user.id by the IMMUTABLE identity key. `subject` is matched
+      // verbatim (for Entra it is the oid; for dev it is the email exactly as the
+      // dev-login route stored it) — no normalization, so this cannot drift from
+      // what the binding holds. Fail-closed: no active binding => null.
+      const r = await pool.query(
+        `SELECT u.id AS user_id
+           FROM external_identity ei
+           JOIN app_user u ON u.id = ei.user_id AND u.is_active = true
+          WHERE ei.provider = $1 AND ei.issuer_tenant_id = $2 AND ei.subject = $3
+          LIMIT 1`,
+        [key.provider, key.issuerTenantId, key.subject],
+      );
+      return (r.rows[0]?.user_id as string | undefined) ?? null;
     },
 
     async upsertDevMembership(tenantId, email, displayName, role) {

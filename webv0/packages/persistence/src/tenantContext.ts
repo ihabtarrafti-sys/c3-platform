@@ -55,7 +55,18 @@ export async function withTenantTx<T>(
     transactionStarted = true;
     signal?.throwIfAborted();
     // is_local = true → transaction-scoped, auto-reset at COMMIT/ROLLBACK.
-    await client.query("SELECT set_config('app.tenant_id', $1, true)", [tenantId]);
+    // Both GUCs are set in ONE round trip so the participant context adds no
+    // statement to any tenant transaction (the L-05b query-count budget is
+    // unchanged). Tenant context is the UNIVERSAL fail-closed boundary; the
+    // participant GUC is additive defense-in-depth (current_user_id()): a
+    // missing/malformed userId is passed as '' so current_user_id() reads NULL
+    // (deny participant match) rather than failing the whole transaction.
+    const userId = actor?.userId;
+    const userParam = userId && UUID_RE.test(userId) ? userId : '';
+    await client.query("SELECT set_config('app.tenant_id', $1, true), set_config('app.user_id', $2, true)", [
+      tenantId,
+      userParam,
+    ]);
     const db = drizzle(client, { schema });
     signal?.throwIfAborted();
     const result = await fn(db, client);

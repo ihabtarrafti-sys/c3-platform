@@ -12,7 +12,7 @@ beforeAll(async () => {
     slug: 'u4-deadline',
     users: [{ key: 'owner', email: 'owner@u4.test', displayName: 'Owner', role: 'owner' }],
   });
-  actor = { identity: 'owner@u4.test', displayName: 'Owner', role: 'owner', tenantId: seeded.tenantId };
+  actor = { userId: '00000000-0000-0000-0000-000000000004', identity: 'owner@u4.test', displayName: 'Owner', role: 'owner', tenantId: seeded.tenantId };
 }, 180_000);
 
 afterAll(async () => {

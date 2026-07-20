@@ -26,7 +26,7 @@ let db: TestDatabase;
 let p: PersistenceHandle;
 
 function ownerActor(tenantId: string, email: string): Actor {
-  return { identity: email, displayName: 'Owner', role: 'owner', tenantId };
+  return { userId: '00000000-0000-0000-0000-0000000000fe', identity: email, displayName: 'Owner', role: 'owner', tenantId };
 }
 
 async function governedAddPerson(actor: Actor, fullName: string): Promise<void> {

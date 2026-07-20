@@ -28,7 +28,7 @@ let db: TestDatabase;
 let p: PersistenceHandle;
 
 const actor = (tenantId: string, email: string, role: string): Actor =>
-  ({ identity: email, displayName: email, role: role as Actor['role'], tenantId });
+  ({ userId: '00000000-0000-0000-0000-0000000000ff', identity: email, displayName: email, role: role as Actor['role'], tenantId });
 
 let alphaId: string;
 let alphaOwner: Actor;

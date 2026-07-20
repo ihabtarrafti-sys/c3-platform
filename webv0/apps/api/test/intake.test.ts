@@ -274,7 +274,7 @@ describe('guest intake — reject wipes', () => {
   it('M-02: a delete failure leaves a retryable tombstone (not an orphan); a later drain resolves it', async () => {
     const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
     const alphaId = tenant!.id;
-    const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
+    const actor: Actor = { userId: '22222222-2222-2222-2222-2222222222a3', identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
     const key = `intake/${alphaId}/subX/upX`;
     await adminQuery(`INSERT INTO blob_tombstone (tenant_ref, storage_key, blob_class, reason) VALUES ($1, $2, 'intake', 'intake_reject')`, [alphaId, key]);
 
@@ -298,7 +298,7 @@ describe('guest intake — reject wipes', () => {
   it("HARDEN-3.5 B (R6-N01): the drain CANNOT consume a PREPARED intent — the producer's registration then succeeds", async () => {
     const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
     const alphaId = tenant!.id;
-    const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
+    const actor: Actor = { userId: '22222222-2222-2222-2222-2222222222a3', identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
     const key = `${alphaId}/r6n01-producer-mid-flight`;
     // The producer pre-registers (prepared, TTL far away) — its PUT has NOT happened yet.
     await deps.persistence.writes.transaction(actor, (tx) =>
@@ -321,7 +321,7 @@ describe('guest intake — reject wipes', () => {
   it('HARDEN-3.5 B (§5.7): the TTL-boundary race — success-resolve vs drain-arm serialize; exactly one wins, both outcomes lawful', async () => {
     const [tenant] = await adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
     const alphaId = tenant!.id;
-    const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
+    const actor: Actor = { userId: '22222222-2222-2222-2222-2222222222a3', identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: alphaId };
     const key = `${alphaId}/ttl-boundary-race`;
     // A prepared intent whose TTL expires almost immediately — the exact boundary.
     await deps.persistence.writes.transaction(actor, (tx) =>

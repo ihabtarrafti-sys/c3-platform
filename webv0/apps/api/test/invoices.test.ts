@@ -189,7 +189,7 @@ describe('invoices over HTTP (S6)', () => {
     const inv = (await post(tokens.ops, '/api/v1/invoices', { missionId: mission.missionId, lineId: line.lineId, entityId: gka.entityId, billedToName: 'VSPN', billedToDetails: 'Riyadh', vatRateBps: 500, description: 'Prize' })).invoice;
 
     const [tenant] = await db.adminQuery<{ id: string }>(`SELECT id FROM tenant WHERE slug='alpha'`);
-    const actor: Actor = { identity: 'ops@alpha.com', displayName: 'Ops', role: 'operations', tenantId: tenant!.id };
+    const actor: Actor = { userId: '22222222-2222-2222-2222-2222222222a2', identity: 'ops@alpha.com', displayName: 'Ops', role: 'operations', tenantId: tenant!.id };
     const storageKey = `${tenant!.id}/r6n08-atomicity-probe`;
     // The write-ahead intent + the (simulated) stored bytes exist; now the composed
     // registration runs with a STALE invoice version so the LINK leg fails.

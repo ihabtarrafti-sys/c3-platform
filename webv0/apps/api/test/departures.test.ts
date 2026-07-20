@@ -148,7 +148,7 @@ describe('departure workflow', () => {
     await client.connect();
     try {
       const tid = (await client.query(`SELECT id FROM tenant WHERE slug='alpha'`)).rows[0].id as string;
-      const actor: Actor = { identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: tid };
+      const actor: Actor = { userId: '22222222-2222-2222-2222-2222222222a1', identity: 'ops@a.com', displayName: 'Ops A', role: 'operations', tenantId: tid };
 
       // Simulate a CRASH between completion and the hand-off: complete via the
       // use-case (which persists the intent atomically) but do NOT drain.

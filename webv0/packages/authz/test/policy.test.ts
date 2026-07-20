@@ -13,6 +13,7 @@ import {
 } from '../src/policy';
 
 const actor = (over: Partial<Actor>): Actor => ({
+  userId: 'user-a',
   identity: 'ops@tenant-a.com',
   displayName: 'Ops',
   role: 'operations',

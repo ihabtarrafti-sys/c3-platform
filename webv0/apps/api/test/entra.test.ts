@@ -21,6 +21,7 @@ const OID = 'cccccccc-1111-2222-3333-444444444444';
 const CONFIG: EntraConfig = { issuer: ISSUER, audience: AUDIENCE, jwksUri: 'https://unused', tenantId: TENANT, scope: 'C3.Access' };
 
 const membership: ResolvedMembership = {
+  userId: '99999999-9999-9999-9999-999999999901',
   tenantId: '00000000-0000-0000-0000-0000000000aa',
   tenantSlug: 'geekay',
   role: 'owner',
@@ -33,6 +34,8 @@ function fakeDirectory(known: Map<string, ResolvedMembership>): AdminDirectory {
     resolveTenantBySlug: async () => null,
     resolveMembership: async (key: ExternalIdentityKey) =>
       known.get(`${key.provider}|${key.issuerTenantId}|${key.subject}`) ?? null,
+    resolveUserId: async (key: ExternalIdentityKey) =>
+      known.get(`${key.provider}|${key.issuerTenantId}|${key.subject}`)?.userId ?? null,
     upsertDevMembership: async () => {},
     close: async () => {},
   };
@@ -87,7 +90,13 @@ describe('createEntraAuthAdapter (signature + resolution)', () => {
     const adapter = createEntraAuthAdapter(CONFIG, fakeDirectory(known), keyResolver);
     const principal = await adapter.authenticate(await sign(GOOD_CLAIMS));
     // Identity comes from the DIRECTORY, not the token's preferred_username.
-    expect(principal).toMatchObject({ identity: 'owner@geekay.com', role: 'owner', tenantSlug: 'geekay' });
+    // The stable userId (uuid) likewise comes from the directory, never a claim.
+    expect(principal).toMatchObject({
+      userId: '99999999-9999-9999-9999-999999999901',
+      identity: 'owner@geekay.com',
+      role: 'owner',
+      tenantSlug: 'geekay',
+    });
   });
 
   it('rejects a wrong audience and a wrong issuer', async () => {

@@ -9,6 +9,7 @@
 import { SignJWT, jwtVerify } from 'jose';
 import { canonicalizeIdentity, isC3Role, type C3Role } from '@c3web/domain';
 import { type AuthAdapter, type AuthenticatedPrincipal, AuthError } from './types';
+import type { AdminDirectory } from './directory';
 
 const ISSUER = 'c3web-dev-idp';
 const enc = new TextEncoder();
@@ -36,7 +37,7 @@ export async function signDevToken(secret: string, claims: DevTokenClaims, ttl =
     .sign(enc.encode(secret));
 }
 
-export function createDevAuthAdapter(secret: string): AuthAdapter {
+export function createDevAuthAdapter(secret: string, directory: AdminDirectory): AuthAdapter {
   return {
     name: 'dev',
     async authenticate(token: string): Promise<AuthenticatedPrincipal> {
@@ -47,8 +48,9 @@ export function createDevAuthAdapter(secret: string): AuthAdapter {
       } catch (err) {
         throw new AuthError(`Invalid dev token: ${(err as Error).message}`);
       }
-      const identity = canonicalizeIdentity(typeof payload.sub === 'string' ? payload.sub : null);
-      if (!identity) throw new AuthError('Dev token subject is not a valid identity.');
+      const rawSubject = typeof payload.sub === 'string' ? payload.sub : null;
+      const identity = canonicalizeIdentity(rawSubject);
+      if (!identity || !rawSubject) throw new AuthError('Dev token subject is not a valid identity.');
       const role = payload.role;
       if (typeof role !== 'string' || !isC3Role(role)) throw new AuthError('Dev token role is invalid.');
       const tenantId = payload.tenant_id;
@@ -56,7 +58,15 @@ export function createDevAuthAdapter(secret: string): AuthAdapter {
       if (typeof tenantId !== 'string' || typeof tenantSlug !== 'string') {
         throw new AuthError('Dev token is missing tenant context.');
       }
+      // The userId is NEVER taken from the (self-asserted) token — it is resolved
+      // SERVER-side from the immutable dev identity binding written by /dev/login.
+      // `rawSubject` is the exact string /dev/login stored as the binding subject,
+      // so this matches by construction. FAIL CLOSED: an unprovisioned identity
+      // throws — never fabricate or default a userId.
+      const userId = await directory.resolveUserId({ provider: 'dev', issuerTenantId: 'dev', subject: rawSubject });
+      if (!userId) throw new AuthError('Dev identity is authenticated but not provisioned (no app_user).');
       return {
+        userId,
         identity,
         displayName: typeof payload.name === 'string' ? payload.name : identity,
         role,

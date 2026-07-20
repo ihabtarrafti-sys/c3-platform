@@ -21,10 +21,10 @@ import {
 import { FakePersistence } from './fakePersistence';
 
 const TENANT = '00000000-0000-0000-0000-000000000001';
-const owner: Actor = { identity: 'owner@a.com', displayName: 'Owner', role: 'owner', tenantId: TENANT };
-const owner2: Actor = { identity: 'owner2@a.com', displayName: 'Owner2', role: 'owner', tenantId: TENANT };
-const ops: Actor = { identity: 'ops@a.com', displayName: 'Ops', role: 'operations', tenantId: TENANT };
-const visitor: Actor = { identity: 'vis@a.com', displayName: 'Vis', role: 'visitor', tenantId: TENANT };
+const owner: Actor = { userId: '11111111-1111-1111-1111-111111111101', identity: 'owner@a.com', displayName: 'Owner', role: 'owner', tenantId: TENANT };
+const owner2: Actor = { userId: '11111111-1111-1111-1111-111111111102', identity: 'owner2@a.com', displayName: 'Owner2', role: 'owner', tenantId: TENANT };
+const ops: Actor = { userId: '22222222-2222-2222-2222-222222222201', identity: 'ops@a.com', displayName: 'Ops', role: 'operations', tenantId: TENANT };
+const visitor: Actor = { userId: '33333333-3333-3333-3333-333333333301', identity: 'vis@a.com', displayName: 'Vis', role: 'visitor', tenantId: TENANT };
 
 let p: FakePersistence;
 beforeEach(() => {

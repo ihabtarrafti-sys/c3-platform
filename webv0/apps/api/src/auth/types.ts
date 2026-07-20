@@ -6,6 +6,8 @@
 import type { C3Role } from '@c3web/domain';
 
 export interface AuthenticatedPrincipal {
+  /** Stable participant surrogate (uuid = app_user.id), resolved server-side. */
+  readonly userId: string;
   /** Canonical bare email/UPN (already normalized at the boundary). */
   readonly identity: string;
   readonly displayName: string;

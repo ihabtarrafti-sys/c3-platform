@@ -600,7 +600,7 @@ export function buildApp(deps: Deps): FastifyInstance {
     try {
       const principal = await deps.authAdapter.authenticate(header.slice('Bearer '.length));
       req.principal = principal;
-      req.actor = { identity: principal.identity, displayName: principal.displayName, role: principal.role, tenantId: principal.tenantId };
+      req.actor = { userId: principal.userId, identity: principal.identity, displayName: principal.displayName, role: principal.role, tenantId: principal.tenantId };
     } catch (err) {
       // Authenticated-but-unprovisioned is an AUTHORIZATION state (truthful 403),
       // distinct from an authentication failure (401).

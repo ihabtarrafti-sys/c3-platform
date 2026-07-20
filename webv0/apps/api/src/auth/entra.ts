@@ -94,6 +94,8 @@ export function createEntraAuthAdapter(
       if (!isC3Role(membership.role)) throw new AccessNotProvisionedError(identityKey);
 
       return {
+        // Stable participant surrogate (uuid) from the directory — never a token claim.
+        userId: membership.userId,
         // Stable, admin-controlled profile email from the DIRECTORY (not the token).
         identity: membership.email,
         displayName: membership.displayName,

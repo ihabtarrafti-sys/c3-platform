@@ -55,8 +55,8 @@ beforeAll(async () => {
       { key: 'ops', email: 'ops@l05b.test', displayName: 'Ops L', role: 'operations' },
     ],
   });
-  owner = { identity: 'owner@l05b.test', displayName: 'Owner L', role: 'owner', tenantId: t.tenantId };
-  ops = { identity: 'ops@l05b.test', displayName: 'Ops L', role: 'operations', tenantId: t.tenantId };
+  owner = { userId: '00000000-0000-0000-0000-00000000105a', identity: 'owner@l05b.test', displayName: 'Owner L', role: 'owner', tenantId: t.tenantId };
+  ops = { userId: '00000000-0000-0000-0000-00000000105b', identity: 'ops@l05b.test', displayName: 'Ops L', role: 'operations', tenantId: t.tenantId };
 
   // ── the fixture: material in every register the three engines read ──
   const q = (text: string, params: unknown[] = []) => db.adminQuery(text, [t.tenantId, ...params]);

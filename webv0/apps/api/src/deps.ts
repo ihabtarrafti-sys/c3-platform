@@ -81,7 +81,10 @@ export function buildDeps(env: Env, logger: Logger): Deps {
 
   let authAdapter: AuthAdapter;
   if (env.authProvider === 'dev') {
-    authAdapter = createDevAuthAdapter(env.devAuthSecret!);
+    // The dev adapter needs the directory to SERVER-resolve the stable userId
+    // (never a self-asserted token claim); dev provisioning uses the same connection.
+    if (!directory) throw new Error('Dev provider requires a membership directory connection.');
+    authAdapter = createDevAuthAdapter(env.devAuthSecret!, directory);
   } else {
     if (!directory) throw new Error('Entra provider requires a membership directory connection.');
     authAdapter = createEntraAuthAdapter(env.entra!, directory);
