@@ -39,6 +39,12 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'approval_revision', exportSql: `SELECT * FROM approval_revision WHERE tenant_id = $1 ORDER BY id`, exitRank: 3 },
   { name: 'approval_event', exportSql: `SELECT * FROM approval_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 5 },
   { name: 'audit_event', exportSql: `SELECT * FROM audit_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 4 },
+  // Comms P2 (0088): the reusable per-tenant module entitlement kernel. Tenant-scoped
+  // (erased on exit); only tenant(id) is referenced. The event log is append-only and its
+  // trigger is registered in exitTenant's APPEND_ONLY_TRIGGERS so the ceremony can erase it.
+  // All timestamptz — no ::text cast needed. No FK between the two, so relative rank is free.
+  { name: 'tenant_module_entitlement', exportSql: `SELECT * FROM tenant_module_entitlement WHERE tenant_id = $1 ORDER BY module_key`, exitRank: 7 },
+  { name: 'tenant_module_entitlement_event', exportSql: `SELECT * FROM tenant_module_entitlement_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 6 },
 
   // ── people + person-adjacent ─────────────────────────────────────────────
   {

@@ -82,6 +82,9 @@ const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
   // L-03 (0064): comment DELETE is guarded everywhere; the exit ceremony is the sole
   // exception — disable the guard for the data phase so erasure can remove comments.
   { table: 'comment', trigger: 'comment_no_delete' },
+  // Comms P2 (0088): the module-entitlement grant/lapse history is append-only; the
+  // exit ceremony disables the guard for the data phase so erasure can remove it.
+  { table: 'tenant_module_entitlement_event', trigger: 'tenant_module_entitlement_event_append_only' },
 ];
 
 /**
