@@ -85,6 +85,8 @@ const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
   // Comms P2 (0088): the module-entitlement grant/lapse history is append-only; the
   // exit ceremony disables the guard for the data phase so erasure can remove it.
   { table: 'tenant_module_entitlement_event', trigger: 'tenant_module_entitlement_event_append_only' },
+  // Comms P2 (0090): the thread-change history is append-only; same exit bypass.
+  { table: 'comms_thread_event', trigger: 'comms_thread_event_append_only' },
 ];
 
 /**

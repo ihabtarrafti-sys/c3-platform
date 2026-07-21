@@ -45,6 +45,14 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   // All timestamptz — no ::text cast needed. No FK between the two, so relative rank is free.
   { name: 'tenant_module_entitlement', exportSql: `SELECT * FROM tenant_module_entitlement WHERE tenant_id = $1 ORDER BY module_key`, exitRank: 7 },
   { name: 'tenant_module_entitlement_event', exportSql: `SELECT * FROM tenant_module_entitlement_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 6 },
+  // Comms P2 (0090): the thread layer. Rooms + their append-only history + membership.
+  // thread_event/participant are children of comms_thread (composite tenant/thread FK) →
+  // they delete BEFORE it. comms_thread ranked high (30) so the message family (0091+),
+  // which is also a child of comms_thread, has room to rank below it. All timestamptz —
+  // no ::text cast. thread_event's append-only trigger is in APPEND_ONLY_TRIGGERS.
+  { name: 'comms_thread_event', exportSql: `SELECT * FROM comms_thread_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 11 },
+  { name: 'comms_thread_participant', exportSql: `SELECT * FROM comms_thread_participant WHERE tenant_id = $1 ORDER BY thread_id, user_id`, exitRank: 12 },
+  { name: 'comms_thread', exportSql: `SELECT * FROM comms_thread WHERE tenant_id = $1 ORDER BY thread_id`, exitRank: 30 },
 
   // ── people + person-adjacent ─────────────────────────────────────────────
   {
