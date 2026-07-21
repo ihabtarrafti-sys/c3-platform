@@ -87,6 +87,9 @@ const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
   { table: 'tenant_module_entitlement_event', trigger: 'tenant_module_entitlement_event_append_only' },
   // Comms P2 (0090): the thread-change history is append-only; same exit bypass.
   { table: 'comms_thread_event', trigger: 'comms_thread_event_append_only' },
+  // Comms P2 (0091): visible edit history + removal record are append-only.
+  { table: 'comms_message_revision', trigger: 'comms_message_revision_append_only' },
+  { table: 'comms_message_tombstone', trigger: 'comms_message_tombstone_append_only' },
 ];
 
 /**

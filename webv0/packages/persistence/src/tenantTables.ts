@@ -53,6 +53,19 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'comms_thread_event', exportSql: `SELECT * FROM comms_thread_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 11 },
   { name: 'comms_thread_participant', exportSql: `SELECT * FROM comms_thread_participant WHERE tenant_id = $1 ORDER BY thread_id, user_id`, exitRank: 12 },
   { name: 'comms_thread', exportSql: `SELECT * FROM comms_thread WHERE tenant_id = $1 ORDER BY thread_id`, exitRank: 30 },
+  // Comms P2 (0091): the message family. comms_message is a child of comms_thread
+  // (rank 20 < 30); its children (revision/tombstone/reaction/document_attachment)
+  // rank 15 < 20; revision's children (mention/object_link) rank 13 < 15;
+  // retention_tombstone (14) has NO message FK (it outlives the purged DM). All
+  // timestamptz — no ::text cast. revision + tombstone triggers are append-only.
+  { name: 'comms_message', exportSql: `SELECT * FROM comms_message WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 20 },
+  { name: 'comms_message_revision', exportSql: `SELECT * FROM comms_message_revision WHERE tenant_id = $1 ORDER BY message_id, revision_no`, exitRank: 15 },
+  { name: 'comms_message_tombstone', exportSql: `SELECT * FROM comms_message_tombstone WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 15 },
+  { name: 'comms_reaction_event', exportSql: `SELECT * FROM comms_reaction_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 15 },
+  { name: 'comms_document_attachment', exportSql: `SELECT * FROM comms_document_attachment WHERE tenant_id = $1 ORDER BY document_id`, exitRank: 15 },
+  { name: 'comms_retention_tombstone', exportSql: `SELECT * FROM comms_retention_tombstone WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 14 },
+  { name: 'comms_mention', exportSql: `SELECT * FROM comms_mention WHERE tenant_id = $1 ORDER BY revision_id, target_user_id`, exitRank: 13 },
+  { name: 'comms_object_link', exportSql: `SELECT * FROM comms_object_link WHERE tenant_id = $1 ORDER BY revision_id, target_type, target_id`, exitRank: 13 },
 
   // ── people + person-adjacent ─────────────────────────────────────────────
   {
