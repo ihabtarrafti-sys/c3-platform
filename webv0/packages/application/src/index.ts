@@ -35,6 +35,7 @@ export * from './usecases/recycleBinOps';
 export * from './usecases/activityOps';
 export * from './usecases/calendarOps';
 export * from './usecases/commentOps';
+export * from './usecases/commsOps';
 export * from './usecases/intakeOps';
 export * from './usecases/subscriptionOps';
 export * from './usecases/departureOps';

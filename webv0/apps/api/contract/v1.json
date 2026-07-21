@@ -5833,6 +5833,398 @@
       }
     },
     {
+      "method": "POST",
+      "url": "/api/v1/comms/missions/:missionId/attachments",
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "message": {
+              "t": "object",
+              "keys": {
+                "attachments": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "authorLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "authorUserId": {
+                  "t": "string"
+                },
+                "body": {
+                  "t": "string"
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "links": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "targetId": {
+                        "t": "string"
+                      },
+                      "targetType": {
+                        "t": "enum",
+                        "values": [
+                          "Approval",
+                          "Credential",
+                          "Document",
+                          "Journey",
+                          "Message",
+                          "Mission",
+                          "Obligation",
+                          "Person"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "messageId": {
+                  "t": "string"
+                },
+                "revisionNo": {
+                  "t": "number"
+                },
+                "seq": {
+                  "t": "number"
+                },
+                "threadId": {
+                  "t": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/missions/:missionId/messages",
+      "body": {
+        "t": "object",
+        "keys": {
+          "body": {
+            "t": "string"
+          },
+          "clientMutationId": {
+            "t": "string"
+          },
+          "links": {
+            "t": "array",
+            "item": {
+              "t": "object",
+              "keys": {
+                "targetId": {
+                  "t": "string"
+                },
+                "targetType": {
+                  "t": "enum",
+                  "values": [
+                    "Approval",
+                    "Credential",
+                    "Document",
+                    "Journey",
+                    "Message",
+                    "Mission",
+                    "Obligation",
+                    "Person"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "message": {
+              "t": "object",
+              "keys": {
+                "attachments": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "authorLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "authorUserId": {
+                  "t": "string"
+                },
+                "body": {
+                  "t": "string"
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "links": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "targetId": {
+                        "t": "string"
+                      },
+                      "targetType": {
+                        "t": "enum",
+                        "values": [
+                          "Approval",
+                          "Credential",
+                          "Document",
+                          "Journey",
+                          "Message",
+                          "Mission",
+                          "Obligation",
+                          "Person"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "messageId": {
+                  "t": "string"
+                },
+                "revisionNo": {
+                  "t": "number"
+                },
+                "seq": {
+                  "t": "number"
+                },
+                "threadId": {
+                  "t": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/comms/missions/:missionId/thread",
+      "querystring": {
+        "t": "object",
+        "keys": {
+          "beforeSeq": {
+            "t": "number",
+            "optional": true
+          },
+          "limit": {
+            "t": "number",
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "messages": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "attachments": {
+                    "t": "array",
+                    "item": {
+                      "t": "object",
+                      "keys": {
+                        "contentType": {
+                          "t": "string"
+                        },
+                        "documentId": {
+                          "t": "string"
+                        },
+                        "fileName": {
+                          "t": "string"
+                        },
+                        "sizeBytes": {
+                          "t": "number"
+                        }
+                      }
+                    }
+                  },
+                  "authorLabel": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "authorUserId": {
+                    "t": "string"
+                  },
+                  "body": {
+                    "t": "string"
+                  },
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "links": {
+                    "t": "array",
+                    "item": {
+                      "t": "object",
+                      "keys": {
+                        "targetId": {
+                          "t": "string"
+                        },
+                        "targetType": {
+                          "t": "enum",
+                          "values": [
+                            "Approval",
+                            "Credential",
+                            "Document",
+                            "Journey",
+                            "Message",
+                            "Mission",
+                            "Obligation",
+                            "Person"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "messageId": {
+                    "t": "string"
+                  },
+                  "revisionNo": {
+                    "t": "number"
+                  },
+                  "seq": {
+                    "t": "number"
+                  },
+                  "threadId": {
+                    "t": "string"
+                  }
+                }
+              }
+            },
+            "thread": {
+              "t": "nullable",
+              "inner": {
+                "t": "object",
+                "keys": {
+                  "anchorId": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "anchorType": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "kind": {
+                    "t": "enum",
+                    "values": [
+                      "anchored",
+                      "direct",
+                      "standing"
+                    ]
+                  },
+                  "lastMessageAt": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "lastSeq": {
+                    "t": "number"
+                  },
+                  "status": {
+                    "t": "enum",
+                    "values": [
+                      "active",
+                      "archived"
+                    ]
+                  },
+                  "threadId": {
+                    "t": "string"
+                  },
+                  "title": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "method": "GET",
       "url": "/api/v1/credentials",
       "response": {

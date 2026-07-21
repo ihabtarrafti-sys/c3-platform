@@ -16,6 +16,7 @@ export * from './businessIds';
 export * from './claim';
 export * from './calendar';
 export * from './comment';
+export * from './comms';
 export * from './departure';
 export * from './delegation';
 export * from './beneficiary';

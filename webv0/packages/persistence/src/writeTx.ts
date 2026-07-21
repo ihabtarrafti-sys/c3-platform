@@ -48,7 +48,7 @@ import {
 import type { AgreementPatch, AgreementTermPatch, NewDocumentRow, NewInvoiceRow, NewTeamRow, TeamPatch, NewDistributionRow, NewDistributionShareRow, NewClaimRow, EntityPatch, EquipmentPatch, MissionLinePatch, MissionLinePaymentPatch, MissionPatch, NewAgreementRow, NewAgreementTermRow, NewApprovalRow, NewCredentialRow, NewEntityRow, NewEquipmentRow, NewJourneyRow, NewMissionLineRow, NewMissionRow, NewPersonRow, PersonFieldsPatch, CredentialFieldsPatch, NewBeneficiaryRow, BeneficiaryFieldsPatch, NewSubscriptionRow, SubscriptionPatch, NewSavedViewRow, SavedViewPatch, NewRevisionIntent, WriteTx } from '@c3web/application';
 import type { Db } from './tenantContext';
 import * as schema from './schema';
-import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapSavedView, mapDeparture, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapApprovalRevision, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson } from './mappers';
+import { mapAgreement, mapAgreementTerm, mapDocument, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapSavedView, mapDeparture, mapDelegation, mapBeneficiary, mapApparel, mapApproval, mapApprovalRevision, mapCredential, mapEntity, mapFxRate, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson, mapModuleEntitlement, mapCommsThread } from './mappers';
 
 /**
  * Map a member-gateway failure (SECURITY DEFINER function, message prefixed
@@ -1798,6 +1798,108 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         )
         .returning();
       return rows[0] ? mapAgreementTerm(rows[0]) : null;
+    },
+
+    // ── Comms (the Mission Comms slice) ───────────────────────────────────────
+    async getModuleEntitlement(moduleKey: string) {
+      const rows = await db
+        .select()
+        .from(schema.tenantModuleEntitlement)
+        .where(eq(schema.tenantModuleEntitlement.moduleKey, moduleKey))
+        .limit(1);
+      return rows[0] ? mapModuleEntitlement(rows[0]) : null;
+    },
+
+    async getCommsThread(threadId: string) {
+      const rows = await db.select().from(schema.commsThread).where(eq(schema.commsThread.threadId, threadId)).limit(1);
+      return rows[0] ? mapCommsThread(rows[0]) : null;
+    },
+
+    async missionExists(missionId: string): Promise<boolean> {
+      const res = await db.execute(sql`SELECT 1 FROM mission WHERE mission_id = ${missionId} LIMIT 1`);
+      return res.rows.length > 0;
+    },
+
+    async insertCommsThread(row) {
+      // ON CONFLICT on the one-per-anchor partial unique keeps the tx healthy on
+      // a concurrent-creator race; the caller re-reads the winner on null.
+      const res = await db.execute(sql`
+        INSERT INTO comms_thread (tenant_id, thread_id, kind, anchor_type, anchor_id, created_by_user_id, created_by_label)
+        VALUES (${tenantId}, ${row.threadId}, ${row.kind}, ${row.anchorType}, ${row.anchorId}, ${row.createdByUserId}, ${row.createdByLabel})
+        ON CONFLICT (tenant_id, anchor_type, anchor_id) WHERE kind = 'anchored' DO NOTHING
+        RETURNING *
+      `);
+      const r = res.rows[0];
+      return r ? mapCommsThread(r as Record<string, unknown>) : null;
+    },
+
+    async bumpCommsThreadSeq(threadId: string): Promise<number | null> {
+      // The row lock serialises concurrent senders per thread (the business-id
+      // counter argument: never MAX+1). Held to COMMIT of the enclosing tx.
+      const res = await db.execute(sql`
+        UPDATE comms_thread SET last_seq = last_seq + 1, last_message_at = now()
+         WHERE thread_id = ${threadId}
+         RETURNING last_seq
+      `);
+      const r = res.rows[0] as { last_seq: string | number } | undefined;
+      return r ? Number(r.last_seq) : null;
+    },
+
+    async insertCommsMessage(row): Promise<boolean> {
+      // ON CONFLICT on the send-idempotency unique DO NOTHING: false = duplicate
+      // send; the caller re-reads the existing message (tx stays healthy).
+      const res = await db.execute(sql`
+        INSERT INTO comms_message (tenant_id, message_id, thread_id, seq, author_user_id, author_label, client_mutation_id)
+        VALUES (${tenantId}, ${row.messageId}, ${row.threadId}, ${row.seq}, ${row.authorUserId}, ${row.authorLabel}, ${row.clientMutationId})
+        ON CONFLICT (tenant_id, author_user_id, client_mutation_id) DO NOTHING
+        RETURNING id
+      `);
+      return res.rows.length > 0;
+    },
+
+    async insertCommsMessageRevision(row): Promise<string> {
+      const [r] = await db
+        .insert(schema.commsMessageRevision)
+        .values({
+          tenantId,
+          messageId: row.messageId,
+          revisionNo: row.revisionNo,
+          body: row.body,
+          editorUserId: row.editorUserId,
+          editorLabel: row.editorLabel,
+          reason: row.reason,
+        })
+        .returning();
+      if (!r) throw new Error('comms revision insert returned no row');
+      return r.id;
+    },
+
+    async insertCommsThreadEvent(row): Promise<void> {
+      await db.insert(schema.commsThreadEvent).values({
+        tenantId,
+        threadId: row.threadId,
+        eventType: row.eventType,
+        actorUserId: row.actorUserId,
+        actorLabel: row.actorLabel,
+      });
+    },
+
+    async insertCommsObjectLink(row): Promise<void> {
+      await db.insert(schema.commsObjectLink).values({
+        tenantId,
+        revisionId: row.revisionId,
+        targetType: row.targetType,
+        targetId: row.targetId,
+      });
+    },
+
+    async insertCommsDocumentAttachment(row): Promise<void> {
+      await db.insert(schema.commsDocumentAttachment).values({
+        tenantId,
+        messageId: row.messageId,
+        documentId: row.documentId,
+        attachedByUserId: row.attachedByUserId,
+      });
     },
   } satisfies WriteTx;
 }

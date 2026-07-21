@@ -4,7 +4,7 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person, CommsMessageView, CommsLinkTargetType } from '@c3web/domain';
 import { IntakeLinkUnavailableError } from '@c3web/domain';
 import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, PayableClaimRow, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTransactionOptions, WriteTx } from '@c3web/application';
 import * as schema from './schema';
@@ -13,7 +13,77 @@ import { makeWriteTx } from './writeTx';
 import { buildSearchQuery } from './searchSql';
 import { buildRecycleQuery } from './recycleSql';
 import { mapAgreement, mapAgreementTerm, mapApparel, mapApproval, mapApprovalEvent, mapAuditEvent, mapCredential, mapDocument, mapEntity, mapFxRate, mapInvoice, mapTeam, mapTeamMembership, mapDistribution, mapDistributionShare, mapClaim, mapComment, mapIntakeLink, mapIntakeSubmission, mapSubscription, mapDeparture,
-  mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson, mapSavedView, mapApprovalRevision } from './mappers';
+  mapDelegation, mapBeneficiary, mapJourney, mapKit, mapMission, mapMissionBudget, mapMissionLine, mapMissionParticipant, mapPerson, mapSavedView, mapApprovalRevision, mapModuleEntitlement, mapCommsThread } from './mappers';
+
+// ── Comms read helpers: the spine joined with its LATEST revision, then the
+// page's links + attachments hydrated in two bounded child fetches. ──────────
+interface CommsSpineRow {
+  message_id: string;
+  thread_id: string;
+  seq: string | number;
+  author_user_id: string;
+  author_label: string | null;
+  created_at: Date | string;
+  revision_id: string;
+  revision_no: number;
+  body: string;
+}
+
+const commsMessageViewSql = (where: ReturnType<typeof sql>, limit: number) => sql`
+  SELECT m.message_id, m.thread_id, m.seq, m.author_user_id, m.author_label, m.created_at,
+         r.id AS revision_id, r.revision_no, r.body
+    FROM comms_message m
+    JOIN LATERAL (
+      SELECT id, revision_no, body
+        FROM comms_message_revision rr
+       WHERE rr.tenant_id = m.tenant_id AND rr.message_id = m.message_id
+       ORDER BY rr.revision_no DESC
+       LIMIT 1
+    ) r ON true
+   WHERE ${where}
+   ORDER BY m.seq DESC
+   LIMIT ${limit}
+`;
+
+async function hydrateCommsMessageViews(db: Db, rows: CommsSpineRow[]): Promise<CommsMessageView[]> {
+  if (rows.length === 0) return [];
+  const revisionIds = rows.map((r) => r.revision_id);
+  const messageIds = rows.map((r) => r.message_id);
+  const linkRes = await db.execute(sql`
+    SELECT revision_id, target_type, target_id FROM comms_object_link
+     WHERE revision_id IN (${sql.join(revisionIds.map((id) => sql`${id}`), sql`, `)}) ORDER BY created_at, id
+  `);
+  const attRes = await db.execute(sql`
+    SELECT a.message_id, a.document_id, d.file_name, d.content_type, d.size_bytes
+      FROM comms_document_attachment a
+      JOIN document d ON d.tenant_id = a.tenant_id AND d.document_id = a.document_id AND d.is_active = true
+     WHERE a.message_id IN (${sql.join(messageIds.map((id) => sql`${id}`), sql`, `)}) ORDER BY a.created_at, a.id
+  `);
+  const linksByRevision = new Map<string, { targetType: CommsLinkTargetType; targetId: string }[]>();
+  for (const l of linkRes.rows as Array<{ revision_id: string; target_type: CommsLinkTargetType; target_id: string }>) {
+    const arr = linksByRevision.get(l.revision_id) ?? [];
+    arr.push({ targetType: l.target_type, targetId: l.target_id });
+    linksByRevision.set(l.revision_id, arr);
+  }
+  const attByMessage = new Map<string, { documentId: string; fileName: string; contentType: string; sizeBytes: number }[]>();
+  for (const a of attRes.rows as Array<{ message_id: string; document_id: string; file_name: string; content_type: string; size_bytes: string | number }>) {
+    const arr = attByMessage.get(a.message_id) ?? [];
+    arr.push({ documentId: a.document_id, fileName: a.file_name, contentType: a.content_type, sizeBytes: Number(a.size_bytes) });
+    attByMessage.set(a.message_id, arr);
+  }
+  return rows.map((r) => ({
+    messageId: r.message_id,
+    threadId: r.thread_id,
+    seq: Number(r.seq),
+    authorUserId: r.author_user_id,
+    authorLabel: r.author_label,
+    body: r.body,
+    revisionNo: r.revision_no,
+    links: linksByRevision.get(r.revision_id) ?? [],
+    attachments: attByMessage.get(r.message_id) ?? [],
+    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : new Date(r.created_at).toISOString(),
+  }));
+}
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -522,6 +592,66 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
                LIMIT 1
             `);
             return res.rows.length > 0;
+          }),
+
+        // ── Comms (the Mission Comms slice) ───────────────────────────────────
+        getModuleEntitlement: (moduleKey: string) =>
+          exec(async (db) => {
+            const rows = await db
+              .select()
+              .from(schema.tenantModuleEntitlement)
+              .where(eq(schema.tenantModuleEntitlement.moduleKey, moduleKey))
+              .limit(1);
+            return rows[0] ? mapModuleEntitlement(rows[0]) : null;
+          }),
+
+        getCommsThreadByThreadId: (threadId: string) =>
+          exec(async (db) => {
+            const rows = await db.select().from(schema.commsThread).where(eq(schema.commsThread.threadId, threadId)).limit(1);
+            return rows[0] ? mapCommsThread(rows[0]) : null;
+          }),
+
+        getCommsThreadByAnchor: (anchorType: string, anchorId: string) =>
+          exec(async (db) => {
+            const rows = await db
+              .select()
+              .from(schema.commsThread)
+              .where(and(eq(schema.commsThread.kind, 'anchored'), eq(schema.commsThread.anchorType, anchorType), eq(schema.commsThread.anchorId, anchorId)))
+              .limit(1);
+            return rows[0] ? mapCommsThread(rows[0]) : null;
+          }),
+
+        getCommsMessageByMessageId: (messageId: string) =>
+          exec(async (db) => {
+            const rows = await db.select().from(schema.commsMessage).where(eq(schema.commsMessage.messageId, messageId)).limit(1);
+            return rows[0] ? { messageId: rows[0].messageId, threadId: rows[0].threadId } : null;
+          }),
+
+        getCommsObligationByObligationId: (obligationId: string) =>
+          exec(async (db) => {
+            const rows = await db
+              .select({ obligationId: schema.commsObligation.obligationId, threadId: schema.commsObligation.threadId })
+              .from(schema.commsObligation)
+              .where(eq(schema.commsObligation.obligationId, obligationId))
+              .limit(1);
+            return rows[0] ?? null;
+          }),
+
+        getCommsMessageByMutation: (authorUserId: string, clientMutationId: string) =>
+          exec(async (db) => {
+            const res = await db.execute(commsMessageViewSql(sql`m.author_user_id = ${authorUserId} AND m.client_mutation_id = ${clientMutationId}`, 1));
+            const views = await hydrateCommsMessageViews(db, res.rows as unknown as CommsSpineRow[]);
+            return views[0] ?? null;
+          }),
+
+        listCommsMessages: (threadId: string, limit: number, beforeSeq: number | null) =>
+          exec(async (db) => {
+            const where =
+              beforeSeq === null
+                ? sql`m.thread_id = ${threadId}`
+                : sql`m.thread_id = ${threadId} AND m.seq < ${beforeSeq}`;
+            const res = await db.execute(commsMessageViewSql(where, limit));
+            return hydrateCommsMessageViews(db, res.rows as unknown as CommsSpineRow[]);
           }),
 
         // Track B4: the comment thread on a record (oldest first).

@@ -38,6 +38,8 @@ import {
   type IntakeLink,
   type IntakeSubmission,
   type IntakeUpload,
+  type ModuleEntitlement,
+  type CommsThread,
   type Subscription,
   type SavedView,
   type Departure,
@@ -669,6 +671,35 @@ export function mapAuditEvent(row: any): AuditEvent {
     at: isoReq(row.at),
     before: (row.before ?? null) as Record<string, unknown> | null,
     after: (row.after ?? null) as Record<string, unknown> | null,
+  };
+}
+
+// ── Comms (the Mission Comms slice) ──────────────────────────────────────────
+export function mapModuleEntitlement(row: any): ModuleEntitlement {
+  return {
+    moduleKey: row.moduleKey ?? row.module_key,
+    state: row.state,
+    effectiveFrom: isoReq(row.effectiveFrom ?? row.effective_from),
+    effectiveUntil: iso(row.effectiveUntil ?? row.effective_until ?? null),
+    storageQuotaBytes:
+      (row.storageQuotaBytes ?? row.storage_quota_bytes) === null || (row.storageQuotaBytes ?? row.storage_quota_bytes) === undefined
+        ? null
+        : Number(row.storageQuotaBytes ?? row.storage_quota_bytes),
+    version: Number(row.version),
+  };
+}
+
+export function mapCommsThread(row: any): CommsThread {
+  return {
+    threadId: row.threadId ?? row.thread_id,
+    kind: row.kind,
+    anchorType: row.anchorType ?? row.anchor_type ?? null,
+    anchorId: row.anchorId ?? row.anchor_id ?? null,
+    title: row.title ?? null,
+    status: row.status,
+    lastSeq: Number(row.lastSeq ?? row.last_seq),
+    lastMessageAt: iso(row.lastMessageAt ?? row.last_message_at ?? null),
+    createdAt: isoReq(row.createdAt ?? row.created_at),
   };
 }
 /* eslint-enable @typescript-eslint/no-explicit-any */

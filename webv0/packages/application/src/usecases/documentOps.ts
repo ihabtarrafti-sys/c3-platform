@@ -23,6 +23,7 @@ import {
 } from '@c3web/domain';
 import { assertReadAgreements, assertReadPeople, assertSubmitApproval, assertViewFinancials } from '@c3web/authz';
 import { claimReadGuard } from './claimOps';
+import { commsDocReadGuard } from './commsOps';
 import type { Persistence } from '../ports';
 
 /** The read gate follows the OWNING record (an agreement's PDF is agreement
@@ -48,9 +49,10 @@ function assertReadOwner(actor: Actor, ownerType: DocumentOwnerType): void {
       return assertReadPeople(actor);
     case 'CommsMessage':
     case 'CommsObligation':
-      // Server-owned: Comms documents flow only through the Comms module's own
-      // endpoints (the generic /documents surface refuses them). Fail closed.
-      throw new ValidationError('Comms documents are managed by the Comms module.');
+      // Record-scoped (the Claim pattern): commsDocReadGuard runs at the call
+      // sites where the ownerId is known — participation + module entitlement,
+      // never a capability. Deferred here.
+      return;
     default:
       // A forgotten future owner type must never silently inherit a read gate.
       throw new ValidationError(`Unhandled document owner type: ${ownerType as string}`);
@@ -84,25 +86,48 @@ async function requireOwner(p: Persistence, actor: Actor, ownerType: DocumentOwn
 /** List an owner record's ACTIVE documents (newest first). */
 export async function listDocuments(p: Persistence, actor: Actor, ownerType: DocumentOwnerType, ownerId: string): Promise<C3Document[]> {
   assertReadOwner(actor, ownerType);
-  // Claim receipts are RECORD-scoped: the submitter or finance standing —
-  // the guard both 404s missing claims and forbids other submitters' claims.
+  // Record-scoped owners run their own guard where the ownerId is known:
+  // Claim = submitter-or-finance; Comms = thread participation + entitlement
+  // (concealed as the owner ref — a denied reader learns nothing further).
   if (ownerType === 'Claim') await claimReadGuard(p, actor, ownerId);
-  else await requireOwner(p, actor, ownerType, ownerId);
+  else if (ownerType === 'CommsMessage' || ownerType === 'CommsObligation') {
+    await commsDocReadGuard(p, actor, ownerType, ownerId, { entityType: ownerType, entityId: ownerId });
+  } else await requireOwner(p, actor, ownerType, ownerId);
   return p.reads.forActor(actor).listDocuments(ownerType, ownerId);
 }
 
 /** Resolve one ACTIVE document for download — the owner's read gate applies. */
 export async function getDocumentForDownload(p: Persistence, actor: Actor, documentId: string): Promise<C3Document> {
-  // Resolve first (tenant-RLS-safe), THEN dispatch on the resolved owner type.
-  // The former standalone assertReadPeople baseline was a universal no-op
-  // (canReadPeople is true for every role), so removing it is behavior-neutral
-  // for the 7 existing types — and it ensures a Comms attachment can NEVER ride
-  // the people-read baseline: assertReadOwner throws for the Comms types.
+  // Resolve first (tenant-RLS-safe), THEN an EXHAUSTIVE per-type dispatch. This
+  // path has NO requireOwner fallback, so every owner type MUST name its gate
+  // here — the default throws, so a forgotten future type (or a dropped guard
+  // line) fails CLOSED rather than serving bytes. The former assertReadPeople
+  // baseline was a universal no-op (every role holds it) and is gone.
   const doc = await p.writes.transaction(actor, (tx) => tx.getDocument(documentId));
   if (!doc) throw new NotFoundError('Document', documentId);
-  assertReadOwner(actor, doc.ownerType);
-  if (doc.ownerType === 'Claim') await claimReadGuard(p, actor, doc.ownerId);
-  return doc;
+  // Every arm RETURNS through its own gate; a dropped gate line makes the case
+  // fall through to the throwing default — fail-closed by construction.
+  switch (doc.ownerType) {
+    case 'Agreement':
+    case 'Invoice':
+    case 'Mission':
+    case 'Person':
+    case 'Credential':
+    case 'Entity':
+      assertReadOwner(actor, doc.ownerType);
+      return doc;
+    case 'Claim':
+      await claimReadGuard(p, actor, doc.ownerId);
+      return doc;
+    case 'CommsMessage':
+    case 'CommsObligation':
+      // The SOLE gate for Comms bytes — record-scoped, uniformly concealed as
+      // this document's own 404. Guard + return are FUSED: deleting this line
+      // falls through to the throwing default, never serves un-gated bytes.
+      return commsDocReadGuard(p, actor, doc.ownerType, doc.ownerId, { entityType: 'Document', entityId: documentId }).then(() => doc);
+    default:
+      throw new ValidationError(`Unhandled document owner type: ${doc.ownerType as string}`);
+  }
 }
 
 /** Register the metadata AFTER the bytes landed in storage (owner/operations). */
@@ -166,6 +191,11 @@ export async function removeDocument(p: Persistence, actor: Actor, documentId: s
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.getDocument(documentId);
     if (!current) throw new NotFoundError('Document', documentId);
+    // Server-owned retirement (Temper §209): only Comms composite use-cases may
+    // retire Comms documents — keyed on the RESOLVED owner type (the route has none).
+    if (current.ownerType === 'CommsMessage' || current.ownerType === 'CommsObligation') {
+      throw new ValidationError('Comms documents are managed by the Comms module.');
+    }
 
     const removed = await tx.deactivateDocument(documentId, expectedVersion);
     if (!removed) throw new ConcurrencyError('Document', documentId);

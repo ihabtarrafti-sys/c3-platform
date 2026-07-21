@@ -260,6 +260,9 @@ export const document = pgTable('document', {
   label: text('label'),
   storageKey: text('storage_key').notNull(),
   uploadedBy: text('uploaded_by').notNull(),
+  // 0089: Attachment (ordinary Comms file, absent from the register) vs
+  // RegisteredEvidence (the default — register docs + obligation evidence).
+  recordKind: text('record_kind').notNull().default('RegisteredEvidence'),
   isActive: boolean('is_active').notNull().default(true),
   version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -691,4 +694,119 @@ export const subscription = pgTable('subscription', {
   version: integer('version').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ── Comms (0088–0095): the Mission Comms slice's typed query surface ─────────
+// Mirrors only; the SQL migrations own DDL (RLS, triggers, CHECKs, grants).
+
+// 0088: the reusable per-tenant module entitlement kernel (c3_app SELECT-only).
+export const tenantModuleEntitlement = pgTable(
+  'tenant_module_entitlement',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    moduleKey: text('module_key').notNull(),
+    state: text('state').notNull(),
+    effectiveFrom: timestamp('effective_from', { withTimezone: true }).notNull().defaultNow(),
+    effectiveUntil: timestamp('effective_until', { withTimezone: true }),
+    storageQuotaBytes: bigint('storage_quota_bytes', { mode: 'number' }),
+    sourceRef: text('source_ref'),
+    version: integer('version').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.moduleKey] }) }),
+);
+
+// 0090: rooms. kind anchored|standing|direct; the slice reads anchored-Mission.
+export const commsThread = pgTable('comms_thread', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  threadId: text('thread_id').notNull(),
+  kind: text('kind').notNull(),
+  anchorType: text('anchor_type'),
+  anchorId: text('anchor_id'),
+  directSetHash: text('direct_set_hash'),
+  title: text('title'),
+  audienceMode: text('audience_mode'),
+  status: text('status').notNull().default('active'),
+  directRetentionDays: integer('direct_retention_days'),
+  version: integer('version').notNull().default(0),
+  createdByUserId: uuid('created_by_user_id').notNull(),
+  createdByLabel: text('created_by_label'),
+  lastSeq: bigint('last_seq', { mode: 'number' }).notNull().default(0),
+  lastMessageAt: timestamp('last_message_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0090: the room's append-only change history (Created, TitleChanged, …).
+export const commsThreadEvent = pgTable('comms_thread_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  threadId: text('thread_id').notNull(),
+  eventType: text('event_type').notNull(),
+  actorUserId: uuid('actor_user_id').notNull(),
+  actorLabel: text('actor_label'),
+  beforeJson: jsonb('before_json'),
+  afterJson: jsonb('after_json'),
+  reason: text('reason'),
+  at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0092: the obligation spine (the slice's doc guard resolves its thread).
+export const commsObligation = pgTable('comms_obligation', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  obligationId: text('obligation_id').notNull(),
+  threadId: text('thread_id').notNull(),
+  state: text('state').notNull().default('Open'),
+  version: integer('version').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0091: the immutable message spine (no body column — revisions carry it).
+export const commsMessage = pgTable('comms_message', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  messageId: text('message_id').notNull(),
+  threadId: text('thread_id').notNull(),
+  seq: bigint('seq', { mode: 'number' }).notNull(),
+  authorUserId: uuid('author_user_id').notNull(),
+  authorLabel: text('author_label'),
+  clientMutationId: uuid('client_mutation_id').notNull(),
+  retentionDueAt: timestamp('retention_due_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0091: append-only visible edit history (revision 1 IS the post's body).
+export const commsMessageRevision = pgTable('comms_message_revision', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  messageId: text('message_id').notNull(),
+  revisionNo: integer('revision_no').notNull(),
+  body: text('body').notNull(),
+  editorUserId: uuid('editor_user_id').notNull(),
+  editorLabel: text('editor_label'),
+  reason: text('reason'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0091: "link, never execute" chips on a revision; every render re-gates.
+export const commsObjectLink = pgTable('comms_object_link', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  revisionId: uuid('revision_id').notNull(),
+  targetType: text('target_type').notNull(),
+  targetId: text('target_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0091: one message is the provenance owner of each ordinary attachment.
+export const commsDocumentAttachment = pgTable('comms_document_attachment', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  messageId: text('message_id').notNull(),
+  documentId: text('document_id').notNull(),
+  attachedByUserId: uuid('attached_by_user_id').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });

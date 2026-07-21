@@ -26,7 +26,11 @@ export type DomainErrorCode =
   // Sprint 39 missions: the duplicate-participant guard family.
   | 'PARTICIPANT_CONFLICT'
   // Track B6 guest intake: an unclaimable token (unknown/expired/used/revoked).
-  | 'INTAKE_LINK_UNAVAILABLE';
+  | 'INTAKE_LINK_UNAVAILABLE'
+  // Comms: the tenant's module license is LAPSED (row present, outside its
+  // window) — reads continue, writes refuse. Never used for never-entitled
+  // (no row), which is 404 on BOTH read and write (module state must not leak).
+  | 'MODULE_READ_ONLY';
 
 export abstract class DomainError extends Error {
   abstract readonly code: DomainErrorCode;
@@ -135,6 +139,20 @@ export class IntakeLinkUnavailableError extends DomainError {
   override readonly name = 'IntakeLinkUnavailableError';
   constructor() {
     super('This intake link is no longer available. Ask your contact for a fresh link.');
+  }
+}
+
+/**
+ * Comms: the tenant's module license is LAPSED — the record stays readable,
+ * writes refuse (403 at the edge; a licensing denial is not retryable, so never
+ * the 409 conflict class). ONLY for row-present-outside-window; a never-entitled
+ * tenant (no row) gets NotFound on both read and write — module state never leaks.
+ */
+export class ModuleReadOnlyError extends DomainError {
+  override readonly code = 'MODULE_READ_ONLY' as const;
+  override readonly name = 'ModuleReadOnlyError';
+  constructor(moduleKey: string) {
+    super('This module is read-only: the license has lapsed. The record remains readable.', { moduleKey });
   }
 }
 

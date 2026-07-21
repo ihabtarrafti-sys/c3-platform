@@ -48,6 +48,9 @@ import type {
   Subscription,
   SavedView,
   Departure,
+  ModuleEntitlement,
+  CommsThread,
+  CommsMessageView,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -244,6 +247,21 @@ export interface ReadStore {
   findUnrevokedDelegationId(granteeIdentity: string): Promise<string | null>;
   /** Tier 0.5: does this identity hold an UNREVOKED delegation whose window covers onDate? */
   hasActiveDelegation(identity: string, onDate: string): Promise<boolean>;
+
+  // ── Comms (the Mission Comms slice) ────────────────────────────────────────
+  /** 0088: the module license row, or null (= NEVER entitled → 404, state never leaks). */
+  getModuleEntitlement(moduleKey: string): Promise<ModuleEntitlement | null>;
+  getCommsThreadByThreadId(threadId: string): Promise<CommsThread | null>;
+  /** The canonical anchored thread for a record, if it exists (one per anchor). */
+  getCommsThreadByAnchor(anchorType: string, anchorId: string): Promise<CommsThread | null>;
+  /** The message spine row (no body — revisions carry it), for the doc read guard. */
+  getCommsMessageByMessageId(messageId: string): Promise<{ messageId: string; threadId: string } | null>;
+  /** The obligation's thread, for the CommsObligation doc read guard arm. */
+  getCommsObligationByObligationId(obligationId: string): Promise<{ obligationId: string; threadId: string } | null>;
+  /** An idempotent replay: this author's message for a clientMutationId, if any. */
+  getCommsMessageByMutation(authorUserId: string, clientMutationId: string): Promise<CommsMessageView | null>;
+  /** Keyset page (seq DESC): spine + LATEST revision body + links + attachments. */
+  listCommsMessages(threadId: string, limit: number, beforeSeq: number | null): Promise<CommsMessageView[]>;
 }
 
 /** Fields written when creating a Person during AddPerson execution. */
@@ -591,6 +609,13 @@ export interface NewDocumentRow {
   readonly label: string | null;
   readonly storageKey: string;
   readonly uploadedBy: string;
+  /**
+   * 0089: 'Attachment' (an ordinary Comms file — the Document table as the
+   * private byte record, ABSENT from the Documents register) vs
+   * 'RegisteredEvidence' (the default — every register document + obligation
+   * evidence). Omitted = the DB default 'RegisteredEvidence'.
+   */
+  readonly recordKind?: 'Attachment' | 'RegisteredEvidence';
 }
 
 /** Fields written when issuing an Invoice (S6). Status is always 'Issued'. */
@@ -688,6 +713,32 @@ export interface AgreementPatch {
   readonly notes?: string | null;
 }
 
+// ── Comms row shapes (the slice writes; every principal a stable user uuid) ──
+export interface NewCommsThreadRow {
+  readonly threadId: string;
+  readonly kind: 'anchored';
+  readonly anchorType: string;
+  readonly anchorId: string;
+  readonly createdByUserId: string;
+  readonly createdByLabel: string | null;
+}
+export interface NewCommsMessageRow {
+  readonly messageId: string;
+  readonly threadId: string;
+  readonly seq: number;
+  readonly authorUserId: string;
+  readonly authorLabel: string | null;
+  readonly clientMutationId: string;
+}
+export interface NewCommsMessageRevisionRow {
+  readonly messageId: string;
+  readonly revisionNo: number;
+  readonly body: string;
+  readonly editorUserId: string;
+  readonly editorLabel: string | null;
+  readonly reason: string | null;
+}
+
 export interface WriteTx {
   // ── HARDEN-2 (0037): tenant settings (version-guarded from birth) ─────────
   /** One settings row inside the tx, or null (the guard's basis). */
@@ -724,6 +775,11 @@ export interface WriteTx {
       | 'beneficiary'
       | 'subscription'
       | 'departure'
+      // Comms (0095): THR-/MSG-/OBL- ids; 'nudge' is dormant-ahead for fan-out.
+      | 'thread'
+      | 'message'
+      | 'obligation'
+      | 'nudge'
       | `invoice-series:${string}`,
   ): Promise<number>;
 
@@ -1130,6 +1186,34 @@ export interface WriteTx {
   updateAgreementTerm(termId: string, expectedVersion: number, patch: AgreementTermPatch): Promise<AgreementTerm | null>;
   /** Version-guarded soft removal iff currently active; null = stale/missing/inactive. */
   deactivateAgreementTerm(termId: string, expectedVersion: number): Promise<AgreementTerm | null>;
+
+  // ── Comms (the Mission Comms slice) ────────────────────────────────────────
+  /** In-tx license re-check (the upload tx repeats entitlement after the byte PUT). */
+  getModuleEntitlement(moduleKey: string): Promise<ModuleEntitlement | null>;
+  /** In-tx thread re-check (the upload tx repeats the thread gate after the PUT). */
+  getCommsThread(threadId: string): Promise<CommsThread | null>;
+  /** In-tx anchor-existence re-check for anchored-Mission threads. */
+  missionExists(missionId: string): Promise<boolean>;
+  /**
+   * Get-or-create convergence: ON CONFLICT on the one-per-anchor partial unique
+   * DO NOTHING (the tx stays healthy), then the caller re-reads the winner.
+   * Returns the inserted thread, or null when a concurrent creator won.
+   */
+  insertCommsThread(row: NewCommsThreadRow): Promise<CommsThread | null>;
+  /** Row-lock bump of the thread's seq + last_message_at; null when the thread is missing. */
+  bumpCommsThreadSeq(threadId: string): Promise<number | null>;
+  /**
+   * Insert the immutable spine row. ON CONFLICT on the (author, clientMutationId)
+   * send-idempotency unique DO NOTHING — false = a duplicate send (the caller
+   * re-reads the existing message; the tx stays healthy).
+   */
+  insertCommsMessage(row: NewCommsMessageRow): Promise<boolean>;
+  /** Append a revision (revision 1 IS the post's body); returns the revision uuid. */
+  insertCommsMessageRevision(row: NewCommsMessageRevisionRow): Promise<string>;
+  /** Append the room's change history (Created, …) — the thread narrates itself. */
+  insertCommsThreadEvent(row: { threadId: string; eventType: string; actorUserId: string; actorLabel: string | null }): Promise<void>;
+  insertCommsObjectLink(row: { revisionId: string; targetType: string; targetId: string }): Promise<void>;
+  insertCommsDocumentAttachment(row: { messageId: string; documentId: string; attachedByUserId: string }): Promise<void>;
 }
 
 export interface WriteTransactionOptions {

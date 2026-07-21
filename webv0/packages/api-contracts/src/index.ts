@@ -10,6 +10,8 @@ import { z } from 'zod';
 import {
   AGREEMENT_STATUSES,
   AGREEMENT_TERM_KINDS,
+  COMMS_LINK_TARGET_TYPES,
+  postCommsMessageInputSchema,
   DOCUMENT_OWNER_TYPES,
   APPROVAL_STATUSES,
   C3_ROLES,
@@ -629,6 +631,54 @@ export const documentsQuerySchema = z.object({
   ownerId: z.string().regex(/^(AGR|MSN|PER|CRED|ENT|INV|CLM|MSG|OBL)-\d{4,}$/),
 });
 export const documentRemoveBodySchema = z.object({ expectedVersion: z.number().int().min(0) }).strict();
+
+// ── Comms (the Mission Comms slice) ──────────────────────────────────────────
+// The domain schema IS the wire schema for the post body (one validator, no
+// drift); reads project the message spine + latest revision + chips + files.
+export const commsThreadSchema = z.object({
+  threadId: z.string(),
+  kind: z.enum(['anchored', 'standing', 'direct']),
+  anchorType: z.string().nullable(),
+  anchorId: z.string().nullable(),
+  title: z.string().nullable(),
+  status: z.enum(['active', 'archived']),
+  lastSeq: z.number().int(),
+  lastMessageAt: z.string().nullable(),
+  createdAt: z.string(),
+});
+export const commsMessageLinkSchema = z.object({
+  targetType: z.enum(COMMS_LINK_TARGET_TYPES),
+  targetId: z.string(),
+});
+export const commsMessageAttachmentSchema = z.object({
+  documentId: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int(),
+});
+export const commsMessageSchema = z.object({
+  messageId: z.string(),
+  threadId: z.string(),
+  seq: z.number().int(),
+  authorUserId: z.string(),
+  authorLabel: z.string().nullable(),
+  body: z.string(),
+  revisionNo: z.number().int(),
+  links: z.array(commsMessageLinkSchema),
+  attachments: z.array(commsMessageAttachmentSchema),
+  createdAt: z.string(),
+});
+export const missionThreadResponseSchema = z.object({
+  thread: commsThreadSchema.nullable(),
+  messages: z.array(commsMessageSchema),
+});
+export const commsMessageResponseSchema = z.object({ message: commsMessageSchema });
+export const commsPageQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional(),
+  beforeSeq: z.coerce.number().int().min(1).optional(),
+});
+export const commsMissionParamSchema = z.object({ missionId: z.string().regex(/^MSN-\d{4,}$/) });
+export { postCommsMessageInputSchema };
 
 // ── global search (S3 → S3.1): role-aware, identity fields only ──────────────
 export const SEARCH_RESULT_KINDS = [

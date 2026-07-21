@@ -25,6 +25,9 @@ const STATUS_BY_CODE: Record<DomainErrorCode, number> = {
   // Track B6: an intake token that is unknown / expired / used / revoked —
   // 410 Gone (it may once have been valid; it is not now).
   INTAKE_LINK_UNAVAILABLE: 410,
+  // Comms: a lapsed module license — a permission-class denial (403), NEVER 409
+  // (409 seats an un-retryable commercial refusal among retryable conflicts).
+  MODULE_READ_ONLY: 403,
 };
 
 export interface MappedError {

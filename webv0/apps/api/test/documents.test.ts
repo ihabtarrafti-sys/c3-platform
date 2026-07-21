@@ -125,11 +125,13 @@ beforeEach(async () => {
 describe('documents — Comms server-owned types + the query-regex fix (0089)', () => {
   const pdf = Buffer.from('%PDF-1.4\n%%EOF\n');
 
-  it('the generic LIST endpoint refuses the server-owned Comms types (managed by the Comms module)', async () => {
+  it('the generic LIST endpoint is record-scoped for Comms types (unentitled tenant → concealed 404)', async () => {
+    // The slice made list record-scoped: the guard runs (participation +
+    // entitlement). This tenant is NOT comms-entitled, so the guard conceals —
+    // a uniform 404, never module state or a 400.
     for (const [ownerType, ownerId] of [['CommsMessage', 'MSG-0001'], ['CommsObligation', 'OBL-0001']] as const) {
       const res = await app.inject({ method: 'GET', url: `/api/v1/documents?ownerType=${ownerType}&ownerId=${ownerId}`, headers: auth(tokens.ops) });
-      expect(res.statusCode, res.body).toBe(400);
-      expect(res.body).toMatch(/Comms module/i);
+      expect(res.statusCode, res.body).toBe(404);
     }
   });
 

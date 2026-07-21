@@ -32,7 +32,12 @@ export type BusinessIdKind =
   | 'distribution'
   | 'claim'
   | 'delegation'
-  | 'beneficiary';
+  | 'beneficiary'
+  // Comms (0095): threads/messages/obligations; 'nudge' dormant-ahead for fan-out.
+  | 'thread'
+  | 'message'
+  | 'obligation'
+  | 'nudge';
 
 const PREFIX: Record<BusinessIdKind, string> = {
   person: 'PER',
@@ -53,6 +58,10 @@ const PREFIX: Record<BusinessIdKind, string> = {
   claim: 'CLM',
   delegation: 'DLG',
   beneficiary: 'BEN',
+  thread: 'THR',
+  message: 'MSG',
+  obligation: 'OBL',
+  nudge: 'NDG',
 };
 
 const PATTERN: Record<BusinessIdKind, RegExp> = {
@@ -74,6 +83,10 @@ const PATTERN: Record<BusinessIdKind, RegExp> = {
   claim: /^CLM-\d{4,}$/,
   delegation: /^DLG-\d{4,}$/,
   beneficiary: /^BEN-\d{4,}$/,
+  thread: /^THR-\d{4,}$/,
+  message: /^MSG-\d{4,}$/,
+  obligation: /^OBL-\d{4,}$/,
+  nudge: /^NDG-\d{4,}$/,
 };
 
 /** Format an allocated sequence number into a canonical business ID. */
@@ -102,6 +115,9 @@ export const formatDistributionId = (sequence: number): string => formatBusiness
 export const formatBeneficiaryId = (sequence: number): string => formatBusinessId('beneficiary', sequence);
 export const formatDelegationId = (sequence: number): string => formatBusinessId('delegation', sequence);
 export const formatClaimId = (sequence: number): string => formatBusinessId('claim', sequence);
+export const formatThreadId = (sequence: number): string => formatBusinessId('thread', sequence);
+export const formatMessageId = (sequence: number): string => formatBusinessId('message', sequence);
+export const formatObligationId = (sequence: number): string => formatBusinessId('obligation', sequence);
 
 export function isBusinessId(kind: BusinessIdKind, value: unknown): value is string {
   return typeof value === 'string' && PATTERN[kind].test(value);
