@@ -242,6 +242,14 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   { name: 'comms_nudge', exportSql: `SELECT * FROM comms_nudge WHERE tenant_id = $1 ORDER BY nudge_id`, exitRank: 9 },
   { name: 'comms_delivery_outbox', exportSql: `SELECT * FROM comms_delivery_outbox WHERE tenant_id = $1 ORDER BY source_kind, source_id, recipient_user_id, channel`, exitRank: 9 },
   { name: 'comms_attention', exportSql: `SELECT * FROM comms_attention WHERE tenant_id = $1 ORDER BY recipient_user_id, source_kind, source_id`, exitRank: 9 },
+  // 0094 — preferences + the private read cursor (receipts DERIVE from it; no
+  // read_receipt table by design), dormant presence, and access requests.
+  // inbox_cursor FKs comms_thread (12 < 30, the participant-sibling shape); the
+  // other three are tenant-only.
+  { name: 'comms_user_preference', exportSql: `SELECT * FROM comms_user_preference WHERE tenant_id = $1 ORDER BY user_id`, exitRank: 8 },
+  { name: 'comms_inbox_cursor', exportSql: `SELECT * FROM comms_inbox_cursor WHERE tenant_id = $1 ORDER BY thread_id, user_id`, exitRank: 12 },
+  { name: 'comms_presence', exportSql: `SELECT * FROM comms_presence WHERE tenant_id = $1 ORDER BY user_id`, exitRank: 8 },
+  { name: 'comms_access_request', exportSql: `SELECT * FROM comms_access_request WHERE tenant_id = $1 ORDER BY created_at, id`, exitRank: 8 },
 ];
 
 /** Exit deletion order: children before parents, deterministic. */
