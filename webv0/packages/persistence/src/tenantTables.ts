@@ -45,28 +45,6 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
   // All timestamptz — no ::text cast needed. No FK between the two, so relative rank is free.
   { name: 'tenant_module_entitlement', exportSql: `SELECT * FROM tenant_module_entitlement WHERE tenant_id = $1 ORDER BY module_key`, exitRank: 7 },
   { name: 'tenant_module_entitlement_event', exportSql: `SELECT * FROM tenant_module_entitlement_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 6 },
-  // Comms P2 (0090): the thread layer. Rooms + their append-only history + membership.
-  // thread_event/participant are children of comms_thread (composite tenant/thread FK) →
-  // they delete BEFORE it. comms_thread ranked high (30) so the message family (0091+),
-  // which is also a child of comms_thread, has room to rank below it. All timestamptz —
-  // no ::text cast. thread_event's append-only trigger is in APPEND_ONLY_TRIGGERS.
-  { name: 'comms_thread_event', exportSql: `SELECT * FROM comms_thread_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 11 },
-  { name: 'comms_thread_participant', exportSql: `SELECT * FROM comms_thread_participant WHERE tenant_id = $1 ORDER BY thread_id, user_id`, exitRank: 12 },
-  { name: 'comms_thread', exportSql: `SELECT * FROM comms_thread WHERE tenant_id = $1 ORDER BY thread_id`, exitRank: 30 },
-  // Comms P2 (0091): the message family. comms_message is a child of comms_thread
-  // (rank 20 < 30); its children (revision/tombstone/reaction/document_attachment)
-  // rank 15 < 20; revision's children (mention/object_link) rank 13 < 15;
-  // retention_tombstone (14) has NO message FK (it outlives the purged DM). All
-  // timestamptz — no ::text cast. revision + tombstone triggers are append-only.
-  { name: 'comms_message', exportSql: `SELECT * FROM comms_message WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 20 },
-  { name: 'comms_message_revision', exportSql: `SELECT * FROM comms_message_revision WHERE tenant_id = $1 ORDER BY message_id, revision_no`, exitRank: 15 },
-  { name: 'comms_message_tombstone', exportSql: `SELECT * FROM comms_message_tombstone WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 15 },
-  { name: 'comms_reaction_event', exportSql: `SELECT * FROM comms_reaction_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 15 },
-  { name: 'comms_document_attachment', exportSql: `SELECT * FROM comms_document_attachment WHERE tenant_id = $1 ORDER BY document_id`, exitRank: 15 },
-  { name: 'comms_retention_tombstone', exportSql: `SELECT * FROM comms_retention_tombstone WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 14 },
-  { name: 'comms_mention', exportSql: `SELECT * FROM comms_mention WHERE tenant_id = $1 ORDER BY revision_id, target_user_id`, exitRank: 13 },
-  { name: 'comms_object_link', exportSql: `SELECT * FROM comms_object_link WHERE tenant_id = $1 ORDER BY revision_id, target_type, target_id`, exitRank: 13 },
-
   // ── people + person-adjacent ─────────────────────────────────────────────
   {
     // M-16: date_of_birth / date_of_joining cast ::text (the date-as-text law) —
@@ -229,6 +207,41 @@ export const TENANT_TABLES: readonly TenantTableSpec[] = [
                   FROM saved_view WHERE tenant_id = $1 ORDER BY id`,
     exitRank: 1,
   },
+
+  // ── Comms (0090–0093) ────────────────────────────────────────────────────
+  // REGISTRY ORDER (export = parents before children): the whole Comms block
+  // sits at the END so every FK parent — tenant, document (evidence/attachment),
+  // and the in-block parents — exports first; within the block, parents precede
+  // children. exitRank drives the OPPOSITE (deletion, children-first) order.
+  // All timestamptz — no ::text cast. Append-only triggers are registered in
+  // exitTenant's APPEND_ONLY_TRIGGERS.
+  // 0090 — the thread layer: rooms + append-only history + membership.
+  { name: 'comms_thread', exportSql: `SELECT * FROM comms_thread WHERE tenant_id = $1 ORDER BY thread_id`, exitRank: 30 },
+  { name: 'comms_thread_event', exportSql: `SELECT * FROM comms_thread_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 11 },
+  { name: 'comms_thread_participant', exportSql: `SELECT * FROM comms_thread_participant WHERE tenant_id = $1 ORDER BY thread_id, user_id`, exitRank: 12 },
+  // 0091 — the message family (event-sourced: revisions/tombstones/reactions).
+  // retention_tombstone (14) deliberately has NO message FK (outlives the purged DM).
+  { name: 'comms_message', exportSql: `SELECT * FROM comms_message WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 20 },
+  { name: 'comms_message_revision', exportSql: `SELECT * FROM comms_message_revision WHERE tenant_id = $1 ORDER BY message_id, revision_no`, exitRank: 15 },
+  { name: 'comms_message_tombstone', exportSql: `SELECT * FROM comms_message_tombstone WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 15 },
+  { name: 'comms_reaction_event', exportSql: `SELECT * FROM comms_reaction_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 15 },
+  { name: 'comms_document_attachment', exportSql: `SELECT * FROM comms_document_attachment WHERE tenant_id = $1 ORDER BY document_id`, exitRank: 15 },
+  { name: 'comms_retention_tombstone', exportSql: `SELECT * FROM comms_retention_tombstone WHERE tenant_id = $1 ORDER BY message_id`, exitRank: 14 },
+  { name: 'comms_mention', exportSql: `SELECT * FROM comms_mention WHERE tenant_id = $1 ORDER BY revision_id, target_user_id`, exitRank: 13 },
+  { name: 'comms_object_link', exportSql: `SELECT * FROM comms_object_link WHERE tenant_id = $1 ORDER BY revision_id, target_type, target_id`, exitRank: 13 },
+  // 0092 — the obligation family. The obligation's source-message ref is a
+  // BUSINESS ID (not an FK — survives DM expiry); evidence_delivery FKs document.
+  { name: 'comms_obligation', exportSql: `SELECT * FROM comms_obligation WHERE tenant_id = $1 ORDER BY obligation_id`, exitRank: 18 },
+  { name: 'comms_obligation_event', exportSql: `SELECT * FROM comms_obligation_event WHERE tenant_id = $1 ORDER BY at, id`, exitRank: 10 },
+  { name: 'comms_obligation_link', exportSql: `SELECT * FROM comms_obligation_link WHERE tenant_id = $1 ORDER BY obligation_id, target_type, target_id`, exitRank: 10 },
+  { name: 'comms_evidence_delivery', exportSql: `SELECT * FROM comms_evidence_delivery WHERE tenant_id = $1 ORDER BY obligation_id, document_id`, exitRank: 10 },
+  // 0093 — the delivery substrate. nudge/outbox/attention reference their
+  // sources by BUSINESS ID (no FK) — delivery mechanics never pin the records.
+  { name: 'comms_nudge_policy', exportSql: `SELECT * FROM comms_nudge_policy WHERE tenant_id = $1 ORDER BY policy_key, version`, exitRank: 17 },
+  { name: 'comms_nudge_policy_stage', exportSql: `SELECT * FROM comms_nudge_policy_stage WHERE tenant_id = $1 ORDER BY policy_id, stage_no`, exitRank: 16 },
+  { name: 'comms_nudge', exportSql: `SELECT * FROM comms_nudge WHERE tenant_id = $1 ORDER BY nudge_id`, exitRank: 9 },
+  { name: 'comms_delivery_outbox', exportSql: `SELECT * FROM comms_delivery_outbox WHERE tenant_id = $1 ORDER BY source_kind, source_id, recipient_user_id, channel`, exitRank: 9 },
+  { name: 'comms_attention', exportSql: `SELECT * FROM comms_attention WHERE tenant_id = $1 ORDER BY recipient_user_id, source_kind, source_id`, exitRank: 9 },
 ];
 
 /** Exit deletion order: children before parents, deterministic. */

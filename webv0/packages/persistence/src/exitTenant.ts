@@ -90,6 +90,11 @@ const APPEND_ONLY_TRIGGERS: Array<{ table: string; trigger: string }> = [
   // Comms P2 (0091): visible edit history + removal record are append-only.
   { table: 'comms_message_revision', trigger: 'comms_message_revision_append_only' },
   { table: 'comms_message_tombstone', trigger: 'comms_message_tombstone_append_only' },
+  // Comms P2 (0092/0093): obligation histories + policy stage content are append-only.
+  { table: 'comms_obligation_event', trigger: 'comms_obligation_event_append_only' },
+  { table: 'comms_obligation_link', trigger: 'comms_obligation_link_append_only' },
+  { table: 'comms_evidence_delivery', trigger: 'comms_evidence_delivery_append_only' },
+  { table: 'comms_nudge_policy_stage', trigger: 'comms_nudge_policy_stage_append_only' },
 ];
 
 /**
