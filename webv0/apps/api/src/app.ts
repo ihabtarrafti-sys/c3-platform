@@ -215,9 +215,12 @@ import {
   commsPageQuerySchema,
   missionThreadResponseSchema,
   commsMessageResponseSchema,
+  commsObligationParamSchema,
+  commsObligationResponseSchema,
+  commsObligationsListSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, type PostCommsMessageInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
+import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, createCommsObligationInputSchema, commsObligationTransitionInputSchema, type PostCommsMessageInput, type CreateCommsObligationInput, type CommsObligationTransitionInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
 import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations, assertManageEntities } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
@@ -390,6 +393,11 @@ import {
   getMissionThread,
   postMissionMessage,
   registerCommsAttachment,
+  createMissionObligation,
+  listMissionObligations,
+  getCommsObligation,
+  transitionCommsObligation,
+  deliverCommsEvidence,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -1767,6 +1775,104 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { missionId } = req.params as { missionId: string };
       const message = await postMissionMessage(P, actorOf(req), missionId, req.body as PostCommsMessageInput);
       return reply.status(201).send({ message });
+    },
+  );
+
+  // ── The Obligation: delivered ≠ accepted ≠ done ────────────────────────────
+  r.get(
+    '/api/v1/comms/missions/:missionId/obligations',
+    { schema: { params: commsMissionParamSchema, response: { 200: commsObligationsListSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      return { obligations: await listMissionObligations(P, actorOf(req), missionId) };
+    },
+  );
+
+  r.post(
+    '/api/v1/comms/missions/:missionId/obligations',
+    { schema: { params: commsMissionParamSchema, body: createCommsObligationInputSchema, response: { 201: commsObligationResponseSchema } } },
+    async (req, reply) => {
+      const { missionId } = req.params as { missionId: string };
+      const obligation = await createMissionObligation(P, actorOf(req), missionId, req.body as CreateCommsObligationInput);
+      return reply.status(201).send({ obligation });
+    },
+  );
+
+  r.get(
+    '/api/v1/comms/obligations/:obligationId',
+    { schema: { params: commsObligationParamSchema, response: { 200: commsObligationResponseSchema } } },
+    async (req) => {
+      const { obligationId } = req.params as { obligationId: string };
+      return { obligation: await getCommsObligation(P, actorOf(req), obligationId) };
+    },
+  );
+
+  // Explicit transitions with expected version + authority checks (the gateway).
+  for (const action of ['accept', 'reject', 'complete', 'cancel', 'reopen'] as const) {
+    r.post(
+      `/api/v1/comms/obligations/:obligationId/${action}`,
+      { schema: { params: commsObligationParamSchema, body: commsObligationTransitionInputSchema, response: { 200: commsObligationResponseSchema } } },
+      async (req) => {
+        const { obligationId } = req.params as { obligationId: string };
+        return { obligation: await transitionCommsObligation(P, actorOf(req), obligationId, action, req.body as CommsObligationTransitionInput) };
+      },
+    );
+  }
+
+  r.post(
+    '/api/v1/comms/obligations/:obligationId/evidence',
+    // Evidence: the document byte laws + the FULL write-ahead compensation
+    // protocol; the tx registers a REGISTER-VISIBLE CommsObligation document.
+    { bodyLimit: DOCUMENT_MAX_BYTES + 1024 * 1024, schema: { params: commsObligationParamSchema, response: { 201: commsObligationResponseSchema } } },
+    async (req, reply) => {
+      const { obligationId } = req.params as { obligationId: string };
+      const actor = actorOf(req);
+      const file = await req.file();
+      if (!file) return sendError(req, reply, 400, 'VALIDATION', 'A file is required.');
+      const fields = file.fields as Record<string, unknown>;
+      const fieldVal = (name: string): string => {
+        const f = fields[name] as { value?: unknown } | undefined;
+        return f && typeof f.value === 'string' ? f.value : '';
+      };
+      const clientMutationId = fieldVal('clientMutationId');
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(clientMutationId)) {
+        return sendError(req, reply, 400, 'VALIDATION', 'clientMutationId must be a uuid.');
+      }
+      const contentType = file.mimetype;
+      if (!isAllowedDocumentContentType(contentType)) {
+        return sendError(req, reply, 415, 'UNSUPPORTED_TYPE', 'This file type is not allowed.');
+      }
+      let body: Buffer;
+      try {
+        body = await file.toBuffer();
+      } catch {
+        return sendError(req, reply, 413, 'TOO_LARGE', `The file exceeds the ${Math.round(DOCUMENT_MAX_BYTES / (1024 * 1024))} MB limit.`);
+      }
+      if (body.length === 0) return sendError(req, reply, 400, 'VALIDATION', 'The file is empty.');
+      if (!documentBytesMatchDeclaredType(contentType, body)) {
+        return sendError(req, reply, 415, 'UNSUPPORTED_TYPE', "The file's content does not match its declared type.");
+      }
+      const sha256 = createHash('sha256').update(body).digest('hex');
+      const storageKey = `${actor.tenantId}/${randomUUID()}`;
+      if (!(await preRegisterCompensation(storageKey, 'document', req))) {
+        return sendError(req, reply, 500, 'STORAGE_UNAVAILABLE', 'Could not prepare storage for the upload. Please retry.');
+      }
+      try {
+        await deps.documentStorage.put(storageKey, body, contentType, { signal: deadlineOf(req) });
+        const obligation = await deliverCommsEvidence(P, actor, obligationId, {
+          fileName: file.filename || 'file',
+          contentType,
+          sizeBytes: body.length,
+          sha256,
+          storageKey,
+          note: fieldVal('note') || null,
+          clientMutationId,
+        });
+        return reply.status(201).send({ obligation });
+      } catch (err) {
+        await armCompensation(storageKey, req);
+        throw err;
+      }
     },
   );
 

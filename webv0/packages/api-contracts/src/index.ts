@@ -11,7 +11,10 @@ import {
   AGREEMENT_STATUSES,
   AGREEMENT_TERM_KINDS,
   COMMS_LINK_TARGET_TYPES,
+  COMMS_OBLIGATION_STATES,
   postCommsMessageInputSchema,
+  createCommsObligationInputSchema,
+  commsObligationTransitionInputSchema,
   DOCUMENT_OWNER_TYPES,
   APPROVAL_STATUSES,
   C3_ROLES,
@@ -679,6 +682,52 @@ export const commsPageQuerySchema = z.object({
 });
 export const commsMissionParamSchema = z.object({ missionId: z.string().regex(/^MSN-\d{4,}$/) });
 export { postCommsMessageInputSchema };
+
+// The Obligation: delivered ≠ accepted ≠ done — the domain schemas ARE the wire.
+export const commsObligationEventSchema = z.object({
+  eventType: z.string(),
+  fromState: z.enum(COMMS_OBLIGATION_STATES).nullable(),
+  toState: z.enum(COMMS_OBLIGATION_STATES),
+  actorUserId: z.string(),
+  actorLabel: z.string().nullable(),
+  reason: z.string().nullable(),
+  attestation: z.string().nullable(),
+  at: z.string(),
+});
+export const commsEvidenceSchema = z.object({
+  documentId: z.string(),
+  fileName: z.string(),
+  contentType: z.string(),
+  sizeBytes: z.number().int(),
+  deliveredByUserId: z.string(),
+  delivererLabel: z.string().nullable(),
+  note: z.string().nullable(),
+  deliveredAt: z.string(),
+});
+export const commsObligationSchema = z.object({
+  obligationId: z.string(),
+  threadId: z.string(),
+  state: z.enum(COMMS_OBLIGATION_STATES),
+  description: z.string(),
+  accountableUserId: z.string(),
+  requesterUserId: z.string(),
+  beneficiaryKind: z.enum(['account', 'external']),
+  beneficiaryUserId: z.string().nullable(),
+  beneficiaryLabel: z.string().nullable(),
+  acceptanceKind: z.enum(['account', 'external']),
+  acceptanceUserId: z.string(),
+  acceptanceLabel: z.string().nullable(),
+  dueAt: z.string(),
+  evidenceRequirement: z.string(),
+  version: z.number().int(),
+  createdAt: z.string(),
+  events: z.array(commsObligationEventSchema),
+  evidence: z.array(commsEvidenceSchema),
+});
+export const commsObligationResponseSchema = z.object({ obligation: commsObligationSchema });
+export const commsObligationsListSchema = z.object({ obligations: z.array(commsObligationSchema) });
+export const commsObligationParamSchema = z.object({ obligationId: z.string().regex(/^OBL-\d{4,}$/) });
+export { createCommsObligationInputSchema, commsObligationTransitionInputSchema };
 
 // ── global search (S3 → S3.1): role-aware, identity fields only ──────────────
 export const SEARCH_RESULT_KINDS = [

@@ -6059,6 +6059,474 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/comms/missions/:missionId/obligations",
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "obligations": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "acceptanceKind": {
+                    "t": "enum",
+                    "values": [
+                      "account",
+                      "external"
+                    ]
+                  },
+                  "acceptanceLabel": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "acceptanceUserId": {
+                    "t": "string"
+                  },
+                  "accountableUserId": {
+                    "t": "string"
+                  },
+                  "beneficiaryKind": {
+                    "t": "enum",
+                    "values": [
+                      "account",
+                      "external"
+                    ]
+                  },
+                  "beneficiaryLabel": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "beneficiaryUserId": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
+                  "createdAt": {
+                    "t": "string"
+                  },
+                  "description": {
+                    "t": "string"
+                  },
+                  "dueAt": {
+                    "t": "string"
+                  },
+                  "events": {
+                    "t": "array",
+                    "item": {
+                      "t": "object",
+                      "keys": {
+                        "actorLabel": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "actorUserId": {
+                          "t": "string"
+                        },
+                        "at": {
+                          "t": "string"
+                        },
+                        "attestation": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "eventType": {
+                          "t": "string"
+                        },
+                        "fromState": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "enum",
+                            "values": [
+                              "Accepted",
+                              "Cancelled",
+                              "Delivered",
+                              "Done",
+                              "Open"
+                            ]
+                          }
+                        },
+                        "reason": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "toState": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      }
+                    }
+                  },
+                  "evidence": {
+                    "t": "array",
+                    "item": {
+                      "t": "object",
+                      "keys": {
+                        "contentType": {
+                          "t": "string"
+                        },
+                        "deliveredAt": {
+                          "t": "string"
+                        },
+                        "deliveredByUserId": {
+                          "t": "string"
+                        },
+                        "delivererLabel": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "documentId": {
+                          "t": "string"
+                        },
+                        "fileName": {
+                          "t": "string"
+                        },
+                        "note": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "sizeBytes": {
+                          "t": "number"
+                        }
+                      }
+                    }
+                  },
+                  "evidenceRequirement": {
+                    "t": "string"
+                  },
+                  "obligationId": {
+                    "t": "string"
+                  },
+                  "requesterUserId": {
+                    "t": "string"
+                  },
+                  "state": {
+                    "t": "enum",
+                    "values": [
+                      "Accepted",
+                      "Cancelled",
+                      "Delivered",
+                      "Done",
+                      "Open"
+                    ]
+                  },
+                  "threadId": {
+                    "t": "string"
+                  },
+                  "version": {
+                    "t": "number"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/missions/:missionId/obligations",
+      "body": {
+        "t": "object",
+        "keys": {
+          "acceptance": {
+            "t": "union",
+            "options": [
+              {
+                "t": "object",
+                "keys": {
+                  "kind": {
+                    "t": "literal",
+                    "value": "account"
+                  },
+                  "userId": {
+                    "t": "string"
+                  }
+                }
+              },
+              {
+                "t": "object",
+                "keys": {
+                  "kind": {
+                    "t": "literal",
+                    "value": "external"
+                  },
+                  "label": {
+                    "t": "string"
+                  },
+                  "proxyUserId": {
+                    "t": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "accountableUserId": {
+            "t": "string"
+          },
+          "beneficiary": {
+            "t": "union",
+            "options": [
+              {
+                "t": "object",
+                "keys": {
+                  "kind": {
+                    "t": "literal",
+                    "value": "account"
+                  },
+                  "userId": {
+                    "t": "string"
+                  }
+                }
+              },
+              {
+                "t": "object",
+                "keys": {
+                  "kind": {
+                    "t": "literal",
+                    "value": "external"
+                  },
+                  "label": {
+                    "t": "string"
+                  }
+                }
+              }
+            ]
+          },
+          "clientMutationId": {
+            "t": "string"
+          },
+          "description": {
+            "t": "string"
+          },
+          "dueAt": {
+            "t": "string"
+          },
+          "evidenceRequirement": {
+            "t": "string"
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/comms/missions/:missionId/thread",
       "querystring": {
         "t": "object",
@@ -6217,6 +6685,1425 @@
                       "t": "string"
                     }
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/comms/obligations/:obligationId",
+      "params": {
+        "t": "object",
+        "keys": {
+          "obligationId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/obligations/:obligationId/accept",
+      "body": {
+        "t": "object",
+        "keys": {
+          "clientMutationId": {
+            "t": "string"
+          },
+          "expectedVersion": {
+            "t": "number"
+          },
+          "note": {
+            "t": "string",
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "obligationId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/obligations/:obligationId/cancel",
+      "body": {
+        "t": "object",
+        "keys": {
+          "clientMutationId": {
+            "t": "string"
+          },
+          "expectedVersion": {
+            "t": "number"
+          },
+          "note": {
+            "t": "string",
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "obligationId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/obligations/:obligationId/complete",
+      "body": {
+        "t": "object",
+        "keys": {
+          "clientMutationId": {
+            "t": "string"
+          },
+          "expectedVersion": {
+            "t": "number"
+          },
+          "note": {
+            "t": "string",
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "obligationId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/obligations/:obligationId/evidence",
+      "params": {
+        "t": "object",
+        "keys": {
+          "obligationId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "201": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/obligations/:obligationId/reject",
+      "body": {
+        "t": "object",
+        "keys": {
+          "clientMutationId": {
+            "t": "string"
+          },
+          "expectedVersion": {
+            "t": "number"
+          },
+          "note": {
+            "t": "string",
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "obligationId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/obligations/:obligationId/reopen",
+      "body": {
+        "t": "object",
+        "keys": {
+          "clientMutationId": {
+            "t": "string"
+          },
+          "expectedVersion": {
+            "t": "number"
+          },
+          "note": {
+            "t": "string",
+            "optional": true
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "obligationId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "obligation": {
+              "t": "object",
+              "keys": {
+                "acceptanceKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "acceptanceLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "acceptanceUserId": {
+                  "t": "string"
+                },
+                "accountableUserId": {
+                  "t": "string"
+                },
+                "beneficiaryKind": {
+                  "t": "enum",
+                  "values": [
+                    "account",
+                    "external"
+                  ]
+                },
+                "beneficiaryLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "beneficiaryUserId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "createdAt": {
+                  "t": "string"
+                },
+                "description": {
+                  "t": "string"
+                },
+                "dueAt": {
+                  "t": "string"
+                },
+                "events": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "actorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "actorUserId": {
+                        "t": "string"
+                      },
+                      "at": {
+                        "t": "string"
+                      },
+                      "attestation": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "eventType": {
+                        "t": "string"
+                      },
+                      "fromState": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "enum",
+                          "values": [
+                            "Accepted",
+                            "Cancelled",
+                            "Delivered",
+                            "Done",
+                            "Open"
+                          ]
+                        }
+                      },
+                      "reason": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "toState": {
+                        "t": "enum",
+                        "values": [
+                          "Accepted",
+                          "Cancelled",
+                          "Delivered",
+                          "Done",
+                          "Open"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "evidence": {
+                  "t": "array",
+                  "item": {
+                    "t": "object",
+                    "keys": {
+                      "contentType": {
+                        "t": "string"
+                      },
+                      "deliveredAt": {
+                        "t": "string"
+                      },
+                      "deliveredByUserId": {
+                        "t": "string"
+                      },
+                      "delivererLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "documentId": {
+                        "t": "string"
+                      },
+                      "fileName": {
+                        "t": "string"
+                      },
+                      "note": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "sizeBytes": {
+                        "t": "number"
+                      }
+                    }
+                  }
+                },
+                "evidenceRequirement": {
+                  "t": "string"
+                },
+                "obligationId": {
+                  "t": "string"
+                },
+                "requesterUserId": {
+                  "t": "string"
+                },
+                "state": {
+                  "t": "enum",
+                  "values": [
+                    "Accepted",
+                    "Cancelled",
+                    "Delivered",
+                    "Done",
+                    "Open"
+                  ]
+                },
+                "threadId": {
+                  "t": "string"
+                },
+                "version": {
+                  "t": "number"
                 }
               }
             }

@@ -51,6 +51,7 @@ import type {
   ModuleEntitlement,
   CommsThread,
   CommsMessageView,
+  CommsObligationView,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -258,6 +259,12 @@ export interface ReadStore {
   getCommsMessageByMessageId(messageId: string): Promise<{ messageId: string; threadId: string } | null>;
   /** The obligation's thread, for the CommsObligation doc read guard arm. */
   getCommsObligationByObligationId(obligationId: string): Promise<{ obligationId: string; threadId: string } | null>;
+  /** The full obligation read model: row + transition history + evidence. */
+  getCommsObligationView(obligationId: string): Promise<CommsObligationView | null>;
+  /** A thread's obligations (due soonest first), each with events + evidence. */
+  listCommsObligationsByThread(threadId: string): Promise<CommsObligationView[]>;
+  /** Mint-idempotency replay: this creator's obligation for a clientMutationId. */
+  getCommsObligationByMutation(createdByUserId: string, clientMutationId: string): Promise<CommsObligationView | null>;
   /** An idempotent replay: this author's message for a clientMutationId, if any. */
   getCommsMessageByMutation(authorUserId: string, clientMutationId: string): Promise<CommsMessageView | null>;
   /** Keyset page (seq DESC): spine + LATEST revision body + links + attachments. */
@@ -738,6 +745,53 @@ export interface NewCommsMessageRevisionRow {
   readonly editorLabel: string | null;
   readonly reason: string | null;
 }
+export interface NewCommsObligationRow {
+  readonly obligationId: string;
+  readonly threadId: string;
+  readonly sourceMessageId: string | null;
+  readonly description: string;
+  readonly accountableUserId: string;
+  readonly requesterUserId: string;
+  readonly beneficiaryKind: 'account' | 'external';
+  readonly beneficiaryUserId: string | null;
+  readonly beneficiaryLabel: string | null;
+  readonly dueAt: string;
+  readonly evidenceRequirement: string;
+  readonly acceptanceKind: 'account' | 'external';
+  readonly acceptanceUserId: string;
+  readonly acceptanceLabel: string | null;
+  readonly createdByUserId: string;
+}
+/** The transition-gate dispatch view of the stored row. */
+export interface CommsObligationRow {
+  readonly obligationId: string;
+  readonly threadId: string;
+  readonly state: string;
+  readonly version: number;
+  readonly accountableUserId: string;
+  readonly requesterUserId: string;
+  readonly acceptanceKind: 'account' | 'external';
+  readonly acceptanceUserId: string;
+}
+export interface NewCommsObligationEventRow {
+  readonly obligationId: string;
+  readonly eventType: string;
+  readonly fromState: string | null;
+  readonly toState: string;
+  readonly actorUserId: string;
+  readonly actorLabel: string | null;
+  readonly reason: string | null;
+  readonly attestation: string | null;
+  readonly deliveryId: string | null;
+  readonly clientMutationId: string;
+}
+export interface NewCommsEvidenceDeliveryRow {
+  readonly obligationId: string;
+  readonly documentId: string;
+  readonly deliveredByUserId: string;
+  readonly delivererLabel: string | null;
+  readonly note: string | null;
+}
 
 export interface WriteTx {
   // ── HARDEN-2 (0037): tenant settings (version-guarded from birth) ─────────
@@ -1214,6 +1268,16 @@ export interface WriteTx {
   insertCommsThreadEvent(row: { threadId: string; eventType: string; actorUserId: string; actorLabel: string | null }): Promise<void>;
   insertCommsObjectLink(row: { revisionId: string; targetType: string; targetId: string }): Promise<void>;
   insertCommsDocumentAttachment(row: { messageId: string; documentId: string; attachedByUserId: string }): Promise<void>;
+  /** Mint the obligation row (state Open). */
+  insertCommsObligation(row: NewCommsObligationRow): Promise<void>;
+  /** In-tx CAS state move; null = stale version (the optimistic-lock refusal). */
+  updateCommsObligationState(obligationId: string, expectedVersion: number, toState: string): Promise<{ state: string; version: number } | null>;
+  /** In-tx read of the row the transition gates dispatch on. */
+  getCommsObligationRow(obligationId: string): Promise<CommsObligationRow | null>;
+  /** Append a transition event (append-only; unique per actor+mutation). */
+  insertCommsObligationEvent(row: NewCommsObligationEventRow): Promise<string>;
+  /** Append an evidence delivery; returns the delivery uuid. */
+  insertCommsEvidenceDelivery(row: NewCommsEvidenceDeliveryRow): Promise<string>;
 }
 
 export interface WriteTransactionOptions {

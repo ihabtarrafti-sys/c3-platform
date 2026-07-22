@@ -112,3 +112,95 @@ export interface CommsMessageView {
   readonly attachments: CommsMessageAttachment[];
   readonly createdAt: string;
 }
+
+// ── The Obligation (the scar-killer): delivered ≠ accepted ≠ done ────────────
+
+export const COMMS_OBLIGATION_STATES = ['Open', 'Delivered', 'Accepted', 'Done', 'Cancelled'] as const;
+export type CommsObligationState = (typeof COMMS_OBLIGATION_STATES)[number];
+
+/** A principal-or-external party: an account uuid, or an external label (with
+ *  the acceptance variant ALWAYS carrying an internal uuid — the proxy). */
+const partySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('account'), userId: z.string().uuid() }).strict(),
+  z.object({ kind: z.literal('external'), label: z.string().trim().min(1).max(200) }).strict(),
+]);
+const acceptanceSchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('account'), userId: z.string().uuid() }).strict(),
+  // External authority: the label plus the INTERNAL proxy who records its word.
+  z.object({ kind: z.literal('external'), label: z.string().trim().min(1).max(200), proxyUserId: z.string().uuid() }).strict(),
+]);
+
+export const createCommsObligationInputSchema = z
+  .object({
+    description: z.string().trim().min(1).max(2000),
+    accountableUserId: z.string().uuid(),
+    beneficiary: partySchema,
+    acceptance: acceptanceSchema,
+    dueAt: z.string().datetime({ offset: true }),
+    evidenceRequirement: z.string().trim().min(1).max(1000),
+    clientMutationId: z.string().uuid(),
+  })
+  .strict()
+  // Separation of duties — the "delivered ≠ accepted" independence is
+  // STRUCTURAL for internal acceptance: one's own authority may not accept
+  // one's own delivery. The EXTERNAL-proxy overlap stays legal (the proxy only
+  // transcribes an outside authority's word, under a mandatory attestation).
+  .refine((v) => !(v.acceptance.kind === 'account' && v.acceptance.userId === v.accountableUserId), {
+    message: 'An internal acceptance authority must be independent of the accountable owner.',
+    path: ['acceptance'],
+  });
+export type CreateCommsObligationInput = z.infer<typeof createCommsObligationInputSchema>;
+
+/** A state transition: optimistic version + idempotency + the act's words. */
+export const commsObligationTransitionInputSchema = z
+  .object({
+    expectedVersion: z.number().int().min(0),
+    clientMutationId: z.string().uuid(),
+    /** accept (external authority): the mandatory attestation; reject/cancel/reopen: the reason. */
+    note: z.string().trim().min(1).max(1000).optional(),
+  })
+  .strict();
+export type CommsObligationTransitionInput = z.infer<typeof commsObligationTransitionInputSchema>;
+
+export interface CommsObligationEventView {
+  readonly eventType: string;
+  readonly fromState: CommsObligationState | null;
+  readonly toState: CommsObligationState;
+  readonly actorUserId: string;
+  readonly actorLabel: string | null;
+  readonly reason: string | null;
+  readonly attestation: string | null;
+  readonly at: string;
+}
+
+export interface CommsEvidenceView {
+  readonly documentId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly sizeBytes: number;
+  readonly deliveredByUserId: string;
+  readonly delivererLabel: string | null;
+  readonly note: string | null;
+  readonly deliveredAt: string;
+}
+
+export interface CommsObligationView {
+  readonly obligationId: string;
+  readonly threadId: string;
+  readonly state: CommsObligationState;
+  readonly description: string;
+  readonly accountableUserId: string;
+  readonly requesterUserId: string;
+  readonly beneficiaryKind: 'account' | 'external';
+  readonly beneficiaryUserId: string | null;
+  readonly beneficiaryLabel: string | null;
+  readonly acceptanceKind: 'account' | 'external';
+  readonly acceptanceUserId: string;
+  readonly acceptanceLabel: string | null;
+  readonly dueAt: string;
+  readonly evidenceRequirement: string;
+  readonly version: number;
+  readonly createdAt: string;
+  readonly events: CommsObligationEventView[];
+  readonly evidence: CommsEvidenceView[];
+}

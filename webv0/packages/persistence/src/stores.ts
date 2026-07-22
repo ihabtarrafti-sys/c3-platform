@@ -4,7 +4,7 @@
  */
 import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
-import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person, CommsMessageView, CommsLinkTargetType } from '@c3web/domain';
+import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person, CommsMessageView, CommsLinkTargetType, CommsObligationView } from '@c3web/domain';
 import { IntakeLinkUnavailableError } from '@c3web/domain';
 import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, PayableClaimRow, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTransactionOptions, WriteTx } from '@c3web/application';
 import * as schema from './schema';
@@ -84,6 +84,82 @@ async function hydrateCommsMessageViews(db: Db, rows: CommsSpineRow[]): Promise<
     createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : new Date(r.created_at).toISOString(),
   }));
 }
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+const isoStr = (v: any): string => (v instanceof Date ? v.toISOString() : new Date(v).toISOString());
+
+/** Row(s) → full obligation views (events + document-joined evidence hydrated).
+ *  Dual-case tolerant: drizzle camelCase and raw snake_case rows both feed it. */
+async function hydrateCommsObligationViews(db: Db, rows: any[]): Promise<CommsObligationView[]> {
+  if (rows.length === 0) return [];
+  const ids: string[] = rows.map((r) => r.obligationId ?? r.obligation_id);
+  const inIds = sql.join(ids.map((id) => sql`${id}`), sql`, `);
+  const evRes = await db.execute(sql`
+    SELECT obligation_id, event_type, from_state, to_state, actor_user_id, actor_label, reason, attestation, at
+      FROM comms_obligation_event WHERE obligation_id IN (${inIds}) ORDER BY at, id
+  `);
+  const evdRes = await db.execute(sql`
+    SELECT e.obligation_id, e.document_id, e.delivered_by_user_id, e.deliverer_label, e.note, e.delivered_at,
+           d.file_name, d.content_type, d.size_bytes
+      FROM comms_evidence_delivery e
+      JOIN document d ON d.tenant_id = e.tenant_id AND d.document_id = e.document_id AND d.is_active = true
+     WHERE e.obligation_id IN (${inIds}) ORDER BY e.delivered_at, e.id
+  `);
+  const eventsBy = new Map<string, CommsObligationView['events']>();
+  for (const e of evRes.rows as any[]) {
+    const arr = eventsBy.get(e.obligation_id) ?? [];
+    arr.push({
+      eventType: e.event_type,
+      fromState: e.from_state ?? null,
+      toState: e.to_state,
+      actorUserId: e.actor_user_id,
+      actorLabel: e.actor_label ?? null,
+      reason: e.reason ?? null,
+      attestation: e.attestation ?? null,
+      at: isoStr(e.at),
+    });
+    eventsBy.set(e.obligation_id, arr);
+  }
+  const evidenceBy = new Map<string, CommsObligationView['evidence']>();
+  for (const v of evdRes.rows as any[]) {
+    const arr = evidenceBy.get(v.obligation_id) ?? [];
+    arr.push({
+      documentId: v.document_id,
+      fileName: v.file_name,
+      contentType: v.content_type,
+      sizeBytes: Number(v.size_bytes),
+      deliveredByUserId: v.delivered_by_user_id,
+      delivererLabel: v.deliverer_label ?? null,
+      note: v.note ?? null,
+      deliveredAt: isoStr(v.delivered_at),
+    });
+    evidenceBy.set(v.obligation_id, arr);
+  }
+  return rows.map((r) => {
+    const obligationId: string = r.obligationId ?? r.obligation_id;
+    return {
+      obligationId,
+      threadId: r.threadId ?? r.thread_id,
+      state: r.state,
+      description: r.description,
+      accountableUserId: r.accountableUserId ?? r.accountable_user_id,
+      requesterUserId: r.requesterUserId ?? r.requester_user_id,
+      beneficiaryKind: r.beneficiaryKind ?? r.beneficiary_kind,
+      beneficiaryUserId: r.beneficiaryUserId ?? r.beneficiary_user_id ?? null,
+      beneficiaryLabel: r.beneficiaryLabel ?? r.beneficiary_label ?? null,
+      acceptanceKind: r.acceptanceKind ?? r.acceptance_kind,
+      acceptanceUserId: r.acceptanceUserId ?? r.acceptance_user_id,
+      acceptanceLabel: r.acceptanceLabel ?? r.acceptance_label ?? null,
+      dueAt: isoStr(r.dueAt ?? r.due_at),
+      evidenceRequirement: r.evidenceRequirement ?? r.evidence_requirement,
+      version: Number(r.version),
+      createdAt: isoStr(r.createdAt ?? r.created_at),
+      events: eventsBy.get(obligationId) ?? [],
+      evidence: evidenceBy.get(obligationId) ?? [],
+    };
+  });
+}
+/* eslint-enable @typescript-eslint/no-explicit-any */
 
 export interface PersistenceConfig {
   /** Connection string for the least-privileged application role (c3_app). */
@@ -635,6 +711,40 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
               .where(eq(schema.commsObligation.obligationId, obligationId))
               .limit(1);
             return rows[0] ?? null;
+          }),
+
+        getCommsObligationView: (obligationId: string) =>
+          exec(async (db) => {
+            const rows = await db.select().from(schema.commsObligation).where(eq(schema.commsObligation.obligationId, obligationId)).limit(1);
+            if (!rows[0]) return null;
+            const views = await hydrateCommsObligationViews(db, rows);
+            return views[0] ?? null;
+          }),
+
+        listCommsObligationsByThread: (threadId: string) =>
+          exec(async (db) => {
+            const rows = await db
+              .select()
+              .from(schema.commsObligation)
+              .where(eq(schema.commsObligation.threadId, threadId))
+              .orderBy(asc(schema.commsObligation.dueAt), asc(schema.commsObligation.obligationId));
+            return hydrateCommsObligationViews(db, rows);
+          }),
+
+        getCommsObligationByMutation: (createdByUserId: string, clientMutationId: string) =>
+          exec(async (db) => {
+            // Mint idempotency lives on the Created EVENT (unique per actor+mutation).
+            const res = await db.execute(sql`
+              SELECT o.* FROM comms_obligation o
+                JOIN comms_obligation_event e
+                  ON e.tenant_id = o.tenant_id AND e.obligation_id = o.obligation_id
+               WHERE e.event_type = 'Created' AND e.actor_user_id = ${createdByUserId}
+                 AND e.client_mutation_id = ${clientMutationId}
+               LIMIT 1
+            `);
+            if (res.rows.length === 0) return null;
+            const views = await hydrateCommsObligationViews(db, res.rows as unknown[]);
+            return views[0] ?? null;
           }),
 
         getCommsMessageByMutation: (authorUserId: string, clientMutationId: string) =>

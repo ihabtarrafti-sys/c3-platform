@@ -1901,5 +1901,89 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         attachedByUserId: row.attachedByUserId,
       });
     },
+
+    async insertCommsObligation(row): Promise<void> {
+      await db.insert(schema.commsObligation).values({
+        tenantId,
+        obligationId: row.obligationId,
+        threadId: row.threadId,
+        sourceMessageId: row.sourceMessageId,
+        description: row.description,
+        accountableUserId: row.accountableUserId,
+        requesterUserId: row.requesterUserId,
+        beneficiaryKind: row.beneficiaryKind,
+        beneficiaryUserId: row.beneficiaryUserId,
+        beneficiaryLabel: row.beneficiaryLabel,
+        dueAt: new Date(row.dueAt),
+        evidenceRequirement: row.evidenceRequirement,
+        acceptanceKind: row.acceptanceKind,
+        acceptanceUserId: row.acceptanceUserId,
+        acceptanceLabel: row.acceptanceLabel,
+        createdByUserId: row.createdByUserId,
+      });
+    },
+
+    async getCommsObligationRow(obligationId: string) {
+      const rows = await db.select().from(schema.commsObligation).where(eq(schema.commsObligation.obligationId, obligationId)).limit(1);
+      const r = rows[0];
+      if (!r) return null;
+      return {
+        obligationId: r.obligationId,
+        threadId: r.threadId,
+        state: r.state,
+        version: r.version,
+        accountableUserId: r.accountableUserId,
+        requesterUserId: r.requesterUserId,
+        acceptanceKind: r.acceptanceKind as 'account' | 'external',
+        acceptanceUserId: r.acceptanceUserId,
+      };
+    },
+
+    async updateCommsObligationState(obligationId: string, expectedVersion: number, toState: string) {
+      // CAS: the optimistic-lock refusal (null = stale) — the transition gateway's spine.
+      const rows = await db
+        .update(schema.commsObligation)
+        .set({ state: toState, version: sql`${schema.commsObligation.version} + 1` })
+        .where(and(eq(schema.commsObligation.obligationId, obligationId), eq(schema.commsObligation.version, expectedVersion)))
+        .returning();
+      return rows[0] ? { state: rows[0].state, version: rows[0].version } : null;
+    },
+
+    async insertCommsObligationEvent(row): Promise<string> {
+      const [r] = await db
+        .insert(schema.commsObligationEvent)
+        .values({
+          tenantId,
+          obligationId: row.obligationId,
+          eventType: row.eventType,
+          fromState: row.fromState,
+          toState: row.toState,
+          actorUserId: row.actorUserId,
+          actorLabel: row.actorLabel,
+          reason: row.reason,
+          attestation: row.attestation,
+          deliveryId: row.deliveryId,
+          clientMutationId: row.clientMutationId,
+        })
+        .returning();
+      if (!r) throw new Error('comms obligation event insert returned no row');
+      return r.id;
+    },
+
+    async insertCommsEvidenceDelivery(row): Promise<string> {
+      const [r] = await db
+        .insert(schema.commsEvidenceDelivery)
+        .values({
+          tenantId,
+          obligationId: row.obligationId,
+          documentId: row.documentId,
+          deliveredByUserId: row.deliveredByUserId,
+          delivererLabel: row.delivererLabel,
+          note: row.note,
+        })
+        .returning();
+      if (!r) throw new Error('comms evidence delivery insert returned no row');
+      return r.id;
+    },
   } satisfies WriteTx;
 }

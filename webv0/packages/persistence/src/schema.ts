@@ -753,15 +753,62 @@ export const commsThreadEvent = pgTable('comms_thread_event', {
   at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-// 0092: the obligation spine (the slice's doc guard resolves its thread).
+// 0092: the obligation — the durable deadline record (delivered ≠ accepted ≠ done).
 export const commsObligation = pgTable('comms_obligation', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id').notNull(),
   obligationId: text('obligation_id').notNull(),
   threadId: text('thread_id').notNull(),
+  sourceMessageId: text('source_message_id'),
+  description: text('description').notNull(),
+  accountableUserId: uuid('accountable_user_id').notNull(),
+  requesterUserId: uuid('requester_user_id').notNull(),
+  beneficiaryKind: text('beneficiary_kind').notNull(),
+  beneficiaryUserId: uuid('beneficiary_user_id'),
+  beneficiaryLabel: text('beneficiary_label'),
+  dueAt: timestamp('due_at', { withTimezone: true }).notNull(),
+  evidenceRequirement: text('evidence_requirement').notNull(),
+  acceptanceKind: text('acceptance_kind').notNull(),
+  acceptanceUserId: uuid('acceptance_user_id').notNull(),
+  acceptanceLabel: text('acceptance_label'),
   state: text('state').notNull().default('Open'),
   version: integer('version').notNull().default(0),
+  createdByUserId: uuid('created_by_user_id').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0092: the append-only transition history (the story is the record).
+export const commsObligationEvent = pgTable('comms_obligation_event', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  obligationId: text('obligation_id').notNull(),
+  eventType: text('event_type').notNull(),
+  fromState: text('from_state'),
+  toState: text('to_state').notNull(),
+  actorUserId: uuid('actor_user_id').notNull(),
+  actorLabel: text('actor_label'),
+  beforeJson: jsonb('before_json'),
+  afterJson: jsonb('after_json'),
+  reason: text('reason'),
+  attestation: text('attestation'),
+  deliveryId: uuid('delivery_id'),
+  clientMutationId: uuid('client_mutation_id').notNull(),
+  at: timestamp('at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// 0092: append-only evidence deliveries (CommsObligation-owned documents).
+export const commsEvidenceDelivery = pgTable('comms_evidence_delivery', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  obligationId: text('obligation_id').notNull(),
+  documentId: text('document_id').notNull(),
+  sourceMessageId: text('source_message_id'),
+  sourceDocumentId: text('source_document_id'),
+  deliveredByUserId: uuid('delivered_by_user_id').notNull(),
+  delivererLabel: text('deliverer_label'),
+  note: text('note'),
+  deliveredAt: timestamp('delivered_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
 // 0091: the immutable message spine (no body column — revisions carry it).
