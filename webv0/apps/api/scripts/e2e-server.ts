@@ -42,6 +42,19 @@ const env = loadEnv({
 const deps = buildDeps(env, createLogger(env));
 const app = buildApp(deps);
 
+// TEST-ONLY control surface (this script never deploys; NODE_ENV=test, dev
+// IdP): lets the Playwright comms spec play the commercial authority and flip
+// the module entitlement to witness the lapse posture in the browser.
+app.post('/__e2e/comms-entitlement', async (req) => {
+  const { state } = req.body as { state: 'active' | 'lapsed' };
+  if (state !== 'active' && state !== 'lapsed') throw new Error('state must be active|lapsed');
+  await db.adminQuery(
+    `UPDATE tenant_module_entitlement SET state = '${state}'
+      WHERE module_key = 'comms' AND tenant_id = (SELECT id FROM tenant WHERE slug = 'alpha')`,
+  );
+  return { state };
+});
+
 const shutdown = async () => {
   try {
     await app.close();
