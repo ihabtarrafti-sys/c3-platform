@@ -16,3 +16,6 @@ docs
 **/test-results
 **/.vite
 apps/web/dist
+# The e2e/codegen scripts never run in an image (CMD = src/server.ts); keep
+# even their inert bytes out of the build context.
+apps/api/scripts

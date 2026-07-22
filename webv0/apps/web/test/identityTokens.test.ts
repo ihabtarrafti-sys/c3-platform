@@ -82,7 +82,10 @@ describe('identity token integrity (Phase 0)', () => {
 
   it('the Tablework component library is Fluent-free by law (the pilot boundary)', () => {
     const twDir = join(themeDir, '..', 'tablework');
-    const files = readdirSync(twDir).filter((f) => /\.(ts|tsx|css)$/.test(f));
+    // Recursive: a future subdirectory must not escape the law.
+    const files = readdirSync(twDir, { recursive: true })
+      .map(String)
+      .filter((f) => /\.(ts|tsx|css)$/.test(f));
     expect(files.length, 'the tablework library exists').toBeGreaterThan(0);
     for (const f of files) {
       const src = readFileSync(join(twDir, f), 'utf8');

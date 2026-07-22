@@ -12,6 +12,16 @@ import { buildApp } from '../src/app';
 const port = process.env.E2E_API_PORT ?? '4100';
 const webOrigin = process.env.E2E_WEB_ORIGIN ?? 'http://localhost:5199';
 
+// The harness OWNS its database. startTestDatabase prefers inherited
+// DATABASE_URL/DATABASE_ADMIN_URL over the embedded engine — a dev shell with
+// real URLs exported would silently point the flip endpoint + migrations at a
+// live database. Fail closed instead.
+if ((process.env.DATABASE_URL || process.env.DATABASE_ADMIN_URL) && process.env.E2E_ALLOW_EXTERNAL_DB !== 'yes') {
+  throw new Error(
+    'e2e-server refuses an inherited DATABASE_URL/DATABASE_ADMIN_URL — the harness runs on its own embedded database. Set E2E_ALLOW_EXTERNAL_DB=yes only if you really mean it.',
+  );
+}
+
 const db = await startTestDatabase();
 await db.seedTenant({ slug: 'alpha', name: 'Alpha Org' });
 // The e2e tenant is Comms-entitled (the commercial authority writes on the

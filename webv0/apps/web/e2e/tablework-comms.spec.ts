@@ -134,8 +134,14 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
       .setInputFiles({ name: 'signed-pack.png', mimeType: 'image/png', buffer: PNG });
     const card = page.locator('[data-tablework="ObligationCard"]');
     await expect(card.locator('[data-truth-state="known"]')).toHaveCount(1);
+    // Name the flipped fact — a count alone doesn't say WHICH truth moved.
+    await expect(card.locator('[data-truth-state="known"]')).toContainText('Delivery');
     await expect(card.locator('[data-truth-state="unknown"]')).toHaveCount(2);
     await expect(card.locator('[data-tablework="EvidenceRequestSlot"]')).toContainText('signed-pack.png');
+    // THE IDENTITY CLAUSE, load-bearing: the state is now Delivered — the ONLY
+    // reason ops sees no Accept is that ops is not the named authority.
+    await expect(card.getByRole('button', { name: 'Accept' })).toHaveCount(0);
+    await expect(card.getByRole('button', { name: 'Reject' })).toHaveCount(0);
     await page.screenshot({ path: `${SHOTS}/01-delivered-dark-desktop.png`, fullPage: true });
   });
 
@@ -149,7 +155,9 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     await page.waitForTimeout(2000);
     await card.getByRole('button', { name: 'Accept' }).click();
     await expect(card.locator('[data-truth-state="known"]')).toHaveCount(2);
+    await expect(card.locator('[data-truth-state="known"]')).toContainText(['Delivery', 'Acceptance']);
     await expect(card.locator('[data-truth-state="unknown"]')).toHaveCount(1);
+    await expect(card.locator('[data-truth-state="unknown"]')).toContainText('Done');
     await expect(card.getByRole('button', { name: 'Accept' })).toHaveCount(0);
   });
 
@@ -159,6 +167,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     const card = page.locator('[data-tablework="ObligationCard"]');
     await card.getByRole('button', { name: 'Record Done' }).click();
     await expect(card.locator('[data-truth-state="known"]')).toHaveCount(3);
+    await expect(card.locator('[data-truth-state="known"]')).toContainText(['Delivery', 'Acceptance', 'Done']);
     // The authority's read is disclosed: their cursor reached the thread's end.
     await expect(page.locator('[data-tablework="Receipts"]')).toContainText('Seen by lead@alpha.com');
     await page.screenshot({ path: `${SHOTS}/02-done-dark-desktop.png`, fullPage: true });
@@ -259,5 +268,9 @@ test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass c
     await page.request.post(`${API}/__e2e/comms-entitlement`, { data: { state: 'active' } });
     await page.reload();
     await expect(page.locator('.compose')).toBeVisible();
+    // Server truth after a FRESH fetch: the refused send never PERSISTED —
+    // non-persistence, not merely client non-render.
+    await expect(page.locator('[data-tablework="Message"]').first()).toBeVisible();
+    await expect(page.locator('[data-tablework="Message"]', { hasText: 'must be refused' })).toHaveCount(0);
   });
 });
