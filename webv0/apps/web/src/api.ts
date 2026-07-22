@@ -68,8 +68,28 @@ import type {
   SubmitRemoveMissionParticipantRequest,
   SubmitRenewAgreementRequest,
   SubmitTerminateAgreementRequest,
+  CommsMessageDto,
+  CommsObligationDto,
+  CommsPrefsResponse,
+  CommsReceiptsResponse,
+  CommsCursorResponse,
+  MissionThreadResponse,
 } from '@c3web/api-contracts';
-import type { AgreementTermKind, EquipmentTransition, MissionFinanceStage, MissionLineDirection, PaymentStatus } from '@c3web/domain';
+import type { AgreementTermKind, CommsLinkInput, EquipmentTransition, MissionFinanceStage, MissionLineDirection, PaymentStatus } from '@c3web/domain';
+
+// Mission Comms (the Tablework pilot): the mint body mirrors the domain's
+// createCommsObligationInputSchema; the acceptance's external variant carries
+// the INTERNAL proxy who records the outside authority's word.
+export type CommsObligationAction = 'accept' | 'reject' | 'complete' | 'cancel' | 'reopen';
+export interface CommsObligationCreateBody {
+  description: string;
+  accountableUserId: string;
+  beneficiary: { kind: 'account'; userId: string } | { kind: 'external'; label: string };
+  acceptance: { kind: 'account'; userId: string } | { kind: 'external'; label: string; proxyUserId: string };
+  dueAt: string;
+  evidenceRequirement: string;
+  clientMutationId: string;
+}
 
 export interface EquipmentCreateBody {
   name: string;
@@ -572,6 +592,46 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ apparel: ApparelDto }>('POST', `/api/v1/apparel/${apparelId}/deactivate`, { expectedVersion }),
     transitionApparel: (apparelId: string, action: EquipmentTransition, expectedVersion: number) =>
       request<{ apparel: ApparelDto }>('POST', `/api/v1/apparel/${apparelId}/transitions/${action}`, { expectedVersion }),
+    // ── Mission Comms (the Tablework pilot slice) ────────────────────────────
+    // Keyset paging: the wire is newest-first (seq DESC); beforeSeq walks older.
+    getMissionThread: (missionId: string, page?: { limit?: number; beforeSeq?: number }) => {
+      const params = new URLSearchParams();
+      if (page?.limit) params.set('limit', String(page.limit));
+      if (page?.beforeSeq) params.set('beforeSeq', String(page.beforeSeq));
+      const qs = params.toString();
+      return request<MissionThreadResponse>('GET', `/api/v1/comms/missions/${missionId}/thread${qs ? `?${qs}` : ''}`);
+    },
+    postMissionMessage: (missionId: string, body: { body: string; links?: CommsLinkInput[]; clientMutationId: string }) =>
+      request<{ message: CommsMessageDto }>('POST', `/api/v1/comms/missions/${missionId}/messages`, body),
+    uploadMissionAttachment: (missionId: string, file: File, clientMutationId: string, caption?: string) => {
+      const form = new FormData();
+      form.append('clientMutationId', clientMutationId);
+      if (caption) form.append('caption', caption);
+      form.append('file', file, file.name);
+      return upload<{ message: CommsMessageDto }>(`/api/v1/comms/missions/${missionId}/attachments`, form);
+    },
+    listMissionObligations: (missionId: string) =>
+      request<{ obligations: CommsObligationDto[] }>('GET', `/api/v1/comms/missions/${missionId}/obligations`),
+    createMissionObligation: (missionId: string, body: CommsObligationCreateBody) =>
+      request<{ obligation: CommsObligationDto }>('POST', `/api/v1/comms/missions/${missionId}/obligations`, body),
+    getCommsObligation: (obligationId: string) =>
+      request<{ obligation: CommsObligationDto }>('GET', `/api/v1/comms/obligations/${obligationId}`),
+    transitionCommsObligation: (obligationId: string, action: CommsObligationAction, body: { expectedVersion: number; clientMutationId: string; note?: string }) =>
+      request<{ obligation: CommsObligationDto }>('POST', `/api/v1/comms/obligations/${obligationId}/${action}`, body),
+    deliverCommsEvidence: (obligationId: string, file: File, clientMutationId: string, note?: string) => {
+      const form = new FormData();
+      form.append('clientMutationId', clientMutationId);
+      if (note) form.append('note', note);
+      form.append('file', file, file.name);
+      return upload<{ obligation: CommsObligationDto }>(`/api/v1/comms/obligations/${obligationId}/evidence`, form);
+    },
+    advanceMissionCursor: (missionId: string, seq: number) =>
+      request<CommsCursorResponse>('POST', `/api/v1/comms/missions/${missionId}/read`, { seq }),
+    getMissionReceipts: (missionId: string) =>
+      request<CommsReceiptsResponse>('GET', `/api/v1/comms/missions/${missionId}/receipts`),
+    getCommsPrefs: () => request<CommsPrefsResponse>('GET', '/api/v1/comms/prefs'),
+    setCommsPrefs: (body: { receiptsEnabled: boolean; presenceEnabled: boolean; expectedVersion: number | null }) =>
+      request<CommsPrefsResponse>('POST', '/api/v1/comms/prefs', body),
   };
 }
 

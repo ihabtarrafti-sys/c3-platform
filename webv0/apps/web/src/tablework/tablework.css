@@ -433,6 +433,488 @@
   border-radius: var(--c3-radius-xl);
 }
 
+/* ── Actions (the specimen vocabulary: primary / secondary / quiet / mini) ─ */
+
+.tw-root .panel-actions,
+.tw-root .message-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .panel-actions {
+  margin-top: var(--c3-space-5);
+}
+
+.tw-root .primary-action {
+  min-height: var(--c3-tw-target-min);
+  padding: var(--c3-space-2) var(--c3-space-5);
+  border: var(--tw-line) solid var(--c3-action-primary);
+  border-radius: var(--c3-radius-pill);
+  background: var(--c3-action-primary);
+  color: var(--c3-action-ink);
+  font-weight: var(--c3-font-weight-bold);
+  cursor: pointer;
+  transition: background var(--c3-motion-duration-fast), border-color var(--c3-motion-duration-fast), transform var(--c3-motion-duration-fast) var(--c3-motion-ease-signature);
+}
+
+.tw-root .primary-action:hover {
+  border-color: var(--c3-action-primary-hover);
+  background: var(--c3-action-primary-hover);
+  transform: translateY(-1px);
+}
+
+.tw-root .primary-action:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.tw-root .secondary-action,
+.tw-root .quiet-action,
+.tw-root .danger-action {
+  min-height: var(--c3-tw-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-2) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-pill);
+  background: var(--c3-tw-work-base);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+  transition: color var(--c3-motion-duration-fast), background var(--c3-motion-duration-fast), border-color var(--c3-motion-duration-fast), transform var(--c3-motion-duration-fast) var(--c3-motion-ease-signature);
+}
+
+.tw-root .secondary-action:hover,
+.tw-root .quiet-action:hover {
+  border-color: var(--c3-border-strong);
+  background: var(--c3-tw-work-elevated);
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .secondary-action {
+  border-color: var(--c3-border-strong);
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .quiet-action {
+  border-color: transparent;
+  background: transparent;
+  color: var(--c3-accent-sky);
+}
+
+.tw-root .danger-action {
+  border-color: var(--c3-state-danger);
+  color: var(--c3-state-danger);
+}
+
+.tw-root .danger-action:hover {
+  background: var(--c3-accent-coral-wash);
+}
+
+.tw-root .mini-action {
+  min-height: var(--c3-tw-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--c3-space-1) var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-md);
+  background: transparent;
+  color: var(--c3-accent-sky);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tw-root .mini-action:hover {
+  border-color: var(--c3-border-strong);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .state-label {
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border: var(--tw-line) solid currentColor;
+  border-radius: var(--c3-radius-pill);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.tw-root .state-label.warning { color: var(--c3-state-warning); }
+.tw-root .state-label.info { color: var(--c3-state-info); }
+.tw-root .state-label.success { color: var(--c3-state-success); }
+.tw-root .state-label.danger { color: var(--c3-state-danger); }
+
+.tw-root .unknown-value {
+  color: var(--c3-ink-quiet);
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+/* A non-routable record reference: identity only, never a chip affordance. */
+.tw-root .object-ref {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+.tw-root .attachment-error {
+  color: var(--c3-state-danger);
+  font-size: var(--c3-font-size-caption);
+}
+
+/* ── Form fields (the composer + the mint form; token-pure) ────────────── */
+
+.tw-root textarea,
+.tw-root input[type='text'],
+.tw-root input[type='search'],
+.tw-root input[type='datetime-local'],
+.tw-root select {
+  width: 100%;
+  min-height: var(--c3-tw-target-min);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-work-base);
+  color: var(--c3-ink-default);
+}
+
+.tw-root .tw-field {
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .tw-field > span {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+/* ── The Thread (list rail · conversation · composer) ──────────────────── */
+
+.tw-root .thread-list {
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .thread-item {
+  min-height: var(--c3-tw-target-min);
+  display: grid;
+  gap: 1px;
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid transparent;
+  border-radius: var(--c3-radius-md);
+  background: transparent;
+  color: var(--c3-ink-default);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tw-root .thread-item:hover,
+.tw-root .thread-item.active {
+  border-color: var(--c3-border-subtle);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .thread-item.active {
+  box-shadow: inset 2px 0 0 var(--c3-accent-aqua);
+}
+
+.tw-root .thread-item strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .thread-item small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .conversation-header {
+  position: relative;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--c3-space-4);
+  padding-bottom: var(--c3-space-4);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .conversation-header::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 -1px;
+  height: 1px;
+  background: linear-gradient(to right, var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+  opacity: .72;
+}
+
+.tw-root .conversation-header h2 {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-lead);
+}
+
+.tw-root .conversation-header p {
+  margin: var(--c3-space-1) 0 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .conversation {
+  flex: 1 1 auto;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-5);
+  padding: var(--c3-space-5) var(--c3-space-2);
+  overflow-y: auto;
+}
+
+.tw-root .message-group {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .message-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .message-copy header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--c3-space-4);
+}
+
+.tw-root .message-copy header strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .message-copy time {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+.tw-root .message-copy p {
+  margin: 0;
+  color: var(--c3-ink-default);
+  line-height: var(--c3-line-height-comfortable);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+/* The unread divider: derived from myLastReadSeq, never a stored flag. */
+.tw-root .unread-divider {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: var(--c3-space-3);
+  color: var(--c3-accent-aqua);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.tw-root .unread-divider::before,
+.tw-root .unread-divider::after {
+  content: "";
+  height: 1px;
+  background: var(--c3-accent-aqua);
+  opacity: .5;
+}
+
+.tw-root .attachment-card,
+.tw-root .approval-reference {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .attachment-card > span,
+.tw-root .approval-reference > span {
+  min-width: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.tw-root .attachment-card strong,
+.tw-root .approval-reference strong {
+  overflow-wrap: anywhere;
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .attachment-card small,
+.tw-root .approval-reference small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .compose {
+  display: grid;
+  gap: var(--c3-space-2);
+  padding-top: var(--c3-space-3);
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .compose textarea {
+  min-height: 5rem;
+}
+
+.tw-root .compose-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  flex-wrap: wrap;
+}
+
+.tw-root .lapsed-banner {
+  margin-bottom: var(--c3-space-3);
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-tw-work-subtle);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+/* ── The Obligation card (three INDEPENDENT truths) ────────────────────── */
+
+.tw-root .obligation-card {
+  position: relative;
+  display: grid;
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-4);
+  overflow: hidden;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-xl);
+  background: var(--c3-tw-work-elevated);
+}
+
+.tw-root .obligation-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(to right, var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+}
+
+.tw-root .obligation-card h2,
+.tw-root .obligation-card h3 {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-title);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: var(--c3-line-height-snug);
+}
+
+.tw-root .obligation-card > p {
+  margin: 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .obligation-facts {
+  display: grid;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .obligation-fact {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .obligation-fact i {
+  width: 1.75rem;
+  height: 1.75rem;
+  display: grid;
+  place-items: center;
+  border: var(--tw-line) solid currentColor;
+  border-radius: 50%;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-style: normal;
+  font-weight: var(--c3-font-weight-bold);
+}
+
+.tw-root .obligation-fact.known i {
+  color: var(--c3-state-success);
+}
+
+.tw-root .obligation-fact.unknown i {
+  color: var(--c3-tw-truth-unknown);
+}
+
+.tw-root .obligation-fact span {
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .obligation-fact strong {
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .obligation-meta {
+  display: grid;
+  gap: var(--c3-space-2);
+  margin: 0;
+}
+
+.tw-root .obligation-meta > div {
+  display: grid;
+  gap: 1px;
+}
+
+.tw-root .obligation-meta dt {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.tw-root .obligation-meta dd {
+  margin: 0;
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .obligation-stack {
+  display: grid;
+  gap: var(--c3-space-4);
+  align-content: start;
+}
+
 /* ── Narrow navigation (hidden until the 48rem break) ──────────────────── */
 
 .tw-root .narrow-navigation {

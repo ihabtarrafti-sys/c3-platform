@@ -744,6 +744,19 @@ export const commsPrefsResponseSchema = z.object({
 });
 export { advanceCommsCursorInputSchema, setCommsPrefsInputSchema };
 
+// The comms DTO types, inferred once here for the web client.
+export type CommsThreadDto = z.infer<typeof commsThreadSchema>;
+export type CommsMessageLinkDto = z.infer<typeof commsMessageLinkSchema>;
+export type CommsMessageAttachmentDto = z.infer<typeof commsMessageAttachmentSchema>;
+export type CommsMessageDto = z.infer<typeof commsMessageSchema>;
+export type MissionThreadResponse = z.infer<typeof missionThreadResponseSchema>;
+export type CommsObligationEventDto = z.infer<typeof commsObligationEventSchema>;
+export type CommsEvidenceDto = z.infer<typeof commsEvidenceSchema>;
+export type CommsObligationDto = z.infer<typeof commsObligationSchema>;
+export type CommsReceiptsResponse = z.infer<typeof commsReceiptsResponseSchema>;
+export type CommsPrefsResponse = z.infer<typeof commsPrefsResponseSchema>;
+export type CommsCursorResponse = z.infer<typeof commsCursorResponseSchema>;
+
 // ── global search (S3 → S3.1): role-aware, identity fields only ──────────────
 export const SEARCH_RESULT_KINDS = [
   'person',
@@ -1607,6 +1620,9 @@ export const meResponseSchema = z.object({
   role: roleSchema,
   tenantSlug: z.string(),
   capabilities: capabilityViewSchema,
+  /** The caller's OWN stable app_user id (P1 spine) — for render-gating the
+   *  named-authority affordances (Comms UI). Never a directory of others'. */
+  userId: z.string().uuid(),
 });
 export type MeResponse = z.infer<typeof meResponseSchema>;
 

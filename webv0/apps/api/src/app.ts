@@ -791,7 +791,9 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     if (!capabilities.canReviewApproval && (await hasEffectiveReviewStanding(P, actorOf(req)))) {
       capabilities = { ...capabilities, canReviewApproval: true, canExecuteApproval: true };
     }
-    return { identity: pr.identity, displayName: pr.displayName, role: pr.role, tenantSlug: pr.tenantSlug, capabilities };
+    // The caller's OWN stable userId (P1 spine) — the Comms UI render-gates
+    // named-authority affordances on it. Never anyone else's.
+    return { identity: pr.identity, displayName: pr.displayName, role: pr.role, tenantSlug: pr.tenantSlug, capabilities, userId: pr.userId };
   });
 
   // ── people ───────────────────────────────────────────────────────────────

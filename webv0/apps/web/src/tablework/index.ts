@@ -6,3 +6,7 @@
 export { Room, WorkSurface, FloatSurface, type WorkTier } from './materials';
 export { AppFrame, type TableworkActor } from './AppFrame';
 export { ContextHeader } from './ContextHeader';
+export { Thread, detectLinks } from './Thread';
+export { Message, initialsOf } from './Message';
+export { ObligationCard, type ObligationActionInput } from './ObligationCard';
+export { ObligationFact, type TruthState } from './TruthValue';

@@ -14,6 +14,14 @@ const webOrigin = process.env.E2E_WEB_ORIGIN ?? 'http://localhost:5199';
 
 const db = await startTestDatabase();
 await db.seedTenant({ slug: 'alpha', name: 'Alpha Org' });
+// The e2e tenant is Comms-entitled (the commercial authority writes on the
+// privileged connection in production; here the harness plays that role).
+// The never-entitled 404 posture keeps its own certification in comms.test.
+await db.adminQuery(
+  `INSERT INTO tenant_module_entitlement (tenant_id, module_key, state)
+   SELECT id, 'comms', 'active' FROM tenant WHERE slug = 'alpha'
+   ON CONFLICT (tenant_id, module_key) DO UPDATE SET state = 'active'`,
+);
 
 const env = loadEnv({
   NODE_ENV: 'test',

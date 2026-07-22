@@ -126,3 +126,26 @@ export const useDocuments = (ownerType: string, ownerId: string, enabled = true)
   useQuery({ queryKey: ['documents', ownerType, ownerId], queryFn: () => api.listDocuments(ownerType, ownerId), enabled });
 export const useMissionsFinanceSummary = (enabled = true) =>
   useQuery({ queryKey: ['missionsFinanceSummary'], queryFn: () => api.missionsFinanceSummary(), enabled });
+
+// ── Mission Comms (the Tablework pilot) ──────────────────────────────────────
+// Keyset-paged: page 1 is the newest window (and carries the thread + my
+// cursor); older pages walk beforeSeq. Per-thread seq starts at 1, so an
+// oldest-loaded seq > 1 is an exact "there is more" signal.
+export const useMissionThread = (missionId: string, enabled = true) =>
+  useInfiniteQuery({
+    queryKey: ['commsThread', missionId],
+    queryFn: ({ pageParam }) => api.getMissionThread(missionId, pageParam ? { beforeSeq: pageParam } : undefined),
+    initialPageParam: undefined as number | undefined,
+    getNextPageParam: (last) => {
+      if (last.messages.length === 0) return undefined;
+      const oldest = Math.min(...last.messages.map((m) => m.seq));
+      return oldest > 1 ? oldest : undefined;
+    },
+    enabled,
+  });
+export const useMissionObligations = (missionId: string, enabled = true) =>
+  useQuery({ queryKey: ['commsObligations', missionId], queryFn: () => api.listMissionObligations(missionId), enabled });
+export const useMissionReceipts = (missionId: string, enabled = true) =>
+  useQuery({ queryKey: ['commsReceipts', missionId], queryFn: () => api.getMissionReceipts(missionId), enabled });
+export const useCommsPrefs = (enabled = true) =>
+  useQuery({ queryKey: ['commsPrefs'], queryFn: () => api.getCommsPrefs(), enabled });

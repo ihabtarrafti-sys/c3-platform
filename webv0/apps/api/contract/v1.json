@@ -14056,6 +14056,9 @@
             },
             "tenantSlug": {
               "t": "string"
+            },
+            "userId": {
+              "t": "string"
             }
           }
         }

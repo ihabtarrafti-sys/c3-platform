@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
@@ -69,6 +69,7 @@ export function MissionDetailPage() {
   const s = useStyles();
   const r = useRegisterStyles();
   const { missionId = '' } = useParams();
+  const navigate = useNavigate();
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -203,7 +204,15 @@ export function MissionDetailPage() {
     void qc.invalidateQueries({ queryKey: ['missionParticipants', missionId] });
   }
 
-  const shellActions =
+  // The Tablework pilot: every mission reader may open the conversation —
+  // the Comms route itself is the authority on what renders there.
+  const conversationAction = m ? (
+    <Button appearance="secondary" data-testid="mission-conversation-link" onClick={() => navigate(`/missions/${m.missionId}/comms`)}>
+      Conversation
+    </Button>
+  ) : null;
+
+  const manageActions =
     m && canManage && m.isActive ? (
       <div className={s.headerActions}>
         <GovernedAction
@@ -291,6 +300,13 @@ export function MissionDetailPage() {
         />
       </div>
     ) : undefined;
+
+  const shellActions = (
+    <>
+      {conversationAction}
+      {manageActions}
+    </>
+  );
 
   const addReady = addPersonId !== '' && addRole.trim() !== '';
 
