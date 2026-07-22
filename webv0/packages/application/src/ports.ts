@@ -52,6 +52,8 @@ import type {
   CommsThread,
   CommsMessageView,
   CommsObligationView,
+  CommsCursor,
+  CommsReceipt,
 } from '@c3web/domain';
 
 /** Read-only, tenant-scoped views. */
@@ -265,6 +267,17 @@ export interface ReadStore {
   listCommsObligationsByThread(threadId: string): Promise<CommsObligationView[]>;
   /** Mint-idempotency replay: this creator's obligation for a clientMutationId. */
   getCommsObligationByMutation(createdByUserId: string, clientMutationId: string): Promise<CommsObligationView | null>;
+  /** The caller's OWN cursor on a thread (never watermark-filtered). */
+  getCommsInboxCursor(threadId: string, userId: string): Promise<CommsCursor | null>;
+  /**
+   * The DISCLOSED receipts of a thread: cursor rows joined with each owner's
+   * prefs, filtered by the privacy contract IN ONE PLACE — receipts enabled AND
+   * (no watermark OR the cursor moved at/after receipts_enabled_since). A
+   * missing pref row = enabled since forever (the code-default pattern).
+   */
+  listDisclosedCommsReceipts(threadId: string): Promise<CommsReceipt[]>;
+  /** The user's prefs row, or null (= the code-side defaults, both enabled). */
+  getCommsUserPreference(userId: string): Promise<{ receiptsEnabled: boolean; presenceEnabled: boolean; version: number } | null>;
   /** An idempotent replay: this author's message for a clientMutationId, if any. */
   getCommsMessageByMutation(authorUserId: string, clientMutationId: string): Promise<CommsMessageView | null>;
   /** Keyset page (seq DESC): spine + LATEST revision body + links + attachments. */
@@ -1278,6 +1291,20 @@ export interface WriteTx {
   insertCommsObligationEvent(row: NewCommsObligationEventRow): Promise<string>;
   /** Append an evidence delivery; returns the delivery uuid. */
   insertCommsEvidenceDelivery(row: NewCommsEvidenceDeliveryRow): Promise<string>;
+  /**
+   * SELF-scoped monotonic cursor upsert: writes ONLY when seq advances (the
+   * no-advance write is elided — Temper §226). Returns the row after, or the
+   * unchanged current row when elided.
+   */
+  upsertCommsInboxCursor(threadId: string, userId: string, seq: number): Promise<{ lastReadSeq: number; readAt: string }>;
+  /** SELF-scoped prefs insert; null when a concurrent creator won (23505). */
+  insertCommsUserPreference(row: { userId: string; receiptsEnabled: boolean; presenceEnabled: boolean; receiptsEnabledSince: string | null }): Promise<{ version: number } | null>;
+  /** SELF-scoped version-guarded prefs update; null = stale/missing. */
+  updateCommsUserPreference(
+    userId: string,
+    expectedVersion: number,
+    patch: { receiptsEnabled: boolean; presenceEnabled: boolean; stampReceiptsSince: boolean },
+  ): Promise<{ version: number } | null>;
 }
 
 export interface WriteTransactionOptions {

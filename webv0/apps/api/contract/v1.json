@@ -6526,6 +6526,75 @@
       }
     },
     {
+      "method": "POST",
+      "url": "/api/v1/comms/missions/:missionId/read",
+      "body": {
+        "t": "object",
+        "keys": {
+          "seq": {
+            "t": "number"
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "lastReadSeq": {
+              "t": "number"
+            },
+            "readAt": {
+              "t": "string"
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/comms/missions/:missionId/receipts",
+      "params": {
+        "t": "object",
+        "keys": {
+          "missionId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "receipts": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "lastReadSeq": {
+                    "t": "number"
+                  },
+                  "readAt": {
+                    "t": "string"
+                  },
+                  "userId": {
+                    "t": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "method": "GET",
       "url": "/api/v1/comms/missions/:missionId/thread",
       "querystring": {
@@ -6630,6 +6699,12 @@
                     "t": "string"
                   }
                 }
+              }
+            },
+            "myLastReadSeq": {
+              "t": "nullable",
+              "inner": {
+                "t": "number"
               }
             },
             "thread": {
@@ -8105,6 +8180,69 @@
                 "version": {
                   "t": "number"
                 }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
+      "url": "/api/v1/comms/prefs",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "presenceEnabled": {
+              "t": "boolean"
+            },
+            "receiptsEnabled": {
+              "t": "boolean"
+            },
+            "version": {
+              "t": "nullable",
+              "inner": {
+                "t": "number"
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
+      "url": "/api/v1/comms/prefs",
+      "body": {
+        "t": "object",
+        "keys": {
+          "expectedVersion": {
+            "t": "nullable",
+            "inner": {
+              "t": "number"
+            }
+          },
+          "presenceEnabled": {
+            "t": "boolean"
+          },
+          "receiptsEnabled": {
+            "t": "boolean"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "presenceEnabled": {
+              "t": "boolean"
+            },
+            "receiptsEnabled": {
+              "t": "boolean"
+            },
+            "version": {
+              "t": "nullable",
+              "inner": {
+                "t": "number"
               }
             }
           }

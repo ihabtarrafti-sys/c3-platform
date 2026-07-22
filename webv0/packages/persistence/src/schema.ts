@@ -778,6 +778,35 @@ export const commsObligation = pgTable('comms_obligation', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 0094: the private high-water read cursor (receipts + unread DERIVE from it).
+export const commsInboxCursor = pgTable(
+  'comms_inbox_cursor',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    threadId: text('thread_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    lastReadSeq: bigint('last_read_seq', { mode: 'number' }).notNull(),
+    readAt: timestamp('read_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.threadId, t.userId] }) }),
+);
+
+// 0094: receipts/presence toggles + the anti-retroactive-porosity watermark.
+export const commsUserPreference = pgTable(
+  'comms_user_preference',
+  {
+    tenantId: uuid('tenant_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    receiptsEnabled: boolean('receipts_enabled').notNull().default(true),
+    receiptsEnabledSince: timestamp('receipts_enabled_since', { withTimezone: true }),
+    presenceEnabled: boolean('presence_enabled').notNull().default(true),
+    version: integer('version').notNull().default(0),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.tenantId, t.userId] }) }),
+);
+
 // 0092: the append-only transition history (the story is the record).
 export const commsObligationEvent = pgTable('comms_obligation_event', {
   id: uuid('id').primaryKey().defaultRandom(),

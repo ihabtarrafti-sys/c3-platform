@@ -731,6 +731,48 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return hydrateCommsObligationViews(db, rows);
           }),
 
+        getCommsInboxCursor: (threadId: string, userId: string) =>
+          exec(async (db) => {
+            const rows = await db
+              .select()
+              .from(schema.commsInboxCursor)
+              .where(and(eq(schema.commsInboxCursor.threadId, threadId), eq(schema.commsInboxCursor.userId, userId)))
+              .limit(1);
+            const r = rows[0];
+            return r ? { lastReadSeq: Number(r.lastReadSeq), readAt: r.readAt.toISOString() } : null;
+          }),
+
+        listDisclosedCommsReceipts: (threadId: string) =>
+          exec(async (db) => {
+            // THE PRIVACY CONTRACT, in one predicate (Battle #1): a member's read
+            // position is disclosed IFF their receipts are enabled AND the cursor
+            // moved at/after their receipts_enabled_since watermark. A missing
+            // pref row = enabled since forever. Re-enabling therefore never
+            // retroactively discloses reading done while receipts were off.
+            const res = await db.execute(sql`
+              SELECT c.user_id, c.last_read_seq, c.read_at
+                FROM comms_inbox_cursor c
+                LEFT JOIN comms_user_preference p
+                  ON p.tenant_id = c.tenant_id AND p.user_id = c.user_id
+               WHERE c.thread_id = ${threadId}
+                 AND COALESCE(p.receipts_enabled, true)
+                 AND (p.receipts_enabled_since IS NULL OR c.read_at >= p.receipts_enabled_since)
+               ORDER BY c.last_read_seq DESC, c.user_id
+            `);
+            return (res.rows as Array<{ user_id: string; last_read_seq: string | number; read_at: Date | string }>).map((r) => ({
+              userId: r.user_id,
+              lastReadSeq: Number(r.last_read_seq),
+              readAt: r.read_at instanceof Date ? r.read_at.toISOString() : new Date(r.read_at).toISOString(),
+            }));
+          }),
+
+        getCommsUserPreference: (userId: string) =>
+          exec(async (db) => {
+            const rows = await db.select().from(schema.commsUserPreference).where(eq(schema.commsUserPreference.userId, userId)).limit(1);
+            const r = rows[0];
+            return r ? { receiptsEnabled: r.receiptsEnabled, presenceEnabled: r.presenceEnabled, version: r.version } : null;
+          }),
+
         getCommsObligationByMutation: (createdByUserId: string, clientMutationId: string) =>
           exec(async (db) => {
             // Mint idempotency lives on the Created EVENT (unique per actor+mutation).

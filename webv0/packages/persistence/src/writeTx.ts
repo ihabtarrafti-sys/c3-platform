@@ -1970,6 +1970,67 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return r.id;
     },
 
+    async upsertCommsInboxCursor(threadId: string, userId: string, seq: number) {
+      // SELF-scoped, MONOTONIC, write-only-when-advancing (Temper §226): the
+      // guarded DO UPDATE elides the no-advance write entirely — a re-read of an
+      // already-covered page produces no row version, no WAL, no updated stamp.
+      const res = await db.execute(sql`
+        INSERT INTO comms_inbox_cursor (tenant_id, thread_id, user_id, last_read_seq)
+        VALUES (${tenantId}, ${threadId}, ${userId}, ${seq})
+        ON CONFLICT (tenant_id, thread_id, user_id)
+        DO UPDATE SET last_read_seq = EXCLUDED.last_read_seq, read_at = now()
+        WHERE comms_inbox_cursor.last_read_seq < EXCLUDED.last_read_seq
+        RETURNING last_read_seq, read_at
+      `);
+      const r = res.rows[0] as { last_read_seq: string | number; read_at: Date | string } | undefined;
+      if (r) {
+        return { lastReadSeq: Number(r.last_read_seq), readAt: r.read_at instanceof Date ? r.read_at.toISOString() : new Date(r.read_at).toISOString() };
+      }
+      // Elided (no advance): return the unchanged current row.
+      const cur = await db
+        .select()
+        .from(schema.commsInboxCursor)
+        .where(and(eq(schema.commsInboxCursor.threadId, threadId), eq(schema.commsInboxCursor.userId, userId)))
+        .limit(1);
+      const c = cur[0];
+      if (!c) throw new Error('comms cursor upsert returned neither a row nor an existing cursor');
+      return { lastReadSeq: Number(c.lastReadSeq), readAt: c.readAt.toISOString() };
+    },
+
+    async insertCommsUserPreference(row) {
+      try {
+        const [r] = await db
+          .insert(schema.commsUserPreference)
+          .values({
+            tenantId,
+            userId: row.userId,
+            receiptsEnabled: row.receiptsEnabled,
+            presenceEnabled: row.presenceEnabled,
+            receiptsEnabledSince: row.receiptsEnabledSince === null ? null : new Date(row.receiptsEnabledSince),
+          })
+          .returning();
+        return r ? { version: r.version } : null;
+      } catch (e) {
+        if ((e as { code?: string }).code === '23505') return null;
+        throw e;
+      }
+    },
+
+    async updateCommsUserPreference(userId, expectedVersion, patch) {
+      const rows = await db
+        .update(schema.commsUserPreference)
+        .set({
+          receiptsEnabled: patch.receiptsEnabled,
+          presenceEnabled: patch.presenceEnabled,
+          version: sql`${schema.commsUserPreference.version} + 1`,
+          // The anti-retroactive-porosity stamp: only on a false→true transition.
+          ...(patch.stampReceiptsSince ? { receiptsEnabledSince: sql`now()` } : {}),
+        })
+        .where(and(eq(schema.commsUserPreference.userId, userId), eq(schema.commsUserPreference.version, expectedVersion)))
+        .returning();
+      return rows[0] ? { version: rows[0].version } : null;
+    },
+
     async insertCommsEvidenceDelivery(row): Promise<string> {
       const [r] = await db
         .insert(schema.commsEvidenceDelivery)

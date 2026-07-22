@@ -37,6 +37,7 @@ export * from './usecases/calendarOps';
 export * from './usecases/commentOps';
 export * from './usecases/commsOps';
 export * from './usecases/commsObligationOps';
+export * from './usecases/commsReceiptOps';
 export * from './usecases/intakeOps';
 export * from './usecases/subscriptionOps';
 export * from './usecases/departureOps';

@@ -204,3 +204,46 @@ export interface CommsObligationView {
   readonly events: CommsObligationEventView[];
   readonly evidence: CommsEvidenceView[];
 }
+
+// ── Receipts: derived from the private cursor + the watermark (Battle #1) ────
+// "read by X" ⇔ X's cursor covers the seq AND X's receipts are enabled AND the
+// cursor movement happened at/after X's receipts_enabled_since — re-enabling
+// never retroactively discloses reading done while receipts were off, and no
+// per-read shared row is ever written.
+
+/** One member's disclosed read position on a thread. */
+export interface CommsReceipt {
+  readonly userId: string;
+  readonly lastReadSeq: number;
+  readonly readAt: string;
+}
+
+/** The caller's own cursor (never subject to the disclosure watermark). */
+export interface CommsCursor {
+  readonly lastReadSeq: number;
+  readonly readAt: string;
+}
+
+/** Advance the reader's OWN cursor to a seq they have on screen. */
+export const advanceCommsCursorInputSchema = z
+  .object({ seq: z.number().int().min(1) })
+  .strict();
+export type AdvanceCommsCursorInput = z.infer<typeof advanceCommsCursorInputSchema>;
+
+/** The user's Comms preferences (missing row = both enabled — the lock ruling). */
+export interface CommsPrefs {
+  readonly receiptsEnabled: boolean;
+  readonly presenceEnabled: boolean;
+  /** null = no row yet (the code-side defaults) — the 0037 absent-row pattern. */
+  readonly version: number | null;
+}
+
+/** Self-only, expected-version prefs write (the tenant_setting CAS shape). */
+export const setCommsPrefsInputSchema = z
+  .object({
+    receiptsEnabled: z.boolean(),
+    presenceEnabled: z.boolean(),
+    expectedVersion: z.number().int().min(0).nullable(),
+  })
+  .strict();
+export type SetCommsPrefsInput = z.infer<typeof setCommsPrefsInputSchema>;

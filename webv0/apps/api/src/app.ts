@@ -218,9 +218,12 @@ import {
   commsObligationParamSchema,
   commsObligationResponseSchema,
   commsObligationsListSchema,
+  commsCursorResponseSchema,
+  commsReceiptsResponseSchema,
+  commsPrefsResponseSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, createCommsObligationInputSchema, commsObligationTransitionInputSchema, type PostCommsMessageInput, type CreateCommsObligationInput, type CommsObligationTransitionInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
+import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, createCommsObligationInputSchema, commsObligationTransitionInputSchema, advanceCommsCursorInputSchema, setCommsPrefsInputSchema, type PostCommsMessageInput, type CreateCommsObligationInput, type CommsObligationTransitionInput, type AdvanceCommsCursorInput, type SetCommsPrefsInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
 import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations, assertManageEntities } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
@@ -398,6 +401,10 @@ import {
   getCommsObligation,
   transitionCommsObligation,
   deliverCommsEvidence,
+  advanceMissionCursor,
+  getMissionReceipts,
+  getCommsPrefs,
+  setCommsPrefs,
   type SubmitMemberChangeCommand,
 } from '@c3web/application';
 import type { Deps } from './deps';
@@ -1775,6 +1782,39 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { missionId } = req.params as { missionId: string };
       const message = await postMissionMessage(P, actorOf(req), missionId, req.body as PostCommsMessageInput);
       return reply.status(201).send({ message });
+    },
+  );
+
+  // ── Receipts: derived from the private cursor + the watermark (Battle #1) ──
+  // SELF-scoped writes (the actor IS the subject); reads + cursor advance +
+  // prefs survive a lapsed license (your own record, your own privacy).
+  r.post(
+    '/api/v1/comms/missions/:missionId/read',
+    { schema: { params: commsMissionParamSchema, body: advanceCommsCursorInputSchema, response: { 200: commsCursorResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      return advanceMissionCursor(P, actorOf(req), missionId, req.body as AdvanceCommsCursorInput);
+    },
+  );
+
+  r.get(
+    '/api/v1/comms/missions/:missionId/receipts',
+    { schema: { params: commsMissionParamSchema, response: { 200: commsReceiptsResponseSchema } } },
+    async (req) => {
+      const { missionId } = req.params as { missionId: string };
+      return { receipts: await getMissionReceipts(P, actorOf(req), missionId) };
+    },
+  );
+
+  r.get('/api/v1/comms/prefs', { schema: { response: { 200: commsPrefsResponseSchema } } }, async (req) => {
+    return getCommsPrefs(P, actorOf(req));
+  });
+
+  r.post(
+    '/api/v1/comms/prefs',
+    { schema: { body: setCommsPrefsInputSchema, response: { 200: commsPrefsResponseSchema } } },
+    async (req) => {
+      return setCommsPrefs(P, actorOf(req), req.body as SetCommsPrefsInput);
     },
   );
 

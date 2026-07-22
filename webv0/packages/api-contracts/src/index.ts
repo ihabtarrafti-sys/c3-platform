@@ -15,6 +15,8 @@ import {
   postCommsMessageInputSchema,
   createCommsObligationInputSchema,
   commsObligationTransitionInputSchema,
+  advanceCommsCursorInputSchema,
+  setCommsPrefsInputSchema,
   DOCUMENT_OWNER_TYPES,
   APPROVAL_STATUSES,
   C3_ROLES,
@@ -674,6 +676,7 @@ export const commsMessageSchema = z.object({
 export const missionThreadResponseSchema = z.object({
   thread: commsThreadSchema.nullable(),
   messages: z.array(commsMessageSchema),
+  myLastReadSeq: z.number().int().nullable(),
 });
 export const commsMessageResponseSchema = z.object({ message: commsMessageSchema });
 export const commsPageQuerySchema = z.object({
@@ -728,6 +731,18 @@ export const commsObligationResponseSchema = z.object({ obligation: commsObligat
 export const commsObligationsListSchema = z.object({ obligations: z.array(commsObligationSchema) });
 export const commsObligationParamSchema = z.object({ obligationId: z.string().regex(/^OBL-\d{4,}$/) });
 export { createCommsObligationInputSchema, commsObligationTransitionInputSchema };
+
+// Receipts (Battle #1): derived from the private cursor + the watermark.
+export const commsCursorResponseSchema = z.object({ lastReadSeq: z.number().int(), readAt: z.string() });
+export const commsReceiptsResponseSchema = z.object({
+  receipts: z.array(z.object({ userId: z.string(), lastReadSeq: z.number().int(), readAt: z.string() })),
+});
+export const commsPrefsResponseSchema = z.object({
+  receiptsEnabled: z.boolean(),
+  presenceEnabled: z.boolean(),
+  version: z.number().int().nullable(),
+});
+export { advanceCommsCursorInputSchema, setCommsPrefsInputSchema };
 
 // ── global search (S3 → S3.1): role-aware, identity fields only ──────────────
 export const SEARCH_RESULT_KINDS = [

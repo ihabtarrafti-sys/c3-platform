@@ -100,6 +100,8 @@ export async function commsDocReadGuard(
 export interface MissionThreadView {
   readonly thread: CommsThread | null;
   readonly messages: CommsMessageView[];
+  /** The caller's OWN read position (unread = thread.lastSeq − this); null = never read. */
+  readonly myLastReadSeq: number | null;
 }
 
 /**
@@ -124,11 +126,12 @@ export async function getMissionThread(
   if (!thread && isEntitlementWritable(ent)) {
     thread = await createMissionThread(p, actor, missionId);
   }
-  if (!thread) return { thread: null, messages: [] };
+  if (!thread) return { thread: null, messages: [], myLastReadSeq: null };
 
   const limit = Math.min(Math.max(page?.limit ?? 50, 1), COMMS_MESSAGES_PAGE_MAX);
   const messages = await reads.listCommsMessages(thread.threadId, limit, page?.beforeSeq ?? null);
-  return { thread, messages };
+  const myCursor = await reads.getCommsInboxCursor(thread.threadId, actor.userId);
+  return { thread, messages, myLastReadSeq: myCursor?.lastReadSeq ?? null };
 }
 
 /** Get-or-create convergence on the one-per-anchor partial unique. */
