@@ -687,6 +687,188 @@
   font-size: var(--c3-font-size-body-small);
 }
 
+/* ── The collection family (contract 05; Dawn's Finance craft) ─────────── */
+
+.tw-root .collection-frame {
+  padding: var(--tw-surface-pad);
+  border-radius: var(--c3-radius-xl);
+  display: grid;
+  gap: var(--c3-space-4);
+  align-content: start;
+}
+
+.tw-root .collection-title {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-display);
+  font-weight: var(--c3-font-weight-regular);
+  letter-spacing: var(--c3-letter-spacing-tight);
+  line-height: var(--c3-line-height-tight);
+}
+
+.tw-root .collection-count {
+  margin: var(--c3-space-1) 0 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .collection-scope {
+  margin: var(--c3-space-1) 0 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .collection-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .collection-filter-summary {
+  margin: 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .comparison-scroll {
+  overflow-x: auto;
+}
+
+.tw-root .data-grid {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.tw-root .data-grid th {
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border-bottom: var(--tw-line) solid var(--c3-border-strong);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.tw-root .data-grid td {
+  padding: var(--c3-space-3);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+  vertical-align: top;
+}
+
+.tw-root .data-grid tbody tr:hover {
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .data-grid td.number {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.tw-root .record-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--c3-space-3);
+  min-height: var(--c3-tw-row-comfortable-min);
+  padding: var(--c3-space-3);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .record-row:last-child {
+  border-bottom: 0;
+}
+
+.tw-root .status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+  white-space: nowrap;
+}
+
+.tw-root .status-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.tw-root .tw-empty-state {
+  padding: var(--c3-space-12) var(--c3-space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--c3-space-3);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  text-align: center;
+}
+
+.tw-root .tw-loading-state {
+  padding: var(--c3-space-6) 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .tw-error-state {
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-left: 3px solid var(--c3-state-danger);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-work-base);
+  display: grid;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .tw-error-message {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .tw-error-ref {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .fact-list {
+  margin: 0;
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--c3-space-2) var(--c3-space-8);
+}
+
+.tw-root .fact-pair {
+  display: contents;
+}
+
+.tw-root .fact-list dt {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+  align-self: baseline;
+}
+
+.tw-root .fact-list dd {
+  margin: 0;
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+  align-self: baseline;
+}
+
+.tw-root .fact-list dd.mono {
+  font-family: var(--c3-font-mono, monospace);
+}
+
 /* ── The Comms layout (Dawn's screen-4 grid, exact numbers) ────────────── */
 
 .tw-root .comms-layout {
@@ -864,12 +1046,148 @@
   gap: var(--c3-space-1);
 }
 
-.tw-root .tw-field > span {
+.tw-root .tw-field > span,
+.tw-root .tw-field > label > span {
   color: var(--c3-ink-quiet);
   font-size: var(--c3-font-size-caption);
   font-weight: var(--c3-font-weight-bold);
   letter-spacing: var(--c3-letter-spacing-label);
   text-transform: uppercase;
+}
+
+/* The required WORD (contract 04) — quiet, never an asterisk. */
+.tw-root .field-required {
+  color: var(--c3-ink-quiet);
+  font-style: normal;
+  font-weight: var(--c3-font-weight-regular);
+  text-transform: lowercase;
+  letter-spacing: normal;
+}
+
+.tw-root .field-hint {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .field-error {
+  color: var(--c3-state-danger);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .tw-field [aria-invalid='true'] {
+  border-color: var(--c3-state-danger);
+}
+
+/* ── The composer sheet (FormDrawer — WORK material in a modal frame) ──── */
+
+.tw-root dialog.form-sheet {
+  position: fixed;
+  inset: 0 0 0 auto;
+  width: min(30rem, 100vw);
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border-width: 0 0 0 var(--tw-line);
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.tw-root dialog.form-sheet[open] {
+  animation: tw-sheet-arrive var(--c3-motion-duration-settle) var(--c3-motion-ease-signature) both;
+}
+
+.tw-root dialog.form-sheet::backdrop {
+  background: var(--c3-overlay-dim);
+}
+
+@keyframes tw-sheet-arrive {
+  from { transform: translateX(var(--c3-space-6)); opacity: 0.6; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+.tw-root .form-sheet-frame {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* The taxonomy rail: a quiet marker, not a highlight (the B.13 language). */
+.tw-root .form-sheet-rail {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: var(--c3-ink-quiet);
+  z-index: 1;
+}
+
+.tw-root .form-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-4) var(--c3-space-4) var(--c3-space-4) var(--c3-space-6);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+  flex-shrink: 0;
+}
+
+.tw-root .form-sheet-chip {
+  margin-left: auto;
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tw-root .form-sheet-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--c3-space-4) var(--c3-space-6);
+}
+
+.tw-root .form-sheet-intro {
+  margin: 0 0 var(--c3-space-4);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-comfortable);
+}
+
+.tw-root .form-sheet-fields {
+  display: grid;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .form-sheet-foot {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3) var(--c3-space-6);
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
+  background: var(--c3-tw-room-canvas);
+}
+
+/* ── The governed confirm (decision moment on the Float) ───────────────── */
+
+.tw-root .governed-description {
+  padding-left: var(--c3-space-3);
+  border-left: 2px solid var(--c3-border-subtle);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-comfortable);
+}
+
+.tw-root .governed-extra {
+  margin-top: var(--c3-space-3);
+  display: grid;
+  gap: var(--c3-space-3);
 }
 
 /* ── The Thread (list rail · conversation · composer) ──────────────────── */

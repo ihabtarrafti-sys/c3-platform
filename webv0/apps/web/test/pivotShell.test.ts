@@ -93,6 +93,41 @@ describe('the pivot shell laws (Wave 0)', () => {
     expect(activePlaceFor('/nowhere')).toBeNull();
   });
 
+  it('W0-2: the forms/governed kit keeps the Fluent contracts byte-compatible', () => {
+    const drawer = read('tablework/forms.tsx');
+    // The composer sheet: the close testid + BOTH taxonomy chip words verbatim.
+    expect(drawer).toContain('data-testid="form-drawer-close"');
+    expect(drawer).toContain("'Governed request'");
+    expect(drawer).toContain("'Immediate · recorded'");
+    // The dirty-guard law rides the API: no field state lives in the drawer.
+    expect(drawer).not.toMatch(/useState/);
+    const governed = read('tablework/GovernedAction.tsx');
+    // The trigger keeps the caller's testid; the confirm carries -confirm.
+    expect(governed).toContain('data-testid={triggerTestId}');
+    expect(governed).toContain('data-testid={`${triggerTestId}-confirm`}');
+    expect(governed).toContain("'Working…'");
+    expect(governed).toContain('Cancel');
+    // A rejecting onConfirm keeps the dialog OPEN.
+    expect(governed).toMatch(/catch \{/);
+  });
+
+  it('W0-3: the collection/state kit keeps the Fluent contracts byte-compatible', () => {
+    const collections = read('tablework/collections.tsx');
+    // The truthful-states copy + roles verbatim (A.12).
+    expect(collections).toContain("label = 'Loading…'");
+    expect(collections).toContain('role="status"');
+    expect(collections).toContain('role="alert"');
+    expect(collections).toContain('Reference: {correlationId}');
+    // The B.8 badge variant map survives whole.
+    for (const v of ['ready', 'pending', 'blocked', 'neutral', 'info', 'signal']) {
+      expect(collections).toContain(`${v}:`);
+    }
+    // The document-title parity with PageHeader.
+    expect(collections).toContain('`C3 — ${title}`');
+    // The comparison scroll region stays keyboard-reachable.
+    expect(collections).toContain('tabIndex={0}');
+  });
+
   it('gating mirrors the AppShell contract (render-gating only)', () => {
     const none = {
       canReadPeople: true,
