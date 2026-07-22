@@ -24,6 +24,7 @@ import { SubscriptionsPage } from './pages/SubscriptionsPage';
 import { DeparturesPage } from './pages/DeparturesPage';
 import { OnePagerPage } from './pages/OnePagerPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
+import { MissionCommsPage } from './pages/MissionCommsPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { TeamsPage } from './pages/TeamsPage';
@@ -59,6 +60,9 @@ export const router = createBrowserRouter([
   // Track B6: the PUBLIC guest form — OUTSIDE the shell + session (a guest has
   // no account). The tenant is resolved server-side from the token.
   { path: '/intake/:token', element: <GuestIntakePage /> },
+  // The Tablework pilot (Comms UI): a standalone frame OUTSIDE the Fluent
+  // AppShell — the two grammars never share a route. Same session provider.
+  { path: '/missions/:missionId/comms', element: <MissionCommsPage /> },
   {
     path: '/',
     element: <AppShell />,

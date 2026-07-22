@@ -1,0 +1,715 @@
+/**
+ * tablework.css — the Tablework pilot's ONLY stylesheet (Comms UI-1).
+ *
+ * A faithful port of the frame + material rules from the owner-validated Dawn
+ * specimens (c3-dawn gallery: tablework-proof/proof.css + tablework-spread/
+ * spread.css), speaking ONLY the locked brand tokens (--c3-*) and the v1.3.0
+ * Tablework aliases (--c3-tw-*). No Fluent, no raw color literals.
+ *
+ * SCOPE: every selector nests under .tw-root — this file is bundled globally,
+ * and the Fluent shell must never feel it. The two grammars never share a
+ * route; this scope is the mechanical guarantee.
+ *
+ * MATERIAL LAW (v1.3.0): Room + Work surfaces are OPAQUE; glass is Float-only,
+ * fallback-first (@supports upgrade), and collapses to the opaque fallback
+ * under the app's reduced-effects contract AND prefers-reduced-transparency.
+ */
+
+.tw-root {
+  --tw-room-pad: var(--c3-space-6);
+  --tw-surface-pad: var(--c3-space-5);
+  --tw-gap: var(--c3-space-4);
+  --tw-line: 1px;
+
+  min-width: 20rem;
+  min-height: 100dvh;
+  color: var(--c3-ink-default);
+  background: var(--c3-tw-room-canvas);
+  font-family: var(--c3-font-family-human);
+  font-size: var(--c3-font-size-body);
+  line-height: var(--c3-line-height-body);
+  text-rendering: optimizeLegibility;
+}
+
+.tw-root *,
+.tw-root *::before,
+.tw-root *::after {
+  box-sizing: border-box;
+}
+
+.tw-root button,
+.tw-root input,
+.tw-root select,
+.tw-root textarea,
+.tw-root a {
+  font: inherit;
+}
+
+.tw-root button,
+.tw-root a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tw-root button {
+  color: inherit;
+}
+
+.tw-root a {
+  color: var(--c3-accent-sky);
+}
+
+.tw-root a:focus-visible,
+.tw-root button:focus-visible,
+.tw-root input:focus-visible,
+.tw-root select:focus-visible,
+.tw-root textarea:focus-visible,
+.tw-root dialog:focus-visible {
+  outline: 2px solid var(--c3-action-focus);
+  outline-offset: 3px;
+}
+
+.tw-root .sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.tw-root .skip-link {
+  position: fixed;
+  top: var(--c3-space-3);
+  left: var(--c3-space-3);
+  z-index: 100;
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-pill);
+  background: var(--c3-tw-work-raised);
+  color: var(--c3-ink-strong);
+  text-decoration: none;
+  transform: translateY(calc(-100% - var(--c3-space-6)));
+  transition: transform var(--c3-motion-duration-fast) var(--c3-motion-ease-signature);
+}
+
+.tw-root .skip-link:focus {
+  transform: translateY(0);
+}
+
+/* ── The frame ─────────────────────────────────────────────────────────── */
+
+.tw-root .app-frame {
+  min-height: 100dvh;
+  display: grid;
+  grid-template-columns: var(--c3-tw-shell-rail-width) minmax(0, 1fr);
+  background: var(--c3-tw-room-canvas);
+}
+
+/* ── Materials ─────────────────────────────────────────────────────────── */
+
+.tw-root .work-surface {
+  background: var(--c3-tw-work-base);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .work-surface.subtle {
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .work-surface.elevated {
+  background: var(--c3-tw-work-elevated);
+}
+
+.tw-root .work-surface.raised {
+  background: var(--c3-tw-work-elevated);
+  border-color: var(--c3-border-strong);
+  box-shadow: var(--c3-shadow-soft);
+}
+
+/* ── Place rail ────────────────────────────────────────────────────────── */
+
+.tw-root .place-rail {
+  position: relative;
+  z-index: 3;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+  padding: var(--c3-space-5) var(--c3-space-4);
+  border-width: 0 var(--tw-line) 0 0;
+}
+
+.tw-root .brand-lockup {
+  min-height: var(--c3-tw-target-min);
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-2) var(--c3-space-3) var(--c3-space-5);
+  color: var(--c3-ink-strong);
+  text-decoration: none;
+}
+
+.tw-root .brand-lockup img {
+  width: 2.5rem;
+  height: 2.5rem;
+  object-fit: contain;
+}
+
+.tw-root .brand-lockup span {
+  min-width: 0;
+  display: grid;
+}
+
+.tw-root .brand-lockup strong {
+  font-size: var(--c3-font-size-lead);
+  font-weight: var(--c3-font-weight-brand);
+}
+
+.tw-root .brand-lockup small,
+.tw-root .actor-context small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .place-map {
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .place-link {
+  position: relative;
+  min-height: var(--c3-tw-target-min);
+  display: grid;
+  grid-template-columns: 1.5rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid transparent;
+  border-radius: var(--c3-radius-md);
+  color: var(--c3-ink-muted);
+  text-decoration: none;
+  transition: color var(--c3-motion-duration-fast), background var(--c3-motion-duration-fast), border-color var(--c3-motion-duration-fast);
+}
+
+.tw-root .place-link > span {
+  text-align: center;
+  font-size: var(--c3-font-size-lead);
+}
+
+.tw-root .place-link b {
+  font-weight: var(--c3-font-weight-text);
+}
+
+.tw-root .place-link small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-style: italic;
+}
+
+.tw-root a.place-link:hover {
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-subtle);
+  border-color: var(--c3-border-subtle);
+}
+
+.tw-root .place-link.active {
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-raised);
+  border-color: var(--c3-border-strong);
+}
+
+.tw-root .place-link.active::before {
+  content: "";
+  position: absolute;
+  inset: var(--c3-space-2) auto var(--c3-space-2) calc(var(--c3-space-4) * -1 - 1px);
+  width: 2px;
+  border-radius: var(--c3-radius-pill);
+  background: linear-gradient(to bottom, var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+}
+
+.tw-root .actor-context {
+  margin-top: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-4) var(--c3-space-3) 0;
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .actor-context > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.tw-root .actor-context strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .actor-avatar {
+  width: var(--c3-tw-target-min);
+  height: var(--c3-tw-target-min);
+  display: grid;
+  place-items: center;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: 50%;
+  background: var(--c3-accent-coral-wash);
+  color: var(--c3-state-people);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-bold);
+}
+
+/* ── Work frame + context header ───────────────────────────────────────── */
+
+.tw-root .work-frame {
+  min-width: 0;
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.tw-root .context-header {
+  position: relative;
+  z-index: 2;
+  min-height: var(--c3-tw-context-header-sticky-min);
+  display: grid;
+  grid-template-columns: minmax(10rem, .7fr) minmax(20rem, 1.25fr) auto;
+  align-items: center;
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-3) var(--c3-space-6);
+  border-width: 0 0 var(--tw-line);
+}
+
+.tw-root .canonical-place,
+.tw-root .working-context,
+.tw-root .intent-bar {
+  min-width: 0;
+}
+
+.tw-root .canonical-place {
+  display: grid;
+  gap: 2px;
+}
+
+.tw-root .context-label,
+.tw-root .working-context small,
+.tw-root .eyebrow {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.tw-root .canonical-place strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body);
+}
+
+.tw-root .working-context {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-3);
+  color: var(--c3-ink-muted);
+  white-space: nowrap;
+}
+
+.tw-root .working-context > span:first-child {
+  display: grid;
+  gap: 1px;
+}
+
+.tw-root .working-context b,
+.tw-root .working-context strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .section-state {
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .intent-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .intent-button,
+.tw-root .icon-button {
+  min-width: var(--c3-tw-target-min);
+  min-height: var(--c3-tw-target-min);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: var(--tw-line) solid transparent;
+  border-radius: var(--c3-radius-pill);
+  background: transparent;
+  color: var(--c3-ink-muted);
+  cursor: pointer;
+  text-decoration: none;
+  transition: color var(--c3-motion-duration-fast), background var(--c3-motion-duration-fast), border-color var(--c3-motion-duration-fast);
+}
+
+.tw-root .intent-button:hover,
+.tw-root .icon-button:hover {
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-subtle);
+  border-color: var(--c3-border-subtle);
+}
+
+/* ── Room ──────────────────────────────────────────────────────────────── */
+
+.tw-root .room {
+  min-width: 0;
+  overflow: auto;
+  padding: var(--tw-room-pad);
+  background: var(--c3-tw-room-canvas);
+  scrollbar-color: var(--c3-border-strong) var(--c3-tw-room-canvas);
+}
+
+.tw-root .room > * {
+  width: min(100%, var(--c3-tw-collection-max-reading));
+  margin-inline: auto;
+}
+
+/* ── Shared room furniture (the spread's reading pieces) ───────────────── */
+
+.tw-root .surface-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--c3-space-4);
+  margin-bottom: var(--c3-space-4);
+}
+
+.tw-root .surface-heading h2 {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-title);
+  font-weight: var(--c3-font-weight-brand);
+}
+
+.tw-root .surface-heading p {
+  margin: var(--c3-space-1) 0 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .boundary-note {
+  margin: var(--c3-space-4) 0 0;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
+/* ── The Comms layout (Dawn's screen-4 grid, exact numbers) ────────────── */
+
+.tw-root .comms-layout {
+  display: grid;
+  grid-template-columns: 16rem minmax(26rem, 1fr) 20rem;
+  align-items: stretch;
+  gap: var(--tw-gap);
+  min-height: 42rem;
+}
+
+.tw-root .comms-surface {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  padding: var(--c3-space-4);
+  border-radius: var(--c3-radius-xl);
+}
+
+/* ── Narrow navigation (hidden until the 48rem break) ──────────────────── */
+
+.tw-root .narrow-navigation {
+  display: none;
+}
+
+/* ── Float (glass, fallback-first — the ONLY glass in Tablework) ───────── */
+
+.tw-root .float-surface {
+  color: var(--c3-ink-default);
+  background: var(--c3-tw-float-fallback);
+  border: var(--tw-line) solid var(--c3-tw-float-edge);
+  box-shadow: var(--c3-tw-float-shadow);
+}
+
+.tw-root dialog.float-surface {
+  width: min(28rem, calc(100vw - var(--c3-space-8)));
+  max-height: min(42rem, calc(100dvh - var(--c3-space-8)));
+  margin: auto var(--c3-space-6) var(--c3-space-6) auto;
+  padding: 0;
+  overflow: auto;
+  border-radius: var(--c3-radius-xl);
+}
+
+.tw-root dialog.float-surface[open] {
+  animation: tw-float-arrive var(--c3-motion-duration-settle) var(--c3-motion-ease-signature) both;
+}
+
+.tw-root dialog.float-surface::backdrop {
+  background: var(--c3-overlay-dim);
+}
+
+.tw-root .float-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-5);
+  border-bottom: var(--tw-line) solid var(--c3-tw-float-edge);
+  background: var(--c3-tw-float-fallback);
+}
+
+.tw-root .float-header h2 {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-lead);
+}
+
+.tw-root .float-body {
+  padding: var(--c3-space-5);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .tw-root .float-surface {
+    background: var(--c3-tw-float-fill-strong);
+    backdrop-filter: blur(var(--c3-glass-blur)) saturate(var(--c3-glass-saturate));
+  }
+
+  .tw-root .float-header {
+    background: var(--c3-tw-float-fill-strong);
+  }
+}
+
+/* The app's reduced-effects contract + the OS transparency preference both
+ * collapse the Float to its opaque fallback — same law as the Fluent shell. */
+[data-c3-effects='reduced'] .tw-root .float-surface,
+[data-c3-effects='reduced'] .tw-root .float-header {
+  background: var(--c3-tw-float-fallback);
+  backdrop-filter: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .tw-root .float-surface,
+  .tw-root .float-header {
+    background: var(--c3-tw-float-fallback);
+    backdrop-filter: none;
+  }
+}
+
+@keyframes tw-float-arrive {
+  from { transform: translateY(var(--c3-space-3)); }
+  to { transform: translateY(0); }
+}
+
+/* ── Breakpoints (Dawn's exact breaks: 84 / 72 / 48 rem) ───────────────── */
+
+@media (max-width: 84rem) {
+  .tw-root .comms-layout {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+
+  .tw-root .comms-layout > aside {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 71.999rem) {
+  .tw-root .app-frame {
+    grid-template-columns: 5.25rem minmax(0, 1fr);
+  }
+
+  .tw-root .place-rail {
+    padding-inline: var(--c3-space-2);
+  }
+
+  .tw-root .brand-lockup {
+    justify-content: center;
+    padding-inline: 0;
+  }
+
+  .tw-root .brand-lockup span,
+  .tw-root .place-link b,
+  .tw-root .place-link small,
+  .tw-root .actor-context > span:last-child {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+
+  .tw-root .place-link {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding-inline: var(--c3-space-2);
+  }
+
+  .tw-root .place-link.active::before {
+    left: calc(var(--c3-space-2) * -1 - 1px);
+  }
+
+  .tw-root .actor-context {
+    grid-template-columns: 1fr;
+    justify-items: center;
+    padding-inline: 0;
+  }
+
+  .tw-root .context-header {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    padding-inline: var(--c3-space-4);
+  }
+
+  .tw-root .working-context > span:first-child,
+  .tw-root .section-state {
+    display: none;
+  }
+
+  .tw-root .comms-layout {
+    grid-template-columns: 13rem minmax(24rem, 1fr);
+  }
+
+  .tw-root .comms-layout > aside {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .tw-root {
+    --tw-room-pad: var(--c3-space-4);
+    --tw-surface-pad: var(--c3-space-4);
+  }
+
+  .tw-root .app-frame {
+    display: block;
+  }
+
+  .tw-root .place-rail {
+    display: none;
+  }
+
+  .tw-root .work-frame {
+    height: 100dvh;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .tw-root .context-header {
+    min-height: auto;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--c3-space-2);
+    padding: var(--c3-space-3) var(--c3-space-4);
+  }
+
+  .tw-root .working-context {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    overflow: hidden;
+    font-size: var(--c3-font-size-body-small);
+  }
+
+  .tw-root .intent-bar {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .tw-root .room {
+    padding-bottom: calc(var(--c3-space-16) + var(--c3-space-6));
+  }
+
+  .tw-root .comms-layout {
+    min-height: 0;
+  }
+
+  .tw-root .comms-layout > nav {
+    display: none;
+  }
+
+  .tw-root .comms-layout > aside {
+    grid-column: auto;
+  }
+
+  .tw-root .narrow-navigation {
+    position: relative;
+    z-index: 5;
+    min-height: 4.5rem;
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    padding: var(--c3-space-1) max(var(--c3-space-2), env(safe-area-inset-right)) max(var(--c3-space-1), env(safe-area-inset-bottom)) max(var(--c3-space-2), env(safe-area-inset-left));
+    border-width: var(--tw-line) 0 0;
+  }
+
+  .tw-root .narrow-navigation a {
+    min-width: 0;
+    min-height: var(--c3-tw-target-min);
+    display: grid;
+    place-items: center;
+    align-content: center;
+    gap: 1px;
+    padding: var(--c3-space-1);
+    border: 0;
+    background: transparent;
+    color: var(--c3-ink-quiet);
+    font-size: var(--c3-font-size-caption);
+    text-decoration: none;
+  }
+
+  .tw-root .narrow-navigation span {
+    font-size: var(--c3-font-size-body);
+  }
+
+  .tw-root .narrow-navigation [aria-current="page"] {
+    color: var(--c3-accent-sky);
+  }
+
+  .tw-root dialog.float-surface {
+    width: 100%;
+    max-width: none;
+    max-height: min(80dvh, 44rem);
+    margin: auto 0 0;
+    border-width: var(--tw-line) 0 0;
+    border-radius: var(--c3-radius-xl) var(--c3-radius-xl) 0 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tw-root *,
+  .tw-root *::before,
+  .tw-root *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0ms !important;
+    transition-duration: 0ms !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .tw-root .work-surface,
+  .tw-root .float-surface,
+  .tw-root .place-link {
+    border-color: CanvasText;
+  }
+
+  .tw-root .place-link.active::before {
+    background: Highlight;
+  }
+}

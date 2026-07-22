@@ -15,6 +15,10 @@ import './theme/fonts.css';
 // contracts. The Phase-0 bridge and the S47 token file are retired — every
 // component speaks the brand vocabulary directly.
 import './theme/brand/c3.tokens.css';
+// Tablework v1.3.0 (brand-v1.3.0/6036fa3): the ADDITIVE --c3-tw-* component
+// aliases, vendored sha-pinned (identityTokens.test). Import AFTER the core
+// (the contract's fixed order); the aliases inherit both themes.
+import './theme/brand/tablework.tokens.css';
 import './theme/c3-app.css';
 
 // Build marker (real runtime statement so it survives minification and changes

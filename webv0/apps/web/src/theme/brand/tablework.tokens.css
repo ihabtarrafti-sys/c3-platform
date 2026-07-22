@@ -1,0 +1,50 @@
+/*
+ * C3 Tablework tokens — additive component aliases for c3-brand 1.3.0
+ * Import after system/tokens/c3.tokens.css.
+ * These tokens reference the locked identity core; they do not restate palette values.
+ */
+
+:root,
+[data-c3-theme="cozy-dark"] {
+  /* Material tiers */
+  --c3-tw-room-canvas: var(--c3-ground-canvas);
+  --c3-tw-room-inset: var(--c3-ground-sunken);
+  --c3-tw-work-base: var(--c3-surface-base);
+  --c3-tw-work-subtle: var(--c3-surface-subtle);
+  --c3-tw-work-elevated: var(--c3-surface-elevated);
+  --c3-tw-work-raised: var(--c3-surface-raised);
+  --c3-tw-float-fill: var(--c3-glass-fill);
+  --c3-tw-float-fill-strong: var(--c3-glass-fill-strong);
+  --c3-tw-float-fallback: var(--c3-glass-fallback);
+  --c3-tw-float-edge: var(--c3-glass-edge);
+  --c3-tw-float-highlight: var(--c3-glass-highlight);
+  --c3-tw-float-shadow: var(--c3-glass-shadow);
+
+  /* Consequence and truth aliases */
+  --c3-tw-consequence-direct: var(--c3-state-info);
+  --c3-tw-consequence-governed: var(--c3-state-knowledge);
+  --c3-tw-consequence-review: var(--c3-accent-periwinkle);
+  --c3-tw-consequence-approve: var(--c3-state-success);
+  --c3-tw-consequence-reject: var(--c3-state-danger);
+  --c3-tw-consequence-execute: var(--c3-action-primary);
+  --c3-tw-consequence-retry: var(--c3-state-warning);
+  --c3-tw-consequence-readonly: var(--c3-ink-quiet);
+  --c3-tw-truth-known: var(--c3-ink-default);
+  --c3-tw-truth-zero: var(--c3-ink-muted);
+  --c3-tw-truth-unknown: var(--c3-ink-quiet);
+  --c3-tw-truth-missing-source: var(--c3-state-warning);
+  --c3-tw-truth-withheld: var(--c3-ink-quiet);
+  --c3-tw-truth-partial: var(--c3-state-info);
+  --c3-tw-truth-conflict: var(--c3-state-danger);
+
+  /* Density and layout aliases */
+  --c3-tw-target-min: calc(var(--c3-space-10) + var(--c3-space-1));
+  --c3-tw-row-compact-min: calc(var(--c3-space-12) + var(--c3-space-2));
+  --c3-tw-row-comfortable-min: calc(var(--c3-space-16) + var(--c3-space-2));
+  --c3-tw-row-spacious-min: calc(var(--c3-space-16) + var(--c3-space-12));
+  --c3-tw-shell-rail-width: 17.5rem;
+  --c3-tw-context-header-sticky-min: 4.5rem;
+  --c3-tw-collection-max-reading: 76rem;
+  --c3-tw-comparison-min-column: 12rem;
+  --c3-tw-composer-max-reading: 68rem;
+}
