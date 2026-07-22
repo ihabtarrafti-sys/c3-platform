@@ -4,8 +4,11 @@
  * consumer; the pivot chapter migrates further routes into this frame.
  */
 export { Room, WorkSurface, FloatSurface, type WorkTier } from './materials';
-export { AppFrame, type TableworkActor } from './AppFrame';
+export { AppFrame, ShellIntents, type TableworkActor } from './AppFrame';
 export { ContextHeader } from './ContextHeader';
+export { ShellSearch } from './ShellSearch';
+export { ShellBellButton, ShellBellDrawer } from './ShellBell';
+export { PLACES, activePlaceFor, placeVisible, visibleSections } from './places';
 export { Thread, detectLinks } from './Thread';
 export { Message, initialsOf } from './Message';
 export { ObligationCard, type ObligationActionInput } from './ObligationCard';

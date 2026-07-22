@@ -264,6 +264,272 @@
   font-weight: var(--c3-font-weight-bold);
 }
 
+/* ── The place-grouped rail (pivot W0-1) ───────────────────────────────── */
+
+.tw-root .place-group {
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .place-sections {
+  margin: 0;
+  padding: 0 0 var(--c3-space-2) calc(1.5rem + var(--c3-space-2) + var(--c3-space-3));
+  list-style: none;
+  display: grid;
+  gap: 1px;
+}
+
+.tw-root .section-link {
+  display: block;
+  min-height: calc(var(--c3-tw-target-min) - var(--c3-space-3));
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border-radius: var(--c3-radius-sm);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+  text-decoration: none;
+  transition: color var(--c3-motion-duration-fast), background var(--c3-motion-duration-fast);
+}
+
+.tw-root .section-link:hover {
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .section-link.is-current {
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-subtle);
+  box-shadow: inset 2px 0 0 var(--c3-accent-aqua);
+}
+
+.tw-root .rail-footer {
+  margin-top: auto;
+  display: grid;
+  gap: var(--c3-space-3);
+  padding-top: var(--c3-space-4);
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .rail-signout {
+  justify-self: start;
+}
+
+/* ── The shell intents: search + bell (pivot W0-1) ─────────────────────── */
+
+.tw-root .shell-search {
+  position: relative;
+  width: 15rem;
+}
+
+.tw-root .shell-search input {
+  min-height: var(--c3-tw-target-min);
+  border-radius: var(--c3-radius-pill);
+}
+
+/* The results panel: an ephemeral non-modal Float — glass, fallback-first. */
+.tw-root .search-float {
+  position: absolute;
+  top: calc(100% + var(--c3-space-2));
+  right: 0;
+  width: min(26rem, 80vw);
+  max-height: 26rem;
+  overflow-y: auto;
+  z-index: 40;
+  padding: var(--c3-space-2);
+  border-radius: var(--c3-radius-lg);
+}
+
+.tw-root .search-group {
+  padding: var(--c3-space-2) var(--c3-space-3) var(--c3-space-1);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.tw-root .search-hit {
+  display: grid;
+  gap: 1px;
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border-radius: var(--c3-radius-md);
+  cursor: pointer;
+}
+
+.tw-root .search-hit:hover {
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .search-hit-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--c3-space-2);
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .search-hit-id,
+.tw-root .search-hit-sub {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .search-empty {
+  padding: var(--c3-space-3);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .search-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c3-space-1);
+  padding: var(--c3-space-1) var(--c3-space-2);
+}
+
+.tw-root .search-chip {
+  padding: var(--c3-space-1) var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-pill);
+  background: transparent;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-caption);
+  cursor: pointer;
+}
+
+.tw-root .search-chip:hover {
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .search-chip.active {
+  border-color: var(--c3-action-primary);
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .shell-bell {
+  position: relative;
+  display: inline-flex;
+}
+
+.tw-root .bell-badge {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 var(--c3-space-1);
+  border-radius: var(--c3-radius-pill);
+  /* An unread count is a nudge, never an alarm — action blue (owner ruling). */
+  background: var(--c3-action-primary);
+  color: var(--c3-action-ink);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  line-height: 1rem;
+  text-align: center;
+  pointer-events: none;
+}
+
+.tw-root .notif-list {
+  display: grid;
+  padding: 0;
+}
+
+.tw-root .notif-empty {
+  padding: var(--c3-space-6) var(--c3-space-5);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  text-align: center;
+}
+
+.tw-root .notif-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: var(--c3-space-3);
+  width: 100%;
+  padding: var(--c3-space-3) var(--c3-space-5);
+  border: 0;
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tw-root .notif-item:last-child {
+  border-bottom: 0;
+}
+
+.tw-root .notif-item:hover {
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .notif-dot {
+  width: 0.4375rem;
+  height: 0.4375rem;
+  margin-top: var(--c3-space-1);
+  border-radius: 50%;
+  background: var(--c3-action-primary);
+}
+
+.tw-root .notif-dot.read {
+  background: transparent;
+}
+
+.tw-root .notif-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tw-root .notif-title {
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .notif-title.read {
+  color: var(--c3-ink-muted);
+}
+
+.tw-root .notif-time {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── The notice stack (the app-wide inline notices, W0-1) ──────────────── */
+
+.tw-root .notice-stack {
+  display: grid;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3) var(--tw-room-pad) 0;
+}
+
+.tw-root .notice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-2) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-left-width: 3px;
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-work-subtle);
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .notice.intent-success { border-left-color: var(--c3-state-success); }
+.tw-root .notice.intent-error { border-left-color: var(--c3-state-danger); }
+.tw-root .notice.intent-warning { border-left-color: var(--c3-state-warning); }
+.tw-root .notice.intent-info { border-left-color: var(--c3-state-info); }
+
+/* ── The Browse map (the narrow shell's product map float) ─────────────── */
+
+.tw-root .browse-map {
+  display: grid;
+  gap: var(--c3-space-4);
+}
+
 /* ── Work frame + context header ───────────────────────────────────────── */
 
 .tw-root .work-frame {
@@ -384,6 +650,12 @@
 .tw-root .room > * {
   width: min(100%, var(--c3-tw-collection-max-reading));
   margin-inline: auto;
+}
+
+/* The canvas-width law: registers get command width (AppShell's WIDE_ROUTES). */
+.tw-root .room.wide > * {
+  width: 100%;
+  max-width: none;
 }
 
 /* ── Shared room furniture (the spread's reading pieces) ───────────────── */
@@ -923,11 +1195,44 @@
 
 /* ── Float (glass, fallback-first — the ONLY glass in Tablework) ───────── */
 
-.tw-root .float-surface {
+.tw-root .float-surface,
+.tw-root .search-float {
   color: var(--c3-ink-default);
   background: var(--c3-tw-float-fallback);
   border: var(--tw-line) solid var(--c3-tw-float-edge);
   box-shadow: var(--c3-tw-float-shadow);
+}
+
+.tw-root .float-menu {
+  display: grid;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .float-menu button,
+.tw-root .float-menu a {
+  min-height: var(--c3-tw-target-min);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-work-subtle);
+  color: var(--c3-ink-default);
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.tw-root .float-menu button:hover,
+.tw-root .float-menu a:hover {
+  border-color: var(--c3-border-strong);
+  background: var(--c3-tw-work-elevated);
+}
+
+.tw-root .float-note {
+  color: var(--c3-ink-muted);
 }
 
 .tw-root dialog.float-surface {
@@ -970,7 +1275,8 @@
 }
 
 @supports (backdrop-filter: blur(1px)) {
-  .tw-root .float-surface {
+  .tw-root .float-surface,
+  .tw-root .search-float {
     background: var(--c3-tw-float-fill-strong);
     backdrop-filter: blur(var(--c3-glass-blur)) saturate(var(--c3-glass-saturate));
   }
@@ -983,6 +1289,7 @@
 /* The app's reduced-effects contract + the OS transparency preference both
  * collapse the Float to its opaque fallback — same law as the Fluent shell. */
 [data-c3-effects='reduced'] .tw-root .float-surface,
+[data-c3-effects='reduced'] .tw-root .search-float,
 [data-c3-effects='reduced'] .tw-root .float-header {
   background: var(--c3-tw-float-fallback);
   backdrop-filter: none;
@@ -990,6 +1297,7 @@
 
 @media (prefers-reduced-transparency: reduce) {
   .tw-root .float-surface,
+  .tw-root .search-float,
   .tw-root .float-header {
     background: var(--c3-tw-float-fallback);
     backdrop-filter: none;
@@ -1068,6 +1376,16 @@
     display: none;
   }
 
+  /* The glyph rail: sections + the footer's words fold away; the narrow shell
+     (Browse/More floats) carries them. The search box follows the Fluent
+     shell's parity (hidden under 900px ≈ this break). */
+  .tw-root .place-sections,
+  .tw-root .rail-footer .message-actions,
+  .tw-root .rail-signout,
+  .tw-root .shell-search {
+    display: none;
+  }
+
   .tw-root .comms-layout {
     grid-template-columns: 13rem minmax(24rem, 1fr);
   }
@@ -1136,12 +1454,14 @@
     z-index: 5;
     min-height: 4.5rem;
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
     padding: var(--c3-space-1) max(var(--c3-space-2), env(safe-area-inset-right)) max(var(--c3-space-1), env(safe-area-inset-bottom)) max(var(--c3-space-2), env(safe-area-inset-left));
     border-width: var(--tw-line) 0 0;
   }
 
-  .tw-root .narrow-navigation a {
+  .tw-root .narrow-navigation a,
+  .tw-root .narrow-navigation button {
     min-width: 0;
     min-height: var(--c3-tw-target-min);
     display: grid;
@@ -1154,6 +1474,7 @@
     color: var(--c3-ink-quiet);
     font-size: var(--c3-font-size-caption);
     text-decoration: none;
+    cursor: pointer;
   }
 
   .tw-root .narrow-navigation span {

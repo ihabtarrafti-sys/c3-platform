@@ -7,6 +7,8 @@
  */
 import type { ReactNode } from 'react';
 import { WorkSurface } from './materials';
+import { ShellBellButton } from './ShellBell';
+import { ShellSearch } from './ShellSearch';
 
 interface ContextHeaderProps {
   /** The canonical Place (pilot: "Comms"). */
@@ -39,6 +41,10 @@ export function ContextHeader({ place, origin, record, section, actions }: Conte
       </div>
       <nav className="intent-bar" aria-label="Global intent">
         {actions}
+        {/* The shell's own intents ride every converted route (W0-1): the one
+            search box (⌘K) and the inbox bell — one drawer per frame. */}
+        <ShellSearch />
+        <ShellBellButton />
       </nav>
     </WorkSurface>
   );

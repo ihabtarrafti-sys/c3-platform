@@ -10,6 +10,7 @@ import {
 } from '@fluentui/react-components';
 import { api } from '../apiClient';
 import { useNotifications } from '../queries';
+import { ago } from '../shellModel';
 
 /**
  * NotificationBell — S10, the L2 inbox surface. The rows it shows are
@@ -122,19 +123,6 @@ function BellIcon({ className }: { className?: string }) {
       <path d="M13.7 21a2 2 0 0 1-3.4 0" />
     </svg>
   );
-}
-
-/** "3m" / "2h" / "5d" / date — honest, compact recency. */
-function ago(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const m = Math.floor(ms / 60_000);
-  if (m < 1) return 'now';
-  if (m < 60) return `${m}m`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h`;
-  const d = Math.floor(h / 24);
-  if (d < 14) return `${d}d`;
-  return new Date(iso).toISOString().slice(0, 10);
 }
 
 export function NotificationBell() {

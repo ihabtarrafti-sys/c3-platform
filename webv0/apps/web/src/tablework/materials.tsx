@@ -11,9 +11,11 @@
  */
 import { useEffect, useRef, type HTMLAttributes, type ReactNode } from 'react';
 
-export function Room({ children, ...rest }: { children: ReactNode } & HTMLAttributes<HTMLElement>) {
+export function Room({ wide, children, ...rest }: { wide?: boolean; children: ReactNode } & HTMLAttributes<HTMLElement>) {
+  // The canvas-width law (AppShell's WIDE_ROUTES, carried per-screen): register
+  // pages get command width; reading surfaces keep the calm centred measure.
   return (
-    <main {...rest} className="room" id="tw-room" data-tablework="Room" data-material="room" tabIndex={-1}>
+    <main {...rest} className={wide ? 'room wide' : 'room'} id="tw-room" data-tablework="Room" data-material="room" tabIndex={-1}>
       {children}
     </main>
   );

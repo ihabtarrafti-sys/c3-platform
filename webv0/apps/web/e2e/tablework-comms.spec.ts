@@ -50,6 +50,21 @@ async function login(page: Page, email: string, role: string): Promise<void> {
 
 let missionId = '';
 
+/** Test 2 normally reuses test 1's mission, but a failed test restarts the
+ *  worker (module state resets) — provision independently rather than
+ *  cascading a second, misleading failure. */
+async function ensureMission(page: Page, name: string): Promise<void> {
+  if (missionId) return;
+  await page.getByTestId('nav-missions').click();
+  await page.getByTestId('add-mission-toggle').click();
+  await page.getByTestId('add-mission-name').fill(name);
+  await page.getByTestId('add-mission-starts').fill('2026-09-08');
+  await page.getByTestId('add-mission-submit').click();
+  await page.getByTestId('add-mission-submit-confirm').click();
+  await page.getByRole('row', { name: new RegExp(name) }).locator('[data-testid^="mission-link-"]').click();
+  missionId = /\/missions\/(MSN-\d+)/.exec(page.url())![1]!;
+}
+
 test('Tablework Comms: the full obligation arc — three truths flip one at a time; receipts disclose and hide', async ({ page }) => {
   test.slow();
   mkdirSync(SHOTS, { recursive: true });
@@ -102,7 +117,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
 
   await test.step('Minting: the SoD seam refuses accountable==acceptance inline, then the record is born all-unknown', async () => {
     await page.getByRole('button', { name: 'Create obligation' }).click();
-    const float = page.locator('dialog.float-surface');
+    const float = page.locator('dialog.float-surface[open]');
     await expect(float).toBeVisible();
 
     await float.getByRole('textbox', { name: 'Description' }).fill('Participant pack to publisher');
@@ -219,6 +234,7 @@ test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass c
 
   await test.step('Keyboard: the skip-link is the first stop and lands in the Room', async () => {
     await login(page, 'ops@alpha.com', 'operations');
+    await ensureMission(page, 'Comms Shell Cup');
     await page.goto(`/missions/${missionId}/comms`);
     await expect(page.locator('.tw-root')).toBeVisible();
     await page.keyboard.press('Tab');
@@ -233,7 +249,7 @@ test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass c
     await page.reload();
     const trigger = page.getByRole('button', { name: 'Create obligation' });
     await trigger.click();
-    const float = page.locator('dialog.float-surface');
+    const float = page.locator('dialog.float-surface[open]');
     await expect(float).toBeVisible();
     const backdrop = await float.evaluate((el) => getComputedStyle(el).backdropFilter);
     expect(backdrop).toBe('none'); // glass collapsed — the reduced-effects law
