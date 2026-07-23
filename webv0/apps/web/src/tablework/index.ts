@@ -15,6 +15,15 @@ export { TableworkPage } from './TableworkPage';
 export { SavedViews } from './SavedViews';
 export { PersonAvatar } from './Avatar';
 export {
+  RecordPage,
+  SectionRail,
+  DocumentsSection,
+  CommentThread,
+  AuditTimeline,
+  type RecordSection,
+  type TimelineEntry,
+} from './records';
+export {
   CollectionFrame,
   ComparisonTable,
   RecordRow,

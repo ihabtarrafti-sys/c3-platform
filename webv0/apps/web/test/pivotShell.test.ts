@@ -134,6 +134,26 @@ describe('the pivot shell laws (Wave 0)', () => {
     expect(collections).toContain('tabIndex={0}');
   });
 
+  it('the record-family front-load keeps the cross-cutting testid contracts byte-compatible', () => {
+    const records = read('tablework/records.tsx');
+    // DocumentsSection: the S4 oracle surface, verbatim.
+    for (const t of ['documents-panel', 'document-file-input', 'attach-document', 'documents-empty', 'documents-list']) {
+      expect(records).toContain(`data-testid="${t}"`);
+    }
+    expect(records).toContain('data-testid={`document-row-${d.documentId}`}');
+    expect(records).toContain('data-testid={`download-document-${d.documentId}`}');
+    expect(records).toContain('triggerTestId={`remove-document-${d.documentId}`}');
+    expect(records).toContain('No documents attached.');
+    // CommentThread: the B4 oracle surface (the mention picker is spec-free
+    // and becomes chips — same container testid).
+    for (const t of ['comment-thread', 'comments-empty', 'comment-body', 'comment-mentions', 'comment-submit']) {
+      expect(records).toContain(`data-testid="${t}"`);
+    }
+    expect(records).toContain('No comments yet. Start the thread.');
+    // The written lane rule rides the source.
+    expect(records).toContain('Breadcrumbs do NOT port');
+  });
+
   it('gating mirrors the AppShell contract (render-gating only)', () => {
     const none = {
       canReadPeople: true,

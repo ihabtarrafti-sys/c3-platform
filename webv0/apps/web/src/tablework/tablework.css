@@ -1007,6 +1007,479 @@
   font-family: var(--c3-font-mono, monospace);
 }
 
+/* ── The record family (contract 05: ObjectIdentity / SectionRail / the
+      cross-cutting detail sections; Dawn's mission-screen craft) ─────────── */
+
+.tw-root .object-identity {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--c3-space-5);
+  margin-bottom: var(--c3-space-4);
+  padding: var(--c3-space-5);
+  overflow: hidden;
+  border-radius: var(--c3-radius-xl);
+}
+
+.tw-root .object-identity::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(to bottom, var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+}
+
+.tw-root .object-identity h1 {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(var(--c3-font-size-title), 3.2vw, var(--c3-font-size-display));
+  font-weight: var(--c3-font-weight-regular);
+  letter-spacing: var(--c3-letter-spacing-tight);
+  line-height: var(--c3-line-height-tight);
+}
+
+.tw-root .record-lead {
+  margin: var(--c3-space-2) 0 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .identity-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--c3-space-2) var(--c3-space-4);
+  margin-top: var(--c3-space-3);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .identity-meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .local-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tw-root .section-rail {
+  position: sticky;
+  top: calc(var(--c3-tw-context-header-sticky-min) - 1px);
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-1);
+  margin-bottom: var(--c3-space-4);
+  padding: var(--c3-space-2);
+  overflow-x: auto;
+  border-radius: var(--c3-radius-lg);
+  scrollbar-width: thin;
+}
+
+.tw-root .section-tab {
+  flex: 0 0 auto;
+  border-color: transparent;
+  background: transparent;
+}
+
+.tw-root .section-tab[aria-current='page'] {
+  border-color: var(--c3-border-strong);
+  background: var(--c3-tw-work-raised);
+  color: var(--c3-ink-strong);
+  box-shadow: inset 0 -2px 0 var(--c3-action-primary);
+}
+
+.tw-root .record-section {
+  margin-top: var(--c3-space-8);
+}
+
+.tw-root .record-section h2 {
+  margin: 0 0 var(--c3-space-3);
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-lead);
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+.tw-root .record-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  flex-wrap: wrap;
+}
+
+.tw-root .record-quiet {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .record-rows {
+  display: grid;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .record-row-item {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-tw-work-elevated);
+}
+
+.tw-root .record-row-name {
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+  overflow-wrap: anywhere;
+}
+
+.tw-root .record-row-meta {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  white-space: nowrap;
+}
+
+.tw-root .record-row-spacer {
+  flex: 1 1 auto;
+}
+
+.tw-root .comment-thread {
+  max-width: 45rem;
+}
+
+.tw-root .comment-list {
+  display: grid;
+  margin-bottom: var(--c3-space-4);
+}
+
+.tw-root .comment-item {
+  padding: var(--c3-space-3) 0;
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .comment-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--c3-space-2);
+  margin-bottom: 3px;
+}
+
+.tw-root .comment-author {
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+.tw-root .comment-when {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .comment-body {
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-comfortable);
+  white-space: pre-wrap;
+}
+
+.tw-root .comment-mentions-line {
+  margin-top: var(--c3-space-1);
+  color: var(--c3-action-primary);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .comment-composer {
+  display: grid;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .comment-mention-label {
+  margin-bottom: var(--c3-space-1);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .comment-mention-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .comment-mention-chips .mini-action.active {
+  border-color: var(--c3-action-primary);
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .audit-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.tw-root .audit-entry {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-3) 0;
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .audit-ts {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  white-space: nowrap;
+}
+
+.tw-root .audit-action {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+.tw-root .audit-actor {
+  margin-top: 2px;
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .audit-detail {
+  margin-top: var(--c3-space-1);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+/* ── The GovernedCeremony family (Dawn's ceremony craft — Lane C's bar) ── */
+
+.tw-root .ceremony-shell {
+  display: grid;
+  grid-template-columns: 16rem minmax(0, 1fr);
+  align-items: start;
+  gap: var(--tw-gap);
+}
+
+.tw-root .ceremony-rail {
+  position: sticky;
+  top: calc(var(--c3-tw-context-header-sticky-min) + var(--c3-space-4));
+  padding: var(--c3-space-3);
+  border-radius: var(--c3-radius-xl);
+}
+
+.tw-root .ceremony-rail ol {
+  display: grid;
+  gap: var(--c3-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tw-root .step-button {
+  position: relative;
+  width: 100%;
+  display: grid;
+  grid-template-columns: var(--c3-tw-target-min) minmax(0, 1fr);
+  justify-content: stretch;
+  padding: var(--c3-space-2);
+  border: var(--tw-line) solid transparent;
+  border-radius: var(--c3-radius-md);
+  background: transparent;
+  color: var(--c3-ink-muted);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tw-root .step-button > span:last-child {
+  display: grid;
+  gap: 1px;
+}
+
+.tw-root .step-button small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-text);
+}
+
+.tw-root .step-number {
+  width: var(--c3-tw-target-min);
+  height: var(--c3-tw-target-min);
+  display: grid;
+  place-items: center;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: 50%;
+  color: var(--c3-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.tw-root .step-button.complete .step-number {
+  border-color: var(--c3-state-success);
+  color: var(--c3-state-success);
+}
+
+.tw-root .step-button.active {
+  border-color: var(--c3-border-strong);
+  background: var(--c3-tw-work-raised);
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .step-button.active::before {
+  content: "";
+  position: absolute;
+  inset: var(--c3-space-2) auto var(--c3-space-2) calc(var(--c3-space-3) * -1 - 1px);
+  width: 2px;
+  border-radius: var(--c3-radius-pill);
+  background: linear-gradient(to bottom, var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+}
+
+.tw-root .ceremony-panel {
+  min-width: 0;
+  padding: var(--c3-space-6);
+  border-radius: var(--c3-radius-xl);
+}
+
+.tw-root .actor-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-4);
+  margin-bottom: var(--c3-space-5);
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .consequence-grid,
+.tw-root .proposal-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--c3-space-3);
+}
+
+.tw-root .consequence,
+.tw-root .proposal-cell {
+  min-height: var(--c3-tw-row-comfortable-min);
+  display: grid;
+  align-content: center;
+  gap: var(--c3-space-1);
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .consequence small,
+.tw-root .proposal-cell small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.tw-root .consequence strong,
+.tw-root .proposal-cell strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .consequence span,
+.tw-root .proposal-cell span {
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .receipt {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-5);
+  overflow: hidden;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-xl);
+  background: var(--c3-tw-work-elevated);
+}
+
+.tw-root .receipt::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 3px;
+  background: linear-gradient(to right, var(--c3-accent-coral), var(--c3-accent-blue), var(--c3-accent-aqua));
+}
+
+.tw-root .receipt-mark {
+  width: var(--c3-tw-target-min);
+  height: var(--c3-tw-target-min);
+  display: grid;
+  place-items: center;
+  border: var(--tw-line) solid var(--c3-state-success);
+  border-radius: 50%;
+  color: var(--c3-state-success);
+  font-weight: var(--c3-font-weight-bold);
+}
+
+.tw-root .receipt h2 {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-title);
+  font-weight: var(--c3-font-weight-regular);
+}
+
+.tw-root .receipt p {
+  margin: var(--c3-space-1) 0 0;
+  color: var(--c3-ink-muted);
+}
+
+.tw-root .history-line {
+  display: grid;
+  margin-top: var(--c3-space-4);
+  border-left: 1px solid var(--c3-border-strong);
+}
+
+.tw-root .history-event {
+  position: relative;
+  display: grid;
+  gap: 1px;
+  padding: var(--c3-space-3) var(--c3-space-4) var(--c3-space-3) var(--c3-space-5);
+}
+
+.tw-root .history-event::before {
+  content: "";
+  position: absolute;
+  left: -5px;
+  top: calc(var(--c3-space-3) + 0.4rem);
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 2px solid var(--c3-tw-work-base);
+  border-radius: 50%;
+  background: var(--c3-border-strong);
+}
+
+.tw-root .history-event strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .history-event span {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-body-small);
+}
+
 /* ── The Comms layout (Dawn's screen-4 grid, exact numbers) ────────────── */
 
 .tw-root .comms-layout {
