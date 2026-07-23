@@ -11,8 +11,8 @@
  * that, frozen; corrections are new requests."
  */
 import { useMemo, useState } from 'react';
-import { Dropdown, Field, Input, Option, Textarea, makeStyles } from '@fluentui/react-components';
-import { Checkbox } from '../tablework';
+import { makeStyles } from '@fluentui/react-components';
+import { Checkbox, Field, Input, Select, Textarea } from '../tablework';
 import {
   CORRECTIONS_EXCLUDED_OPS,
   EDIT_TARGET_KEYS,
@@ -199,23 +199,26 @@ export function CorrectionDialog({
       return <Checkbox key={spec.key} label={spec.label} checked={value === true} disabled={readonly} onChange={onChange} data-testid={testid} />;
     }
     if (spec.kind === 'select') {
+      // Seat repair at integration: the corrections selects are spec-free →
+      // native kit Select (the Selector rule applies only to spec-driven
+      // click→role-option surfaces).
       const v = String(value);
       return (
         <Field key={spec.key} label={spec.label}>
-          <Dropdown value={v} selectedOptions={[v]} disabled={readonly} onOptionSelect={(_, d) => d.optionValue && onChange(d.optionValue)} data-testid={testid}>
+          <Select value={v} disabled={readonly} onChange={(e) => onChange(e.target.value)} data-testid={testid}>
             {(spec.options ?? []).map((o) => (
-              <Option key={o} value={o} text={o}>
+              <option key={o} value={o}>
                 {o}
-              </Option>
+              </option>
             ))}
-          </Dropdown>
+          </Select>
         </Field>
       );
     }
     if (spec.kind === 'textarea') {
       return (
         <Field key={spec.key} label={spec.label}>
-          <Textarea value={String(value)} disabled={readonly} onChange={(_, d) => onChange(d.value)} data-testid={testid} />
+          <Textarea value={String(value)} disabled={readonly} onChange={(e) => onChange(e.target.value)} data-testid={testid} />
         </Field>
       );
     }
@@ -225,7 +228,7 @@ export function CorrectionDialog({
           type={spec.kind === 'date' ? 'date' : spec.kind === 'number' ? 'number' : 'text'}
           value={String(value)}
           disabled={readonly}
-          onChange={(_, d) => onChange(d.value)}
+          onChange={(e) => onChange(e.target.value)}
           data-testid={testid}
         />
       </Field>

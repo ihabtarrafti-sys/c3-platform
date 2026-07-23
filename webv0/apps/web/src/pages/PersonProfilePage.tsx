@@ -87,8 +87,11 @@ export function PersonProfilePage() {
     actor: e.actor,
   }));
 
+  // Integration note: the lane passed `wide`; removed at the seat — detail
+  // pages keep the calm centred measure (the WIDE_ROUTES law + Dawn's record
+  // bar), matching the Fluent original.
   return (
-    <TableworkPage record={name} wide>
+    <TableworkPage record={name}>
       <RecordPage
         eyebrow="Person"
         title={name}
