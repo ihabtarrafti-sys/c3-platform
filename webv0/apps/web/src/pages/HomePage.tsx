@@ -1,12 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Button } from '@fluentui/react-components';
 import { SITUATION_CHECK_KINDS } from '@c3web/domain';
 import type { SignalDto } from '@c3web/api-contracts';
 import { useSituation } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
+import { TableworkPage, EmptyState, ErrorState, LoadingState, usePageTitle } from '../tablework';
 import '../theme/hearth-home.css';
 
 /**
@@ -114,15 +112,15 @@ function SignalNudge({ signal }: { signal: SignalDto }) {
       </ul>
       <div className="hh-signal__actions">
         {unique.map((t, i) => (
-          <Button
+          <button
             key={t.to}
-            appearance={i === 0 && signal.band !== 'inMotion' ? 'primary' : 'secondary'}
-            size="small"
+            type="button"
+            className={i === 0 && signal.band !== 'inMotion' ? 'primary-action' : 'secondary-action'}
             data-testid={i === 0 ? `signal-action-${signal.key}` : undefined}
             onClick={() => navigate(t.to)}
           >
             {t.label}
-          </Button>
+          </button>
         ))}
       </div>
     </article>
@@ -150,14 +148,22 @@ function greeting(): string {
 }
 
 export function HomePage() {
+  return (
+    <TableworkPage record="Home" wide>
+      <HomeBody />
+    </TableworkPage>
+  );
+}
+
+function HomeBody() {
   const { me } = useSession();
   const operational = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
   const { data, isLoading, isError, error } = useSituation(operational);
+  usePageTitle('Home');
 
   if (!operational) {
     return (
       <div>
-        <PageHeader title="Home" />
         <EmptyState data-testid="situation-denied" message="The Situation Room is an operational surface and is not available for your role." />
       </div>
     );

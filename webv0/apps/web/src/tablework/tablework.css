@@ -501,7 +501,7 @@
 .tw-root .notice-stack {
   display: grid;
   gap: var(--c3-space-2);
-  padding: var(--c3-space-3) var(--tw-room-pad) 0;
+  margin-bottom: var(--c3-space-4);
 }
 
 .tw-root .notice {

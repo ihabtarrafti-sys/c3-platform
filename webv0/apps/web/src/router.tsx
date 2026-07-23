@@ -68,12 +68,12 @@ export const router = createBrowserRouter([
   // session gate via TableworkPage). Wave 1: the demo spine.
   { path: '/people', element: <PeoplePage /> },
   { path: '/missions', element: <MissionsPage /> },
+  { path: '/situation', element: <HomePage /> },
   {
     path: '/',
     element: <AppShell />,
     children: [
       { index: true, element: <HomeRedirect /> },
-      { path: 'situation', element: <HomePage /> },
       { path: 'people/:personId', element: <PersonProfilePage /> },
       { path: 'people/:personId/one-pager', element: <OnePagerPage /> },
       { path: 'credentials', element: <CredentialsPage /> },

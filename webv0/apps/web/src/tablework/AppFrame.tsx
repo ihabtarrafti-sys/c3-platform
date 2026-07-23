@@ -260,19 +260,25 @@ export function AppFrame({ place, actor, header, wide, children }: AppFrameProps
           </aside>
           <div className="work-frame">
             {header}
-            {notices.length > 0 && (
-              <div className="notice-stack" aria-live="polite" data-testid="notifications">
-                {notices.map((n) => (
-                  <div key={n.id} className={`notice intent-${n.intent}`}>
-                    <span>{n.message}</span>
-                    <button className="mini-action" type="button" onClick={() => dismiss(n.id)}>
-                      Dismiss
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <Room wide={wide}>{children}</Room>
+            <Room wide={wide}>
+              {/* Inside the Room (the Fluent canvas's own placement): the
+                  stack scrolls with content and never shifts the work-frame
+                  grid — a third grid child displaced the Room row and its
+                  content intercepted the stack's clicks (battery-caught). */}
+              {notices.length > 0 && (
+                <div className="notice-stack" aria-live="polite" data-testid="notifications">
+                  {notices.map((n) => (
+                    <div key={n.id} className={`notice intent-${n.intent}`}>
+                      <span>{n.message}</span>
+                      <button className="mini-action" type="button" onClick={() => dismiss(n.id)}>
+                        Dismiss
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              {children}
+            </Room>
             <nav className="narrow-navigation work-surface" data-tablework="AppFrame" data-material="work" aria-label="Primary narrow navigation">
               {caps?.canViewSituation ? (
                 <Link to="/situation" aria-current={activePlace?.label === 'Home' ? 'page' : undefined}>
