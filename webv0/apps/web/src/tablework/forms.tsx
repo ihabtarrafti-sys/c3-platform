@@ -229,21 +229,26 @@ interface FormDrawerProps {
 export function FormDrawer({ open, onClose, eyebrow, mode, intro, children, footer }: FormDrawerProps) {
   const ref = useRef<HTMLDialogElement>(null);
   // The closed sheet UNMOUNTS (Fluent OverlayDrawer parity — specs assert
-  // absent fields by count) but only AFTER the native close event, so the
-  // focus-return happens first. The dirty-guard is untouched: field state
-  // lives in the CALLER, so reopening restores exactly what was typed.
-  const [mounted, setMounted] = useState(open);
-  useEffect(() => {
-    if (open) setMounted(true);
-  }, [open]);
+  // absent fields by count). Deterministic lifecycle: rendered only while
+  // open; showModal() on mount; close() in the unmount CLEANUP (cleanups run
+  // before node removal — the native focus-return happens first). The
+  // dirty-guard is untouched: field state lives in the CALLER, so reopening
+  // restores exactly what was typed.
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
-  }, [open, mounted]);
+    // Explicit focus-return (same law as FloatSurface): the opener is
+    // captured at open time and focused on teardown — passive cleanups run
+    // after detachment, so the native close() restore can't be relied on.
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!dialog.open) dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+      opener?.focus();
+    };
+  }, [open]);
 
-  if (!mounted) return null;
+  if (!open) return null;
   return (
     <dialog
       ref={ref}
@@ -251,11 +256,13 @@ export function FormDrawer({ open, onClose, eyebrow, mode, intro, children, foot
       data-tablework="FormDrawer"
       data-material="work"
       aria-label={eyebrow}
-      onClose={() => {
-        setMounted(false);
+      onClose={onClose}
+      onCancel={(e) => {
+        // Same law as FloatSurface: suppress the UA close so the unmount
+        // cleanup's close() (node still attached) carries the focus-return.
+        e.preventDefault();
         onClose();
       }}
-      onCancel={onClose}
     >
       <div className="form-sheet-frame">
         <div className={`form-sheet-rail ${mode}`} aria-hidden="true" />

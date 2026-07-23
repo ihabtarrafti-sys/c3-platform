@@ -9,7 +9,7 @@
  * The `data-tablework` / `data-material` attributes are the contract's
  * component decomposition, kept in the DOM as stable e2e/test hooks.
  */
-import { useEffect, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
+import { useEffect, useRef, type HTMLAttributes, type ReactNode } from 'react';
 
 export function Room({ wide, children, ...rest }: { wide?: boolean; children: ReactNode } & HTMLAttributes<HTMLElement>) {
   // The canvas-width law (AppShell's WIDE_ROUTES, carried per-screen): register
@@ -56,27 +56,32 @@ interface FloatSurfaceProps {
 
 /**
  * Modal Float. Opening moves focus into the dialog; closing returns it to the
- * opener (native <dialog> semantics). The CLOSED float UNMOUNTS (Fluent
- * parity — specs assert absent content by count), but only AFTER the native
- * close event so the focus-return still happens: close first, unmount second.
- * Glass upgrade + reduced-effects collapse live entirely in tablework.css.
+ * opener (native <dialog> semantics). The CLOSED float UNMOUNTS entirely
+ * (Fluent parity — specs assert absent content by count). The lifecycle is
+ * DETERMINISTIC — no dependence on close-event timing: the dialog renders
+ * only while open, showModal() runs on mount, and the unmount CLEANUP calls
+ * close() (React runs cleanups before removing the node, so the native
+ * focus-return still happens; the Escape path restores focus natively before
+ * onCancel unmounts it). Glass + reduced-effects live in tablework.css.
  */
 export function FloatSurface({ open, onClose, labelledBy, children }: FloatSurfaceProps) {
   const ref = useRef<HTMLDialogElement>(null);
-  const [mounted, setMounted] = useState(open);
-
-  useEffect(() => {
-    if (open) setMounted(true);
-  }, [open]);
 
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
-    if (open && !dialog.open) dialog.showModal();
-    else if (!open && dialog.open) dialog.close();
-  }, [open, mounted]);
+    // EXPLICIT focus-return: passive cleanups run after DOM detachment, so a
+    // close() there restores nothing — capture the opener at open time and
+    // focus it directly on teardown (attachment-independent, every path).
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    if (!dialog.open) dialog.showModal();
+    return () => {
+      if (dialog.open) dialog.close();
+      opener?.focus();
+    };
+  }, [open]);
 
-  if (!mounted) return null;
+  if (!open) return null;
   return (
     <dialog
       ref={ref}
@@ -84,11 +89,15 @@ export function FloatSurface({ open, onClose, labelledBy, children }: FloatSurfa
       data-tablework="FloatSurface"
       data-material="float"
       aria-labelledby={labelledBy}
-      onClose={() => {
-        setMounted(false);
+      onClose={onClose}
+      onCancel={(e) => {
+        // Suppress the UA's own close: the React unmount could remove the node
+        // before the default action's focus-restore runs. EVERY close instead
+        // flows through the cleanup's close() — node still attached, focus
+        // return guaranteed on all paths.
+        e.preventDefault();
         onClose();
       }}
-      onCancel={onClose}
     >
       {children}
     </dialog>

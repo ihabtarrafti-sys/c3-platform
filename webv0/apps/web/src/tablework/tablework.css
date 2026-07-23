@@ -903,6 +903,11 @@
   text-align: right;
 }
 
+.tw-root .data-grid td.mono {
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
 .tw-root .record-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

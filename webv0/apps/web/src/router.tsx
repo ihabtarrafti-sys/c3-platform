@@ -67,6 +67,7 @@ export const router = createBrowserRouter([
   // law — grammars never share a route; each converted page carries its own
   // session gate via TableworkPage). Wave 1: the demo spine.
   { path: '/people', element: <PeoplePage /> },
+  { path: '/missions', element: <MissionsPage /> },
   {
     path: '/',
     element: <AppShell />,
@@ -79,7 +80,6 @@ export const router = createBrowserRouter([
       { path: 'journeys', element: <JourneysPage /> },
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
-      { path: 'missions', element: <MissionsPage /> },
       { path: 'missions/finance', element: <MissionFinancePage /> },
       { path: 'missions/:missionId', element: <MissionDetailPage /> },
       { path: 'invoices', element: <InvoicesPage /> },

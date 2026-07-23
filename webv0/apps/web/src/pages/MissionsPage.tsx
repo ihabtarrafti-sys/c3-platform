@@ -1,26 +1,42 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
 import { useMissions, useTeams } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  DateInput,
+  Selector,
+  FormDrawer,
+  GovernedAction,
+} from '../tablework';
 
 /**
- * Missions (Sprint 39) — the register. The mission SHELL is direct-audited
- * (create here; edit/deactivate live on the mission page); PARTICIPANT
- * membership is governed and lives on the mission page too.
+ * Missions (Sprint 39) — the register, on the Tablework frame (pivot W1-2;
+ * the Fluent page's behavior, testids, and copy verbatim). The mission SHELL
+ * is direct-audited (create here; edit/deactivate live on the mission page);
+ * PARTICIPANT membership is governed and lives on the mission page too.
  */
 
 export function MissionsPage() {
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Missions" section="Register" wide>
+      <MissionsRegister />
+    </TableworkPage>
+  );
+}
+
+function MissionsRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -69,24 +85,94 @@ export function MissionsPage() {
   const ready = name.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(startsOn) && (endsOn === '' || endsOn >= startsOn);
 
   const canViewFinancials = me?.capabilities.canViewFinancials ?? false;
+  const divisions = (teams.data?.teams ?? []).filter((x) => x.isActive && x.kind === 'GameDivision');
   const addAction = (
     <>
       {canViewFinancials && (
-        <Link to="/missions/finance" data-testid="missions-finance-link" style={{ marginRight: '8px' }}>
-          <Button appearance="secondary">Finance view</Button>
+        <Link to="/missions/finance" data-testid="missions-finance-link">
+          <span className="secondary-action">Finance view</span>
         </Link>
       )}
       {canManage && (
-        <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-mission-toggle">
+        <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-mission-toggle">
           Add mission
-        </Button>
+        </button>
       )}
     </>
   );
 
   return (
-    <div>
-      <PageHeader kicker="Register" title="Missions" context={data ? `${data.missions.length} in this view` : undefined} actions={addAction} />
+    <>
+      <CollectionFrame
+        kicker="Register"
+        title="Missions"
+        count={data ? `${data.missions.length} in this view` : undefined}
+        actions={addAction}
+      >
+        {isLoading && <LoadingState label="Loading missions…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load missions.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && data.missions.length === 0 && (
+          <EmptyState
+            data-testid="missions-empty"
+            message="No missions yet."
+            action={
+              canManage ? (
+                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="missions-empty-add">
+                  Add mission
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+        {data && data.missions.length > 0 && (
+          <>
+            <ComparisonTable label="Missions register" testId="missions-table">
+              <thead>
+                <tr>
+                  <th>Mission</th>
+                  <th>Code</th>
+                  <th>Name</th>
+                  <th>Game</th>
+                  <th>Starts</th>
+                  <th>Ends</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.missions.map((m) => (
+                  <tr key={m.missionId} data-testid={`mission-row-${m.missionId}`}>
+                    <td>
+                      <Link to={`/missions/${m.missionId}`} data-testid={`mission-link-${m.missionId}`}>
+                        {m.missionId}
+                      </Link>
+                    </td>
+                    <td className="mono" data-testid={`mission-code-${m.missionId}`}>
+                      {m.code ?? '—'}
+                    </td>
+                    <td>{m.name}</td>
+                    <td>{m.gameTitle ?? '—'}</td>
+                    <td>{m.startsOn}</td>
+                    <td>{m.endsOn ?? '—'}</td>
+                    <td>
+                      <StatusBadge variant={m.isActive ? 'ready' : 'neutral'} data-testid={`mission-status-${m.missionId}`}>
+                        {m.isActive ? 'Active' : 'Inactive'}
+                      </StatusBadge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </ComparisonTable>
+            <p className="collection-count">
+              {data.missions.length} {data.missions.length === 1 ? 'mission' : 'missions'}
+            </p>
+          </>
+        )}
+      </CollectionFrame>
 
       {canManage && (
         <FormDrawer
@@ -108,106 +194,37 @@ export function MissionsPage() {
           }
         >
           <Field label="Name" required>
-            <Input value={name} onChange={(_, d) => setName(d.value)} data-testid="add-mission-name" />
+            <Input value={name} onChange={(e) => setName(e.target.value)} data-testid="add-mission-name" />
           </Field>
           <Field label="Tournament code" hint='The org’s join key across budgets, invoices and payouts — e.g. "SATR/2024/0001". Unique when set.'>
-            <Input value={code} onChange={(_, d) => setCode(d.value)} data-testid="add-mission-code" />
+            <Input value={code} onChange={(e) => setCode(e.target.value)} data-testid="add-mission-code" />
           </Field>
           <Field label="Organizer" hint='e.g. "Saudi Esports Federation", "VSPN"'>
-            <Input value={organizer} onChange={(_, d) => setOrganizer(d.value)} data-testid="add-mission-organizer" />
+            <Input value={organizer} onChange={(e) => setOrganizer(e.target.value)} data-testid="add-mission-organizer" />
           </Field>
           <Field label="City">
-            <Input value={city} onChange={(_, d) => setCity(d.value)} data-testid="add-mission-city" />
+            <Input value={city} onChange={(e) => setCity(e.target.value)} data-testid="add-mission-city" />
           </Field>
           <Field label="Game title">
-            <Input value={gameTitle} onChange={(_, d) => setGameTitle(d.value)} data-testid="add-mission-game" />
+            <Input value={gameTitle} onChange={(e) => setGameTitle(e.target.value)} data-testid="add-mission-game" />
           </Field>
           <Field label="Team (the division fielding this event)" hint="Optional — powers the per-team P&L">
-            <Dropdown
-              value={teamId ? (teams.data?.teams.find((x) => x.teamId === teamId)?.name ?? teamId) : ''}
-              selectedOptions={teamId ? [teamId] : []}
-              onOptionSelect={(_, d) => setTeamId(d.optionValue ?? '')}
+            <Selector
               data-testid="add-mission-team"
-            >
-              {(teams.data?.teams ?? [])
-                .filter((x) => x.isActive && x.kind === 'GameDivision')
-                .map((x) => (
-                  <Option key={x.teamId} value={x.teamId} text={`${x.code} · ${x.name}`}>
-                    {`${x.code} · ${x.name}`}
-                  </Option>
-                ))}
-            </Dropdown>
+              placeholder=""
+              value={teamId}
+              options={divisions.map((x) => ({ value: x.teamId, label: `${x.code} · ${x.name}` }))}
+              onSelect={(value) => setTeamId(value)}
+            />
           </Field>
           <Field label="Starts on" required>
-            <Input type="date" value={startsOn} onChange={(_, d) => setStartsOn(d.value)} data-testid="add-mission-starts" />
+            <DateInput value={startsOn} onChange={(e) => setStartsOn(e.target.value)} data-testid="add-mission-starts" />
           </Field>
           <Field label="Ends on">
-            <Input type="date" value={endsOn} onChange={(_, d) => setEndsOn(d.value)} data-testid="add-mission-ends" />
+            <DateInput value={endsOn} onChange={(e) => setEndsOn(e.target.value)} data-testid="add-mission-ends" />
           </Field>
         </FormDrawer>
       )}
-
-      {isLoading && <LoadingState label="Loading missions…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load missions.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.missions.length === 0 && (
-        <EmptyState
-          data-testid="missions-empty"
-          message="No missions yet."
-          action={
-            canManage ? (
-              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="missions-empty-add">
-                Add mission
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-      {data && data.missions.length > 0 && (
-        <>
-          <table className={r.table} data-testid="missions-table" aria-label="Missions register">
-            <thead>
-              <tr>
-                <th className={r.th}>Mission</th>
-                <th className={r.th}>Code</th>
-                <th className={r.th}>Name</th>
-                <th className={r.th}>Game</th>
-                <th className={r.th}>Starts</th>
-                <th className={r.th}>Ends</th>
-                <th className={r.th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.missions.map((m) => (
-                <tr key={m.missionId} className={r.row} data-testid={`mission-row-${m.missionId}`}>
-                  <td className={r.td}>
-                    <Link className={r.idLink} to={`/missions/${m.missionId}`} data-testid={`mission-link-${m.missionId}`}>
-                      {m.missionId}
-                    </Link>
-                  </td>
-                  <td className={`${r.td} ${r.mono}`} data-testid={`mission-code-${m.missionId}`}>{m.code ?? '—'}</td>
-                  <td className={`${r.td} ${r.name}`}>{m.name}</td>
-                  <td className={r.td}>{m.gameTitle ?? '—'}</td>
-                  <td className={r.td}>{m.startsOn}</td>
-                  <td className={r.td}>{m.endsOn ?? '—'}</td>
-                  <td className={r.td}>
-                    <StatusBadge variant={m.isActive ? 'ready' : 'neutral'} data-testid={`mission-status-${m.missionId}`}>
-                      {m.isActive ? 'Active' : 'Inactive'}
-                    </StatusBadge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className={r.count}>
-            {data.missions.length} {data.missions.length === 1 ? 'mission' : 'missions'}
-          </div>
-        </>
-      )}
-    </div>
+    </>
   );
 }

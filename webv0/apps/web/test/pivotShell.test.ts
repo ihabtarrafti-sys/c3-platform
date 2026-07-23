@@ -99,13 +99,14 @@ describe('the pivot shell laws (Wave 0)', () => {
     expect(drawer).toContain('data-testid="form-drawer-close"');
     expect(drawer).toContain("'Governed request'");
     expect(drawer).toContain("'Immediate · recorded'");
-    // The dirty-guard law rides the API: no FIELD state lives in the DRAWER —
-    // its ONE allowed useState is the mounted lag (close natively first for
-    // the focus-return, unmount after; Fluent count-0 parity). Any second
-    // useState here would be field state creeping in.
+    // The dirty-guard law rides the API: NO state lives in the drawer at all
+    // (field state is the caller's; the deterministic lifecycle needs none) —
+    // and the closed sheet UNMOUNTS (Fluent count-0 parity) with close() in
+    // the unmount cleanup so the native focus-return happens first.
     const drawerFn = drawer.slice(drawer.indexOf('export function FormDrawer'));
-    expect(drawerFn.match(/useState/g)?.length).toBe(1);
-    expect(drawerFn).toContain('useState(open)');
+    expect(drawerFn).not.toMatch(/useState/);
+    expect(drawerFn).toContain('if (!open) return null;');
+    expect(drawerFn).toMatch(/return \(\) => \{\s*if \(dialog\.open\) dialog\.close\(\);/);
     const governed = read('tablework/GovernedAction.tsx');
     // The trigger keeps the caller's testid; the confirm carries -confirm.
     expect(governed).toContain('data-testid={triggerTestId}');
