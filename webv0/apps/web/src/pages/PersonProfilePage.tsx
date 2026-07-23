@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Button, makeStyles } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import { agreementRenewalStateOn, credentialStatusOn } from '@c3web/domain';
 import {
   usePerson,
@@ -13,21 +14,26 @@ import {
 } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { Breadcrumbs } from '../components/Breadcrumbs';
-import { DefinitionList } from '../components/DefinitionList';
-import { StatusBadge } from '../components/StatusBadge';
-import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
-import { DocumentsSection } from '../components/DocumentsSection';
-import { CommentThread } from '../components/CommentThread';
 import { PersonV2Sections } from '../components/PersonV2Sections';
 import { BeneficiarySection, CredentialFactsAction } from '../components/PersonS12Sections';
-import { ErrorState, LoadingState } from '../components/states';
 import { PersonActions } from '../components/PersonActions';
 import '../theme/person-hero.css';
 import { PersonPhotoControl } from '../components/PersonPhotoControl';
 import { useRegisterStyles } from '../components/registerStyles';
 import { agreementRenewalStateOf, approvalStatusOf, auditActionOf, credentialStatusOf, formatUsdCents, journeyStatusOf, operationOf } from '../labels';
+import {
+  TableworkPage,
+  RecordPage,
+  SectionRail,
+  DocumentsSection,
+  CommentThread,
+  AuditTimeline,
+  FactList,
+  StatusBadge,
+  ErrorState,
+  LoadingState,
+  type TimelineEntry,
+} from '../tablework';
 
 function localTodayIso(): string {
   const d = new Date();
@@ -57,18 +63,20 @@ export function PersonProfilePage() {
   const approvals = usePersonApprovals(personId, canViewApprovals);
   const teams = usePersonTeams(personId);
   const today = localTodayIso();
+  const [activeSection, setActiveSection] = useState('identity');
 
   if (isError) {
     const is404 = error instanceof ApiError && error.status === 404;
     return (
-      <div>
-        <PageHeader title="Person" breadcrumbs={<Breadcrumbs crumbs={[{ label: 'People', to: '/people' }, { label: personId }]} />} />
+      <TableworkPage record={personId}>
+        <RecordPage title="Person">
         <ErrorState
           data-testid="person-error"
           message={is404 ? `No person ${personId} in your tenant.` : 'Could not load this person.'}
           correlationId={error instanceof ApiError ? error.correlationId : undefined}
         />
-      </div>
+        </RecordPage>
+      </TableworkPage>
     );
   }
 
@@ -80,30 +88,50 @@ export function PersonProfilePage() {
   }));
 
   return (
-    <div>
-      <PageHeader
+    <TableworkPage record={name} wide>
+      <RecordPage
+        eyebrow="Person"
         title={name}
         titleTestId="person-title"
-        breadcrumbs={<Breadcrumbs crumbs={[{ label: 'People', to: '/people' }, { label: name }]} />}
+        lead={data ? data.person.currentTeam ?? undefined : undefined}
         actions={
           <Link to={`/people/${personId}/one-pager`} data-testid="person-onepager">
-            <Button appearance="secondary" size="small">One-pager</Button>
+            <button className="secondary-action" type="button">One-pager</button>
           </Link>
         }
-      />
+      >
+      {data && (
+        <SectionRail
+          label="Person sections"
+          active={activeSection}
+          onSelect={(key) => {
+            setActiveSection(key);
+            document.getElementById(`person-section-${key}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }}
+          sections={[
+            { key: 'identity', label: 'Identity' },
+            { key: 'credentials', label: 'Credentials' },
+            { key: 'journeys', label: 'Journeys' },
+            { key: 'agreements', label: 'Agreements' },
+            { key: 'missions', label: 'Missions' },
+            { key: 'approvals', label: 'Approvals' },
+            { key: 'history', label: 'History' },
+          ]}
+        />
+      )}
       {isLoading && <LoadingState label="Loading person…" />}
       {data && (
         <>
           {/* Screen 04: the identity hero — portrait + stable facts gathered on
               one opaque surface with the living thread. Components unchanged. */}
-          <section className="ph-hero" aria-label="Identity">
+          <section id="person-section-identity" className="ph-hero" aria-label="Identity">
           <PersonPhotoControl
             personId={data.person.personId}
             name={data.person.fullName}
             photoUpdatedAt={data.person.photoUpdatedAt}
             canManage={me?.capabilities.canSubmitApproval ?? false}
           />
-          <DefinitionList
+          <FactList
             items={[
               { label: 'Person ID', value: data.person.personId, mono: true, testId: 'person-id' },
               { label: 'In-game name', value: data.person.ign ?? null },
@@ -142,7 +170,7 @@ export function PersonProfilePage() {
           <BeneficiarySection personId={data.person.personId} />
           <PersonActions personId={data.person.personId} personName={data.person.fullName} />
           {(credentials.data?.credentials.length ?? 0) > 0 && (
-            <div className={s.section}>
+            <div id="person-section-credentials" className={s.section}>
               <h2 className={s.h2}>Credentials</h2>
               <table className={r.table} data-testid="person-credentials" aria-label="Person credentials">
                 <thead>
@@ -176,7 +204,7 @@ export function PersonProfilePage() {
             </div>
           )}
           {(journeys.data?.journeys.length ?? 0) > 0 && (
-            <div className={s.section}>
+            <div id="person-section-journeys" className={s.section}>
               <h2 className={s.h2}>Journeys</h2>
               <table className={r.table} data-testid="person-journeys" aria-label="Person journeys">
                 <thead>
@@ -206,7 +234,7 @@ export function PersonProfilePage() {
             </div>
           )}
           {canReadAgreements && (agreements.data?.agreements.length ?? 0) > 0 && (
-            <div className={s.section}>
+            <div id="person-section-agreements" className={s.section}>
               <h2 className={s.h2}>Agreements</h2>
               <table className={r.table} data-testid="person-agreements" aria-label="Person agreements">
                 <thead>
@@ -242,7 +270,7 @@ export function PersonProfilePage() {
             </div>
           )}
           {(missions.data?.missions.length ?? 0) > 0 && (
-            <div className={s.section}>
+            <div id="person-section-missions" className={s.section}>
               <h2 className={s.h2}>Missions</h2>
               <table className={r.table} data-testid="person-missions" aria-label="Person missions">
                 <thead>
@@ -273,7 +301,7 @@ export function PersonProfilePage() {
             </div>
           )}
           {canViewApprovals && (approvals.data?.approvals.length ?? 0) > 0 && (
-            <div className={s.section}>
+            <div id="person-section-approvals" className={s.section}>
               <h2 className={s.h2}>Approvals</h2>
               <table className={r.table} data-testid="person-approvals" aria-label="Person approvals">
                 <thead>
@@ -308,12 +336,13 @@ export function PersonProfilePage() {
 
           <CommentThread subjectType="Person" subjectId={personId} />
 
-          <div className={s.section}>
+          <div id="person-section-history" className={s.section}>
             <h2 className={s.h2}>History</h2>
             <AuditTimeline entries={entries} testId="person-audit" />
           </div>
         </>
       )}
-    </div>
+      </RecordPage>
+    </TableworkPage>
   );
 }

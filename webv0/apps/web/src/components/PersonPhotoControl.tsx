@@ -1,11 +1,9 @@
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, makeStyles } from '@fluentui/react-components';
 import { api } from '../apiClient';
 import { ApiError } from '../api';
 import { useNotify } from '../session';
-import { PersonAvatar } from './PersonAvatar';
-import { GovernedAction } from './GovernedAction';
+import { PersonAvatar, GovernedAction } from '../tablework';
 
 /**
  * PersonPhotoControl — the headshot on the person profile, with the ops
@@ -15,12 +13,6 @@ import { GovernedAction } from './GovernedAction';
  * direct-audited on the person trail; invalidation refreshes the person, the
  * roster, and the history timeline.
  */
-
-const useStyles = makeStyles({
-  root: { display: 'flex', alignItems: 'center', columnGap: '16px', marginBottom: '20px', flexWrap: 'wrap', rowGap: '10px' },
-  controls: { display: 'flex', columnGap: '8px', rowGap: '8px', flexWrap: 'wrap' },
-  hint: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-});
 
 export function PersonPhotoControl({
   personId,
@@ -33,7 +25,6 @@ export function PersonPhotoControl({
   photoUpdatedAt: string | null | undefined;
   canManage: boolean;
 }) {
-  const s = useStyles();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -62,10 +53,10 @@ export function PersonPhotoControl({
   }
 
   return (
-    <div className={s.root} data-testid="person-photo-control">
+    <div className="identity-photo-control" data-testid="person-photo-control">
       <PersonAvatar personId={personId} photoUpdatedAt={photoUpdatedAt} name={name} size={72} />
       {canManage && (
-        <div className={s.controls}>
+        <div className="panel-actions">
           <input
             ref={fileRef}
             type="file"
@@ -74,9 +65,9 @@ export function PersonPhotoControl({
             onChange={(e) => void onPick(e.target.files)}
             data-testid="person-photo-input"
           />
-          <Button appearance="secondary" size="small" disabled={busy} onClick={() => fileRef.current?.click()} data-testid="person-photo-upload">
+          <button className="secondary-action" type="button" disabled={busy} onClick={() => fileRef.current?.click()} data-testid="person-photo-upload">
             {busy ? 'Uploading…' : photoUpdatedAt ? 'Replace photo…' : 'Upload photo…'}
-          </Button>
+          </button>
           {photoUpdatedAt && (
             <GovernedAction
               triggerLabel="Remove"
@@ -97,7 +88,7 @@ export function PersonPhotoControl({
               }}
             />
           )}
-          {!photoUpdatedAt && <span className={s.hint}>PNG, JPEG, or WEBP · up to 8 MB.</span>}
+          {!photoUpdatedAt && <span className="record-quiet">PNG, JPEG, or WEBP · up to 8 MB.</span>}
         </div>
       )}
     </div>

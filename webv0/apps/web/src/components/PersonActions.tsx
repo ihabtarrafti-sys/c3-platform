@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { parseDecimalToMinor } from '@c3web/domain';
-import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { useMissions } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { GovernedAction } from './GovernedAction';
+import { Field, Input, Selector, GovernedAction } from '../tablework';
 
 /**
  * PersonActions (Sprint 42 W3) — the person page's WRITE side: start any
@@ -15,14 +14,7 @@ import { GovernedAction } from './GovernedAction';
  * hub removes navigation friction, never governance.
  */
 
-const useStyles = makeStyles({
-  row: { display: 'flex', columnGap: '8px', flexWrap: 'wrap', marginTop: '16px' },
-  fields: { display: 'flex', flexDirection: 'column', rowGap: '8px' },
-  select: { minWidth: '240px' },
-});
-
 export function PersonActions({ personId, personName }: { personId: string; personName: string }) {
-  const s = useStyles();
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -53,7 +45,7 @@ export function PersonActions({ personId, personName }: { personId: string; pers
   const activeMissions = (missions.data?.missions ?? []).filter((m) => m.isActive);
 
   return (
-    <div className={s.row} data-testid="person-actions">
+    <div className="panel-actions" data-testid="person-actions">
       <GovernedAction
         triggerLabel="Add credential…"
         triggerTestId="person-add-credential"
@@ -61,18 +53,18 @@ export function PersonActions({ personId, personName }: { personId: string; pers
         title={`Request a credential for ${personName}?`}
         description="This goes to an approver for review; the credential is not created until an owner executes it."
         extra={
-          <div className={s.fields}>
+          <div className="form-sheet-fields">
             <Field label="Credential type" required>
-              <Input value={cred.type} onChange={(_, d) => setCred({ ...cred, type: d.value })} data-testid="person-cred-type" />
+              <Input value={cred.type} onChange={(e) => setCred({ ...cred, type: e.target.value })} data-testid="person-cred-type" />
             </Field>
             <Field label="Issuer">
-              <Input value={cred.issuer} onChange={(_, d) => setCred({ ...cred, issuer: d.value })} />
+              <Input value={cred.issuer} onChange={(e) => setCred({ ...cred, issuer: e.target.value })} />
             </Field>
             <Field label="Issued on" required>
-              <Input type="date" value={cred.issued} onChange={(_, d) => setCred({ ...cred, issued: d.value })} data-testid="person-cred-issued" />
+              <Input type="date" value={cred.issued} onChange={(e) => setCred({ ...cred, issued: e.target.value })} data-testid="person-cred-issued" />
             </Field>
             <Field label="Expires on">
-              <Input type="date" value={cred.expires} onChange={(_, d) => setCred({ ...cred, expires: d.value })} data-testid="person-cred-expires" />
+              <Input type="date" value={cred.expires} onChange={(e) => setCred({ ...cred, expires: e.target.value })} data-testid="person-cred-expires" />
             </Field>
           </div>
         }
@@ -100,15 +92,15 @@ export function PersonActions({ personId, personName }: { personId: string; pers
         title={`Request a journey for ${personName}?`}
         description="This goes to an approver for review; the journey does not begin until an owner executes it."
         extra={
-          <div className={s.fields}>
+          <div className="form-sheet-fields">
             <Field label="Journey type" required>
-              <Input value={jrn.type} onChange={(_, d) => setJrn({ ...jrn, type: d.value })} data-testid="person-journey-type" />
+              <Input value={jrn.type} onChange={(e) => setJrn({ ...jrn, type: e.target.value })} data-testid="person-journey-type" />
             </Field>
             <Field label="Title">
-              <Input value={jrn.title} onChange={(_, d) => setJrn({ ...jrn, title: d.value })} />
+              <Input value={jrn.title} onChange={(e) => setJrn({ ...jrn, title: e.target.value })} />
             </Field>
             <Field label="Starts on" required>
-              <Input type="date" value={jrn.started} onChange={(_, d) => setJrn({ ...jrn, started: d.value })} data-testid="person-journey-started" />
+              <Input type="date" value={jrn.started} onChange={(e) => setJrn({ ...jrn, started: e.target.value })} data-testid="person-journey-started" />
             </Field>
           </div>
         }
@@ -135,22 +127,22 @@ export function PersonActions({ personId, personName }: { personId: string; pers
         title={`Request an agreement for ${personName}?`}
         description="This goes to an approver for review; the agreement does not exist until an owner executes it."
         extra={
-          <div className={s.fields}>
+          <div className="form-sheet-fields">
             <Field label="Agreement type" required hint='e.g. "Player Contract", "NDA"'>
-              <Input value={agr.type} onChange={(_, d) => setAgr({ ...agr, type: d.value })} data-testid="person-agreement-type" />
+              <Input value={agr.type} onChange={(e) => setAgr({ ...agr, type: e.target.value })} data-testid="person-agreement-type" />
             </Field>
             <Field label="Agreement code">
-              <Input value={agr.code} onChange={(_, d) => setAgr({ ...agr, code: d.value })} />
+              <Input value={agr.code} onChange={(e) => setAgr({ ...agr, code: e.target.value })} />
             </Field>
             <Field label="Starts on" required>
-              <Input type="date" value={agr.starts} onChange={(_, d) => setAgr({ ...agr, starts: d.value })} data-testid="person-agreement-starts" />
+              <Input type="date" value={agr.starts} onChange={(e) => setAgr({ ...agr, starts: e.target.value })} data-testid="person-agreement-starts" />
             </Field>
             <Field label="Ends on" required>
-              <Input type="date" value={agr.ends} onChange={(_, d) => setAgr({ ...agr, ends: d.value })} data-testid="person-agreement-ends" />
+              <Input type="date" value={agr.ends} onChange={(e) => setAgr({ ...agr, ends: e.target.value })} data-testid="person-agreement-ends" />
             </Field>
             {showValue && (
               <Field label="Value (USD)">
-                <Input type="number" value={agr.value} onChange={(_, d) => setAgr({ ...agr, value: d.value })} />
+                <Input type="number" value={agr.value} onChange={(e) => setAgr({ ...agr, value: e.target.value })} />
               </Field>
             )}
           </div>
@@ -188,27 +180,19 @@ export function PersonActions({ personId, personName }: { personId: string; pers
         title={`Request adding ${personName} to a mission?`}
         description="This goes to an approver for review; the roster is unchanged until an owner executes it."
         extra={
-          <div className={s.fields}>
+          <div className="form-sheet-fields">
             <Field label="Mission" required>
-              <Dropdown
-                className={s.select}
+              <Selector
                 placeholder="Select a mission"
-                value={msn.missionLabel}
-                selectedOptions={msn.missionId ? [msn.missionId] : []}
-                onOptionSelect={(_, d) => {
-                  if (d.optionValue) setMsn({ ...msn, missionId: d.optionValue, missionLabel: d.optionText ?? d.optionValue });
-                }}
+                value={msn.missionId}
+                display={msn.missionLabel || undefined}
+                options={activeMissions.map((m) => ({ value: m.missionId, label: `${m.missionId} — ${m.name}` }))}
+                onSelect={(value, label) => setMsn({ ...msn, missionId: value, missionLabel: label })}
                 data-testid="person-mission-pick"
-              >
-                {activeMissions.map((m) => (
-                  <Option key={m.missionId} value={m.missionId} text={`${m.missionId} — ${m.name}`}>
-                    {`${m.missionId} — ${m.name}`}
-                  </Option>
-                ))}
-              </Dropdown>
+              />
             </Field>
             <Field label="Mission role" required>
-              <Input value={msn.role} onChange={(_, d) => setMsn({ ...msn, role: d.value })} data-testid="person-mission-role" />
+              <Input value={msn.role} onChange={(e) => setMsn({ ...msn, role: e.target.value })} data-testid="person-mission-role" />
             </Field>
           </div>
         }

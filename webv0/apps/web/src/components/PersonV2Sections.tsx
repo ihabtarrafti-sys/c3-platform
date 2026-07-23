@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Field, Input, makeStyles } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import type { PersonDto } from '@c3web/api-contracts';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { GovernedAction } from './GovernedAction';
-import { DefinitionList } from './DefinitionList';
+import { Field, Input, GovernedAction, FactList } from '../tablework';
 
 /**
  * PersonV2Sections — S11: the PIF record made visible and maintainable.
@@ -117,7 +116,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
     <>
       <div className={s.section} data-testid="person-identity-card">
         <h2 className={s.h2}>Identity</h2>
-        <DefinitionList
+        <FactList
           items={[
             { label: 'First name', value: show(person.firstName) ?? null, testId: 'person-first-name' },
             { label: 'Last name', value: show(person.lastName) ?? null, testId: 'person-last-name' },
@@ -137,7 +136,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
       {piiVisible && (
         <div className={s.section} data-testid="person-pii-block">
           <h2 className={s.h2}>Contact & address (PII)</h2>
-          <DefinitionList
+          <FactList
             items={[
               { label: 'Phone', value: person.phone ?? null, testId: 'person-phone' },
               { label: 'Email', value: person.email ?? null, testId: 'person-email' },
@@ -161,26 +160,26 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
             title={`Request an identity change for ${person.fullName}?`}
             description="Names, date of birth and nationalities are compliance facts — the change goes to an approver and nothing changes until an owner executes it. Fill only the fields you want to change."
             extra={
-              <div className={s.fields}>
+              <div className="form-sheet-fields">
                 <Field label="Full name (display)">
-                  <Input value={idPatch.fullName} onChange={(_, d) => setIdPatch({ ...idPatch, fullName: d.value })} data-testid="identity-fullname" />
+                  <Input value={idPatch.fullName} onChange={(e) => setIdPatch({ ...idPatch, fullName: e.target.value })} data-testid="identity-fullname" />
                 </Field>
                 <div className={s.two}>
                   <Field label="First name">
-                    <Input value={idPatch.firstName} onChange={(_, d) => setIdPatch({ ...idPatch, firstName: d.value })} data-testid="identity-first" />
+                    <Input value={idPatch.firstName} onChange={(e) => setIdPatch({ ...idPatch, firstName: e.target.value })} data-testid="identity-first" />
                   </Field>
                   <Field label="Last name">
-                    <Input value={idPatch.lastName} onChange={(_, d) => setIdPatch({ ...idPatch, lastName: d.value })} data-testid="identity-last" />
+                    <Input value={idPatch.lastName} onChange={(e) => setIdPatch({ ...idPatch, lastName: e.target.value })} data-testid="identity-last" />
                   </Field>
                 </div>
                 <Field label="Date of birth">
-                  <Input type="date" value={idPatch.dateOfBirth} onChange={(_, d) => setIdPatch({ ...idPatch, dateOfBirth: d.value })} data-testid="identity-dob" />
+                  <Input type="date" value={idPatch.dateOfBirth} onChange={(e) => setIdPatch({ ...idPatch, dateOfBirth: e.target.value })} data-testid="identity-dob" />
                 </Field>
                 <Field label="Nationality">
-                  <Input value={idPatch.nationality} onChange={(_, d) => setIdPatch({ ...idPatch, nationality: d.value })} data-testid="identity-nationality" />
+                  <Input value={idPatch.nationality} onChange={(e) => setIdPatch({ ...idPatch, nationality: e.target.value })} data-testid="identity-nationality" />
                 </Field>
                 <Field label="Other nationalities (comma-separated)">
-                  <Input value={idPatch.otherNats} onChange={(_, d) => setIdPatch({ ...idPatch, otherNats: d.value })} data-testid="identity-other-nats" />
+                  <Input value={idPatch.otherNats} onChange={(e) => setIdPatch({ ...idPatch, otherNats: e.target.value })} data-testid="identity-other-nats" />
                 </Field>
               </div>
             }
@@ -203,39 +202,39 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
             title={`Edit operational details for ${person.fullName}?`}
             description="Position, joining date, contacts and notes apply immediately and are audited (before → after)."
             extra={
-              <div className={s.fields}>
+              <div className="form-sheet-fields">
                 <div className={s.two}>
                   <Field label="Position">
-                    <Input value={ops.position} onChange={(_, d) => setOps({ ...ops, position: d.value })} data-testid="ops-position" />
+                    <Input value={ops.position} onChange={(e) => setOps({ ...ops, position: e.target.value })} data-testid="ops-position" />
                   </Field>
                   <Field label="Date of joining">
-                    <Input type="date" value={ops.dateOfJoining} onChange={(_, d) => setOps({ ...ops, dateOfJoining: d.value })} data-testid="ops-joined" />
+                    <Input type="date" value={ops.dateOfJoining} onChange={(e) => setOps({ ...ops, dateOfJoining: e.target.value })} data-testid="ops-joined" />
                   </Field>
                 </div>
                 <div className={s.two}>
                   <Field label="Phone">
-                    <Input value={ops.phone} onChange={(_, d) => setOps({ ...ops, phone: d.value })} data-testid="ops-phone" />
+                    <Input value={ops.phone} onChange={(e) => setOps({ ...ops, phone: e.target.value })} data-testid="ops-phone" />
                   </Field>
                   <Field label="Email">
-                    <Input value={ops.email} onChange={(_, d) => setOps({ ...ops, email: d.value })} data-testid="ops-email" />
+                    <Input value={ops.email} onChange={(e) => setOps({ ...ops, email: e.target.value })} data-testid="ops-email" />
                   </Field>
                 </div>
                 <Field label="Address line 1">
-                  <Input value={ops.addressLine1} onChange={(_, d) => setOps({ ...ops, addressLine1: d.value })} data-testid="ops-address1" />
+                  <Input value={ops.addressLine1} onChange={(e) => setOps({ ...ops, addressLine1: e.target.value })} data-testid="ops-address1" />
                 </Field>
                 <Field label="Address line 2">
-                  <Input value={ops.addressLine2} onChange={(_, d) => setOps({ ...ops, addressLine2: d.value })} />
+                  <Input value={ops.addressLine2} onChange={(e) => setOps({ ...ops, addressLine2: e.target.value })} />
                 </Field>
                 <div className={s.two}>
                   <Field label="City">
-                    <Input value={ops.addressCity} onChange={(_, d) => setOps({ ...ops, addressCity: d.value })} data-testid="ops-city" />
+                    <Input value={ops.addressCity} onChange={(e) => setOps({ ...ops, addressCity: e.target.value })} data-testid="ops-city" />
                   </Field>
                   <Field label="Country">
-                    <Input value={ops.addressCountry} onChange={(_, d) => setOps({ ...ops, addressCountry: d.value })} data-testid="ops-country" />
+                    <Input value={ops.addressCountry} onChange={(e) => setOps({ ...ops, addressCountry: e.target.value })} data-testid="ops-country" />
                   </Field>
                 </div>
                 <Field label="Notes">
-                  <Input value={ops.notes} onChange={(_, d) => setOps({ ...ops, notes: d.value })} />
+                  <Input value={ops.notes} onChange={(e) => setOps({ ...ops, notes: e.target.value })} />
                 </Field>
               </div>
             }
@@ -258,7 +257,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
             description="A person leaving is a governance event — this goes to an approver; the person stays active until an owner executes it."
             extra={
               <Field label="Reason" required>
-                <Input value={lifecycleReason} onChange={(_, d) => setLifecycleReason(d.value)} data-testid="lifecycle-reason" />
+                <Input value={lifecycleReason} onChange={(e) => setLifecycleReason(e.target.value)} data-testid="lifecycle-reason" />
               </Field>
             }
             confirmLabel="Submit for approval"
@@ -281,7 +280,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
             description="This goes to an approver; the person stays inactive until an owner executes it."
             extra={
               <Field label="Reason" required>
-                <Input value={lifecycleReason} onChange={(_, d) => setLifecycleReason(d.value)} data-testid="lifecycle-reason" />
+                <Input value={lifecycleReason} onChange={(e) => setLifecycleReason(e.target.value)} data-testid="lifecycle-reason" />
               </Field>
             }
             confirmLabel="Submit for approval"

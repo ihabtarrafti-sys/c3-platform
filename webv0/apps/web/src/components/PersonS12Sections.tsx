@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Field, Input, makeStyles } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import type { BeneficiaryDto, CredentialDto } from '@c3web/api-contracts';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { usePersonBeneficiaries } from '../queries';
-import { GovernedAction } from './GovernedAction';
-import { StatusBadge } from './StatusBadge';
+import { Field, Input, GovernedAction, StatusBadge } from '../tablework';
 import { useRegisterStyles } from './registerStyles';
 
 /**
@@ -83,24 +82,24 @@ export function CredentialFactsAction({ credential, personId }: { credential: Cr
       title={`Request a facts change for ${credential.credentialId}?`}
       description="Dates, document number, issuing country and kind are compliance facts — the change goes to an approver. Fill only what changes."
       extra={
-        <div className={s.fields}>
+        <div className="form-sheet-fields">
           <div className={s.two}>
             <Field label="Kind (Passport / NationalID / Visa / License / Other)">
-              <Input value={f.kind} onChange={(_, d) => setF({ ...f, kind: d.value })} data-testid="cred-facts-kind" />
+              <Input value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} data-testid="cred-facts-kind" />
             </Field>
             <Field label="Issuing country">
-              <Input value={f.issuingCountry} onChange={(_, d) => setF({ ...f, issuingCountry: d.value })} data-testid="cred-facts-country" />
+              <Input value={f.issuingCountry} onChange={(e) => setF({ ...f, issuingCountry: e.target.value })} data-testid="cred-facts-country" />
             </Field>
           </div>
           <Field label="Document number (PII — owner/ops/hr only)">
-            <Input value={f.documentNumber} onChange={(_, d) => setF({ ...f, documentNumber: d.value })} data-testid="cred-facts-number" />
+            <Input value={f.documentNumber} onChange={(e) => setF({ ...f, documentNumber: e.target.value })} data-testid="cred-facts-number" />
           </Field>
           <div className={s.two}>
             <Field label="Issued on">
-              <Input type="date" value={f.issuedOn} onChange={(_, d) => setF({ ...f, issuedOn: d.value })} data-testid="cred-facts-issued" />
+              <Input type="date" value={f.issuedOn} onChange={(e) => setF({ ...f, issuedOn: e.target.value })} data-testid="cred-facts-issued" />
             </Field>
             <Field label="Expires on">
-              <Input type="date" value={f.expiresOn} onChange={(_, d) => setF({ ...f, expiresOn: d.value })} data-testid="cred-facts-expires" />
+              <Input type="date" value={f.expiresOn} onChange={(e) => setF({ ...f, expiresOn: e.target.value })} data-testid="cred-facts-expires" />
             </Field>
           </div>
         </div>
@@ -186,12 +185,12 @@ export function BeneficiarySection({ personId }: { personId: string }) {
                         <Input
                           placeholder="Reason (mandatory)"
                           value={retireReason}
-                          onChange={(_, d) => setRetireReason(d.value)}
+                          onChange={(e) => setRetireReason(e.target.value)}
                           data-testid="beneficiary-retire-reason"
                         />
-                        <Button
-                          size="small"
-                          appearance="primary"
+                        <button
+                          className="primary-action"
+                          type="button"
                           disabled={retireReason.trim() === ''}
                           data-testid="beneficiary-retire-confirm"
                           onClick={() =>
@@ -206,15 +205,15 @@ export function BeneficiarySection({ personId }: { personId: string }) {
                           }
                         >
                           Submit
-                        </Button>
-                        <Button size="small" appearance="secondary" onClick={() => setRetireFor(null)}>
+                        </button>
+                        <button className="secondary-action" type="button" onClick={() => setRetireFor(null)}>
                           Cancel
-                        </Button>
+                        </button>
                       </span>
                     ) : (
-                      <Button size="small" appearance="transparent" onClick={() => setRetireFor(x)} data-testid={`beneficiary-retire-${x.beneficiaryId}`}>
+                      <button className="mini-action" type="button" onClick={() => setRetireFor(x)} data-testid={`beneficiary-retire-${x.beneficiaryId}`}>
                         Retire…
-                      </Button>
+                      </button>
                     )
                   )}
                 </td>
@@ -232,29 +231,29 @@ export function BeneficiarySection({ personId }: { personId: string }) {
             title="Request a new beneficiary?"
             description="Payment-routing facts get dual control — this goes to an approver. Account numbers and IBANs are refused by law; use the org's label for the route."
             extra={
-              <div className={s.fields}>
+              <div className="form-sheet-fields">
                 <div className={s.two}>
                   <Field label="Label" required>
-                    <Input value={b.label} onChange={(_, d) => setB({ ...b, label: d.value })} data-testid="beneficiary-label" />
+                    <Input value={b.label} onChange={(e) => setB({ ...b, label: e.target.value })} data-testid="beneficiary-label" />
                   </Field>
                   <Field label="Currency (ISO)" required>
-                    <Input value={b.currency} onChange={(_, d) => setB({ ...b, currency: d.value })} data-testid="beneficiary-currency" />
+                    <Input value={b.currency} onChange={(e) => setB({ ...b, currency: e.target.value })} data-testid="beneficiary-currency" />
                   </Field>
                 </div>
                 <div className={s.two}>
                   <Field label="Bank name" required>
-                    <Input value={b.bankName} onChange={(_, d) => setB({ ...b, bankName: d.value })} data-testid="beneficiary-bank" />
+                    <Input value={b.bankName} onChange={(e) => setB({ ...b, bankName: e.target.value })} data-testid="beneficiary-bank" />
                   </Field>
                   <Field label="Bank country" required>
-                    <Input value={b.bankCountry} onChange={(_, d) => setB({ ...b, bankCountry: d.value })} data-testid="beneficiary-country" />
+                    <Input value={b.bankCountry} onChange={(e) => setB({ ...b, bankCountry: e.target.value })} data-testid="beneficiary-country" />
                   </Field>
                 </div>
                 <div className={s.two}>
                   <Field label="Payment type">
-                    <Input value={b.paymentType} onChange={(_, d) => setB({ ...b, paymentType: d.value })} />
+                    <Input value={b.paymentType} onChange={(e) => setB({ ...b, paymentType: e.target.value })} />
                   </Field>
                   <Field label="Registered with (ENT-XXXX)">
-                    <Input value={b.entityId} onChange={(_, d) => setB({ ...b, entityId: d.value })} />
+                    <Input value={b.entityId} onChange={(e) => setB({ ...b, entityId: e.target.value })} />
                   </Field>
                 </div>
               </div>
@@ -280,9 +279,9 @@ export function BeneficiarySection({ personId }: { personId: string }) {
           />
         )}
         {rows.some((x) => x.status !== 'Retired') && (
-          <Button appearance="secondary" onClick={() => void downloadForm()} data-testid="beneficiary-bank-form">
+          <button className="secondary-action" type="button" onClick={() => void downloadForm()} data-testid="beneficiary-bank-form">
             Bank form (xlsx)
-          </Button>
+          </button>
         )}
       </div>
     </div>
