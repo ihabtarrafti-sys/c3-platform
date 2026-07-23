@@ -71,6 +71,7 @@ export const router = createBrowserRouter([
   { path: '/approvals', element: <ApprovalsPage /> },
   { path: '/approvals/:approvalId', element: <ApprovalDetailPage /> },
   { path: '/missions', element: <MissionsPage /> },
+  { path: '/missions/:missionId', element: <MissionDetailPage /> },
   { path: '/situation', element: <HomePage /> },
   {
     path: '/',
@@ -83,7 +84,6 @@ export const router = createBrowserRouter([
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
       { path: 'missions/finance', element: <MissionFinancePage /> },
-      { path: 'missions/:missionId', element: <MissionDetailPage /> },
       { path: 'invoices', element: <InvoicesPage /> },
       { path: 'teams', element: <TeamsPage /> },
       { path: 'teams/:teamId', element: <TeamDetailPage /> },

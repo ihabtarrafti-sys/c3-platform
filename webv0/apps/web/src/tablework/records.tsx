@@ -22,7 +22,7 @@ import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { WorkSurface } from './materials';
 import { GovernedAction } from './GovernedAction';
-import { EmptyState } from './collections';
+import { EmptyState, usePageTitle } from './collections';
 
 // ── RecordPage / ObjectIdentity / SectionRail (contract 05) ──────────────────
 
@@ -41,6 +41,8 @@ interface RecordPageProps {
 }
 
 export function RecordPage({ eyebrow, title, titleTestId, lead, meta, actions, children }: RecordPageProps) {
+  // PageHeader parity: a string eyebrow names the tab ("C3 — Mission").
+  usePageTitle(typeof eyebrow === 'string' ? eyebrow : '');
   return (
     <>
       <WorkSurface as="header" tier="raised" tablework="ObjectIdentity RecordPage" className="object-identity">

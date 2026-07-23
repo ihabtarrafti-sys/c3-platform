@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
 import {
   MISSION_LINE_DIRECTIONS,
@@ -21,16 +21,28 @@ import { useEntities, useMission, useMissionAudit, useMissionParticipants, useMi
 import { ApiError, type MissionLineDto, type PnlAmountDto } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { Breadcrumbs } from '../components/Breadcrumbs';
-import { DefinitionList } from '../components/DefinitionList';
-import { StatusBadge } from '../components/StatusBadge';
-import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
-import { CommentThread } from '../components/CommentThread';
-import { ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { DocumentsSection } from '../components/DocumentsSection';
+// The pivot (W1-6): the frozen kit carries API-identical ports of every
+// cross-cutting piece this hub uses — the import path IS the conversion for
+// StatusBadge/AuditTimeline/CommentThread/DocumentsSection/GovernedAction;
+// FactList replaces DefinitionList (same items API); Breadcrumbs do not port
+// (the ContextHeader working-from band replaces them).
+import {
+  TableworkPage,
+  RecordPage,
+  FactList,
+  StatusBadge,
+  AuditTimeline,
+  type TimelineEntry,
+  CommentThread,
+  ErrorState,
+  LoadingState,
+  GovernedAction,
+  DocumentsSection,
+  ComparisonTable,
+  Field,
+  Input,
+  Selector,
+} from '../tablework';
 import { DistributionsSection } from '../components/DistributionsSection';
 import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf } from '../labels';
 
@@ -67,7 +79,6 @@ function pnlAmountText(a: PnlAmountDto, currency: CurrencyCode): string {
 
 export function MissionDetailPage() {
   const s = useStyles();
-  const r = useRegisterStyles();
   const { missionId = '' } = useParams();
   const navigate = useNavigate();
   const { me } = useSession();
@@ -109,14 +120,13 @@ export function MissionDetailPage() {
   if (isError) {
     const is404 = error instanceof ApiError && error.status === 404;
     return (
-      <div>
-        <PageHeader title="Mission" breadcrumbs={<Breadcrumbs crumbs={[{ label: 'Missions', to: '/missions' }, { label: missionId }]} />} />
+      <TableworkPage record={missionId}>
         <ErrorState
           data-testid="mission-error"
           message={is404 ? `No mission ${missionId} in your tenant.` : 'Could not load this mission.'}
           correlationId={error instanceof ApiError ? error.correlationId : undefined}
         />
-      </div>
+      </TableworkPage>
     );
   }
 
@@ -207,9 +217,9 @@ export function MissionDetailPage() {
   // The Tablework pilot: every mission reader may open the conversation —
   // the Comms route itself is the authority on what renders there.
   const conversationAction = m ? (
-    <Button appearance="secondary" data-testid="mission-conversation-link" onClick={() => navigate(`/missions/${m.missionId}/comms`)}>
+    <button className="secondary-action" type="button" data-testid="mission-conversation-link" onClick={() => navigate(`/missions/${m.missionId}/comms`)}>
       Conversation
-    </Button>
+    </button>
   ) : null;
 
   const manageActions =
@@ -224,48 +234,39 @@ export function MissionDetailPage() {
           extra={
             <div className={s.fields}>
               <Field label="Name" required>
-                <Input value={editState.name} onChange={(_, d) => setEdit({ ...editState, name: d.value })} data-testid={`edit-mission-name-${m.missionId}`} />
+                <Input value={editState.name} onChange={(e) => setEdit({ ...editState, name: e.target.value })} data-testid={`edit-mission-name-${m.missionId}`} />
               </Field>
               <Field label="Tournament code">
-                <Input value={editState.code} onChange={(_, d) => setEdit({ ...editState, code: d.value })} data-testid={`edit-mission-code-${m.missionId}`} />
+                <Input value={editState.code} onChange={(e) => setEdit({ ...editState, code: e.target.value })} data-testid={`edit-mission-code-${m.missionId}`} />
               </Field>
               <Field label="Organizer">
-                <Input value={editState.organizer} onChange={(_, d) => setEdit({ ...editState, organizer: d.value })} />
+                <Input value={editState.organizer} onChange={(e) => setEdit({ ...editState, organizer: e.target.value })} />
               </Field>
               <Field label="City">
-                <Input value={editState.city} onChange={(_, d) => setEdit({ ...editState, city: d.value })} />
+                <Input value={editState.city} onChange={(e) => setEdit({ ...editState, city: e.target.value })} />
               </Field>
               <Field label="Team (division)">
-                <Dropdown
-                  value={
-                    editState.teamId
-                      ? ((x) => (x ? `${x.code} · ${x.name}` : editState.teamId))(allTeams.data?.teams.find((x) => x.teamId === editState.teamId))
-                      : '— none —'
-                  }
-                  selectedOptions={[editState.teamId]}
-                  onOptionSelect={(_, d) => setEdit({ ...editState, teamId: d.optionValue ?? '' })}
+                <Selector
                   data-testid={`edit-mission-team-${m.missionId}`}
-                >
-                  <Option value="" text="— none —">
-                    — none —
-                  </Option>
-                  {(allTeams.data?.teams ?? [])
-                    .filter((x) => x.isActive && x.kind === 'GameDivision')
-                    .map((x) => (
-                      <Option key={x.teamId} value={x.teamId} text={`${x.code} · ${x.name}`}>
-                        {`${x.code} · ${x.name}`}
-                      </Option>
-                    ))}
-                </Dropdown>
+                  placeholder="— none —"
+                  value={editState.teamId}
+                  options={[
+                    { value: '', label: '— none —' },
+                    ...(allTeams.data?.teams ?? [])
+                      .filter((x) => x.isActive && x.kind === 'GameDivision')
+                      .map((x) => ({ value: x.teamId, label: `${x.code} · ${x.name}` })),
+                  ]}
+                  onSelect={(value) => setEdit({ ...editState, teamId: value })}
+                />
               </Field>
               <Field label="Game title">
-                <Input value={editState.gameTitle} onChange={(_, d) => setEdit({ ...editState, gameTitle: d.value })} />
+                <Input value={editState.gameTitle} onChange={(e) => setEdit({ ...editState, gameTitle: e.target.value })} />
               </Field>
               <Field label="Starts on" required>
-                <Input type="date" value={editState.startsOn} onChange={(_, d) => setEdit({ ...editState, startsOn: d.value })} />
+                <Input type="date" value={editState.startsOn} onChange={(e) => setEdit({ ...editState, startsOn: e.target.value })} />
               </Field>
               <Field label="Ends on">
-                <Input type="date" value={editState.endsOn} onChange={(_, d) => setEdit({ ...editState, endsOn: d.value })} data-testid={`edit-mission-ends-${m.missionId}`} />
+                <Input type="date" value={editState.endsOn} onChange={(e) => setEdit({ ...editState, endsOn: e.target.value })} data-testid={`edit-mission-ends-${m.missionId}`} />
               </Field>
             </div>
           }
@@ -311,17 +312,12 @@ export function MissionDetailPage() {
   const addReady = addPersonId !== '' && addRole.trim() !== '';
 
   return (
-    <div>
-      <PageHeader
-        title={title}
-        titleTestId="mission-title"
-        breadcrumbs={<Breadcrumbs crumbs={[{ label: 'Missions', to: '/missions' }, { label: title }]} />}
-        actions={shellActions}
-      />
+    <TableworkPage record={title} section={m ? m.missionId : undefined}>
+      <RecordPage eyebrow="Mission" title={title} titleTestId="mission-title" actions={shellActions}>
       {isLoading && <LoadingState label="Loading mission…" />}
       {m && (
         <>
-          <DefinitionList
+          <FactList
             items={[
               { label: 'Mission ID', value: m.missionId, mono: true, testId: 'mission-id' },
               { label: 'Tournament code', value: m.code ? <span data-testid="mission-code">{m.code}</span> : null, mono: true },
@@ -330,7 +326,7 @@ export function MissionDetailPage() {
               {
                 label: 'Team',
                 value: m.teamId ? (
-                  <Link className={r.idLink} to={`/teams/${m.teamId}`} data-testid='mission-team-link'>
+                  <Link to={`/teams/${m.teamId}`} data-testid='mission-team-link'>
                     {((x) => (x ? `${x.code} · ${x.name}` : m.teamId))(allTeams.data?.teams.find((x) => x.teamId === m.teamId))}
                   </Link>
                 ) : null,
@@ -399,28 +395,20 @@ export function MissionDetailPage() {
             {canSubmit && m.isActive && (
               <div className={s.fields} style={{ maxWidth: '440px', marginBottom: '16px' }}>
                 <Field label="Person" required>
-                  <Dropdown
-                    className={s.personSelect}
-                    placeholder="Select a person"
-                    value={addPersonLabel}
-                    selectedOptions={addPersonId ? [addPersonId] : []}
-                    onOptionSelect={(_, d) => {
-                      if (d.optionValue) {
-                        setAddPersonId(d.optionValue);
-                        setAddPersonLabel(d.optionText ?? d.optionValue);
-                      }
-                    }}
+                  <Selector
                     data-testid="add-participant-person"
-                  >
-                    {(people.data?.people ?? []).map((p) => (
-                      <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>
-                        {`${p.fullName} (${p.personId})`}
-                      </Option>
-                    ))}
-                  </Dropdown>
+                    placeholder="Select a person"
+                    value={addPersonId}
+                    display={addPersonId ? addPersonLabel : undefined}
+                    options={(people.data?.people ?? []).map((p) => ({ value: p.personId, label: `${p.fullName} (${p.personId})` }))}
+                    onSelect={(value, label) => {
+                      setAddPersonId(value);
+                      setAddPersonLabel(label);
+                    }}
+                  />
                 </Field>
                 <Field label="Mission role" required>
-                  <Input value={addRole} onChange={(_, d) => setAddRole(d.value)} data-testid="add-participant-role" />
+                  <Input value={addRole} onChange={(e) => setAddRole(e.target.value)} data-testid="add-participant-role" />
                 </Field>
                 <div>
                   <GovernedAction
@@ -446,29 +434,35 @@ export function MissionDetailPage() {
             )}
             {canSubmit && m.isActive && (
               <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-border-subtle)' }}>
-                <Field label="Bulk add — pick several people, one role">
-                  <Dropdown
-                    multiselect
-                    placeholder="Select people…"
-                    value={bulkPersonIds.length ? `${bulkPersonIds.length} selected` : ''}
-                    selectedOptions={bulkPersonIds}
-                    onOptionSelect={(_, d) => setBulkPersonIds(d.selectedOptions)}
-                    data-testid="bulk-add-people"
-                  >
+                {/* Spec-free multiselect → the established chips pattern
+                    (toggle to pick), same container testid. */}
+                <div className="tw-field">
+                  <span>Bulk add — pick several people, one role</span>
+                  <div className="comment-mention-chips" data-testid="bulk-add-people" role="group" aria-label="Bulk add — pick several people, one role">
                     {(people.data?.people ?? [])
                       .filter((p) => !roster.some((rp) => rp.isActive && rp.personId === p.personId))
                       .map((p) => (
-                        <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>{`${p.fullName} (${p.personId})`}</Option>
+                        <button
+                          key={p.personId}
+                          type="button"
+                          className={bulkPersonIds.includes(p.personId) ? 'mini-action active' : 'mini-action'}
+                          aria-pressed={bulkPersonIds.includes(p.personId)}
+                          onClick={() =>
+                            setBulkPersonIds((ids) => (ids.includes(p.personId) ? ids.filter((x) => x !== p.personId) : [...ids, p.personId]))
+                          }
+                        >
+                          {`${p.fullName} (${p.personId})`}
+                        </button>
                       ))}
-                  </Dropdown>
-                </Field>
+                  </div>
+                </div>
                 <Field label="Mission role for all">
-                  <Input value={bulkRole} onChange={(_, d) => setBulkRole(d.value)} data-testid="bulk-add-role" />
+                  <Input value={bulkRole} onChange={(e) => setBulkRole(e.target.value)} data-testid="bulk-add-role" />
                 </Field>
                 <div>
-                  <Button appearance="primary" onClick={bulkAdd} disabled={bulkBusy || bulkPersonIds.length === 0 || !bulkRole.trim()} data-testid="bulk-add-submit">
+                  <button className="primary-action" type="button" onClick={() => void bulkAdd()} disabled={bulkBusy || bulkPersonIds.length === 0 || !bulkRole.trim()} data-testid="bulk-add-submit">
                     {bulkBusy ? 'Submitting…' : `Submit ${bulkPersonIds.length || ''} for approval`}
-                  </Button>
+                  </button>
                   <span className={s.rosterIntro} style={{ marginLeft: '10px' }}>One approval per person — membership stays a governed decision.</span>
                 </div>
               </div>
@@ -477,47 +471,51 @@ export function MissionDetailPage() {
               <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px' }}>
                 <Field label="Roster-wide per-diem — apply one daily rate to every active participant">
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
-                    <Input value={rosterPd.amount} onChange={(_, d) => setRosterPd((c) => ({ ...c, amount: d.value }))} placeholder="100.00" data-testid="roster-perdiem-amount" style={{ maxWidth: '120px' }} />
-                    <Dropdown value={rosterPd.currency} selectedOptions={[rosterPd.currency]} onOptionSelect={(_, d) => setRosterPd((c) => ({ ...c, currency: d.optionValue ?? 'USD' }))} data-testid="roster-perdiem-currency" style={{ maxWidth: '90px' }}>
-                      {CURRENCY_CODES.map((c) => <Option key={c} value={c}>{c}</Option>)}
-                    </Dropdown>
+                    <Input value={rosterPd.amount} onChange={(e) => setRosterPd((c) => ({ ...c, amount: e.target.value }))} placeholder="100.00" data-testid="roster-perdiem-amount" style={{ maxWidth: '120px' }} />
+                    <Selector
+                      data-testid="roster-perdiem-currency"
+                      value={rosterPd.currency}
+                      options={CURRENCY_CODES.map((c) => ({ value: c, label: c }))}
+                      onSelect={(value) => setRosterPd((c) => ({ ...c, currency: value || 'USD' }))}
+                      style={{ minWidth: '6rem' }}
+                    />
                     {perDiemPresets.map((p) => (
-                      <Button key={`${p.amountMinor}-${p.currency}`} size="small" appearance="subtle" onClick={() => setRosterPd({ amount: (p.amountMinor / 100).toFixed(2), currency: p.currency })}>
+                      <button key={`${p.amountMinor}-${p.currency}`} type="button" className="mini-action" onClick={() => setRosterPd({ amount: (p.amountMinor / 100).toFixed(2), currency: p.currency })}>
                         {(p.amountMinor / 100).toFixed(0)} {p.currency}
-                      </Button>
+                      </button>
                     ))}
-                    <Button appearance="secondary" onClick={applyRosterPerDiem} disabled={rosterBusy} data-testid="roster-perdiem-apply">
+                    <button className="secondary-action" type="button" onClick={() => void applyRosterPerDiem()} disabled={rosterBusy} data-testid="roster-perdiem-apply">
                       {rosterBusy ? 'Applying…' : 'Apply to all active'}
-                    </Button>
+                    </button>
                   </div>
                 </Field>
               </div>
             )}
             {roster.length === 0 && <p data-testid="participants-empty">No participants yet.</p>}
             {roster.length > 0 && (
-              <table className={r.table} data-testid="participants-table" aria-label="Mission participants">
+              <ComparisonTable label="Mission participants" testId="participants-table">
                 <thead>
                   <tr>
-                    <th className={r.th}>Person</th>
-                    <th className={r.th}>Name</th>
-                    <th className={r.th}>Role</th>
-                    {canViewPerDiem && <th className={r.th}>Per-diem</th>}
-                    <th className={r.th}>Status</th>
-                    {canSubmit && <th className={r.th}>Actions</th>}
+                    <th>Person</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    {canViewPerDiem && <th>Per-diem</th>}
+                    <th>Status</th>
+                    {canSubmit && <th>Actions</th>}
                   </tr>
                 </thead>
                 <tbody>
                   {roster.map((p) => (
-                    <tr key={p.personId} className={r.row} data-testid={`participant-row-${p.personId}`}>
-                      <td className={r.td}>
-                        <Link className={r.idLink} to={`/people/${p.personId}`}>
+                    <tr key={p.personId} data-testid={`participant-row-${p.personId}`}>
+                      <td>
+                        <Link to={`/people/${p.personId}`}>
                           {p.personId}
                         </Link>
                       </td>
-                      <td className={`${r.td} ${r.name}`}>{p.personName}</td>
-                      <td className={r.td}>{p.role}</td>
+                      <td>{p.personName}</td>
+                      <td>{p.role}</td>
                       {canViewPerDiem && (
-                        <td className={`${r.td} ${r.mono}`} data-testid={`participant-perdiem-${p.personId}`}>
+                        <td className="mono" data-testid={`participant-perdiem-${p.personId}`}>
                           {p.perDiemAmountMinor != null && p.perDiemCurrency ? (
                             (() => {
                               const days = missionDayCount(m.startsOn, m.endsOn);
@@ -531,13 +529,13 @@ export function MissionDetailPage() {
                           )}
                         </td>
                       )}
-                      <td className={r.td}>
+                      <td>
                         <StatusBadge variant={p.isActive ? 'ready' : 'neutral'} data-testid={`participant-status-${p.personId}`}>
                           {p.isActive ? 'Active' : 'Removed'}
                         </StatusBadge>
                       </td>
                       {canSubmit && (
-                        <td className={r.td}>
+                        <td>
                           {p.isActive && (
                             <div style={{ display: 'flex', columnGap: '8px', flexWrap: 'wrap' }}>
                               {canManage &&
@@ -563,10 +561,10 @@ export function MissionDetailPage() {
                                           {perDiemPresets.length > 0 && (
                                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }} data-testid={`perdiem-presets-${p.personId}`}>
                                               {perDiemPresets.map((pre) => (
-                                                <Button
+                                                <button
                                                   key={`${pre.amountMinor}-${pre.currency}`}
-                                                  size="small"
-                                                  appearance="secondary"
+                                                  type="button"
+                                                  className="mini-action"
                                                   onClick={() =>
                                                     setDraft({
                                                       amount: pre.amountMinor % 100 === 0 ? String(pre.amountMinor / 100) : (pre.amountMinor / 100).toFixed(2),
@@ -576,7 +574,7 @@ export function MissionDetailPage() {
                                                   data-testid={`perdiem-preset-${p.personId}-${pre.amountMinor}-${pre.currency}`}
                                                 >
                                                   {formatMoney(pre.amountMinor, pre.currency)}/day
-                                                </Button>
+                                                </button>
                                               ))}
                                             </div>
                                           )}
@@ -584,23 +582,17 @@ export function MissionDetailPage() {
                                             <Input
                                               type="number"
                                               value={draft.amount}
-                                              onChange={(_, d) => setDraft({ amount: d.value })}
+                                              onChange={(e) => setDraft({ amount: e.target.value })}
                                               data-testid={`perdiem-amount-${p.personId}`}
                                             />
                                           </Field>
                                           <Field label="Currency">
-                                            <Dropdown
-                                              value={draft.currency}
-                                              selectedOptions={[draft.currency]}
-                                              onOptionSelect={(_, d) => d.optionValue && setDraft({ currency: d.optionValue })}
+                                            <Selector
                                               data-testid={`perdiem-currency-${p.personId}`}
-                                            >
-                                              {CURRENCY_CODES.map((c) => (
-                                                <Option key={c} value={c}>
-                                                  {c}
-                                                </Option>
-                                              ))}
-                                            </Dropdown>
+                                              value={draft.currency}
+                                              options={CURRENCY_CODES.map((c) => ({ value: c, label: c }))}
+                                              onSelect={(value) => value && setDraft({ currency: value })}
+                                            />
                                           </Field>
                                         </div>
                                       }
@@ -639,7 +631,7 @@ export function MissionDetailPage() {
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </ComparisonTable>
             )}
           </div>
 
@@ -662,7 +654,8 @@ export function MissionDetailPage() {
           )}
         </>
       )}
-    </div>
+      </RecordPage>
+    </TableworkPage>
   );
 }
 
@@ -710,7 +703,6 @@ function lineFormInvalid(f: LineForm): boolean {
  */
 function MissionPnlSection({ missionId, canManage, organizer }: { missionId: string; canManage: boolean; organizer: string | null }) {
   const s = useStyles();
-  const r = useRegisterStyles();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const { data, isLoading } = useMissionPnl(missionId);
@@ -748,59 +740,42 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
       <div className={s.fields}>
         {directionEditable && (
           <Field label="Type" required>
-            <Dropdown
+            <Selector
+              data-testid={`${idPrefix}-direction`}
               value={form.direction}
-              selectedOptions={[form.direction]}
-              onOptionSelect={(_, d) => {
-                const direction = (d.optionValue ?? 'Income') as MissionLineDirection;
+              options={MISSION_LINE_DIRECTIONS.map((d) => ({ value: d, label: d }))}
+              onSelect={(value) => {
+                const direction = (value || 'Income') as MissionLineDirection;
                 // Category lists differ per direction — reset to the honest bucket.
                 setForm({ ...form, direction, category: 'Other' });
               }}
-              data-testid={`${idPrefix}-direction`}
-            >
-              {MISSION_LINE_DIRECTIONS.map((d) => (
-                <Option key={d} value={d} text={d}>
-                  {d}
-                </Option>
-              ))}
-            </Dropdown>
+            />
           </Field>
         )}
         {directionEditable && (
           <Field label="Category" required>
-            <Dropdown
-              value={lineCategoryOf(form.category)}
-              selectedOptions={[form.category]}
-              onOptionSelect={(_, d) => setForm({ ...form, category: d.optionValue ?? 'Other' })}
+            <Selector
               data-testid={`${idPrefix}-category`}
-            >
-              {categoriesForDirection(form.direction).map((c) => (
-                <Option key={c} value={c} text={lineCategoryOf(c)}>
-                  {lineCategoryOf(c)}
-                </Option>
-              ))}
-            </Dropdown>
+              value={form.category}
+              display={lineCategoryOf(form.category)}
+              options={categoriesForDirection(form.direction).map((c) => ({ value: c, label: lineCategoryOf(c) }))}
+              onSelect={(value) => setForm({ ...form, category: value || 'Other' })}
+            />
           </Field>
         )}
         <Field label="Label" required>
-          <Input value={form.label} onChange={(_, d) => setForm({ ...form, label: d.value })} data-testid={`${idPrefix}-label`} />
+          <Input value={form.label} onChange={(e) => setForm({ ...form, label: e.target.value })} data-testid={`${idPrefix}-label`} />
         </Field>
         <Field label="Amount" required>
-          <Input type="number" value={form.amount} onChange={(_, d) => setForm({ ...form, amount: d.value })} data-testid={`${idPrefix}-amount`} />
+          <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} data-testid={`${idPrefix}-amount`} />
         </Field>
         <Field label="Currency" required>
-          <Dropdown
-            value={form.currency}
-            selectedOptions={[form.currency]}
-            onOptionSelect={(_, d) => setForm({ ...form, currency: (d.optionValue ?? 'USD') as CurrencyCode })}
+          <Selector
             data-testid={`${idPrefix}-currency`}
-          >
-            {CURRENCY_CODES.map((c) => (
-              <Option key={c} value={c} text={c}>
-                {c}
-              </Option>
-            ))}
-          </Dropdown>
+            value={form.currency}
+            options={CURRENCY_CODES.map((c) => ({ value: c, label: c }))}
+            onSelect={(value) => setForm({ ...form, currency: (value || 'USD') as CurrencyCode })}
+          />
         </Field>
       </div>
     );
@@ -839,49 +814,32 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
               extra={
                 <div className={s.fields}>
                   <Field label="Type" required>
-                    <Dropdown
-                      value={budget.direction}
-                      selectedOptions={[budget.direction]}
-                      onOptionSelect={(_, d) => setBudget({ ...budget, direction: (d.optionValue ?? 'Expense') as MissionLineDirection, category: 'Other' })}
+                    <Selector
                       data-testid="set-budget-direction"
-                    >
-                      {MISSION_LINE_DIRECTIONS.map((d) => (
-                        <Option key={d} value={d} text={d}>
-                          {d}
-                        </Option>
-                      ))}
-                    </Dropdown>
+                      value={budget.direction}
+                      options={MISSION_LINE_DIRECTIONS.map((d) => ({ value: d, label: d }))}
+                      onSelect={(value) => setBudget({ ...budget, direction: (value || 'Expense') as MissionLineDirection, category: 'Other' })}
+                    />
                   </Field>
                   <Field label="Category" required>
-                    <Dropdown
-                      value={lineCategoryOf(budget.category)}
-                      selectedOptions={[budget.category]}
-                      onOptionSelect={(_, d) => setBudget({ ...budget, category: d.optionValue ?? 'Other' })}
+                    <Selector
                       data-testid="set-budget-category"
-                    >
-                      {budgetCategoriesForDirection(budget.direction).map((c) => (
-                        <Option key={c} value={c} text={lineCategoryOf(c)}>
-                          {lineCategoryOf(c)}
-                        </Option>
-                      ))}
-                    </Dropdown>
+                      value={budget.category}
+                      display={lineCategoryOf(budget.category)}
+                      options={budgetCategoriesForDirection(budget.direction).map((c) => ({ value: c, label: lineCategoryOf(c) }))}
+                      onSelect={(value) => setBudget({ ...budget, category: value || 'Other' })}
+                    />
                   </Field>
                   <Field label="Currency" required>
-                    <Dropdown
-                      value={budget.currency}
-                      selectedOptions={[budget.currency]}
-                      onOptionSelect={(_, d) => setBudget({ ...budget, currency: (d.optionValue ?? 'USD') as CurrencyCode })}
+                    <Selector
                       data-testid="set-budget-currency"
-                    >
-                      {CURRENCY_CODES.map((c) => (
-                        <Option key={c} value={c} text={c}>
-                          {c}
-                        </Option>
-                      ))}
-                    </Dropdown>
+                      value={budget.currency}
+                      options={CURRENCY_CODES.map((c) => ({ value: c, label: c }))}
+                      onSelect={(value) => setBudget({ ...budget, currency: (value || 'USD') as CurrencyCode })}
+                    />
                   </Field>
                   <Field label="Planned amount (empty clears)">
-                    <Input type="number" value={budget.amount} onChange={(_, d) => setBudget({ ...budget, amount: d.value })} data-testid="set-budget-amount" />
+                    <Input type="number" value={budget.amount} onChange={(e) => setBudget({ ...budget, amount: e.target.value })} data-testid="set-budget-amount" />
                   </Field>
                 </div>
               }
@@ -939,15 +897,15 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
       )}
 
       {(lines.length > 0 || perDiemEntries.length > 0) && (
-        <table className={r.table} data-testid="mission-pnl-lines" aria-label="Mission income and expense lines">
+        <ComparisonTable label="Mission income and expense lines" testId="mission-pnl-lines">
           <thead>
             <tr>
-              <th className={r.th}>Type</th>
-              <th className={r.th}>Category</th>
-              <th className={r.th}>Label</th>
-              <th className={r.th}>Amount</th>
-              <th className={r.th}>Payment</th>
-              {canManage && <th className={r.th} aria-label="Actions" />}
+              <th>Type</th>
+              <th>Category</th>
+              <th>Label</th>
+              <th>Amount</th>
+              <th>Payment</th>
+              {canManage && <th aria-label="Actions" />}
             </tr>
           </thead>
           <tbody>
@@ -957,17 +915,17 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
               const pf = payments[l.lineId] ?? paymentFromLine(l);
               const setPf = (f: PaymentForm) => setPayments({ ...payments, [l.lineId]: f });
               return (
-                <tr key={l.lineId} className={r.row} data-testid={`pnl-line-${l.lineId}`}>
-                  <td className={r.td}>{l.direction}</td>
-                  <td className={r.td} data-testid={`pnl-line-category-${l.lineId}`}>{lineCategoryOf(l.category)}</td>
-                  <td className={`${r.td} ${r.name}`}>{l.label}</td>
-                  <td className={`${r.td} ${r.mono}`} data-testid={`pnl-line-amount-${l.lineId}`}>
+                <tr key={l.lineId} data-testid={`pnl-line-${l.lineId}`}>
+                  <td>{l.direction}</td>
+                  <td data-testid={`pnl-line-category-${l.lineId}`}>{lineCategoryOf(l.category)}</td>
+                  <td>{l.label}</td>
+                  <td className="mono" data-testid={`pnl-line-amount-${l.lineId}`}>
                     {formatMoney(l.amountMinor, l.currency)}
                     {l.paymentStatus === 'Received' && l.receivedAmountMinor != null && l.receivedAmountMinor !== l.amountMinor && (
                       <span className={s.pnlSubtle}>{` (received ${formatMoney(l.receivedAmountMinor, l.currency)})`}</span>
                     )}
                   </td>
-                  <td className={r.td}>
+                  <td>
                     {l.paymentStatus ? (
                       <StatusBadge variant={paymentStatusOf(l.paymentStatus).variant} data-testid={`pnl-line-payment-${l.lineId}`}>
                         {paymentStatusOf(l.paymentStatus).label}
@@ -978,7 +936,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                     {l.refNo && <span className={s.pnlSubtle}>{` · ${l.refNo}`}</span>}
                   </td>
                   {canManage && (
-                    <td className={r.td}>
+                    <td>
                       <div className={s.headerActions}>
                         {l.direction === 'Income' && l.paymentStatus === 'Expected' && (
                           <GovernedAction
@@ -993,30 +951,25 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                               return (
                                 <div className={s.fields}>
                                   <Field label="Issuing entity (its code numbers the series)" required hint={chosen && !chosen.code ? 'This entity has no code — set one on the Entities register first.' : undefined}>
-                                    <Dropdown
-                                      value={chosen ? `${chosen.code ?? '—'} · ${chosen.name}` : ''}
-                                      selectedOptions={f.entityId ? [f.entityId] : []}
-                                      onOptionSelect={(_, d) => d.optionValue && setF({ ...f, entityId: d.optionValue })}
+                                    <Selector
                                       data-testid={`invoice-entity-${l.lineId}`}
-                                    >
-                                      {invoiceEntities.map((e) => (
-                                        <Option key={e.entityId} value={e.entityId} text={`${e.code ?? '—'} · ${e.name}`}>
-                                          {`${e.code ?? '—'} · ${e.name}`}
-                                        </Option>
-                                      ))}
-                                    </Dropdown>
+                                      value={f.entityId}
+                                      display={chosen ? `${chosen.code ?? '—'} · ${chosen.name}` : undefined}
+                                      options={invoiceEntities.map((e) => ({ value: e.entityId, label: `${e.code ?? '—'} · ${e.name}` }))}
+                                      onSelect={(value) => value && setF({ ...f, entityId: value })}
+                                    />
                                   </Field>
                                   <Field label="Billed to" required>
-                                    <Input value={f.billedTo} onChange={(_, d) => setF({ ...f, billedTo: d.value })} data-testid={`invoice-billed-to-${l.lineId}`} />
+                                    <Input value={f.billedTo} onChange={(e) => setF({ ...f, billedTo: e.target.value })} data-testid={`invoice-billed-to-${l.lineId}`} />
                                   </Field>
                                   <Field label="Billed-to details (address block, optional)">
-                                    <Input value={f.details} onChange={(_, d) => setF({ ...f, details: d.value })} />
+                                    <Input value={f.details} onChange={(e) => setF({ ...f, details: e.target.value })} />
                                   </Field>
                                   <Field label="VAT %" required hint="Entered per invoice — C3 states no tax law. 0 for none.">
-                                    <Input type="number" value={f.vatPct} onChange={(_, d) => setF({ ...f, vatPct: d.value })} data-testid={`invoice-vat-${l.lineId}`} />
+                                    <Input type="number" value={f.vatPct} onChange={(e) => setF({ ...f, vatPct: e.target.value })} data-testid={`invoice-vat-${l.lineId}`} />
                                   </Field>
                                   <Field label="Description (appears on the PDF; optional)">
-                                    <Input value={f.description} onChange={(_, d) => setF({ ...f, description: d.value })} data-testid={`invoice-description-${l.lineId}`} />
+                                    <Input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} data-testid={`invoice-description-${l.lineId}`} />
                                   </Field>
                                 </div>
                               );
@@ -1063,34 +1016,29 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                             extra={
                               <div className={s.fields}>
                                 <Field label="Status" required>
-                                  <Dropdown
-                                    value={paymentStatusOf(pf.status).label}
-                                    selectedOptions={[pf.status]}
-                                    onOptionSelect={(_, d) => setPf({ ...pf, status: (d.optionValue ?? 'Expected') as PaymentStatus })}
+                                  <Selector
                                     data-testid={`payment-status-${l.lineId}`}
-                                  >
-                                    {PAYMENT_STATUSES.map((ps) => (
-                                      <Option key={ps} value={ps} text={paymentStatusOf(ps).label}>
-                                        {paymentStatusOf(ps).label}
-                                      </Option>
-                                    ))}
-                                  </Dropdown>
+                                    value={pf.status}
+                                    display={paymentStatusOf(pf.status).label}
+                                    options={PAYMENT_STATUSES.map((ps) => ({ value: ps, label: paymentStatusOf(ps).label }))}
+                                    onSelect={(value) => setPf({ ...pf, status: (value || 'Expected') as PaymentStatus })}
+                                  />
                                 </Field>
                                 {pf.status === 'Received' && (
                                   <>
                                     <Field label={`Received amount (${l.currency}; empty = as expected)`}>
-                                      <Input type="number" value={pf.received} onChange={(_, d) => setPf({ ...pf, received: d.value })} data-testid={`payment-received-${l.lineId}`} />
+                                      <Input type="number" value={pf.received} onChange={(e) => setPf({ ...pf, received: e.target.value })} data-testid={`payment-received-${l.lineId}`} />
                                     </Field>
                                     <Field label="FX rate at receipt (USD per 1 unit; optional)">
-                                      <Input type="number" value={pf.rate} onChange={(_, d) => setPf({ ...pf, rate: d.value })} data-testid={`payment-rate-${l.lineId}`} />
+                                      <Input type="number" value={pf.rate} onChange={(e) => setPf({ ...pf, rate: e.target.value })} data-testid={`payment-rate-${l.lineId}`} />
                                     </Field>
                                   </>
                                 )}
                                 <Field label="Payment source (bank LABEL only)">
-                                  <Input value={pf.source} onChange={(_, d) => setPf({ ...pf, source: d.value })} data-testid={`payment-source-${l.lineId}`} />
+                                  <Input value={pf.source} onChange={(e) => setPf({ ...pf, source: e.target.value })} data-testid={`payment-source-${l.lineId}`} />
                                 </Field>
                                 <Field label="Bank reference">
-                                  <Input value={pf.refNo} onChange={(_, d) => setPf({ ...pf, refNo: d.value })} data-testid={`payment-ref-${l.lineId}`} />
+                                  <Input value={pf.refNo} onChange={(e) => setPf({ ...pf, refNo: e.target.value })} data-testid={`payment-ref-${l.lineId}`} />
                                 </Field>
                               </div>
                             }
@@ -1163,52 +1111,52 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
               );
             })}
             {perDiemEntries.map((e) => (
-              <tr key={`pd-${e.personId}`} className={r.row} data-testid={`pnl-perdiem-${e.personId}`}>
-                <td className={r.td}>Expense</td>
-                <td className={r.td}>Per-diem</td>
-                <td className={`${r.td} ${r.name}`}>{`Per-diem — ${e.personName}`}</td>
-                <td className={`${r.td} ${r.mono}`}>
+              <tr key={`pd-${e.personId}`} data-testid={`pnl-perdiem-${e.personId}`}>
+                <td>Expense</td>
+                <td>Per-diem</td>
+                <td>{`Per-diem — ${e.personName}`}</td>
+                <td className="mono">
                   {e.total.status === 'ok' && e.days != null
                     ? `${formatMoney(e.amountMinor, e.currency)}/day × ${e.days}d = ${formatMoney(e.total.amountMinor, e.currency)}`
                     : e.total.status === 'unavailable' && e.total.reason === 'overflow'
                       ? `${formatMoney(e.amountMinor, e.currency)}/day — total ${PNL_REASON_LABEL.overflow}`
                       : `${formatMoney(e.amountMinor, e.currency)}/day`}
                 </td>
-                <td className={r.td}>—</td>
-                {canManage && <td className={r.td} />}
+                <td>—</td>
+                {canManage && <td />}
               </tr>
             ))}
           </tbody>
-        </table>
+        </ComparisonTable>
       )}
 
       {pnl && pnl.perCategory.length > 0 && (
-        <table className={r.table} data-testid="pnl-categories" aria-label="Budget vs actual by category" style={{ marginTop: '16px' }}>
+        <ComparisonTable label="Budget vs actual by category" testId="pnl-categories">
           <thead>
             <tr>
-              <th className={r.th}>Type</th>
-              <th className={r.th}>Category</th>
-              <th className={r.th}>Budget ≈</th>
-              <th className={r.th}>Actual ≈</th>
-              <th className={r.th}>Δ ≈</th>
+              <th>Type</th>
+              <th>Category</th>
+              <th>Budget ≈</th>
+              <th>Actual ≈</th>
+              <th>Δ ≈</th>
             </tr>
           </thead>
           <tbody>
             {pnl.perCategory.map((c) => (
-              <tr key={`${c.direction}-${c.category}`} className={r.row} data-testid={`pnl-category-${c.direction}-${c.category}`}>
-                <td className={r.td}>{c.direction}</td>
-                <td className={r.td}>{lineCategoryOf(c.category)}</td>
-                <td className={`${r.td} ${r.mono}`}>{pnlAmountText(c.budgetUsd, 'USD')}</td>
-                <td className={`${r.td} ${r.mono}`} data-testid={`pnl-category-actual-${c.direction}-${c.category}`}>
+              <tr key={`${c.direction}-${c.category}`} data-testid={`pnl-category-${c.direction}-${c.category}`}>
+                <td>{c.direction}</td>
+                <td>{lineCategoryOf(c.category)}</td>
+                <td className="mono">{pnlAmountText(c.budgetUsd, 'USD')}</td>
+                <td className="mono" data-testid={`pnl-category-actual-${c.direction}-${c.category}`}>
                   {pnlAmountText(c.actualUsd, 'USD')}
                 </td>
-                <td className={`${r.td} ${r.mono}`} data-testid={`pnl-category-variance-${c.direction}-${c.category}`}>
+                <td className="mono" data-testid={`pnl-category-variance-${c.direction}-${c.category}`}>
                   {c.budget.length > 0 ? pnlAmountText(c.varianceUsd, 'USD') : '—'}
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </ComparisonTable>
       )}
 
       {pnl && (lines.length > 0 || perDiemEntries.length > 0) && (

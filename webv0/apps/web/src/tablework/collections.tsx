@@ -17,10 +17,11 @@
 import { useEffect, type HTMLAttributes, type ReactNode } from 'react';
 import { WorkSurface } from './materials';
 
-/** Document-title parity with the Fluent PageHeader. */
+/** Document-title parity with the Fluent PageHeader. Empty titles no-op so
+ *  callers with nothing honest to say leave the tab name alone. */
 export function usePageTitle(title: string): void {
   useEffect(() => {
-    document.title = `C3 — ${title}`;
+    if (title) document.title = `C3 — ${title}`;
   }, [title]);
 }
 

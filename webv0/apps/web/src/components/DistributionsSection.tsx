@@ -1,14 +1,12 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
+import { makeStyles } from '@fluentui/react-components';
 import { formatMoney, type CurrencyCode } from '@c3web/domain';
 import { useMissionDistributions, useMissionPnl, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify } from '../session';
-import { StatusBadge } from './StatusBadge';
-import { GovernedAction } from './GovernedAction';
-import { useRegisterStyles } from './registerStyles';
+import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector } from '../tablework';
 
 /**
  * Distributions (S8) — the payout list under a mission's P&L. A distribution
@@ -41,7 +39,6 @@ interface ShareDraft {
 
 export function DistributionsSection({ missionId, canManage }: { missionId: string; canManage: boolean }) {
   const s = useStyles();
-  const r = useRegisterStyles();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const dists = useMissionDistributions(missionId);
@@ -59,7 +56,6 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
   const [drafts, setDrafts] = useState<ShareDraft[] | null>(null);
   const [payoutForms, setPayoutForms] = useState<Record<string, { label: string; refNo: string }>>({});
   const [revokeReason, setRevokeReason] = useState<Record<string, string>>({});
-  const [addPersonId, setAddPersonId] = useState('');
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['missionDistributions', missionId] });
@@ -107,21 +103,19 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
             extra={
               <div className={s.fields}>
                 <Field label="Received income line" required>
-                  <Dropdown
-                    value={chosenLine ? `${chosenLine.label} — ${formatMoney(pool, chosenLine.currency as CurrencyCode)}` : ''}
-                    selectedOptions={lineId ? [lineId] : []}
-                    onOptionSelect={(_, d) => d.optionValue && void openSeed(d.optionValue)}
+                  <Selector
                     data-testid="distribute-line"
-                  >
-                    {distributable.map((l) => (
-                      <Option key={l.lineId} value={l.lineId} text={`${l.label} — ${formatMoney(l.receivedAmountMinor ?? l.amountMinor, l.currency as CurrencyCode)}`}>
-                        {`${l.label} — ${formatMoney(l.receivedAmountMinor ?? l.amountMinor, l.currency as CurrencyCode)}`}
-                      </Option>
-                    ))}
-                  </Dropdown>
+                    value={lineId}
+                    display={chosenLine ? `${chosenLine.label} — ${formatMoney(pool, chosenLine.currency as CurrencyCode)}` : undefined}
+                    options={distributable.map((l) => ({
+                      value: l.lineId,
+                      label: `${l.label} — ${formatMoney(l.receivedAmountMinor ?? l.amountMinor, l.currency as CurrencyCode)}`,
+                    }))}
+                    onSelect={(value) => value && void openSeed(value)}
+                  />
                 </Field>
                 <Field label="Org share %" required hint="The org's cut of the pool; the rest is the player pool.">
-                  <Input type="number" value={orgPct} onChange={(_, d) => setOrgPct(d.value)} data-testid="distribute-org-pct" />
+                  <Input type="number" value={orgPct} onChange={(e) => setOrgPct(e.target.value)} data-testid="distribute-org-pct" />
                 </Field>
                 {drafts !== null && (
                   <>
@@ -135,33 +129,26 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                           className={s.bpsInput}
                           type="number"
                           value={d.bps}
-                          onChange={(_, ev) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, bps: ev.value } : x)))}
+                          onChange={(e) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, bps: e.target.value } : x)))}
                           data-testid={`distribute-share-${d.personId}`}
                         />
                         <span className={s.subtle}>%</span>
                       </div>
                     ))}
-                    <Dropdown
-                      placeholder="Add person…"
-                      value=""
-                      selectedOptions={[]}
-                      onOptionSelect={(_, d) => {
-                        if (d.optionValue && !drafts.some((x) => x.personId === d.optionValue)) {
-                          const p = people.data?.people.find((x) => x.personId === d.optionValue);
-                          setDrafts([...drafts, { personId: d.optionValue, personName: p?.fullName ?? d.optionValue, bps: '' }]);
-                        }
-                        setAddPersonId('');
-                      }}
+                    <Selector
                       data-testid="distribute-add-person"
-                    >
-                      {(people.data?.people ?? [])
+                      value=""
+                      placeholder="Add person…"
+                      options={(people.data?.people ?? [])
                         .filter((p) => p.isActive && !drafts.some((x) => x.personId === p.personId))
-                        .map((p) => (
-                          <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>
-                            {`${p.fullName} (${p.personId})`}
-                          </Option>
-                        ))}
-                    </Dropdown>
+                        .map((p) => ({ value: p.personId, label: `${p.fullName} (${p.personId})` }))}
+                      onSelect={(value) => {
+                        if (value && !drafts.some((x) => x.personId === value)) {
+                          const p = people.data?.people.find((x) => x.personId === value);
+                          setDrafts([...drafts, { personId: value, personName: p?.fullName ?? value, bps: '' }]);
+                        }
+                      }}
+                    />
                     <span className={s.subtle} data-testid="distribute-share-sum">
                       {activeDrafts.length === 0
                         ? orgBps === 10000
@@ -195,7 +182,6 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
           />
         )}
       </div>
-      {void addPersonId}
 
       {dists.data && dists.data.distributions.length === 0 && (
         <p className={s.head} data-testid="distributions-empty">
@@ -224,7 +210,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                   <Field label="Reason" required>
                     <Input
                       value={revokeReason[d.distributionId] ?? ''}
-                      onChange={(_, ev) => setRevokeReason((c) => ({ ...c, [d.distributionId]: ev.value }))}
+                      onChange={(e) => setRevokeReason((c) => ({ ...c, [d.distributionId]: e.target.value }))}
                       data-testid={`revoke-reason-${d.distributionId}`}
                     />
                   </Field>
@@ -245,30 +231,30 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
             )}
           </div>
           {shares.length > 0 && (
-            <table className={r.table} aria-label="Payout list">
+            <ComparisonTable label="Payout list">
               <thead>
                 <tr>
-                  <th className={r.th}>Person</th>
-                  <th className={r.th}>Share</th>
-                  <th className={r.th}>Amount</th>
-                  <th className={r.th}>Payout</th>
-                  {canManage && <th className={r.th} aria-label="Actions" />}
+                  <th>Person</th>
+                  <th>Share</th>
+                  <th>Amount</th>
+                  <th>Payout</th>
+                  {canManage && <th aria-label="Actions" />}
                 </tr>
               </thead>
               <tbody>
                 {shares.map((sh) => (
-                  <tr key={sh.personId} className={r.row} data-testid={`payout-${d.distributionId}-${sh.personId}`}>
-                    <td className={`${r.td} ${r.name}`}>{sh.personName}</td>
-                    <td className={`${r.td} ${r.mono}`}>{(sh.shareBps / 100).toFixed(2)}%</td>
-                    <td className={`${r.td} ${r.mono}`}>{formatMoney(sh.amountMinor, d.currency)}</td>
-                    <td className={r.td}>
+                  <tr key={sh.personId} data-testid={`payout-${d.distributionId}-${sh.personId}`}>
+                    <td>{sh.personName}</td>
+                    <td className="mono">{(sh.shareBps / 100).toFixed(2)}%</td>
+                    <td className="mono">{formatMoney(sh.amountMinor, d.currency)}</td>
+                    <td>
                       <StatusBadge variant={sh.payoutStatus === 'Paid' ? 'ready' : 'pending'} data-testid={`payout-status-${d.distributionId}-${sh.personId}`}>
                         {sh.payoutStatus}
                       </StatusBadge>
                       {sh.payoutStatus === 'Paid' && <span className={s.subtle}>{` · ${sh.paymentSourceLabel}${sh.refNo ? ` · ${sh.refNo}` : ''} · ${sh.paidOn}`}</span>}
                     </td>
                     {canManage && (
-                      <td className={r.td}>
+                      <td>
                         {d.status === 'Live' && sh.payoutStatus === 'Pending' && (
                           <GovernedAction
                             triggerLabel="Mark paid…"
@@ -281,14 +267,14 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                                 <Field label="Payment source (bank LABEL)" required>
                                   <Input
                                     value={payoutForms[`${d.distributionId}/${sh.personId}`]?.label ?? ''}
-                                    onChange={(_, ev) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: ev.value, refNo: c[`${d.distributionId}/${sh.personId}`]?.refNo ?? '' } }))}
+                                    onChange={(e) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: e.target.value, refNo: c[`${d.distributionId}/${sh.personId}`]?.refNo ?? '' } }))}
                                     data-testid={`pay-label-${d.distributionId}-${sh.personId}`}
                                   />
                                 </Field>
                                 <Field label="Bank reference">
                                   <Input
                                     value={payoutForms[`${d.distributionId}/${sh.personId}`]?.refNo ?? ''}
-                                    onChange={(_, ev) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: c[`${d.distributionId}/${sh.personId}`]?.label ?? '', refNo: ev.value } }))}
+                                    onChange={(e) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: c[`${d.distributionId}/${sh.personId}`]?.label ?? '', refNo: e.target.value } }))}
                                   />
                                 </Field>
                               </div>
@@ -338,7 +324,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                   </tr>
                 ))}
               </tbody>
-            </table>
+            </ComparisonTable>
           )}
         </div>
       ))}
