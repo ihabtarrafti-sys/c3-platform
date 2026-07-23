@@ -1,38 +1,47 @@
 import { Link } from 'react-router-dom';
-import { makeStyles } from '@fluentui/react-components';
 import { useApprovals } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from '../tablework';
 import { approvalStatusOf, operationOf } from '../labels';
 
-const useStyles = makeStyles({ denied: { fontSize: '14px', color: 'var(--c3-ink-muted)' } });
-
 export function ApprovalsPage() {
-  const r = useRegisterStyles();
-  const s = useStyles();
+  return (
+    <TableworkPage record="Approvals" section="Register" wide>
+      <ApprovalsRegister />
+    </TableworkPage>
+  );
+}
+
+function ApprovalsRegister() {
   const { me } = useSession();
   const canView = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
   const { data, isLoading, isError, error } = useApprovals(canView);
 
   if (!canView) {
     return (
-      <div>
-        <PageHeader title="Approvals" />
-        <div className={s.denied} data-testid="approvals-denied">
+      <CollectionFrame title="Approvals">
+        <div className="record-quiet" data-testid="approvals-denied">
           Your role doesn&rsquo;t include access to this area.
         </div>
-      </div>
+      </CollectionFrame>
     );
   }
 
   return (
-    <div>
-      <PageHeader kicker="Register" title="Approvals" context={data ? `${data.approvals.length} in this view` : undefined} />
-
+    <CollectionFrame
+      kicker="Register"
+      title="Approvals"
+      count={data ? `${data.approvals.length} in this view` : undefined}
+    >
       {isLoading && <LoadingState label="Loading approvals…" />}
       {isError && (
         <ErrorState
@@ -45,42 +54,42 @@ export function ApprovalsPage() {
       )}
       {data && data.approvals.length > 0 && (
         <>
-          <table className={r.table} data-testid="approvals-table" aria-label="Approvals inbox">
+          <ComparisonTable label="Approvals inbox" testId="approvals-table">
             <thead>
               <tr>
-                <th className={r.th}>Approval</th>
-                <th className={r.th}>Operation</th>
-                <th className={r.th}>Status</th>
-                <th className={r.th}>Submitted by</th>
+                <th>Approval</th>
+                <th>Operation</th>
+                <th>Status</th>
+                <th>Submitted by</th>
               </tr>
             </thead>
             <tbody>
               {data.approvals.map((a) => {
                 const st = approvalStatusOf(a.status);
                 return (
-                  <tr key={a.approvalId} className={r.row} data-testid={`approval-row-${a.approvalId}`}>
-                    <td className={r.td}>
-                      <Link className={r.idLink} to={`/approvals/${a.approvalId}`}>
+                  <tr key={a.approvalId} data-testid={`approval-row-${a.approvalId}`}>
+                    <td>
+                      <Link className="mono" to={`/approvals/${a.approvalId}`}>
                         {a.approvalId}
                       </Link>
                     </td>
-                    <td className={`${r.td} ${r.name}`}>{operationOf(a.operationType)}</td>
-                    <td className={r.td}>
+                    <td>{operationOf(a.operationType)}</td>
+                    <td>
                       <StatusBadge variant={st.variant} data-testid={`approval-status-${a.approvalId}`}>
                         {st.label}
                       </StatusBadge>
                     </td>
-                    <td className={r.td}>{a.submittedBy}</td>
+                    <td>{a.submittedBy}</td>
                   </tr>
                 );
               })}
             </tbody>
-          </table>
-          <div className={r.count}>
+          </ComparisonTable>
+          <p className="collection-count">
             {data.approvals.length} {data.approvals.length === 1 ? 'approval' : 'approvals'}
-          </div>
+          </p>
         </>
       )}
-    </div>
+    </CollectionFrame>
   );
 }

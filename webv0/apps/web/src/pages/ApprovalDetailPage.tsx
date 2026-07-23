@@ -1,43 +1,39 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Field, Input, makeStyles } from '@fluentui/react-components';
 import { useApproval, useApprovalEvents } from '../queries';
 import { ApiError, type ApprovalDto } from '../api';
 import type { ApprovalPayloadDto } from '@c3web/api-contracts';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { Breadcrumbs } from '../components/Breadcrumbs';
-import { DefinitionList, type DefItem } from '../components/DefinitionList';
-import { StatusBadge } from '../components/StatusBadge';
-import { AuditTimeline, type TimelineEntry } from '../components/AuditTimeline';
-import { CommentThread } from '../components/CommentThread';
-import { ErrorState, LoadingState } from '../components/states';
-import { GovernedAction } from '../components/GovernedAction';
+import {
+  TableworkPage,
+  RecordPage,
+  CommentThread,
+  AuditTimeline,
+  FactList,
+  StatusBadge,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  GovernedAction,
+  type DefItem,
+  type TimelineEntry,
+} from '../tablework';
 import { CorrectionDialog, isCorrectable } from '../components/RequestCorrections';
 import { agreementTermKindOf, approvalStatusOf, operationOf } from '../labels';
 
-const useStyles = makeStyles({
-  section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
-  decision: {
-    marginTop: '24px',
-    padding: '16px',
-    border: '1px solid var(--c3-border-subtle)',
-    borderRadius: 'var(--c3-radius)',
-    backgroundColor: 'var(--c3-surface-base)',
-    maxWidth: '640px',
-  },
-  decisionNote: { fontSize: '12.5px', color: 'var(--c3-ink-quiet)', marginBottom: '12px' },
-  decisionRow: { display: 'flex', columnGap: '10px', rowGap: '10px', alignItems: 'flex-end', flexWrap: 'wrap' },
-  ownNote: { fontSize: '13px', color: 'var(--c3-ink-muted)', marginTop: '16px', maxWidth: '640px' },
-  idLink: { fontFamily: 'var(--c3-font-mono)', fontSize: '13px', color: 'var(--c3-ink-strong)' },
-});
-
 export function ApprovalDetailPage() {
-  const s = useStyles();
   const { approvalId = '' } = useParams();
+  return (
+    <TableworkPage record={approvalId} section="Approval">
+      <ApprovalDetailRecord approvalId={approvalId} />
+    </TableworkPage>
+  );
+}
+
+function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -64,19 +60,16 @@ export function ApprovalDetailPage() {
     }
   }
 
-  const crumbs = [{ label: 'Approvals', to: '/approvals' }, { label: approvalId }];
-
   if (isError) {
     const is404 = error instanceof ApiError && error.status === 404;
     return (
-      <div>
-        <PageHeader title={approvalId} breadcrumbs={<Breadcrumbs crumbs={crumbs} />} />
+      <RecordPage eyebrow="Approval" title={approvalId}>
         <ErrorState
           data-testid="approval-error"
           message={is404 ? `No approval ${approvalId} in your tenant.` : 'Could not load this approval.'}
           correlationId={error instanceof ApiError ? error.correlationId : undefined}
         />
-      </div>
+      </RecordPage>
     );
   }
 
@@ -163,7 +156,7 @@ export function ApprovalDetailPage() {
           label: 'Target person',
           value:
             a.status === 'Executed' && a.targetPersonId.startsWith('PER-') ? (
-              <Link className={s.idLink} to={`/people/${a.targetPersonId}`} data-testid="created-person-link">
+              <Link className="mono" to={`/people/${a.targetPersonId}`} data-testid="created-person-link">
                 {a.targetPersonId}
               </Link>
             ) : (
@@ -185,7 +178,7 @@ export function ApprovalDetailPage() {
     items.push({
       label: 'Revision of',
       value: (
-        <Link className={s.idLink} to={`/approvals/${a.revisionOf}`} data-testid="revision-of-link">
+        <Link className="mono" to={`/approvals/${a.revisionOf}`} data-testid="revision-of-link">
           {a.revisionOf}
         </Link>
       ),
@@ -195,7 +188,7 @@ export function ApprovalDetailPage() {
     items.push({
       label: 'Superseded by',
       value: (
-        <Link className={s.idLink} to={`/approvals/${a.supersededBy}`} data-testid="superseded-by-link">
+        <Link className="mono" to={`/approvals/${a.supersededBy}`} data-testid="superseded-by-link">
           {a.supersededBy}
         </Link>
       ),
@@ -208,41 +201,150 @@ export function ApprovalDetailPage() {
     ((canReview && (a.status === 'Submitted' || a.status === 'InReview')) ||
       (canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed')));
 
+  const reviewComplete = !!a && ['Approved', 'ExecutionFailed', 'Executed'].includes(a.status);
+  const executeComplete = a?.status === 'Executed';
+  const activeStep =
+    a?.status === 'Submitted' || a?.status === 'Withdrawn'
+      ? 1
+      : a?.status === 'InReview' || a?.status === 'Rejected'
+        ? 2
+        : a?.status === 'Executed'
+          ? 0
+          : 3;
+
+  if (isLoading) {
+    return (
+      <RecordPage eyebrow="Approval" title={approvalId}>
+        <LoadingState label="Loading approval…" />
+      </RecordPage>
+    );
+  }
+
   return (
-    <div>
-      <PageHeader title={approvalId} breadcrumbs={<Breadcrumbs crumbs={crumbs} />} />
-      {isLoading && <LoadingState label="Loading approval…" />}
+    <RecordPage
+      eyebrow="Approval"
+      title={approvalId}
+      lead={a ? operationOf(a.operationType) : undefined}
+      meta={
+        a && st ? (
+          <StatusBadge variant={st.variant} data-testid="approval-detail-status">
+            {st.label}
+          </StatusBadge>
+        ) : undefined
+      }
+    >
       {a && st && (
-        <>
-          <DefinitionList items={items} />
-
-          <ProposedChange payload={payload!} />
-
-          {isOwnRequest && canReview && (
-            <p className={s.ownNote} data-testid="own-request-note">
-              You submitted this request. Separation of duties requires someone other than the submitter to review and
-              execute it.
-            </p>
-          )}
-
-          {isOwnRequest && (a.status === 'Submitted' || a.status === 'InReview') && (
-            <div className={s.decision}>
-              <div className={s.decisionNote}>
-                {a.status === 'Submitted'
-                  ? 'Your request, before review: polish it freely (every change is recorded and shown to the reviewer), or withdraw it.'
-                  : 'Review has started, so the request is frozen. You may still withdraw it, or revise & resubmit a corrected copy.'}
+        <div className="ceremony-shell">
+          <aside className="work-surface subtle ceremony-rail" aria-label="Approval ceremony">
+            <ol>
+              <li>
+                <div className={`step-button${activeStep === 1 ? ' active' : ' complete'}`}>
+                  <span className="step-number">1</span>
+                  <span>
+                    <strong>Request</strong>
+                    <small>{a.submittedBy}</small>
+                  </span>
+                </div>
+              </li>
+              <li>
+                <div className={`step-button${activeStep === 2 ? ' active' : reviewComplete ? ' complete' : ''}`}>
+                  <span className="step-number">2</span>
+                  <span>
+                    <strong>Review</strong>
+                    <small>{a.reviewedBy ?? st.label}</small>
+                  </span>
+                </div>
+              </li>
+              <li>
+                <div className={`step-button${activeStep === 3 ? ' active' : executeComplete ? ' complete' : ''}`}>
+                  <span className="step-number">3</span>
+                  <span>
+                    <strong>Execute</strong>
+                    <small>{st.label}</small>
+                  </span>
+                </div>
+              </li>
+            </ol>
+            <div className="history-line">
+              <div className="history-event">
+                <strong>{st.label}</strong>
+                <span>{operationOf(a.operationType)}</span>
               </div>
-              <div className={s.decisionRow}>
-                {a.status === 'Submitted' && correctable && (
-                  <CorrectionDialog
-                    mode="edit"
-                    operationType={a.operationType}
-                    originalInput={(payload!.input ?? {}) as Record<string, unknown>}
-                    triggerTestId="edit-request"
-                    onSubmit={(input) => run(() => api.editApproval(a.approvalId, a.version, input), 'Request edited — every change is on the record.')}
+            </div>
+          </aside>
+
+          <main className="work-surface raised ceremony-panel">
+            <div className="actor-banner">
+              <span>
+                <strong>{a.submittedBy}</strong>
+                <br />
+                <span className="record-quiet">Submitted by</span>
+              </span>
+              <StatusBadge variant={st.variant}>{st.label}</StatusBadge>
+            </div>
+
+            <FactList items={items.filter((item) => item.label !== 'Status')} />
+            <ProposedChange payload={payload!} />
+
+            {isOwnRequest && canReview && (
+              <p className="record-quiet" data-testid="own-request-note">
+                You submitted this request. Separation of duties requires someone other than the submitter to review and
+                execute it.
+              </p>
+            )}
+
+            {isOwnRequest && (a.status === 'Submitted' || a.status === 'InReview') && (
+              <section className="consequence">
+                <span>
+                  {a.status === 'Submitted'
+                    ? 'Your request, before review: polish it freely (every change is recorded and shown to the reviewer), or withdraw it.'
+                    : 'Review has started, so the request is frozen. You may still withdraw it, or revise & resubmit a corrected copy.'}
+                </span>
+                <div className="panel-actions">
+                  {a.status === 'Submitted' && correctable && (
+                    <CorrectionDialog
+                      mode="edit"
+                      operationType={a.operationType}
+                      originalInput={(payload!.input ?? {}) as Record<string, unknown>}
+                      triggerTestId="edit-request"
+                      onSubmit={(input) => run(() => api.editApproval(a.approvalId, a.version, input), 'Request edited — every change is on the record.')}
+                    />
+                  )}
+                  {a.status === 'InReview' && correctable && (
+                    <CorrectionDialog
+                      mode="revise"
+                      operationType={a.operationType}
+                      originalInput={(payload!.input ?? {}) as Record<string, unknown>}
+                      triggerTestId="revise-request"
+                      onSubmit={(input) =>
+                        run(async () => {
+                          const res = await api.reviseApproval(a.approvalId, a.version, input);
+                          notify('info', `Submitted ${res.approval.approvalId}, superseding ${res.superseded}.`);
+                        }, 'Corrected request submitted.')
+                      }
+                    />
+                  )}
+                  <GovernedAction
+                    triggerLabel="Withdraw my request…"
+                    triggerTestId="withdraw"
+                    triggerAppearance="secondary"
+                    title={`Withdraw ${a.approvalId}?`}
+                    description="This cancels your request permanently — it will not be reviewed or executed. Withdrawal is recorded in the approval history."
+                    confirmLabel="Withdraw request"
+                    onConfirm={() => run(() => api.withdrawApproval(a.approvalId, a.version), 'Request withdrawn and recorded.')}
                   />
-                )}
-                {a.status === 'InReview' && correctable && (
+                </div>
+              </section>
+            )}
+
+            {isOwnRequest && (a.status === 'Rejected' || a.status === 'Withdrawn') && !a.supersededBy && correctable && (
+              <section className="consequence">
+                <span>
+                  {a.status === 'Rejected'
+                    ? 'This request was rejected. Fix it and resend — your original input prefills a fresh linked request.'
+                    : 'You withdrew this request. If that was premature, resubmit a corrected copy — the original input prefills.'}
+                </span>
+                <div className="panel-actions">
                   <CorrectionDialog
                     mode="revise"
                     operationType={a.operationType}
@@ -255,118 +357,98 @@ export function ApprovalDetailPage() {
                       }, 'Corrected request submitted.')
                     }
                   />
-                )}
-                <GovernedAction
-                  triggerLabel="Withdraw my request…"
-                  triggerTestId="withdraw"
-                  triggerAppearance="secondary"
-                  title={`Withdraw ${a.approvalId}?`}
-                  description="This cancels your request permanently — it will not be reviewed or executed. Withdrawal is recorded in the approval history."
-                  confirmLabel="Withdraw request"
-                  onConfirm={() => run(() => api.withdrawApproval(a.approvalId, a.version), 'Request withdrawn and recorded.')}
-                />
-              </div>
-            </div>
-          )}
+                </div>
+              </section>
+            )}
 
-          {isOwnRequest && (a.status === 'Rejected' || a.status === 'Withdrawn') && !a.supersededBy && correctable && (
-            <div className={s.decision}>
-              <div className={s.decisionNote}>
-                {a.status === 'Rejected'
-                  ? 'This request was rejected. Fix it and resend — your original input prefills a fresh linked request.'
-                  : 'You withdrew this request. If that was premature, resubmit a corrected copy — the original input prefills.'}
-              </div>
-              <div className={s.decisionRow}>
-                <CorrectionDialog
-                  mode="revise"
-                  operationType={a.operationType}
-                  originalInput={(payload!.input ?? {}) as Record<string, unknown>}
-                  triggerTestId="revise-request"
-                  onSubmit={(input) =>
-                    run(async () => {
-                      const res = await api.reviseApproval(a.approvalId, a.version, input);
-                      notify('info', `Submitted ${res.approval.approvalId}, superseding ${res.superseded}.`);
-                    }, 'Corrected request submitted.')
-                  }
-                />
-              </div>
-            </div>
-          )}
+            {showDecision && (
+              <section className="consequence-grid">
+                <div className="consequence">
+                  <span>Governed action — approval and execution are separate steps.</span>
+                  <div className="panel-actions">
+                    {canReview && a.status === 'Submitted' && (
+                      <button
+                        className="primary-action"
+                        type="button"
+                        disabled={busy}
+                        data-testid="begin-review"
+                        onClick={() => run(() => api.beginReview(a.approvalId, a.version), 'Review started.')}
+                      >
+                        Begin review
+                      </button>
+                    )}
+                    {canReview && a.status === 'InReview' && (
+                      <>
+                        <GovernedAction
+                          triggerLabel="Approve"
+                          triggerTestId="approve"
+                          title="Approve this request?"
+                          description="Approving records your decision. It does not execute the change — execution is a separate step."
+                          confirmLabel="Approve"
+                          onConfirm={() => run(() => api.approve(a.approvalId, a.version), 'Approved.')}
+                        />
+                        <GovernedAction
+                          triggerLabel="Reject"
+                          triggerTestId="reject"
+                          triggerAppearance="secondary"
+                          title="Reject this request?"
+                          description="Add a reason. This is recorded in the request’s history."
+                          extra={
+                            <Field label="Reason for rejection">
+                              <Input value={reason} onChange={(e) => setReason(e.target.value)} data-testid="reject-reason" />
+                            </Field>
+                          }
+                          confirmLabel="Reject"
+                          confirmDisabled={reason.trim() === ''}
+                          onConfirm={() => run(() => api.reject(a.approvalId, a.version, reason), 'Rejected.')}
+                        />
+                      </>
+                    )}
+                    {canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed') && (
+                      <GovernedAction
+                        triggerLabel={a.status === 'ExecutionFailed' ? 'Retry execute' : 'Execute'}
+                        triggerTestId="execute"
+                        title="Execute this approved request?"
+                        description="This performs the approved change. Pending and executed are different states — this moves the request to executed."
+                        confirmLabel="Execute"
+                        onConfirm={() =>
+                          run(async () => {
+                            const res = await api.execute(a.approvalId, a.version);
+                            // Only name a created person when there is one — most
+                            // operations (imports, agreements, journeys…) create
+                            // something else or nothing; "Created undefined" lies.
+                            if (res.idempotent) notify('info', 'Already executed (idempotent).');
+                            else if (res.person) notify('info', `Created ${res.person.personId}.`);
+                            return res;
+                          }, 'Execution complete.')
+                        }
+                      />
+                    )}
+                  </div>
+                </div>
+              </section>
+            )}
 
-          {showDecision && (
-            <div className={s.decision}>
-              <div className={s.decisionNote}>Governed action — approval and execution are separate steps.</div>
-              <div className={s.decisionRow}>
-                {canReview && a.status === 'Submitted' && (
-                  <Button
-                    appearance="primary"
-                    disabled={busy}
-                    data-testid="begin-review"
-                    onClick={() => run(() => api.beginReview(a.approvalId, a.version), 'Review started.')}
-                  >
-                    Begin review
-                  </Button>
-                )}
-                {canReview && a.status === 'InReview' && (
-                  <>
-                    <GovernedAction
-                      triggerLabel="Approve"
-                      triggerTestId="approve"
-                      title="Approve this request?"
-                      description="Approving records your decision. It does not execute the change — execution is a separate step."
-                      confirmLabel="Approve"
-                      onConfirm={() => run(() => api.approve(a.approvalId, a.version), 'Approved.')}
-                    />
-                    <GovernedAction
-                      triggerLabel="Reject"
-                      triggerTestId="reject"
-                      triggerAppearance="secondary"
-                      title="Reject this request?"
-                      description="Add a reason. This is recorded in the request’s history."
-                      extra={
-                        <Field label="Reason for rejection">
-                          <Input value={reason} onChange={(_, d) => setReason(d.value)} data-testid="reject-reason" />
-                        </Field>
-                      }
-                      confirmLabel="Reject"
-                      confirmDisabled={reason.trim() === ''}
-                      onConfirm={() => run(() => api.reject(a.approvalId, a.version, reason), 'Rejected.')}
-                    />
-                  </>
-                )}
-                {canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed') && (
-                  <GovernedAction
-                    triggerLabel={a.status === 'ExecutionFailed' ? 'Retry execute' : 'Execute'}
-                    triggerTestId="execute"
-                    title="Execute this approved request?"
-                    description="This performs the approved change. Pending and executed are different states — this moves the request to executed."
-                    confirmLabel="Execute"
-                    onConfirm={() =>
-                      run(async () => {
-                        const res = await api.execute(a.approvalId, a.version);
-                        // Only name a created person when there is one — most
-                        // operations (imports, agreements, journeys…) create
-                        // something else or nothing; "Created undefined" lies.
-                        if (res.idempotent) notify('info', 'Already executed (idempotent).');
-                        else if (res.person) notify('info', `Created ${res.person.personId}.`);
-                        return res;
-                      }, 'Execution complete.')
-                    }
-                  />
-                )}
-              </div>
-            </div>
-          )}
+            {a.status === 'Executed' && (
+              <section className="receipt">
+                <span className="receipt-mark" aria-hidden="true">✓</span>
+                <div>
+                  <h2>{st.label}</h2>
+                  <p>{operationOf(a.operationType)}</p>
+                </div>
+              </section>
+            )}
 
-          <CommentThread subjectType="Approval" subjectId={approvalId} />
+            <CommentThread subjectType="Approval" subjectId={approvalId} />
 
-          <div className={s.section}>
-            <h2 className={s.h2}>History</h2>
-            <AuditTimeline entries={entries} testId="approval-events" />
-          </div>
-        </>
+            <section className="record-section">
+              <h2>History</h2>
+              <AuditTimeline entries={entries} testId="approval-events" />
+            </section>
+          </main>
+        </div>
       )}
-    </div>
+    </RecordPage>
   );
 }
 
@@ -536,20 +618,16 @@ function ProposedChange({ payload }: { payload: ApprovalPayloadDto }) {
   }
 
   return (
-    <div style={{ marginTop: 20, maxWidth: 640 }} data-testid="proposed-change">
-      <div
-        style={{
-          fontSize: 11,
-          fontWeight: 700,
-          letterSpacing: '0.08em',
-          textTransform: 'uppercase',
-          color: 'var(--c3-ink-muted)',
-          marginBottom: 8,
-        }}
-      >
-        Proposed change — decide on these values
+    <section className="record-section" data-testid="proposed-change">
+      <h2>Proposed change — decide on these values</h2>
+      <div className="proposal-grid">
+        {rows.map((row) => (
+          <div className="proposal-cell" key={row.label}>
+            <small>{row.label}</small>
+            <strong>{row.value}</strong>
+          </div>
+        ))}
       </div>
-      <DefinitionList items={rows.map((r) => ({ label: r.label, value: r.value }))} />
-    </div>
+    </section>
   );
 }

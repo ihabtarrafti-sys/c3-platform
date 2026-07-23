@@ -11,7 +11,8 @@
  * that, frozen; corrections are new requests."
  */
 import { useMemo, useState } from 'react';
-import { Checkbox, Dropdown, Field, Input, Option, Textarea, makeStyles } from '@fluentui/react-components';
+import { Dropdown, Field, Input, Option, Textarea, makeStyles } from '@fluentui/react-components';
+import { Checkbox } from '../tablework';
 import {
   CORRECTIONS_EXCLUDED_OPS,
   EDIT_TARGET_KEYS,
@@ -195,7 +196,7 @@ export function CorrectionDialog({
   function renderField(spec: FieldSpec, value: string | boolean, onChange: (v: string | boolean) => void, readonly: boolean) {
     const testid = `correction-${spec.key}`;
     if (spec.kind === 'boolean') {
-      return <Checkbox key={spec.key} label={spec.label} checked={value === true} disabled={readonly} onChange={(_, d) => onChange(d.checked === true)} data-testid={testid} />;
+      return <Checkbox key={spec.key} label={spec.label} checked={value === true} disabled={readonly} onChange={onChange} data-testid={testid} />;
     }
     if (spec.kind === 'select') {
       const v = String(value);
