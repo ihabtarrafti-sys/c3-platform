@@ -30,7 +30,15 @@ interface TableworkPageProps {
   children: ReactNode;
 }
 
-export function TableworkPage({ record, section, actions, wide, children }: TableworkPageProps) {
+/**
+ * The session gate ALONE — for detail pages whose ContextHeader props derive
+ * from data. The route component renders the gate; the gated BODY holds the
+ * query hooks and renders TableworkPage (whose own gate then passes
+ * trivially). Without this split, an anonymous Entra deep link fires the
+ * body's queries pre-auth → 401 → acquireTokenRedirect bounces to the IdP
+ * instead of the deliberate sign-in screen with the deep link preserved.
+ */
+export function TableworkGate({ children }: { children: ReactNode }) {
   const { status, providerSession, signOut } = useSession();
   const location = useLocation();
 
@@ -45,11 +53,20 @@ export function TableworkPage({ record, section, actions, wide, children }: Tabl
     return <AccessNotProvisioned identity={providerSession?.identity ?? 'This account'} onSignOut={() => void signOut()} />;
   }
 
-  return <TableworkScreen record={record} section={section} actions={actions} wide={wide} pathname={location.pathname}>{children}</TableworkScreen>;
+  return <>{children}</>;
 }
 
-function TableworkScreen({ record, section, actions, wide, pathname, children }: TableworkPageProps & { pathname: string }) {
+export function TableworkPage({ record, section, actions, wide, children }: TableworkPageProps) {
+  return (
+    <TableworkGate>
+      <TableworkScreen record={record} section={section} actions={actions} wide={wide}>{children}</TableworkScreen>
+    </TableworkGate>
+  );
+}
+
+function TableworkScreen({ record, section, actions, wide, children }: TableworkPageProps) {
   const { me } = useSession();
+  const { pathname } = useLocation();
   const place = activePlaceFor(pathname)?.label ?? 'Home';
   return (
     <AppFrame

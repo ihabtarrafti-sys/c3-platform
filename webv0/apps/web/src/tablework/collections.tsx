@@ -156,7 +156,9 @@ export interface DefItem {
 }
 
 function isEmpty(v: ReactNode): boolean {
-  return v === null || v === undefined || v === '';
+  // A literal "-" is data-entry shorthand for "not set" — it gets the honest
+  // labelled marker, never a bare hyphen (DefinitionList parity).
+  return v === null || v === undefined || v === '' || v === '-';
 }
 
 export function FactList({ items }: { items: DefItem[] }) {

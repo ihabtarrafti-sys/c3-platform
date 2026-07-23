@@ -224,6 +224,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
     <RecordPage
       eyebrow="Approval"
       title={approvalId}
+      documentTitle={approvalId}
       lead={a ? operationOf(a.operationType) : undefined}
       meta={
         a && st ? (

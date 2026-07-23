@@ -11,7 +11,7 @@ export { ShellBellButton, ShellBellDrawer } from './ShellBell';
 export { PLACES, activePlaceFor, placeVisible, visibleSections } from './places';
 export { Field, Input, DateInput, Select, Textarea, Checkbox, FormDrawer, Selector, type SelectorOption } from './forms';
 export { GovernedAction } from './GovernedAction';
-export { TableworkPage } from './TableworkPage';
+export { TableworkPage, TableworkGate } from './TableworkPage';
 export { SavedViews } from './SavedViews';
 export { PersonAvatar } from './Avatar';
 export {

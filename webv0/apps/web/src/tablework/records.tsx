@@ -30,6 +30,10 @@ interface RecordPageProps {
   /** The eyebrow above the record's name (e.g. "Live mission · Rabat"). */
   eyebrow?: ReactNode;
   title: ReactNode;
+  /** The browser-tab name — pass the record's NAME ("C3 — Verify Cup") so
+   *  tabs/history/bookmarks distinguish records; falls back to a string
+   *  eyebrow's noun when absent. */
+  documentTitle?: string;
   titleTestId?: string;
   /** The lead sentence under the name. */
   lead?: ReactNode;
@@ -40,9 +44,8 @@ interface RecordPageProps {
   children: ReactNode;
 }
 
-export function RecordPage({ eyebrow, title, titleTestId, lead, meta, actions, children }: RecordPageProps) {
-  // PageHeader parity: a string eyebrow names the tab ("C3 — Mission").
-  usePageTitle(typeof eyebrow === 'string' ? eyebrow : '');
+export function RecordPage({ eyebrow, title, documentTitle, titleTestId, lead, meta, actions, children }: RecordPageProps) {
+  usePageTitle(documentTitle ?? (typeof eyebrow === 'string' ? eyebrow : ''));
   return (
     <>
       <WorkSurface as="header" tier="raised" tablework="ObjectIdentity RecordPage" className="object-identity">

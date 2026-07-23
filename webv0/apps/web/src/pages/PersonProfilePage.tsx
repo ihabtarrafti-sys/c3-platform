@@ -22,6 +22,7 @@ import { PersonPhotoControl } from '../components/PersonPhotoControl';
 import { useRegisterStyles } from '../components/registerStyles';
 import { agreementRenewalStateOf, approvalStatusOf, auditActionOf, credentialStatusOf, formatUsdCents, journeyStatusOf, operationOf } from '../labels';
 import {
+  TableworkGate,
   TableworkPage,
   RecordPage,
   SectionRail,
@@ -47,9 +48,20 @@ const useStyles = makeStyles({
 });
 
 export function PersonProfilePage() {
+  // Gate before hooks: an anonymous Entra deep link must reach the sign-in
+  // screen, not fire pre-auth queries into acquireTokenRedirect. The band's
+  // record NAME comes from data, so the body renders TableworkPage.
+  const { personId = '' } = useParams();
+  return (
+    <TableworkGate>
+      <PersonProfileBody personId={personId} />
+    </TableworkGate>
+  );
+}
+
+function PersonProfileBody({ personId }: { personId: string }) {
   const s = useStyles();
   const r = useRegisterStyles();
-  const { personId = '' } = useParams();
   const { me } = useSession();
   const canReadAgreements = me?.capabilities.canReadAgreements ?? false;
   const showValue = me?.capabilities.canViewFinancials ?? false;
@@ -95,6 +107,7 @@ export function PersonProfilePage() {
       <RecordPage
         eyebrow="Person"
         title={name}
+        documentTitle={data ? name : personId}
         titleTestId="person-title"
         lead={data ? data.person.currentTeam ?? undefined : undefined}
         actions={

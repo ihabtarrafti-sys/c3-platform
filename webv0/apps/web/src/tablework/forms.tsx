@@ -126,6 +126,11 @@ export function Selector({
   options,
   onSelect,
   'data-testid': testId,
+  // Field injects these for its child control; they must land on the BUTTON
+  // (a labelable element the hint can describe), never the wrapper div.
+  id,
+  'aria-describedby': ariaDescribedBy,
+  'aria-invalid': ariaInvalid,
   ...rest
 }: {
   value: string;
@@ -141,6 +146,14 @@ export function Selector({
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const listId = useId();
+
+  // Opening always re-anchors the highlight on the CURRENT value — Enter
+  // right after opening must never commit a stale highlight from last time.
+  const openList = () => {
+    const i = options.findIndex((o) => o.value === value);
+    setActive(i >= 0 ? i : 0);
+    setOpen(true);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -166,11 +179,18 @@ export function Selector({
         ref={triggerRef}
         type="button"
         className="selector-trigger"
+        id={id}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open ? `${listId}-${active}` : undefined}
+        aria-describedby={ariaDescribedBy}
+        aria-invalid={ariaInvalid}
         data-testid={testId}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() => (open ? setOpen(false) : openList())}
         onKeyDown={(e) => {
+          // Focus STAYS on the trigger while the popup is open (the float is
+          // never focused), so the whole keyboard contract lives here.
           if (e.key === 'Escape' && open) {
             // Consume the key ENTIRELY: preventDefault suppresses the native
             // <dialog> cancel — Escape here closes the POPUP, not the sheet
@@ -179,10 +199,33 @@ export function Selector({
             e.preventDefault();
             e.stopPropagation();
             setOpen(false);
+            return;
           }
-          if ((e.key === 'ArrowDown' || e.key === 'Enter') && !open) {
+          if (!open) {
+            if (e.key === 'ArrowDown' || e.key === 'Enter') {
+              e.preventDefault();
+              openList();
+            }
+            return;
+          }
+          if (e.key === 'ArrowDown') {
             e.preventDefault();
-            setOpen(true);
+            setActive((a) => Math.min(a + 1, options.length - 1));
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive((a) => Math.max(a - 1, 0));
+          } else if (e.key === 'Home') {
+            e.preventDefault();
+            setActive(0);
+          } else if (e.key === 'End') {
+            e.preventDefault();
+            setActive(options.length - 1);
+          } else if (e.key === 'Enter') {
+            // preventDefault: an open listbox's Enter chooses — it must not
+            // also submit the surrounding form or press the dialog default.
+            e.preventDefault();
+            const opt = options[active];
+            if (opt) choose(opt);
           }
         }}
       >
@@ -190,34 +233,7 @@ export function Selector({
         <span aria-hidden="true">▾</span>
       </button>
       {open ? (
-        <div
-          className="selector-float"
-          role="listbox"
-          id={listId}
-          aria-activedescendant={`${listId}-${active}`}
-          tabIndex={-1}
-          onKeyDown={(e) => {
-            if (e.key === 'Escape') {
-              e.preventDefault();
-              e.stopPropagation();
-              setOpen(false);
-              triggerRef.current?.focus();
-            }
-            if (e.key === 'ArrowDown') {
-              e.preventDefault();
-              setActive((a) => Math.min(a + 1, options.length - 1));
-            }
-            if (e.key === 'ArrowUp') {
-              e.preventDefault();
-              setActive((a) => Math.max(a - 1, 0));
-            }
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              const opt = options[active];
-              if (opt) choose(opt);
-            }
-          }}
-        >
+        <div className="selector-float" role="listbox" id={listId}>
           {options.map((opt, i) => (
             <div
               key={opt.value || '∅'}

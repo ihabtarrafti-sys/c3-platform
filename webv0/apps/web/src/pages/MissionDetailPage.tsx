@@ -27,6 +27,7 @@ import { useNotify, useSession } from '../session';
 // FactList replaces DefinitionList (same items API); Breadcrumbs do not port
 // (the ContextHeader working-from band replaces them).
 import {
+  TableworkGate,
   TableworkPage,
   RecordPage,
   FactList,
@@ -78,8 +79,20 @@ function pnlAmountText(a: PnlAmountDto, currency: CurrencyCode): string {
 }
 
 export function MissionDetailPage() {
-  const s = useStyles();
+  // The session gate mounts BEFORE any query hook: an anonymous deep link in
+  // Entra mode must land on the deliberate sign-in screen, not fire 401s into
+  // acquireTokenRedirect. The band's record NAME comes from data, so the body
+  // (not this wrapper) renders TableworkPage.
   const { missionId = '' } = useParams();
+  return (
+    <TableworkGate>
+      <MissionDetailBody missionId={missionId} />
+    </TableworkGate>
+  );
+}
+
+function MissionDetailBody({ missionId }: { missionId: string }) {
+  const s = useStyles();
   const navigate = useNavigate();
   const { me } = useSession();
   const { notify } = useNotify();
@@ -250,6 +263,14 @@ export function MissionDetailPage() {
                   data-testid={`edit-mission-team-${m.missionId}`}
                   placeholder="— none —"
                   value={editState.teamId}
+                  display={
+                    // A set team must NEVER read as "— none —": if it isn't in
+                    // the active-GameDivision options, show its name from the
+                    // full register, else the raw id (the honest fallback).
+                    editState.teamId
+                      ? ((x) => (x ? `${x.code} · ${x.name}` : editState.teamId))(allTeams.data?.teams.find((x) => x.teamId === editState.teamId))
+                      : undefined
+                  }
                   options={[
                     { value: '', label: '— none —' },
                     ...(allTeams.data?.teams ?? [])
@@ -313,7 +334,7 @@ export function MissionDetailPage() {
 
   return (
     <TableworkPage record={title} section={m ? m.missionId : undefined}>
-      <RecordPage eyebrow="Mission" title={title} titleTestId="mission-title" actions={shellActions}>
+      <RecordPage eyebrow="Mission" title={title} documentTitle={m ? title : missionId} titleTestId="mission-title" actions={shellActions}>
       {isLoading && <LoadingState label="Loading mission…" />}
       {m && (
         <>
