@@ -68,3 +68,6 @@ docs/fable/
 # HARDEN-3 review scaffolding — Apex Sentinel review + input plan (keep local, never commit)
 webv0/C3-END-OF-PROGRAM-REVIEW.md
 /REVIEW-INPUT-PLAN.md
+
+# wrangler local dev state (pages dev)
+.wrangler/
