@@ -71,6 +71,31 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input type="text" {...props} />;
 }
 
+/** Checkbox under the Fluent use-site contract (label/checked/disabled/
+ *  onChange(boolean)/testid) so ports are one-line. Pre-landed for Wave 2's
+ *  reachable boolean fields (departures, distributions); the corrections
+ *  boolean branch itself is dead code today (Neural's census). */
+export function Checkbox({
+  label,
+  checked,
+  disabled,
+  onChange,
+  'data-testid': testId,
+}: {
+  label: ReactNode;
+  checked: boolean;
+  disabled?: boolean;
+  onChange: (checked: boolean) => void;
+  'data-testid'?: string;
+}) {
+  return (
+    <label className="tw-checkbox">
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} data-testid={testId} />
+      <span>{label}</span>
+    </label>
+  );
+}
+
 export function DateInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return <input type="date" {...props} />;
 }

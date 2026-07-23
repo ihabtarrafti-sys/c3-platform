@@ -1689,6 +1689,32 @@
   border-color: var(--c3-state-danger);
 }
 
+.tw-root .tw-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+  cursor: pointer;
+}
+
+.tw-root .tw-checkbox input[type='checkbox'] {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  accent-color: var(--c3-action-primary);
+  cursor: pointer;
+}
+
+.tw-root .tw-checkbox input[type='checkbox']:disabled {
+  cursor: not-allowed;
+}
+
+.tw-root .tw-checkbox:has(input:disabled) {
+  color: var(--c3-ink-quiet);
+  cursor: not-allowed;
+}
+
 /* ── The composer sheet (FormDrawer — WORK material in a modal frame) ──── */
 
 .tw-root dialog.form-sheet {
