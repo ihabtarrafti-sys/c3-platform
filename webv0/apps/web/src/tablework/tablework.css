@@ -687,6 +687,139 @@
   font-size: var(--c3-font-size-body-small);
 }
 
+/* ── Selector (contract 04: the in-page listbox) ───────────────────────── */
+
+.tw-root .selector {
+  position: relative;
+  min-width: 12rem;
+}
+
+.tw-root .selector-trigger {
+  width: 100%;
+  min-height: var(--c3-tw-target-min);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-work-base);
+  color: var(--c3-ink-default);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tw-root .selector-placeholder {
+  color: var(--c3-ink-quiet);
+}
+
+.tw-root .selector-float {
+  position: absolute;
+  top: calc(100% + var(--c3-space-1));
+  left: 0;
+  right: 0;
+  max-height: 16rem;
+  overflow-y: auto;
+  z-index: 45;
+  padding: var(--c3-space-1);
+  border: var(--tw-line) solid var(--c3-tw-float-edge);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-float-fallback);
+  box-shadow: var(--c3-tw-float-shadow);
+}
+
+.tw-root .selector-option {
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border-radius: var(--c3-radius-sm);
+  color: var(--c3-ink-default);
+  font-size: var(--c3-font-size-body-small);
+  cursor: pointer;
+}
+
+.tw-root .selector-option.active,
+.tw-root .selector-option:hover {
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .selector-option[aria-selected='true'] {
+  color: var(--c3-ink-strong);
+  font-weight: var(--c3-font-weight-semibold);
+}
+
+/* ── SavedViews + the person avatar ────────────────────────────────────── */
+
+.tw-root .saved-views {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.tw-root .saved-views-label {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.tw-root .saved-views-empty {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .saved-views-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.tw-root .saved-views-chip .mini-action.active {
+  border-color: var(--c3-action-primary);
+  color: var(--c3-ink-strong);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .saved-views-save {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .saved-views-save input {
+  width: 12rem;
+  min-height: var(--c3-tw-target-min);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-work-base);
+  color: var(--c3-ink-default);
+}
+
+.tw-root .person-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: var(--c3-tw-work-elevated);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  color: var(--c3-ink-quiet);
+  font-weight: var(--c3-font-weight-semibold);
+  user-select: none;
+  line-height: 1;
+}
+
+.tw-root .person-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 /* ── The collection family (contract 05; Dawn's Finance craft) ─────────── */
 
 .tw-root .collection-frame {

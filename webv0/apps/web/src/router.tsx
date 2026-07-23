@@ -63,13 +63,16 @@ export const router = createBrowserRouter([
   // The Tablework pilot (Comms UI): a standalone frame OUTSIDE the Fluent
   // AppShell — the two grammars never share a route. Same session provider.
   { path: '/missions/:missionId/comms', element: <MissionCommsPage /> },
+  // ── The Tablework pivot: converted routes move here WHOLE (coexistence
+  // law — grammars never share a route; each converted page carries its own
+  // session gate via TableworkPage). Wave 1: the demo spine.
+  { path: '/people', element: <PeoplePage /> },
   {
     path: '/',
     element: <AppShell />,
     children: [
       { index: true, element: <HomeRedirect /> },
       { path: 'situation', element: <HomePage /> },
-      { path: 'people', element: <PeoplePage /> },
       { path: 'people/:personId', element: <PersonProfilePage /> },
       { path: 'people/:personId/one-pager', element: <OnePagerPage /> },
       { path: 'credentials', element: <CredentialsPage /> },

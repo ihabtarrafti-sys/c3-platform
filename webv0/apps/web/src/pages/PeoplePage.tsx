@@ -1,19 +1,34 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
 import { usePeople, useEntities } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { PersonAvatar } from '../components/PersonAvatar';
-import { SavedViewsBar } from '../components/SavedViewsBar';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  SavedViews,
+  PersonAvatar,
+  Field,
+  Input,
+  Selector,
+  Select,
+  FormDrawer,
+  GovernedAction,
+} from '../tablework';
+
+/**
+ * The People register on the Tablework frame (pivot W1-1 — the first
+ * converted screen; the Fluent page's behavior, testids, and copy verbatim).
+ * The entity picker stays an in-page Selector (the e2e oracle drives its
+ * role="option" rows + Escape); the spec-free filter dropdowns are native.
+ */
 
 /** The People register's filter/sort state — the payload a saved view stores. */
 type PeopleStatus = 'active' | 'all' | 'inactive';
@@ -34,7 +49,14 @@ function coerceView(state: unknown): PeopleViewState {
 }
 
 export function PeoplePage() {
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="People" section="Register" wide>
+      <PeopleRegister />
+    </TableworkPage>
+  );
+}
+
+function PeopleRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -106,19 +128,125 @@ export function PeoplePage() {
   const activeEntities = (entities.data?.entities ?? []).filter((e) => e.isActive);
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-person-toggle">
+    <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-person-toggle">
       Add person
-    </Button>
+    </button>
   ) : undefined;
 
   return (
-    <div>
-      <PageHeader
+    <>
+      <CollectionFrame
         kicker="Register"
         title="People"
-        context={data ? `${shown.length} shown${isFiltered ? ` · ${people.length} total` : ''}` : undefined}
+        count={data ? `${shown.length} shown${isFiltered ? ` · ${people.length} total` : ''}` : undefined}
         actions={addAction}
-      />
+        filters={
+          data && data.people.length > 0 ? (
+            <>
+              <SavedViews register="people" currentState={view} onApply={(st) => setView(coerceView(st))} />
+              <div className="collection-filters" data-testid="people-filters">
+                <Field label="Search">
+                  <Input value={view.q} placeholder="Name, IGN, or ID" onChange={(e) => patchView({ q: e.target.value })} data-testid="people-filter-search" />
+                </Field>
+                <Field label="Team">
+                  <Select value={view.team} onChange={(e) => patchView({ team: e.target.value })} data-testid="people-filter-team">
+                    <option value="">All teams</option>
+                    {teamsPresent.map((t) => (
+                      <option key={t} value={t}>
+                        {t}
+                      </option>
+                    ))}
+                  </Select>
+                </Field>
+                <Field label="Status">
+                  <Select value={view.status} onChange={(e) => patchView({ status: (e.target.value as PeopleStatus) || 'active' })} data-testid="people-filter-status">
+                    <option value="active">Active</option>
+                    <option value="all">All</option>
+                    <option value="inactive">Inactive</option>
+                  </Select>
+                </Field>
+                <Field label="Sort">
+                  <Select value={view.sort} onChange={(e) => patchView({ sort: (e.target.value as PeopleSort) || 'name' })} data-testid="people-filter-sort">
+                    <option value="name">Full name</option>
+                    <option value="id">Person ID</option>
+                    <option value="team">Team</option>
+                  </Select>
+                </Field>
+                {isFiltered && (
+                  <button className="quiet-action" type="button" onClick={() => setView(DEFAULT_VIEW)} data-testid="people-filter-reset">
+                    Reset
+                  </button>
+                )}
+              </div>
+            </>
+          ) : undefined
+        }
+      >
+        {isLoading && <LoadingState label="Loading people…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load people.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && data.people.length === 0 && (
+          <EmptyState
+            data-testid="people-empty"
+            message="No people yet."
+            action={
+              canSubmit ? (
+                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="people-empty-add">
+                  Add person
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+        {data && data.people.length > 0 && (
+          <>
+            <ComparisonTable label="People register" testId="people-table">
+              <thead>
+                <tr>
+                  <th>Person</th>
+                  <th>Full name</th>
+                  <th>Team</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {shown.length === 0 && (
+                  <tr>
+                    <td colSpan={4} data-testid="people-no-matches">
+                      No people match this view.
+                    </td>
+                  </tr>
+                )}
+                {shown.map((p) => (
+                  <tr key={p.personId} data-testid={`person-row-${p.personId}`}>
+                    <td>
+                      <Link to={`/people/${p.personId}`}>{p.personId}</Link>
+                    </td>
+                    <td>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', columnGap: 'var(--c3-space-2)' }}>
+                        <PersonAvatar personId={p.personId} photoUpdatedAt={p.photoUpdatedAt} name={p.fullName} size={26} />
+                        {p.fullName}
+                      </span>
+                    </td>
+                    <td>{p.currentTeam ?? '—'}</td>
+                    <td>
+                      <StatusBadge variant={p.isActive ? 'ready' : 'neutral'}>{p.isActive ? 'Active' : 'Inactive'}</StatusBadge>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </ComparisonTable>
+            <p className="collection-count">
+              {shown.length} {shown.length === 1 ? 'person' : 'people'}
+              {isFiltered ? ` of ${people.length}` : ''}
+            </p>
+          </>
+        )}
+      </CollectionFrame>
 
       {canSubmit && (
         <FormDrawer
@@ -140,159 +268,34 @@ export function PeoplePage() {
           }
         >
           <Field label="Full name" required>
-            <Input value={fullName} onChange={(_, d) => setFullName(d.value)} data-testid="add-person-fullname" />
+            <Input value={fullName} onChange={(e) => setFullName(e.target.value)} data-testid="add-person-fullname" />
           </Field>
           <Field label="In-game name">
-            <Input value={ign} onChange={(_, d) => setIgn(d.value)} data-testid="add-person-ign" />
+            <Input value={ign} onChange={(e) => setIgn(e.target.value)} data-testid="add-person-ign" />
           </Field>
           <Field label="Team">
-            <Input value={team} onChange={(_, d) => setTeam(d.value)} data-testid="add-person-team" />
+            <Input value={team} onChange={(e) => setTeam(e.target.value)} data-testid="add-person-team" />
           </Field>
           {activeEntities.length > 0 && (
             <Field label="Signed with (entity)" hint="Which of your legal entities this person signed with.">
-              <Dropdown
-                placeholder="Not assigned"
-                value={entityLabel}
-                selectedOptions={entityId ? [entityId] : []}
-                onOptionSelect={(_, d) => {
-                  setEntityId(d.optionValue ?? '');
-                  setEntityLabel(d.optionValue ? (d.optionText ?? '') : '');
-                }}
+              <Selector
                 data-testid="add-person-entity"
-              >
-                <Option value="" text="Not assigned">
-                  Not assigned
-                </Option>
-                {activeEntities.map((e) => (
-                  <Option key={e.entityId} value={e.entityId} text={`${e.name} (${e.jurisdiction})`}>
-                    {`${e.name} (${e.jurisdiction})`}
-                  </Option>
-                ))}
-              </Dropdown>
+                placeholder="Not assigned"
+                value={entityId}
+                display={entityId ? entityLabel : undefined}
+                options={[
+                  { value: '', label: 'Not assigned' },
+                  ...activeEntities.map((e) => ({ value: e.entityId, label: `${e.name} (${e.jurisdiction})` })),
+                ]}
+                onSelect={(value, label) => {
+                  setEntityId(value);
+                  setEntityLabel(value ? label : '');
+                }}
+              />
             </Field>
           )}
         </FormDrawer>
       )}
-
-      {isLoading && <LoadingState label="Loading people…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load people.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.people.length === 0 && (
-        <EmptyState
-          data-testid="people-empty"
-          message="No people yet."
-          action={
-            canSubmit ? (
-              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="people-empty-add">
-                Add person
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-      {data && data.people.length > 0 && (
-        <>
-          <SavedViewsBar register="people" currentState={view} onApply={(st) => setView(coerceView(st))} />
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'flex-end', margin: '0 0 16px' }} data-testid="people-filters">
-            <Field label="Search">
-              <Input
-                value={view.q}
-                placeholder="Name, IGN, or ID"
-                onChange={(_, d) => patchView({ q: d.value })}
-                data-testid="people-filter-search"
-              />
-            </Field>
-            <Field label="Team">
-              <Dropdown
-                value={view.team || 'All teams'}
-                selectedOptions={[view.team]}
-                onOptionSelect={(_, d) => patchView({ team: d.optionValue ?? '' })}
-                data-testid="people-filter-team"
-              >
-                <Option value="" text="All teams">All teams</Option>
-                {teamsPresent.map((t) => (
-                  <Option key={t} value={t} text={t}>{t}</Option>
-                ))}
-              </Dropdown>
-            </Field>
-            <Field label="Status">
-              <Dropdown
-                value={view.status === 'active' ? 'Active' : view.status === 'inactive' ? 'Inactive' : 'All'}
-                selectedOptions={[view.status]}
-                onOptionSelect={(_, d) => patchView({ status: (d.optionValue as PeopleStatus) ?? 'active' })}
-                data-testid="people-filter-status"
-              >
-                <Option value="active" text="Active">Active</Option>
-                <Option value="all" text="All">All</Option>
-                <Option value="inactive" text="Inactive">Inactive</Option>
-              </Dropdown>
-            </Field>
-            <Field label="Sort">
-              <Dropdown
-                value={view.sort === 'id' ? 'Person ID' : view.sort === 'team' ? 'Team' : 'Full name'}
-                selectedOptions={[view.sort]}
-                onOptionSelect={(_, d) => patchView({ sort: (d.optionValue as PeopleSort) ?? 'name' })}
-                data-testid="people-filter-sort"
-              >
-                <Option value="name" text="Full name">Full name</Option>
-                <Option value="id" text="Person ID">Person ID</Option>
-                <Option value="team" text="Team">Team</Option>
-              </Dropdown>
-            </Field>
-            {isFiltered && (
-              <Button appearance="subtle" onClick={() => setView(DEFAULT_VIEW)} data-testid="people-filter-reset">
-                Reset
-              </Button>
-            )}
-          </div>
-          <table className={r.table} data-testid="people-table" aria-label="People register">
-            <thead>
-              <tr>
-                <th className={r.th}>Person</th>
-                <th className={r.th}>Full name</th>
-                <th className={r.th}>Team</th>
-                <th className={r.th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {shown.length === 0 && (
-                <tr>
-                  <td className={r.td} colSpan={4} data-testid="people-no-matches">
-                    No people match this view.
-                  </td>
-                </tr>
-              )}
-              {shown.map((p) => (
-                <tr key={p.personId} className={r.row} data-testid={`person-row-${p.personId}`}>
-                  <td className={r.td}>
-                    <Link className={r.idLink} to={`/people/${p.personId}`}>
-                      {p.personId}
-                    </Link>
-                  </td>
-                  <td className={`${r.td} ${r.name}`}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', columnGap: '8px' }}>
-                      <PersonAvatar personId={p.personId} photoUpdatedAt={p.photoUpdatedAt} name={p.fullName} size={26} />
-                      {p.fullName}
-                    </span>
-                  </td>
-                  <td className={r.td}>{p.currentTeam ?? '—'}</td>
-                  <td className={r.td}>
-                    <StatusBadge variant={p.isActive ? 'ready' : 'neutral'}>{p.isActive ? 'Active' : 'Inactive'}</StatusBadge>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <div className={r.count}>
-            {shown.length} {shown.length === 1 ? 'person' : 'people'}
-            {isFiltered ? ` of ${people.length}` : ''}
-          </div>
-        </>
-      )}
-    </div>
+    </>
   );
 }

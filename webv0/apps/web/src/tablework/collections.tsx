@@ -70,10 +70,12 @@ export function CollectionFrame({ title, titleTestId, kicker, count, scope, acti
 }
 
 /** Side-by-side comparison only; the scroll region is keyboard-reachable. */
-export function ComparisonTable({ label, children }: { label: string; children: ReactNode }) {
+export function ComparisonTable({ label, testId, children }: { label: string; testId?: string; children: ReactNode }) {
   return (
-    <div className="comparison-scroll" tabIndex={0} aria-label={label} data-tablework="ComparisonTable">
-      <table className="data-grid">{children}</table>
+    <div className="comparison-scroll" tabIndex={0} aria-label={label} data-tablework="ComparisonTable" data-testid={testId}>
+      <table className="data-grid" aria-label={label}>
+        {children}
+      </table>
     </div>
   );
 }

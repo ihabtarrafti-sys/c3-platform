@@ -16,7 +16,7 @@
  * material in a modal frame — Dawn's ceremony panels put composers on
  * work-surface raised; Float glass stays for menus/toasts/confirms.
  */
-import { cloneElement, isValidElement, useEffect, useId, useRef, type ReactElement, type ReactNode } from 'react';
+import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
 
 interface FieldProps {
   label: string;
@@ -83,6 +83,135 @@ export function Textarea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement
   return <textarea {...props} />;
 }
 
+export interface SelectorOption {
+  value: string;
+  label: string;
+}
+
+/**
+ * Selector (contract 04) — an in-page listbox the e2e oracle can see: the
+ * trigger opens a popup whose role="option" rows are REAL page elements
+ * (native <select> pickers are OS-level and invisible to the suite), Escape
+ * closes and returns focus, arrows move the active option, Enter selects.
+ */
+export function Selector({
+  value,
+  display,
+  placeholder,
+  options,
+  onSelect,
+  'data-testid': testId,
+  ...rest
+}: {
+  value: string;
+  /** The trigger text when a value is chosen (defaults to the option's label). */
+  display?: string;
+  placeholder?: string;
+  options: SelectorOption[];
+  onSelect: (value: string, label: string) => void;
+  'data-testid'?: string;
+} & Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'>) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(0);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const choose = (opt: SelectorOption) => {
+    setOpen(false);
+    onSelect(opt.value, opt.label);
+    triggerRef.current?.focus();
+  };
+
+  const selected = options.find((o) => o.value === value);
+  const label = display ?? selected?.label ?? placeholder ?? '';
+
+  return (
+    <div className="selector" ref={rootRef} {...rest}>
+      <button
+        ref={triggerRef}
+        type="button"
+        className="selector-trigger"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        data-testid={testId}
+        onClick={() => setOpen((o) => !o)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape' && open) {
+            // Consume the key ENTIRELY: preventDefault suppresses the native
+            // <dialog> cancel — Escape here closes the POPUP, not the sheet
+            // the selector sits in. (A synthetic keydown never exercises the
+            // UA cancel path; the e2e suite's real keypress does.)
+            e.preventDefault();
+            e.stopPropagation();
+            setOpen(false);
+          }
+          if ((e.key === 'ArrowDown' || e.key === 'Enter') && !open) {
+            e.preventDefault();
+            setOpen(true);
+          }
+        }}
+      >
+        <span className={selected ? undefined : 'selector-placeholder'}>{label}</span>
+        <span aria-hidden="true">▾</span>
+      </button>
+      {open ? (
+        <div
+          className="selector-float"
+          role="listbox"
+          id={listId}
+          aria-activedescendant={`${listId}-${active}`}
+          tabIndex={-1}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              e.preventDefault();
+              e.stopPropagation();
+              setOpen(false);
+              triggerRef.current?.focus();
+            }
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setActive((a) => Math.min(a + 1, options.length - 1));
+            }
+            if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setActive((a) => Math.max(a - 1, 0));
+            }
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              const opt = options[active];
+              if (opt) choose(opt);
+            }
+          }}
+        >
+          {options.map((opt, i) => (
+            <div
+              key={opt.value || '∅'}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={opt.value === value}
+              className={i === active ? 'selector-option active' : 'selector-option'}
+              onMouseEnter={() => setActive(i)}
+              onClick={() => choose(opt)}
+            >
+              {opt.label}
+            </div>
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 interface FormDrawerProps {
   open: boolean;
   onClose: () => void;
@@ -99,13 +228,22 @@ interface FormDrawerProps {
 
 export function FormDrawer({ open, onClose, eyebrow, mode, intro, children, footer }: FormDrawerProps) {
   const ref = useRef<HTMLDialogElement>(null);
+  // The closed sheet UNMOUNTS (Fluent OverlayDrawer parity — specs assert
+  // absent fields by count) but only AFTER the native close event, so the
+  // focus-return happens first. The dirty-guard is untouched: field state
+  // lives in the CALLER, so reopening restores exactly what was typed.
+  const [mounted, setMounted] = useState(open);
+  useEffect(() => {
+    if (open) setMounted(true);
+  }, [open]);
   useEffect(() => {
     const dialog = ref.current;
     if (!dialog) return;
     if (open && !dialog.open) dialog.showModal();
     else if (!open && dialog.open) dialog.close();
-  }, [open]);
+  }, [open, mounted]);
 
+  if (!mounted) return null;
   return (
     <dialog
       ref={ref}
@@ -113,7 +251,10 @@ export function FormDrawer({ open, onClose, eyebrow, mode, intro, children, foot
       data-tablework="FormDrawer"
       data-material="work"
       aria-label={eyebrow}
-      onClose={onClose}
+      onClose={() => {
+        setMounted(false);
+        onClose();
+      }}
       onCancel={onClose}
     >
       <div className="form-sheet-frame">
