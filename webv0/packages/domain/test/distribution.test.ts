@@ -36,6 +36,23 @@ describe('allocateDistribution — the exact-sum law', () => {
     expect(again.rows).toEqual(rows);
   });
 
+  it('multiple leftover cents go to DISTINCT recipients, never piled on one', () => {
+    // Pool 100, no org cut. floors 32/32/34 sum to 98 → TWO leftover cents.
+    // The law: each spare cent goes to a distinct largest-remainder recipient
+    // (+1 each), never +2 on the top one. Both distributions satisfy the
+    // sum invariant, so only the per-row amounts discriminate them.
+    const { rows } = allocateDistribution(100, 0, [
+      { personId: 'PER-0001', shareBps: 3267 },
+      { personId: 'PER-0002', shareBps: 3267 },
+      { personId: 'PER-0003', shareBps: 3466 },
+    ]);
+    expect(rows.map((r) => r.amountMinor)).toEqual([33, 33, 34]);
+    const bonuses = rows.map((r, i) => r.amountMinor - [32, 32, 34][i]!);
+    expect(bonuses.filter((b) => b === 1)).toHaveLength(2); // two distinct recipients
+    expect(bonuses.every((b) => b <= 1)).toBe(true); // never piled (+2) on one
+    expect(rows.reduce((n, r) => n + r.amountMinor, 0)).toBe(100);
+  });
+
   it('a rounding storm across many odd shares never loses or invents a cent', () => {
     const shares = Array.from({ length: 7 }, (_, i) => ({ personId: `PER-000${i + 1}`, shareBps: i === 0 ? 1430 : 1428 + (i % 2) }));
     const total = shares.reduce((n, s) => n + s.shareBps, 0);
