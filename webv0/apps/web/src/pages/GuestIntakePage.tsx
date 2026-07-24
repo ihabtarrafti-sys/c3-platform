@@ -147,38 +147,38 @@ export function GuestIntakePage() {
             <div className={s.group}>
               <div className={s.groupTitle}>Identity</div>
               <Field label="Full name" required>
-                <Input value={f.fullName ?? ''} onChange={set('fullName')} data-testid="guest-fullName" />
+                <Input input={{ autoComplete: 'off' }} value={f.fullName ?? ''} onChange={set('fullName')} data-testid="guest-fullName" />
               </Field>
               <div className={s.twoCol}>
-                <Field label="Nationality"><Input value={f.nationality ?? ''} onChange={set('nationality')} data-testid="guest-nationality" /></Field>
-                <Field label="Date of birth (YYYY-MM-DD)"><Input value={f.dateOfBirth ?? ''} onChange={set('dateOfBirth')} placeholder="1999-05-20" data-testid="guest-dob" /></Field>
+                <Field label="Nationality"><Input input={{ autoComplete: 'off' }} value={f.nationality ?? ''} onChange={set('nationality')} data-testid="guest-nationality" /></Field>
+                <Field label="Date of birth (YYYY-MM-DD)"><Input input={{ autoComplete: 'off' }} value={f.dateOfBirth ?? ''} onChange={set('dateOfBirth')} placeholder="1999-05-20" data-testid="guest-dob" /></Field>
               </div>
 
               <div className={s.groupTitle}>Contact</div>
               <div className={s.twoCol}>
-                <Field label="Email"><Input value={f.email ?? ''} onChange={set('email')} data-testid="guest-email" /></Field>
-                <Field label="Phone"><Input value={f.phone ?? ''} onChange={set('phone')} data-testid="guest-phone" /></Field>
+                <Field label="Email"><Input input={{ autoComplete: 'off' }} value={f.email ?? ''} onChange={set('email')} data-testid="guest-email" /></Field>
+                <Field label="Phone"><Input input={{ autoComplete: 'off' }} value={f.phone ?? ''} onChange={set('phone')} data-testid="guest-phone" /></Field>
               </div>
-              <Field label="Address line"><Input value={f.addressLine1 ?? ''} onChange={set('addressLine1')} /></Field>
+              <Field label="Address line"><Input input={{ autoComplete: 'off' }} value={f.addressLine1 ?? ''} onChange={set('addressLine1')} /></Field>
               <div className={s.twoCol}>
-                <Field label="City"><Input value={f.addressCity ?? ''} onChange={set('addressCity')} /></Field>
-                <Field label="Country"><Input value={f.addressCountry ?? ''} onChange={set('addressCountry')} /></Field>
+                <Field label="City"><Input input={{ autoComplete: 'off' }} value={f.addressCity ?? ''} onChange={set('addressCity')} /></Field>
+                <Field label="Country"><Input input={{ autoComplete: 'off' }} value={f.addressCountry ?? ''} onChange={set('addressCountry')} /></Field>
               </div>
 
               <div className={s.groupTitle}>Gaming</div>
               <div className={s.twoCol}>
-                <Field label="In-game name"><Input value={f.ign ?? ''} onChange={set('ign')} data-testid="guest-ign" /></Field>
-                <Field label="Game title"><Input value={f.currentGameTitle ?? ''} onChange={set('currentGameTitle')} /></Field>
+                <Field label="In-game name"><Input input={{ autoComplete: 'off' }} value={f.ign ?? ''} onChange={set('ign')} data-testid="guest-ign" /></Field>
+                <Field label="Game title"><Input input={{ autoComplete: 'off' }} value={f.currentGameTitle ?? ''} onChange={set('currentGameTitle')} /></Field>
               </div>
               <div className={s.twoCol}>
-                <Field label="Role"><Input value={f.primaryRole ?? ''} onChange={set('primaryRole')} /></Field>
-                <Field label="Team"><Input value={f.currentTeam ?? ''} onChange={set('currentTeam')} /></Field>
+                <Field label="Role"><Input input={{ autoComplete: 'off' }} value={f.primaryRole ?? ''} onChange={set('primaryRole')} /></Field>
+                <Field label="Team"><Input input={{ autoComplete: 'off' }} value={f.currentTeam ?? ''} onChange={set('currentTeam')} /></Field>
               </div>
 
               <div className={s.groupTitle}>Sizes</div>
               <div className={s.twoCol}>
-                <Field label="Apparel size"><Input value={f.apparelSize ?? ''} onChange={set('apparelSize')} data-testid="guest-apparel" /></Field>
-                <Field label="Shoe size"><Input value={f.shoeSize ?? ''} onChange={set('shoeSize')} /></Field>
+                <Field label="Apparel size"><Input input={{ autoComplete: 'off' }} value={f.apparelSize ?? ''} onChange={set('apparelSize')} data-testid="guest-apparel" /></Field>
+                <Field label="Shoe size"><Input input={{ autoComplete: 'off' }} value={f.shoeSize ?? ''} onChange={set('shoeSize')} /></Field>
               </div>
 
               <div className={s.groupTitle}>Documents (optional)</div>
@@ -191,7 +191,7 @@ export function GuestIntakePage() {
               <span className={s.fileNote}>e.g. a passport or ID scan. Up to 6 files.{files.length > 0 ? ` ${files.length} selected.` : ''}</span>
 
               <Field label="Anything else">
-                <Textarea value={f.note ?? ''} onChange={set('note')} data-testid="guest-note" />
+                <Textarea textarea={{ autoComplete: 'off' }} value={f.note ?? ''} onChange={set('note')} data-testid="guest-note" />
               </Field>
 
               {error && <p className={s.lede} data-testid="guest-error" style={{ color: 'var(--c3-state-danger, #d13438)' }}>{error}</p>}
