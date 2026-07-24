@@ -1,3 +1,7 @@
+# Declare detected text LF-normalized. Exact-byte exceptions remain explicitly
+# marked -text below.
+* text=auto eol=lf
+
 # Runtime bundles are build artifacts verified by SHA-256 (scripts/verify-c3-runtime.mjs).
 # They must remain byte-identical to the committed blob on every platform —
 # never apply CRLF/LF normalization on checkout or commit.
