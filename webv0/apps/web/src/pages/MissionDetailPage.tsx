@@ -43,6 +43,8 @@ import {
   Field,
   Input,
   Selector,
+  percentToBps,
+  positiveAmountToMinor,
 } from '../tablework';
 import { DistributionsSection } from '../components/DistributionsSection';
 import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf } from '../labels';
@@ -691,28 +693,12 @@ type PaymentForm = { status: PaymentStatus; received: string; rate: string; sour
 /** S6: the issue-invoice dialog per income line. */
 type InvoiceForm = { entityId: string; billedTo: string; details: string; vatPct: string; description: string };
 
-/** "15" → 1500 bps; decimals legal ("5.5" → 550); null = not a valid 0..100
- * percent. M-02: exact digit-split — sub-bps precision ("5.555") is a REFUSAL,
- * never a silent round. */
-function vatPctToBps(v: string): number | null {
-  const m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(v.trim());
-  if (!m) return null;
-  const bps = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
-  return bps <= 10000 ? bps : null;
-}
 type BudgetForm = { direction: MissionLineDirection; category: string; currency: CurrencyCode; amount: string };
 
 const EMPTY_BUDGET: BudgetForm = { direction: 'Expense', category: 'Other', currency: 'USD', amount: '' };
 
-/** Major-units string → integer minor units; null when not a positive amount.
- * M-02: exact digit-split via the domain parser — excess precision refuses. */
-function lineAmountToMinor(input: string): number | null {
-  const minor = parseDecimalToMinor(input);
-  return minor !== null && minor > 0 ? minor : null;
-}
-
 function lineFormInvalid(f: LineForm): boolean {
-  return f.label.trim() === '' || lineAmountToMinor(f.amount) == null;
+  return f.label.trim() === '' || positiveAmountToMinor(f.amount) == null;
 }
 
 /**
@@ -865,7 +851,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                 </div>
               }
               confirmLabel="Save budget"
-              confirmDisabled={budget.amount.trim() !== '' && lineAmountToMinor(budget.amount) == null}
+              confirmDisabled={budget.amount.trim() !== '' && positiveAmountToMinor(budget.amount) == null}
               onConfirm={() =>
                 run(
                   () =>
@@ -873,7 +859,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                       direction: budget.direction,
                       category: budget.category,
                       currency: budget.currency,
-                      amountMinor: budget.amount.trim() === '' ? null : lineAmountToMinor(budget.amount)!,
+                      amountMinor: budget.amount.trim() === '' ? null : positiveAmountToMinor(budget.amount)!,
                       // M-03: the version of the cell as THIS page loaded it
                       // (null = the cell was empty) — a concurrent edit refuses.
                       expectedVersion:
@@ -901,7 +887,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                       direction: add.direction,
                       category: add.category,
                       label: add.label.trim(),
-                      amountMinor: lineAmountToMinor(add.amount)!,
+                      amountMinor: positiveAmountToMinor(add.amount)!,
                       currency: add.currency,
                     }),
                   'Line added and recorded.',
@@ -999,7 +985,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                             confirmDisabled={(() => {
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
                               const chosen = invoiceEntities.find((e) => e.entityId === f.entityId);
-                              return !chosen || !chosen.code || f.billedTo.trim() === '' || vatPctToBps(f.vatPct) === null;
+                              return !chosen || !chosen.code || f.billedTo.trim() === '' || percentToBps(f.vatPct) === null;
                             })()}
                             onConfirm={async () => {
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
@@ -1010,7 +996,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                                   entityId: f.entityId,
                                   billedToName: f.billedTo.trim(),
                                   billedToDetails: f.details.trim() === '' ? null : f.details.trim(),
-                                  vatRateBps: vatPctToBps(f.vatPct)!,
+                                  vatRateBps: percentToBps(f.vatPct)!,
                                   description: f.description.trim() === '' ? null : f.description.trim(),
                                 });
                                 notify('success', `Issued ${res.invoice.invoiceNumber} — the line is now Invoiced.`);
@@ -1065,7 +1051,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                             }
                             confirmLabel="Save payment"
                             confirmDisabled={
-                              (pf.received.trim() !== '' && lineAmountToMinor(pf.received) == null) ||
+                              (pf.received.trim() !== '' && positiveAmountToMinor(pf.received) == null) ||
                               (pf.rate.trim() !== '' && !(Number.parseFloat(pf.rate) > 0))
                             }
                             onConfirm={() =>
@@ -1074,7 +1060,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                                   api.setMissionLinePayment(missionId, l.lineId, {
                                     expectedVersion: l.version,
                                     paymentStatus: pf.status,
-                                    receivedAmountMinor: pf.status === 'Received' && pf.received.trim() !== '' ? lineAmountToMinor(pf.received) : null,
+                                    receivedAmountMinor: pf.status === 'Received' && pf.received.trim() !== '' ? positiveAmountToMinor(pf.received) : null,
                                     receivedUsdPerUnit: pf.status === 'Received' && pf.rate.trim() !== '' ? Number.parseFloat(pf.rate) : null,
                                     paymentSourceLabel: pf.source.trim() === '' ? null : pf.source.trim(),
                                     refNo: pf.refNo.trim() === '' ? null : pf.refNo.trim(),
@@ -1104,7 +1090,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                                 api.updateMissionLine(missionId, l.lineId, {
                                   expectedVersion: l.version,
                                   label: ef.label.trim(),
-                                  amountMinor: lineAmountToMinor(ef.amount)!,
+                                  amountMinor: positiveAmountToMinor(ef.amount)!,
                                   currency: ef.currency,
                                 }),
                               'Line updated and recorded.',

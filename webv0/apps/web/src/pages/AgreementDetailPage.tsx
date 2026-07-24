@@ -8,7 +8,6 @@ import {
   CURRENCY_CODES,
   MINOR_UNITS_PER_UNIT,
   isMonetaryTermKind,
-  parseDecimalToMinor,
   termLabelRequired,
   type AgreementTermKind,
   type CurrencyCode,
@@ -28,6 +27,10 @@ import { useRegisterStyles } from '../components/registerStyles';
 import { GovernedAction } from '../components/GovernedAction';
 import { DocumentsSection } from '../components/DocumentsSection';
 import { agreementRenewalStateOf, agreementTermKindOf, auditActionOf, formatTermValue, formatUsdCents } from '../labels';
+// F3 ③: the shared money parsers. This screen is still Fluent (a Wave-2/3
+// conversion target) — the kit modules are pure and Fluent-free, so adopting
+// the parser here is a one-way dependency that changes no rendering.
+import { positivePercentToBps, positiveAmountToMinor } from '../tablework';
 
 /**
  * AgreementDetailPage (Sprint 41) — one agreement, honestly split: the
@@ -353,25 +356,12 @@ function formFromTerm(t: AgreementTermDto): TermForm {
   };
 }
 
-/** Major-units string → integer minor units; null when not a positive amount.
- * M-02: exact digit-split via the domain parser — excess precision refuses. */
-function amountToMinor(input: string): number | null {
-  const minor = parseDecimalToMinor(input);
-  return minor !== null && minor > 0 ? minor : null;
-}
-/** M-02: percent as exact digits (≤2 decimals), 0 < p ≤ 100 — bps-resolution only. */
-function percentToBpsExact(input: string): number | null {
-  const m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(input.trim());
-  if (!m) return null;
-  const bps = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
-  return bps > 0 && bps <= 10000 ? bps : null;
-}
 function percentValid(input: string): boolean {
-  return percentToBpsExact(input) !== null;
+  return positivePercentToBps(input) !== null;
 }
 function formInvalid(kind: AgreementTermKind, f: TermForm): boolean {
   if (isMonetaryTermKind(kind)) {
-    return amountToMinor(f.amount) == null || (termLabelRequired(kind) && f.label.trim() === '');
+    return positiveAmountToMinor(f.amount) == null || (termLabelRequired(kind) && f.label.trim() === '');
   }
   return !percentValid(f.percent);
 }
@@ -448,8 +438,8 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
 
   function bodyFrom(kind: AgreementTermKind, f: TermForm) {
     return isMonetaryTermKind(kind)
-      ? { amountMinor: amountToMinor(f.amount)!, currency: f.currency, label: f.label.trim() || null }
-      : { percentBps: percentToBpsExact(f.percent)!, label: f.label.trim() || null };
+      ? { amountMinor: positiveAmountToMinor(f.amount)!, currency: f.currency, label: f.label.trim() || null }
+      : { percentBps: positivePercentToBps(f.percent)!, label: f.label.trim() || null };
   }
 
   return (

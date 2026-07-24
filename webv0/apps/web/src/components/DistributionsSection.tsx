@@ -6,7 +6,7 @@ import { useMissionDistributions, useMissionPnl, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify } from '../session';
-import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector } from '../tablework';
+import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, percentToBps } from '../tablework';
 
 /**
  * Distributions (S8) — the payout list under a mission's P&L. A distribution
@@ -72,20 +72,14 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
     }
   }
 
-  // M-02: exact digit-split percent → bps; sub-bps precision refuses, never rounds.
-  const pctToBps = (v: string): number | null => {
-    const m = /^(\d{1,3})(?:\.(\d{1,2}))?$/.exec(v.trim());
-    if (!m) return null;
-    const bps = Number(m[1]) * 100 + Number((m[2] ?? '').padEnd(2, '0') || '0');
-    return bps <= 10000 ? bps : null;
-  };
-
   const activeDrafts = (drafts ?? []).filter((d) => d.bps.trim() !== '');
-  const orgBps = pctToBps(orgPct);
-  const draftBpsSum = activeDrafts.reduce((n, d) => n + (pctToBps(d.bps) ?? 0), 0);
+  // orgBps legitimately accepts 0 (all-to-players); the per-row `> 0` guard
+  // below is a CALL-SITE rule and must not migrate into the shared parser.
+  const orgBps = percentToBps(orgPct);
+  const draftBpsSum = activeDrafts.reduce((n, d) => n + (percentToBps(d.bps) ?? 0), 0);
   const draftsValid =
     orgBps !== null &&
-    activeDrafts.every((d) => pctToBps(d.bps) !== null && pctToBps(d.bps)! > 0) &&
+    activeDrafts.every((d) => percentToBps(d.bps) !== null && percentToBps(d.bps)! > 0) &&
     (activeDrafts.length === 0 ? orgBps === 10000 : draftBpsSum === 10000);
   const chosenLine = lines.find((l) => l.lineId === lineId);
   const pool = chosenLine ? (chosenLine.receivedAmountMinor ?? chosenLine.amountMinor) : 0;
@@ -168,7 +162,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                   missionId,
                   lineId,
                   orgShareBps: orgBps!,
-                  shares: activeDrafts.map((d) => ({ personId: d.personId, shareBps: pctToBps(d.bps)! })),
+                  shares: activeDrafts.map((d) => ({ personId: d.personId, shareBps: percentToBps(d.bps)! })),
                 });
                 notify('success', `${res.distribution.distributionId} allocated — org ${formatMoney(res.distribution.orgCutMinor, res.distribution.currency)} + ${res.shares.length} payout row${res.shares.length === 1 ? '' : 's'}.`);
                 invalidate();
