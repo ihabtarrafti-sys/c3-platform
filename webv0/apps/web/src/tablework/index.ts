@@ -36,6 +36,7 @@ export {
   type StatusVariant,
   type DefItem,
 } from './collections';
+export { formatDisplayDate } from './dates';
 export { Thread, detectLinks } from './Thread';
 export { Message, initialsOf } from './Message';
 export { ObligationCard, type ObligationActionInput } from './ObligationCard';
