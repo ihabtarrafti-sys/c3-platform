@@ -87,4 +87,14 @@ export default defineWorkspace([
       poolOptions: { forks: { singleFork: true } },
     },
   },
+  {
+    test: {
+      name: 'search-harness',
+      root: './packages/search-harness',
+      environment: 'node',
+      include: ['test/**/*.test.ts'],
+      pool: 'forks',
+      poolOptions: { forks: { singleFork: true } },
+    },
+  },
 ]);

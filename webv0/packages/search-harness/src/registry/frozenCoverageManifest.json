@@ -1,0 +1,3331 @@
+{
+  "manifestVersion": "search-sunset/v1",
+  "plannedCoverageOnly": true,
+  "surfaces": {
+    "visibility-matrix": {
+      "artifactVersion": "hearth-search-visibility/coverage-v1",
+      "entries": [
+        {
+          "factKey": "applicationResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:001"
+        },
+        {
+          "factKey": "applicationResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:002"
+        },
+        {
+          "factKey": "applicationResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:003"
+        },
+        {
+          "factKey": "applicationResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:004"
+        },
+        {
+          "factKey": "applicationResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:005"
+        },
+        {
+          "factKey": "applicationResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:006"
+        },
+        {
+          "factKey": "applicationResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:007"
+        },
+        {
+          "factKey": "applicationResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:008"
+        },
+        {
+          "factKey": "applicationResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:009"
+        },
+        {
+          "factKey": "applicationResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:010"
+        },
+        {
+          "factKey": "applicationResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:011"
+        },
+        {
+          "factKey": "applicationResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:012"
+        },
+        {
+          "factKey": "applicationResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:013"
+        },
+        {
+          "factKey": "applicationResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:014"
+        },
+        {
+          "factKey": "applicationResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:015"
+        },
+        {
+          "factKey": "applicationResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:016"
+        },
+        {
+          "factKey": "applicationResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:017"
+        },
+        {
+          "factKey": "capabilityKeys[0]=\"canReadPeople\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:018"
+        },
+        {
+          "factKey": "capabilityKeys[10]=\"canManageEntities\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:019"
+        },
+        {
+          "factKey": "capabilityKeys[11]=\"canManageIntake\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:020"
+        },
+        {
+          "factKey": "capabilityKeys[12]=\"canManageSubscriptions\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:021"
+        },
+        {
+          "factKey": "capabilityKeys[13]=\"canReadAgreements\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:022"
+        },
+        {
+          "factKey": "capabilityKeys[14]=\"canViewFinancials\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:023"
+        },
+        {
+          "factKey": "capabilityKeys[15]=\"canViewPerDiem\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:024"
+        },
+        {
+          "factKey": "capabilityKeys[16]=\"canManageDelegations\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:025"
+        },
+        {
+          "factKey": "capabilityKeys[17]=\"canViewPersonPII\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:026"
+        },
+        {
+          "factKey": "capabilityKeys[18]=\"isReadOnly\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:027"
+        },
+        {
+          "factKey": "capabilityKeys[1]=\"canSubmitApproval\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:028"
+        },
+        {
+          "factKey": "capabilityKeys[2]=\"canReviewApproval\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:029"
+        },
+        {
+          "factKey": "capabilityKeys[3]=\"canExecuteApproval\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:030"
+        },
+        {
+          "factKey": "capabilityKeys[4]=\"canReadMembers\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:031"
+        },
+        {
+          "factKey": "capabilityKeys[5]=\"canSubmitMemberChange\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:032"
+        },
+        {
+          "factKey": "capabilityKeys[6]=\"canOperateJourneys\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:033"
+        },
+        {
+          "factKey": "capabilityKeys[7]=\"canManageKit\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:034"
+        },
+        {
+          "factKey": "capabilityKeys[8]=\"canManageApparel\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:035"
+        },
+        {
+          "factKey": "capabilityKeys[9]=\"canManageMissions\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:036"
+        },
+        {
+          "factKey": "contractResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:037"
+        },
+        {
+          "factKey": "contractResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:038"
+        },
+        {
+          "factKey": "contractResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:039"
+        },
+        {
+          "factKey": "contractResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:040"
+        },
+        {
+          "factKey": "contractResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:041"
+        },
+        {
+          "factKey": "contractResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:042"
+        },
+        {
+          "factKey": "contractResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:043"
+        },
+        {
+          "factKey": "contractResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:044"
+        },
+        {
+          "factKey": "contractResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:045"
+        },
+        {
+          "factKey": "contractResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:046"
+        },
+        {
+          "factKey": "contractResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:047"
+        },
+        {
+          "factKey": "contractResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:048"
+        },
+        {
+          "factKey": "contractResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:049"
+        },
+        {
+          "factKey": "contractResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:050"
+        },
+        {
+          "factKey": "contractResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:051"
+        },
+        {
+          "factKey": "contractResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:052"
+        },
+        {
+          "factKey": "contractResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:053"
+        },
+        {
+          "factKey": "criticalSourceFingerprintsSha256=9e6565fa8f35a316ccec1722e6e06c0d99add137890e9d6737ce14ad96f34a85",
+          "plannedRecordId": "hearth-search:visibility-matrix:054"
+        },
+        {
+          "factKey": "criticalSourcesSha256=8b94c2e1dfea40c18de198c6f126e4e13ed774e1c4483a2995a91420c3e97f5f",
+          "plannedRecordId": "hearth-search:visibility-matrix:055"
+        },
+        {
+          "factKey": "documentOwnerTypes[0]=\"Agreement\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:056"
+        },
+        {
+          "factKey": "documentOwnerTypes[1]=\"Mission\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:057"
+        },
+        {
+          "factKey": "documentOwnerTypes[2]=\"Person\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:058"
+        },
+        {
+          "factKey": "documentOwnerTypes[3]=\"Credential\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:059"
+        },
+        {
+          "factKey": "documentOwnerTypes[4]=\"Entity\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:060"
+        },
+        {
+          "factKey": "documentOwnerTypes[5]=\"Invoice\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:061"
+        },
+        {
+          "factKey": "documentOwnerTypes[6]=\"Claim\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:062"
+        },
+        {
+          "factKey": "documentOwnerTypes[7]=\"CommsMessage\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:063"
+        },
+        {
+          "factKey": "documentOwnerTypes[8]=\"CommsObligation\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:064"
+        },
+        {
+          "factKey": "entitlementSnapshots[0]=\"no-row\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:065"
+        },
+        {
+          "factKey": "entitlementSnapshots[1]=\"active-current\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:066"
+        },
+        {
+          "factKey": "entitlementSnapshots[2]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:067"
+        },
+        {
+          "factKey": "entitlementSnapshots[3]=\"active-future\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:068"
+        },
+        {
+          "factKey": "entitlementSnapshots[4]=\"active-expired\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:069"
+        },
+        {
+          "factKey": "entitlementStates[0]=\"active\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:070"
+        },
+        {
+          "factKey": "entitlementStates[1]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:071"
+        },
+        {
+          "factKey": "gateClasses.actor-read-path=[\"p.reads.forActor(actor).searchTenant\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:072"
+        },
+        {
+          "factKey": "gateClasses.assert:baseline=[\"assertReadPeople(actor)\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:073"
+        },
+        {
+          "factKey": "gateClasses.claims-own-identity=[\"finance?null:actor.identity\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:074"
+        },
+        {
+          "factKey": "gateClasses.document-owner:baseline=[\"Person\",\"Mission\",\"Credential\",\"Entity\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:075"
+        },
+        {
+          "factKey": "gateClasses.document-owner:canReadAgreements(actor.role)=[\"Agreement\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:076"
+        },
+        {
+          "factKey": "gateClasses.document-owner:finance=[\"Invoice\",\"Claim\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:077"
+        },
+        {
+          "factKey": "gateClasses.domain:always=[\"document\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:078"
+        },
+        {
+          "factKey": "gateClasses.domain:baseline=[\"person\",\"mission\",\"entity\",\"credential\",\"journey\",\"kit\",\"apparel\",\"team\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:079"
+        },
+        {
+          "factKey": "gateClasses.domain:canReadAgreements(actor.role)=[\"agreement\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:080"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitApproval(actor.role)||canReviewApproval(actor.role)=[\"approval\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:081"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitClaim(actor.role)=[\"claim\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:082"
+        },
+        {
+          "factKey": "gateClasses.domain:finance=[\"invoice\",\"distribution\",\"term\",\"line\",\"beneficiary\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:083"
+        },
+        {
+          "factKey": "gateClasses.standing:finance=[\"canViewFinancials(actor.role)\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:084"
+        },
+        {
+          "factKey": "matchFields.agreement=[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:085"
+        },
+        {
+          "factKey": "matchFields.apparel=[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:086"
+        },
+        {
+          "factKey": "matchFields.approval=[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:087"
+        },
+        {
+          "factKey": "matchFields.beneficiary=[\"beneficiary_id\",\"label\",\"bank_name\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:088"
+        },
+        {
+          "factKey": "matchFields.claim=[\"claim_id\",\"description\",\"category\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:089"
+        },
+        {
+          "factKey": "matchFields.credential=[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:090"
+        },
+        {
+          "factKey": "matchFields.distribution=[\"distribution_id\",\"mission_id\",\"line_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:091"
+        },
+        {
+          "factKey": "matchFields.document=[\"document_id\",\"file_name\",\"label\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:092"
+        },
+        {
+          "factKey": "matchFields.entity=[\"entity_id\",\"name\",\"code\",\"jurisdiction\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:093"
+        },
+        {
+          "factKey": "matchFields.invoice=[\"invoice_id\",\"invoice_number\",\"billed_to_name\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:094"
+        },
+        {
+          "factKey": "matchFields.journey=[\"journey_id\",\"title\",\"journey_type\",\"person_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:095"
+        },
+        {
+          "factKey": "matchFields.kit=[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:096"
+        },
+        {
+          "factKey": "matchFields.line=[\"line_id\",\"ref_no\",\"label\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:097"
+        },
+        {
+          "factKey": "matchFields.mission=[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:098"
+        },
+        {
+          "factKey": "matchFields.person=[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:099"
+        },
+        {
+          "factKey": "matchFields.team=[\"team_id\",\"name\",\"code\",\"game_title\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:100"
+        },
+        {
+          "factKey": "matchFields.term=[\"term_id\",\"kind\",\"label\",\"agreement_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:101"
+        },
+        {
+          "factKey": "moduleKeys[0]=\"comms\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:102"
+        },
+        {
+          "factKey": "predicateRegisters.approval=[\"effective-delegation\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:103"
+        },
+        {
+          "factKey": "predicateRegisters.claim-document=[\"submitter-or-finance\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:104"
+        },
+        {
+          "factKey": "predicateRegisters.claim=[\"submitted_by:claimsOwnIdentity:when-non-null\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:105"
+        },
+        {
+          "factKey": "predicateRegisters.comms-document=[\"module+owner+thread+anchor\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:106"
+        },
+        {
+          "factKey": "predicateRegisters.comms-module=[\"active+effective-window\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:107"
+        },
+        {
+          "factKey": "predicateRegisters.comms-thread=[\"anchored-Mission\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:108"
+        },
+        {
+          "factKey": "predicateRegisters.document=[\"static:is_active\",\"owner_type:documentOwnerTypes:empty-denies\",\"record_kind:search-predicate-absent\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:109"
+        },
+        {
+          "factKey": "predicateRegisters.line=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:110"
+        },
+        {
+          "factKey": "predicateRegisters.term=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:111"
+        },
+        {
+          "factKey": "projections.agreement={\"extraWhere\":null,\"id\":\"agreement_id\",\"match\":[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', agreement_type, coalesce(person_id, entity_id)), '')\",\"table\":\"agreement\",\"title\":\"coalesce(agreement_code, agreement_id)\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:112"
+        },
+        {
+          "factKey": "projections.apparel={\"extraWhere\":null,\"id\":\"apparel_id\",\"match\":[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"apparel\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:113"
+        },
+        {
+          "factKey": "projections.approval={\"extraWhere\":null,\"id\":\"approval_id\",\"match\":[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', status, target_person_id), '')\",\"table\":\"approval\",\"title\":\"operation_type\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:114"
+        },
+        {
+          "factKey": "projections.beneficiary={\"extraWhere\":null,\"id\":\"beneficiary_id\",\"match\":[\"beneficiary_id\",\"label\",\"bank_name\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', bank_name, coalesce(person_id, freelancer_id, vendor_id), status), '')\",\"table\":\"beneficiary\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:115"
+        },
+        {
+          "factKey": "projections.claim={\"extraWhere\":null,\"id\":\"claim_id\",\"match\":[\"claim_id\",\"description\",\"category\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', category, status), '')\",\"table\":\"claim\",\"title\":\"description\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:116"
+        },
+        {
+          "factKey": "projections.credential={\"extraWhere\":null,\"id\":\"credential_id\",\"match\":[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"],\"parent\":\"person_id\",\"subtitle\":\"person_id\",\"table\":\"credential\",\"title\":\"credential_type\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:117"
+        },
+        {
+          "factKey": "projections.distribution={\"extraWhere\":null,\"id\":\"distribution_id\",\"match\":[\"distribution_id\",\"mission_id\",\"line_id\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', status, mission_id), '')\",\"table\":\"distribution\",\"title\":\"distribution_id\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:118"
+        },
+        {
+          "factKey": "projections.document={\"extraWhere\":\"is_active\",\"id\":\"document_id\",\"match\":[\"document_id\",\"file_name\",\"label\"],\"parent\":\"owner_type || ':' || owner_id\",\"subtitle\":\"nullif(concat_ws(' · ', owner_type, owner_id), '')\",\"table\":\"document\",\"title\":\"file_name\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:119"
+        },
+        {
+          "factKey": "projections.entity={\"extraWhere\":null,\"id\":\"entity_id\",\"match\":[\"entity_id\",\"name\",\"code\",\"jurisdiction\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, jurisdiction), '')\",\"table\":\"entity\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:120"
+        },
+        {
+          "factKey": "projections.invoice={\"extraWhere\":null,\"id\":\"invoice_id\",\"match\":[\"invoice_id\",\"invoice_number\",\"billed_to_name\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', billed_to_name, status), '')\",\"table\":\"invoice\",\"title\":\"invoice_number\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:121"
+        },
+        {
+          "factKey": "projections.journey={\"extraWhere\":null,\"id\":\"journey_id\",\"match\":[\"journey_id\",\"title\",\"journey_type\",\"person_id\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', journey_type, person_id), '')\",\"table\":\"journey\",\"title\":\"coalesce(title, journey_type)\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:122"
+        },
+        {
+          "factKey": "projections.kit={\"extraWhere\":null,\"id\":\"kit_id\",\"match\":[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"kit\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:123"
+        },
+        {
+          "factKey": "projections.line={\"extraWhere\":\"is_active\",\"id\":\"line_id\",\"match\":[\"line_id\",\"ref_no\",\"label\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', ref_no, mission_id), '')\",\"table\":\"mission_line\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:124"
+        },
+        {
+          "factKey": "projections.mission={\"extraWhere\":null,\"id\":\"mission_id\",\"match\":[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, city), '')\",\"table\":\"mission\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:125"
+        },
+        {
+          "factKey": "projections.person={\"extraWhere\":null,\"id\":\"person_id\",\"match\":[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', ign, current_team), '')\",\"table\":\"person\",\"title\":\"full_name\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:126"
+        },
+        {
+          "factKey": "projections.team={\"extraWhere\":null,\"id\":\"team_id\",\"match\":[\"team_id\",\"name\",\"code\",\"game_title\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, kind), '')\",\"table\":\"team\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:127"
+        },
+        {
+          "factKey": "projections.term={\"extraWhere\":\"is_active\",\"id\":\"term_id\",\"match\":[\"term_id\",\"kind\",\"label\",\"agreement_id\"],\"parent\":\"agreement_id\",\"subtitle\":\"nullif(concat_ws(' · ', kind, agreement_id), '')\",\"table\":\"agreement_term\",\"title\":\"coalesce(label, kind)\"}",
+          "plannedRecordId": "hearth-search:visibility-matrix:128"
+        },
+        {
+          "factKey": "recordKinds[0]=\"Attachment\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:129"
+        },
+        {
+          "factKey": "recordKinds[1]=\"RegisteredEvidence\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:130"
+        },
+        {
+          "factKey": "responseFields.application=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:131"
+        },
+        {
+          "factKey": "responseFields.envelope=[\"results\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:132"
+        },
+        {
+          "factKey": "responseFields.item=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:133"
+        },
+        {
+          "factKey": "responseFields.persistence=[\"kind\",\"id\",\"title\",\"subtitle\",\"parent_id\"]",
+          "plannedRecordId": "hearth-search:visibility-matrix:134"
+        },
+        {
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:visibility-matrix:135"
+        },
+        {
+          "factKey": "roleCapabilities.hr={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:visibility-matrix:136"
+        },
+        {
+          "factKey": "roleCapabilities.legal={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:visibility-matrix:137"
+        },
+        {
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:visibility-matrix:138"
+        },
+        {
+          "factKey": "roleCapabilities.operations={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:visibility-matrix:139"
+        },
+        {
+          "factKey": "roleCapabilities.owner={\"canExecuteApproval\":true,\"canManageApparel\":true,\"canManageDelegations\":true,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":true,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:visibility-matrix:140"
+        },
+        {
+          "factKey": "roleCapabilities.visitor={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:visibility-matrix:141"
+        },
+        {
+          "factKey": "roles[0]=\"owner\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:142"
+        },
+        {
+          "factKey": "roles[1]=\"operations\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:143"
+        },
+        {
+          "factKey": "roles[2]=\"legal\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:144"
+        },
+        {
+          "factKey": "roles[3]=\"finance\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:145"
+        },
+        {
+          "factKey": "roles[4]=\"hr\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:146"
+        },
+        {
+          "factKey": "roles[5]=\"management\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:147"
+        },
+        {
+          "factKey": "roles[6]=\"visitor\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:148"
+        },
+        {
+          "factKey": "searchDomains[0]=\"person\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:149"
+        },
+        {
+          "factKey": "searchDomains[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:150"
+        },
+        {
+          "factKey": "searchDomains[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:151"
+        },
+        {
+          "factKey": "searchDomains[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:152"
+        },
+        {
+          "factKey": "searchDomains[13]=\"document\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:153"
+        },
+        {
+          "factKey": "searchDomains[14]=\"term\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:154"
+        },
+        {
+          "factKey": "searchDomains[15]=\"line\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:155"
+        },
+        {
+          "factKey": "searchDomains[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:156"
+        },
+        {
+          "factKey": "searchDomains[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:157"
+        },
+        {
+          "factKey": "searchDomains[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:158"
+        },
+        {
+          "factKey": "searchDomains[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:159"
+        },
+        {
+          "factKey": "searchDomains[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:160"
+        },
+        {
+          "factKey": "searchDomains[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:161"
+        },
+        {
+          "factKey": "searchDomains[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:162"
+        },
+        {
+          "factKey": "searchDomains[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:163"
+        },
+        {
+          "factKey": "searchDomains[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:164"
+        },
+        {
+          "factKey": "searchDomains[9]=\"team\"",
+          "plannedRecordId": "hearth-search:visibility-matrix:165"
+        }
+      ]
+    },
+    "qrels": {
+      "artifactVersion": "hearth-search-qrels/coverage-v1",
+      "entries": [
+        {
+          "factKey": "applicationResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:qrels:001"
+        },
+        {
+          "factKey": "applicationResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:qrels:002"
+        },
+        {
+          "factKey": "applicationResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:qrels:003"
+        },
+        {
+          "factKey": "applicationResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:qrels:004"
+        },
+        {
+          "factKey": "applicationResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:qrels:005"
+        },
+        {
+          "factKey": "applicationResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:qrels:006"
+        },
+        {
+          "factKey": "applicationResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:qrels:007"
+        },
+        {
+          "factKey": "applicationResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:qrels:008"
+        },
+        {
+          "factKey": "applicationResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:qrels:009"
+        },
+        {
+          "factKey": "applicationResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:qrels:010"
+        },
+        {
+          "factKey": "applicationResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:qrels:011"
+        },
+        {
+          "factKey": "applicationResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:qrels:012"
+        },
+        {
+          "factKey": "applicationResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:qrels:013"
+        },
+        {
+          "factKey": "applicationResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:qrels:014"
+        },
+        {
+          "factKey": "applicationResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:qrels:015"
+        },
+        {
+          "factKey": "applicationResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:qrels:016"
+        },
+        {
+          "factKey": "applicationResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:qrels:017"
+        },
+        {
+          "factKey": "capabilityKeys[0]=\"canReadPeople\"",
+          "plannedRecordId": "hearth-search:qrels:018"
+        },
+        {
+          "factKey": "capabilityKeys[10]=\"canManageEntities\"",
+          "plannedRecordId": "hearth-search:qrels:019"
+        },
+        {
+          "factKey": "capabilityKeys[11]=\"canManageIntake\"",
+          "plannedRecordId": "hearth-search:qrels:020"
+        },
+        {
+          "factKey": "capabilityKeys[12]=\"canManageSubscriptions\"",
+          "plannedRecordId": "hearth-search:qrels:021"
+        },
+        {
+          "factKey": "capabilityKeys[13]=\"canReadAgreements\"",
+          "plannedRecordId": "hearth-search:qrels:022"
+        },
+        {
+          "factKey": "capabilityKeys[14]=\"canViewFinancials\"",
+          "plannedRecordId": "hearth-search:qrels:023"
+        },
+        {
+          "factKey": "capabilityKeys[15]=\"canViewPerDiem\"",
+          "plannedRecordId": "hearth-search:qrels:024"
+        },
+        {
+          "factKey": "capabilityKeys[16]=\"canManageDelegations\"",
+          "plannedRecordId": "hearth-search:qrels:025"
+        },
+        {
+          "factKey": "capabilityKeys[17]=\"canViewPersonPII\"",
+          "plannedRecordId": "hearth-search:qrels:026"
+        },
+        {
+          "factKey": "capabilityKeys[18]=\"isReadOnly\"",
+          "plannedRecordId": "hearth-search:qrels:027"
+        },
+        {
+          "factKey": "capabilityKeys[1]=\"canSubmitApproval\"",
+          "plannedRecordId": "hearth-search:qrels:028"
+        },
+        {
+          "factKey": "capabilityKeys[2]=\"canReviewApproval\"",
+          "plannedRecordId": "hearth-search:qrels:029"
+        },
+        {
+          "factKey": "capabilityKeys[3]=\"canExecuteApproval\"",
+          "plannedRecordId": "hearth-search:qrels:030"
+        },
+        {
+          "factKey": "capabilityKeys[4]=\"canReadMembers\"",
+          "plannedRecordId": "hearth-search:qrels:031"
+        },
+        {
+          "factKey": "capabilityKeys[5]=\"canSubmitMemberChange\"",
+          "plannedRecordId": "hearth-search:qrels:032"
+        },
+        {
+          "factKey": "capabilityKeys[6]=\"canOperateJourneys\"",
+          "plannedRecordId": "hearth-search:qrels:033"
+        },
+        {
+          "factKey": "capabilityKeys[7]=\"canManageKit\"",
+          "plannedRecordId": "hearth-search:qrels:034"
+        },
+        {
+          "factKey": "capabilityKeys[8]=\"canManageApparel\"",
+          "plannedRecordId": "hearth-search:qrels:035"
+        },
+        {
+          "factKey": "capabilityKeys[9]=\"canManageMissions\"",
+          "plannedRecordId": "hearth-search:qrels:036"
+        },
+        {
+          "factKey": "contractResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:qrels:037"
+        },
+        {
+          "factKey": "contractResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:qrels:038"
+        },
+        {
+          "factKey": "contractResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:qrels:039"
+        },
+        {
+          "factKey": "contractResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:qrels:040"
+        },
+        {
+          "factKey": "contractResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:qrels:041"
+        },
+        {
+          "factKey": "contractResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:qrels:042"
+        },
+        {
+          "factKey": "contractResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:qrels:043"
+        },
+        {
+          "factKey": "contractResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:qrels:044"
+        },
+        {
+          "factKey": "contractResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:qrels:045"
+        },
+        {
+          "factKey": "contractResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:qrels:046"
+        },
+        {
+          "factKey": "contractResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:qrels:047"
+        },
+        {
+          "factKey": "contractResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:qrels:048"
+        },
+        {
+          "factKey": "contractResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:qrels:049"
+        },
+        {
+          "factKey": "contractResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:qrels:050"
+        },
+        {
+          "factKey": "contractResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:qrels:051"
+        },
+        {
+          "factKey": "contractResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:qrels:052"
+        },
+        {
+          "factKey": "contractResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:qrels:053"
+        },
+        {
+          "factKey": "criticalSourceFingerprintsSha256=9e6565fa8f35a316ccec1722e6e06c0d99add137890e9d6737ce14ad96f34a85",
+          "plannedRecordId": "hearth-search:qrels:054"
+        },
+        {
+          "factKey": "criticalSourcesSha256=8b94c2e1dfea40c18de198c6f126e4e13ed774e1c4483a2995a91420c3e97f5f",
+          "plannedRecordId": "hearth-search:qrels:055"
+        },
+        {
+          "factKey": "documentOwnerTypes[0]=\"Agreement\"",
+          "plannedRecordId": "hearth-search:qrels:056"
+        },
+        {
+          "factKey": "documentOwnerTypes[1]=\"Mission\"",
+          "plannedRecordId": "hearth-search:qrels:057"
+        },
+        {
+          "factKey": "documentOwnerTypes[2]=\"Person\"",
+          "plannedRecordId": "hearth-search:qrels:058"
+        },
+        {
+          "factKey": "documentOwnerTypes[3]=\"Credential\"",
+          "plannedRecordId": "hearth-search:qrels:059"
+        },
+        {
+          "factKey": "documentOwnerTypes[4]=\"Entity\"",
+          "plannedRecordId": "hearth-search:qrels:060"
+        },
+        {
+          "factKey": "documentOwnerTypes[5]=\"Invoice\"",
+          "plannedRecordId": "hearth-search:qrels:061"
+        },
+        {
+          "factKey": "documentOwnerTypes[6]=\"Claim\"",
+          "plannedRecordId": "hearth-search:qrels:062"
+        },
+        {
+          "factKey": "documentOwnerTypes[7]=\"CommsMessage\"",
+          "plannedRecordId": "hearth-search:qrels:063"
+        },
+        {
+          "factKey": "documentOwnerTypes[8]=\"CommsObligation\"",
+          "plannedRecordId": "hearth-search:qrels:064"
+        },
+        {
+          "factKey": "entitlementSnapshots[0]=\"no-row\"",
+          "plannedRecordId": "hearth-search:qrels:065"
+        },
+        {
+          "factKey": "entitlementSnapshots[1]=\"active-current\"",
+          "plannedRecordId": "hearth-search:qrels:066"
+        },
+        {
+          "factKey": "entitlementSnapshots[2]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:qrels:067"
+        },
+        {
+          "factKey": "entitlementSnapshots[3]=\"active-future\"",
+          "plannedRecordId": "hearth-search:qrels:068"
+        },
+        {
+          "factKey": "entitlementSnapshots[4]=\"active-expired\"",
+          "plannedRecordId": "hearth-search:qrels:069"
+        },
+        {
+          "factKey": "entitlementStates[0]=\"active\"",
+          "plannedRecordId": "hearth-search:qrels:070"
+        },
+        {
+          "factKey": "entitlementStates[1]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:qrels:071"
+        },
+        {
+          "factKey": "gateClasses.actor-read-path=[\"p.reads.forActor(actor).searchTenant\"]",
+          "plannedRecordId": "hearth-search:qrels:072"
+        },
+        {
+          "factKey": "gateClasses.assert:baseline=[\"assertReadPeople(actor)\"]",
+          "plannedRecordId": "hearth-search:qrels:073"
+        },
+        {
+          "factKey": "gateClasses.claims-own-identity=[\"finance?null:actor.identity\"]",
+          "plannedRecordId": "hearth-search:qrels:074"
+        },
+        {
+          "factKey": "gateClasses.document-owner:baseline=[\"Person\",\"Mission\",\"Credential\",\"Entity\"]",
+          "plannedRecordId": "hearth-search:qrels:075"
+        },
+        {
+          "factKey": "gateClasses.document-owner:canReadAgreements(actor.role)=[\"Agreement\"]",
+          "plannedRecordId": "hearth-search:qrels:076"
+        },
+        {
+          "factKey": "gateClasses.document-owner:finance=[\"Invoice\",\"Claim\"]",
+          "plannedRecordId": "hearth-search:qrels:077"
+        },
+        {
+          "factKey": "gateClasses.domain:always=[\"document\"]",
+          "plannedRecordId": "hearth-search:qrels:078"
+        },
+        {
+          "factKey": "gateClasses.domain:baseline=[\"person\",\"mission\",\"entity\",\"credential\",\"journey\",\"kit\",\"apparel\",\"team\"]",
+          "plannedRecordId": "hearth-search:qrels:079"
+        },
+        {
+          "factKey": "gateClasses.domain:canReadAgreements(actor.role)=[\"agreement\"]",
+          "plannedRecordId": "hearth-search:qrels:080"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitApproval(actor.role)||canReviewApproval(actor.role)=[\"approval\"]",
+          "plannedRecordId": "hearth-search:qrels:081"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitClaim(actor.role)=[\"claim\"]",
+          "plannedRecordId": "hearth-search:qrels:082"
+        },
+        {
+          "factKey": "gateClasses.domain:finance=[\"invoice\",\"distribution\",\"term\",\"line\",\"beneficiary\"]",
+          "plannedRecordId": "hearth-search:qrels:083"
+        },
+        {
+          "factKey": "gateClasses.standing:finance=[\"canViewFinancials(actor.role)\"]",
+          "plannedRecordId": "hearth-search:qrels:084"
+        },
+        {
+          "factKey": "matchFields.agreement=[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"]",
+          "plannedRecordId": "hearth-search:qrels:085"
+        },
+        {
+          "factKey": "matchFields.apparel=[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:qrels:086"
+        },
+        {
+          "factKey": "matchFields.approval=[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"]",
+          "plannedRecordId": "hearth-search:qrels:087"
+        },
+        {
+          "factKey": "matchFields.beneficiary=[\"beneficiary_id\",\"label\",\"bank_name\"]",
+          "plannedRecordId": "hearth-search:qrels:088"
+        },
+        {
+          "factKey": "matchFields.claim=[\"claim_id\",\"description\",\"category\"]",
+          "plannedRecordId": "hearth-search:qrels:089"
+        },
+        {
+          "factKey": "matchFields.credential=[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"]",
+          "plannedRecordId": "hearth-search:qrels:090"
+        },
+        {
+          "factKey": "matchFields.distribution=[\"distribution_id\",\"mission_id\",\"line_id\"]",
+          "plannedRecordId": "hearth-search:qrels:091"
+        },
+        {
+          "factKey": "matchFields.document=[\"document_id\",\"file_name\",\"label\"]",
+          "plannedRecordId": "hearth-search:qrels:092"
+        },
+        {
+          "factKey": "matchFields.entity=[\"entity_id\",\"name\",\"code\",\"jurisdiction\"]",
+          "plannedRecordId": "hearth-search:qrels:093"
+        },
+        {
+          "factKey": "matchFields.invoice=[\"invoice_id\",\"invoice_number\",\"billed_to_name\"]",
+          "plannedRecordId": "hearth-search:qrels:094"
+        },
+        {
+          "factKey": "matchFields.journey=[\"journey_id\",\"title\",\"journey_type\",\"person_id\"]",
+          "plannedRecordId": "hearth-search:qrels:095"
+        },
+        {
+          "factKey": "matchFields.kit=[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:qrels:096"
+        },
+        {
+          "factKey": "matchFields.line=[\"line_id\",\"ref_no\",\"label\"]",
+          "plannedRecordId": "hearth-search:qrels:097"
+        },
+        {
+          "factKey": "matchFields.mission=[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"]",
+          "plannedRecordId": "hearth-search:qrels:098"
+        },
+        {
+          "factKey": "matchFields.person=[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"]",
+          "plannedRecordId": "hearth-search:qrels:099"
+        },
+        {
+          "factKey": "matchFields.team=[\"team_id\",\"name\",\"code\",\"game_title\"]",
+          "plannedRecordId": "hearth-search:qrels:100"
+        },
+        {
+          "factKey": "matchFields.term=[\"term_id\",\"kind\",\"label\",\"agreement_id\"]",
+          "plannedRecordId": "hearth-search:qrels:101"
+        },
+        {
+          "factKey": "moduleKeys[0]=\"comms\"",
+          "plannedRecordId": "hearth-search:qrels:102"
+        },
+        {
+          "factKey": "predicateRegisters.approval=[\"effective-delegation\"]",
+          "plannedRecordId": "hearth-search:qrels:103"
+        },
+        {
+          "factKey": "predicateRegisters.claim-document=[\"submitter-or-finance\"]",
+          "plannedRecordId": "hearth-search:qrels:104"
+        },
+        {
+          "factKey": "predicateRegisters.claim=[\"submitted_by:claimsOwnIdentity:when-non-null\"]",
+          "plannedRecordId": "hearth-search:qrels:105"
+        },
+        {
+          "factKey": "predicateRegisters.comms-document=[\"module+owner+thread+anchor\"]",
+          "plannedRecordId": "hearth-search:qrels:106"
+        },
+        {
+          "factKey": "predicateRegisters.comms-module=[\"active+effective-window\"]",
+          "plannedRecordId": "hearth-search:qrels:107"
+        },
+        {
+          "factKey": "predicateRegisters.comms-thread=[\"anchored-Mission\"]",
+          "plannedRecordId": "hearth-search:qrels:108"
+        },
+        {
+          "factKey": "predicateRegisters.document=[\"static:is_active\",\"owner_type:documentOwnerTypes:empty-denies\",\"record_kind:search-predicate-absent\"]",
+          "plannedRecordId": "hearth-search:qrels:109"
+        },
+        {
+          "factKey": "predicateRegisters.line=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:qrels:110"
+        },
+        {
+          "factKey": "predicateRegisters.term=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:qrels:111"
+        },
+        {
+          "factKey": "projections.agreement={\"extraWhere\":null,\"id\":\"agreement_id\",\"match\":[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', agreement_type, coalesce(person_id, entity_id)), '')\",\"table\":\"agreement\",\"title\":\"coalesce(agreement_code, agreement_id)\"}",
+          "plannedRecordId": "hearth-search:qrels:112"
+        },
+        {
+          "factKey": "projections.apparel={\"extraWhere\":null,\"id\":\"apparel_id\",\"match\":[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"apparel\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:qrels:113"
+        },
+        {
+          "factKey": "projections.approval={\"extraWhere\":null,\"id\":\"approval_id\",\"match\":[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', status, target_person_id), '')\",\"table\":\"approval\",\"title\":\"operation_type\"}",
+          "plannedRecordId": "hearth-search:qrels:114"
+        },
+        {
+          "factKey": "projections.beneficiary={\"extraWhere\":null,\"id\":\"beneficiary_id\",\"match\":[\"beneficiary_id\",\"label\",\"bank_name\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', bank_name, coalesce(person_id, freelancer_id, vendor_id), status), '')\",\"table\":\"beneficiary\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:qrels:115"
+        },
+        {
+          "factKey": "projections.claim={\"extraWhere\":null,\"id\":\"claim_id\",\"match\":[\"claim_id\",\"description\",\"category\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', category, status), '')\",\"table\":\"claim\",\"title\":\"description\"}",
+          "plannedRecordId": "hearth-search:qrels:116"
+        },
+        {
+          "factKey": "projections.credential={\"extraWhere\":null,\"id\":\"credential_id\",\"match\":[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"],\"parent\":\"person_id\",\"subtitle\":\"person_id\",\"table\":\"credential\",\"title\":\"credential_type\"}",
+          "plannedRecordId": "hearth-search:qrels:117"
+        },
+        {
+          "factKey": "projections.distribution={\"extraWhere\":null,\"id\":\"distribution_id\",\"match\":[\"distribution_id\",\"mission_id\",\"line_id\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', status, mission_id), '')\",\"table\":\"distribution\",\"title\":\"distribution_id\"}",
+          "plannedRecordId": "hearth-search:qrels:118"
+        },
+        {
+          "factKey": "projections.document={\"extraWhere\":\"is_active\",\"id\":\"document_id\",\"match\":[\"document_id\",\"file_name\",\"label\"],\"parent\":\"owner_type || ':' || owner_id\",\"subtitle\":\"nullif(concat_ws(' · ', owner_type, owner_id), '')\",\"table\":\"document\",\"title\":\"file_name\"}",
+          "plannedRecordId": "hearth-search:qrels:119"
+        },
+        {
+          "factKey": "projections.entity={\"extraWhere\":null,\"id\":\"entity_id\",\"match\":[\"entity_id\",\"name\",\"code\",\"jurisdiction\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, jurisdiction), '')\",\"table\":\"entity\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:qrels:120"
+        },
+        {
+          "factKey": "projections.invoice={\"extraWhere\":null,\"id\":\"invoice_id\",\"match\":[\"invoice_id\",\"invoice_number\",\"billed_to_name\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', billed_to_name, status), '')\",\"table\":\"invoice\",\"title\":\"invoice_number\"}",
+          "plannedRecordId": "hearth-search:qrels:121"
+        },
+        {
+          "factKey": "projections.journey={\"extraWhere\":null,\"id\":\"journey_id\",\"match\":[\"journey_id\",\"title\",\"journey_type\",\"person_id\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', journey_type, person_id), '')\",\"table\":\"journey\",\"title\":\"coalesce(title, journey_type)\"}",
+          "plannedRecordId": "hearth-search:qrels:122"
+        },
+        {
+          "factKey": "projections.kit={\"extraWhere\":null,\"id\":\"kit_id\",\"match\":[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"kit\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:qrels:123"
+        },
+        {
+          "factKey": "projections.line={\"extraWhere\":\"is_active\",\"id\":\"line_id\",\"match\":[\"line_id\",\"ref_no\",\"label\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', ref_no, mission_id), '')\",\"table\":\"mission_line\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:qrels:124"
+        },
+        {
+          "factKey": "projections.mission={\"extraWhere\":null,\"id\":\"mission_id\",\"match\":[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, city), '')\",\"table\":\"mission\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:qrels:125"
+        },
+        {
+          "factKey": "projections.person={\"extraWhere\":null,\"id\":\"person_id\",\"match\":[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', ign, current_team), '')\",\"table\":\"person\",\"title\":\"full_name\"}",
+          "plannedRecordId": "hearth-search:qrels:126"
+        },
+        {
+          "factKey": "projections.team={\"extraWhere\":null,\"id\":\"team_id\",\"match\":[\"team_id\",\"name\",\"code\",\"game_title\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, kind), '')\",\"table\":\"team\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:qrels:127"
+        },
+        {
+          "factKey": "projections.term={\"extraWhere\":\"is_active\",\"id\":\"term_id\",\"match\":[\"term_id\",\"kind\",\"label\",\"agreement_id\"],\"parent\":\"agreement_id\",\"subtitle\":\"nullif(concat_ws(' · ', kind, agreement_id), '')\",\"table\":\"agreement_term\",\"title\":\"coalesce(label, kind)\"}",
+          "plannedRecordId": "hearth-search:qrels:128"
+        },
+        {
+          "factKey": "recordKinds[0]=\"Attachment\"",
+          "plannedRecordId": "hearth-search:qrels:129"
+        },
+        {
+          "factKey": "recordKinds[1]=\"RegisteredEvidence\"",
+          "plannedRecordId": "hearth-search:qrels:130"
+        },
+        {
+          "factKey": "responseFields.application=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:qrels:131"
+        },
+        {
+          "factKey": "responseFields.envelope=[\"results\"]",
+          "plannedRecordId": "hearth-search:qrels:132"
+        },
+        {
+          "factKey": "responseFields.item=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:qrels:133"
+        },
+        {
+          "factKey": "responseFields.persistence=[\"kind\",\"id\",\"title\",\"subtitle\",\"parent_id\"]",
+          "plannedRecordId": "hearth-search:qrels:134"
+        },
+        {
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:qrels:135"
+        },
+        {
+          "factKey": "roleCapabilities.hr={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:qrels:136"
+        },
+        {
+          "factKey": "roleCapabilities.legal={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:qrels:137"
+        },
+        {
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:qrels:138"
+        },
+        {
+          "factKey": "roleCapabilities.operations={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:qrels:139"
+        },
+        {
+          "factKey": "roleCapabilities.owner={\"canExecuteApproval\":true,\"canManageApparel\":true,\"canManageDelegations\":true,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":true,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:qrels:140"
+        },
+        {
+          "factKey": "roleCapabilities.visitor={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:qrels:141"
+        },
+        {
+          "factKey": "roles[0]=\"owner\"",
+          "plannedRecordId": "hearth-search:qrels:142"
+        },
+        {
+          "factKey": "roles[1]=\"operations\"",
+          "plannedRecordId": "hearth-search:qrels:143"
+        },
+        {
+          "factKey": "roles[2]=\"legal\"",
+          "plannedRecordId": "hearth-search:qrels:144"
+        },
+        {
+          "factKey": "roles[3]=\"finance\"",
+          "plannedRecordId": "hearth-search:qrels:145"
+        },
+        {
+          "factKey": "roles[4]=\"hr\"",
+          "plannedRecordId": "hearth-search:qrels:146"
+        },
+        {
+          "factKey": "roles[5]=\"management\"",
+          "plannedRecordId": "hearth-search:qrels:147"
+        },
+        {
+          "factKey": "roles[6]=\"visitor\"",
+          "plannedRecordId": "hearth-search:qrels:148"
+        },
+        {
+          "factKey": "searchDomains[0]=\"person\"",
+          "plannedRecordId": "hearth-search:qrels:149"
+        },
+        {
+          "factKey": "searchDomains[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:qrels:150"
+        },
+        {
+          "factKey": "searchDomains[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:qrels:151"
+        },
+        {
+          "factKey": "searchDomains[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:qrels:152"
+        },
+        {
+          "factKey": "searchDomains[13]=\"document\"",
+          "plannedRecordId": "hearth-search:qrels:153"
+        },
+        {
+          "factKey": "searchDomains[14]=\"term\"",
+          "plannedRecordId": "hearth-search:qrels:154"
+        },
+        {
+          "factKey": "searchDomains[15]=\"line\"",
+          "plannedRecordId": "hearth-search:qrels:155"
+        },
+        {
+          "factKey": "searchDomains[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:qrels:156"
+        },
+        {
+          "factKey": "searchDomains[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:qrels:157"
+        },
+        {
+          "factKey": "searchDomains[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:qrels:158"
+        },
+        {
+          "factKey": "searchDomains[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:qrels:159"
+        },
+        {
+          "factKey": "searchDomains[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:qrels:160"
+        },
+        {
+          "factKey": "searchDomains[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:qrels:161"
+        },
+        {
+          "factKey": "searchDomains[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:qrels:162"
+        },
+        {
+          "factKey": "searchDomains[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:qrels:163"
+        },
+        {
+          "factKey": "searchDomains[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:qrels:164"
+        },
+        {
+          "factKey": "searchDomains[9]=\"team\"",
+          "plannedRecordId": "hearth-search:qrels:165"
+        }
+      ]
+    },
+    "provenance": {
+      "artifactVersion": "hearth-search-provenance/coverage-v1",
+      "entries": [
+        {
+          "factKey": "applicationResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:provenance:001"
+        },
+        {
+          "factKey": "applicationResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:provenance:002"
+        },
+        {
+          "factKey": "applicationResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:provenance:003"
+        },
+        {
+          "factKey": "applicationResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:provenance:004"
+        },
+        {
+          "factKey": "applicationResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:provenance:005"
+        },
+        {
+          "factKey": "applicationResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:provenance:006"
+        },
+        {
+          "factKey": "applicationResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:provenance:007"
+        },
+        {
+          "factKey": "applicationResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:provenance:008"
+        },
+        {
+          "factKey": "applicationResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:provenance:009"
+        },
+        {
+          "factKey": "applicationResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:provenance:010"
+        },
+        {
+          "factKey": "applicationResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:provenance:011"
+        },
+        {
+          "factKey": "applicationResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:provenance:012"
+        },
+        {
+          "factKey": "applicationResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:provenance:013"
+        },
+        {
+          "factKey": "applicationResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:provenance:014"
+        },
+        {
+          "factKey": "applicationResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:provenance:015"
+        },
+        {
+          "factKey": "applicationResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:provenance:016"
+        },
+        {
+          "factKey": "applicationResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:provenance:017"
+        },
+        {
+          "factKey": "capabilityKeys[0]=\"canReadPeople\"",
+          "plannedRecordId": "hearth-search:provenance:018"
+        },
+        {
+          "factKey": "capabilityKeys[10]=\"canManageEntities\"",
+          "plannedRecordId": "hearth-search:provenance:019"
+        },
+        {
+          "factKey": "capabilityKeys[11]=\"canManageIntake\"",
+          "plannedRecordId": "hearth-search:provenance:020"
+        },
+        {
+          "factKey": "capabilityKeys[12]=\"canManageSubscriptions\"",
+          "plannedRecordId": "hearth-search:provenance:021"
+        },
+        {
+          "factKey": "capabilityKeys[13]=\"canReadAgreements\"",
+          "plannedRecordId": "hearth-search:provenance:022"
+        },
+        {
+          "factKey": "capabilityKeys[14]=\"canViewFinancials\"",
+          "plannedRecordId": "hearth-search:provenance:023"
+        },
+        {
+          "factKey": "capabilityKeys[15]=\"canViewPerDiem\"",
+          "plannedRecordId": "hearth-search:provenance:024"
+        },
+        {
+          "factKey": "capabilityKeys[16]=\"canManageDelegations\"",
+          "plannedRecordId": "hearth-search:provenance:025"
+        },
+        {
+          "factKey": "capabilityKeys[17]=\"canViewPersonPII\"",
+          "plannedRecordId": "hearth-search:provenance:026"
+        },
+        {
+          "factKey": "capabilityKeys[18]=\"isReadOnly\"",
+          "plannedRecordId": "hearth-search:provenance:027"
+        },
+        {
+          "factKey": "capabilityKeys[1]=\"canSubmitApproval\"",
+          "plannedRecordId": "hearth-search:provenance:028"
+        },
+        {
+          "factKey": "capabilityKeys[2]=\"canReviewApproval\"",
+          "plannedRecordId": "hearth-search:provenance:029"
+        },
+        {
+          "factKey": "capabilityKeys[3]=\"canExecuteApproval\"",
+          "plannedRecordId": "hearth-search:provenance:030"
+        },
+        {
+          "factKey": "capabilityKeys[4]=\"canReadMembers\"",
+          "plannedRecordId": "hearth-search:provenance:031"
+        },
+        {
+          "factKey": "capabilityKeys[5]=\"canSubmitMemberChange\"",
+          "plannedRecordId": "hearth-search:provenance:032"
+        },
+        {
+          "factKey": "capabilityKeys[6]=\"canOperateJourneys\"",
+          "plannedRecordId": "hearth-search:provenance:033"
+        },
+        {
+          "factKey": "capabilityKeys[7]=\"canManageKit\"",
+          "plannedRecordId": "hearth-search:provenance:034"
+        },
+        {
+          "factKey": "capabilityKeys[8]=\"canManageApparel\"",
+          "plannedRecordId": "hearth-search:provenance:035"
+        },
+        {
+          "factKey": "capabilityKeys[9]=\"canManageMissions\"",
+          "plannedRecordId": "hearth-search:provenance:036"
+        },
+        {
+          "factKey": "contractResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:provenance:037"
+        },
+        {
+          "factKey": "contractResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:provenance:038"
+        },
+        {
+          "factKey": "contractResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:provenance:039"
+        },
+        {
+          "factKey": "contractResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:provenance:040"
+        },
+        {
+          "factKey": "contractResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:provenance:041"
+        },
+        {
+          "factKey": "contractResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:provenance:042"
+        },
+        {
+          "factKey": "contractResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:provenance:043"
+        },
+        {
+          "factKey": "contractResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:provenance:044"
+        },
+        {
+          "factKey": "contractResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:provenance:045"
+        },
+        {
+          "factKey": "contractResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:provenance:046"
+        },
+        {
+          "factKey": "contractResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:provenance:047"
+        },
+        {
+          "factKey": "contractResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:provenance:048"
+        },
+        {
+          "factKey": "contractResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:provenance:049"
+        },
+        {
+          "factKey": "contractResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:provenance:050"
+        },
+        {
+          "factKey": "contractResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:provenance:051"
+        },
+        {
+          "factKey": "contractResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:provenance:052"
+        },
+        {
+          "factKey": "contractResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:provenance:053"
+        },
+        {
+          "factKey": "criticalSourceFingerprintsSha256=9e6565fa8f35a316ccec1722e6e06c0d99add137890e9d6737ce14ad96f34a85",
+          "plannedRecordId": "hearth-search:provenance:054"
+        },
+        {
+          "factKey": "criticalSourcesSha256=8b94c2e1dfea40c18de198c6f126e4e13ed774e1c4483a2995a91420c3e97f5f",
+          "plannedRecordId": "hearth-search:provenance:055"
+        },
+        {
+          "factKey": "documentOwnerTypes[0]=\"Agreement\"",
+          "plannedRecordId": "hearth-search:provenance:056"
+        },
+        {
+          "factKey": "documentOwnerTypes[1]=\"Mission\"",
+          "plannedRecordId": "hearth-search:provenance:057"
+        },
+        {
+          "factKey": "documentOwnerTypes[2]=\"Person\"",
+          "plannedRecordId": "hearth-search:provenance:058"
+        },
+        {
+          "factKey": "documentOwnerTypes[3]=\"Credential\"",
+          "plannedRecordId": "hearth-search:provenance:059"
+        },
+        {
+          "factKey": "documentOwnerTypes[4]=\"Entity\"",
+          "plannedRecordId": "hearth-search:provenance:060"
+        },
+        {
+          "factKey": "documentOwnerTypes[5]=\"Invoice\"",
+          "plannedRecordId": "hearth-search:provenance:061"
+        },
+        {
+          "factKey": "documentOwnerTypes[6]=\"Claim\"",
+          "plannedRecordId": "hearth-search:provenance:062"
+        },
+        {
+          "factKey": "documentOwnerTypes[7]=\"CommsMessage\"",
+          "plannedRecordId": "hearth-search:provenance:063"
+        },
+        {
+          "factKey": "documentOwnerTypes[8]=\"CommsObligation\"",
+          "plannedRecordId": "hearth-search:provenance:064"
+        },
+        {
+          "factKey": "entitlementSnapshots[0]=\"no-row\"",
+          "plannedRecordId": "hearth-search:provenance:065"
+        },
+        {
+          "factKey": "entitlementSnapshots[1]=\"active-current\"",
+          "plannedRecordId": "hearth-search:provenance:066"
+        },
+        {
+          "factKey": "entitlementSnapshots[2]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:provenance:067"
+        },
+        {
+          "factKey": "entitlementSnapshots[3]=\"active-future\"",
+          "plannedRecordId": "hearth-search:provenance:068"
+        },
+        {
+          "factKey": "entitlementSnapshots[4]=\"active-expired\"",
+          "plannedRecordId": "hearth-search:provenance:069"
+        },
+        {
+          "factKey": "entitlementStates[0]=\"active\"",
+          "plannedRecordId": "hearth-search:provenance:070"
+        },
+        {
+          "factKey": "entitlementStates[1]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:provenance:071"
+        },
+        {
+          "factKey": "gateClasses.actor-read-path=[\"p.reads.forActor(actor).searchTenant\"]",
+          "plannedRecordId": "hearth-search:provenance:072"
+        },
+        {
+          "factKey": "gateClasses.assert:baseline=[\"assertReadPeople(actor)\"]",
+          "plannedRecordId": "hearth-search:provenance:073"
+        },
+        {
+          "factKey": "gateClasses.claims-own-identity=[\"finance?null:actor.identity\"]",
+          "plannedRecordId": "hearth-search:provenance:074"
+        },
+        {
+          "factKey": "gateClasses.document-owner:baseline=[\"Person\",\"Mission\",\"Credential\",\"Entity\"]",
+          "plannedRecordId": "hearth-search:provenance:075"
+        },
+        {
+          "factKey": "gateClasses.document-owner:canReadAgreements(actor.role)=[\"Agreement\"]",
+          "plannedRecordId": "hearth-search:provenance:076"
+        },
+        {
+          "factKey": "gateClasses.document-owner:finance=[\"Invoice\",\"Claim\"]",
+          "plannedRecordId": "hearth-search:provenance:077"
+        },
+        {
+          "factKey": "gateClasses.domain:always=[\"document\"]",
+          "plannedRecordId": "hearth-search:provenance:078"
+        },
+        {
+          "factKey": "gateClasses.domain:baseline=[\"person\",\"mission\",\"entity\",\"credential\",\"journey\",\"kit\",\"apparel\",\"team\"]",
+          "plannedRecordId": "hearth-search:provenance:079"
+        },
+        {
+          "factKey": "gateClasses.domain:canReadAgreements(actor.role)=[\"agreement\"]",
+          "plannedRecordId": "hearth-search:provenance:080"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitApproval(actor.role)||canReviewApproval(actor.role)=[\"approval\"]",
+          "plannedRecordId": "hearth-search:provenance:081"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitClaim(actor.role)=[\"claim\"]",
+          "plannedRecordId": "hearth-search:provenance:082"
+        },
+        {
+          "factKey": "gateClasses.domain:finance=[\"invoice\",\"distribution\",\"term\",\"line\",\"beneficiary\"]",
+          "plannedRecordId": "hearth-search:provenance:083"
+        },
+        {
+          "factKey": "gateClasses.standing:finance=[\"canViewFinancials(actor.role)\"]",
+          "plannedRecordId": "hearth-search:provenance:084"
+        },
+        {
+          "factKey": "matchFields.agreement=[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"]",
+          "plannedRecordId": "hearth-search:provenance:085"
+        },
+        {
+          "factKey": "matchFields.apparel=[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:provenance:086"
+        },
+        {
+          "factKey": "matchFields.approval=[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"]",
+          "plannedRecordId": "hearth-search:provenance:087"
+        },
+        {
+          "factKey": "matchFields.beneficiary=[\"beneficiary_id\",\"label\",\"bank_name\"]",
+          "plannedRecordId": "hearth-search:provenance:088"
+        },
+        {
+          "factKey": "matchFields.claim=[\"claim_id\",\"description\",\"category\"]",
+          "plannedRecordId": "hearth-search:provenance:089"
+        },
+        {
+          "factKey": "matchFields.credential=[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"]",
+          "plannedRecordId": "hearth-search:provenance:090"
+        },
+        {
+          "factKey": "matchFields.distribution=[\"distribution_id\",\"mission_id\",\"line_id\"]",
+          "plannedRecordId": "hearth-search:provenance:091"
+        },
+        {
+          "factKey": "matchFields.document=[\"document_id\",\"file_name\",\"label\"]",
+          "plannedRecordId": "hearth-search:provenance:092"
+        },
+        {
+          "factKey": "matchFields.entity=[\"entity_id\",\"name\",\"code\",\"jurisdiction\"]",
+          "plannedRecordId": "hearth-search:provenance:093"
+        },
+        {
+          "factKey": "matchFields.invoice=[\"invoice_id\",\"invoice_number\",\"billed_to_name\"]",
+          "plannedRecordId": "hearth-search:provenance:094"
+        },
+        {
+          "factKey": "matchFields.journey=[\"journey_id\",\"title\",\"journey_type\",\"person_id\"]",
+          "plannedRecordId": "hearth-search:provenance:095"
+        },
+        {
+          "factKey": "matchFields.kit=[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:provenance:096"
+        },
+        {
+          "factKey": "matchFields.line=[\"line_id\",\"ref_no\",\"label\"]",
+          "plannedRecordId": "hearth-search:provenance:097"
+        },
+        {
+          "factKey": "matchFields.mission=[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"]",
+          "plannedRecordId": "hearth-search:provenance:098"
+        },
+        {
+          "factKey": "matchFields.person=[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"]",
+          "plannedRecordId": "hearth-search:provenance:099"
+        },
+        {
+          "factKey": "matchFields.team=[\"team_id\",\"name\",\"code\",\"game_title\"]",
+          "plannedRecordId": "hearth-search:provenance:100"
+        },
+        {
+          "factKey": "matchFields.term=[\"term_id\",\"kind\",\"label\",\"agreement_id\"]",
+          "plannedRecordId": "hearth-search:provenance:101"
+        },
+        {
+          "factKey": "moduleKeys[0]=\"comms\"",
+          "plannedRecordId": "hearth-search:provenance:102"
+        },
+        {
+          "factKey": "predicateRegisters.approval=[\"effective-delegation\"]",
+          "plannedRecordId": "hearth-search:provenance:103"
+        },
+        {
+          "factKey": "predicateRegisters.claim-document=[\"submitter-or-finance\"]",
+          "plannedRecordId": "hearth-search:provenance:104"
+        },
+        {
+          "factKey": "predicateRegisters.claim=[\"submitted_by:claimsOwnIdentity:when-non-null\"]",
+          "plannedRecordId": "hearth-search:provenance:105"
+        },
+        {
+          "factKey": "predicateRegisters.comms-document=[\"module+owner+thread+anchor\"]",
+          "plannedRecordId": "hearth-search:provenance:106"
+        },
+        {
+          "factKey": "predicateRegisters.comms-module=[\"active+effective-window\"]",
+          "plannedRecordId": "hearth-search:provenance:107"
+        },
+        {
+          "factKey": "predicateRegisters.comms-thread=[\"anchored-Mission\"]",
+          "plannedRecordId": "hearth-search:provenance:108"
+        },
+        {
+          "factKey": "predicateRegisters.document=[\"static:is_active\",\"owner_type:documentOwnerTypes:empty-denies\",\"record_kind:search-predicate-absent\"]",
+          "plannedRecordId": "hearth-search:provenance:109"
+        },
+        {
+          "factKey": "predicateRegisters.line=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:provenance:110"
+        },
+        {
+          "factKey": "predicateRegisters.term=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:provenance:111"
+        },
+        {
+          "factKey": "projections.agreement={\"extraWhere\":null,\"id\":\"agreement_id\",\"match\":[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', agreement_type, coalesce(person_id, entity_id)), '')\",\"table\":\"agreement\",\"title\":\"coalesce(agreement_code, agreement_id)\"}",
+          "plannedRecordId": "hearth-search:provenance:112"
+        },
+        {
+          "factKey": "projections.apparel={\"extraWhere\":null,\"id\":\"apparel_id\",\"match\":[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"apparel\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:provenance:113"
+        },
+        {
+          "factKey": "projections.approval={\"extraWhere\":null,\"id\":\"approval_id\",\"match\":[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', status, target_person_id), '')\",\"table\":\"approval\",\"title\":\"operation_type\"}",
+          "plannedRecordId": "hearth-search:provenance:114"
+        },
+        {
+          "factKey": "projections.beneficiary={\"extraWhere\":null,\"id\":\"beneficiary_id\",\"match\":[\"beneficiary_id\",\"label\",\"bank_name\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', bank_name, coalesce(person_id, freelancer_id, vendor_id), status), '')\",\"table\":\"beneficiary\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:provenance:115"
+        },
+        {
+          "factKey": "projections.claim={\"extraWhere\":null,\"id\":\"claim_id\",\"match\":[\"claim_id\",\"description\",\"category\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', category, status), '')\",\"table\":\"claim\",\"title\":\"description\"}",
+          "plannedRecordId": "hearth-search:provenance:116"
+        },
+        {
+          "factKey": "projections.credential={\"extraWhere\":null,\"id\":\"credential_id\",\"match\":[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"],\"parent\":\"person_id\",\"subtitle\":\"person_id\",\"table\":\"credential\",\"title\":\"credential_type\"}",
+          "plannedRecordId": "hearth-search:provenance:117"
+        },
+        {
+          "factKey": "projections.distribution={\"extraWhere\":null,\"id\":\"distribution_id\",\"match\":[\"distribution_id\",\"mission_id\",\"line_id\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', status, mission_id), '')\",\"table\":\"distribution\",\"title\":\"distribution_id\"}",
+          "plannedRecordId": "hearth-search:provenance:118"
+        },
+        {
+          "factKey": "projections.document={\"extraWhere\":\"is_active\",\"id\":\"document_id\",\"match\":[\"document_id\",\"file_name\",\"label\"],\"parent\":\"owner_type || ':' || owner_id\",\"subtitle\":\"nullif(concat_ws(' · ', owner_type, owner_id), '')\",\"table\":\"document\",\"title\":\"file_name\"}",
+          "plannedRecordId": "hearth-search:provenance:119"
+        },
+        {
+          "factKey": "projections.entity={\"extraWhere\":null,\"id\":\"entity_id\",\"match\":[\"entity_id\",\"name\",\"code\",\"jurisdiction\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, jurisdiction), '')\",\"table\":\"entity\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:provenance:120"
+        },
+        {
+          "factKey": "projections.invoice={\"extraWhere\":null,\"id\":\"invoice_id\",\"match\":[\"invoice_id\",\"invoice_number\",\"billed_to_name\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', billed_to_name, status), '')\",\"table\":\"invoice\",\"title\":\"invoice_number\"}",
+          "plannedRecordId": "hearth-search:provenance:121"
+        },
+        {
+          "factKey": "projections.journey={\"extraWhere\":null,\"id\":\"journey_id\",\"match\":[\"journey_id\",\"title\",\"journey_type\",\"person_id\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', journey_type, person_id), '')\",\"table\":\"journey\",\"title\":\"coalesce(title, journey_type)\"}",
+          "plannedRecordId": "hearth-search:provenance:122"
+        },
+        {
+          "factKey": "projections.kit={\"extraWhere\":null,\"id\":\"kit_id\",\"match\":[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"kit\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:provenance:123"
+        },
+        {
+          "factKey": "projections.line={\"extraWhere\":\"is_active\",\"id\":\"line_id\",\"match\":[\"line_id\",\"ref_no\",\"label\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', ref_no, mission_id), '')\",\"table\":\"mission_line\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:provenance:124"
+        },
+        {
+          "factKey": "projections.mission={\"extraWhere\":null,\"id\":\"mission_id\",\"match\":[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, city), '')\",\"table\":\"mission\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:provenance:125"
+        },
+        {
+          "factKey": "projections.person={\"extraWhere\":null,\"id\":\"person_id\",\"match\":[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', ign, current_team), '')\",\"table\":\"person\",\"title\":\"full_name\"}",
+          "plannedRecordId": "hearth-search:provenance:126"
+        },
+        {
+          "factKey": "projections.team={\"extraWhere\":null,\"id\":\"team_id\",\"match\":[\"team_id\",\"name\",\"code\",\"game_title\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, kind), '')\",\"table\":\"team\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:provenance:127"
+        },
+        {
+          "factKey": "projections.term={\"extraWhere\":\"is_active\",\"id\":\"term_id\",\"match\":[\"term_id\",\"kind\",\"label\",\"agreement_id\"],\"parent\":\"agreement_id\",\"subtitle\":\"nullif(concat_ws(' · ', kind, agreement_id), '')\",\"table\":\"agreement_term\",\"title\":\"coalesce(label, kind)\"}",
+          "plannedRecordId": "hearth-search:provenance:128"
+        },
+        {
+          "factKey": "recordKinds[0]=\"Attachment\"",
+          "plannedRecordId": "hearth-search:provenance:129"
+        },
+        {
+          "factKey": "recordKinds[1]=\"RegisteredEvidence\"",
+          "plannedRecordId": "hearth-search:provenance:130"
+        },
+        {
+          "factKey": "responseFields.application=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:provenance:131"
+        },
+        {
+          "factKey": "responseFields.envelope=[\"results\"]",
+          "plannedRecordId": "hearth-search:provenance:132"
+        },
+        {
+          "factKey": "responseFields.item=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:provenance:133"
+        },
+        {
+          "factKey": "responseFields.persistence=[\"kind\",\"id\",\"title\",\"subtitle\",\"parent_id\"]",
+          "plannedRecordId": "hearth-search:provenance:134"
+        },
+        {
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:provenance:135"
+        },
+        {
+          "factKey": "roleCapabilities.hr={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:provenance:136"
+        },
+        {
+          "factKey": "roleCapabilities.legal={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:provenance:137"
+        },
+        {
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:provenance:138"
+        },
+        {
+          "factKey": "roleCapabilities.operations={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:provenance:139"
+        },
+        {
+          "factKey": "roleCapabilities.owner={\"canExecuteApproval\":true,\"canManageApparel\":true,\"canManageDelegations\":true,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":true,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:provenance:140"
+        },
+        {
+          "factKey": "roleCapabilities.visitor={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:provenance:141"
+        },
+        {
+          "factKey": "roles[0]=\"owner\"",
+          "plannedRecordId": "hearth-search:provenance:142"
+        },
+        {
+          "factKey": "roles[1]=\"operations\"",
+          "plannedRecordId": "hearth-search:provenance:143"
+        },
+        {
+          "factKey": "roles[2]=\"legal\"",
+          "plannedRecordId": "hearth-search:provenance:144"
+        },
+        {
+          "factKey": "roles[3]=\"finance\"",
+          "plannedRecordId": "hearth-search:provenance:145"
+        },
+        {
+          "factKey": "roles[4]=\"hr\"",
+          "plannedRecordId": "hearth-search:provenance:146"
+        },
+        {
+          "factKey": "roles[5]=\"management\"",
+          "plannedRecordId": "hearth-search:provenance:147"
+        },
+        {
+          "factKey": "roles[6]=\"visitor\"",
+          "plannedRecordId": "hearth-search:provenance:148"
+        },
+        {
+          "factKey": "searchDomains[0]=\"person\"",
+          "plannedRecordId": "hearth-search:provenance:149"
+        },
+        {
+          "factKey": "searchDomains[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:provenance:150"
+        },
+        {
+          "factKey": "searchDomains[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:provenance:151"
+        },
+        {
+          "factKey": "searchDomains[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:provenance:152"
+        },
+        {
+          "factKey": "searchDomains[13]=\"document\"",
+          "plannedRecordId": "hearth-search:provenance:153"
+        },
+        {
+          "factKey": "searchDomains[14]=\"term\"",
+          "plannedRecordId": "hearth-search:provenance:154"
+        },
+        {
+          "factKey": "searchDomains[15]=\"line\"",
+          "plannedRecordId": "hearth-search:provenance:155"
+        },
+        {
+          "factKey": "searchDomains[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:provenance:156"
+        },
+        {
+          "factKey": "searchDomains[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:provenance:157"
+        },
+        {
+          "factKey": "searchDomains[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:provenance:158"
+        },
+        {
+          "factKey": "searchDomains[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:provenance:159"
+        },
+        {
+          "factKey": "searchDomains[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:provenance:160"
+        },
+        {
+          "factKey": "searchDomains[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:provenance:161"
+        },
+        {
+          "factKey": "searchDomains[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:provenance:162"
+        },
+        {
+          "factKey": "searchDomains[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:provenance:163"
+        },
+        {
+          "factKey": "searchDomains[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:provenance:164"
+        },
+        {
+          "factKey": "searchDomains[9]=\"team\"",
+          "plannedRecordId": "hearth-search:provenance:165"
+        }
+      ]
+    },
+    "positive-conformance": {
+      "artifactVersion": "hearth-search-positive/coverage-v1",
+      "entries": [
+        {
+          "factKey": "applicationResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:positive-conformance:001"
+        },
+        {
+          "factKey": "applicationResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:positive-conformance:002"
+        },
+        {
+          "factKey": "applicationResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:positive-conformance:003"
+        },
+        {
+          "factKey": "applicationResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:positive-conformance:004"
+        },
+        {
+          "factKey": "applicationResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:positive-conformance:005"
+        },
+        {
+          "factKey": "applicationResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:positive-conformance:006"
+        },
+        {
+          "factKey": "applicationResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:positive-conformance:007"
+        },
+        {
+          "factKey": "applicationResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:positive-conformance:008"
+        },
+        {
+          "factKey": "applicationResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:positive-conformance:009"
+        },
+        {
+          "factKey": "applicationResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:positive-conformance:010"
+        },
+        {
+          "factKey": "applicationResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:positive-conformance:011"
+        },
+        {
+          "factKey": "applicationResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:positive-conformance:012"
+        },
+        {
+          "factKey": "applicationResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:positive-conformance:013"
+        },
+        {
+          "factKey": "applicationResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:positive-conformance:014"
+        },
+        {
+          "factKey": "applicationResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:positive-conformance:015"
+        },
+        {
+          "factKey": "applicationResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:positive-conformance:016"
+        },
+        {
+          "factKey": "applicationResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:positive-conformance:017"
+        },
+        {
+          "factKey": "capabilityKeys[0]=\"canReadPeople\"",
+          "plannedRecordId": "hearth-search:positive-conformance:018"
+        },
+        {
+          "factKey": "capabilityKeys[10]=\"canManageEntities\"",
+          "plannedRecordId": "hearth-search:positive-conformance:019"
+        },
+        {
+          "factKey": "capabilityKeys[11]=\"canManageIntake\"",
+          "plannedRecordId": "hearth-search:positive-conformance:020"
+        },
+        {
+          "factKey": "capabilityKeys[12]=\"canManageSubscriptions\"",
+          "plannedRecordId": "hearth-search:positive-conformance:021"
+        },
+        {
+          "factKey": "capabilityKeys[13]=\"canReadAgreements\"",
+          "plannedRecordId": "hearth-search:positive-conformance:022"
+        },
+        {
+          "factKey": "capabilityKeys[14]=\"canViewFinancials\"",
+          "plannedRecordId": "hearth-search:positive-conformance:023"
+        },
+        {
+          "factKey": "capabilityKeys[15]=\"canViewPerDiem\"",
+          "plannedRecordId": "hearth-search:positive-conformance:024"
+        },
+        {
+          "factKey": "capabilityKeys[16]=\"canManageDelegations\"",
+          "plannedRecordId": "hearth-search:positive-conformance:025"
+        },
+        {
+          "factKey": "capabilityKeys[17]=\"canViewPersonPII\"",
+          "plannedRecordId": "hearth-search:positive-conformance:026"
+        },
+        {
+          "factKey": "capabilityKeys[18]=\"isReadOnly\"",
+          "plannedRecordId": "hearth-search:positive-conformance:027"
+        },
+        {
+          "factKey": "capabilityKeys[1]=\"canSubmitApproval\"",
+          "plannedRecordId": "hearth-search:positive-conformance:028"
+        },
+        {
+          "factKey": "capabilityKeys[2]=\"canReviewApproval\"",
+          "plannedRecordId": "hearth-search:positive-conformance:029"
+        },
+        {
+          "factKey": "capabilityKeys[3]=\"canExecuteApproval\"",
+          "plannedRecordId": "hearth-search:positive-conformance:030"
+        },
+        {
+          "factKey": "capabilityKeys[4]=\"canReadMembers\"",
+          "plannedRecordId": "hearth-search:positive-conformance:031"
+        },
+        {
+          "factKey": "capabilityKeys[5]=\"canSubmitMemberChange\"",
+          "plannedRecordId": "hearth-search:positive-conformance:032"
+        },
+        {
+          "factKey": "capabilityKeys[6]=\"canOperateJourneys\"",
+          "plannedRecordId": "hearth-search:positive-conformance:033"
+        },
+        {
+          "factKey": "capabilityKeys[7]=\"canManageKit\"",
+          "plannedRecordId": "hearth-search:positive-conformance:034"
+        },
+        {
+          "factKey": "capabilityKeys[8]=\"canManageApparel\"",
+          "plannedRecordId": "hearth-search:positive-conformance:035"
+        },
+        {
+          "factKey": "capabilityKeys[9]=\"canManageMissions\"",
+          "plannedRecordId": "hearth-search:positive-conformance:036"
+        },
+        {
+          "factKey": "contractResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:positive-conformance:037"
+        },
+        {
+          "factKey": "contractResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:positive-conformance:038"
+        },
+        {
+          "factKey": "contractResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:positive-conformance:039"
+        },
+        {
+          "factKey": "contractResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:positive-conformance:040"
+        },
+        {
+          "factKey": "contractResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:positive-conformance:041"
+        },
+        {
+          "factKey": "contractResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:positive-conformance:042"
+        },
+        {
+          "factKey": "contractResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:positive-conformance:043"
+        },
+        {
+          "factKey": "contractResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:positive-conformance:044"
+        },
+        {
+          "factKey": "contractResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:positive-conformance:045"
+        },
+        {
+          "factKey": "contractResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:positive-conformance:046"
+        },
+        {
+          "factKey": "contractResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:positive-conformance:047"
+        },
+        {
+          "factKey": "contractResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:positive-conformance:048"
+        },
+        {
+          "factKey": "contractResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:positive-conformance:049"
+        },
+        {
+          "factKey": "contractResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:positive-conformance:050"
+        },
+        {
+          "factKey": "contractResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:positive-conformance:051"
+        },
+        {
+          "factKey": "contractResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:positive-conformance:052"
+        },
+        {
+          "factKey": "contractResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:positive-conformance:053"
+        },
+        {
+          "factKey": "criticalSourceFingerprintsSha256=9e6565fa8f35a316ccec1722e6e06c0d99add137890e9d6737ce14ad96f34a85",
+          "plannedRecordId": "hearth-search:positive-conformance:054"
+        },
+        {
+          "factKey": "criticalSourcesSha256=8b94c2e1dfea40c18de198c6f126e4e13ed774e1c4483a2995a91420c3e97f5f",
+          "plannedRecordId": "hearth-search:positive-conformance:055"
+        },
+        {
+          "factKey": "documentOwnerTypes[0]=\"Agreement\"",
+          "plannedRecordId": "hearth-search:positive-conformance:056"
+        },
+        {
+          "factKey": "documentOwnerTypes[1]=\"Mission\"",
+          "plannedRecordId": "hearth-search:positive-conformance:057"
+        },
+        {
+          "factKey": "documentOwnerTypes[2]=\"Person\"",
+          "plannedRecordId": "hearth-search:positive-conformance:058"
+        },
+        {
+          "factKey": "documentOwnerTypes[3]=\"Credential\"",
+          "plannedRecordId": "hearth-search:positive-conformance:059"
+        },
+        {
+          "factKey": "documentOwnerTypes[4]=\"Entity\"",
+          "plannedRecordId": "hearth-search:positive-conformance:060"
+        },
+        {
+          "factKey": "documentOwnerTypes[5]=\"Invoice\"",
+          "plannedRecordId": "hearth-search:positive-conformance:061"
+        },
+        {
+          "factKey": "documentOwnerTypes[6]=\"Claim\"",
+          "plannedRecordId": "hearth-search:positive-conformance:062"
+        },
+        {
+          "factKey": "documentOwnerTypes[7]=\"CommsMessage\"",
+          "plannedRecordId": "hearth-search:positive-conformance:063"
+        },
+        {
+          "factKey": "documentOwnerTypes[8]=\"CommsObligation\"",
+          "plannedRecordId": "hearth-search:positive-conformance:064"
+        },
+        {
+          "factKey": "entitlementSnapshots[0]=\"no-row\"",
+          "plannedRecordId": "hearth-search:positive-conformance:065"
+        },
+        {
+          "factKey": "entitlementSnapshots[1]=\"active-current\"",
+          "plannedRecordId": "hearth-search:positive-conformance:066"
+        },
+        {
+          "factKey": "entitlementSnapshots[2]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:positive-conformance:067"
+        },
+        {
+          "factKey": "entitlementSnapshots[3]=\"active-future\"",
+          "plannedRecordId": "hearth-search:positive-conformance:068"
+        },
+        {
+          "factKey": "entitlementSnapshots[4]=\"active-expired\"",
+          "plannedRecordId": "hearth-search:positive-conformance:069"
+        },
+        {
+          "factKey": "entitlementStates[0]=\"active\"",
+          "plannedRecordId": "hearth-search:positive-conformance:070"
+        },
+        {
+          "factKey": "entitlementStates[1]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:positive-conformance:071"
+        },
+        {
+          "factKey": "gateClasses.actor-read-path=[\"p.reads.forActor(actor).searchTenant\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:072"
+        },
+        {
+          "factKey": "gateClasses.assert:baseline=[\"assertReadPeople(actor)\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:073"
+        },
+        {
+          "factKey": "gateClasses.claims-own-identity=[\"finance?null:actor.identity\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:074"
+        },
+        {
+          "factKey": "gateClasses.document-owner:baseline=[\"Person\",\"Mission\",\"Credential\",\"Entity\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:075"
+        },
+        {
+          "factKey": "gateClasses.document-owner:canReadAgreements(actor.role)=[\"Agreement\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:076"
+        },
+        {
+          "factKey": "gateClasses.document-owner:finance=[\"Invoice\",\"Claim\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:077"
+        },
+        {
+          "factKey": "gateClasses.domain:always=[\"document\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:078"
+        },
+        {
+          "factKey": "gateClasses.domain:baseline=[\"person\",\"mission\",\"entity\",\"credential\",\"journey\",\"kit\",\"apparel\",\"team\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:079"
+        },
+        {
+          "factKey": "gateClasses.domain:canReadAgreements(actor.role)=[\"agreement\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:080"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitApproval(actor.role)||canReviewApproval(actor.role)=[\"approval\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:081"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitClaim(actor.role)=[\"claim\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:082"
+        },
+        {
+          "factKey": "gateClasses.domain:finance=[\"invoice\",\"distribution\",\"term\",\"line\",\"beneficiary\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:083"
+        },
+        {
+          "factKey": "gateClasses.standing:finance=[\"canViewFinancials(actor.role)\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:084"
+        },
+        {
+          "factKey": "matchFields.agreement=[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:085"
+        },
+        {
+          "factKey": "matchFields.apparel=[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:086"
+        },
+        {
+          "factKey": "matchFields.approval=[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:087"
+        },
+        {
+          "factKey": "matchFields.beneficiary=[\"beneficiary_id\",\"label\",\"bank_name\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:088"
+        },
+        {
+          "factKey": "matchFields.claim=[\"claim_id\",\"description\",\"category\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:089"
+        },
+        {
+          "factKey": "matchFields.credential=[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:090"
+        },
+        {
+          "factKey": "matchFields.distribution=[\"distribution_id\",\"mission_id\",\"line_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:091"
+        },
+        {
+          "factKey": "matchFields.document=[\"document_id\",\"file_name\",\"label\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:092"
+        },
+        {
+          "factKey": "matchFields.entity=[\"entity_id\",\"name\",\"code\",\"jurisdiction\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:093"
+        },
+        {
+          "factKey": "matchFields.invoice=[\"invoice_id\",\"invoice_number\",\"billed_to_name\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:094"
+        },
+        {
+          "factKey": "matchFields.journey=[\"journey_id\",\"title\",\"journey_type\",\"person_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:095"
+        },
+        {
+          "factKey": "matchFields.kit=[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:096"
+        },
+        {
+          "factKey": "matchFields.line=[\"line_id\",\"ref_no\",\"label\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:097"
+        },
+        {
+          "factKey": "matchFields.mission=[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:098"
+        },
+        {
+          "factKey": "matchFields.person=[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:099"
+        },
+        {
+          "factKey": "matchFields.team=[\"team_id\",\"name\",\"code\",\"game_title\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:100"
+        },
+        {
+          "factKey": "matchFields.term=[\"term_id\",\"kind\",\"label\",\"agreement_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:101"
+        },
+        {
+          "factKey": "moduleKeys[0]=\"comms\"",
+          "plannedRecordId": "hearth-search:positive-conformance:102"
+        },
+        {
+          "factKey": "predicateRegisters.approval=[\"effective-delegation\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:103"
+        },
+        {
+          "factKey": "predicateRegisters.claim-document=[\"submitter-or-finance\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:104"
+        },
+        {
+          "factKey": "predicateRegisters.claim=[\"submitted_by:claimsOwnIdentity:when-non-null\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:105"
+        },
+        {
+          "factKey": "predicateRegisters.comms-document=[\"module+owner+thread+anchor\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:106"
+        },
+        {
+          "factKey": "predicateRegisters.comms-module=[\"active+effective-window\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:107"
+        },
+        {
+          "factKey": "predicateRegisters.comms-thread=[\"anchored-Mission\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:108"
+        },
+        {
+          "factKey": "predicateRegisters.document=[\"static:is_active\",\"owner_type:documentOwnerTypes:empty-denies\",\"record_kind:search-predicate-absent\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:109"
+        },
+        {
+          "factKey": "predicateRegisters.line=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:110"
+        },
+        {
+          "factKey": "predicateRegisters.term=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:111"
+        },
+        {
+          "factKey": "projections.agreement={\"extraWhere\":null,\"id\":\"agreement_id\",\"match\":[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', agreement_type, coalesce(person_id, entity_id)), '')\",\"table\":\"agreement\",\"title\":\"coalesce(agreement_code, agreement_id)\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:112"
+        },
+        {
+          "factKey": "projections.apparel={\"extraWhere\":null,\"id\":\"apparel_id\",\"match\":[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"apparel\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:113"
+        },
+        {
+          "factKey": "projections.approval={\"extraWhere\":null,\"id\":\"approval_id\",\"match\":[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', status, target_person_id), '')\",\"table\":\"approval\",\"title\":\"operation_type\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:114"
+        },
+        {
+          "factKey": "projections.beneficiary={\"extraWhere\":null,\"id\":\"beneficiary_id\",\"match\":[\"beneficiary_id\",\"label\",\"bank_name\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', bank_name, coalesce(person_id, freelancer_id, vendor_id), status), '')\",\"table\":\"beneficiary\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:115"
+        },
+        {
+          "factKey": "projections.claim={\"extraWhere\":null,\"id\":\"claim_id\",\"match\":[\"claim_id\",\"description\",\"category\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', category, status), '')\",\"table\":\"claim\",\"title\":\"description\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:116"
+        },
+        {
+          "factKey": "projections.credential={\"extraWhere\":null,\"id\":\"credential_id\",\"match\":[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"],\"parent\":\"person_id\",\"subtitle\":\"person_id\",\"table\":\"credential\",\"title\":\"credential_type\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:117"
+        },
+        {
+          "factKey": "projections.distribution={\"extraWhere\":null,\"id\":\"distribution_id\",\"match\":[\"distribution_id\",\"mission_id\",\"line_id\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', status, mission_id), '')\",\"table\":\"distribution\",\"title\":\"distribution_id\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:118"
+        },
+        {
+          "factKey": "projections.document={\"extraWhere\":\"is_active\",\"id\":\"document_id\",\"match\":[\"document_id\",\"file_name\",\"label\"],\"parent\":\"owner_type || ':' || owner_id\",\"subtitle\":\"nullif(concat_ws(' · ', owner_type, owner_id), '')\",\"table\":\"document\",\"title\":\"file_name\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:119"
+        },
+        {
+          "factKey": "projections.entity={\"extraWhere\":null,\"id\":\"entity_id\",\"match\":[\"entity_id\",\"name\",\"code\",\"jurisdiction\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, jurisdiction), '')\",\"table\":\"entity\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:120"
+        },
+        {
+          "factKey": "projections.invoice={\"extraWhere\":null,\"id\":\"invoice_id\",\"match\":[\"invoice_id\",\"invoice_number\",\"billed_to_name\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', billed_to_name, status), '')\",\"table\":\"invoice\",\"title\":\"invoice_number\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:121"
+        },
+        {
+          "factKey": "projections.journey={\"extraWhere\":null,\"id\":\"journey_id\",\"match\":[\"journey_id\",\"title\",\"journey_type\",\"person_id\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', journey_type, person_id), '')\",\"table\":\"journey\",\"title\":\"coalesce(title, journey_type)\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:122"
+        },
+        {
+          "factKey": "projections.kit={\"extraWhere\":null,\"id\":\"kit_id\",\"match\":[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"kit\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:123"
+        },
+        {
+          "factKey": "projections.line={\"extraWhere\":\"is_active\",\"id\":\"line_id\",\"match\":[\"line_id\",\"ref_no\",\"label\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', ref_no, mission_id), '')\",\"table\":\"mission_line\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:124"
+        },
+        {
+          "factKey": "projections.mission={\"extraWhere\":null,\"id\":\"mission_id\",\"match\":[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, city), '')\",\"table\":\"mission\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:125"
+        },
+        {
+          "factKey": "projections.person={\"extraWhere\":null,\"id\":\"person_id\",\"match\":[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', ign, current_team), '')\",\"table\":\"person\",\"title\":\"full_name\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:126"
+        },
+        {
+          "factKey": "projections.team={\"extraWhere\":null,\"id\":\"team_id\",\"match\":[\"team_id\",\"name\",\"code\",\"game_title\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, kind), '')\",\"table\":\"team\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:127"
+        },
+        {
+          "factKey": "projections.term={\"extraWhere\":\"is_active\",\"id\":\"term_id\",\"match\":[\"term_id\",\"kind\",\"label\",\"agreement_id\"],\"parent\":\"agreement_id\",\"subtitle\":\"nullif(concat_ws(' · ', kind, agreement_id), '')\",\"table\":\"agreement_term\",\"title\":\"coalesce(label, kind)\"}",
+          "plannedRecordId": "hearth-search:positive-conformance:128"
+        },
+        {
+          "factKey": "recordKinds[0]=\"Attachment\"",
+          "plannedRecordId": "hearth-search:positive-conformance:129"
+        },
+        {
+          "factKey": "recordKinds[1]=\"RegisteredEvidence\"",
+          "plannedRecordId": "hearth-search:positive-conformance:130"
+        },
+        {
+          "factKey": "responseFields.application=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:131"
+        },
+        {
+          "factKey": "responseFields.envelope=[\"results\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:132"
+        },
+        {
+          "factKey": "responseFields.item=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:133"
+        },
+        {
+          "factKey": "responseFields.persistence=[\"kind\",\"id\",\"title\",\"subtitle\",\"parent_id\"]",
+          "plannedRecordId": "hearth-search:positive-conformance:134"
+        },
+        {
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:positive-conformance:135"
+        },
+        {
+          "factKey": "roleCapabilities.hr={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:positive-conformance:136"
+        },
+        {
+          "factKey": "roleCapabilities.legal={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:positive-conformance:137"
+        },
+        {
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:positive-conformance:138"
+        },
+        {
+          "factKey": "roleCapabilities.operations={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:positive-conformance:139"
+        },
+        {
+          "factKey": "roleCapabilities.owner={\"canExecuteApproval\":true,\"canManageApparel\":true,\"canManageDelegations\":true,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":true,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:positive-conformance:140"
+        },
+        {
+          "factKey": "roleCapabilities.visitor={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:positive-conformance:141"
+        },
+        {
+          "factKey": "roles[0]=\"owner\"",
+          "plannedRecordId": "hearth-search:positive-conformance:142"
+        },
+        {
+          "factKey": "roles[1]=\"operations\"",
+          "plannedRecordId": "hearth-search:positive-conformance:143"
+        },
+        {
+          "factKey": "roles[2]=\"legal\"",
+          "plannedRecordId": "hearth-search:positive-conformance:144"
+        },
+        {
+          "factKey": "roles[3]=\"finance\"",
+          "plannedRecordId": "hearth-search:positive-conformance:145"
+        },
+        {
+          "factKey": "roles[4]=\"hr\"",
+          "plannedRecordId": "hearth-search:positive-conformance:146"
+        },
+        {
+          "factKey": "roles[5]=\"management\"",
+          "plannedRecordId": "hearth-search:positive-conformance:147"
+        },
+        {
+          "factKey": "roles[6]=\"visitor\"",
+          "plannedRecordId": "hearth-search:positive-conformance:148"
+        },
+        {
+          "factKey": "searchDomains[0]=\"person\"",
+          "plannedRecordId": "hearth-search:positive-conformance:149"
+        },
+        {
+          "factKey": "searchDomains[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:positive-conformance:150"
+        },
+        {
+          "factKey": "searchDomains[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:positive-conformance:151"
+        },
+        {
+          "factKey": "searchDomains[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:positive-conformance:152"
+        },
+        {
+          "factKey": "searchDomains[13]=\"document\"",
+          "plannedRecordId": "hearth-search:positive-conformance:153"
+        },
+        {
+          "factKey": "searchDomains[14]=\"term\"",
+          "plannedRecordId": "hearth-search:positive-conformance:154"
+        },
+        {
+          "factKey": "searchDomains[15]=\"line\"",
+          "plannedRecordId": "hearth-search:positive-conformance:155"
+        },
+        {
+          "factKey": "searchDomains[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:positive-conformance:156"
+        },
+        {
+          "factKey": "searchDomains[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:positive-conformance:157"
+        },
+        {
+          "factKey": "searchDomains[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:positive-conformance:158"
+        },
+        {
+          "factKey": "searchDomains[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:positive-conformance:159"
+        },
+        {
+          "factKey": "searchDomains[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:positive-conformance:160"
+        },
+        {
+          "factKey": "searchDomains[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:positive-conformance:161"
+        },
+        {
+          "factKey": "searchDomains[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:positive-conformance:162"
+        },
+        {
+          "factKey": "searchDomains[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:positive-conformance:163"
+        },
+        {
+          "factKey": "searchDomains[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:positive-conformance:164"
+        },
+        {
+          "factKey": "searchDomains[9]=\"team\"",
+          "plannedRecordId": "hearth-search:positive-conformance:165"
+        }
+      ]
+    },
+    "negative-conformance": {
+      "artifactVersion": "hearth-search-negative/coverage-v1",
+      "entries": [
+        {
+          "factKey": "applicationResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:negative-conformance:001"
+        },
+        {
+          "factKey": "applicationResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:negative-conformance:002"
+        },
+        {
+          "factKey": "applicationResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:negative-conformance:003"
+        },
+        {
+          "factKey": "applicationResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:negative-conformance:004"
+        },
+        {
+          "factKey": "applicationResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:negative-conformance:005"
+        },
+        {
+          "factKey": "applicationResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:negative-conformance:006"
+        },
+        {
+          "factKey": "applicationResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:negative-conformance:007"
+        },
+        {
+          "factKey": "applicationResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:negative-conformance:008"
+        },
+        {
+          "factKey": "applicationResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:negative-conformance:009"
+        },
+        {
+          "factKey": "applicationResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:negative-conformance:010"
+        },
+        {
+          "factKey": "applicationResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:negative-conformance:011"
+        },
+        {
+          "factKey": "applicationResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:negative-conformance:012"
+        },
+        {
+          "factKey": "applicationResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:negative-conformance:013"
+        },
+        {
+          "factKey": "applicationResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:negative-conformance:014"
+        },
+        {
+          "factKey": "applicationResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:negative-conformance:015"
+        },
+        {
+          "factKey": "applicationResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:negative-conformance:016"
+        },
+        {
+          "factKey": "applicationResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:negative-conformance:017"
+        },
+        {
+          "factKey": "capabilityKeys[0]=\"canReadPeople\"",
+          "plannedRecordId": "hearth-search:negative-conformance:018"
+        },
+        {
+          "factKey": "capabilityKeys[10]=\"canManageEntities\"",
+          "plannedRecordId": "hearth-search:negative-conformance:019"
+        },
+        {
+          "factKey": "capabilityKeys[11]=\"canManageIntake\"",
+          "plannedRecordId": "hearth-search:negative-conformance:020"
+        },
+        {
+          "factKey": "capabilityKeys[12]=\"canManageSubscriptions\"",
+          "plannedRecordId": "hearth-search:negative-conformance:021"
+        },
+        {
+          "factKey": "capabilityKeys[13]=\"canReadAgreements\"",
+          "plannedRecordId": "hearth-search:negative-conformance:022"
+        },
+        {
+          "factKey": "capabilityKeys[14]=\"canViewFinancials\"",
+          "plannedRecordId": "hearth-search:negative-conformance:023"
+        },
+        {
+          "factKey": "capabilityKeys[15]=\"canViewPerDiem\"",
+          "plannedRecordId": "hearth-search:negative-conformance:024"
+        },
+        {
+          "factKey": "capabilityKeys[16]=\"canManageDelegations\"",
+          "plannedRecordId": "hearth-search:negative-conformance:025"
+        },
+        {
+          "factKey": "capabilityKeys[17]=\"canViewPersonPII\"",
+          "plannedRecordId": "hearth-search:negative-conformance:026"
+        },
+        {
+          "factKey": "capabilityKeys[18]=\"isReadOnly\"",
+          "plannedRecordId": "hearth-search:negative-conformance:027"
+        },
+        {
+          "factKey": "capabilityKeys[1]=\"canSubmitApproval\"",
+          "plannedRecordId": "hearth-search:negative-conformance:028"
+        },
+        {
+          "factKey": "capabilityKeys[2]=\"canReviewApproval\"",
+          "plannedRecordId": "hearth-search:negative-conformance:029"
+        },
+        {
+          "factKey": "capabilityKeys[3]=\"canExecuteApproval\"",
+          "plannedRecordId": "hearth-search:negative-conformance:030"
+        },
+        {
+          "factKey": "capabilityKeys[4]=\"canReadMembers\"",
+          "plannedRecordId": "hearth-search:negative-conformance:031"
+        },
+        {
+          "factKey": "capabilityKeys[5]=\"canSubmitMemberChange\"",
+          "plannedRecordId": "hearth-search:negative-conformance:032"
+        },
+        {
+          "factKey": "capabilityKeys[6]=\"canOperateJourneys\"",
+          "plannedRecordId": "hearth-search:negative-conformance:033"
+        },
+        {
+          "factKey": "capabilityKeys[7]=\"canManageKit\"",
+          "plannedRecordId": "hearth-search:negative-conformance:034"
+        },
+        {
+          "factKey": "capabilityKeys[8]=\"canManageApparel\"",
+          "plannedRecordId": "hearth-search:negative-conformance:035"
+        },
+        {
+          "factKey": "capabilityKeys[9]=\"canManageMissions\"",
+          "plannedRecordId": "hearth-search:negative-conformance:036"
+        },
+        {
+          "factKey": "contractResultKinds[0]=\"person\"",
+          "plannedRecordId": "hearth-search:negative-conformance:037"
+        },
+        {
+          "factKey": "contractResultKinds[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:negative-conformance:038"
+        },
+        {
+          "factKey": "contractResultKinds[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:negative-conformance:039"
+        },
+        {
+          "factKey": "contractResultKinds[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:negative-conformance:040"
+        },
+        {
+          "factKey": "contractResultKinds[13]=\"document\"",
+          "plannedRecordId": "hearth-search:negative-conformance:041"
+        },
+        {
+          "factKey": "contractResultKinds[14]=\"term\"",
+          "plannedRecordId": "hearth-search:negative-conformance:042"
+        },
+        {
+          "factKey": "contractResultKinds[15]=\"line\"",
+          "plannedRecordId": "hearth-search:negative-conformance:043"
+        },
+        {
+          "factKey": "contractResultKinds[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:negative-conformance:044"
+        },
+        {
+          "factKey": "contractResultKinds[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:negative-conformance:045"
+        },
+        {
+          "factKey": "contractResultKinds[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:negative-conformance:046"
+        },
+        {
+          "factKey": "contractResultKinds[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:negative-conformance:047"
+        },
+        {
+          "factKey": "contractResultKinds[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:negative-conformance:048"
+        },
+        {
+          "factKey": "contractResultKinds[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:negative-conformance:049"
+        },
+        {
+          "factKey": "contractResultKinds[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:negative-conformance:050"
+        },
+        {
+          "factKey": "contractResultKinds[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:negative-conformance:051"
+        },
+        {
+          "factKey": "contractResultKinds[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:negative-conformance:052"
+        },
+        {
+          "factKey": "contractResultKinds[9]=\"team\"",
+          "plannedRecordId": "hearth-search:negative-conformance:053"
+        },
+        {
+          "factKey": "criticalSourceFingerprintsSha256=9e6565fa8f35a316ccec1722e6e06c0d99add137890e9d6737ce14ad96f34a85",
+          "plannedRecordId": "hearth-search:negative-conformance:054"
+        },
+        {
+          "factKey": "criticalSourcesSha256=8b94c2e1dfea40c18de198c6f126e4e13ed774e1c4483a2995a91420c3e97f5f",
+          "plannedRecordId": "hearth-search:negative-conformance:055"
+        },
+        {
+          "factKey": "documentOwnerTypes[0]=\"Agreement\"",
+          "plannedRecordId": "hearth-search:negative-conformance:056"
+        },
+        {
+          "factKey": "documentOwnerTypes[1]=\"Mission\"",
+          "plannedRecordId": "hearth-search:negative-conformance:057"
+        },
+        {
+          "factKey": "documentOwnerTypes[2]=\"Person\"",
+          "plannedRecordId": "hearth-search:negative-conformance:058"
+        },
+        {
+          "factKey": "documentOwnerTypes[3]=\"Credential\"",
+          "plannedRecordId": "hearth-search:negative-conformance:059"
+        },
+        {
+          "factKey": "documentOwnerTypes[4]=\"Entity\"",
+          "plannedRecordId": "hearth-search:negative-conformance:060"
+        },
+        {
+          "factKey": "documentOwnerTypes[5]=\"Invoice\"",
+          "plannedRecordId": "hearth-search:negative-conformance:061"
+        },
+        {
+          "factKey": "documentOwnerTypes[6]=\"Claim\"",
+          "plannedRecordId": "hearth-search:negative-conformance:062"
+        },
+        {
+          "factKey": "documentOwnerTypes[7]=\"CommsMessage\"",
+          "plannedRecordId": "hearth-search:negative-conformance:063"
+        },
+        {
+          "factKey": "documentOwnerTypes[8]=\"CommsObligation\"",
+          "plannedRecordId": "hearth-search:negative-conformance:064"
+        },
+        {
+          "factKey": "entitlementSnapshots[0]=\"no-row\"",
+          "plannedRecordId": "hearth-search:negative-conformance:065"
+        },
+        {
+          "factKey": "entitlementSnapshots[1]=\"active-current\"",
+          "plannedRecordId": "hearth-search:negative-conformance:066"
+        },
+        {
+          "factKey": "entitlementSnapshots[2]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:negative-conformance:067"
+        },
+        {
+          "factKey": "entitlementSnapshots[3]=\"active-future\"",
+          "plannedRecordId": "hearth-search:negative-conformance:068"
+        },
+        {
+          "factKey": "entitlementSnapshots[4]=\"active-expired\"",
+          "plannedRecordId": "hearth-search:negative-conformance:069"
+        },
+        {
+          "factKey": "entitlementStates[0]=\"active\"",
+          "plannedRecordId": "hearth-search:negative-conformance:070"
+        },
+        {
+          "factKey": "entitlementStates[1]=\"lapsed\"",
+          "plannedRecordId": "hearth-search:negative-conformance:071"
+        },
+        {
+          "factKey": "gateClasses.actor-read-path=[\"p.reads.forActor(actor).searchTenant\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:072"
+        },
+        {
+          "factKey": "gateClasses.assert:baseline=[\"assertReadPeople(actor)\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:073"
+        },
+        {
+          "factKey": "gateClasses.claims-own-identity=[\"finance?null:actor.identity\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:074"
+        },
+        {
+          "factKey": "gateClasses.document-owner:baseline=[\"Person\",\"Mission\",\"Credential\",\"Entity\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:075"
+        },
+        {
+          "factKey": "gateClasses.document-owner:canReadAgreements(actor.role)=[\"Agreement\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:076"
+        },
+        {
+          "factKey": "gateClasses.document-owner:finance=[\"Invoice\",\"Claim\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:077"
+        },
+        {
+          "factKey": "gateClasses.domain:always=[\"document\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:078"
+        },
+        {
+          "factKey": "gateClasses.domain:baseline=[\"person\",\"mission\",\"entity\",\"credential\",\"journey\",\"kit\",\"apparel\",\"team\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:079"
+        },
+        {
+          "factKey": "gateClasses.domain:canReadAgreements(actor.role)=[\"agreement\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:080"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitApproval(actor.role)||canReviewApproval(actor.role)=[\"approval\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:081"
+        },
+        {
+          "factKey": "gateClasses.domain:canSubmitClaim(actor.role)=[\"claim\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:082"
+        },
+        {
+          "factKey": "gateClasses.domain:finance=[\"invoice\",\"distribution\",\"term\",\"line\",\"beneficiary\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:083"
+        },
+        {
+          "factKey": "gateClasses.standing:finance=[\"canViewFinancials(actor.role)\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:084"
+        },
+        {
+          "factKey": "matchFields.agreement=[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:085"
+        },
+        {
+          "factKey": "matchFields.apparel=[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:086"
+        },
+        {
+          "factKey": "matchFields.approval=[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:087"
+        },
+        {
+          "factKey": "matchFields.beneficiary=[\"beneficiary_id\",\"label\",\"bank_name\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:088"
+        },
+        {
+          "factKey": "matchFields.claim=[\"claim_id\",\"description\",\"category\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:089"
+        },
+        {
+          "factKey": "matchFields.credential=[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:090"
+        },
+        {
+          "factKey": "matchFields.distribution=[\"distribution_id\",\"mission_id\",\"line_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:091"
+        },
+        {
+          "factKey": "matchFields.document=[\"document_id\",\"file_name\",\"label\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:092"
+        },
+        {
+          "factKey": "matchFields.entity=[\"entity_id\",\"name\",\"code\",\"jurisdiction\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:093"
+        },
+        {
+          "factKey": "matchFields.invoice=[\"invoice_id\",\"invoice_number\",\"billed_to_name\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:094"
+        },
+        {
+          "factKey": "matchFields.journey=[\"journey_id\",\"title\",\"journey_type\",\"person_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:095"
+        },
+        {
+          "factKey": "matchFields.kit=[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:096"
+        },
+        {
+          "factKey": "matchFields.line=[\"line_id\",\"ref_no\",\"label\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:097"
+        },
+        {
+          "factKey": "matchFields.mission=[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:098"
+        },
+        {
+          "factKey": "matchFields.person=[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:099"
+        },
+        {
+          "factKey": "matchFields.team=[\"team_id\",\"name\",\"code\",\"game_title\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:100"
+        },
+        {
+          "factKey": "matchFields.term=[\"term_id\",\"kind\",\"label\",\"agreement_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:101"
+        },
+        {
+          "factKey": "moduleKeys[0]=\"comms\"",
+          "plannedRecordId": "hearth-search:negative-conformance:102"
+        },
+        {
+          "factKey": "predicateRegisters.approval=[\"effective-delegation\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:103"
+        },
+        {
+          "factKey": "predicateRegisters.claim-document=[\"submitter-or-finance\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:104"
+        },
+        {
+          "factKey": "predicateRegisters.claim=[\"submitted_by:claimsOwnIdentity:when-non-null\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:105"
+        },
+        {
+          "factKey": "predicateRegisters.comms-document=[\"module+owner+thread+anchor\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:106"
+        },
+        {
+          "factKey": "predicateRegisters.comms-module=[\"active+effective-window\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:107"
+        },
+        {
+          "factKey": "predicateRegisters.comms-thread=[\"anchored-Mission\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:108"
+        },
+        {
+          "factKey": "predicateRegisters.document=[\"static:is_active\",\"owner_type:documentOwnerTypes:empty-denies\",\"record_kind:search-predicate-absent\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:109"
+        },
+        {
+          "factKey": "predicateRegisters.line=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:110"
+        },
+        {
+          "factKey": "predicateRegisters.term=[\"static:is_active\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:111"
+        },
+        {
+          "factKey": "projections.agreement={\"extraWhere\":null,\"id\":\"agreement_id\",\"match\":[\"agreement_id\",\"agreement_code\",\"agreement_type\",\"person_id\",\"entity_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', agreement_type, coalesce(person_id, entity_id)), '')\",\"table\":\"agreement\",\"title\":\"coalesce(agreement_code, agreement_id)\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:112"
+        },
+        {
+          "factKey": "projections.apparel={\"extraWhere\":null,\"id\":\"apparel_id\",\"match\":[\"apparel_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"apparel\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:113"
+        },
+        {
+          "factKey": "projections.approval={\"extraWhere\":null,\"id\":\"approval_id\",\"match\":[\"approval_id\",\"operation_type\",\"target_person_id\",\"target_id\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', status, target_person_id), '')\",\"table\":\"approval\",\"title\":\"operation_type\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:114"
+        },
+        {
+          "factKey": "projections.beneficiary={\"extraWhere\":null,\"id\":\"beneficiary_id\",\"match\":[\"beneficiary_id\",\"label\",\"bank_name\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', bank_name, coalesce(person_id, freelancer_id, vendor_id), status), '')\",\"table\":\"beneficiary\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:115"
+        },
+        {
+          "factKey": "projections.claim={\"extraWhere\":null,\"id\":\"claim_id\",\"match\":[\"claim_id\",\"description\",\"category\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', category, status), '')\",\"table\":\"claim\",\"title\":\"description\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:116"
+        },
+        {
+          "factKey": "projections.credential={\"extraWhere\":null,\"id\":\"credential_id\",\"match\":[\"credential_id\",\"credential_type\",\"person_id\",\"issuer\"],\"parent\":\"person_id\",\"subtitle\":\"person_id\",\"table\":\"credential\",\"title\":\"credential_type\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:117"
+        },
+        {
+          "factKey": "projections.distribution={\"extraWhere\":null,\"id\":\"distribution_id\",\"match\":[\"distribution_id\",\"mission_id\",\"line_id\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', status, mission_id), '')\",\"table\":\"distribution\",\"title\":\"distribution_id\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:118"
+        },
+        {
+          "factKey": "projections.document={\"extraWhere\":\"is_active\",\"id\":\"document_id\",\"match\":[\"document_id\",\"file_name\",\"label\"],\"parent\":\"owner_type || ':' || owner_id\",\"subtitle\":\"nullif(concat_ws(' · ', owner_type, owner_id), '')\",\"table\":\"document\",\"title\":\"file_name\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:119"
+        },
+        {
+          "factKey": "projections.entity={\"extraWhere\":null,\"id\":\"entity_id\",\"match\":[\"entity_id\",\"name\",\"code\",\"jurisdiction\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, jurisdiction), '')\",\"table\":\"entity\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:120"
+        },
+        {
+          "factKey": "projections.invoice={\"extraWhere\":null,\"id\":\"invoice_id\",\"match\":[\"invoice_id\",\"invoice_number\",\"billed_to_name\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', billed_to_name, status), '')\",\"table\":\"invoice\",\"title\":\"invoice_number\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:121"
+        },
+        {
+          "factKey": "projections.journey={\"extraWhere\":null,\"id\":\"journey_id\",\"match\":[\"journey_id\",\"title\",\"journey_type\",\"person_id\"],\"parent\":\"person_id\",\"subtitle\":\"nullif(concat_ws(' · ', journey_type, person_id), '')\",\"table\":\"journey\",\"title\":\"coalesce(title, journey_type)\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:122"
+        },
+        {
+          "factKey": "projections.kit={\"extraWhere\":null,\"id\":\"kit_id\",\"match\":[\"kit_id\",\"name\",\"category\",\"assigned_person_id\"],\"parent\":\"assigned_person_id\",\"subtitle\":\"assigned_person_id\",\"table\":\"kit\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:123"
+        },
+        {
+          "factKey": "projections.line={\"extraWhere\":\"is_active\",\"id\":\"line_id\",\"match\":[\"line_id\",\"ref_no\",\"label\"],\"parent\":\"mission_id\",\"subtitle\":\"nullif(concat_ws(' · ', ref_no, mission_id), '')\",\"table\":\"mission_line\",\"title\":\"label\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:124"
+        },
+        {
+          "factKey": "projections.mission={\"extraWhere\":null,\"id\":\"mission_id\",\"match\":[\"mission_id\",\"name\",\"code\",\"organizer\",\"city\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, city), '')\",\"table\":\"mission\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:125"
+        },
+        {
+          "factKey": "projections.person={\"extraWhere\":null,\"id\":\"person_id\",\"match\":[\"person_id\",\"full_name\",\"ign\",\"personnel_code\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', ign, current_team), '')\",\"table\":\"person\",\"title\":\"full_name\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:126"
+        },
+        {
+          "factKey": "projections.team={\"extraWhere\":null,\"id\":\"team_id\",\"match\":[\"team_id\",\"name\",\"code\",\"game_title\"],\"parent\":\"NULL\",\"subtitle\":\"nullif(concat_ws(' · ', code, kind), '')\",\"table\":\"team\",\"title\":\"name\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:127"
+        },
+        {
+          "factKey": "projections.term={\"extraWhere\":\"is_active\",\"id\":\"term_id\",\"match\":[\"term_id\",\"kind\",\"label\",\"agreement_id\"],\"parent\":\"agreement_id\",\"subtitle\":\"nullif(concat_ws(' · ', kind, agreement_id), '')\",\"table\":\"agreement_term\",\"title\":\"coalesce(label, kind)\"}",
+          "plannedRecordId": "hearth-search:negative-conformance:128"
+        },
+        {
+          "factKey": "recordKinds[0]=\"Attachment\"",
+          "plannedRecordId": "hearth-search:negative-conformance:129"
+        },
+        {
+          "factKey": "recordKinds[1]=\"RegisteredEvidence\"",
+          "plannedRecordId": "hearth-search:negative-conformance:130"
+        },
+        {
+          "factKey": "responseFields.application=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:131"
+        },
+        {
+          "factKey": "responseFields.envelope=[\"results\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:132"
+        },
+        {
+          "factKey": "responseFields.item=[\"kind\",\"id\",\"title\",\"subtitle\",\"parentId\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:133"
+        },
+        {
+          "factKey": "responseFields.persistence=[\"kind\",\"id\",\"title\",\"subtitle\",\"parent_id\"]",
+          "plannedRecordId": "hearth-search:negative-conformance:134"
+        },
+        {
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:negative-conformance:135"
+        },
+        {
+          "factKey": "roleCapabilities.hr={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:negative-conformance:136"
+        },
+        {
+          "factKey": "roleCapabilities.legal={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:negative-conformance:137"
+        },
+        {
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:negative-conformance:138"
+        },
+        {
+          "factKey": "roleCapabilities.operations={\"canExecuteApproval\":false,\"canManageApparel\":true,\"canManageDelegations\":false,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:negative-conformance:139"
+        },
+        {
+          "factKey": "roleCapabilities.owner={\"canExecuteApproval\":true,\"canManageApparel\":true,\"canManageDelegations\":true,\"canManageEntities\":true,\"canManageIntake\":true,\"canManageKit\":true,\"canManageMissions\":true,\"canManageSubscriptions\":true,\"canOperateJourneys\":true,\"canReadAgreements\":true,\"canReadMembers\":true,\"canReadPeople\":true,\"canReviewApproval\":true,\"canSubmitApproval\":true,\"canSubmitMemberChange\":true,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":true,\"isReadOnly\":false}",
+          "plannedRecordId": "hearth-search:negative-conformance:140"
+        },
+        {
+          "factKey": "roleCapabilities.visitor={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":false,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":false,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "plannedRecordId": "hearth-search:negative-conformance:141"
+        },
+        {
+          "factKey": "roles[0]=\"owner\"",
+          "plannedRecordId": "hearth-search:negative-conformance:142"
+        },
+        {
+          "factKey": "roles[1]=\"operations\"",
+          "plannedRecordId": "hearth-search:negative-conformance:143"
+        },
+        {
+          "factKey": "roles[2]=\"legal\"",
+          "plannedRecordId": "hearth-search:negative-conformance:144"
+        },
+        {
+          "factKey": "roles[3]=\"finance\"",
+          "plannedRecordId": "hearth-search:negative-conformance:145"
+        },
+        {
+          "factKey": "roles[4]=\"hr\"",
+          "plannedRecordId": "hearth-search:negative-conformance:146"
+        },
+        {
+          "factKey": "roles[5]=\"management\"",
+          "plannedRecordId": "hearth-search:negative-conformance:147"
+        },
+        {
+          "factKey": "roles[6]=\"visitor\"",
+          "plannedRecordId": "hearth-search:negative-conformance:148"
+        },
+        {
+          "factKey": "searchDomains[0]=\"person\"",
+          "plannedRecordId": "hearth-search:negative-conformance:149"
+        },
+        {
+          "factKey": "searchDomains[10]=\"invoice\"",
+          "plannedRecordId": "hearth-search:negative-conformance:150"
+        },
+        {
+          "factKey": "searchDomains[11]=\"claim\"",
+          "plannedRecordId": "hearth-search:negative-conformance:151"
+        },
+        {
+          "factKey": "searchDomains[12]=\"distribution\"",
+          "plannedRecordId": "hearth-search:negative-conformance:152"
+        },
+        {
+          "factKey": "searchDomains[13]=\"document\"",
+          "plannedRecordId": "hearth-search:negative-conformance:153"
+        },
+        {
+          "factKey": "searchDomains[14]=\"term\"",
+          "plannedRecordId": "hearth-search:negative-conformance:154"
+        },
+        {
+          "factKey": "searchDomains[15]=\"line\"",
+          "plannedRecordId": "hearth-search:negative-conformance:155"
+        },
+        {
+          "factKey": "searchDomains[16]=\"beneficiary\"",
+          "plannedRecordId": "hearth-search:negative-conformance:156"
+        },
+        {
+          "factKey": "searchDomains[1]=\"mission\"",
+          "plannedRecordId": "hearth-search:negative-conformance:157"
+        },
+        {
+          "factKey": "searchDomains[2]=\"agreement\"",
+          "plannedRecordId": "hearth-search:negative-conformance:158"
+        },
+        {
+          "factKey": "searchDomains[3]=\"entity\"",
+          "plannedRecordId": "hearth-search:negative-conformance:159"
+        },
+        {
+          "factKey": "searchDomains[4]=\"credential\"",
+          "plannedRecordId": "hearth-search:negative-conformance:160"
+        },
+        {
+          "factKey": "searchDomains[5]=\"journey\"",
+          "plannedRecordId": "hearth-search:negative-conformance:161"
+        },
+        {
+          "factKey": "searchDomains[6]=\"kit\"",
+          "plannedRecordId": "hearth-search:negative-conformance:162"
+        },
+        {
+          "factKey": "searchDomains[7]=\"apparel\"",
+          "plannedRecordId": "hearth-search:negative-conformance:163"
+        },
+        {
+          "factKey": "searchDomains[8]=\"approval\"",
+          "plannedRecordId": "hearth-search:negative-conformance:164"
+        },
+        {
+          "factKey": "searchDomains[9]=\"team\"",
+          "plannedRecordId": "hearth-search:negative-conformance:165"
+        }
+      ]
+    }
+  }
+}

@@ -12,14 +12,15 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { sweepStaleEmbeddedPg } from '@c3web/test-support';
+import workspaceDefinition from '../vitest.workspace.js';
+import {
+  GATE_PROJECT_PLAN,
+  assertVitestProjectReconciliation,
+  configuredVitestProjectNames,
+  executedVitestProjectNames,
+} from './vitestProjects.js';
 
 const webv0Root = join(dirname(fileURLToPath(import.meta.url)), '..');
-
-// Windows embedded-PG teardown occasionally leaks processes/data dirs; piled
-// up across runs they degrade the machine until tests flake on timeouts. The
-// sweep is age-gated (≥60min), kills only postgres.exe whose cmdline names a
-// c3web-pg-* dir, and logs everything it touches (see test-support).
-await sweepStaleEmbeddedPg();
 
 function step(label: string, args: string[]): void {
   console.log(`\n═══ ${label} ═══`);
@@ -32,10 +33,52 @@ function step(label: string, args: string[]): void {
 
 const tsx = join(webv0Root, 'node_modules', 'tsx', 'dist', 'cli.mjs');
 const vitest = join(webv0Root, 'node_modules', 'vitest', 'vitest.mjs');
+const vitestConfig = join(webv0Root, 'vitest.config.ts');
+const vitestWorkspace = join(webv0Root, 'vitest.workspace.ts');
+const harnessVerify = join(
+  webv0Root,
+  'packages',
+  'search-harness',
+  'src',
+  'cli',
+  'verify.ts',
+);
+
+assertVitestProjectReconciliation({
+  context: 'webv0 gate',
+  configuredProjects: configuredVitestProjectNames(workspaceDefinition),
+  executedProjects: executedVitestProjectNames(GATE_PROJECT_PLAN),
+  deliberateExclusions: GATE_PROJECT_PLAN.deliberateExclusions,
+});
+
+step('search harness sunset preflight', [tsx, join(webv0Root, 'packages', 'search-harness', 'src', 'cli', 'sunsetPreflight.ts')]);
+
+// Windows embedded-PG teardown occasionally leaks processes/data dirs; piled
+// up across runs they degrade the machine until tests flake on timeouts. The
+// sweep is age-gated (≥60min), kills only postgres.exe whose cmdline names a
+// c3web-pg-* dir, and logs everything it touches (see test-support).
+await sweepStaleEmbeddedPg();
 
 step('nul/truncation audit', [tsx, join(webv0Root, 'scripts', 'nul-audit.mts')]);
 step('typecheck', [tsx, join(webv0Root, 'scripts', 'typecheck.mts')]);
-step('test (unit + db + api)', [vitest, 'run']);
+step('test (unit + db + api)', [
+  vitest,
+  'run',
+  '--config',
+  vitestConfig,
+  '--workspace',
+  vitestWorkspace,
+  ...GATE_PROJECT_PLAN.workspaceVitestProjects.flatMap((project) => [
+    '--project',
+    project,
+  ]),
+]);
+for (const execution of GATE_PROJECT_PLAN.dedicatedProjects) {
+  if (execution.runner !== 'harness-verify') {
+    throw new Error(`Unsupported dedicated Vitest runner: ${execution.runner}`);
+  }
+  step(execution.label, [tsx, harnessVerify]);
+}
 step('entra production bundle excludes dev auth', [tsx, join(webv0Root, 'scripts', 'verify-entra-bundle.mts')]);
 
 console.log('\nwebv0 gate: PASSED');

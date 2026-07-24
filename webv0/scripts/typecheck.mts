@@ -16,6 +16,7 @@ const PROJECTS = [
   'packages/application',
   'packages/persistence',
   'packages/test-support',
+  'packages/search-harness',
   'apps/api',
   'apps/web',
   'apps/backup',
