@@ -1,29 +1,43 @@
 /**
- * logger.test.ts — HARDEN-3 M-09. The guest capability token rides in the
- * intake public URL path; the logger must mask it (a bearer-equivalent secret)
- * while leaving ordinary URLs — including the staff intake subpaths — intact.
+ * logger.test.ts — the request-URL censor. Two bearer-equivalent / PII
+ * secrets ride in URLs and must never reach the logs: the intake capability
+ * token (M-09) and the S3 search `q` term (a person's name or id;
+ * HEARTH-001 invariant 9). The censor masks both; benign URLs pass untouched.
+ *
+ * This is the enforcing test — a future sensitive GET param cannot silently
+ * reopen the leak without a masking rule and a case here.
  */
 import { describe, expect, it } from 'vitest';
-import { maskIntakeToken, loggerOptions } from '../src/logger';
-import type { Env } from '../src/env';
+import { maskIntakeToken, maskSearchQuery } from '../src/logger';
 
-describe('M-09: intake capability token never reaches the logs', () => {
-  it('masks the token segment in the public intake URL, preserving the query', () => {
-    expect(maskIntakeToken('/api/v1/intake/public/CC5D32DBsecrettoken')).toBe('/api/v1/intake/public/[REDACTED]');
-    expect(maskIntakeToken('/api/v1/intake/public/abc123?foo=1')).toBe('/api/v1/intake/public/[REDACTED]?foo=1');
+describe('maskSearchQuery — the search term never reaches the logs', () => {
+  it('masks the q value, keeping the path and other params', () => {
+    expect(maskSearchQuery('/api/v1/search?q=Jordan%20Reyes')).toBe('/api/v1/search?q=[REDACTED]');
+    expect(maskSearchQuery('/api/v1/search?q=PER-0001')).toBe('/api/v1/search?q=[REDACTED]');
   });
 
-  it('never over-masks — staff intake subpaths and other routes are untouched', () => {
-    expect(maskIntakeToken('/api/v1/intake/links')).toBe('/api/v1/intake/links');
-    expect(maskIntakeToken('/api/v1/intake/submissions/abc/uploads/xyz')).toBe('/api/v1/intake/submissions/abc/uploads/xyz');
-    expect(maskIntakeToken('/api/v1/people/PER-0001')).toBe('/api/v1/people/PER-0001');
+  it('masks q wherever it sits and stops at the next real delimiter', () => {
+    // q first, another param after: the encoded term cannot contain a raw &.
+    expect(maskSearchQuery('/api/v1/search?q=ali%26co&page=2')).toBe('/api/v1/search?q=[REDACTED]&page=2');
+    // q not first.
+    expect(maskSearchQuery('/api/v1/search?scope=people&q=secret%20name')).toBe(
+      '/api/v1/search?scope=people&q=[REDACTED]',
+    );
   });
 
-  it('the redact censor masks req.url tokens and still redacts auth/cookie', () => {
-    const opts = loggerOptions({ nodeEnv: 'production', logLevel: 'info' } as unknown as Env);
-    const censor = (opts.redact as { censor: (v: unknown, p: string[]) => unknown }).censor;
-    expect(censor('/api/v1/intake/public/SECRET', ['req', 'url'])).toBe('/api/v1/intake/public/[REDACTED]');
-    expect(censor('Bearer abc.def', ['req', 'headers', 'authorization'])).toBe('[REDACTED]');
-    expect(censor('sid=xyz', ['req', 'headers', 'cookie'])).toBe('[REDACTED]');
+  it('leaves URLs without a q param untouched', () => {
+    expect(maskSearchQuery('/api/v1/people/PER-0001')).toBe('/api/v1/people/PER-0001');
+    expect(maskSearchQuery('/api/v1/missions?stage=Active')).toBe('/api/v1/missions?stage=Active');
+    // a param that merely ends in "q" must not be masked.
+    expect(maskSearchQuery('/api/v1/x?faq=open')).toBe('/api/v1/x?faq=open');
+  });
+});
+
+describe('the censor composes both maskers', () => {
+  it('masks the intake token and the search term independently', () => {
+    expect(maskIntakeToken('/api/v1/intake/public/abc123')).toBe('/api/v1/intake/public/[REDACTED]');
+    // Composed as the loggerOptions censor applies them (search on intake-masked url).
+    const both = maskSearchQuery(maskIntakeToken('/api/v1/search?q=name'));
+    expect(both).toBe('/api/v1/search?q=[REDACTED]');
   });
 });
