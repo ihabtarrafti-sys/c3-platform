@@ -37,11 +37,14 @@ function Root() {
   return (
     <FluentProvider theme={mode === 'dark' ? c3DarkTheme : c3LightTheme} style={{ background: 'transparent' }}>
       <QueryClientProvider client={queryClient}>
-        <NotificationProvider>
-          <SessionProvider>
+        {/* SessionProvider OUTSIDE so notices can clear on actor/tenant change
+            (UX11) — a notice minted under one identity must never survive into
+            another. SessionProvider does not consume notices. */}
+        <SessionProvider>
+          <NotificationProvider>
             <RouterProvider router={router} />
-          </SessionProvider>
-        </NotificationProvider>
+          </NotificationProvider>
+        </SessionProvider>
       </QueryClientProvider>
     </FluentProvider>
   );

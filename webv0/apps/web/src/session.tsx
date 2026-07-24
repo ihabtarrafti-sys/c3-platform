@@ -160,13 +160,32 @@ const NotifyContext = createContext<NotifyValue | null>(null);
 let noticeSeq = 1;
 
 export function NotificationProvider({ children }: { children: ReactNode }) {
-  const [notices, setNotices] = useState<Notice[]>([]);
-  const notify = useCallback((intent: NotifyIntent, message: string) => {
-    const id = noticeSeq++;
-    setNotices((n) => [...n, { id, intent, message }]);
-  }, []);
+  const { me } = useSession();
+  // The identity a notice belongs to: actor AND tenant. Either changing (a
+  // tenant switch keeps the actor; a re-login keeps neither) must gate it.
+  const identityKey = me ? `${me.userId}@${me.tenantSlug}` : 'anon';
+  const [notices, setNotices] = useState<Array<Notice & { key: string }>>([]);
+
+  // UX11 disclosure fix: on ANY identity change (sign-out, re-login, tenant
+  // switch) drop notices minted under the prior identity, so none can carry a
+  // previous actor's name / id / amount forward.
+  useEffect(() => {
+    setNotices((n) => (n.some((x) => x.key !== identityKey) ? n.filter((x) => x.key === identityKey) : n));
+  }, [identityKey]);
+
+  const notify = useCallback(
+    (intent: NotifyIntent, message: string) => {
+      const id = noticeSeq++;
+      setNotices((n) => [...n, { id, intent, message, key: identityKey }]);
+    },
+    [identityKey],
+  );
   const dismiss = useCallback((id: number) => setNotices((n) => n.filter((x) => x.id !== id)), []);
-  const value = useMemo(() => ({ notices, notify, dismiss }), [notices, notify, dismiss]);
+  // Belt-and-braces: even in the render before the effect runs, only
+  // current-identity notices are exposed — a session-A notice can never RENDER
+  // under session B.
+  const visible = useMemo(() => notices.filter((n) => n.key === identityKey), [notices, identityKey]);
+  const value = useMemo(() => ({ notices: visible, notify, dismiss }), [visible, notify, dismiss]);
   return <NotifyContext.Provider value={value}>{children}</NotifyContext.Provider>;
 }
 
