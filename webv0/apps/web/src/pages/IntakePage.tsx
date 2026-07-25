@@ -198,7 +198,27 @@ function IntakeDesk() {
       }
     >
       {/* ── mint ── */}
+      {/*
+        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+        // GAP: no SUB-SECTION heading primitive, and no global heading reset in
+        //   tablework.css (see CalendarPage for the full statement of this gap).
+        //   This screen holds TWO named sections under one frame title.
+        // WORKAROUND: a <p className="eyebrow"> per section — neither section is a
+        //   heading in the accessibility tree.
+        // CLASS: additive — a SectionHeading primitive is a new export.
+      */}
       <p className="eyebrow">New invitation link</p>
+      {/*
+        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+        // GAP: an inline CREATE form (label + expiry + mint) with no inline-form-row
+        //   primitive in the kit — FormDrawer is the only form container and is a
+        //   drawer, and the sole class producing this row is `collection-filters`,
+        //   CollectionFrame's OWN filter row. These are not filters.
+        // WORKAROUND: hand-roll a <div className="collection-filters"> in the
+        //   frame's children and borrow the filter row's flex/gap rule for a form.
+        // CLASS: additive — a FormRow primitive, or an optional `create` slot on
+        //   CollectionFrame, is a new export; no converted screen changes.
+      */}
       <div className="collection-filters">
         <Field label="Label (optional)">
           <Input value={label} placeholder="e.g. LoL support tryout — Ahmad" onChange={(e) => setLabel(e.target.value)} data-testid="intake-label" />
@@ -218,12 +238,33 @@ function IntakeDesk() {
       </div>
 
       {minted && (
+        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+        // GAP: the kit has no CARD primitive — WorkSurface supplies the material
+        //   but no layout, and the only class supplying padding + grid + gap is
+        //   `collection-frame`, which belongs to CollectionFrame. CollectionFrame
+        //   itself cannot nest here: it renders an <h1> and overwrites
+        //   document.title via usePageTitle.
+        // WORKAROUND: WorkSurface + the borrowed `collection-frame` class.
+        // CLASS: additive — a RecordCard primitive is a new export; every
+        //   converted frame keeps rendering identically.
         <WorkSurface tier="raised" className="collection-frame" data-testid="intake-minted">
           <p className="record-lead">Send this link to the joiner. It is shown only once — copy it now.</p>
-          {/* The whole capability, shown ONCE. `<code>` keeps a monospace face
-              (its UA rule beats the inherited human font) while the kit class
-              supplies the colour, size and overflow-wrap a 256-bit URL-safe
-              token needs — the kit has no mono class that wraps. */}
+          {/*
+            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+            // GAP: the kit has no WRAPPING monospace value. `.mono` is defined ONLY
+            //   as `.data-grid td.mono` and `.fact-list dd.mono` — cell-scoped, so
+            //   className="mono" does nothing here; `record-row-meta` is monospace
+            //   but `white-space: nowrap`, and this is a 256-bit URL-safe token that
+            //   MUST wrap; RecordLink is monospace but is an anchor. This is the
+            //   whole one-time capability, shown once — it cannot be allowed to
+            //   overflow out of view.
+            // WORKAROUND: a raw <code> element for the monospace face (its UA rule
+            //   beats the inherited human font) carrying `record-row-name` purely
+            //   for colour, size and `overflow-wrap: anywhere`.
+            // CLASS: additive — a wrapping mono value (a `.mono-wrap` class or a
+            //   CodeValue primitive) is a new export; the cell-scoped `.mono` rules
+            //   stay exactly as they are.
+          */}
           <code className="record-row-name">{minted}</code>
           <div>
             <button className="secondary-action" type="button" onClick={() => void copyMinted()} data-testid="intake-copy">Copy link</button>
@@ -279,6 +320,14 @@ function IntakeDesk() {
       )}
 
       {/* ── sandbox ── */}
+      {/*
+        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+        // GAP: no SUB-SECTION heading primitive, and no global heading reset in
+        //   tablework.css (see CalendarPage for the full statement of this gap).
+        // WORKAROUND: a <p className="eyebrow"> standing in for the section's
+        //   heading — it is not a heading in the accessibility tree.
+        // CLASS: additive — a SectionHeading primitive is a new export.
+      */}
       <p className="eyebrow">Sandbox — submissions to review</p>
       {sandbox.isLoading && <LoadingState label="Loading submissions…" />}
       {sandbox.isError && (
@@ -311,14 +360,24 @@ function IntakeDesk() {
                     <div className="record-row-meta">{sub.id.slice(0, 8).toUpperCase()} · {sub.uploads.length} file(s)</div>
                     {open && sub.payload && (
                       <>
-                        {/* The whole guest payload, as submitted. Deliberately NOT
-                            a FactList: its <dt> is text-transform: uppercase —
-                            right for authored labels, wrong for DATA. It rendered
-                            the guest's own field names as "FULLNAME" / "IGN"
-                            (observed in the D1 QA pass). These keys are the
-                            submission's own vocabulary and keep their casing, and
-                            the blank marker stays the literal '—' the Fluent page
-                            printed. */}
+                        {/*
+                          // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                          // GAP: FactList is the kit's label/value primitive, but it cannot
+                          //   render DATA-DERIVED keys. Its <dt> is `text-transform:
+                          //   uppercase` — right for an authored label, wrong for a key that
+                          //   came from the wire: the D1 QA pass observed the guest's own
+                          //   field names coming back as "FULLNAME" / "IGN". Its `isEmpty`
+                          //   also substitutes a <span class="unknown-value" aria-label="not
+                          //   set">—</span>, where this screen must print the literal '—' the
+                          //   Fluent page printed for a blank field.
+                          // WORKAROUND: hand-rolled `record-rows` / `record-row-item` /
+                          //   `record-row-name` pairs instead of FactList, so the submission's
+                          //   own vocabulary keeps its casing.
+                          // CLASS: additive — an opt-in variant on FactList (a `literalLabels`
+                          //   prop, or a sibling DataList for wire-derived keys) leaves the
+                          //   authored-label casing correct on every screen already converted.
+                          //   Removing the uppercase from <dt> itself WOULD be contractual.
+                        */}
                         <div className="record-rows">
                           {Object.entries(sub.payload).map(([k, v]) => (
                             <div className="record-row-item" key={k}>
@@ -344,6 +403,18 @@ function IntakeDesk() {
                         {sub.status === 'Promoted' && sub.promotedApprovalId && (
                           <Link className="mini-action" to={`/approvals/${sub.promotedApprovalId}`}>Open approval {sub.promotedApprovalId} →</Link>
                         )}
+                        {/*
+                          // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                          // GAP: no margin-free inline action group. The kit's only generic
+                          //   one, `panel-actions`, adds `margin-top: var(--c3-space-5)` — a
+                          //   panel-FOOT margin that reads as stray vertical space inside a
+                          //   table cell.
+                          // WORKAROUND: borrow `message-actions`, which shares the identical
+                          //   flex rule minus the margin but is named for the Comms Message.
+                          // CLASS: additive — a neutrally-named margin-free action group is a
+                          //   new class. (Dropping the margin from `panel-actions` instead
+                          //   WOULD be contractual — it is load-bearing on panel feet.)
+                        */}
                         {sub.status === 'Promoted' && sub.uploads.length > 0 && (
                           <div className="message-actions">
                             <button className="secondary-action" type="button" onClick={() => void attachFiles(sub)} data-testid={`intake-attach-${sub.id}`}>
@@ -358,6 +429,18 @@ function IntakeDesk() {
                   <td className="mono">{sub.submittedAt.slice(0, 10)}</td>
                   <td><StatusBadge variant={subVariant(sub.status)}>{sub.status}</StatusBadge></td>
                   <td>
+                    {/*
+                      // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                      // GAP: no margin-free inline action group. The kit's only generic
+                      //   one, `panel-actions`, adds `margin-top: var(--c3-space-5)` — a
+                      //   panel-FOOT margin that reads as stray vertical space inside a
+                      //   table cell.
+                      // WORKAROUND: borrow `message-actions`, which shares the identical
+                      //   flex rule minus the margin but is named for the Comms Message.
+                      // CLASS: additive — a neutrally-named margin-free action group is a
+                      //   new class. (Dropping the margin from `panel-actions` instead
+                      //   WOULD be contractual — it is load-bearing on panel feet.)
+                    */}
                     <div className="message-actions">
                       <button className="quiet-action" type="button" onClick={() => { setOpenId(open ? null : sub.id); setNote(''); }} data-testid={`intake-open-${sub.id}`}>
                         {open ? 'Hide' : 'View'}

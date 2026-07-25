@@ -51,6 +51,16 @@ const EMPTY: FormState = { name: '', vendorName: '', amount: '', currency: 'USD'
  *    amount on this screen. The ordering inconsistency is a known product item
  *    with the owner — NOT conversion work. Kept local, byte-identical.
  */
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has NO money DISPLAY capability at all — `tablework/
+//   money.ts` is parse-only. The product's only formatter, `formatMoney`
+//   (@c3web/domain), renders code-FIRST separated by U+00A0 ("USD 99.00"),
+//   which is the reverse of this register's frozen output ("99.00 USD").
+// WORKAROUND: a screen-local `fmt` that renders amount-then-code, kept
+//   byte-identical to the Fluent page so no visible amount moves.
+// CLASS: contractual — the honest fix is ONE order for the whole product, and
+//   settling it (either way) changes what every already-converted, already-
+//   gated money screen renders. It is not something a screen can opt into.
 const fmt = (minor: number, currency: string) => `${(minor / 100).toFixed(2)} ${currency}`;
 
 export function SubscriptionsPage() {
@@ -94,6 +104,17 @@ function SubscriptionsRegister() {
   };
 
   async function submit(): Promise<void> {
+    // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+    // GAP: the kit ships exactly one amount parser — `positiveAmountToMinor` —
+    //   and it REJECTS zero. This register accepts 0.00 today, so adopting it
+    //   would make a 0.00 subscription unsaveable. money.ts already ships the
+    //   zero-allowed / zero-rejected PAIR on the percent side (percentToBps /
+    //   positivePercentToBps); the amount side has only the rejecting half.
+    // WORKAROUND: bypass the kit and call the domain's `parseDecimalToMinor`
+    //   directly, guarded with `=== null` (not `== null`, not falsy) so 0 lives.
+    // CLASS: additive — an `amountToMinor` export beside `positiveAmountToMinor`
+    //   completes the pair the module's own naming already implies, and changes
+    //   no converted call site.
     const amountMinor = parseDecimalToMinor(f.amount);
     // `=== null` (not `== null`, not falsy): 0 is a valid amount here.
     if (amountMinor === null) return notify('error', 'Enter a valid amount (up to 2 decimals).');
@@ -192,8 +213,19 @@ function SubscriptionsRegister() {
                   <td><StatusBadge variant={sub.status === 'Active' ? 'ready' : 'neutral'}>{sub.status}</StatusBadge></td>
                   {canManage && (
                     <td>
-                      {/* the margin-free inline action group — `panel-actions`
-                          carries a margin-top meant for a panel foot. */}
+                      {/*
+                        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                        // GAP: the kit has no margin-free inline action group. Its only
+                        //   generic one, `panel-actions`, adds `margin-top: var(--c3-space-5)`
+                        //   — a panel-FOOT margin that reads as stray vertical space when the
+                        //   group sits inside a table cell.
+                        // WORKAROUND: borrow `message-actions`, which shares the identical
+                        //   flex rule minus the margin but is named for the Comms Message.
+                        // CLASS: additive — the two classes already share one declaration
+                        //   block; a neutrally-named margin-free action group breaks nothing
+                        //   already converted. (Dropping the margin from `panel-actions`
+                        //   instead WOULD be contractual — it is load-bearing on panel feet.)
+                      */}
                       <div className="message-actions">
                         <button className="quiet-action" type="button" onClick={() => openEdit(sub)} data-testid={`subs-edit-${sub.subscriptionId}`}>Edit</button>
                         {sub.status === 'Active' ? (

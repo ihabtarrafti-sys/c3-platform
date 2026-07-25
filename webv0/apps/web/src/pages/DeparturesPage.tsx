@@ -129,6 +129,19 @@ function DeparturesWorkflow() {
         </>
       }
     >
+      {/*
+        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+        // GAP: this is an inline CREATE form (pick a person, give a reason, start),
+        //   and the kit has no inline-form-row primitive or slot for one.
+        //   CollectionFrame has a `filters` slot but these are not filters, and
+        //   FormDrawer is the only form container — a drawer, wrong for a
+        //   permanently-visible row. The one layout class that produces the row is
+        //   `collection-filters`, which is CollectionFrame's OWN filter row.
+        // WORKAROUND: hand-roll a <div className="collection-filters"> in the
+        //   frame's children and borrow the filter row's flex/gap rule for a form.
+        // CLASS: additive — a FormRow primitive, or an optional `create` slot on
+        //   CollectionFrame, is a new export; no converted screen changes.
+      */}
       <div className="collection-filters">
         <Field label="Person">
           <Selector
@@ -156,6 +169,17 @@ function DeparturesWorkflow() {
       {data && rows.length === 0 && <EmptyState data-testid="departures-empty" message="No departures — no one is offboarding." />}
 
       {open.map((d) => (
+        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+        // GAP: the kit has no CARD primitive — a padded, vertically-rhythmed panel
+        //   with a heading, a body and an action foot. WorkSurface supplies the
+        //   material (tier/opacity) but no layout at all, and the only class that
+        //   supplies the padding + grid + gap is `collection-frame`, which belongs
+        //   to CollectionFrame. CollectionFrame itself cannot be nested here: it
+        //   renders an <h1> and OVERWRITES document.title via usePageTitle.
+        // WORKAROUND: WorkSurface + the borrowed `collection-frame` class.
+        // CLASS: additive — a RecordCard primitive (or lifting the layout out of
+        //   `collection-frame` into a class CollectionFrame also uses) is a new
+        //   export that leaves every converted frame rendering identically.
         <WorkSurface as="article" tier="elevated" className="collection-frame" key={d.departure.departureId} data-testid={`departure-${d.departure.departureId}`}>
           <header className="surface-heading">
             <div>
@@ -167,8 +191,25 @@ function DeparturesWorkflow() {
             <StatusBadge variant="pending">In progress</StatusBadge>
           </header>
 
+          {/*
+            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+            // GAP: no SUB-SECTION heading primitive, and no global heading reset in
+            //   tablework.css (see CalendarPage for the full statement of this gap).
+            // WORKAROUND: a <p className="eyebrow"> standing in for a heading — the
+            //   checklist group carries none in the accessibility tree.
+            // CLASS: additive — a SectionHeading primitive is a new export.
+          */}
           <p className="eyebrow">Still open · {d.openItems.length}</p>
           {d.openItems.length === 0 ? (
+            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+            // GAP: the kit has no success-toned quiet line. `record-quiet` is the
+            //   quiet sentence but is ink-quiet only; the two success-coloured
+            //   things that exist are both BADGES, not sentences — StatusBadge
+            //   variant="ready" (dot + label) and `.state-label.success` (a pill).
+            // WORKAROUND: an INLINE STYLE putting the raw --c3-state-success token
+            //   on the element, overriding `record-quiet`'s colour.
+            // CLASS: additive — a tone modifier (e.g. `.record-quiet.success`) is a
+            //   new class; `record-quiet`'s own default colour does not move.
             <p className="record-quiet" style={{ color: 'var(--c3-state-success)' }} data-testid={`departure-clear-${d.departure.departureId}`}>Everything is closed — ready to complete.</p>
           ) : (
             <div className="record-rows">
@@ -214,6 +255,15 @@ function DeparturesWorkflow() {
 
       {closed.length > 0 && (
         <div>
+          {/*
+            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+            // GAP: no SUB-SECTION heading primitive, and ComparisonTable takes no
+            //   visible caption (see CalendarPage for the full statement).
+            // WORKAROUND: a <p className="eyebrow"> above the table, standing in for
+            //   the caption the table cannot render.
+            // CLASS: additive — a `caption` prop on ComparisonTable, or a
+            //   SectionHeading primitive, is a new export.
+          */}
           <p className="eyebrow">Closed</p>
           <ComparisonTable label="Closed departures" testId="departures-closed">
             <tbody>

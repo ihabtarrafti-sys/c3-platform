@@ -111,6 +111,15 @@ function CalendarHorizon() {
         </>
       }
       filters={
+        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+        // GAP: CollectionFrame offers a `filters` SLOT but the kit ships no
+        //   filter-row VOCABULARY to put in it — no neutral row label and no
+        //   chip/toggle primitive. The only two that exist are named for other
+        //   features: `saved-views-label` belongs to SavedViews and
+        //   `search-chip` / `search-chips` belong to ShellSearch.
+        // WORKAROUND: borrow both, hand-rolled as raw <span>/<button> here.
+        // CLASS: additive — a FilterChip primitive plus a neutral filter-label
+        //   class are new names; the borrowed ones keep working untouched.
         <>
           <span className="saved-views-label">Horizon</span>
           {HORIZONS.map((h) => (
@@ -141,6 +150,16 @@ function CalendarHorizon() {
 
       {data && all.length > 0 && (
         <>
+          {/*
+            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+            // GAP: same missing filter-row vocabulary as the `filters` slot above —
+            //   the kit has no chip/toggle primitive, only ShellSearch's
+            //   `search-chips` / `search-chip` / `.active` classes.
+            // WORKAROUND: hand-rolled <button> elements carrying ShellSearch's
+            //   classes, rendered in the frame's CHILDREN rather than its filter
+            //   slot because this row only exists once the data has loaded.
+            // CLASS: additive — a FilterChip primitive is a new export.
+          */}
           {kindsPresent.length > 1 && (
             <div className="search-chips" data-testid="calendar-chips">
               <button type="button" className={kindFilter === null ? 'search-chip active' : 'search-chip'} onClick={() => setKindFilter(null)}>
@@ -162,6 +181,23 @@ function CalendarHorizon() {
 
           {buckets.map(([bucket, rows]) => (
             <div key={bucket}>
+              {/*
+                // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                // GAP: the kit has no SUB-SECTION heading. CollectionFrame owns the
+                //   <h1>, ComparisonTable takes no visible caption/title, and
+                //   tablework.css carries NO global heading reset — <h2> is styled
+                //   only under a scoped ancestor (.surface-heading h2,
+                //   .record-section h2, …), so a bare <h2 className="eyebrow"> would
+                //   keep the UA's 0.83em margins and open a gap the design never
+                //   asked for.
+                // WORKAROUND: a <p className="eyebrow"> styled as a heading. It looks
+                //   right and matches how the kit itself writes eyebrows, but the
+                //   bucket group gets NO heading in the accessibility tree.
+                // CLASS: additive — a SectionHeading primitive (or a `caption` prop on
+                //   ComparisonTable) is a new export. Adding a global heading reset to
+                //   tablework.css instead WOULD be contractual: it would move every
+                //   heading on every screen already converted and gated.
+              */}
               <p className="eyebrow">{bucket} · {rows.length}</p>
               <ComparisonTable label={`${bucket} items`} testId={`calendar-bucket-${bucket.replace(/\s+/g, '-').toLowerCase()}`}>
                 <tbody>
