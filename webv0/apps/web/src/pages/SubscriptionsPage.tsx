@@ -192,7 +192,9 @@ function SubscriptionsRegister() {
                   <td><StatusBadge variant={sub.status === 'Active' ? 'ready' : 'neutral'}>{sub.status}</StatusBadge></td>
                   {canManage && (
                     <td>
-                      <div className="panel-actions">
+                      {/* the margin-free inline action group — `panel-actions`
+                          carries a margin-top meant for a panel foot. */}
+                      <div className="message-actions">
                         <button className="quiet-action" type="button" onClick={() => openEdit(sub)} data-testid={`subs-edit-${sub.subscriptionId}`}>Edit</button>
                         {sub.status === 'Active' ? (
                           <GovernedAction
