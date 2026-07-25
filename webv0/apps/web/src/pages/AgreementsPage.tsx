@@ -1,27 +1,38 @@
 import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { agreementRenewalStateOn, parseDecimalToMinor, type AgreementRenewalState } from '@c3web/domain';
 import { useAgreements, useEntities, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  RecordLink,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  DateInput,
+  Selector,
+  FormDrawer,
+  GovernedAction,
+  type SelectorOption,
+} from '../tablework';
 import { agreementRenewalStateOf, formatUsdCents } from '../labels';
 
 /**
  * Agreements (Sprint 41) — contracts, NDAs, addendums, MOUs in one governed
- * register. Role-differentiated: hr/visitor never reach this page (nav is
+ * register, on the Tablework frame (pivot W2 Lane A; behaviour, testids and
+ * copy verbatim). Role-differentiated: hr/visitor never reach this page (nav is
  * hidden and the page fails closed); legal sees no financial column. The
  * 30/60/90 renewal windows are DERIVED filters over the same truthful list.
  */
 
+/** NO-TOUCH: LOCAL calendar components, never toISOString. */
 function localTodayIso(): string {
   const d = new Date();
   const p = (n: number, w = 2) => String(n).padStart(w, '0');
@@ -36,20 +47,27 @@ const FILTERS: Array<{ key: 'all' | AgreementRenewalState; label: string }> = [
   { key: 'Expired', label: 'Expired' },
 ];
 
-const useStyles = makeStyles({
-  personSelect: { minWidth: '260px' },
-  filters: { display: 'flex', columnGap: '8px', flexWrap: 'wrap', marginBottom: '16px' },
-});
+const FILTER_GROUP: React.CSSProperties = { display: 'flex', columnGap: '8px', flexWrap: 'wrap' };
 
 export function AgreementsPage() {
-  const s = useStyles();
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Agreements" section="Register" wide>
+      <AgreementsRegister />
+    </TableworkPage>
+  );
+}
+
+function AgreementsRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const canRead = me?.capabilities.canReadAgreements ?? false;
   const canSubmit = me?.capabilities.canSubmitApproval ?? false;
   const showValue = me?.capabilities.canViewFinancials ?? false;
+  // THE WIRE LAW: each capability IS the react-query `enabled` flag and stays
+  // the `enabled` flag — a role that may not read agreements never receives
+  // the register, and the composer's people/entities lists are fetched only
+  // for a role that can actually submit.
   const { data, isLoading, isError, error } = useAgreements(canRead);
   const people = usePeople(canRead && canSubmit);
   const entities = useEntities(canRead && canSubmit);
@@ -82,16 +100,25 @@ export function AgreementsPage() {
 
   if (!canRead) {
     return (
-      <div>
-        <PageHeader title="Agreements" />
+      <CollectionFrame title="Agreements">
         <EmptyState data-testid="agreements-denied" message="Agreements are unavailable for your role." />
-      </div>
+      </CollectionFrame>
     );
   }
 
   async function submitCreate() {
     try {
       // M-02: exact-decimal law — a malformed value is a refusal, not a rounded guess.
+      //
+      // ⚠️ MONEY, DO NOT CONSOLIDATE. This screen accepts 0 deliberately, so the
+      // kit's `positiveAmountToMinor` (which rejects zero) is NOT a valid
+      // replacement — its zero-policy differs.
+      //
+      // ⚠️ The guard below is STRICT `=== null` on purpose. `parsedCents` is
+      // `undefined` when the field is empty (no value stated — legitimate, and
+      // the norm for entity-level agreements), and `null` only when the input is
+      // malformed. Loosening this to `== null` would refuse every value-less
+      // agreement.
       const parsedCents = valueUsd.trim() === '' ? undefined : parseDecimalToMinor(valueUsd);
       if (parsedCents === null) {
         notify('error', 'The value must be a plain amount with at most 2 decimals (e.g. 2500 or 2500.50).');
@@ -120,6 +147,9 @@ export function AgreementsPage() {
   }
 
   // THE ANCHOR RULE: a person, an entity, or both — never neither.
+  // ⚠️ The value check is a LAX `Number()` on purpose: readiness must not be
+  // stricter than the submit-time parser, or Submit disables itself with no
+  // message. Tightening it here would silently strand the user.
   const ready =
     (personId !== '' || entityId !== '') &&
     agreementType.trim() !== '' &&
@@ -129,14 +159,125 @@ export function AgreementsPage() {
     (valueUsd.trim() === '' || !Number.isNaN(Number(valueUsd)));
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-agreement-toggle">
+    <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-agreement-toggle">
       Add agreement
-    </Button>
+    </button>
   ) : undefined;
 
+  const personOptions: SelectorOption[] = [
+    { value: '', label: 'No person — entity-level' },
+    ...(people.data?.people ?? []).map((p) => ({ value: p.personId, label: `${p.fullName} (${p.personId})` })),
+  ];
+  const entityOptions: SelectorOption[] = [
+    { value: '', label: 'Not assigned' },
+    ...activeEntities.map((e) => ({ value: e.entityId, label: `${e.name} (${e.jurisdiction})` })),
+  ];
+  const linkOptions: SelectorOption[] = [
+    { value: '', label: 'Not linked' },
+    ...(data?.agreements ?? []).map((a) => ({ value: a.agreementId, label: `${a.agreementId} — ${a.agreementType}` })),
+  ];
+
+  const filters = (
+    <div role="group" aria-label="Renewal window filter" style={FILTER_GROUP}>
+      {FILTERS.map((f) => (
+        <button
+          key={f.key}
+          type="button"
+          className={filter === f.key ? 'primary-action' : 'secondary-action'}
+          aria-pressed={filter === f.key}
+          onClick={() => setFilter(f.key)}
+          data-testid={`agreements-filter-${f.key}`}
+        >
+          {f.label}
+        </button>
+      ))}
+    </div>
+  );
+
   return (
-    <div>
-      <PageHeader kicker="Register" title="Agreements" context={data ? `${rows.length} in this view` : undefined} actions={addAction} />
+    <>
+      <CollectionFrame
+        kicker="Register"
+        title="Agreements"
+        count={data ? `${rows.length} in this view` : undefined}
+        actions={addAction}
+        filters={filters}
+      >
+        {isLoading && <LoadingState label="Loading agreements…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load agreements.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && rows.length === 0 && (
+          <EmptyState
+            data-testid="agreements-empty"
+            message={filter === 'all' ? 'No agreements yet.' : 'Nothing in this renewal window.'}
+            action={
+              canSubmit && filter === 'all' ? (
+                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="agreements-empty-add">
+                  Add agreement
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+        {/* M2 — the count is stated ONCE, in CollectionFrame's header. The old
+            r.count footer repeated it; no testid, no spec asserted its text. */}
+        {data && rows.length > 0 && (
+          <ComparisonTable label="Agreements register" testId="agreements-table">
+            <thead>
+              <tr>
+                <th>Agreement</th>
+                <th>Code</th>
+                <th>Person</th>
+                <th>Entity</th>
+                <th>Type</th>
+                <th>Ends</th>
+                {showValue && <th>Value</th>}
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((a) => {
+                const badge = agreementRenewalStateOf(a.renewalState);
+                return (
+                  <tr key={a.agreementId} data-testid={`agreement-row-${a.agreementId}`}>
+                    <td>
+                      <RecordLink to={`/agreements/${a.agreementId}`} data-testid={`agreement-link-${a.agreementId}`}>
+                        {a.agreementId}
+                      </RecordLink>
+                    </td>
+                    <td>{a.agreementCode ?? '—'}</td>
+                    <td data-testid={`agreement-person-${a.agreementId}`}>
+                      {a.personId ? <RecordLink to={`/people/${a.personId}`}>{a.personId}</RecordLink> : '—'}
+                    </td>
+                    <td data-testid={`agreement-entity-${a.agreementId}`}>{entityName(a.entityId)}</td>
+                    <td>{a.agreementType}</td>
+                    {/* NEGATIVE contract: the oracle pins raw ISO here
+                        ('2027-07-31'). formatDisplayDate must NOT be adopted. */}
+                    <td>{a.endsOn}</td>
+                    {showValue && (
+                      <td data-testid={`agreement-value-${a.agreementId}`}>
+                        {/* formatUsdCents is symbol-first ("$250,000.00") with a
+                            null -> '—' branch. formatMinor is code-first and has
+                            no null branch — they are NOT interchangeable. */}
+                        {formatUsdCents(a.valueUsdCents)}
+                      </td>
+                    )}
+                    <td>
+                      <StatusBadge variant={badge.variant} data-testid={`agreement-status-${a.agreementId}`}>
+                        {badge.label}
+                      </StatusBadge>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </ComparisonTable>
+        )}
+      </CollectionFrame>
 
       {canSubmit && (
         <FormDrawer
@@ -158,185 +299,68 @@ export function AgreementsPage() {
           }
         >
           <Field label="Person" hint="Optional for entity-level agreements (sponsorships, partnership fees) — anchor to an entity below instead.">
-            <Dropdown
-              className={s.personSelect}
-              placeholder="Select a person"
-              value={personLabel}
-              selectedOptions={personId ? [personId] : []}
-              onOptionSelect={(_, d) => {
-                setPersonId(d.optionValue ?? '');
-                setPersonLabel(d.optionValue ? (d.optionText ?? '') : '');
-              }}
+            <Selector
               data-testid="add-agreement-person"
-            >
-              <Option value="" text="No person — entity-level">
-                No person — entity-level
-              </Option>
-              {(people.data?.people ?? []).map((p) => (
-                <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>
-                  {`${p.fullName} (${p.personId})`}
-                </Option>
-              ))}
-            </Dropdown>
+              placeholder="Select a person"
+              value={personId}
+              // The list carries a real ''-valued "No person" option, so the kit
+              // would otherwise show that option's label when nothing is chosen.
+              // `display` keeps the Fluent trigger text byte-for-byte.
+              display={personLabel === '' ? 'Select a person' : personLabel}
+              options={personOptions}
+              onSelect={(value, label) => {
+                setPersonId(value);
+                setPersonLabel(value ? label : '');
+              }}
+            />
           </Field>
           {activeEntities.length > 0 && (
             <Field label="Under entity" hint="Which of your legal entities this agreement sits under. Required when no person is selected.">
-              <Dropdown
-                className={s.personSelect}
-                placeholder="Not assigned"
-                value={entityLabel}
-                selectedOptions={entityId ? [entityId] : []}
-                onOptionSelect={(_, d) => {
-                  setEntityId(d.optionValue ?? '');
-                  setEntityLabel(d.optionValue ? (d.optionText ?? '') : '');
-                }}
+              <Selector
                 data-testid="add-agreement-entity"
-              >
-                <Option value="" text="Not assigned">
-                  Not assigned
-                </Option>
-                {activeEntities.map((e) => (
-                  <Option key={e.entityId} value={e.entityId} text={`${e.name} (${e.jurisdiction})`}>
-                    {`${e.name} (${e.jurisdiction})`}
-                  </Option>
-                ))}
-              </Dropdown>
+                placeholder="Not assigned"
+                value={entityId}
+                display={entityLabel === '' ? 'Not assigned' : entityLabel}
+                options={entityOptions}
+                onSelect={(value, label) => {
+                  setEntityId(value);
+                  setEntityLabel(value ? label : '');
+                }}
+              />
             </Field>
           )}
           <Field label="Agreement type" required hint='e.g. "Player Contract", "NDA", "Addendum"'>
-            <Input value={agreementType} onChange={(_, d) => setAgreementType(d.value)} data-testid="add-agreement-type" />
+            <Input value={agreementType} onChange={(e) => setAgreementType(e.target.value)} data-testid="add-agreement-type" />
           </Field>
           <Field label="Agreement code">
-            <Input value={agreementCode} onChange={(_, d) => setAgreementCode(d.value)} data-testid="add-agreement-code" />
+            <Input value={agreementCode} onChange={(e) => setAgreementCode(e.target.value)} data-testid="add-agreement-code" />
           </Field>
           <Field label="Linked to (parent agreement)">
-            <Dropdown
-              className={s.personSelect}
-              placeholder="Not linked"
-              value={linkedLabel}
-              selectedOptions={linkedId ? [linkedId] : []}
-              onOptionSelect={(_, d) => {
-                setLinkedId(d.optionValue ?? '');
-                setLinkedLabel(d.optionValue ? (d.optionText ?? '') : '');
-              }}
+            <Selector
               data-testid="add-agreement-link"
-            >
-              <Option value="" text="Not linked">
-                Not linked
-              </Option>
-              {(data?.agreements ?? []).map((a) => (
-                <Option key={a.agreementId} value={a.agreementId} text={`${a.agreementId} — ${a.agreementType}`}>
-                  {`${a.agreementId} — ${a.agreementType}`}
-                </Option>
-              ))}
-            </Dropdown>
+              placeholder="Not linked"
+              value={linkedId}
+              display={linkedLabel === '' ? 'Not linked' : linkedLabel}
+              options={linkOptions}
+              onSelect={(value, label) => {
+                setLinkedId(value);
+                setLinkedLabel(value ? label : '');
+              }}
+            />
           </Field>
           <Field label="Starts on" required>
-            <Input type="date" value={startsOn} onChange={(_, d) => setStartsOn(d.value)} data-testid="add-agreement-starts" />
+            <DateInput value={startsOn} onChange={(e) => setStartsOn(e.target.value)} data-testid="add-agreement-starts" />
           </Field>
           <Field label="Ends on" required>
-            <Input type="date" value={endsOn} onChange={(_, d) => setEndsOn(d.value)} data-testid="add-agreement-ends" />
+            <DateInput value={endsOn} onChange={(e) => setEndsOn(e.target.value)} data-testid="add-agreement-ends" />
           </Field>
           {showValue && (
             <Field label="Value (USD)">
-              <Input type="number" value={valueUsd} onChange={(_, d) => setValueUsd(d.value)} data-testid="add-agreement-value" />
+              <Input type="number" value={valueUsd} onChange={(e) => setValueUsd(e.target.value)} data-testid="add-agreement-value" />
             </Field>
           )}
         </FormDrawer>
       )}
-
-      <div className={s.filters} role="group" aria-label="Renewal window filter">
-        {FILTERS.map((f) => (
-          <Button
-            key={f.key}
-            size="small"
-            appearance={filter === f.key ? 'primary' : 'secondary'}
-            onClick={() => setFilter(f.key)}
-            data-testid={`agreements-filter-${f.key}`}
-          >
-            {f.label}
-          </Button>
-        ))}
-      </div>
-
-      {isLoading && <LoadingState label="Loading agreements…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load agreements.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && rows.length === 0 && (
-        <EmptyState
-          data-testid="agreements-empty"
-          message={filter === 'all' ? 'No agreements yet.' : 'Nothing in this renewal window.'}
-          action={
-            canSubmit && filter === 'all' ? (
-              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="agreements-empty-add">
-                Add agreement
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-      {data && rows.length > 0 && (
-        <>
-          <table className={r.table} data-testid="agreements-table" aria-label="Agreements register">
-            <thead>
-              <tr>
-                <th className={r.th}>Agreement</th>
-                <th className={r.th}>Code</th>
-                <th className={r.th}>Person</th>
-                <th className={r.th}>Entity</th>
-                <th className={r.th}>Type</th>
-                <th className={r.th}>Ends</th>
-                {showValue && <th className={r.th}>Value</th>}
-                <th className={r.th}>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((a) => {
-                const badge = agreementRenewalStateOf(a.renewalState);
-                return (
-                  <tr key={a.agreementId} className={r.row} data-testid={`agreement-row-${a.agreementId}`}>
-                    <td className={r.td}>
-                      <Link className={r.idLink} to={`/agreements/${a.agreementId}`} data-testid={`agreement-link-${a.agreementId}`}>
-                        {a.agreementId}
-                      </Link>
-                    </td>
-                    <td className={r.td}>{a.agreementCode ?? '—'}</td>
-                    <td className={r.td} data-testid={`agreement-person-${a.agreementId}`}>
-                      {a.personId ? (
-                        <Link className={r.idLink} to={`/people/${a.personId}`}>
-                          {a.personId}
-                        </Link>
-                      ) : (
-                        '—'
-                      )}
-                    </td>
-                    <td className={r.td} data-testid={`agreement-entity-${a.agreementId}`}>{entityName(a.entityId)}</td>
-                    <td className={`${r.td} ${r.name}`}>{a.agreementType}</td>
-                    <td className={r.td}>{a.endsOn}</td>
-                    {showValue && (
-                      <td className={r.td} data-testid={`agreement-value-${a.agreementId}`}>
-                        {formatUsdCents(a.valueUsdCents)}
-                      </td>
-                    )}
-                    <td className={r.td}>
-                      <StatusBadge variant={badge.variant} data-testid={`agreement-status-${a.agreementId}`}>
-                        {badge.label}
-                      </StatusBadge>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className={r.count}>
-            {rows.length} {rows.length === 1 ? 'agreement' : 'agreements'}
-          </div>
-        </>
-      )}
-    </div>
+    </>
   );
 }
