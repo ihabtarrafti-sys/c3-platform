@@ -11,7 +11,6 @@ import {
   CollectionFrame,
   ComparisonTable,
   WorkSurface,
-  FactList,
   StatusBadge,
   EmptyState,
   ErrorState,
@@ -312,14 +311,23 @@ function IntakeDesk() {
                     <div className="record-row-meta">{sub.id.slice(0, 8).toUpperCase()} · {sub.uploads.length} file(s)</div>
                     {open && sub.payload && (
                       <>
-                        {/* The whole guest payload, as submitted. FactList carries
-                            the honest-absence marker for a field left blank. */}
-                        <FactList
-                          items={Object.entries(sub.payload).map(([k, v]) => ({
-                            label: k,
-                            value: v === null || v === undefined || v === '' ? null : String(v),
-                          }))}
-                        />
+                        {/* The whole guest payload, as submitted. Deliberately NOT
+                            a FactList: its <dt> is text-transform: uppercase —
+                            right for authored labels, wrong for DATA. It rendered
+                            the guest's own field names as "FULLNAME" / "IGN"
+                            (observed in the D1 QA pass). These keys are the
+                            submission's own vocabulary and keep their casing, and
+                            the blank marker stays the literal '—' the Fluent page
+                            printed. */}
+                        <div className="record-rows">
+                          {Object.entries(sub.payload).map(([k, v]) => (
+                            <div className="record-row-item" key={k}>
+                              <span className="record-row-name">{k}</span>
+                              <span className="record-row-spacer" />
+                              <span className="record-row-name">{v === null || v === undefined || v === '' ? '—' : String(v)}</span>
+                            </div>
+                          ))}
+                        </div>
                         {sub.uploads.length > 0 && (
                           <div className="record-rows">
                             {sub.uploads.map((u) => (
