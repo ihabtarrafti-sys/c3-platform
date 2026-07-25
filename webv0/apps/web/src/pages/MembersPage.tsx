@@ -1,18 +1,25 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option, Text, makeStyles } from '@fluentui/react-components';
 import type { MemberDto } from '../api';
 import { useMembers } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { IS_ENTRA } from '../auth';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  Selector,
+  FormDrawer,
+  GovernedAction,
+} from '../tablework';
 
 /**
  * Members (Sprint 35 tenant-admin) — the organization's access register.
@@ -23,41 +30,49 @@ import { FormDrawer } from '../components/FormDrawer';
  * Identity fields: production (entra build) binds the immutable Entra
  * (tenant id, object id) key — collected from the Entra profile exactly as the
  * onboarding runbook documents. The dev build binds the dev-IdP key (email).
+ *
+ * Tablework conversion (pivot W2, Lane C). EMAIL IS BAKED INTO THE TESTIDS
+ * (`member-row-${email}` and the four row triggers) — members.spec addresses
+ * every row and every action by address, so none of them may be re-keyed to
+ * userId however much tidier that would read. `isSelf` (no row actions on your
+ * own access) stays enforced by NOT RENDERING the actions, and the denial
+ * keeps its own `members-denied` testid: denied is not empty.
  */
 const ROLES = ['owner', 'operations', 'legal', 'finance', 'hr', 'management', 'visitor'] as const;
 
-const useStyles = makeStyles({
-  actionsCell: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
-  roleSelect: { minWidth: '160px' },
-});
+const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r }));
+
+/** The row's governed triggers — flex-start, never the flex-end panel rhythm. */
+const ACTIONS_CELL: React.CSSProperties = { display: 'flex', columnGap: 'var(--c3-space-2)', flexWrap: 'wrap' };
 
 function RolePicker({ value, onChange, testId }: { value: string; onChange: (r: string) => void; testId: string }) {
-  const s = useStyles();
   return (
-    <Dropdown
-      className={s.roleSelect}
-      value={value}
-      selectedOptions={[value]}
-      onOptionSelect={(_, d) => d.optionValue && onChange(d.optionValue)}
+    <Selector
       data-testid={testId}
-    >
-      {ROLES.map((r) => (
-        <Option key={r} value={r}>
-          {r}
-        </Option>
-      ))}
-    </Dropdown>
+      style={{ minWidth: '160px' }}
+      value={value}
+      options={ROLE_OPTIONS}
+      onSelect={(v) => onChange(v)}
+    />
   );
 }
 
 export function MembersPage() {
-  const s = useStyles();
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Members" section="Register" wide>
+      <MembersRegister />
+    </TableworkPage>
+  );
+}
+
+function MembersRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const canRead = me?.capabilities.canReadMembers ?? false;
   const canChange = me?.capabilities.canSubmitMemberChange ?? false;
+  // The wire law: the capability IS the `enabled` flag — the access register
+  // never reaches a browser without standing to read it.
   const { data, isLoading, isError, error } = useMembers(canRead);
 
   const [showForm, setShowForm] = useState(false);
@@ -70,10 +85,9 @@ export function MembersPage() {
 
   if (!canRead) {
     return (
-      <div>
-        <PageHeader title="Members" />
+      <CollectionFrame title="Members">
         <EmptyState data-testid="members-denied" message="Organization members are not available for your role." />
-      </div>
+      </CollectionFrame>
     );
   }
 
@@ -108,73 +122,38 @@ export function MembersPage() {
     email.trim() !== '' && displayName.trim() !== '' && (!IS_ENTRA || (oid.trim() !== '' && issuerTid.trim() !== ''));
 
   const addAction = canChange ? (
-    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="provision-member-toggle">
+    <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="provision-member-toggle">
       Provision Member
-    </Button>
+    </button>
   ) : undefined;
 
   return (
-    <div>
-      <PageHeader kicker="Register" title="Members" context={data ? `${data.members.length} in this organization` : undefined} actions={addAction} />
-
-      {canChange && (
-        <FormDrawer
-          open={showForm}
-          onClose={() => setShowForm(false)}
-          eyebrow="Provision member"
-          mode="governed"
-          intro="Member changes go through approval — an owner must review and execute before access changes."
-          footer={
-            <GovernedAction
-              triggerLabel="Submit for approval"
-              triggerTestId="provision-submit"
-              triggerDisabled={!provisionReady}
-              title="Request this member provision?"
-              description="Submitting creates an approval request. The member is not provisioned until an owner (other than you) approves and executes it."
-              confirmLabel="Submit for approval"
-              onConfirm={submitProvision}
-            />
-          }
-        >
-          <Field label="Email" required>
-            <Input value={email} onChange={(_, d) => setEmail(d.value)} data-testid="provision-email" />
-          </Field>
-          <Field label="Display name" required>
-            <Input value={displayName} onChange={(_, d) => setDisplayName(d.value)} data-testid="provision-name" />
-          </Field>
-          <Field label="Role" required>
-            <RolePicker value={role} onChange={setRole} testId="provision-role" />
-          </Field>
-          {IS_ENTRA && (
-            <>
-              <Field label="Entra Object ID (oid)" required hint="From the user's Entra profile — the immutable identity key.">
-                <Input value={oid} onChange={(_, d) => setOid(d.value)} data-testid="provision-oid" />
-              </Field>
-              <Field label="Entra tenant ID" required hint="The issuing tenant (B2B guests carry this organization's tenant id).">
-                <Input value={issuerTid} onChange={(_, d) => setIssuerTid(d.value)} data-testid="provision-tid" />
-              </Field>
-            </>
-          )}
-        </FormDrawer>
-      )}
-
-      {isLoading && <LoadingState label="Loading members…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load members.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.members.length > 0 && (
-        <>
-          <table className={r.table} data-testid="members-table" aria-label="Members register">
+    <>
+      <CollectionFrame
+        kicker="Register"
+        title="Members"
+        count={data ? `${data.members.length} in this organization` : undefined}
+        actions={addAction}
+      >
+        {isLoading && <LoadingState label="Loading members…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load members.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {/* No empty branch: this register has never had one (an organization
+            always has at least the reader), and inventing one would add an
+            unasserted surface. M2: the count lives ONCE, in the header. */}
+        {data && data.members.length > 0 && (
+          <ComparisonTable label="Members register" testId="members-table">
             <thead>
               <tr>
-                <th className={r.th}>Member</th>
-                <th className={r.th}>Email</th>
-                <th className={r.th}>Role</th>
-                <th className={r.th}>Status</th>
-                {canChange && <th className={r.th}>Request change</th>}
+                <th>Member</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th>Status</th>
+                {canChange && <th>Request change</th>}
               </tr>
             </thead>
             <tbody>
@@ -182,19 +161,21 @@ export function MembersPage() {
                 const isSelf = m.email === me?.identity?.toLowerCase();
                 const toRole = changeRoleTo[m.userId] ?? m.role;
                 return (
-                  <tr key={m.userId} className={r.row} data-testid={`member-row-${m.email}`}>
-                    <td className={`${r.td} ${r.name}`}>{m.displayName}</td>
-                    <td className={r.td}>{m.email}</td>
-                    <td className={r.td}>{m.role}</td>
-                    <td className={r.td}>
+                  <tr key={m.userId} data-testid={`member-row-${m.email}`}>
+                    <td>{m.displayName}</td>
+                    <td>{m.email}</td>
+                    <td>{m.role}</td>
+                    <td>
                       <StatusBadge variant={m.isActive ? 'ready' : 'neutral'}>{m.isActive ? 'Active' : 'Inactive'}</StatusBadge>
                     </td>
                     {canChange && (
-                      <td className={r.td}>
+                      <td>
                         {isSelf ? (
-                          <Text size={200}>Your own access — changes require another member.</Text>
+                          // Enforced by NOT RENDERING — you may never request a
+                          // change to your own access.
+                          <span className="record-quiet">Your own access — changes require another member.</span>
                         ) : (
-                          <div className={s.actionsCell}>
+                          <div style={ACTIONS_CELL}>
                             <GovernedAction
                               triggerLabel="Role…"
                               triggerTestId={`change-role-${m.email}`}
@@ -250,12 +231,50 @@ export function MembersPage() {
                 );
               })}
             </tbody>
-          </table>
-          <div className={r.count}>
-            {data.members.length} {data.members.length === 1 ? 'member' : 'members'}
-          </div>
-        </>
+          </ComparisonTable>
+        )}
+      </CollectionFrame>
+
+      {canChange && (
+        <FormDrawer
+          open={showForm}
+          onClose={() => setShowForm(false)}
+          eyebrow="Provision member"
+          mode="governed"
+          intro="Member changes go through approval — an owner must review and execute before access changes."
+          footer={
+            <GovernedAction
+              triggerLabel="Submit for approval"
+              triggerTestId="provision-submit"
+              triggerDisabled={!provisionReady}
+              title="Request this member provision?"
+              description="Submitting creates an approval request. The member is not provisioned until an owner (other than you) approves and executes it."
+              confirmLabel="Submit for approval"
+              onConfirm={submitProvision}
+            />
+          }
+        >
+          <Field label="Email" required>
+            <Input value={email} onChange={(e) => setEmail(e.target.value)} data-testid="provision-email" />
+          </Field>
+          <Field label="Display name" required>
+            <Input value={displayName} onChange={(e) => setDisplayName(e.target.value)} data-testid="provision-name" />
+          </Field>
+          <Field label="Role" required>
+            <RolePicker value={role} onChange={setRole} testId="provision-role" />
+          </Field>
+          {IS_ENTRA && (
+            <>
+              <Field label="Entra Object ID (oid)" required hint="From the user's Entra profile — the immutable identity key.">
+                <Input value={oid} onChange={(e) => setOid(e.target.value)} data-testid="provision-oid" />
+              </Field>
+              <Field label="Entra tenant ID" required hint="The issuing tenant (B2B guests carry this organization's tenant id).">
+                <Input value={issuerTid} onChange={(e) => setIssuerTid(e.target.value)} data-testid="provision-tid" />
+              </Field>
+            </>
+          )}
+        </FormDrawer>
       )}
-    </div>
+    </>
   );
 }
