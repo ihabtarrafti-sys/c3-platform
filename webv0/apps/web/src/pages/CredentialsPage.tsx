@@ -1,18 +1,26 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { credentialStatusOn } from '@c3web/domain';
 import { useCredentials, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  RecordLink,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  DateInput,
+  Selector,
+  FormDrawer,
+  GovernedAction,
+} from '../tablework';
 import { credentialStatusOf } from '../labels';
 
 /**
@@ -20,6 +28,12 @@ import { credentialStatusOf } from '../labels';
  * governed request (submit → owner review → execute); the STATUS column is a
  * pure read-side derivation from the plain expiry date (Active / Expires soon
  * / Expired / Inactive) — display-only, no scheduler.
+ *
+ * Tablework conversion (pivot W2, Lane C). Two things the conversion must NOT
+ * touch: `credentialStatusOn` (the derivation engine) and the RAW ISO expiry —
+ * `credentials.spec` asserts `2031-12-30` byte-for-byte, so `formatDisplayDate`
+ * is a NEGATIVE contract here. The person picker becomes the kit `Selector`
+ * because the oracle drives its real `role="option"` rows.
  */
 
 /** Local calendar "today" — built from LOCAL components; never toISOString. */
@@ -29,18 +43,22 @@ function localTodayIso(): string {
   return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-const useStyles = makeStyles({
-  personSelect: { minWidth: '260px' },
-});
-
 export function CredentialsPage() {
-  const s = useStyles();
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Credentials" section="Register" wide>
+      <CredentialsRegister />
+    </TableworkPage>
+  );
+}
+
+function CredentialsRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const { data, isLoading, isError, error } = useCredentials();
   const canSubmit = me?.capabilities.canSubmitApproval ?? false;
+  // The wire law: the capability IS the `enabled` flag — the roster only
+  // travels to a browser that may compose a request.
   const people = usePeople(canSubmit);
 
   const [showForm, setShowForm] = useState(false);
@@ -91,14 +109,96 @@ export function CredentialsPage() {
   const ready = personId !== '' && credentialType.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(issuedOn);
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-credential-toggle">
+    <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-credential-toggle">
       Add credential
-    </Button>
+    </button>
   ) : undefined;
 
   return (
-    <div>
-      <PageHeader kicker="Register" title="Credentials" context={data ? `${data.credentials.length} in this view` : undefined} actions={addAction} />
+    <>
+      <CollectionFrame
+        kicker="Register"
+        title="Credentials"
+        count={data ? `${data.credentials.length} in this view` : undefined}
+        actions={addAction}
+      >
+        {isLoading && <LoadingState label="Loading credentials…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load credentials.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && data.credentials.length === 0 && (
+          <EmptyState
+            data-testid="credentials-empty"
+            message="No credentials yet."
+            action={
+              canSubmit ? (
+                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="credentials-empty-add">
+                  Add credential
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+        {/* M2: the count lives ONCE, in the CollectionFrame header. The old
+            footer repeat carried no testid and no spec asserted it. */}
+        {data && data.credentials.length > 0 && (
+          <ComparisonTable label="Credentials register" testId="credentials-table">
+            <thead>
+              <tr>
+                <th>Credential</th>
+                <th>Person</th>
+                <th>Type</th>
+                <th>Issuer</th>
+                <th>Expires</th>
+                <th>Status</th>
+                {canSubmit && <th>Request change</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {data.credentials.map((c) => {
+                const derived = credentialStatusOn(c, today);
+                const badge = credentialStatusOf(derived);
+                return (
+                  <tr key={c.credentialId} data-testid={`credential-row-${c.credentialId}`}>
+                    <td>{c.credentialId}</td>
+                    <td>
+                      <RecordLink to={`/people/${c.personId}`}>{c.personId}</RecordLink>
+                    </td>
+                    <td>{c.credentialType}</td>
+                    <td>{c.issuer ?? '—'}</td>
+                    {/* RAW ISO, byte-for-byte — credentials.spec pins the date. */}
+                    <td>{c.expiresOn ?? '—'}</td>
+                    <td>
+                      <StatusBadge variant={badge.variant} data-testid={`credential-status-${c.credentialId}`}>
+                        {badge.label}
+                      </StatusBadge>
+                    </td>
+                    {/* Header and body conditionals stay in lockstep. */}
+                    {canSubmit && (
+                      <td>
+                        {c.isActive ? (
+                          <GovernedAction
+                            triggerLabel="Deactivate…"
+                            triggerTestId={`deactivate-credential-${c.credentialId}`}
+                            triggerAppearance="secondary"
+                            title={`Request deactivation of ${c.credentialId}?`}
+                            description="Submitting creates an approval request; the credential is deactivated only when an owner executes it."
+                            confirmLabel="Submit for approval"
+                            onConfirm={() => submitDeactivate(c.credentialId, c.personId)}
+                          />
+                        ) : null}
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </ComparisonTable>
+        )}
+      </CollectionFrame>
 
       {canSubmit && (
         <FormDrawer
@@ -120,120 +220,36 @@ export function CredentialsPage() {
           }
         >
           <Field label="Person" required>
-            <Dropdown
-              className={s.personSelect}
-              placeholder="Select a person"
-              value={personLabel}
-              selectedOptions={personId ? [personId] : []}
-              onOptionSelect={(_, d) => {
-                if (d.optionValue) {
-                  setPersonId(d.optionValue);
-                  setPersonLabel(d.optionText ?? d.optionValue);
-                }
-              }}
+            <Selector
               data-testid="add-credential-person"
-            >
-              {(people.data?.people ?? []).map((p) => (
-                <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>
-                  {`${p.fullName} (${p.personId})`}
-                </Option>
-              ))}
-            </Dropdown>
+              style={{ minWidth: '260px' }}
+              placeholder="Select a person"
+              value={personId}
+              display={personId ? personLabel : undefined}
+              options={(people.data?.people ?? []).map((p) => ({
+                value: p.personId,
+                label: `${p.fullName} (${p.personId})`,
+              }))}
+              onSelect={(value, label) => {
+                setPersonId(value);
+                setPersonLabel(label);
+              }}
+            />
           </Field>
           <Field label="Credential type" required>
-            <Input value={credentialType} onChange={(_, d) => setCredentialType(d.value)} data-testid="add-credential-type" />
+            <Input value={credentialType} onChange={(e) => setCredentialType(e.target.value)} data-testid="add-credential-type" />
           </Field>
           <Field label="Issuer">
-            <Input value={issuer} onChange={(_, d) => setIssuer(d.value)} data-testid="add-credential-issuer" />
+            <Input value={issuer} onChange={(e) => setIssuer(e.target.value)} data-testid="add-credential-issuer" />
           </Field>
           <Field label="Issued on" required>
-            <Input type="date" value={issuedOn} onChange={(_, d) => setIssuedOn(d.value)} data-testid="add-credential-issued" />
+            <DateInput value={issuedOn} onChange={(e) => setIssuedOn(e.target.value)} data-testid="add-credential-issued" />
           </Field>
           <Field label="Expires on" hint="Leave empty for a non-expiring credential.">
-            <Input type="date" value={expiresOn} onChange={(_, d) => setExpiresOn(d.value)} data-testid="add-credential-expires" />
+            <DateInput value={expiresOn} onChange={(e) => setExpiresOn(e.target.value)} data-testid="add-credential-expires" />
           </Field>
         </FormDrawer>
       )}
-
-      {isLoading && <LoadingState label="Loading credentials…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load credentials.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.credentials.length === 0 && (
-        <EmptyState
-          data-testid="credentials-empty"
-          message="No credentials yet."
-          action={
-            canSubmit ? (
-              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="credentials-empty-add">
-                Add credential
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-      {data && data.credentials.length > 0 && (
-        <>
-          <table className={r.table} data-testid="credentials-table" aria-label="Credentials register">
-            <thead>
-              <tr>
-                <th className={r.th}>Credential</th>
-                <th className={r.th}>Person</th>
-                <th className={r.th}>Type</th>
-                <th className={r.th}>Issuer</th>
-                <th className={r.th}>Expires</th>
-                <th className={r.th}>Status</th>
-                {canSubmit && <th className={r.th}>Request change</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {data.credentials.map((c) => {
-                const derived = credentialStatusOn(c, today);
-                const badge = credentialStatusOf(derived);
-                return (
-                  <tr key={c.credentialId} className={r.row} data-testid={`credential-row-${c.credentialId}`}>
-                    <td className={`${r.td}`}>{c.credentialId}</td>
-                    <td className={r.td}>
-                      <Link className={r.idLink} to={`/people/${c.personId}`}>
-                        {c.personId}
-                      </Link>
-                    </td>
-                    <td className={`${r.td} ${r.name}`}>{c.credentialType}</td>
-                    <td className={r.td}>{c.issuer ?? '—'}</td>
-                    <td className={r.td}>{c.expiresOn ?? '—'}</td>
-                    <td className={r.td}>
-                      <StatusBadge variant={badge.variant} data-testid={`credential-status-${c.credentialId}`}>
-                        {badge.label}
-                      </StatusBadge>
-                    </td>
-                    {canSubmit && (
-                      <td className={r.td}>
-                        {c.isActive ? (
-                          <GovernedAction
-                            triggerLabel="Deactivate…"
-                            triggerTestId={`deactivate-credential-${c.credentialId}`}
-                            triggerAppearance="secondary"
-                            title={`Request deactivation of ${c.credentialId}?`}
-                            description="Submitting creates an approval request; the credential is deactivated only when an owner executes it."
-                            confirmLabel="Submit for approval"
-                            onConfirm={() => submitDeactivate(c.credentialId, c.personId)}
-                          />
-                        ) : null}
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className={r.count}>
-            {data.credentials.length} {data.credentials.length === 1 ? 'credential' : 'credentials'}
-          </div>
-        </>
-      )}
-    </div>
+    </>
   );
 }
