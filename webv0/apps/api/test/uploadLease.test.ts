@@ -460,10 +460,14 @@ describe('HARDEN-3.7 U2 — client disconnect aborts a production R2 PUT', () =>
         'ascii',
       );
       socket.write(body, 'binary');
-      await Promise.race([
-        putStarted,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('production R2 PUT never started')), 4_000)),
+      // Resolving sentinel, matching closeOutcome six lines below: a Promise.race loser is
+      // not cancelled, so a REJECTING loser fires after this test returns with nothing
+      // attached to it. Both idioms previously coexisted in this one file.
+      const putOutcome = await Promise.race([
+        putStarted.then(() => 'started' as const),
+        new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 4_000)),
       ]);
+      if (putOutcome === 'timeout') throw new Error('production R2 PUT never started');
 
       socket.destroy();
       await vi.waitFor(() => expect(abortSnapshot).not.toBeNull(), { timeout: 2_000, interval: 20 });

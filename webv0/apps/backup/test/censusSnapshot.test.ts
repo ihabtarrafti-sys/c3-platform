@@ -152,10 +152,16 @@ describe('HARDEN-3.8 H3 / U5 — the production snapshot session is runbook-obse
       await observer.connect();
       ddlPid = Number((await ddl.query('SELECT pg_backend_pid() AS pid')).rows[0].pid);
       flow = deps.coherentDumpAndCensus(join(temp, 'dump.pgc'));
-      await Promise.race([
-        pauseOpened,
-        new Promise<never>((_, reject) => setTimeout(() => reject(new Error('production census pause never opened')), 5_000)),
+      // The loser of a Promise.race is NOT cancelled. A rejecting loser therefore fires
+      // after the test has returned with nothing attached to it — a rejection engineered
+      // to outlive its own test. Every other race in this suite resolves a sentinel and
+      // branches on it (erasureJanitor, exitUploadSafety, uploadLease); this follows that
+      // idiom, so a late timer resolves harmlessly instead of escaping.
+      const paused = await Promise.race([
+        pauseOpened.then(() => 'opened' as const),
+        new Promise<'timeout'>((resolve) => setTimeout(() => resolve('timeout'), 5_000)),
       ]);
+      if (paused === 'timeout') throw new Error('production census pause never opened');
 
       // The runbook's S2 statement, deliberately queued behind the open census snapshot.
       ddlRun = ddl.query('ALTER TABLE person ADD COLUMN u5_observer_probe boolean');
