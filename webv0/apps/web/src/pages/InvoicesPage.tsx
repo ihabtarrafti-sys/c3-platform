@@ -1,32 +1,52 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Field, Input } from '@fluentui/react-components';
 import { useInvoices } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  RecordLink,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  GovernedAction,
+} from '../tablework';
 import { formatMinor, invoiceStatusOf } from '../labels';
 
 /**
- * Invoices (S6) — the register of outward claims. Each invoice bills exactly
- * one mission income line from one of the org's own entities; numbers are a
- * per-entity yearly series and are never reused (voids keep their number —
- * the gap IS the audit trail). Issuing happens from the mission's P&L; here
- * the paper is read, downloaded, and — with a reason — voided.
+ * Invoices (S6) — the register of outward claims, on the Tablework frame
+ * (pivot W2 Lane A; the Fluent page's behaviour, testids and copy verbatim).
+ * Each invoice bills exactly one mission income line from one of the org's own
+ * entities; numbers are a per-entity yearly series and are never reused (voids
+ * keep their number — the gap IS the audit trail). Issuing happens from the
+ * mission's P&L; here the paper is read, downloaded, and — with a reason —
+ * voided.
+ *
+ * NOT a wide route (the Lane-A brief: agreements and entities take command
+ * width, invoices does not).
  */
 export function InvoicesPage() {
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Invoices" section="Register">
+      <InvoicesRegister />
+    </TableworkPage>
+  );
+}
+
+function InvoicesRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const canSee = me?.capabilities.canViewFinancials ?? false;
   const canAct = (me?.capabilities.canManageMissions ?? false) && canSee;
+  // THE WIRE LAW: the capability IS the `enabled` flag — a denied role never
+  // fetches the register, it does not fetch-and-hide.
   const { data, isLoading, isError, error } = useInvoices(canSee);
   // Polish wave #11: the Actions column exists only while an Issued invoice
   // can still be acted on — a header over uniformly empty cells reads dead.
@@ -35,10 +55,9 @@ export function InvoicesPage() {
 
   if (!canSee) {
     return (
-      <div>
-        <PageHeader title="Invoices" />
+      <CollectionFrame title="Invoices">
         <EmptyState data-testid="invoices-denied" message="Invoices are financial records — unavailable for your role." />
-      </div>
+      </CollectionFrame>
     );
   }
 
@@ -72,9 +91,7 @@ export function InvoicesPage() {
   }
 
   return (
-    <div>
-      <PageHeader kicker="Register" title="Invoices" context={data ? `${data.invoices.length} in this view` : undefined} />
-
+    <CollectionFrame kicker="Register" title="Invoices" count={data ? `${data.invoices.length} in this view` : undefined}>
       {isLoading && <LoadingState label="Loading invoices…" />}
       {isError && (
         <ErrorState
@@ -89,40 +106,40 @@ export function InvoicesPage() {
         />
       )}
       {data && data.invoices.length > 0 && (
-        <table className={r.table} data-testid="invoices-table" aria-label="Invoices register">
+        <ComparisonTable label="Invoices register" testId="invoices-table">
           <thead>
             <tr>
-              <th className={r.th}>Number</th>
-              <th className={r.th}>Entity</th>
-              <th className={r.th}>Mission</th>
-              <th className={r.th}>Billed to</th>
-              <th className={r.th}>Type of income</th>
-              <th className={r.th}>Total</th>
-              <th className={r.th}>Issued</th>
-              <th className={r.th}>Status</th>
-              <th className={r.th}>Paper</th>
-              {showActions && <th className={r.th}>Actions</th>}
+              <th>Number</th>
+              <th>Entity</th>
+              <th>Mission</th>
+              <th>Billed to</th>
+              <th>Type of income</th>
+              <th>Total</th>
+              <th>Issued</th>
+              <th>Status</th>
+              <th>Paper</th>
+              {showActions && <th>Actions</th>}
             </tr>
           </thead>
           <tbody>
             {data.invoices.map((inv) => (
-              <tr key={inv.invoiceId} className={r.row} data-testid={`invoice-row-${inv.invoiceId}`}>
-                <td className={`${r.td} ${r.mono}`} data-testid={`invoice-number-${inv.invoiceId}`}>
+              <tr key={inv.invoiceId} data-testid={`invoice-row-${inv.invoiceId}`}>
+                <td className="mono" data-testid={`invoice-number-${inv.invoiceId}`}>
                   {inv.invoiceNumber}
                 </td>
-                <td className={r.td}>{inv.entityId}</td>
-                <td className={r.td}>
-                  <Link className={r.idLink} to={`/missions/${inv.missionId}`}>
-                    {inv.missionId}
-                  </Link>
+                <td>{inv.entityId}</td>
+                <td>
+                  <RecordLink to={`/missions/${inv.missionId}`}>{inv.missionId}</RecordLink>
                 </td>
-                <td className={`${r.td} ${r.name}`}>{inv.billedToName}</td>
-                <td className={r.td}>{inv.incomeCategory}</td>
-                <td className={`${r.td} ${r.mono}`} data-testid={`invoice-total-${inv.invoiceId}`}>
+                <td>{inv.billedToName}</td>
+                <td>{inv.incomeCategory}</td>
+                {/* formatMinor is formatMoney — code-first with a U+00A0 separator
+                    ("USD 8,400.00", pinned by settlement.spec). No normalizing. */}
+                <td className="mono" data-testid={`invoice-total-${inv.invoiceId}`}>
                   {formatMinor(inv.totalMinor, inv.currency)}
                 </td>
-                <td className={`${r.td} ${r.mono}`}>{inv.issuedOn}</td>
-                <td className={r.td}>
+                <td className="mono">{inv.issuedOn}</td>
+                <td>
                   <StatusBadge
                     variant={invoiceStatusOf(inv.status).variant}
                     data-testid={`invoice-status-${inv.invoiceId}`}
@@ -131,21 +148,31 @@ export function InvoicesPage() {
                     {invoiceStatusOf(inv.status).label}
                   </StatusBadge>
                 </td>
-                <td className={r.td}>
+                <td>
                   {inv.documentId ? (
-                    <Button size="small" appearance="secondary" onClick={() => void download(inv.invoiceId, inv.documentId!)} data-testid={`invoice-pdf-${inv.invoiceId}`}>
+                    <button
+                      className="mini-action"
+                      type="button"
+                      onClick={() => void download(inv.invoiceId, inv.documentId!)}
+                      data-testid={`invoice-pdf-${inv.invoiceId}`}
+                    >
                       PDF
-                    </Button>
+                    </button>
                   ) : canAct && inv.status === 'Issued' ? (
-                    <Button size="small" appearance="secondary" onClick={() => void retryPdf(inv.invoiceId)} data-testid={`invoice-pdf-retry-${inv.invoiceId}`}>
+                    <button
+                      className="mini-action"
+                      type="button"
+                      onClick={() => void retryPdf(inv.invoiceId)}
+                      data-testid={`invoice-pdf-retry-${inv.invoiceId}`}
+                    >
                       Generate PDF
-                    </Button>
+                    </button>
                   ) : (
                     '—'
                   )}
                 </td>
                 {showActions && (
-                  <td className={r.td}>
+                  <td>
                     {inv.status === 'Issued' && (
                       <GovernedAction
                         triggerLabel="Void…"
@@ -157,7 +184,7 @@ export function InvoicesPage() {
                           <Field label="Reason for voiding" required>
                             <Input
                               value={voidReason[inv.invoiceId] ?? ''}
-                              onChange={(_, d) => setVoidReason((c) => ({ ...c, [inv.invoiceId]: d.value }))}
+                              onChange={(e) => setVoidReason((c) => ({ ...c, [inv.invoiceId]: e.target.value }))}
                               data-testid={`void-reason-${inv.invoiceId}`}
                             />
                           </Field>
@@ -181,8 +208,8 @@ export function InvoicesPage() {
               </tr>
             ))}
           </tbody>
-        </table>
+        </ComparisonTable>
       )}
-    </div>
+    </CollectionFrame>
   );
 }
