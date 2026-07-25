@@ -1,18 +1,29 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
 import { suggestEntityCode } from '@c3web/domain';
 import { useTeams } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+// The pivot (Wave 2, Lane B): the frozen kit carries API-identical ports of
+// every piece this register uses — the import path IS the conversion for
+// StatusBadge/EmptyState/ErrorState/LoadingState/FormDrawer/GovernedAction.
+// CollectionFrame's header count is the SINGLE count line (M2); no footer.
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  RecordLink,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  Selector,
+  FormDrawer,
+  GovernedAction,
+} from '../tablework';
 
 /**
  * Teams (S7) — the structure GK-Core runs its P&L on: game divisions (R6,
@@ -24,8 +35,17 @@ import { FormDrawer } from '../components/FormDrawer';
 
 const KIND_LABEL: Record<string, string> = { GameDivision: 'Game division', Department: 'Department' };
 
+const KIND_OPTIONS = (['GameDivision', 'Department'] as const).map((k) => ({ value: k, label: KIND_LABEL[k]! }));
+
 export function TeamsPage() {
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Teams" section="Register">
+      <TeamsRegister />
+    </TableworkPage>
+  );
+}
+
+function TeamsRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -65,19 +85,76 @@ export function TeamsPage() {
   const ready = name.trim() !== '' && /^[A-Za-z0-9]{2,8}$/.test(code.trim());
 
   return (
-    <div>
-      <PageHeader
+    <>
+      <CollectionFrame
         kicker="Register"
         title="Teams"
-        context={data ? `${data.teams.length} in this view` : undefined}
+        count={data ? `${data.teams.length} in this view` : undefined}
         actions={
           canManage ? (
-            <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-team-toggle">
+            <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-team-toggle">
               Add team
-            </Button>
+            </button>
           ) : undefined
         }
-      />
+      >
+        {isLoading && <LoadingState label="Loading teams…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load teams.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && data.teams.length === 0 && (
+          <EmptyState
+            data-testid="teams-empty"
+            message="No teams yet. Divisions and departments make the org's structure — and its per-team P&L — first-class."
+            action={
+              canManage ? (
+                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="teams-empty-add">
+                  Add team
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+        {data && data.teams.length > 0 && (
+          <ComparisonTable label="Teams register" testId="teams-table">
+            <thead>
+              <tr>
+                <th>Team</th>
+                <th>Code</th>
+                <th>Name</th>
+                <th>Kind</th>
+                <th>Game</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.teams.map((t) => (
+                <tr key={t.teamId} data-testid={`team-row-${t.teamId}`}>
+                  <td>
+                    <RecordLink to={`/teams/${t.teamId}`} data-testid={`team-link-${t.teamId}`}>
+                      {t.teamId}
+                    </RecordLink>
+                  </td>
+                  <td className="mono" data-testid={`team-code-${t.teamId}`}>
+                    {t.code}
+                  </td>
+                  <td>{t.name}</td>
+                  <td>{KIND_LABEL[t.kind] ?? t.kind}</td>
+                  <td>{t.gameTitle ?? '—'}</td>
+                  <td>
+                    <StatusBadge variant={t.isActive ? 'ready' : 'neutral'} data-testid={`team-status-${t.teamId}`}>
+                      {t.isActive ? 'Active' : 'Inactive'}
+                    </StatusBadge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </ComparisonTable>
+        )}
+      </CollectionFrame>
 
       {canManage && (
         <FormDrawer
@@ -101,9 +178,9 @@ export function TeamsPage() {
           <Field label="Name" required hint='e.g. "Rainbow Six" or "Operations"'>
             <Input
               value={name}
-              onChange={(_, d) => {
-                setName(d.value);
-                if (!codeTouched) setCode(suggestEntityCode(d.value));
+              onChange={(e) => {
+                setName(e.target.value);
+                if (!codeTouched) setCode(suggestEntityCode(e.target.value));
               }}
               data-testid="add-team-name"
             />
@@ -111,89 +188,28 @@ export function TeamsPage() {
           <Field label="Code" required hint="2–8 letters/digits (R6, HOK, OPS) — unique, feeds person codes">
             <Input
               value={code}
-              onChange={(_, d) => {
-                setCode(d.value.toUpperCase());
+              onChange={(e) => {
+                setCode(e.target.value.toUpperCase());
                 setCodeTouched(true);
               }}
               data-testid="add-team-code"
             />
           </Field>
           <Field label="Kind" required>
-            <Dropdown
-              value={KIND_LABEL[kind]}
-              selectedOptions={[kind]}
-              onOptionSelect={(_, d) => d.optionValue && setKind(d.optionValue as 'GameDivision' | 'Department')}
+            <Selector
               data-testid="add-team-kind"
-            >
-              {(['GameDivision', 'Department'] as const).map((k) => (
-                <Option key={k} value={k} text={KIND_LABEL[k]!}>
-                  {KIND_LABEL[k]}
-                </Option>
-              ))}
-            </Dropdown>
+              value={kind}
+              options={KIND_OPTIONS}
+              onSelect={(value) => setKind(value as 'GameDivision' | 'Department')}
+            />
           </Field>
           {kind === 'GameDivision' && (
             <Field label="Game title (display)">
-              <Input value={gameTitle} onChange={(_, d) => setGameTitle(d.value)} data-testid="add-team-game" />
+              <Input value={gameTitle} onChange={(e) => setGameTitle(e.target.value)} data-testid="add-team-game" />
             </Field>
           )}
         </FormDrawer>
       )}
-
-      {isLoading && <LoadingState label="Loading teams…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load teams.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.teams.length === 0 && (
-        <EmptyState
-          data-testid="teams-empty"
-          message="No teams yet. Divisions and departments make the org's structure — and its per-team P&L — first-class."
-          action={
-            canManage ? (
-              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="teams-empty-add">
-                Add team
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-      {data && data.teams.length > 0 && (
-        <table className={r.table} data-testid="teams-table" aria-label="Teams register">
-          <thead>
-            <tr>
-              <th className={r.th}>Team</th>
-              <th className={r.th}>Code</th>
-              <th className={r.th}>Name</th>
-              <th className={r.th}>Kind</th>
-              <th className={r.th}>Game</th>
-              <th className={r.th}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.teams.map((t) => (
-              <tr key={t.teamId} className={r.row} data-testid={`team-row-${t.teamId}`}>
-                <td className={r.td}>
-                  <Link className={r.idLink} to={`/teams/${t.teamId}`} data-testid={`team-link-${t.teamId}`}>
-                    {t.teamId}
-                  </Link>
-                </td>
-                <td className={`${r.td} ${r.mono}`} data-testid={`team-code-${t.teamId}`}>{t.code}</td>
-                <td className={`${r.td} ${r.name}`}>{t.name}</td>
-                <td className={r.td}>{KIND_LABEL[t.kind] ?? t.kind}</td>
-                <td className={r.td}>{t.gameTitle ?? '—'}</td>
-                <td className={r.td}>
-                  <StatusBadge variant={t.isActive ? 'ready' : 'neutral'} data-testid={`team-status-${t.teamId}`}>
-                    {t.isActive ? 'Active' : 'Inactive'}
-                  </StatusBadge>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+    </>
   );
 }
