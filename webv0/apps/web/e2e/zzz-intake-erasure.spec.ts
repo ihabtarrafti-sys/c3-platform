@@ -126,7 +126,12 @@ test('Guest intake · erasure: reject requires its confirmation, and wipes only 
   await test.step('(b) THE TARGET — confirming wipes THIS submission and no other', async () => {
     await page.getByTestId(`intake-reject-${targetId}`).click();
     await page.getByTestId(`intake-reject-${targetId}-confirm`).click();
-    await expect(page.getByTestId('notifications')).toContainText('Submission rejected — its details were wiped.');
+    // `.first()` deliberately: `data-testid="notifications"` is DUPLICATED
+    // while a converted screen still mounts inside the Fluent AppShell (the
+    // route manifest is the integrator's to apply, and the duplication is the
+    // documented mid-merge posture). This spec must certify the erasure in
+    // both topologies, so it must not depend on which one is live.
+    await expect(page.getByTestId('notifications').first()).toContainText('Submission rejected — its details were wiped.');
 
     // The target's details are GONE from the register — the name it was
     // submitted under no longer renders anywhere on the page.
