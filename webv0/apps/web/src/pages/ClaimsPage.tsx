@@ -1,19 +1,34 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option, Textarea } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
-import { CLAIM_CATEGORIES, parseDecimalToMinor } from '@c3web/domain';
+import { CLAIM_CATEGORIES } from '@c3web/domain';
 import { useClaims } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+// The pivot (Wave 2, Lane B): the import path IS the conversion for the
+// cross-cutting pieces. CollectionFrame's header count is the SINGLE count
+// line (M2). `positiveAmountToMinor` is the ruled-safe money consolidation
+// for THIS screen only — its zero-policy (> 0) and the local guard it
+// replaces are byte-identical, and the name now carries the policy.
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  RecordLink,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  DateInput,
+  Textarea,
+  Selector,
+  FormDrawer,
+  GovernedAction,
+  positiveAmountToMinor,
+} from '../tablework';
 import { claimStatusOf, formatMinor, lineCategoryOf } from '../labels';
 
 /**
@@ -23,7 +38,14 @@ import { claimStatusOf, formatMinor, lineCategoryOf } from '../labels';
  * each claim's page.
  */
 export function ClaimsPage() {
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Claims" section="Register">
+      <ClaimsRegister />
+    </TableworkPage>
+  );
+}
+
+function ClaimsRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -31,6 +53,9 @@ export function ClaimsPage() {
   const canReadClaims = me?.capabilities.canReadClaims ?? false; // M-12: finance/management read the register
   const canDecide = me?.capabilities.canDecideClaim ?? false;
   const canViewFinancials = me?.capabilities.canViewFinancials ?? false;
+  // The capability IS the `enabled` flag — the register is never fetched for a
+  // role that may not read it, and the denial below is a render of that fact,
+  // not a curtain over data already on the wire.
   const { data, isLoading, isError, error } = useClaims(canReadClaims);
 
   async function downloadPayroll(): Promise<void> {
@@ -58,18 +83,16 @@ export function ClaimsPage() {
 
   if (!canReadClaims) {
     return (
-      <div>
-        <PageHeader title="Claims" />
+      <CollectionFrame title="Claims">
         <EmptyState data-testid="claims-denied" message="Expense claims are unavailable for your role." />
-      </div>
+      </CollectionFrame>
     );
   }
 
   // M-02: exact-decimal law — excess precision refuses instead of rounding.
-  const amountMinor = (() => {
-    const minor = parseDecimalToMinor(amount);
-    return minor !== null && minor > 0 ? minor : null;
-  })();
+  // A zero-value claim is meaningless, so the ZERO-REJECTING parser is the
+  // one this site takes; deleting the policy would let 0.00 submit.
+  const amountMinor = positiveAmountToMinor(amount);
   const ready = description.trim() !== '' && amountMinor !== null && /^\d{4}-\d{2}-\d{2}$/.test(expenseOn);
 
   async function submit() {
@@ -94,26 +117,73 @@ export function ClaimsPage() {
   }
 
   return (
-    <div>
-      <PageHeader
+    <>
+      <CollectionFrame
         kicker="Register"
         title="Claims"
-        context={data ? `${data.claims.length} in this view${canDecide ? ' · all submitters' : ' · yours'}` : undefined}
+        count={data ? `${data.claims.length} in this view${canDecide ? ' · all submitters' : ' · yours'}` : undefined}
         actions={
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <>
             {canViewFinancials && (
-              <Button appearance="secondary" onClick={downloadPayroll} data-testid="payroll-export">
+              <button className="secondary-action" type="button" onClick={() => void downloadPayroll()} data-testid="payroll-export">
                 Payroll export
-              </Button>
+              </button>
             )}
             {canSubmit && (
-              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
+              <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
                 Submit claim
-              </Button>
+              </button>
             )}
-          </div>
+          </>
         }
-      />
+      >
+        {isLoading && <LoadingState label="Loading claims…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load claims.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && data.claims.length === 0 && (
+          <EmptyState data-testid="claims-empty" message="No claims yet — submit an expense and watch it move." />
+        )}
+        {data && data.claims.length > 0 && (
+          <ComparisonTable label="Expense claims" testId="claims-table">
+            <thead>
+              <tr>
+                <th>Claim</th>
+                <th>Submitted by</th>
+                <th>Category</th>
+                <th>Description</th>
+                <th>Amount</th>
+                <th>Expense date</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {data.claims.map((c) => (
+                <tr key={c.claimId} data-testid={`claim-row-${c.claimId}`}>
+                  <td>
+                    <RecordLink to={`/claims/${c.claimId}`} data-testid={`claim-link-${c.claimId}`}>
+                      {c.claimId}
+                    </RecordLink>
+                  </td>
+                  <td>{c.submittedBy}</td>
+                  <td>{lineCategoryOf(c.category)}</td>
+                  <td>{c.description}</td>
+                  <td className="mono">{formatMinor(c.amountMinor, c.currency)}</td>
+                  <td className="mono">{c.expenseOn}</td>
+                  <td>
+                    <StatusBadge variant={claimStatusOf(c.status).variant} data-testid={`claim-status-${c.claimId}`} title={c.rejectionReason ?? undefined}>
+                      {claimStatusOf(c.status).label}
+                    </StatusBadge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </ComparisonTable>
+        )}
+      </CollectionFrame>
 
       <FormDrawer
         open={showForm}
@@ -134,85 +204,31 @@ export function ClaimsPage() {
         }
       >
         <Field label="Category" required>
-          <Dropdown
-            value={lineCategoryOf(category)}
-            selectedOptions={[category]}
-            onOptionSelect={(_, d) => d.optionValue && setCategory(d.optionValue)}
+          <Selector
             data-testid="add-claim-category"
-          >
-            {CLAIM_CATEGORIES.map((c) => (
-              <Option key={c} value={c} text={lineCategoryOf(c)}>
-                {lineCategoryOf(c)}
-              </Option>
-            ))}
-          </Dropdown>
+            value={category}
+            options={CLAIM_CATEGORIES.map((c) => ({ value: c, label: lineCategoryOf(c) }))}
+            onSelect={(value) => setCategory(value)}
+          />
         </Field>
         <Field label="What was the expense?" required>
-          <Textarea value={description} onChange={(_, d) => setDescription(d.value)} data-testid="add-claim-description" />
+          <Textarea value={description} onChange={(e) => setDescription(e.target.value)} data-testid="add-claim-description" />
         </Field>
         <Field label="Amount" required>
-          <Input type="number" value={amount} onChange={(_, d) => setAmount(d.value)} data-testid="add-claim-amount" />
+          <Input type="number" value={amount} onChange={(e) => setAmount(e.target.value)} data-testid="add-claim-amount" />
         </Field>
         <Field label="Currency" required>
-          <Dropdown value={currency} selectedOptions={[currency]} onOptionSelect={(_, d) => d.optionValue && setCurrency(d.optionValue)} data-testid="add-claim-currency">
-            {CURRENCY_CODES.map((c) => (
-              <Option key={c} value={c} text={c}>
-                {c}
-              </Option>
-            ))}
-          </Dropdown>
+          <Selector
+            data-testid="add-claim-currency"
+            value={currency}
+            options={CURRENCY_CODES.map((c) => ({ value: c, label: c }))}
+            onSelect={(value) => setCurrency(value)}
+          />
         </Field>
         <Field label="Expense date" required>
-          <Input type="date" value={expenseOn} onChange={(_, d) => setExpenseOn(d.value)} data-testid="add-claim-date" />
+          <DateInput value={expenseOn} onChange={(e) => setExpenseOn(e.target.value)} data-testid="add-claim-date" />
         </Field>
       </FormDrawer>
-
-      {isLoading && <LoadingState label="Loading claims…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load claims.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.claims.length === 0 && (
-        <EmptyState data-testid="claims-empty" message="No claims yet — submit an expense and watch it move." />
-      )}
-      {data && data.claims.length > 0 && (
-        <table className={r.table} data-testid="claims-table" aria-label="Expense claims">
-          <thead>
-            <tr>
-              <th className={r.th}>Claim</th>
-              <th className={r.th}>Submitted by</th>
-              <th className={r.th}>Category</th>
-              <th className={r.th}>Description</th>
-              <th className={r.th}>Amount</th>
-              <th className={r.th}>Expense date</th>
-              <th className={r.th}>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {data.claims.map((c) => (
-              <tr key={c.claimId} className={r.row} data-testid={`claim-row-${c.claimId}`}>
-                <td className={r.td}>
-                  <Link className={r.idLink} to={`/claims/${c.claimId}`} data-testid={`claim-link-${c.claimId}`}>
-                    {c.claimId}
-                  </Link>
-                </td>
-                <td className={r.td}>{c.submittedBy}</td>
-                <td className={r.td}>{lineCategoryOf(c.category)}</td>
-                <td className={`${r.td} ${r.name}`}>{c.description}</td>
-                <td className={`${r.td} ${r.mono}`}>{formatMinor(c.amountMinor, c.currency)}</td>
-                <td className={`${r.td} ${r.mono}`}>{c.expenseOn}</td>
-                <td className={r.td}>
-                  <StatusBadge variant={claimStatusOf(c.status).variant} data-testid={`claim-status-${c.claimId}`} title={c.rejectionReason ?? undefined}>
-                    {claimStatusOf(c.status).label}
-                  </StatusBadge>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      )}
-    </div>
+    </>
   );
 }
