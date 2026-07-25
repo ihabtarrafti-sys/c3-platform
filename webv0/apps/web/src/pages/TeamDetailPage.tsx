@@ -43,11 +43,29 @@ import { auditActionOf, formatMinor } from '../labels';
 
 const KIND_LABEL: Record<string, string> = { GameDivision: 'Game division', Department: 'Department' };
 
-/* Screen-local emphasis the frozen kit has no primitive for (REPORTED, not
- * patched): a totals row that must read as a total, and a notice that must
- * NOT be muted — a withheld total is a financial statement, so it keeps the
- * danger ink it has today rather than sliding into quiet grey. */
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no emphasis for a TOTALS row. `.data-grid` styles
+//   th / td / tbody-hover / `.mono` / `.number` and nothing else — there is no
+//   `tfoot` rule and no class that makes a row read as a total instead of one
+//   more data row.
+// WORKAROUND: a screen-local inline style object carrying the Fluent-era
+//   `fontWeight: 600`, applied to the `team-finance-totals` <tr> below.
+// CLASS: additive — a new `.data-grid tr.total-row` (or a `tfoot` rule) matches
+//   nothing that renders today, so no already-converted, already-gated screen
+//   changes when it lands.
 const TOTAL_ROW: React.CSSProperties = { fontWeight: 600 };
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no SECTION-LEVEL critical text. `.record-quiet` is
+//   the only inline-text class and it is muted grey; `.field-error` and
+//   `.attachment-error` are caption-size and semantically bound to a field or
+//   an attachment; `.notice` is a bordered banner with its own background.
+//   Adopting any of them restyles a line this screen must keep as it is.
+// WORKAROUND: a screen-local inline style object carrying the Fluent-era 13px /
+//   `--c3-state-danger` / 8px vertical margin, applied to the
+//   `team-finance-unblendable` paragraph below. A withheld team total is a
+//   financial statement — it must not slide into quiet grey.
+// CLASS: additive — a new inline-text class beside `.record-quiet` (e.g.
+//   `.record-critical`) matches nothing already converted.
 const NOTICE: React.CSSProperties = { fontSize: '13px', color: 'var(--c3-state-danger)', margin: '8px 0' };
 
 export function TeamDetailPage() {
