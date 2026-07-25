@@ -162,7 +162,7 @@ function CalendarHorizon() {
 
           {buckets.map(([bucket, rows]) => (
             <div key={bucket}>
-              <h2 className="eyebrow">{bucket} · {rows.length}</h2>
+              <p className="eyebrow">{bucket} · {rows.length}</p>
               <ComparisonTable label={`${bucket} items`} testId={`calendar-bucket-${bucket.replace(/\s+/g, '-').toLowerCase()}`}>
                 <tbody>
                   {rows.map((it) => (
