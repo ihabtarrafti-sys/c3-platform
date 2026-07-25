@@ -1,21 +1,27 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { makeStyles, mergeClasses } from '@fluentui/react-components';
 import type { CalendarItemDto } from '@c3web/api-contracts';
 import { useCalendar } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { StatusBadge } from '../components/StatusBadge';
-import { useRegisterStyles } from '../components/registerStyles';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from '../tablework';
 
 /**
- * Ops calendar / timeline (Track B) — the forward horizon. The twin of the
- * activity feed (backward) and the Situation Room (now): every dated obligation
- * already in C3 — credential expiries, agreement ends, mission dates, approver
- * delegations — laid out soonest-first, with overdue-but-still-open items at
- * the top where they belong. Read-only aggregation; owner/operations.
+ * Ops calendar / timeline (Track B) — the forward horizon, on the Tablework
+ * frame (pivot W2; the Fluent page's behaviour, testids, and copy verbatim).
+ * The twin of the activity feed (backward) and Home (now): every dated
+ * obligation already in C3 — credential expiries, agreement ends, mission
+ * dates, approver delegations — laid out soonest-first, with overdue-but-still-
+ * open items at the top where they belong. Read-only aggregation;
+ * owner/operations.
  */
 
 const HORIZONS = [30, 60, 90, 180];
@@ -29,28 +35,14 @@ const KIND_LABEL: Record<CalendarItemDto['kind'], string> = {
   SubscriptionRenewal: 'Subscription renewal',
 };
 
-const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '660px', marginBottom: '16px' },
-  controls: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '6px', alignItems: 'center' },
-  controlLabel: { fontSize: '11px', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', marginRight: '4px' },
-  chips: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' },
-  chip: {
-    fontFamily: 'var(--c3-font-mono)', fontSize: '11px', letterSpacing: '0.06em', color: 'var(--c3-ink-muted)',
-    backgroundColor: 'transparent', border: '1px solid var(--c3-border-subtle)', borderRadius: '999px', padding: '3px 11px',
-    cursor: 'pointer', ':hover': { backgroundColor: 'var(--c3-hover)' },
-  },
-  chipActive: { color: 'var(--c3-ink-default)', borderTopColor: 'var(--c3-action-primary)', borderRightColor: 'var(--c3-action-primary)', borderBottomColor: 'var(--c3-action-primary)', borderLeftColor: 'var(--c3-action-primary)', backgroundColor: 'var(--c3-hover)' },
-  bucket: { marginTop: '20px' },
-  bucketTitle: { fontSize: '12px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', marginBottom: '8px' },
-  when: { display: 'flex', flexDirection: 'column', rowGap: '2px', minWidth: '110px' },
-  date: { fontSize: '13px', color: 'var(--c3-ink-default)' },
-  rel: { fontSize: '11.5px', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)' },
-  title: { fontSize: '13.5px', color: 'var(--c3-ink-default)' },
-  sub: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-  // Polish wave #8: the arrow never orphans onto its own line.
-  open: { fontSize: '12.5px', color: 'var(--c3-action-primary)', whiteSpace: 'nowrap' },
-});
-
+/**
+ * ⚠️ THE ORG-WIDE DEFINITION OF "OVERDUE" LIVES HERE, CLIENT-SIDE, AND NO TEST
+ * CATCHES A CHANGE. `d < 0` = overdue/blocked, `d <= 7` = the near band. These
+ * three functions are the visible meaning of "overdue" everywhere the calendar
+ * is read. They are carried VERBATIM through the conversion — thresholds,
+ * boundaries, wording and bucket order unchanged. Any change to them is a
+ * product decision, not a refactor.
+ */
 function relLabel(d: number): string {
   if (d < 0) return `${-d}d overdue`;
   if (d === 0) return 'today';
@@ -71,12 +63,20 @@ function bucketOf(d: number): string {
 const BUCKET_ORDER = ['Overdue', 'Next 7 days', 'This month', 'Later'];
 
 export function CalendarPage() {
-  const s = useStyles();
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Calendar" section="Horizon">
+      <CalendarHorizon />
+    </TableworkPage>
+  );
+}
+
+function CalendarHorizon() {
   const { me } = useSession();
   const canView = me?.capabilities.canViewSituation ?? false;
   const [horizon, setHorizon] = useState(90);
   const [kindFilter, setKindFilter] = useState<CalendarItemDto['kind'] | null>(null);
+  // THE WIRE LAW: the capability IS the `enabled` flag — never hoisted to
+  // always-on and hidden.
   const { data, isLoading, isError, error } = useCalendar(horizon, canView);
 
   const all = useMemo(() => data?.items ?? [], [data]);
@@ -93,33 +93,47 @@ export function CalendarPage() {
 
   if (!canView) {
     return (
-      <div>
-        <PageHeader title="Calendar" />
+      <CollectionFrame title="Calendar">
         <EmptyState data-testid="calendar-denied" message="The calendar is available to owners and operations." />
-      </div>
+      </CollectionFrame>
     );
   }
 
   return (
-    <div>
-      <PageHeader kicker="What's coming" title="Calendar" />
-      <p className={s.intro}>
-        Every dated obligation in C3 on one timeline — credential expiries, agreement ends, mission dates, delegation
-        windows — soonest first, with anything overdue-but-still-open at the top. A planning view; act on each from its
-        own record.
-      </p>
-
-      <div className={s.controls}>
-        <span className={s.controlLabel}>Horizon</span>
-        {HORIZONS.map((h) => (
-          <button type="button" key={h} className={mergeClasses(s.chip, horizon === h && s.chipActive)} onClick={() => setHorizon(h)} data-testid={`calendar-horizon-${h}`}>
-            {h}d
-          </button>
-        ))}
-      </div>
-
+    <CollectionFrame
+      kicker="What's coming"
+      title="Calendar"
+      scope={
+        <>
+          Every dated obligation in C3 on one timeline — credential expiries, agreement ends, mission dates, delegation
+          windows — soonest first, with anything overdue-but-still-open at the top. A planning view; act on each from its
+          own record.
+        </>
+      }
+      filters={
+        <>
+          <span className="saved-views-label">Horizon</span>
+          {HORIZONS.map((h) => (
+            <button
+              type="button"
+              key={h}
+              className={horizon === h ? 'search-chip active' : 'search-chip'}
+              onClick={() => setHorizon(h)}
+              data-testid={`calendar-horizon-${h}`}
+            >
+              {h}d
+            </button>
+          ))}
+        </>
+      }
+    >
       {isLoading && <LoadingState label="Gathering the horizon…" />}
-      {isError && <ErrorState message={error instanceof ApiError ? error.message : 'Could not load the calendar.'} />}
+      {isError && (
+        <ErrorState
+          message={error instanceof ApiError ? error.message : 'Could not load the calendar.'}
+          correlationId={error instanceof ApiError ? error.correlationId : undefined}
+        />
+      )}
 
       {data && all.length === 0 && (
         <EmptyState data-testid="calendar-empty" message={`Nothing dated in the next ${horizon} days — the horizon is clear.`} />
@@ -128,12 +142,18 @@ export function CalendarPage() {
       {data && all.length > 0 && (
         <>
           {kindsPresent.length > 1 && (
-            <div className={s.chips} data-testid="calendar-chips">
-              <button type="button" className={mergeClasses(s.chip, kindFilter === null && s.chipActive)} onClick={() => setKindFilter(null)}>
+            <div className="search-chips" data-testid="calendar-chips">
+              <button type="button" className={kindFilter === null ? 'search-chip active' : 'search-chip'} onClick={() => setKindFilter(null)}>
                 All ({all.length})
               </button>
               {kindsPresent.map((k) => (
-                <button type="button" key={k} className={mergeClasses(s.chip, kindFilter === k && s.chipActive)} onClick={() => setKindFilter(kindFilter === k ? null : k)} data-testid={`calendar-chip-${k}`}>
+                <button
+                  type="button"
+                  key={k}
+                  className={kindFilter === k ? 'search-chip active' : 'search-chip'}
+                  onClick={() => setKindFilter(kindFilter === k ? null : k)}
+                  data-testid={`calendar-chip-${k}`}
+                >
                   {KIND_LABEL[k]} ({all.filter((i) => i.kind === k).length})
                 </button>
               ))}
@@ -141,35 +161,35 @@ export function CalendarPage() {
           )}
 
           {buckets.map(([bucket, rows]) => (
-            <div className={s.bucket} key={bucket}>
-              <div className={s.bucketTitle}>{bucket} · {rows.length}</div>
-              <table className={r.table} data-testid={`calendar-bucket-${bucket.replace(/\s+/g, '-').toLowerCase()}`} aria-label={`${bucket} items`}>
+            <div key={bucket}>
+              <h2 className="eyebrow">{bucket} · {rows.length}</h2>
+              <ComparisonTable label={`${bucket} items`} testId={`calendar-bucket-${bucket.replace(/\s+/g, '-').toLowerCase()}`}>
                 <tbody>
                   {rows.map((it) => (
-                    <tr key={`${it.kind}-${it.id}-${it.date}`} className={r.row} data-testid={`calendar-item-${it.id}-${it.kind}`}>
-                      <td className={r.td}>
-                        <div className={s.when}>
-                          <span className={s.date}>{it.date}</span>
-                          <span className={s.rel}>{relLabel(it.daysUntil)}</span>
-                        </div>
+                    <tr key={`${it.kind}-${it.id}-${it.date}`} data-testid={`calendar-item-${it.id}-${it.kind}`}>
+                      {/* The date stays RAW ISO — formatDisplayDate is a NEGATIVE
+                          contract; the relative line is the local relLabel. */}
+                      <td className="mono">
+                        <div>{it.date}</div>
+                        <div className="record-row-meta">{relLabel(it.daysUntil)}</div>
                       </td>
-                      <td className={r.td}>
-                        <div className={s.title}>
+                      <td>
+                        <div>
                           {it.title} <StatusBadge variant={urgencyVariant(it.daysUntil)}>{KIND_LABEL[it.kind]}</StatusBadge>
                         </div>
-                        {it.subtitle && <div className={s.sub}>{it.subtitle}</div>}
+                        {it.subtitle && <div className="collection-scope">{it.subtitle}</div>}
                       </td>
-                      <td className={r.td}>
-                        <Link className={s.open} to={it.route} data-testid={`calendar-open-${it.id}`}>Open →</Link>
+                      <td>
+                        <Link className="mini-action" to={it.route} data-testid={`calendar-open-${it.id}`}>Open →</Link>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
+              </ComparisonTable>
             </div>
           ))}
         </>
       )}
-    </div>
+    </CollectionFrame>
   );
 }
