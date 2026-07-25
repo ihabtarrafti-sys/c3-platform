@@ -5,7 +5,7 @@
  */
 export { Room, WorkSurface, FloatSurface, type WorkTier } from './materials';
 export { AppFrame, ShellIntents, type TableworkActor } from './AppFrame';
-export { ContextHeader } from './ContextHeader';
+export { ContextHeader, RecordBackLink } from './ContextHeader';
 export { ShellSearch } from './ShellSearch';
 export { ShellBellButton, ShellBellDrawer } from './ShellBell';
 export { PLACES, activePlaceFor, placeVisible, visibleSections } from './places';
