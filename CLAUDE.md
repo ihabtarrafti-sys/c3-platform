@@ -93,54 +93,76 @@ protocol is worse than the gap it closes.
 
 ## ⚖️ THE DOMINANT FAILURE MODE — read this one first
 
-**The mechanism keeps succeeding while quietly doing less. Green never wavers.**
+**The mechanism keeps succeeding while quietly doing less. Green never wavers.** None of
+these *fail*. They succeed at less than they claim — tests green, exit code 0, diff looks
+right.
 
-Five instances in one arc, every one invisible to every signal we normally trust:
+**The habit that catches it: ask what the mechanism DOES, not whether it FAILS.** Then look
+at the destination — the rendered element, the live URL, the built artifact, the actual file
+— because the only reliable evidence is the effect, never the report of the effect.
 
-1. An `&&`-chained gate reported **exit 0 while both runs failed**.
-2. A ceremony clean-tree guard would have **printed nothing while checking nothing**.
-3. The CI Frozen-SharePoint guard **passed against a deleted pathspec** — unmatched
-   pathspec, no diff, exit 0, guarding two fewer paths than it claimed.
-4. A `testId` → `data-testid` prop rename would have **compiled cleanly while silently
-   renaming three oracle-pinned testids**.
-5. `grep -c 'PASSED|passed'` **reported a verdict that did not exist**.
+**⚑ When you assert a guarantee, LIST THE CONSUMERS YOU CHECKED.** Naming a guarantee is
+not verifying it: identify every consumer that must honour it, then check each one and say
+which. **An empty list means the check did not happen** — without the artifact, skipping
+the verification produces a report identical to performing it, which makes it decoration.
+*(Worked example: the `RecordLink` fix listed computed font-family, colour and weight on the
+rendered anchor, plus the body font as a negative control proving the rule applied rather
+than was inherited.)*
 
-None of these fail. They succeed at less than they claim. Tests stay green, exit codes stay
-0, the diff looks right.
+> **The running tally of instances lives in `C:\Projects\C3-LANE-BOARD.md`, and NOWHERE
+> else — including here.** Full law set: **`C:\Projects\C3-APEX-LAWS.md`** (grouped by when
+> each law fires).
+>
+> A count is VOLATILE; a law is STABLE. Embedding the first in the second rots the document
+> while it still reads as authoritative — this file once said "five instances" while the
+> board said ten, from identical evidence, hours apart. **Stable text may live in several
+> places; volatile state lives in exactly one.**
 
-**The habit that catches it: ask what the mechanism DOES, not whether it FAILS.** Then go
-look at the destination — the rendered element, the live URL, the built artifact, the actual
-file — because the only reliable evidence is the effect, never the report of the effect.
+## Laws specific to THIS repo
 
-## The standing laws this repo is built on
+> The general Apex laws — verify-at-destination, absence-needs-a-companion, a guard that
+> cries wolf, corrections-in-place, the send rules — live in **`C:\Projects\C3-APEX-LAWS.md`**,
+> grouped by when they fire. They are not duplicated here. What follows is only what is
+> true of `c3-fable` specifically and would be lost as a pointer.
 
-- **Verify the effect at its destination, never the action's own report.** Deploy → probe
-  the live URL. Build → inspect the artifact. A DOM/CSS prop → read the *rendered* element's
-  computed style. A test or guard → RED-verify it fails when its guard is broken.
-  Cross-session state → transition in-app, never via reload (a reload remounts the tree and
-  makes a broken build look fixed).
-- **A check whose passing state is an ABSENCE needs a companion proving the observation
-  happened at all.** "The term isn't in the logs" is satisfied equally by a working mask and
-  by a request that never arrived.
-- **A guard that cries wolf gets rationalized.** Encode a known-benign recurring condition
-  INTO the guard — enumerated and bounded — never leave it for a reader to adjudicate.
-- **Commands in a runbook must be verified, not recalled — and verified in the shell the
-  OWNER will run them in.** PowerShell 5.1 aliases `curl`/`wget`/`ls`/`rm` over the real
-  binaries; PowerShell 7 does not. Prefer the unambiguous form (`curl.exe`).
 - **Behavior-frozen:** testids and pinned copy byte-identical. The e2e suite is the ORACLE.
   A spec addition routes through Neural under the spec-freeze law.
 - **Gate ×2 + e2e on the exact pushed tree.** Owner runs every deploy. Migrations immutable
   from 0087.
 - **Money:** a parser may be replaced only when the replacement's zero-policy AND output
   order are identical; otherwise leave it and comment why. Per-row guards belong at the CALL
-  SITE.
+  SITE — `orgBps` legitimately accepts 0 while each share row must be `> 0`.
 - **Undefined CSS `var()` fails silently.** Verify a token is defined before using it.
+- **`.mono` styles the CELL** (`td.mono` / `dd.mono`), never an anchor. Use the kit
+  `RecordLink`; a hand-rolled `<Link className="mono">` renders in the body font.
+- **Deploy runbooks: verify every command in the shell the OWNER runs it in.** PowerShell
+  5.1 aliases `curl`/`wget`/`ls`/`rm` over the real binaries; PowerShell 7 does not. Prefer
+  the unambiguous form (`curl.exe`). A ceremony has no battery behind it — the reader is the
+  gate.
 
-## Known intermittent
+## ⚠️ A TEST COMPLETES BEFORE ITS WORK DOES — open, not a "flake"
 
-`webv0/apps/backup/test/censusSnapshot.test.ts` can emit an unhandled `57014`
-(`canceling statement due to user request`) *after* its test completes, failing the gate
-while **all tests pass**. If the gate reds there with zero test failures, that is the flake
-— rerun once and report it. **Never silence it with a stray `.catch`**: muting an
-intermittent failure in the instrument every verdict depends on is strictly worse than
-leaving it visible.
+`webv0/apps/backup/test/censusSnapshot.test.ts` intermittently emits an unhandled `57014`
+(`canceling statement due to user request`) **after its test has returned**, failing the
+gate while **all 1011 tests pass**.
+
+**Do not file this as flakiness.** `57014` is Postgres `query_canceled`, so a query was
+**still in flight when the test finished** and was cancelled during teardown. That means a
+test returns before its own work is done: **the green comes first, the work is still
+running after.** It is the same failure mode as everything else in the register — the
+mechanism succeeding while quietly doing less — except located in the instrument that
+certifies all the others.
+
+- **NEVER silence it with a stray `.catch`.** That would hide a missing `await` and make
+  "all 1011 pass" mean even less than it currently does.
+- **Do not** drain the pool harder, extend a timeout, or swallow the rejection. Each
+  converts a loud correctness signal into a quiet one.
+- **Fix the await**: find which query outlives which test.
+- If the gate reds here with **zero test failures**, rerun once and report — but report it
+  as *"a test completes before its work does, cause not yet localized"*, never as "a flake."
+
+**Known and separate** — `censusSnapshot:155-158` races `pauseOpened` against a
+`setTimeout` that **rejects**. `Promise.race` does not cancel the loser, so that timeout
+fires after the test returns with nothing attached. Bounded search: every other
+`Promise.race` loser in the suite *resolves* (the safe idiom), so this leak is isolated to
+this one site. It throws an `Error`, not `57014`, so it is **not** the cause of the above.
