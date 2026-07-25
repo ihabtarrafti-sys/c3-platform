@@ -3,11 +3,16 @@ import { formatMoney } from '@c3web/domain';
 import { useMissionsFinanceSummary } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { Breadcrumbs } from '../components/Breadcrumbs';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
+import {
+  TableworkPage,
+  RecordBackLink,
+  CollectionFrame,
+  ComparisonTable,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+} from '../tablework';
 import { missionFinanceStageOf } from '../labels';
 
 /**
@@ -16,32 +21,53 @@ import { missionFinanceStageOf } from '../labels';
  * only — each mission's own P&L page carries the full truth including
  * per-diem roll-ins; this register answers "where does the money stand,
  * org-wide, right now".
+ *
+ * Tablework conversion (pivot W2, Lane C). M1 MANDATE: breadcrumbs do not port,
+ * and the `Missions › Finance` crumb was this screen's ONLY in-page route back
+ * to the missions register — so `RecordBackLink` rides the ContextHeader intent
+ * bar. It sits on BOTH the denied and permitted branches: a role that fails the
+ * financial gate still has to be able to leave.
+ *
+ * Money is untouched by the conversion: `formatMoney` (code-first, U+00A0
+ * separator) stays exactly as it was — `missions.spec` pins
+ * `finance-profit-MSN-0001` to `USD 9,500.00` byte-for-byte.
  */
 export function MissionFinancePage() {
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage
+      record="Mission finance"
+      section="Overview"
+      actions={<RecordBackLink to="/missions">Back to missions</RecordBackLink>}
+    >
+      <MissionFinanceOverview />
+    </TableworkPage>
+  );
+}
+
+function MissionFinanceOverview() {
   const { me } = useSession();
   const canView = me?.capabilities.canViewFinancials ?? false;
+  // The wire law: the capability IS the react-query `enabled` flag. Never
+  // hoisted to always-on and hidden visually — the register must not reach a
+  // browser that has no financial standing.
   const { data, isLoading, isError, error } = useMissionsFinanceSummary(canView);
 
   if (!canView) {
     return (
-      <div>
-        <PageHeader title="Mission finance" />
+      <CollectionFrame title="Mission finance">
         <EmptyState data-testid="mission-finance-denied" message="Financial detail is unavailable for your role." />
-      </div>
+      </CollectionFrame>
     );
   }
 
   const rows = data?.missions ?? [];
 
   return (
-    <div>
-      <PageHeader
-        kicker="Finance"
-        title="Mission finance"
-        context={data ? `${rows.length} mission${rows.length === 1 ? '' : 's'}` : undefined}
-        breadcrumbs={<Breadcrumbs crumbs={[{ label: 'Missions', to: '/missions' }, { label: 'Finance' }]} />}
-      />
+    <CollectionFrame
+      kicker="Finance"
+      title="Mission finance"
+      count={data ? `${rows.length} mission${rows.length === 1 ? '' : 's'}` : undefined}
+    >
       {isLoading && <LoadingState label="Loading mission finance…" />}
       {isError && (
         <ErrorState
@@ -51,53 +77,56 @@ export function MissionFinancePage() {
       )}
       {data && rows.length === 0 && <EmptyState data-testid="mission-finance-empty" message="No missions yet." />}
       {data && rows.length > 0 && (
-        <table className={r.table} data-testid="mission-finance-table" aria-label="All-missions finance">
+        <ComparisonTable label="All-missions finance" testId="mission-finance-table">
           <thead>
             <tr>
-              <th className={r.th}>Code</th>
-              <th className={r.th}>Mission</th>
-              <th className={r.th}>Stage</th>
-              <th className={r.th}>Income ≈</th>
-              <th className={r.th}>Expenses ≈</th>
-              <th className={r.th}>Profit ≈</th>
-              <th className={r.th}>Outstanding</th>
+              <th>Code</th>
+              <th>Mission</th>
+              <th>Stage</th>
+              <th>Income ≈</th>
+              <th>Expenses ≈</th>
+              <th>Profit ≈</th>
+              <th>Outstanding</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((m) => (
-              <tr key={m.missionId} className={r.row} data-testid={`finance-row-${m.missionId}`}>
-                <td className={`${r.td} ${r.mono}`}>{m.code ?? '—'}</td>
-                <td className={r.td}>
-                  <Link className={r.nameLink} to={`/missions/${m.missionId}`} data-testid={`finance-link-${m.missionId}`}>
+              <tr key={m.missionId} data-testid={`finance-row-${m.missionId}`}>
+                <td className="mono">{m.code ?? '—'}</td>
+                <td>
+                  {/* A human mission NAME, not a code — a sans link, never
+                      RecordLink (mono is reserved for codes, dates, amounts). */}
+                  <Link to={`/missions/${m.missionId}`} data-testid={`finance-link-${m.missionId}`}>
                     {m.name}
                   </Link>
                 </td>
-                <td className={r.td}>
+                <td>
                   <StatusBadge variant={missionFinanceStageOf(m.financeStage).variant} data-testid={`finance-stage-${m.missionId}`}>
                     {missionFinanceStageOf(m.financeStage).label}
                   </StatusBadge>
                 </td>
-                <td className={`${r.td} ${r.mono}`}>{m.blended ? formatMoney(m.blended.incomeUsdMinor, 'USD') : '—'}</td>
-                <td className={`${r.td} ${r.mono}`}>{m.blended ? formatMoney(m.blended.expenseUsdMinor, 'USD') : '—'}</td>
-                <td className={`${r.td} ${r.mono}`} data-testid={`finance-profit-${m.missionId}`}>
+                <td className="mono">{m.blended ? formatMoney(m.blended.incomeUsdMinor, 'USD') : '—'}</td>
+                <td className="mono">{m.blended ? formatMoney(m.blended.expenseUsdMinor, 'USD') : '—'}</td>
+                <td className="mono" data-testid={`finance-profit-${m.missionId}`}>
                   {m.blended ? (
                     formatMoney(m.blended.profitUsdMinor, 'USD')
                   ) : (
                     // Polish wave (owner ruling #5): a data-quality warning
                     // speaks up in amber — honest numbers are never muted.
+                    // NOT a dash: this branch names the missing rates.
                     <span style={{ color: 'var(--c3-state-warning)', fontWeight: 600 }}>
                       rates missing: {m.missingRates.join(', ')}
                     </span>
                   )}
                 </td>
-                <td className={r.td} data-testid={`finance-outstanding-${m.missionId}`}>
+                <td data-testid={`finance-outstanding-${m.missionId}`}>
                   {m.outstandingIncomeCount > 0 ? `${m.outstandingIncomeCount} income` : '—'}
                 </td>
               </tr>
             ))}
           </tbody>
-        </table>
+        </ComparisonTable>
       )}
-    </div>
+    </CollectionFrame>
   );
 }
