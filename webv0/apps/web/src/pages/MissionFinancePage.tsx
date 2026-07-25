@@ -114,6 +114,26 @@ function MissionFinanceOverview() {
                     // Polish wave (owner ruling #5): a data-quality warning
                     // speaks up in amber — honest numbers are never muted.
                     // NOT a dash: this branch names the missing rates.
+                    //
+                    // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                    // GAP: the frozen kit's warning vocabulary is SHAPED — it is
+                    //   badges and pills only. `StatusBadge variant="pending"`
+                    //   draws a leading dot, and `.state-label.warning` draws a
+                    //   bordered pill. There is no class for amber running TEXT
+                    //   inside a data cell, and adopting either kit form would
+                    //   change what this cell renders, which a conversion may
+                    //   not do.
+                    // WORKAROUND: a raw inline `style` on a bare span, carried
+                    //   verbatim across the conversion from the pre-Tablework
+                    //   screen (it was already inline — registerStyles had no
+                    //   warning class either).
+                    // CLASS: additive — a new inline warning-text class (amber +
+                    //   semibold, no border, no dot) breaks nothing already
+                    //   converted; changing `.state-label` to drop its pill
+                    //   WOULD be contractual and must not be the fix.
+                    // ⚠️ The amber treatment and the "rates missing: …" copy are
+                    //   OWNER-RULED (polish wave #5) and survive the fix. Only
+                    //   the raw inline style is provisional here.
                     <span style={{ color: 'var(--c3-state-warning)', fontWeight: 600 }}>
                       rates missing: {m.missingRates.join(', ')}
                     </span>

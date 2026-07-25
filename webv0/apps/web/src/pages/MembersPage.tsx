@@ -43,12 +43,37 @@ const ROLES = ['owner', 'operations', 'legal', 'finance', 'hr', 'management', 'v
 const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r }));
 
 /** The row's governed triggers — flex-start, never the flex-end panel rhythm. */
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no cluster class for buttons laid out INSIDE a table
+//   cell. Its three cluster classes — `.local-actions`, `.panel-actions` and
+//   `.message-actions` (tablework.css) — are all `justify-content: flex-end`,
+//   which is the panel rhythm; a row's triggers must start at the cell edge.
+// WORKAROUND: a screen-local CSSProperties const applied as an inline `style`
+//   on the wrapping div at the single use site below (the flex-start twin of
+//   `.local-actions`, same `--c3-space-2` gap and wrap).
+// CLASS: additive — a new `.row-actions` class alongside `.local-actions`
+//   breaks nothing already converted. Note the contractual alternative
+//   (relaxing `.local-actions` to flex-start) would move every existing
+//   cluster on every gated screen, so the fix must be the additive one.
 const ACTIONS_CELL: React.CSSProperties = { display: 'flex', columnGap: 'var(--c3-space-2)', flexWrap: 'wrap' };
 
 function RolePicker({ value, onChange, testId }: { value: string; onChange: (r: string) => void; testId: string }) {
   return (
     <Selector
       data-testid={testId}
+      // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+      // GAP: `Selector` exposes no width/size affordance. `.tw-root .selector`
+      //   hard-codes `min-width: 12rem` (192px) and there is no prop and no CSS
+      //   custom property to vary it, so a picker that is not 12rem wide cannot
+      //   be expressed through the kit.
+      // WORKAROUND: an inline `style` ridden in through Selector's
+      //   `React.HTMLAttributes<HTMLDivElement>` rest-spread onto its wrapper
+      //   div, carrying the Fluent-era width this control had before the
+      //   conversion. NOTE 160px is BELOW the kit's 192px floor — a fix that
+      //   only offers WIDER presets would not cover this site.
+      // CLASS: additive — a `size`/`width` prop (or a `--selector-min-width`
+      //   custom property) that defaults to today's 12rem leaves every
+      //   already-converted Selector rendering exactly as it does now.
       style={{ minWidth: '160px' }}
       value={value}
       options={ROLE_OPTIONS}
