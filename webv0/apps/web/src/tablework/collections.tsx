@@ -15,7 +15,40 @@
  * (variant map, copy, roles, testids verbatim) so pages convert mechanically.
  */
 import { useEffect, type HTMLAttributes, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { WorkSurface } from './materials';
+
+/**
+ * RecordLink — the mono business-ID link (PER-0001, APR-0007, MSN-0003…).
+ *
+ * ⚠️ Do NOT hand-roll this as `<Link className="mono">`. `.mono` is defined
+ * ONLY as `.data-grid td.mono` and `.fact-list dd.mono` — it styles the CELL,
+ * not an anchor inside it — so a `className="mono"` anchor renders completely
+ * unstyled. That shipped: four sites across ApprovalsPage and
+ * ApprovalDetailPage were live on the demo spine rendering in the body font.
+ *
+ * Every register repeats this pattern, so it is a kit primitive rather than a
+ * per-screen class. RECORDED for Aura: the ID link takes the kit's caption
+ * size (matching `td.mono`), not the Fluent-era hard-coded 13px.
+ */
+export function RecordLink({
+  to,
+  children,
+  ...rest
+}: {
+  to: string;
+  children: ReactNode;
+  /** Spelled `data-testid` (not `testId`) so call sites keep the exact
+   *  attribute the frozen oracle pins — converting the spelling would be a
+   *  silent testid change. */
+  'data-testid'?: string;
+}) {
+  return (
+    <Link className="record-link" to={to} {...rest}>
+      {children}
+    </Link>
+  );
+}
 
 /** Document-title parity with the Fluent PageHeader. Empty titles no-op so
  *  callers with nothing honest to say leave the tab name alone. */

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useApproval, useApprovalEvents } from '../queries';
 import { ApiError, type ApprovalDto } from '../api';
@@ -20,6 +20,7 @@ import {
   GovernedAction,
   type DefItem,
   type TimelineEntry,
+  RecordLink,
 } from '../tablework';
 import { CorrectionDialog, isCorrectable } from '../components/RequestCorrections';
 import { agreementTermKindOf, approvalStatusOf, operationOf } from '../labels';
@@ -156,9 +157,9 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
           label: 'Target person',
           value:
             a.status === 'Executed' && a.targetPersonId.startsWith('PER-') ? (
-              <Link className="mono" to={`/people/${a.targetPersonId}`} data-testid="created-person-link">
+              <RecordLink to={`/people/${a.targetPersonId}`} data-testid="created-person-link">
                 {a.targetPersonId}
-              </Link>
+              </RecordLink>
             ) : (
               a.targetPersonId || null
             ),
@@ -178,9 +179,9 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
     items.push({
       label: 'Revision of',
       value: (
-        <Link className="mono" to={`/approvals/${a.revisionOf}`} data-testid="revision-of-link">
+        <RecordLink to={`/approvals/${a.revisionOf}`} data-testid="revision-of-link">
           {a.revisionOf}
-        </Link>
+        </RecordLink>
       ),
     });
   }
@@ -188,9 +189,9 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
     items.push({
       label: 'Superseded by',
       value: (
-        <Link className="mono" to={`/approvals/${a.supersededBy}`} data-testid="superseded-by-link">
+        <RecordLink to={`/approvals/${a.supersededBy}`} data-testid="superseded-by-link">
           {a.supersededBy}
-        </Link>
+        </RecordLink>
       ),
     });
   }

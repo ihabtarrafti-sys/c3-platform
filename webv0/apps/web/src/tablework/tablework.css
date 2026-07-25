@@ -908,6 +908,23 @@
   font-size: var(--c3-font-size-caption);
 }
 
+/* RecordLink — the mono business-ID link. This exists because `.mono` above
+   styles the CELL, so an anchor carrying `className="mono"` inherits nothing
+   and renders in the body font (it shipped that way on ApprovalsPage and
+   ApprovalDetailPage). Anchors need their own rule; use the RecordLink kit
+   component, never a hand-rolled `<Link className="mono">`. */
+.tw-root a.record-link {
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  font-weight: 500;
+  color: var(--c3-accent-blue);
+  text-decoration: none;
+}
+
+.tw-root a.record-link:hover {
+  text-decoration: underline;
+}
+
 .tw-root .record-row {
   display: grid;
   grid-template-columns: auto minmax(0, 1fr) auto;

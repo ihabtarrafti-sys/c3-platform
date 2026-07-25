@@ -26,6 +26,7 @@ export {
 export {
   CollectionFrame,
   ComparisonTable,
+  RecordLink,
   RecordRow,
   StatusBadge,
   EmptyState,

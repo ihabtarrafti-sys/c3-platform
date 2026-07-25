@@ -1,4 +1,3 @@
-import { Link } from 'react-router-dom';
 import { useApprovals } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
@@ -10,6 +9,7 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  RecordLink,
 } from '../tablework';
 import { approvalStatusOf, operationOf } from '../labels';
 
@@ -69,9 +69,9 @@ function ApprovalsRegister() {
                 return (
                   <tr key={a.approvalId} data-testid={`approval-row-${a.approvalId}`}>
                     <td>
-                      <Link className="mono" to={`/approvals/${a.approvalId}`}>
+                      <RecordLink to={`/approvals/${a.approvalId}`}>
                         {a.approvalId}
-                      </Link>
+                      </RecordLink>
                     </td>
                     <td>{operationOf(a.operationType)}</td>
                     <td>
