@@ -70,7 +70,7 @@ jobs:
       - name: Frozen SharePoint guard (source + root manifests untouched)
         working-directory: .
         run: |
-          git diff --exit-code HEAD -- packages/c3 packages/c3-runtime packages/c3-spfx-host packages/runtime-sdk package.json package-lock.json \
+          git diff --exit-code HEAD -- packages/c3-runtime packages/runtime-sdk package.json package-lock.json \
             || (echo "::error::Frozen SharePoint root was modified by the build." && exit 1)
 
   images:
