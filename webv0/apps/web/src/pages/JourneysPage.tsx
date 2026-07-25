@@ -1,25 +1,41 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Field, Input, Option, makeStyles } from '@fluentui/react-components';
 import { journeyTransitionsFrom, type JourneyStatus, type JourneyTransition } from '@c3web/domain';
 import type { JourneyDto } from '../api';
 import { useJourneys, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { StatusBadge } from '../components/StatusBadge';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { useRegisterStyles } from '../components/registerStyles';
-import { GovernedAction } from '../components/GovernedAction';
-import { FormDrawer } from '../components/FormDrawer';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  RecordLink,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  DateInput,
+  Selector,
+  FormDrawer,
+  GovernedAction,
+} from '../tablework';
 import { journeyStatusOf } from '../labels';
 
 /**
  * Journeys (Sprint 37) — the lifecycle register. Initiation is GOVERNED (an
  * approval an owner must execute); the transitions are DIRECT-BUT-AUDITED —
  * their dialogs say so honestly: the effect is immediate and recorded.
+ *
+ * Tablework conversion (pivot W2, Lane C). The load-bearing subtlety here is
+ * `showLifecycle`: a capability × ENGINE composite (canOperateJourneys AND at
+ * least one row with a legal transition) decides whether the whole Lifecycle
+ * column exists. The header and body conditionals must stay in LOCKSTEP —
+ * a header standing over uniformly empty cells is exactly the defect polish
+ * wave #10 fixed on this screen. Dates stay raw ISO (journeys.spec matches
+ * /\d{4}-\d{2}-\d{2}/ on the row).
  */
 
 const TRANSITION_LABEL: Record<JourneyTransition, { button: string; title: (id: string) => string; description: string }> = {
@@ -45,14 +61,18 @@ const TRANSITION_LABEL: Record<JourneyTransition, { button: string; title: (id: 
   },
 };
 
-const useStyles = makeStyles({
-  personSelect: { minWidth: '260px' },
-  actionsCell: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
-});
+/** The row's lifecycle buttons — flex-start, never the flex-end panel rhythm. */
+const ACTIONS_CELL: React.CSSProperties = { display: 'flex', columnGap: 'var(--c3-space-2)', flexWrap: 'wrap' };
 
 export function JourneysPage() {
-  const s = useStyles();
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Journeys" section="Register" wide>
+      <JourneysRegister />
+    </TableworkPage>
+  );
+}
+
+function JourneysRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -63,6 +83,7 @@ export function JourneysPage() {
   // has lifecycle actions — a header over uniformly empty cells reads dead.
   const showLifecycle =
     canOperate && (data?.journeys.some((j) => journeyTransitionsFrom(j.status as JourneyStatus).length > 0) ?? false);
+  // The wire law: the capability IS the `enabled` flag.
   const people = usePeople(canSubmit);
 
   const [showForm, setShowForm] = useState(false);
@@ -110,14 +131,111 @@ export function JourneysPage() {
   const ready = personId !== '' && journeyType.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(startedOn);
 
   const addAction = canSubmit ? (
-    <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="initiate-journey-toggle">
+    <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="initiate-journey-toggle">
       Initiate journey
-    </Button>
+    </button>
   ) : undefined;
 
   return (
-    <div>
-      <PageHeader kicker="Register" title="Journeys" context={data ? `${data.journeys.length} in this view` : undefined} actions={addAction} />
+    <>
+      <CollectionFrame
+        kicker="Register"
+        title="Journeys"
+        count={data ? `${data.journeys.length} in this view` : undefined}
+        actions={addAction}
+      >
+        {isLoading && <LoadingState label="Loading journeys…" />}
+        {isError && (
+          <ErrorState
+            message={error instanceof ApiError ? error.message : 'Could not load journeys.'}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        )}
+        {data && data.journeys.length === 0 && (
+          <EmptyState
+            data-testid="journeys-empty"
+            message="No journeys yet."
+            action={
+              canSubmit ? (
+                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="journeys-empty-add">
+                  Initiate journey
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+        {/* M2: the count lives ONCE, in the CollectionFrame header. */}
+        {data && data.journeys.length > 0 && (
+          <ComparisonTable label="Journeys register" testId="journeys-table">
+            <thead>
+              <tr>
+                <th>Journey</th>
+                <th>Person</th>
+                <th>Type</th>
+                <th>Started</th>
+                <th>Ended</th>
+                <th>Status</th>
+                {/* LOCKSTEP with the body cell below — one composite, two sites. */}
+                {showLifecycle && <th>Lifecycle</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {data.journeys.map((j) => {
+                const badge = journeyStatusOf(j.status);
+                const actions = journeyTransitionsFrom(j.status as JourneyStatus);
+                return (
+                  <tr key={j.journeyId} data-testid={`journey-row-${j.journeyId}`}>
+                    <td>{j.journeyId}</td>
+                    <td>
+                      <RecordLink to={`/people/${j.personId}`}>{j.personId}</RecordLink>
+                    </td>
+                    <td>{j.title ?? j.journeyType}</td>
+                    {/* Raw ISO both sides — journeys.spec matches the row on
+                        /\d{4}-\d{2}-\d{2}/ once the end date is stamped. */}
+                    <td>{j.startedOn}</td>
+                    <td>{j.endedOn ?? '—'}</td>
+                    <td>
+                      <StatusBadge variant={badge.variant} data-testid={`journey-status-${j.journeyId}`}>
+                        {badge.label}
+                      </StatusBadge>
+                    </td>
+                    {showLifecycle && (
+                      <td>
+                        <div style={ACTIONS_CELL}>
+                          {actions.map((action) => (
+                            <GovernedAction
+                              key={action}
+                              triggerLabel={TRANSITION_LABEL[action].button}
+                              triggerTestId={`transition-${action}-${j.journeyId}`}
+                              triggerAppearance="secondary"
+                              title={TRANSITION_LABEL[action].title(j.journeyId)}
+                              description={TRANSITION_LABEL[action].description}
+                              extra={
+                                action === 'cancel' ? (
+                                  <Field label="Reason" required>
+                                    <Input
+                                      value={cancelReasons[j.journeyId] ?? ''}
+                                      onChange={(e) => setCancelReasons((c) => ({ ...c, [j.journeyId]: e.target.value }))}
+                                      data-testid={`cancel-reason-${j.journeyId}`}
+                                    />
+                                  </Field>
+                                ) : undefined
+                              }
+                              confirmLabel={action === 'cancel' ? 'Cancel journey' : TRANSITION_LABEL[action].button.replace('…', '')}
+                              confirmDisabled={action === 'cancel' && !(cancelReasons[j.journeyId] ?? '').trim()}
+                              onConfirm={() => runTransition(j, action)}
+                            />
+                          ))}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                );
+              })}
+            </tbody>
+          </ComparisonTable>
+        )}
+      </CollectionFrame>
 
       {canSubmit && (
         <FormDrawer
@@ -139,132 +257,33 @@ export function JourneysPage() {
           }
         >
           <Field label="Person" required>
-            <Dropdown
-              className={s.personSelect}
-              placeholder="Select a person"
-              value={personLabel}
-              selectedOptions={personId ? [personId] : []}
-              onOptionSelect={(_, d) => {
-                if (d.optionValue) {
-                  setPersonId(d.optionValue);
-                  setPersonLabel(d.optionText ?? d.optionValue);
-                }
-              }}
+            <Selector
               data-testid="initiate-journey-person"
-            >
-              {(people.data?.people ?? []).map((p) => (
-                <Option key={p.personId} value={p.personId} text={`${p.fullName} (${p.personId})`}>
-                  {`${p.fullName} (${p.personId})`}
-                </Option>
-              ))}
-            </Dropdown>
+              style={{ minWidth: '260px' }}
+              placeholder="Select a person"
+              value={personId}
+              display={personId ? personLabel : undefined}
+              options={(people.data?.people ?? []).map((p) => ({
+                value: p.personId,
+                label: `${p.fullName} (${p.personId})`,
+              }))}
+              onSelect={(value, label) => {
+                setPersonId(value);
+                setPersonLabel(label);
+              }}
+            />
           </Field>
           <Field label="Journey type" required>
-            <Input value={journeyType} onChange={(_, d) => setJourneyType(d.value)} data-testid="initiate-journey-type" />
+            <Input value={journeyType} onChange={(e) => setJourneyType(e.target.value)} data-testid="initiate-journey-type" />
           </Field>
           <Field label="Title">
-            <Input value={title} onChange={(_, d) => setTitle(d.value)} data-testid="initiate-journey-title" />
+            <Input value={title} onChange={(e) => setTitle(e.target.value)} data-testid="initiate-journey-title" />
           </Field>
           <Field label="Starts on" required>
-            <Input type="date" value={startedOn} onChange={(_, d) => setStartedOn(d.value)} data-testid="initiate-journey-started" />
+            <DateInput value={startedOn} onChange={(e) => setStartedOn(e.target.value)} data-testid="initiate-journey-started" />
           </Field>
         </FormDrawer>
       )}
-
-      {isLoading && <LoadingState label="Loading journeys…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load journeys.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.journeys.length === 0 && (
-        <EmptyState
-          data-testid="journeys-empty"
-          message="No journeys yet."
-          action={
-            canSubmit ? (
-              <Button appearance="primary" onClick={() => setShowForm(true)} data-testid="journeys-empty-add">
-                Initiate journey
-              </Button>
-            ) : undefined
-          }
-        />
-      )}
-      {data && data.journeys.length > 0 && (
-        <>
-          <table className={r.table} data-testid="journeys-table" aria-label="Journeys register">
-            <thead>
-              <tr>
-                <th className={r.th}>Journey</th>
-                <th className={r.th}>Person</th>
-                <th className={r.th}>Type</th>
-                <th className={r.th}>Started</th>
-                <th className={r.th}>Ended</th>
-                <th className={r.th}>Status</th>
-                {showLifecycle && <th className={r.th}>Lifecycle</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {data.journeys.map((j) => {
-                const badge = journeyStatusOf(j.status);
-                const actions = journeyTransitionsFrom(j.status as JourneyStatus);
-                return (
-                  <tr key={j.journeyId} className={r.row} data-testid={`journey-row-${j.journeyId}`}>
-                    <td className={r.td}>{j.journeyId}</td>
-                    <td className={r.td}>
-                      <Link className={r.idLink} to={`/people/${j.personId}`}>
-                        {j.personId}
-                      </Link>
-                    </td>
-                    <td className={`${r.td} ${r.name}`}>{j.title ?? j.journeyType}</td>
-                    <td className={r.td}>{j.startedOn}</td>
-                    <td className={r.td}>{j.endedOn ?? '—'}</td>
-                    <td className={r.td}>
-                      <StatusBadge variant={badge.variant} data-testid={`journey-status-${j.journeyId}`}>
-                        {badge.label}
-                      </StatusBadge>
-                    </td>
-                    {showLifecycle && (
-                      <td className={r.td}>
-                        <div className={s.actionsCell}>
-                          {actions.map((action) => (
-                            <GovernedAction
-                              key={action}
-                              triggerLabel={TRANSITION_LABEL[action].button}
-                              triggerTestId={`transition-${action}-${j.journeyId}`}
-                              triggerAppearance="secondary"
-                              title={TRANSITION_LABEL[action].title(j.journeyId)}
-                              description={TRANSITION_LABEL[action].description}
-                              extra={
-                                action === 'cancel' ? (
-                                  <Field label="Reason" required>
-                                    <Input
-                                      value={cancelReasons[j.journeyId] ?? ''}
-                                      onChange={(_, d) => setCancelReasons((c) => ({ ...c, [j.journeyId]: d.value }))}
-                                      data-testid={`cancel-reason-${j.journeyId}`}
-                                    />
-                                  </Field>
-                                ) : undefined
-                              }
-                              confirmLabel={action === 'cancel' ? 'Cancel journey' : TRANSITION_LABEL[action].button.replace('…', '')}
-                              confirmDisabled={action === 'cancel' && !(cancelReasons[j.journeyId] ?? '').trim()}
-                              onConfirm={() => runTransition(j, action)}
-                            />
-                          ))}
-                        </div>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          <div className={r.count}>
-            {data.journeys.length} {data.journeys.length === 1 ? 'journey' : 'journeys'}
-          </div>
-        </>
-      )}
-    </div>
+    </>
   );
 }
