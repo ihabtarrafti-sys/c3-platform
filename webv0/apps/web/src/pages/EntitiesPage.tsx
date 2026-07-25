@@ -38,7 +38,20 @@ interface EditState {
   localCurrency: string;
 }
 
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no action-cluster class for the actions cell of a
+//   ComparisonTable row. `.panel-actions` is the panel-FOOTER cluster — it
+//   right-aligns (justify-content: flex-end) and adds margin-top: --c3-space-5 —
+//   so it is wrong inside a table cell, and there is no left-aligned equivalent.
+// WORKAROUND: a screen-local React.CSSProperties flex row applied inline at both
+//   actions cells (active / inactive), with a hard-coded 8px gap, not a token.
+// CLASS: additive  — a `.row-actions` class (or a RowActions primitive) is new
+//   surface; nothing already converted changes.
 const ROW_ACTIONS: React.CSSProperties = { display: 'flex', columnGap: '8px', flexWrap: 'wrap' };
+// NOT a kit gap — deliberately UNMARKED. GovernedAction already wraps `extra` in
+// `.governed-extra` (a grid with a token gap), so the kit DOES cover this stack.
+// This wrapper is pre-pivot screen code that survived the conversion verbatim; it
+// is redundant layout (8px instead of --c3-space-3), not a workaround.
 const DIALOG_FIELDS: React.CSSProperties = { display: 'flex', flexDirection: 'column', rowGap: '8px' };
 const CURRENCY_OPTIONS = CURRENCY_CODES.map((c) => ({ value: c, label: c }));
 

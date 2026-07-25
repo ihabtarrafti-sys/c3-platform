@@ -47,6 +47,17 @@ const FILTERS: Array<{ key: 'all' | AgreementRenewalState; label: string }> = [
   { key: 'Expired', label: 'Expired' },
 ];
 
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: CollectionFrame's `filters` slot renders a bare <div class="collection-filters">
+//   with no way to give the filter row an identity — no role, aria-label or testid
+//   prop — and its flex layout applies only to that wrapper, so a nested labelled
+//   div becomes ONE flex item and the chips collapse into a block stack.
+// WORKAROUND: the screen nests its own role="group" aria-label div inside the slot
+//   and re-declares the row layout inline, with a hard-coded 8px instead of a
+//   spacing token. (PeoplePage hit the same gap in Wave 1 and worked around it
+//   differently — it repeats className="collection-filters" on the nested div.)
+// CLASS: additive  — filter-row identity props on CollectionFrame (or a slot that
+//   lays out its own children) break nothing already converted.
 const FILTER_GROUP: React.CSSProperties = { display: 'flex', columnGap: '8px', flexWrap: 'wrap' };
 
 export function AgreementsPage() {
@@ -119,6 +130,17 @@ function AgreementsRegister() {
       // the norm for entity-level agreements), and `null` only when the input is
       // malformed. Loosening this to `== null` would refuse every value-less
       // agreement.
+      //
+      // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+      // GAP: the frozen kit's only amount parser is `positiveAmountToMinor`, which
+      //   rejects 0. This register accepts a 0 value, so the F3 money-input
+      //   consolidation has no legal target on this screen.
+      // WORKAROUND: keeps the pre-pivot `parseDecimalToMinor` from @c3web/domain,
+      //   plus the strict `=== null` guard below that separates "malformed" (null)
+      //   from "no value stated" (undefined) — a distinction the kit parser, which
+      //   returns null for both, cannot express.
+      // CLASS: additive  — a zero-permitting parser (or an explicit zero policy on
+      //   the existing one) is a NEW export; nothing already converted changes.
       const parsedCents = valueUsd.trim() === '' ? undefined : parseDecimalToMinor(valueUsd);
       if (parsedCents === null) {
         notify('error', 'The value must be a plain amount with at most 2 decimals (e.g. 2500 or 2500.50).');
@@ -303,9 +325,20 @@ function AgreementsRegister() {
               data-testid="add-agreement-person"
               placeholder="Select a person"
               value={personId}
-              // The list carries a real ''-valued "No person" option, so the kit
-              // would otherwise show that option's label when nothing is chosen.
-              // `display` keeps the Fluent trigger text byte-for-byte.
+              // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+              // GAP: Selector resolves its trigger text as `display ?? selected?.label
+              //   ?? placeholder`. This list carries a REAL ''-valued option ("No
+              //   person — entity-level"), so at value === '' the kit finds a
+              //   `selected` option and the `placeholder` can never render — the
+              //   trigger reads "No person — entity-level" where Fluent read
+              //   "Select a person".
+              // WORKAROUND: pass `display`, computed from the parallel `personLabel`
+              //   state, restating the placeholder string when nothing is chosen.
+              //   `display` is documented as "the trigger text when a value IS
+              //   chosen"; this repurposes it for the not-chosen case.
+              // CLASS: contractual  — the honest fix is for `placeholder` to win
+              //   while nothing is chosen, which changes Selector's rendering for
+              //   every screen already converted and gated.
               display={personLabel === '' ? 'Select a person' : personLabel}
               options={personOptions}
               onSelect={(value, label) => {
@@ -320,6 +353,14 @@ function AgreementsRegister() {
                 data-testid="add-agreement-entity"
                 placeholder="Not assigned"
                 value={entityId}
+                // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                // GAP: same Selector gap as the person field above — a real
+                //   ''-valued option ("Not assigned") suppresses the placeholder.
+                //   Here the two strings happen to be identical, so this site is
+                //   defensive rather than load-bearing; it must still come out with
+                //   the rest, or it survives as dead code against a closed gap.
+                // WORKAROUND: pass `display` from the parallel `entityLabel` state.
+                // CLASS: contractual  — same fix, same blast radius as above.
                 display={entityLabel === '' ? 'Not assigned' : entityLabel}
                 options={entityOptions}
                 onSelect={(value, label) => {
@@ -340,6 +381,12 @@ function AgreementsRegister() {
               data-testid="add-agreement-link"
               placeholder="Not linked"
               value={linkedId}
+              // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+              // GAP: same Selector gap — a real ''-valued option ("Not linked")
+              //   suppresses the placeholder. Defensive here (the strings match),
+              //   but it comes out with the rest when the gap closes.
+              // WORKAROUND: pass `display` from the parallel `linkedLabel` state.
+              // CLASS: contractual  — same fix, same blast radius as above.
               display={linkedLabel === '' ? 'Not linked' : linkedLabel}
               options={linkOptions}
               onSelect={(value, label) => {

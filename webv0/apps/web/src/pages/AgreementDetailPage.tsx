@@ -61,7 +61,22 @@ function localTodayIso(): string {
   return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
+// NOT a kit gap — deliberately UNMARKED. This wrapper is the carried-over
+// Fluent-era field stack (`makeStyles.fields`). GovernedAction already wraps `extra`
+// in `.governed-extra` (a grid with a token gap), so the kit DOES cover this; the
+// wrapper only survives because removing it would change the field spacing from 8px
+// to --c3-space-3, and this pass is comments-only. It is redundant layout, not a
+// workaround, so it deliberately carries no KIT-GAP marker.
 const DIALOG_FIELDS: React.CSSProperties = { display: 'flex', flexDirection: 'column', rowGap: '8px' };
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no action-cluster class for the actions cell of a
+//   ComparisonTable row. `.panel-actions` is the panel-FOOTER cluster — it
+//   right-aligns (justify-content: flex-end) and adds margin-top: --c3-space-5 —
+//   so it is wrong inside a table cell, and there is no left-aligned equivalent.
+// WORKAROUND: a screen-local React.CSSProperties flex row applied inline at each
+//   actions cell, with a hard-coded 8px gap instead of a spacing token.
+// CLASS: additive  — a `.row-actions` class (or a RowActions primitive) is new
+//   surface; nothing already converted changes.
 const ROW_ACTIONS: React.CSSProperties = { display: 'flex', columnGap: '8px', flexWrap: 'wrap' };
 const CURRENCY_OPTIONS: SelectorOption[] = CURRENCY_CODES.map((c) => ({ value: c, label: c }));
 const TERM_KIND_OPTIONS: SelectorOption[] = AGREEMENT_TERM_KINDS.map((k) => ({ value: k, label: agreementTermKindOf(k) }));
@@ -188,8 +203,20 @@ function AgreementDetailRecord({ agreementId }: { agreementId: string }) {
                   data-testid={`edit-agreement-link-${a.agreementId}`}
                   placeholder="Not linked"
                   value={editState.link}
-                  // editState.linkLabel seeds to the bare parent ID (not the
-                  // "ID — type" option text), exactly as the Fluent trigger read.
+                  // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+                  // GAP: Selector resolves its trigger text as `display ??
+                  //   selected?.label ?? placeholder`. `linkOptions` carries a REAL
+                  //   ''-valued "Not linked" option, so at value === '' the kit finds
+                  //   a `selected` option and `placeholder` can never render. Second,
+                  //   `editState.linkLabel` seeds to the BARE parent ID while the
+                  //   option text is "ID — type", and the kit offers no way to show a
+                  //   trigger string that is not one of the option labels.
+                  // WORKAROUND: pass `display` off the parallel `linkLabel` state —
+                  //   restating the placeholder when empty, and the bare ID when set,
+                  //   which is what the Fluent trigger read.
+                  // CLASS: contractual  — the honest fix (placeholder wins while
+                  //   nothing is chosen) changes Selector's rendering for every screen
+                  //   already converted and gated.
                   display={editState.linkLabel === '' ? 'Not linked' : editState.linkLabel}
                   options={linkOptions}
                   onSelect={(value, label) => setEdit({ ...editState, link: value, linkLabel: value ? label : '' })}
