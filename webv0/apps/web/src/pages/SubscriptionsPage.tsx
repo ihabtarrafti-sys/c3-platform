@@ -108,7 +108,7 @@ function SubscriptionsRegister() {
     // GAP: the kit ships exactly one amount parser — `positiveAmountToMinor` —
     //   and it REJECTS zero. This register accepts 0.00 today, so adopting it
     //   would make a 0.00 subscription unsaveable. money.ts already ships the
-    //   zero-allowed / zero-rejected PAIR on the percent side (percentToBps /
+    //   zero-allowed / zero-rejected PAIR on the percent side (percentToBpsAllowingZero /
     //   positivePercentToBps); the amount side has only the rejecting half.
     // WORKAROUND: bypass the kit and call the domain's `parseDecimalToMinor`
     //   directly, guarded with `=== null` (not `== null`, not falsy) so 0 lives.

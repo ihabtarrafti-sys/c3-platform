@@ -43,7 +43,7 @@ import {
   Field,
   Input,
   Selector,
-  percentToBps,
+  percentToBpsAllowingZero,
   positiveAmountToMinor,
 } from '../tablework';
 import { DistributionsSection } from '../components/DistributionsSection';
@@ -985,7 +985,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                             confirmDisabled={(() => {
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
                               const chosen = invoiceEntities.find((e) => e.entityId === f.entityId);
-                              return !chosen || !chosen.code || f.billedTo.trim() === '' || percentToBps(f.vatPct) === null;
+                              return !chosen || !chosen.code || f.billedTo.trim() === '' || percentToBpsAllowingZero(f.vatPct) === null;
                             })()}
                             onConfirm={async () => {
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
@@ -996,7 +996,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                                   entityId: f.entityId,
                                   billedToName: f.billedTo.trim(),
                                   billedToDetails: f.details.trim() === '' ? null : f.details.trim(),
-                                  vatRateBps: percentToBps(f.vatPct)!,
+                                  vatRateBps: percentToBpsAllowingZero(f.vatPct)!,
                                   description: f.description.trim() === '' ? null : f.description.trim(),
                                 });
                                 notify('success', `Issued ${res.invoice.invoiceNumber} — the line is now Invoiced.`);

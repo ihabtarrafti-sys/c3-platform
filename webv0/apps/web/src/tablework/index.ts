@@ -39,7 +39,7 @@ export {
   type DefItem,
 } from './collections';
 export { formatDisplayDate } from './dates';
-export { percentToBps, positivePercentToBps, positiveAmountToMinor } from './money';
+export { percentToBpsAllowingZero, positivePercentToBps, amountToMinorAllowingZero, positiveAmountToMinor } from './money';
 export { Thread, detectLinks } from './Thread';
 export { Message, initialsOf } from './Message';
 export { ObligationCard, type ObligationActionInput } from './ObligationCard';

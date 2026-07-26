@@ -6,7 +6,7 @@ import { useMissionDistributions, useMissionPnl, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify } from '../session';
-import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, percentToBps } from '../tablework';
+import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, percentToBpsAllowingZero } from '../tablework';
 
 /**
  * Distributions (S8) — the payout list under a mission's P&L. A distribution
@@ -75,11 +75,11 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
   const activeDrafts = (drafts ?? []).filter((d) => d.bps.trim() !== '');
   // orgBps legitimately accepts 0 (all-to-players); the per-row `> 0` guard
   // below is a CALL-SITE rule and must not migrate into the shared parser.
-  const orgBps = percentToBps(orgPct);
-  const draftBpsSum = activeDrafts.reduce((n, d) => n + (percentToBps(d.bps) ?? 0), 0);
+  const orgBps = percentToBpsAllowingZero(orgPct);
+  const draftBpsSum = activeDrafts.reduce((n, d) => n + (percentToBpsAllowingZero(d.bps) ?? 0), 0);
   const draftsValid =
     orgBps !== null &&
-    activeDrafts.every((d) => percentToBps(d.bps) !== null && percentToBps(d.bps)! > 0) &&
+    activeDrafts.every((d) => percentToBpsAllowingZero(d.bps) !== null && percentToBpsAllowingZero(d.bps)! > 0) &&
     (activeDrafts.length === 0 ? orgBps === 10000 : draftBpsSum === 10000);
   const chosenLine = lines.find((l) => l.lineId === lineId);
   const pool = chosenLine ? (chosenLine.receivedAmountMinor ?? chosenLine.amountMinor) : 0;
@@ -162,7 +162,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                   missionId,
                   lineId,
                   orgShareBps: orgBps!,
-                  shares: activeDrafts.map((d) => ({ personId: d.personId, shareBps: percentToBps(d.bps)! })),
+                  shares: activeDrafts.map((d) => ({ personId: d.personId, shareBps: percentToBpsAllowingZero(d.bps)! })),
                 });
                 notify('success', `${res.distribution.distributionId} allocated — org ${formatMoney(res.distribution.orgCutMinor, res.distribution.currency)} + ${res.shares.length} payout row${res.shares.length === 1 ? '' : 's'}.`);
                 invalidate();
