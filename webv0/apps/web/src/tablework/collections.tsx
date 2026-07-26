@@ -72,12 +72,22 @@ interface CollectionFrameProps {
   actions?: ReactNode;
   /** The filter row (search, chips, saved views). */
   filters?: ReactNode;
+  /**
+   * Identity for the filter row. Without these the slot rendered a bare
+   * `<div class="collection-filters">` with no role, label or testid — and
+   * because its flex applies only to that wrapper, a screen that nested its own
+   * labelled div turned the whole row into ONE flex item and collapsed the
+   * chips into a block stack. Two screens worked around it in two DIFFERENT
+   * ways; these props are the one answer both were reaching for.
+   */
+  filtersLabel?: string;
+  filtersTestId?: string;
   /** The active-filter summary line (contract 05). */
   filterSummary?: ReactNode;
   children: ReactNode;
 }
 
-export function CollectionFrame({ title, titleTestId, kicker, count, scope, actions, filters, filterSummary, children }: CollectionFrameProps) {
+export function CollectionFrame({ title, titleTestId, kicker, count, scope, actions, filters, filtersLabel, filtersTestId, filterSummary, children }: CollectionFrameProps) {
   usePageTitle(title);
   return (
     <WorkSurface tier="raised" tablework="CollectionFrame" className="collection-frame">
@@ -96,7 +106,16 @@ export function CollectionFrame({ title, titleTestId, kicker, count, scope, acti
           </div>
         ) : null}
       </header>
-      {filters ? <div className="collection-filters">{filters}</div> : null}
+      {filters ? (
+        <div
+          className="collection-filters"
+          role={filtersLabel ? 'group' : undefined}
+          aria-label={filtersLabel}
+          data-testid={filtersTestId}
+        >
+          {filters}
+        </div>
+      ) : null}
       {filterSummary ? <p className="collection-filter-summary">{filterSummary}</p> : null}
       {children}
     </WorkSurface>

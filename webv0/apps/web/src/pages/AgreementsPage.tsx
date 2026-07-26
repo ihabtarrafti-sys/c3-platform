@@ -47,18 +47,6 @@ const FILTERS: Array<{ key: 'all' | AgreementRenewalState; label: string }> = [
   { key: 'Expired', label: 'Expired' },
 ];
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: CollectionFrame's `filters` slot renders a bare <div class="collection-filters">
-//   with no way to give the filter row an identity — no role, aria-label or testid
-//   prop — and its flex layout applies only to that wrapper, so a nested labelled
-//   div becomes ONE flex item and the chips collapse into a block stack.
-// WORKAROUND: the screen nests its own role="group" aria-label div inside the slot
-//   and re-declares the row layout inline, with a hard-coded 8px instead of a
-//   spacing token. (PeoplePage hit the same gap in Wave 1 and worked around it
-//   differently — it repeats className="collection-filters" on the nested div.)
-// CLASS: additive  — filter-row identity props on CollectionFrame (or a slot that
-//   lays out its own children) break nothing already converted.
-const FILTER_GROUP: React.CSSProperties = { display: 'flex', columnGap: '8px', flexWrap: 'wrap' };
 
 export function AgreementsPage() {
   return (
@@ -197,7 +185,7 @@ function AgreementsRegister() {
   ];
 
   const filters = (
-    <div role="group" aria-label="Renewal window filter" style={FILTER_GROUP}>
+    <>
       {FILTERS.map((f) => (
         <button
           key={f.key}
@@ -210,7 +198,7 @@ function AgreementsRegister() {
           {f.label}
         </button>
       ))}
-    </div>
+    </>
   );
 
   return (
@@ -221,6 +209,7 @@ function AgreementsRegister() {
         count={data ? `${rows.length} in this view` : undefined}
         actions={addAction}
         filters={filters}
+        filtersLabel="Renewal window filter"
       >
         {isLoading && <LoadingState label="Loading agreements…" />}
         {isError && (

@@ -43,17 +43,6 @@ import { auditActionOf, formatMinor } from '../labels';
 
 const KIND_LABEL: Record<string, string> = { GameDivision: 'Game division', Department: 'Department' };
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no emphasis for a TOTALS row. `.data-grid` styles
-//   th / td / tbody-hover / `.mono` / `.number` and nothing else — there is no
-//   `tfoot` rule and no class that makes a row read as a total instead of one
-//   more data row.
-// WORKAROUND: a screen-local inline style object carrying the Fluent-era
-//   `fontWeight: 600`, applied to the `team-finance-totals` <tr> below.
-// CLASS: additive — a new `.data-grid tr.total-row` (or a `tfoot` rule) matches
-//   nothing that renders today, so no already-converted, already-gated screen
-//   changes when it lands.
-const TOTAL_ROW: React.CSSProperties = { fontWeight: 600 };
 export function TeamDetailPage() {
   // The session gate mounts BEFORE any query hook: an anonymous deep link in
   // Entra mode must land on the deliberate sign-in screen, not fire 401s into
@@ -376,7 +365,7 @@ function TeamDetailBody({ teamId }: { teamId: string }) {
                           break-even, and truthiness would report "no expense
                           base" for a team that broke even. */}
                       {fin.totals && (
-                        <tr style={TOTAL_ROW} data-testid="team-finance-totals">
+                        <tr className="total-row" data-testid="team-finance-totals">
                           <td colSpan={3}>{`Total · ROI ${fin.roiBps !== null ? formatRoiBps(fin.roiBps) : '— (no expense base)'}`}</td>
                           <td className="mono">{formatMinor(fin.totals.incomeUsdMinor, 'USD')}</td>
                           <td className="mono">{formatMinor(fin.totals.expenseUsdMinor, 'USD')}</td>

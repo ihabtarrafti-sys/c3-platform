@@ -379,14 +379,19 @@
   font-size: var(--c3-font-size-body-small);
 }
 
-.tw-root .search-chips {
+/* …and the chip vocabulary. `.search-chip*` belongs to ShellSearch; a register's
+   filter chips borrowed it wholesale, inheriting a feature's opinions along with
+   its layout. Neutral twins, same blocks, so ShellSearch is untouched. */
+.tw-root .search-chips,
+.tw-root .filter-chips {
   display: flex;
   flex-wrap: wrap;
   gap: var(--c3-space-1);
   padding: var(--c3-space-1) var(--c3-space-2);
 }
 
-.tw-root .search-chip {
+.tw-root .search-chip,
+.tw-root .filter-chip {
   padding: var(--c3-space-1) var(--c3-space-3);
   border: var(--tw-line) solid var(--c3-border-subtle);
   border-radius: var(--c3-radius-pill);
@@ -396,11 +401,13 @@
   cursor: pointer;
 }
 
-.tw-root .search-chip:hover {
+.tw-root .search-chip:hover,
+.tw-root .filter-chip:hover {
   background: var(--c3-tw-work-subtle);
 }
 
-.tw-root .search-chip.active {
+.tw-root .search-chip.active,
+.tw-root .filter-chip.active {
   border-color: var(--c3-action-primary);
   color: var(--c3-ink-strong);
   background: var(--c3-tw-work-subtle);
@@ -770,7 +777,10 @@
   width: 100%;
 }
 
-.tw-root .saved-views-label {
+/* `.filter-label` shares this: a filter row needed a neutral label and the only
+   one that existed belonged to SavedViews. */
+.tw-root .saved-views-label,
+.tw-root .filter-label {
   color: var(--c3-ink-quiet);
   font-size: var(--c3-font-size-caption);
   font-weight: var(--c3-font-weight-bold);
@@ -1218,6 +1228,24 @@
    are independent choices. */
 .tw-root .record-quiet.record-note {
   margin: var(--c3-space-2) 0;
+}
+
+/* A WRAPPING monospace value. `.mono` is defined only as `.data-grid td.mono`
+   and `.fact-list dd.mono` — it styles the CELL, so `className="mono"` on
+   anything else does nothing at all; `.record-row-meta` is monospace but
+   `white-space: nowrap`. Neither can render a 256-bit capability token that is
+   shown ONCE and must not overflow out of view, which is why one screen fell
+   back to a bare <code> for the UA's monospace rule. */
+.tw-root .mono-wrap {
+  font-family: var(--c3-font-mono, monospace);
+  overflow-wrap: anywhere;
+}
+
+/* A TOTALS row reads as a conclusion, not one more data row. `.data-grid` styled
+   th / td / hover / .mono / .number and had no `tfoot` rule and no row-level
+   emphasis at all. */
+.tw-root .data-grid tr.total-row {
+  font-weight: var(--c3-font-weight-semibold);
 }
 
 .tw-root .record-rows {

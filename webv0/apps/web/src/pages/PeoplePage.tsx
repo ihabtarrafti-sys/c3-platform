@@ -142,6 +142,12 @@ function PeopleRegister() {
           data && data.people.length > 0 ? (
             <>
               <SavedViews register="people" currentState={view} onApply={(st) => setView(coerceView(st))} />
+              {/* NOT the closed filter-row gap, and deliberately NOT converged onto
+                  CollectionFrame's `filtersLabel`/`filtersTestId` (added for that gap).
+                  This nested row also GROUPS: it keeps the Fields together as one flex
+                  item beside SavedViews. Flattening it would make SavedViews and every
+                  Field equal siblings and change how the row wraps — a layout change,
+                  not a workaround removal. The repeated class is load-bearing here. */}
               <div className="collection-filters" data-testid="people-filters">
                 <Field label="Search">
                   <Input value={view.q} placeholder="Name, IGN, or ID" onChange={(e) => patchView({ q: e.target.value })} data-testid="people-filter-search" />

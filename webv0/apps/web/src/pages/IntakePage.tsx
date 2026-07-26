@@ -222,23 +222,7 @@ function IntakeDesk() {
       {minted && (
         <WorkSurface tier="raised" className="record-card" data-testid="intake-minted">
           <p className="record-lead">Send this link to the joiner. It is shown only once — copy it now.</p>
-          {/*
-            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-            // GAP: the kit has no WRAPPING monospace value. `.mono` is defined ONLY
-            //   as `.data-grid td.mono` and `.fact-list dd.mono` — cell-scoped, so
-            //   className="mono" does nothing here; `record-row-meta` is monospace
-            //   but `white-space: nowrap`, and this is a 256-bit URL-safe token that
-            //   MUST wrap; RecordLink is monospace but is an anchor. This is the
-            //   whole one-time capability, shown once — it cannot be allowed to
-            //   overflow out of view.
-            // WORKAROUND: a raw <code> element for the monospace face (its UA rule
-            //   beats the inherited human font) carrying `record-row-name` purely
-            //   for colour, size and `overflow-wrap: anywhere`.
-            // CLASS: additive — a wrapping mono value (a `.mono-wrap` class or a
-            //   CodeValue primitive) is a new export; the cell-scoped `.mono` rules
-            //   stay exactly as they are.
-          */}
-          <code className="record-row-name">{minted}</code>
+          <code className="record-row-name mono-wrap">{minted}</code>
           <div>
             <button className="secondary-action" type="button" onClick={() => void copyMinted()} data-testid="intake-copy">Copy link</button>
           </div>
