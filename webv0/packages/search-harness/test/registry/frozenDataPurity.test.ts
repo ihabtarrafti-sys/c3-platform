@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FROZEN_SUNSET_COVERAGE_MANIFEST,
   FROZEN_SUNSET_REGISTRY,
+  fingerprintSunsetTypeScriptDeclarations,
   hashSunsetTreeEntries,
   parseCanonicalFrozenJson,
   parseFrozenSunsetCoverageManifest,
@@ -117,6 +118,28 @@ describe('H0 frozen sunset data purity', () => {
       new Uint8Array([0x61, 0x0d, 0x62, 0x0d]),
     ].map(textHash);
     expect(new Set(binaryHashes).size).toBe(binaryHashes.length);
+  });
+
+  it('canonicalizes TypeScript declaration fingerprints before token scanning', () => {
+    const lf = [
+      'export function policyCheck(): string {',
+      '  return `first line',
+      'second line`;',
+      '}',
+      '',
+    ].join('\n');
+    const fingerprint = (sourceText: string) =>
+      fingerprintSunsetTypeScriptDeclarations(
+        'synthetic-policy.ts',
+        sourceText,
+        ['policyCheck'],
+      ).policyCheck;
+
+    expect(fingerprint(lf.replace(/\n/gu, '\r\n'))).toBe(fingerprint(lf));
+    expect(fingerprint(lf.replace(/\n/gu, '\r'))).toBe(fingerprint(lf));
+    expect(fingerprint(lf.replace('second line', 'changed line'))).not.toBe(
+      fingerprint(lf),
+    );
   });
 
   it('RED: strict registry parsing rejects live-derivation directives and unknown fields', () => {

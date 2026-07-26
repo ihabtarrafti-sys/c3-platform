@@ -170,9 +170,21 @@ function readRepoFile(relativePath: string): string {
   return readFileSync(absolutePath, 'utf8');
 }
 
+function parseTypeScriptText(
+  relativePath: string,
+  text: string,
+): ts.SourceFile {
+  return ts.createSourceFile(
+    relativePath,
+    canonicalizeSunsetFingerprintText(text),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS,
+  );
+}
+
 function parseTypeScript(relativePath: string): ts.SourceFile {
-  const text = readRepoFile(relativePath);
-  return ts.createSourceFile(relativePath, text, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  return parseTypeScriptText(relativePath, readRepoFile(relativePath));
 }
 
 function walk(node: ts.Node, visit: (candidate: ts.Node) => void): void {
@@ -283,6 +295,25 @@ function tokenSignature(node: ts.Node, source: ts.SourceFile): string {
 
 function tokenFingerprint(node: ts.Node, source: ts.SourceFile): string {
   return createHash('sha256').update(tokenSignature(node, source)).digest('hex');
+}
+
+export function fingerprintSunsetTypeScriptDeclarations(
+  relativePath: string,
+  sourceText: string,
+  declarationNames: readonly string[],
+): Readonly<Record<string, string>> {
+  const source = parseTypeScriptText(relativePath, sourceText);
+  const result: Record<string, string> = {};
+  for (const name of declarationNames) {
+    const node = findFunction(source, name) ?? findVariable(source, name);
+    if (!node) {
+      throw new Error(
+        `Sunset registry extraction failed: critical declaration ${name} was not found in ${relativePath}.`,
+      );
+    }
+    result[name] = tokenFingerprint(node, source);
+  }
+  return result;
 }
 
 function extractDomainSpecs(): Record<string, SearchProjectionRegistryEntry> {
@@ -769,10 +800,13 @@ function discoverCriticalSources(): string[] {
 function criticalSourceFingerprints(): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [relativePath, names] of Object.entries(CRITICAL_DECLARATIONS)) {
-    const source = parseTypeScript(relativePath);
-    for (const name of names) {
-      const node = findFunction(source, name) ?? findVariable(source, name);
-      if (node) result[`${relativePath}#${name}`] = tokenFingerprint(node, source);
+    const fingerprints = fingerprintSunsetTypeScriptDeclarations(
+      relativePath,
+      readRepoFile(relativePath),
+      names,
+    );
+    for (const [name, fingerprint] of Object.entries(fingerprints)) {
+      result[`${relativePath}#${name}`] = fingerprint;
     }
   }
   /*

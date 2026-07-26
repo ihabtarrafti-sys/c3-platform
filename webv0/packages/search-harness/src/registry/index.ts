@@ -24,6 +24,7 @@ export {
 } from './compare';
 export {
   buildLiveSunsetRegistrySnapshot,
+  fingerprintSunsetTypeScriptDeclarations,
   hashSunsetTreeEntries,
   isSunsetEnforcementTreePath,
   listSunsetEnforcementTreeFiles,
