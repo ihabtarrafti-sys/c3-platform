@@ -80,22 +80,24 @@ export const router = createBrowserRouter([
   { path: '/agreements/:agreementId', element: <AgreementDetailPage /> },
   { path: '/entities', element: <EntitiesPage /> },
   { path: '/invoices', element: <InvoicesPage /> },
+  // Wave 2 · Lane C — people registers + the finance overview. Same pure
+  // relocation: each page carries its own record/section/wide.
+  { path: '/credentials', element: <CredentialsPage /> },
+  { path: '/journeys', element: <JourneysPage /> },
+  { path: '/members', element: <MembersPage /> },
+  { path: '/missions/finance', element: <MissionFinancePage /> },
   {
     path: '/',
     element: <AppShell />,
     children: [
       { index: true, element: <HomeRedirect /> },
       { path: 'people/:personId/one-pager', element: <OnePagerPage /> },
-      { path: 'credentials', element: <CredentialsPage /> },
-      { path: 'journeys', element: <JourneysPage /> },
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
-      { path: 'missions/finance', element: <MissionFinancePage /> },
       { path: 'teams', element: <TeamsPage /> },
       { path: 'teams/:teamId', element: <TeamDetailPage /> },
       { path: 'claims', element: <ClaimsPage /> },
       { path: 'claims/:claimId', element: <ClaimDetailPage /> },
-      { path: 'members', element: <MembersPage /> },
       { path: 'intake', element: <IntakePage /> },
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'departures', element: <DeparturesPage /> },
