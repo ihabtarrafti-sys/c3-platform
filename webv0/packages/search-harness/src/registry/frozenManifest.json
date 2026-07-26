@@ -799,7 +799,7 @@
     "packages/persistence/src/searchSql.ts#DOMAIN_SPECS": "c1945ac8daa00610ad0e9925c3a3721234a7b50a08cd9c250898a8473c56fe30",
     "packages/persistence/src/searchSql.ts#domainBlock": "78f109be960e9c027505364f20633bedcd7b4957a8018093be26c366d3b4069b",
     "packages/api-contracts/src/index.ts#searchResultsSchema": "4aff386126c762bbf7544cb981339a1158dbb0b659b62d8f9b595dec139fe415",
-    "apps/api/src#tree": "f98069ebb32d77f6e25f9ac111ba6820ba17f88100632d1172f6cef120d57739",
+    "apps/api/src#tree": "cd88187681e23a7a37b7d34a660e13d38cf00609964ee47cbe57d09f8729d47f",
     "packages/authz/src#tree": "35da34bf35368dd25fb51e6784d323a1e639a4c714b6b3937c0a97d53014d4f7",
     "packages/domain/src#tree": "46bae7fb794144bfa191713b41bd700cbd24bcdb08eafe7741d3d28428f0ba8d",
     "packages/application/src#tree": "1c7de6ad28fe686eeee216b09fb12653de54b6a0e955342effdb37d45593bef0",
