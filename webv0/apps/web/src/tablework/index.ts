@@ -28,6 +28,7 @@ export {
   ComparisonTable,
   RecordLink,
   RecordRow,
+  SectionHeading,
   StatusBadge,
   EmptyState,
   LoadingState,

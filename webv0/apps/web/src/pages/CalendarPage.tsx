@@ -7,6 +7,7 @@ import { useSession } from '../session';
 import {
   TableworkPage,
   CollectionFrame,
+  SectionHeading,
   ComparisonTable,
   StatusBadge,
   EmptyState,
@@ -181,24 +182,7 @@ function CalendarHorizon() {
 
           {buckets.map(([bucket, rows]) => (
             <div key={bucket}>
-              {/*
-                // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                // GAP: the kit has no SUB-SECTION heading. CollectionFrame owns the
-                //   <h1>, ComparisonTable takes no visible caption/title, and
-                //   tablework.css carries NO global heading reset — <h2> is styled
-                //   only under a scoped ancestor (.surface-heading h2,
-                //   .record-section h2, …), so a bare <h2 className="eyebrow"> would
-                //   keep the UA's 0.83em margins and open a gap the design never
-                //   asked for.
-                // WORKAROUND: a <p className="eyebrow"> styled as a heading. It looks
-                //   right and matches how the kit itself writes eyebrows, but the
-                //   bucket group gets NO heading in the accessibility tree.
-                // CLASS: additive — a SectionHeading primitive (or a `caption` prop on
-                //   ComparisonTable) is a new export. Adding a global heading reset to
-                //   tablework.css instead WOULD be contractual: it would move every
-                //   heading on every screen already converted and gated.
-              */}
-              <p className="eyebrow">{bucket} · {rows.length}</p>
+              <SectionHeading>{bucket} · {rows.length}</SectionHeading>
               <ComparisonTable label={`${bucket} items`} testId={`calendar-bucket-${bucket.replace(/\s+/g, '-').toLowerCase()}`}>
                 <tbody>
                   {rows.map((it) => (

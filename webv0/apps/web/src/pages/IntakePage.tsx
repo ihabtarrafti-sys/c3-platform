@@ -9,6 +9,7 @@ import { useNotify, useSession } from '../session';
 import {
   TableworkPage,
   CollectionFrame,
+  SectionHeading,
   ComparisonTable,
   FactList,
   WorkSurface,
@@ -199,16 +200,7 @@ function IntakeDesk() {
       }
     >
       {/* ── mint ── */}
-      {/*
-        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-        // GAP: no SUB-SECTION heading primitive, and no global heading reset in
-        //   tablework.css (see CalendarPage for the full statement of this gap).
-        //   This screen holds TWO named sections under one frame title.
-        // WORKAROUND: a <p className="eyebrow"> per section — neither section is a
-        //   heading in the accessibility tree.
-        // CLASS: additive — a SectionHeading primitive is a new export.
-      */}
-      <p className="eyebrow">New invitation link</p>
+      <SectionHeading>New invitation link</SectionHeading>
       {/*
         // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
         // GAP: an inline CREATE form (label + expiry + mint) with no inline-form-row
@@ -321,15 +313,7 @@ function IntakeDesk() {
       )}
 
       {/* ── sandbox ── */}
-      {/*
-        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-        // GAP: no SUB-SECTION heading primitive, and no global heading reset in
-        //   tablework.css (see CalendarPage for the full statement of this gap).
-        // WORKAROUND: a <p className="eyebrow"> standing in for the section's
-        //   heading — it is not a heading in the accessibility tree.
-        // CLASS: additive — a SectionHeading primitive is a new export.
-      */}
-      <p className="eyebrow">Sandbox — submissions to review</p>
+      <SectionHeading>Sandbox — submissions to review</SectionHeading>
       {sandbox.isLoading && <LoadingState label="Loading submissions…" />}
       {sandbox.isError && (
         <ErrorState

@@ -61,17 +61,22 @@ exists is an **observed range** and a list of **unseparated candidates**:
 | Tier 1 | 585.83s · 543.92s | **34 PG orphans resident** |
 | Tier 2 | 554.68s · 533.98s | **0 orphans at start** (paired measurement) |
 | B1 | 524.91s · **482.86s** | same machine, same day |
+| Tier 3 · cluster A | **451.41s** · **448.41s** | same machine, same day |
 
 **The orphan hypothesis is FALSIFIED**: sweeping to zero produced 554.68s, *inside* the
 contaminated range. The leak is a real defect and **not** this cause.
 
-**⚑ AND THE SPREAD ITSELF IS THE ANSWER.** Six runs in one day on one machine span
-**482.86s → 585.83s (~±10%)**, with no orphan correlation — and the low end lands *inside*
-the very window that was called "the baseline." **486s was never a healthy state that later
-degraded; it was the bottom of a naturally wide distribution.** A single run cannot
-distinguish "fast machine" from "lucky draw," which is exactly why one run cannot set a
-standard. **Judge a gate against the RANGE, and treat any single number — high or low — as
-one sample.**
+**⚑ AND THE SPREAD ITSELF IS THE ANSWER.** Runs in one day on one machine span
+**451.41s → 585.83s**, with no orphan correlation — and **486s, the figure once called "the
+baseline," sits in the MIDDLE of that spread, not at its floor.** It was never a healthy
+state that later degraded; it was one draw from a wide distribution, and later runs went
+*faster* than it. A single run cannot distinguish "fast machine" from "lucky draw," which is
+exactly why one run cannot set a standard. **Judge a gate against the RANGE, and treat any
+single number — high or low — as one sample.**
+
+> **⚠️ Each new run goes in the table, especially a new extreme.** A range recorded once and
+> never extended becomes the same false standard by a slower route — 451.41s would have read
+> as "suspiciously fast" against a table that stopped at 482.
 
 > **⚠️ THE 486s FIGURE WAS DEMOTED FROM BASELINE TO A SINGLE OBSERVATION**, because it was
 > exactly the mistake it replaced. The 1,038s baseline was suspect for being *one run someone
@@ -217,6 +222,13 @@ against that number — never against zero, and never against "did it error".
 - **Money:** a parser may be replaced only when the replacement's zero-policy AND output
   order are identical; otherwise leave it and comment why. Per-row guards belong at the CALL
   SITE — `orgBps` legitimately accepts 0 while each share row must be `> 0`.
+- **⚖️ THE MONEY LAYERING RULE (Neural, 2026-07-26): the DOMAIN parses; the KIT names the
+  policy; the CALL SITE chooses.** `parseDecimalToMinor` makes no policy choice — it answers
+  *"can this string become minor units?"* and returns `null` for malformed. **Zero is a valid
+  parse RESULT there, not a policy decision**, so it is deliberately NOT named
+  `…AllowingZero`: naming it so would make the machinery lie about what it decides. **A KIT
+  export, by contrast, must state its zero policy in its name** — that is the layer whose job
+  is to be explicit at the call site. Do not push policy vocabulary down into machinery.
 - **Undefined CSS `var()` fails silently.** Verify a token is defined before using it.
 - **`.mono` styles the CELL** (`td.mono` / `dd.mono`), never an anchor. Use the kit
   `RecordLink`; a hand-rolled `<Link className="mono">` renders in the body font.

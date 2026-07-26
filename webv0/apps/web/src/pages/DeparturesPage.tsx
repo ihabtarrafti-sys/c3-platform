@@ -9,6 +9,7 @@ import { useNotify, useSession } from '../session';
 import {
   TableworkPage,
   CollectionFrame,
+  SectionHeading,
   ComparisonTable,
   WorkSurface,
   StatusBadge,
@@ -190,15 +191,8 @@ function DeparturesWorkflow() {
             <StatusBadge variant="pending">In progress</StatusBadge>
           </header>
 
-          {/*
-            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-            // GAP: no SUB-SECTION heading primitive, and no global heading reset in
-            //   tablework.css (see CalendarPage for the full statement of this gap).
-            // WORKAROUND: a <p className="eyebrow"> standing in for a heading — the
-            //   checklist group carries none in the accessibility tree.
-            // CLASS: additive — a SectionHeading primitive is a new export.
-          */}
-          <p className="eyebrow">Still open · {d.openItems.length}</p>
+          {/* level 3: this card's own <h2> is the person's name. */}
+          <SectionHeading level={3}>Still open · {d.openItems.length}</SectionHeading>
           {d.openItems.length === 0 ? (
             <p className="record-quiet success" data-testid={`departure-clear-${d.departure.departureId}`}>Everything is closed — ready to complete.</p>
           ) : (
@@ -245,16 +239,7 @@ function DeparturesWorkflow() {
 
       {closed.length > 0 && (
         <div>
-          {/*
-            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-            // GAP: no SUB-SECTION heading primitive, and ComparisonTable takes no
-            //   visible caption (see CalendarPage for the full statement).
-            // WORKAROUND: a <p className="eyebrow"> above the table, standing in for
-            //   the caption the table cannot render.
-            // CLASS: additive — a `caption` prop on ComparisonTable, or a
-            //   SectionHeading primitive, is a new export.
-          */}
-          <p className="eyebrow">Closed</p>
+          <SectionHeading>Closed</SectionHeading>
           <ComparisonTable label="Closed departures" testId="departures-closed">
             <tbody>
               {closed.map((d) => (

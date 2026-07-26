@@ -1140,6 +1140,30 @@
   flex-wrap: wrap;
 }
 
+/* SectionHeading — the eyebrow treatment on a REAL <h2>/<h3>. Everything here
+   is stated rather than inherited: `h2` is styled only CONTEXTUALLY elsewhere
+   in this file, so a bare one falls through to the UA's sizing and margins,
+   which is why five screens used a <p> instead.
+
+   ⚖️ THE MARGIN IS ASYMMETRIC ON PURPOSE. The <p> it replaces inherited the
+   UA's `1em 0` — at caption size, exactly 12px top AND bottom — which nobody
+   chose. A heading belongs to the content BELOW it: more space above to part
+   it from the previous block, less below to bind it to its own. */
+.tw-root .section-heading {
+  margin: var(--c3-space-5) 0 var(--c3-space-2);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+/* …but the FIRST heading in a surface has nothing above it to part from, and
+   the inherited 12px was already doing this job invisibly. */
+.tw-root .section-heading:first-child {
+  margin-top: 0;
+}
+
 .tw-root .record-quiet {
   color: var(--c3-ink-quiet);
   font-size: var(--c3-font-size-body-small);

@@ -114,6 +114,37 @@ export function ComparisonTable({ label, testId, children }: { label: string; te
   );
 }
 
+/**
+ * SectionHeading — the sub-section label, as a REAL heading.
+ *
+ * Five sites across three screens independently reached for
+ * `<p className="eyebrow">`, which looks exactly right and **announces nothing**:
+ * a section label that is not a heading is invisible to anyone navigating by
+ * headings. They reached for it because the kit made the correct thing look
+ * wrong — `tablework.css` styles `h2` only CONTEXTUALLY (`surface-heading`,
+ * `record-section`, `receipt`, `conversation-header`, `obligation-card`,
+ * `float-header`), so a bare `<h2>` falls through to the UA's own sizing and
+ * margins. This is the eyebrow treatment ON a heading element, with that
+ * fall-through closed.
+ *
+ * `level` exists because heading RANK is a document-structure decision the
+ * screen owns, not the component: inside a `RecordPage` whose title is the
+ * `<h1>` these are `<h2>`, but a section nested under another heading needs
+ * `<h3>` to avoid a skipped level, which is its own a11y defect.
+ */
+export function SectionHeading({
+  children,
+  level = 2,
+  ...rest
+}: { children: ReactNode; level?: 2 | 3 } & HTMLAttributes<HTMLHeadingElement>) {
+  const Tag = (level === 3 ? 'h3' : 'h2') as 'h2' | 'h3';
+  return (
+    <Tag className="section-heading" {...rest}>
+      {children}
+    </Tag>
+  );
+}
+
 /** A list-register row: identity + facts + the row's next action. */
 export function RecordRow({ children, ...rest }: { children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
   return (
