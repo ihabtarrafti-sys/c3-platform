@@ -49,6 +49,37 @@ either party thinking to ask.
 e2e from an earlier run on an identical tree, say exactly that. The completion signal must
 BE the verdict.
 
+### ⚠️ THE GATE BASELINE — and why the old one was wrong
+
+**Current healthy baseline: ~486s per gate test phase** (Lane C, 488.26s / 483.48s), with a
+**CPU bench of ~316ms** for 300M iterations.
+
+> **⛔ The previously-recorded 1,038s baseline is SUPERSEDED AND SUSPECT.** It was almost
+> certainly measured while the machine was *already* in a reduced power state — just less
+> reduced than the 2,670s runs. **We were calling a degraded measurement "healthy."**
+>
+> The danger is specific: a future gate running at 1,038s would read as *"at baseline"* while
+> actually being **2× degraded** — a throttled machine with its alarm pre-silenced. **A wrong
+> reference standard corrupts every comparison made against it.**
+
+**Record machine conditions with every verdict**, in this form — never a CPU percentage:
+
+    credentialsV2 11.91s [healthy 12.7 | slow 33.4] · CPU bench 316ms · 0 postgres · 0 orphans
+
+**An aggregate system metric is WEAK evidence; a known workload against its own known
+baseline is STRONG evidence.** `Win32_Processor.LoadPercentage` reported 65% while
+per-process measurement showed 3% of 32 cores; a `head -8` process count was the truncation
+limit, not a measurement. **Run the strong measurement FIRST** — it was available the whole
+time and got run last.
+
+### Route relocations: verify with `matchRoutes`, never by reasoning
+
+Moving a route out of the `AppShell` children is not obviously safe. `/missions/finance`
+sits AFTER `/missions/:missionId` in the array — if react-router matched by ORDER rather
+than specificity, finance would silently render **the mission detail page**: a real page,
+with real data, at a real-looking URL. **Nothing goes red and a human smoke test very likely
+passes it.** Ten seconds with `matchRoutes` converts the assumption into a fact.
+
 ### Reading a verdict — TWO facts, never one
 
 **Never grep for `PASSED`.** It matches `✓` test-output lines and reports a verdict that
