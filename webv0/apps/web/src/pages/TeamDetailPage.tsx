@@ -54,20 +54,6 @@ const KIND_LABEL: Record<string, string> = { GameDivision: 'Game division', Depa
 //   nothing that renders today, so no already-converted, already-gated screen
 //   changes when it lands.
 const TOTAL_ROW: React.CSSProperties = { fontWeight: 600 };
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no SECTION-LEVEL critical text. `.record-quiet` is
-//   the only inline-text class and it is muted grey; `.field-error` and
-//   `.attachment-error` are caption-size and semantically bound to a field or
-//   an attachment; `.notice` is a bordered banner with its own background.
-//   Adopting any of them restyles a line this screen must keep as it is.
-// WORKAROUND: a screen-local inline style object carrying the Fluent-era 13px /
-//   `--c3-state-danger` / 8px vertical margin, applied to the
-//   `team-finance-unblendable` paragraph below. A withheld team total is a
-//   financial statement — it must not slide into quiet grey.
-// CLASS: additive — a new inline-text class beside `.record-quiet` (e.g.
-//   `.record-critical`) matches nothing already converted.
-const NOTICE: React.CSSProperties = { fontSize: '13px', color: 'var(--c3-state-danger)', margin: '8px 0' };
-
 export function TeamDetailPage() {
   // The session gate mounts BEFORE any query hook: an anonymous deep link in
   // Entra mode must land on the deliberate sign-in screen, not fire 401s into
@@ -350,7 +336,7 @@ function TeamDetailBody({ teamId }: { teamId: string }) {
                   </p>
                 )}
                 {fin && fin.unblendableMissions.length > 0 && (
-                  <p style={NOTICE} data-testid="team-finance-unblendable">
+                  <p className="record-quiet danger record-note" data-testid="team-finance-unblendable">
                     {`No team total: ${fin.unblendableMissions.join(', ')} cannot blend to USD (missing exchange rates — Settings → Exchange rates).`}
                   </p>
                 )}

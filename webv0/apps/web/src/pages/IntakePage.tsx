@@ -387,20 +387,8 @@ function IntakeDesk() {
                         {sub.status === 'Promoted' && sub.promotedApprovalId && (
                           <Link className="mini-action" to={`/approvals/${sub.promotedApprovalId}`}>Open approval {sub.promotedApprovalId} →</Link>
                         )}
-                        {/*
-                          // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                          // GAP: no margin-free inline action group. The kit's only generic
-                          //   one, `panel-actions`, adds `margin-top: var(--c3-space-5)` — a
-                          //   panel-FOOT margin that reads as stray vertical space inside a
-                          //   table cell.
-                          // WORKAROUND: borrow `message-actions`, which shares the identical
-                          //   flex rule minus the margin but is named for the Comms Message.
-                          // CLASS: additive — a neutrally-named margin-free action group is a
-                          //   new class. (Dropping the margin from `panel-actions` instead
-                          //   WOULD be contractual — it is load-bearing on panel feet.)
-                        */}
                         {sub.status === 'Promoted' && sub.uploads.length > 0 && (
-                          <div className="message-actions">
+                          <div className="row-actions">
                             <button className="secondary-action" type="button" onClick={() => void attachFiles(sub)} data-testid={`intake-attach-${sub.id}`}>
                               Attach {sub.uploads.length} file(s) to the person
                             </button>
@@ -413,19 +401,7 @@ function IntakeDesk() {
                   <td className="mono">{sub.submittedAt.slice(0, 10)}</td>
                   <td><StatusBadge variant={subVariant(sub.status)}>{sub.status}</StatusBadge></td>
                   <td>
-                    {/*
-                      // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                      // GAP: no margin-free inline action group. The kit's only generic
-                      //   one, `panel-actions`, adds `margin-top: var(--c3-space-5)` — a
-                      //   panel-FOOT margin that reads as stray vertical space inside a
-                      //   table cell.
-                      // WORKAROUND: borrow `message-actions`, which shares the identical
-                      //   flex rule minus the margin but is named for the Comms Message.
-                      // CLASS: additive — a neutrally-named margin-free action group is a
-                      //   new class. (Dropping the margin from `panel-actions` instead
-                      //   WOULD be contractual — it is load-bearing on panel feet.)
-                    */}
-                    <div className="message-actions">
+                    <div className="row-actions">
                       <button className="quiet-action" type="button" onClick={() => { setOpenId(open ? null : sub.id); setNote(''); }} data-testid={`intake-open-${sub.id}`}>
                         {open ? 'Hide' : 'View'}
                       </button>

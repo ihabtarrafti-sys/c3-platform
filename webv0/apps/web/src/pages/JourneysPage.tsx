@@ -62,19 +62,6 @@ const TRANSITION_LABEL: Record<JourneyTransition, { button: string; title: (id: 
 };
 
 /** The row's lifecycle buttons — flex-start, never the flex-end panel rhythm. */
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no cluster class for buttons laid out INSIDE a table
-//   cell. Its three cluster classes — `.local-actions`, `.panel-actions` and
-//   `.message-actions` (tablework.css) — are all `justify-content: flex-end`,
-//   which is the panel rhythm; a row's triggers must start at the cell edge.
-// WORKAROUND: a screen-local CSSProperties const applied as an inline `style`
-//   on the wrapping div at the single use site below (the flex-start twin of
-//   `.local-actions`, same `--c3-space-2` gap and wrap).
-// CLASS: additive — a new `.row-actions` class alongside `.local-actions`
-//   breaks nothing already converted. Note the contractual alternative
-//   (relaxing `.local-actions` to flex-start) would move every existing
-//   cluster on every gated screen, so the fix must be the additive one.
-const ACTIONS_CELL: React.CSSProperties = { display: 'flex', columnGap: 'var(--c3-space-2)', flexWrap: 'wrap' };
 
 export function JourneysPage() {
   return (
@@ -213,7 +200,7 @@ function JourneysRegister() {
                     </td>
                     {showLifecycle && (
                       <td>
-                        <div style={ACTIONS_CELL}>
+                        <div className="row-actions">
                           {actions.map((action) => (
                             <GovernedAction
                               key={action}

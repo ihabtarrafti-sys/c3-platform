@@ -1145,6 +1145,32 @@
   font-size: var(--c3-font-size-body-small);
 }
 
+/* Tone modifiers for the quiet SENTENCE — named to match `.state-label`'s, so
+   the same word means the same state whether it lands on a pill or on running
+   text. Every state-coloured thing the kit shipped was SHAPED (a badge with a
+   dot, a bordered pill), which left a screen with a coloured *statement* to
+   make no class at all: two of them reached for a raw inline style instead.
+   A withheld financial total and an "everything is closed" clearance are both
+   statements — neither may slide into the same grey as incidental prose. */
+.tw-root .record-quiet.success {
+  color: var(--c3-state-success);
+}
+
+.tw-root .record-quiet.warning {
+  color: var(--c3-state-warning);
+}
+
+.tw-root .record-quiet.danger {
+  color: var(--c3-state-danger);
+}
+
+/* …and its vertical-rhythm modifier, for a note that STANDS BETWEEN blocks
+   rather than trailing one. Separate from the tones because colour and rhythm
+   are independent choices. */
+.tw-root .record-quiet.record-note {
+  margin: var(--c3-space-2) 0;
+}
+
 .tw-root .record-rows {
   display: grid;
   gap: var(--c3-space-2);
@@ -1535,6 +1561,21 @@
 
 .tw-root .panel-actions {
   margin-top: var(--c3-space-5);
+}
+
+/* Row actions — the flex-START twin of the panel clusters, for triggers that sit
+   INSIDE a table cell or a record row. The three clusters above are all
+   `justify-content: flex-end` (the panel rhythm) and `.panel-actions` also
+   carries a panel-foot margin, so a row's triggers had no correct class: four
+   screens each hand-rolled an inline flex row, and three more borrowed
+   `.message-actions` for its missing margin and inherited right-alignment they
+   never chose. This is the one primitive both groups were reaching for.
+   Deliberately no `justify-content` — a row's triggers start at the cell edge. */
+.tw-root .row-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--c3-space-2);
 }
 
 .tw-root .primary-action {

@@ -43,19 +43,6 @@ const ROLES = ['owner', 'operations', 'legal', 'finance', 'hr', 'management', 'v
 const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r }));
 
 /** The row's governed triggers — flex-start, never the flex-end panel rhythm. */
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no cluster class for buttons laid out INSIDE a table
-//   cell. Its three cluster classes — `.local-actions`, `.panel-actions` and
-//   `.message-actions` (tablework.css) — are all `justify-content: flex-end`,
-//   which is the panel rhythm; a row's triggers must start at the cell edge.
-// WORKAROUND: a screen-local CSSProperties const applied as an inline `style`
-//   on the wrapping div at the single use site below (the flex-start twin of
-//   `.local-actions`, same `--c3-space-2` gap and wrap).
-// CLASS: additive — a new `.row-actions` class alongside `.local-actions`
-//   breaks nothing already converted. Note the contractual alternative
-//   (relaxing `.local-actions` to flex-start) would move every existing
-//   cluster on every gated screen, so the fix must be the additive one.
-const ACTIONS_CELL: React.CSSProperties = { display: 'flex', columnGap: 'var(--c3-space-2)', flexWrap: 'wrap' };
 
 function RolePicker({ value, onChange, testId }: { value: string; onChange: (r: string) => void; testId: string }) {
   return (
@@ -200,7 +187,7 @@ function MembersRegister() {
                           // change to your own access.
                           <span className="record-quiet">Your own access — changes require another member.</span>
                         ) : (
-                          <div style={ACTIONS_CELL}>
+                          <div className="row-actions">
                             <GovernedAction
                               triggerLabel="Role…"
                               triggerTestId={`change-role-${m.email}`}

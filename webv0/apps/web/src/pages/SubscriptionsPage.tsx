@@ -212,20 +212,7 @@ function SubscriptionsRegister() {
                   <td><StatusBadge variant={sub.status === 'Active' ? 'ready' : 'neutral'}>{sub.status}</StatusBadge></td>
                   {canManage && (
                     <td>
-                      {/*
-                        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                        // GAP: the kit has no margin-free inline action group. Its only
-                        //   generic one, `panel-actions`, adds `margin-top: var(--c3-space-5)`
-                        //   — a panel-FOOT margin that reads as stray vertical space when the
-                        //   group sits inside a table cell.
-                        // WORKAROUND: borrow `message-actions`, which shares the identical
-                        //   flex rule minus the margin but is named for the Comms Message.
-                        // CLASS: additive — the two classes already share one declaration
-                        //   block; a neutrally-named margin-free action group breaks nothing
-                        //   already converted. (Dropping the margin from `panel-actions`
-                        //   instead WOULD be contractual — it is load-bearing on panel feet.)
-                      */}
-                      <div className="message-actions">
+                      <div className="row-actions">
                         <button className="quiet-action" type="button" onClick={() => openEdit(sub)} data-testid={`subs-edit-${sub.subscriptionId}`}>Edit</button>
                         {sub.status === 'Active' ? (
                           <GovernedAction

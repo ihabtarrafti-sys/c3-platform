@@ -200,16 +200,7 @@ function DeparturesWorkflow() {
           */}
           <p className="eyebrow">Still open · {d.openItems.length}</p>
           {d.openItems.length === 0 ? (
-            // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-            // GAP: the kit has no success-toned quiet line. `record-quiet` is the
-            //   quiet sentence but is ink-quiet only; the two success-coloured
-            //   things that exist are both BADGES, not sentences — StatusBadge
-            //   variant="ready" (dot + label) and `.state-label.success` (a pill).
-            // WORKAROUND: an INLINE STYLE putting the raw --c3-state-success token
-            //   on the element, overriding `record-quiet`'s colour.
-            // CLASS: additive — a tone modifier (e.g. `.record-quiet.success`) is a
-            //   new class; `record-quiet`'s own default colour does not move.
-            <p className="record-quiet" style={{ color: 'var(--c3-state-success)' }} data-testid={`departure-clear-${d.departure.departureId}`}>Everything is closed — ready to complete.</p>
+            <p className="record-quiet success" data-testid={`departure-clear-${d.departure.departureId}`}>Everything is closed — ready to complete.</p>
           ) : (
             <div className="record-rows">
               {d.openItems.map((it) => (

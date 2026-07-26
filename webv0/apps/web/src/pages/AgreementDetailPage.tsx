@@ -68,16 +68,6 @@ function localTodayIso(): string {
 // to --c3-space-3, and this pass is comments-only. It is redundant layout, not a
 // workaround, so it deliberately carries no KIT-GAP marker.
 const DIALOG_FIELDS: React.CSSProperties = { display: 'flex', flexDirection: 'column', rowGap: '8px' };
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no action-cluster class for the actions cell of a
-//   ComparisonTable row. `.panel-actions` is the panel-FOOTER cluster — it
-//   right-aligns (justify-content: flex-end) and adds margin-top: --c3-space-5 —
-//   so it is wrong inside a table cell, and there is no left-aligned equivalent.
-// WORKAROUND: a screen-local React.CSSProperties flex row applied inline at each
-//   actions cell, with a hard-coded 8px gap instead of a spacing token.
-// CLASS: additive  — a `.row-actions` class (or a RowActions primitive) is new
-//   surface; nothing already converted changes.
-const ROW_ACTIONS: React.CSSProperties = { display: 'flex', columnGap: '8px', flexWrap: 'wrap' };
 const CURRENCY_OPTIONS: SelectorOption[] = CURRENCY_CODES.map((c) => ({ value: c, label: c }));
 const TERM_KIND_OPTIONS: SelectorOption[] = AGREEMENT_TERM_KINDS.map((k) => ({ value: k, label: agreementTermKindOf(k) }));
 
@@ -542,7 +532,7 @@ function AgreementTermsSection({ agreementId, canManage }: { agreementId: string
                   <td>{t.label ?? '—'}</td>
                   {canManage && (
                     <td>
-                      <div style={ROW_ACTIONS}>
+                      <div className="row-actions">
                         <GovernedAction
                           triggerLabel="Edit…"
                           triggerTestId={`edit-term-${t.termId}`}
