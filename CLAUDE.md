@@ -123,9 +123,23 @@ looks identical to one working at minute 30.
 1. **Has the process exited?** The authoritative signal is the task-completion
    notification (or an explicit exit code) — not a process count, which cannot tell your
    run from anyone else's.
-2. **Which verdict line is present?** Grep the **prefix** `webv0 gate:` so `FAILED` is
-   captured in the same read as `PASSED`. Then read the file's **tail** — a crash leaves
-   its fingerprint there and leaves nothing in a count.
+2. **Which verdict line is present?** Grep **`webv0 gate`** — **WITHOUT the colon.** Then
+   read the file's **tail** — a crash leaves its fingerprint there and leaves nothing in a
+   count.
+
+   > ⛔ **THE COLON WAS A BUG IN THIS LAW ITSELF, live 2026-07-25 → 2026-07-27.** The two
+   > strings are **not** symmetrical: `gate.mts:84` prints `webv0 gate: PASSED` (colon) and
+   > `gate.mts:29` prints **`webv0 gate FAILED at: <step>`** (**no colon after "gate"**). So
+   > the mandated `webv0 gate:` matched PASSED and **silently missed every FAILED** — the
+   > exact asymmetry it was written to close.
+   >
+   > **It fired on the Ember integration:** the grep returned nothing, the process had
+   > exited, and the table below reads *exited + no verdict = CRASHED*. **A crash was
+   > reported that had not happened** — the gate had failed cleanly and named its step. The
+   > tail read is what corrected it, which is why step 2 has two halves, not one.
+   >
+   > **Check a verdict grep against BOTH strings the emitter can print, by reading the
+   > emitter. Never assume the pair share a prefix.**
 
 | Process | Verdict line | Means |
 |---|---|---|
