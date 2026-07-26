@@ -51,16 +51,37 @@ BE the verdict.
 
 ### ⚠️ THE GATE BASELINE — and why the old one was wrong
 
-**Current healthy baseline: ~486s per gate test phase** (Lane C, 488.26s / 483.48s), with a
-**CPU bench of ~316ms** for 300M iterations.
+**⛔ THERE IS NO HEALTHY BASELINE RIGHT NOW. Do not quote one.** (Ruled 2026-07-26.) What
+exists is an **observed range** and a list of **unseparated candidates**:
 
-> **⛔ The previously-recorded 1,038s baseline is SUPERSEDED AND SUSPECT.** It was almost
-> certainly measured while the machine was *already* in a reduced power state — just less
-> reduced than the 2,670s runs. **We were calling a degraded measurement "healthy."**
+| Observation | Test phase | Conditions |
+|---|---|---|
+| Lane C (was called "the baseline") | 488.26s · 483.48s | one run, conditions unrecorded |
+| F01/F09/F10 | 482.16s · 512.98s | — |
+| Tier 1 | 585.83s · 543.92s | **34 PG orphans resident** |
+| Tier 2 | 554.68s · 533.98s | **0 orphans at start** (paired measurement) |
+| B1 | 524.91s · **482.86s** | same machine, same day |
+
+**The orphan hypothesis is FALSIFIED**: sweeping to zero produced 554.68s, *inside* the
+contaminated range. The leak is a real defect and **not** this cause.
+
+**⚑ AND THE SPREAD ITSELF IS THE ANSWER.** Six runs in one day on one machine span
+**482.86s → 585.83s (~±10%)**, with no orphan correlation — and the low end lands *inside*
+the very window that was called "the baseline." **486s was never a healthy state that later
+degraded; it was the bottom of a naturally wide distribution.** A single run cannot
+distinguish "fast machine" from "lucky draw," which is exactly why one run cannot set a
+standard. **Judge a gate against the RANGE, and treat any single number — high or low — as
+one sample.**
+
+> **⚠️ THE 486s FIGURE WAS DEMOTED FROM BASELINE TO A SINGLE OBSERVATION**, because it was
+> exactly the mistake it replaced. The 1,038s baseline was suspect for being *one run someone
+> recorded and called healthy* — and its replacement was **one Lane C run recorded and called
+> healthy.** The correction was right; the replacement repeated the error one level over.
 >
-> The danger is specific: a future gate running at 1,038s would read as *"at baseline"* while
-> actually being **2× degraded** — a throttled machine with its alarm pre-silenced. **A wrong
-> reference standard corrupts every comparison made against it.**
+> **A BASELINE REQUIRES MULTIPLE RUNS UNDER STATED CONDITIONS — never the best number seen.**
+> A single favourable observation promoted to "standard" pre-silences the alarm for every
+> comparison made against it. **Do not accept a single-run number as a standard, from anyone,
+> including a lane lead who hands you one.**
 
 **Record machine conditions with every verdict**, in this form — never a CPU percentage:
 
@@ -139,6 +160,23 @@ the verification produces a report identical to performing it, which makes it de
 *(Worked example: the `RecordLink` fix listed computed font-family, colour and weight on the
 rendered anchor, plus the body font as a negative control proving the rule applied rather
 than was inherited.)*
+
+### A marker records the gap you HIT, not the divergence you INTRODUCED
+
+**Marker discipline is load-bearing and structurally blind to workaround divergence.** Seven
+sites recorded "the kit has no row-action class." **Not one recorded "and I picked an
+alignment."** Four hand-rolled flex-start; three borrowed `.message-actions` for its missing
+margin and silently inherited `justify-content: flex-end`. The same actions column shipped
+left-aligned on some registers and right-aligned on others — **an inconsistency no marker
+mentioned, because each lane wrote down the gap it noticed and not the one it created.**
+
+> **So a gap sweep must DIFF THE WORKAROUNDS AGAINST EACH OTHER, not just count the markers.**
+> Counting markers finds the gaps; comparing the workarounds finds the divergence — and the
+> divergence is what actually shipped to users.
+
+**Corollary: closing a gap means CONVERGING the existing answers, never adding a third.**
+Where two live workarounds disagree, pick one, state why, and migrate both — leaving a
+"correct" new primitive beside two surviving divergent workarounds makes it three.
 
 ### Bulk text surgery: match exactly, or don't do it
 

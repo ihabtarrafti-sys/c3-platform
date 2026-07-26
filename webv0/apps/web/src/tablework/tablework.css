@@ -1703,9 +1703,16 @@
 
 /* ── Form fields (the composer + the mint form; token-pure) ────────────── */
 
+/* B1 — `date` and `number` were MISSING from this list, so the kit's own
+   `DateInput` (9 sites) and every numeric field (11 sites) rendered as bare UA
+   controls beside styled siblings: a component its own stylesheet did not
+   cover. `file` is deliberately still absent — a file control has different
+   anatomy (a UA button inside it) and restyling it blind is a separate call. */
 .tw-root textarea,
 .tw-root input[type='text'],
 .tw-root input[type='search'],
+.tw-root input[type='date'],
+.tw-root input[type='number'],
 .tw-root input[type='datetime-local'],
 .tw-root select {
   width: 100%;
