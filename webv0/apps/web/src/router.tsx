@@ -91,6 +91,14 @@ export const router = createBrowserRouter([
   { path: '/teams/:teamId', element: <TeamDetailPage /> },
   { path: '/claims', element: <ClaimsPage /> },
   { path: '/claims/:claimId', element: <ClaimDetailPage /> },
+  // Wave 2 · Lane D — operations. The UNCOVERED lane: no e2e and no unit
+  // tests reach these four screens, so the gate proves only that they broke
+  // nothing else. Their own assurance is Lane D's manual-QA artifact plus the
+  // RED-proven erasure spec that guards IntakePage's irreversible path.
+  { path: '/subscriptions', element: <SubscriptionsPage /> },
+  { path: '/calendar', element: <CalendarPage /> },
+  { path: '/departures', element: <DeparturesPage /> },
+  { path: '/intake', element: <IntakePage /> },
   {
     path: '/',
     element: <AppShell />,
@@ -99,10 +107,6 @@ export const router = createBrowserRouter([
       { path: 'people/:personId/one-pager', element: <OnePagerPage /> },
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
-      { path: 'intake', element: <IntakePage /> },
-      { path: 'calendar', element: <CalendarPage /> },
-      { path: 'departures', element: <DeparturesPage /> },
-      { path: 'subscriptions', element: <SubscriptionsPage /> },
       { path: 'activity', element: <ActivityPage /> },
       { path: 'recycle-bin', element: <RecycleBinPage /> },
       { path: 'settings', element: <SettingsPage /> },
