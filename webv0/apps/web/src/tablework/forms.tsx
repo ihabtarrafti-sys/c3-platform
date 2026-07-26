@@ -126,6 +126,7 @@ export function Selector({
   placeholder,
   options,
   onSelect,
+  width,
   'data-testid': testId,
   // Field injects these for its child control; they must land on the BUTTON
   // (a labelable element the hint can describe), never the wrapper div.
@@ -140,6 +141,14 @@ export function Selector({
   placeholder?: string;
   options: SelectorOption[];
   onSelect: (value: string, label: string) => void;
+  /**
+   * Picker width. The kit's floor is 12rem, which three screens had to override
+   * with an inline `style` ridden in through the rest-spread — TWO of them
+   * WIDER (a person picker must hold "Full Name (PER-0001)") and one NARROWER
+   * than the floor, so a scale that only grew would not have covered them.
+   * Omitted = the 12rem default, so every converted Selector is untouched.
+   */
+  width?: 'compact' | 'wide';
   'data-testid'?: string;
 } & Omit<React.HTMLAttributes<HTMLDivElement>, 'onSelect'>) {
   const [open, setOpen] = useState(false);
@@ -176,7 +185,7 @@ export function Selector({
   const trigger = selectorTriggerText({ value, display, placeholder, options });
 
   return (
-    <div className="selector" ref={rootRef} {...rest}>
+    <div className="selector" data-width={width} ref={rootRef} {...rest}>
       <button
         ref={triggerRef}
         type="button"

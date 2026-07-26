@@ -129,20 +129,7 @@ function DeparturesWorkflow() {
         </>
       }
     >
-      {/*
-        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-        // GAP: this is an inline CREATE form (pick a person, give a reason, start),
-        //   and the kit has no inline-form-row primitive or slot for one.
-        //   CollectionFrame has a `filters` slot but these are not filters, and
-        //   FormDrawer is the only form container — a drawer, wrong for a
-        //   permanently-visible row. The one layout class that produces the row is
-        //   `collection-filters`, which is CollectionFrame's OWN filter row.
-        // WORKAROUND: hand-roll a <div className="collection-filters"> in the
-        //   frame's children and borrow the filter row's flex/gap rule for a form.
-        // CLASS: additive — a FormRow primitive, or an optional `create` slot on
-        //   CollectionFrame, is a new export; no converted screen changes.
-      */}
-      <div className="collection-filters">
+      <div className="form-row">
         <Field label="Person">
           <Selector
             data-testid="departure-person"
@@ -169,18 +156,7 @@ function DeparturesWorkflow() {
       {data && rows.length === 0 && <EmptyState data-testid="departures-empty" message="No departures — no one is offboarding." />}
 
       {open.map((d) => (
-        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-        // GAP: the kit has no CARD primitive — a padded, vertically-rhythmed panel
-        //   with a heading, a body and an action foot. WorkSurface supplies the
-        //   material (tier/opacity) but no layout at all, and the only class that
-        //   supplies the padding + grid + gap is `collection-frame`, which belongs
-        //   to CollectionFrame. CollectionFrame itself cannot be nested here: it
-        //   renders an <h1> and OVERWRITES document.title via usePageTitle.
-        // WORKAROUND: WorkSurface + the borrowed `collection-frame` class.
-        // CLASS: additive — a RecordCard primitive (or lifting the layout out of
-        //   `collection-frame` into a class CollectionFrame also uses) is a new
-        //   export that leaves every converted frame rendering identically.
-        <WorkSurface as="article" tier="elevated" className="collection-frame" key={d.departure.departureId} data-testid={`departure-${d.departure.departureId}`}>
+        <WorkSurface as="article" tier="elevated" className="record-card" key={d.departure.departureId} data-testid={`departure-${d.departure.departureId}`}>
           <header className="surface-heading">
             <div>
               <h2>{d.personName}</h2>

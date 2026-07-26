@@ -694,6 +694,19 @@
   min-width: 12rem;
 }
 
+/* The width scale. 12rem was a FLOOR with no way past it in either direction:
+   three screens rode an inline `style` in through the rest-spread, two of them
+   wider (a person picker holds "Full Name (PER-0001)") and one NARROWER — so a
+   scale that only grew would have left that site on its workaround. Omitting
+   the prop keeps the 12rem default, so no converted Selector moves. */
+.tw-root .selector[data-width='compact'] {
+  min-width: 10rem;
+}
+
+.tw-root .selector[data-width='wide'] {
+  min-width: 16rem;
+}
+
 .tw-root .selector-trigger {
   width: 100%;
   min-height: var(--c3-tw-target-min);
@@ -822,7 +835,14 @@
 
 /* ── The collection family (contract 05; Dawn's Finance craft) ─────────── */
 
-.tw-root .collection-frame {
+/* `.record-card` shares this block rather than getting its own: two screens
+   needed a padded, vertically-rhythmed panel and had to borrow
+   `.collection-frame`, which BELONGS to CollectionFrame — and CollectionFrame
+   itself cannot be nested, because it renders an <h1> and overwrites
+   document.title via usePageTitle. A shared class, not a component, because the
+   gap was layout with no owner, not behaviour. */
+.tw-root .collection-frame,
+.tw-root .record-card {
   padding: var(--tw-surface-pad);
   border-radius: var(--c3-radius-xl);
   display: grid;
@@ -852,7 +872,12 @@
   font-size: var(--c3-font-size-body-small);
 }
 
-.tw-root .collection-filters {
+/* `.form-row` shares this block for the same reason: two screens carry an inline
+   CREATE form (pick a person + a reason + a button) and the only class producing
+   that row was CollectionFrame's own FILTER row. Those fields are not filters,
+   and a form that reads as a filter row is a lie about what the controls do. */
+.tw-root .collection-filters,
+.tw-root .form-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;

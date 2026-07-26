@@ -222,21 +222,7 @@ function CredentialsRegister() {
           <Field label="Person" required>
             <Selector
               data-testid="add-credential-person"
-              // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-              // GAP: `Selector` exposes no width/size affordance.
-              //   `.tw-root .selector` hard-codes `min-width: 12rem` (192px) and
-              //   there is no prop and no CSS custom property to vary it, so a
-              //   picker that is not 12rem wide cannot be expressed through the
-              //   kit — and a person picker must hold "Full Name (PER-0001)".
-              // WORKAROUND: an inline `style` ridden in through Selector's
-              //   `React.HTMLAttributes<HTMLDivElement>` rest-spread onto its
-              //   wrapper div, carrying the Fluent-era width this control had
-              //   before the conversion.
-              // CLASS: additive — a `size`/`width` prop (or a
-              //   `--selector-min-width` custom property) that defaults to
-              //   today's 12rem leaves every already-converted Selector
-              //   rendering exactly as it does now.
-              style={{ minWidth: '260px' }}
+              width="wide"
               placeholder="Select a person"
               value={personId}
               display={personId ? personLabel : undefined}

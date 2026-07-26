@@ -201,18 +201,7 @@ function IntakeDesk() {
     >
       {/* ── mint ── */}
       <SectionHeading>New invitation link</SectionHeading>
-      {/*
-        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-        // GAP: an inline CREATE form (label + expiry + mint) with no inline-form-row
-        //   primitive in the kit — FormDrawer is the only form container and is a
-        //   drawer, and the sole class producing this row is `collection-filters`,
-        //   CollectionFrame's OWN filter row. These are not filters.
-        // WORKAROUND: hand-roll a <div className="collection-filters"> in the
-        //   frame's children and borrow the filter row's flex/gap rule for a form.
-        // CLASS: additive — a FormRow primitive, or an optional `create` slot on
-        //   CollectionFrame, is a new export; no converted screen changes.
-      */}
-      <div className="collection-filters">
+      <div className="form-row">
         <Field label="Label (optional)">
           <Input value={label} placeholder="e.g. LoL support tryout — Ahmad" onChange={(e) => setLabel(e.target.value)} data-testid="intake-label" />
         </Field>
@@ -231,16 +220,7 @@ function IntakeDesk() {
       </div>
 
       {minted && (
-        // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-        // GAP: the kit has no CARD primitive — WorkSurface supplies the material
-        //   but no layout, and the only class supplying padding + grid + gap is
-        //   `collection-frame`, which belongs to CollectionFrame. CollectionFrame
-        //   itself cannot nest here: it renders an <h1> and overwrites
-        //   document.title via usePageTitle.
-        // WORKAROUND: WorkSurface + the borrowed `collection-frame` class.
-        // CLASS: additive — a RecordCard primitive is a new export; every
-        //   converted frame keeps rendering identically.
-        <WorkSurface tier="raised" className="collection-frame" data-testid="intake-minted">
+        <WorkSurface tier="raised" className="record-card" data-testid="intake-minted">
           <p className="record-lead">Send this link to the joiner. It is shown only once — copy it now.</p>
           {/*
             // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
