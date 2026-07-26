@@ -86,6 +86,11 @@ export const router = createBrowserRouter([
   { path: '/journeys', element: <JourneysPage /> },
   { path: '/members', element: <MembersPage /> },
   { path: '/missions/finance', element: <MissionFinancePage /> },
+  // Wave 2 · Lane B — Teams & Claims. Same pure relocation.
+  { path: '/teams', element: <TeamsPage /> },
+  { path: '/teams/:teamId', element: <TeamDetailPage /> },
+  { path: '/claims', element: <ClaimsPage /> },
+  { path: '/claims/:claimId', element: <ClaimDetailPage /> },
   {
     path: '/',
     element: <AppShell />,
@@ -94,10 +99,6 @@ export const router = createBrowserRouter([
       { path: 'people/:personId/one-pager', element: <OnePagerPage /> },
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
-      { path: 'teams', element: <TeamsPage /> },
-      { path: 'teams/:teamId', element: <TeamDetailPage /> },
-      { path: 'claims', element: <ClaimsPage /> },
-      { path: 'claims/:claimId', element: <ClaimDetailPage /> },
       { path: 'intake', element: <IntakePage /> },
       { path: 'calendar', element: <CalendarPage /> },
       { path: 'departures', element: <DeparturesPage /> },
