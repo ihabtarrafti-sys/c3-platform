@@ -80,6 +80,95 @@ describe('projectApprovalPayload — H-03 exhaustive + fail-closed', () => {
     expect((withFin as { input: Record<string, unknown> }).input.bankName).toBe('Emirates NBD');
   });
 
+  // ── PRISM F01 / F09 / F10 ────────────────────────────────────────────────
+  // One defect shape in three places: a strip written for ONE variant, doing
+  // NOTHING for the others while still returning a projected-looking object.
+  // The test above proves the beneficiary strip works — using AddBeneficiary,
+  // the FLAT shape where it does. UpdateBeneficiary nests the same fields and
+  // was never covered, which is how F01 shipped.
+
+  it('F01: UpdateBeneficiary nests bank routing under `patch` — it must NOT survive without financial standing', () => {
+    const upd = {
+      operationType: 'UpdateBeneficiary',
+      input: {
+        beneficiaryId: 'BEN-0001',
+        patch: { label: 'Renamed', bankName: 'Emirates NBD', bankCountry: 'AE' },
+      },
+    } as unknown as Approval['payload'];
+    const noFin = projectApprovalPayload(upd, disc({ pii: true }));
+    // RED against the pre-fix projector: the destructure targets TOP-LEVEL
+    // bankName/bankCountry, which do not exist here, so `...input` carried the
+    // whole `patch` through intact.
+    expect(JSON.stringify(noFin)).not.toContain('Emirates NBD');
+    expect(JSON.stringify(noFin)).not.toContain('bankCountry');
+    // The non-routing part of the patch still reaches the reader.
+    const patch = (noFin as { input: { patch?: Record<string, unknown> } }).input.patch;
+    expect(patch?.label).toBe('Renamed');
+    // With standing, nothing is withheld.
+    const withFin = projectApprovalPayload(upd, disc({ pii: true, financial: true }));
+    expect(JSON.stringify(withFin)).toContain('Emirates NBD');
+  });
+
+  it('F09: agreement-term kind and label are financial CONTENT — they must NOT survive without standing', () => {
+    const term = {
+      operationType: 'AddAgreementTerm',
+      input: { agreementId: 'AGR-0001', kind: 'Salary', label: 'Base monthly salary', amountMinor: 1500000, currency: 'AED' },
+    } as unknown as Approval['payload'];
+    const noFin = projectApprovalPayload(term, disc({ pii: true }));
+    expect(JSON.stringify(noFin)).not.toContain('Salary');
+    expect(JSON.stringify(noFin)).not.toContain('Base monthly salary');
+    // The agreement it belongs to is identity, not content — it stays.
+    expect((noFin as { input: Record<string, unknown> }).input.agreementId).toBe('AGR-0001');
+    const withFin = projectApprovalPayload(term, disc({ pii: true, financial: true }));
+    expect((withFin as { input: Record<string, unknown> }).input.kind).toBe('Salary');
+  });
+
+  it('F09: the OTHER variant of the shared case — UpdateAgreementTerm strips its label too', () => {
+    // F01 existed because a shared `case` block was tested for ONE variant only.
+    // AddAgreementTerm and UpdateAgreementTerm still share a block, so BOTH are
+    // asserted. Verified flat (Update carries `termId`, not a nested patch) — this
+    // pins that, so a future nesting change fails here instead of leaking.
+    const upd = {
+      operationType: 'UpdateAgreementTerm',
+      input: { agreementId: 'AGR-0001', termId: 'TRM-0001', label: 'Revised retainer', amountMinor: 900000, currency: 'AED' },
+    } as unknown as Approval['payload'];
+    const noFin = projectApprovalPayload(upd, disc({ pii: true }));
+    expect(JSON.stringify(noFin)).not.toContain('Revised retainer');
+    expect(JSON.stringify(noFin)).not.toContain('900000');
+    // termId is identity, not content — it stays (Neural: lower class than F09).
+    expect((noFin as { input: Record<string, unknown> }).input.termId).toBe('TRM-0001');
+  });
+
+  it('F10: ImportBatch carries people/credentials rows too — the strip covered only `agreements`', () => {
+    const people = {
+      operationType: 'ImportBatch',
+      input: {
+        domain: 'people',
+        fileName: 'roster.csv',
+        rowCount: 1,
+        people: [{ fullName: 'Jordan Reyes', personalEmail: 'jordan@example.com' }],
+      },
+    } as unknown as Approval['payload'];
+    const noFin = projectApprovalPayload(people, disc({ pii: true }));
+    // RED: only `agreements` was destructured, so a people import passed EVERY
+    // row through — a whole roster, to a reader without financial standing.
+    expect(JSON.stringify(noFin)).not.toContain('Jordan Reyes');
+    expect(JSON.stringify(noFin)).not.toContain('jordan@example.com');
+    // The batch's own identity survives — domain, file, count are not row content.
+    expect((noFin as { input: Record<string, unknown> }).input).toMatchObject({ domain: 'people', fileName: 'roster.csv', rowCount: 1 });
+
+    const creds = {
+      operationType: 'ImportBatch',
+      input: {
+        domain: 'credentials',
+        fileName: 'visas.csv',
+        rowCount: 1,
+        credentials: [{ personId: 'PER-0001', credentialType: 'Visa', documentNumber: 'X1234567' }],
+      },
+    } as unknown as Approval['payload'];
+    expect(JSON.stringify(projectApprovalPayload(creds, disc({ pii: true })))).not.toContain('X1234567');
+  });
+
   it('a non-sensitive op type passes through in full (no over-omission)', () => {
     const dep = { operationType: 'DeactivatePerson', input: { personId: 'PER-0001', reason: 'left the org' } } as unknown as Approval['payload'];
     const projected = projectApprovalPayload(dep, disc());

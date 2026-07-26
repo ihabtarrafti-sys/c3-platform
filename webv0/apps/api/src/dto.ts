@@ -589,22 +589,48 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
     }
     case 'AddAgreementTerm':
     case 'UpdateAgreementTerm': {
+      // PRISM-F09: the amounts were stripped but `kind` and `label` were not — and
+      // the domain classifies a term BY its kind (Salary, Bonus, RevenueShare…),
+      // with `label` free text describing it. Both are financial CONTENT, not
+      // identity. The agreement id stays: that is which record, not what it says.
       if (d.financial) return payload as unknown as Record<string, unknown>;
-      const { amountMinor: _a, currency: _c, percentBps: _p, ...input } = payload.input as Record<string, unknown>;
+      const {
+        amountMinor: _a, currency: _c, percentBps: _p, kind: _k, label: _l,
+        ...input
+      } = payload.input as Record<string, unknown>;
       return { operationType: payload.operationType, input };
     }
     case 'ImportBatch': {
+      // PRISM-F10: the schema carries THREE row arrays — people, credentials,
+      // agreements — and only `agreements` was stripped. A people import therefore
+      // passed every person row through, a credentials import every credential.
+      // Strip all three; domain/fileName/rowCount are the batch's identity, not its
+      // content, and stay.
       if (d.financial) return payload as unknown as Record<string, unknown>;
-      const { agreements: _rows, ...input } = payload.input as Record<string, unknown>;
+      const {
+        agreements: _ar, people: _pr, credentials: _cr,
+        ...input
+      } = payload.input as Record<string, unknown>;
       return { operationType: payload.operationType, input };
     }
-    case 'AddBeneficiary':
-    case 'UpdateBeneficiary': {
+    case 'AddBeneficiary': {
       // H-03: a beneficiary NAMES a payment route (bank name + country). Omit the
       // routing detail for readers without financial standing.
       if (d.financial) return payload as unknown as Record<string, unknown>;
       const { bankName: _bn, bankCountry: _bc, ...input } = payload.input as Record<string, unknown>;
       return { operationType: payload.operationType, input };
+    }
+    case 'UpdateBeneficiary': {
+      // PRISM-F01: this shape is NESTED — `{ beneficiaryId, patch: {...} }` — and it
+      // used to share AddBeneficiary's case block, which destructures TOP-LEVEL
+      // bankName/bankCountry. Neither exists here, so the destructure removed nothing
+      // and `...input` carried the whole patch, routing detail included, to readers
+      // without financial standing. The block RAN, returned a projected-looking
+      // object, and stripped nothing.
+      if (d.financial) return payload as unknown as Record<string, unknown>;
+      const { patch, ...rest } = payload.input as Record<string, unknown>;
+      const { bankName: _bn, bankCountry: _bc, ...safePatch } = (patch ?? {}) as Record<string, unknown>;
+      return { operationType: payload.operationType, input: { ...rest, patch: safePatch } };
     }
     // Non-sensitive payloads (no PII/financial): passed through in full. Listed
     // EXPLICITLY, never via a catch-all — the exhaustiveness check below turns a
