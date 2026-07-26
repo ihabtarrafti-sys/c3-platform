@@ -73,6 +73,13 @@ export const router = createBrowserRouter([
   { path: '/missions', element: <MissionsPage /> },
   { path: '/missions/:missionId', element: <MissionDetailPage /> },
   { path: '/situation', element: <HomePage /> },
+  // Wave 2 · Lane A — Agreements & Organization. Each page carries its own
+  // record/section/wide on TableworkPage, so the route entry is a pure move
+  // out of the AppShell children (the coexistence law: whole routes only).
+  { path: '/agreements', element: <AgreementsPage /> },
+  { path: '/agreements/:agreementId', element: <AgreementDetailPage /> },
+  { path: '/entities', element: <EntitiesPage /> },
+  { path: '/invoices', element: <InvoicesPage /> },
   {
     path: '/',
     element: <AppShell />,
@@ -84,14 +91,10 @@ export const router = createBrowserRouter([
       { path: 'kit', element: <KitPage /> },
       { path: 'apparel', element: <ApparelPage /> },
       { path: 'missions/finance', element: <MissionFinancePage /> },
-      { path: 'invoices', element: <InvoicesPage /> },
       { path: 'teams', element: <TeamsPage /> },
       { path: 'teams/:teamId', element: <TeamDetailPage /> },
       { path: 'claims', element: <ClaimsPage /> },
       { path: 'claims/:claimId', element: <ClaimDetailPage /> },
-      { path: 'agreements', element: <AgreementsPage /> },
-      { path: 'agreements/:agreementId', element: <AgreementDetailPage /> },
-      { path: 'entities', element: <EntitiesPage /> },
       { path: 'members', element: <MembersPage /> },
       { path: 'intake', element: <IntakePage /> },
       { path: 'calendar', element: <CalendarPage /> },
