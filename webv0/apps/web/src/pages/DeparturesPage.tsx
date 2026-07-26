@@ -120,7 +120,6 @@ function DeparturesWorkflow() {
     <CollectionFrame
       kicker="The twin of onboarding"
       title="Departures"
-      count={data ? `${open.length} in progress · ${closed.length} closed` : undefined}
       scope={
         <>
           When someone leaves, start a departure and work the checklist: agreements to terminate, roster spots to clear,

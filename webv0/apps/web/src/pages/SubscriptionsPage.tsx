@@ -159,7 +159,6 @@ function SubscriptionsRegister() {
       <CollectionFrame
         kicker="Recurring costs"
         title="Subscriptions"
-        count={data ? `${subs.length} in this view` : undefined}
         scope={
           <>
             The org’s recurring costs — SaaS, infrastructure, office. Renewal dates surface on the Calendar. Vendor is a
