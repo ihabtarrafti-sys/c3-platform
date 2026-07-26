@@ -100,6 +100,25 @@ describe('H0 frozen sunset data purity', () => {
     );
   });
 
+  it('canonicalizes LF, CRLF, and bare CR only for text fingerprints', () => {
+    const textHash = (content: string | Uint8Array) =>
+      hashSunsetTreeEntries([{ relativePath: 'example.txt', content }]);
+    const lf = 'alpha\nbeta\n';
+    const crlf = 'alpha\r\nbeta\r\n';
+    const bareCr = 'alpha\rbeta\r';
+
+    expect(textHash(crlf)).toBe(textHash(lf));
+    expect(textHash(bareCr)).toBe(textHash(lf));
+    expect(textHash('alpha\nchanged\n')).not.toBe(textHash(lf));
+
+    const binaryHashes = [
+      new Uint8Array([0x61, 0x0a, 0x62, 0x0a]),
+      new Uint8Array([0x61, 0x0d, 0x0a, 0x62, 0x0d, 0x0a]),
+      new Uint8Array([0x61, 0x0d, 0x62, 0x0d]),
+    ].map(textHash);
+    expect(new Set(binaryHashes).size).toBe(binaryHashes.length);
+  });
+
   it('RED: strict registry parsing rejects live-derivation directives and unknown fields', () => {
     expect(() =>
       parseFrozenSunsetRegistry({

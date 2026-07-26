@@ -595,10 +595,19 @@ function hashableFileContent(relativePath: string): string | Buffer {
   try {
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     if (text.includes('\u0000')) return bytes;
-    return text.replace(/\r\n/gu, '\n');
+    return text;
   } catch {
     return bytes;
   }
+}
+
+/**
+ * Canonicalizes text fingerprints at the hashing boundary so callers cannot
+ * accidentally make an otherwise identical checkout depend on its EOL style.
+ * Binary inputs deliberately bypass this function and remain byte-exact.
+ */
+function canonicalizeSunsetFingerprintText(value: string): string {
+  return value.replace(/\r\n?/gu, '\n');
 }
 
 export interface SunsetTreeHashEntry {
@@ -643,8 +652,12 @@ export function hashSunsetTreeEntries(
     }
     paths.add(entry.relativePath);
     const pathBytes = Buffer.from(entry.relativePath, 'utf8');
+    const content =
+      typeof entry.content === 'string'
+        ? canonicalizeSunsetFingerprintText(entry.content)
+        : entry.content;
     const contentDigest = createHash('sha256')
-      .update(entry.content)
+      .update(content)
       .digest();
     hash.update(uint32(pathBytes.length));
     hash.update(pathBytes);
@@ -782,7 +795,7 @@ function criticalSourceFingerprints(): Record<string, string> {
   );
   for (const relativePath of SUNSET_WIRING_FILES) {
     result[`${relativePath}#wiring`] = createHash('sha256')
-      .update(readRepoFile(relativePath).replace(/\r\n/gu, '\n'))
+      .update(canonicalizeSunsetFingerprintText(readRepoFile(relativePath)))
       .digest('hex');
   }
   return result;
