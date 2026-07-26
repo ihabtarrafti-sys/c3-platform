@@ -1,0 +1,861 @@
+{
+  "schemaVersion": 2,
+  "artifactKind": "hearth-search-authority-bundle-contract",
+  "bundleContractVersion": "HEARTH-003-BUNDLE-CONTRACT-v2",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "manifestIdentity": {
+    "schemaVersion": 6,
+    "artifactKind": "hearth-search-authority-content-hashes",
+    "hashManifestVersion": "HEARTH-003-SHA256SUMS-v7",
+    "sourceCommit": "dae27a400868c0c686788ab8e5520690dbf77334"
+  },
+  "rootRule": "The manifest is self-excluded. Neural must record its canonical-text SHA-256 outside this bundle. No consumer may accept an authored or inferred replacement root.",
+  "closedSetRule": "Exactly the 37 logical slots below are permitted. A missing, extra, duplicate, case-colliding, renamed, or non-portable slot fails before side effects.",
+  "slots": [
+    {
+      "slot": ".gitattributes",
+      "filename": ".gitattributes",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-ACTOR-CLASSES-v2.json",
+      "filename": "HEARTH-003-ACTOR-CLASSES-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/actorClassVersion",
+          "value": "HEARTH-003-ACTOR-CLASSES-v2"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+      "filename": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/fieldScopeVersion",
+          "value": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-AUTHORITATIVE-PREDICATES-v2.json",
+      "filename": "HEARTH-003-AUTHORITATIVE-PREDICATES-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/predicateVersion",
+          "value": "HEARTH-003-AUTHORITATIVE-PREDICATES-v2"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "filename": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/driftBaselineVersion",
+          "value": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "filename": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/residualLedgerVersion",
+          "value": "HEARTH-003-INHERITED-RESIDUALS-v2"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+      "filename": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/continuityContractVersion",
+          "value": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-v1.json",
+      "filename": "HEARTH-003-RESIDUAL-CONTINUITY-RED-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/redPlanVersion",
+          "value": "HEARTH-003-RESIDUAL-CONTINUITY-RED-v1"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "filename": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/selfTestVersion",
+          "value": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1"
+        },
+        {
+          "pointer": "/allExpectedRejectionsObserved",
+          "value": true
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-residual-continuity.mjs",
+      "filename": "HEARTH-003-residual-continuity.mjs",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-DISCLOSURE-DRIFT-RED-CONTROLS-v1.json",
+      "filename": "HEARTH-003-DISCLOSURE-DRIFT-RED-CONTROLS-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/controlPlanVersion",
+          "value": "HEARTH-003-DISCLOSURE-DRIFT-RED-CONTROLS-v1"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1.json",
+      "filename": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/selfTestVersion",
+          "value": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1"
+        },
+        {
+          "pointer": "/allExpectedFailuresObserved",
+          "value": true
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-disclosure-drift-checker.mjs",
+      "filename": "HEARTH-003-disclosure-drift-checker.mjs",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "filename": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/satisfiabilityVersion",
+          "value": "HEARTH-003-METRIC-SATISFIABILITY-v2"
+        },
+        {
+          "pointer": "/measurementStatus",
+          "value": "NOT_YET_MEASURED"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-metric-satisfiability-v2.mjs",
+      "filename": "HEARTH-003-metric-satisfiability-v2.mjs",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-BUNDLE-MIXING-RED-v2.json",
+      "filename": "HEARTH-003-BUNDLE-MIXING-RED-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/redPlanVersion",
+          "value": "HEARTH-003-BUNDLE-MIXING-RED-v2"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2.json",
+      "filename": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/selfTestVersion",
+          "value": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2"
+        },
+        {
+          "pointer": "/aggregate/allExpectedRejectionsObserved",
+          "value": true
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-authority-bundle-verifier-v2.mjs",
+      "filename": "HEARTH-003-authority-bundle-verifier-v2.mjs",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-bundle-mixing-self-test-v2.mjs",
+      "filename": "HEARTH-003-bundle-mixing-self-test-v2.mjs",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "filename": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/diffVersion",
+          "value": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1"
+        },
+        {
+          "pointer": "/overallOutcome",
+          "value": "PASS_PINNED_BASELINE_RECONSTRUCTION_EQUAL"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-r6-disclosure-drift-diff.ts",
+      "filename": "HEARTH-003-r6-disclosure-drift-diff.ts",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-QRELS-v7.json",
+      "filename": "HEARTH-003-QRELS-v7.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/querySetVersion",
+          "value": "HEARTH-003-QRELS-v7"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "filename": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/fixtureVersion",
+          "value": "HEARTH-003-FIXTURES-v5"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-COVERAGE-v7.json",
+      "filename": "HEARTH-003-COVERAGE-v7.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/coverageVersion",
+          "value": "HEARTH-003-COVERAGE-v7"
+        },
+        {
+          "pointer": "/measurementStatus",
+          "value": "NOT_YET_MEASURED"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-DELEGATION-MEASUREMENT-v2.json",
+      "filename": "HEARTH-003-DELEGATION-MEASUREMENT-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/measurementVersion",
+          "value": "HEARTH-003-DELEGATION-MEASUREMENT-v2"
+        },
+        {
+          "pointer": "/measurementStatus",
+          "value": "NOT_YET_MEASURED"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "filename": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/trustChainVersion",
+          "value": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3"
+        },
+        {
+          "pointer": "/globalMeasurementStatus",
+          "value": "NOT_YET_MEASURED"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+      "filename": "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/artifactKind",
+          "value": "hearth-003-physical-domain-manifest"
+        },
+        {
+          "pointer": "/schemaVersion",
+          "value": 3
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "filename": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/artifactKind",
+          "value": "hearth-003-physical-domain-validation-report"
+        },
+        {
+          "pointer": "/outcome",
+          "value": "PASS"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "filename": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/dependencyVersion",
+          "value": "HEARTH-003-POLICY-DEPENDENCIES-v2"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-projection-authority-parser.ts",
+      "filename": "HEARTH-003-projection-authority-parser.ts",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-physical-domain-validator.ts",
+      "filename": "HEARTH-003-physical-domain-validator.ts",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-r6-materialize-gold.mjs",
+      "filename": "HEARTH-003-r6-materialize-gold.mjs",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "filename": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/validationVersion",
+          "value": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1"
+        },
+        {
+          "pointer": "/outcome",
+          "value": "PASS_R6_AUTHORITY_PREMEASUREMENT_ONLY"
+        },
+        {
+          "pointer": "/implementationStatus",
+          "value": "NOT_YET_MEASURED"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-r6-GOLD-SET-AUTHORITY.md",
+      "filename": "HEARTH-003-r6-GOLD-SET-AUTHORITY.md",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-r6-MATERIALIZATION-CONTRACT.md",
+      "filename": "HEARTH-003-r6-MATERIALIZATION-CONTRACT.md",
+      "contentKind": "text",
+      "identities": []
+    },
+    {
+      "slot": "HEARTH-003-BUNDLE-CONTRACT-v2.json",
+      "filename": "HEARTH-003-BUNDLE-CONTRACT-v2.json",
+      "contentKind": "json",
+      "identities": [
+        {
+          "pointer": "/bundleContractVersion",
+          "value": "HEARTH-003-BUNDLE-CONTRACT-v2"
+        }
+      ]
+    },
+    {
+      "slot": "HEARTH-003-r6-freeze-hashes.mjs",
+      "filename": "HEARTH-003-r6-freeze-hashes.mjs",
+      "contentKind": "text",
+      "identities": []
+    }
+  ],
+  "slotContentBindings": [
+    {
+      "bindingId": "r6-fixed-gitattributes",
+      "slot": ".gitattributes",
+      "expectedCanonicalByteLength": 52,
+      "expectedCanonicalTextSha256": "3c0bb26c86a826add28208478cb29a3167034f4073dbca0dd821d440045c80a6"
+    },
+    {
+      "bindingId": "r6-fixed-gold-authority",
+      "slot": "HEARTH-003-r6-GOLD-SET-AUTHORITY.md",
+      "expectedCanonicalByteLength": 8808,
+      "expectedCanonicalTextSha256": "44490ceae5863be3a8618145ec4a7304092b88c15c4110f150dc26891faecfba"
+    },
+    {
+      "bindingId": "r6-fixed-materialization-contract",
+      "slot": "HEARTH-003-r6-MATERIALIZATION-CONTRACT.md",
+      "expectedCanonicalByteLength": 5614,
+      "expectedCanonicalTextSha256": "a9997e188e98ae861ebb1fc53e0dff0dc506303c4c82a42a0bb38f9f7637b2d4"
+    },
+    {
+      "bindingId": "r6-fixed-freezer",
+      "slot": "HEARTH-003-r6-freeze-hashes.mjs",
+      "expectedCanonicalByteLength": 12257,
+      "expectedCanonicalTextSha256": "2cdbdc5bf83d7fa6bde5a50cd7fd920c5d087ea1e82665da79da30650ff2a752"
+    }
+  ],
+  "crossBindings": [
+    {
+      "bindingId": "baseline-to-actor-classes",
+      "fromSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "fromPointer": "/actorClassArtifact",
+      "toSlot": "HEARTH-003-ACTOR-CLASSES-v2.json",
+      "expectedFrom": "toFilename"
+    },
+    {
+      "bindingId": "baseline-to-authoritative-predicates",
+      "fromSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "fromPointer": "/authoritativePredicateArtifact",
+      "toSlot": "HEARTH-003-AUTHORITATIVE-PREDICATES-v2.json",
+      "expectedFrom": "toFilename"
+    },
+    {
+      "bindingId": "baseline-to-field-scope",
+      "fromSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "fromPointer": "/authoritativeFieldScopeArtifact",
+      "toSlot": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+      "expectedFrom": "toFilename"
+    },
+    {
+      "bindingId": "baseline-to-residual-ledger",
+      "fromSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "fromPointer": "/inheritedResidualArtifact",
+      "toSlot": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "expectedFrom": "toFilename"
+    },
+    {
+      "bindingId": "qrels-to-fixture",
+      "fromSlot": "HEARTH-003-QRELS-v7.json",
+      "fromPointer": "/fixtureArtifact",
+      "toSlot": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "expectedFrom": "toFilename"
+    },
+    {
+      "bindingId": "qrels-to-drift-baseline",
+      "fromSlot": "HEARTH-003-QRELS-v7.json",
+      "fromPointer": "/disclosureDriftBaselineArtifact",
+      "toSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "expectedFrom": "toFilename"
+    },
+    {
+      "bindingId": "residual-receipt-to-ledger",
+      "fromSlot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "fromPointer": "/inputHashes/ledgerCanonicalTextSha256",
+      "toSlot": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "residual-receipt-to-contract",
+      "fromSlot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "fromPointer": "/inputHashes/contractCanonicalTextSha256",
+      "toSlot": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "residual-receipt-to-plan",
+      "fromSlot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "fromPointer": "/inputHashes/redPlanCanonicalTextSha256",
+      "toSlot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "residual-receipt-to-verifier",
+      "fromSlot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "fromPointer": "/inputHashes/verifierCanonicalTextSha256",
+      "toSlot": "HEARTH-003-residual-continuity.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "drift-receipt-to-plan",
+      "fromSlot": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1.json",
+      "fromPointer": "/inputHashes/controlPlanCanonicalTextSha256",
+      "toSlot": "HEARTH-003-DISCLOSURE-DRIFT-RED-CONTROLS-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "drift-receipt-to-baseline",
+      "fromSlot": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1.json",
+      "fromPointer": "/inputHashes/driftBaselineCanonicalTextSha256",
+      "toSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "drift-receipt-to-checker",
+      "fromSlot": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1.json",
+      "fromPointer": "/inputHashes/driftCheckerCanonicalTextSha256",
+      "toSlot": "HEARTH-003-disclosure-drift-checker.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "metric-to-qrels",
+      "fromSlot": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "fromPointer": "/inputHashes/qrelsCanonicalTextSha256",
+      "toSlot": "HEARTH-003-QRELS-v7.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "metric-to-delegation",
+      "fromSlot": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "fromPointer": "/inputHashes/delegationMeasurementV2CanonicalTextSha256",
+      "toSlot": "HEARTH-003-DELEGATION-MEASUREMENT-v2.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "metric-to-baseline",
+      "fromSlot": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "fromPointer": "/inputHashes/disclosureDriftBaselineCanonicalTextSha256",
+      "toSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "metric-to-source",
+      "fromSlot": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "fromPointer": "/inputHashes/evaluatorCanonicalTextSha256",
+      "toSlot": "HEARTH-003-metric-satisfiability-v2.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "bundle-receipt-to-plan",
+      "fromSlot": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2.json",
+      "fromPointer": "/inputHashes/redPlanCanonicalTextSha256",
+      "toSlot": "HEARTH-003-BUNDLE-MIXING-RED-v2.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "bundle-receipt-to-verifier",
+      "fromSlot": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2.json",
+      "fromPointer": "/inputHashes/verifierV2CanonicalTextSha256",
+      "toSlot": "HEARTH-003-authority-bundle-verifier-v2.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "bundle-receipt-to-runner",
+      "fromSlot": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2.json",
+      "fromPointer": "/inputHashes/runnerV2CanonicalTextSha256",
+      "toSlot": "HEARTH-003-bundle-mixing-self-test-v2.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "implementation-drift-to-baseline",
+      "fromSlot": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "fromPointer": "/baselineIdentity/canonicalTextSha256",
+      "toSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "implementation-drift-to-field-scope",
+      "fromSlot": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "fromPointer": "/authorityInputHashes/fieldScopeCanonicalTextSha256",
+      "toSlot": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "implementation-drift-to-delegation",
+      "fromSlot": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "fromPointer": "/authorityInputHashes/delegationMeasurementCanonicalTextSha256",
+      "toSlot": "HEARTH-003-DELEGATION-MEASUREMENT-v2.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "implementation-drift-to-source",
+      "fromSlot": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "fromPointer": "/authorityInputHashes/diffSourceCanonicalTextSha256",
+      "toSlot": "HEARTH-003-r6-disclosure-drift-diff.ts",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "coverage-to-qrels-json",
+      "fromSlot": "HEARTH-003-COVERAGE-v7.json",
+      "fromPointer": "/canonicalArtifactHashesBeforeCommit/qrelsV7CanonicalJsonSha256",
+      "toSlot": "HEARTH-003-QRELS-v7.json",
+      "expectedFrom": "toCanonicalJsonSha256"
+    },
+    {
+      "bindingId": "coverage-to-delegation-json",
+      "fromSlot": "HEARTH-003-COVERAGE-v7.json",
+      "fromPointer": "/canonicalArtifactHashesBeforeCommit/delegationMeasurementV2CanonicalJsonSha256",
+      "toSlot": "HEARTH-003-DELEGATION-MEASUREMENT-v2.json",
+      "expectedFrom": "toCanonicalJsonSha256"
+    },
+    {
+      "bindingId": "coverage-to-metric-json",
+      "fromSlot": "HEARTH-003-COVERAGE-v7.json",
+      "fromPointer": "/canonicalArtifactHashesBeforeCommit/metricSatisfiabilityV2CanonicalJsonSha256",
+      "toSlot": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "expectedFrom": "toCanonicalJsonSha256"
+    },
+    {
+      "bindingId": "coverage-to-baseline-json",
+      "fromSlot": "HEARTH-003-COVERAGE-v7.json",
+      "fromPointer": "/canonicalArtifactHashesBeforeCommit/disclosureDriftBaselineV1CanonicalJsonSha256",
+      "toSlot": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "expectedFrom": "toCanonicalJsonSha256"
+    },
+    {
+      "bindingId": "physical-manifest-to-migration-files-lf",
+      "fromSlot": "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+      "fromPointer": "/migrationPinSetSha256",
+      "toSlot": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "toPointer": "/physicalSeedPlan/migrationFiles",
+      "expectedFrom": "toPointerCanonicalJsonLfSha256"
+    },
+    {
+      "bindingId": "physical-validation-to-seed-plan-lf",
+      "fromSlot": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "fromPointer": "/inputHashes/physicalSeedPlanSha256",
+      "toSlot": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "toPointer": "/physicalSeedPlan",
+      "expectedFrom": "toPointerCanonicalJsonLfSha256"
+    },
+    {
+      "bindingId": "physical-validation-to-fixture",
+      "fromSlot": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "fromPointer": "/inputHashes/contractSha256",
+      "toSlot": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "physical-validation-to-manifest",
+      "fromSlot": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "fromPointer": "/inputHashes/schemaManifestSha256",
+      "toSlot": "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "physical-validation-to-parser",
+      "fromSlot": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "fromPointer": "/inputHashes/projectionParserSourceSha256",
+      "toSlot": "HEARTH-003-projection-authority-parser.ts",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "physical-validation-to-validator",
+      "fromSlot": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "fromPointer": "/inputHashes/validatorSourceSha256",
+      "toSlot": "HEARTH-003-physical-domain-validator.ts",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "trust-to-policy-commit",
+      "fromSlot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "fromPointer": "/policyDependencyBinding/sourceCommit",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/sourceCommit",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "trust-to-policy-application-tree",
+      "fromSlot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "fromPointer": "/policyDependencyBinding/h0Bindings/applicationPolicyDependencySha256",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/h0Bindings/applicationPolicyDependencySha256",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "trust-to-policy-migration-tree",
+      "fromSlot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "fromPointer": "/policyDependencyBinding/h0Bindings/migrationStateSha256",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/h0Bindings/migrationStateSha256",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "trust-to-policy-complete-tree",
+      "fromSlot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "fromPointer": "/policyDependencyBinding/h0Bindings/completeDependencyTreeSha256",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/h0Bindings/completeDependencyTreeSha256",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "trust-to-residual-ledger",
+      "fromSlot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "fromPointer": "/residualContinuityBinding/ledger/canonicalTextSha256",
+      "toSlot": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "trust-to-residual-contract",
+      "fromSlot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "fromPointer": "/residualContinuityBinding/contract/canonicalTextSha256",
+      "toSlot": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "trust-to-residual-receipt",
+      "fromSlot": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "fromPointer": "/residualContinuityBinding/authorityReferenceReceipt/canonicalTextSha256",
+      "toSlot": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-qrels-cases",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/qrelsTransition/qrelsV7CasesCanonicalJsonSha256",
+      "toSlot": "HEARTH-003-QRELS-v7.json",
+      "toPointer": "/cases",
+      "expectedFrom": "toPointerCanonicalJsonSha256"
+    },
+    {
+      "bindingId": "validation-to-policy-commit",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/policyDependencyBindings/productCommit",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/sourceCommit",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "validation-to-policy-application-tree",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/policyDependencyBindings/applicationPolicyDependencySha256",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/h0Bindings/applicationPolicyDependencySha256",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "validation-to-policy-migration-tree",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/policyDependencyBindings/migrationStateSha256",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/h0Bindings/migrationStateSha256",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "validation-to-policy-complete-tree",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/policyDependencyBindings/completeDependencyTreeSha256",
+      "toSlot": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "toPointer": "/h0Bindings/completeDependencyTreeSha256",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "validation-to-gitattributes",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/gitattributesCanonicalTextSha256",
+      "toSlot": ".gitattributes",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-gold-authority",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/goldAuthorityCanonicalTextSha256",
+      "toSlot": "HEARTH-003-r6-GOLD-SET-AUTHORITY.md",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-materialization-contract",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/materializationContractCanonicalTextSha256",
+      "toSlot": "HEARTH-003-r6-MATERIALIZATION-CONTRACT.md",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-freezer",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/freezerCanonicalTextSha256",
+      "toSlot": "HEARTH-003-r6-freeze-hashes.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-materializer",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/materializerCanonicalTextSha256",
+      "toSlot": "HEARTH-003-r6-materialize-gold.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-bundle-verifier",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/bundleVerifierCanonicalTextSha256",
+      "toSlot": "HEARTH-003-authority-bundle-verifier-v2.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-bundle-runner",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/bundleRedRunnerCanonicalTextSha256",
+      "toSlot": "HEARTH-003-bundle-mixing-self-test-v2.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-drift-checker",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/driftCheckerCanonicalTextSha256",
+      "toSlot": "HEARTH-003-disclosure-drift-checker.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-residual-verifier",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/residualVerifierCanonicalTextSha256",
+      "toSlot": "HEARTH-003-residual-continuity.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-metric-source",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/metricSourceCanonicalTextSha256",
+      "toSlot": "HEARTH-003-metric-satisfiability-v2.mjs",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-diff-source",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/implementationDriftSourceCanonicalTextSha256",
+      "toSlot": "HEARTH-003-r6-disclosure-drift-diff.ts",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-projection-parser",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/projectionParserCanonicalTextSha256",
+      "toSlot": "HEARTH-003-projection-authority-parser.ts",
+      "expectedFrom": "toCanonicalTextSha256"
+    },
+    {
+      "bindingId": "validation-to-physical-validator",
+      "fromSlot": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/physicalValidatorCanonicalTextSha256",
+      "toSlot": "HEARTH-003-physical-domain-validator.ts",
+      "expectedFrom": "toCanonicalTextSha256"
+    }
+  ],
+  "consumerRule": "Consumers verify the external root, closed set, content hashes, identities, cross-bindings, and fixed content bindings before any seed, database, network, HTTP, or metric side effect. A coordinated rewrite plus a new external root remains outside internal bundle guarantees and requires Neural review.",
+  "globalMeasurementStatus": "NOT_YET_MEASURED"
+}

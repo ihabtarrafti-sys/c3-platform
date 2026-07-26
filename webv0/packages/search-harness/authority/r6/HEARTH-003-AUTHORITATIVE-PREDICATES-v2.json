@@ -1,0 +1,727 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-authoritative-register-predicates",
+  "predicateVersion": "HEARTH-003-AUTHORITATIVE-PREDICATES-v2",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "actorClassArtifact": "HEARTH-003-ACTOR-CLASSES-v2.json",
+  "authoritativeFieldScopeArtifact": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+  "frozenAsOfDate": "2035-06-15",
+  "derivationBoundary": {
+    "source": "authoritative application register-read semantics",
+    "forbiddenSources": [
+      "globalSearch output",
+      "search SQL output",
+      "search snapshots",
+      "seeder output",
+      "implementation-generated visibility"
+    ],
+    "tenantRlsIsNecessaryNotSufficient": true
+  },
+  "dsl": {
+    "closedOperators": [
+      "true",
+      "false",
+      "ref",
+      "all",
+      "any",
+      "not",
+      "role_in",
+      "fact_eq",
+      "fact_in",
+      "date_lte",
+      "date_gte",
+      "owner_dispatch",
+      "register_readable",
+      "dependency_exists",
+      "dependency_field_eq",
+      "dependency_link_eq",
+      "source_dependency_link_eq",
+      "dependency_register_readable"
+    ],
+    "all": "all args must evaluate true; an empty args list is invalid",
+    "any": "at least one arg must evaluate true; an empty args list is invalid",
+    "ref": "resolve only a named predicate in this artifact; cycles fail",
+    "role_in": "actor.role must be a member of the named frozen role set",
+    "fact_eq": "exact equality unless the path is explicitly marked normalized",
+    "fact_in": "exact membership",
+    "date_lte": "ISO date at leftPath is on or before rightValue",
+    "date_gte": "ISO date at leftPath is on or after rightValue",
+    "owner_dispatch": "evaluate exactly one exact ownerType case; missing or unknown ownerType is false",
+    "register_readable": "recursively evaluate the named register predicate against the referenced row and same actor",
+    "dependency_exists": "within the source tenant, resolve the named materialized dependency and require the declared table; zero matches evaluate false and multiple matches are a conformance hard failure",
+    "dependency_field_eq": "within the source tenant, resolve exactly one named materialized dependency and compare its declared field to the literal value; zero matches evaluate false and multiple matches are a conformance hard failure",
+    "dependency_link_eq": "within the source tenant, resolve both named materialized dependencies and require exact equality between the declared fields; a missing dependency evaluates false and duplicate resolution is a conformance hard failure",
+    "source_dependency_link_eq": "within the source tenant, resolve exactly one named materialized dependency and require exact equality between a source-row path and the dependency identity or declared field; a missing dependency evaluates false and duplicate resolution is a conformance hard failure",
+    "dependency_register_readable": "within the source tenant, resolve exactly one materialized dependency, require its declared register, and recursively evaluate that register's full readableWhen predicate for the same actor; a missing dependency or false nested predicate evaluates false and duplicate resolution is a conformance hard failure",
+    "baselineDependencyRule": "Every unmutated Comms baseline declares exactly one owner, thread, Mission anchor, and provenance row. Missing baseline rows are fixture-conformance failures; deliberate omit_dependency counterfactuals instead exercise earned authorization denials.",
+    "missingFact": "false",
+    "unknownOperator": "fail_closed",
+    "unknownRegister": "fail_closed",
+    "unknownOwnerType": "fail_closed",
+    "noImplicitCoercion": true
+  },
+  "namedPredicates": {
+    "tenantSame": {
+      "op": "fact_eq",
+      "leftPath": "row.tenantSlot",
+      "rightPath": "actor.tenantSlot"
+    },
+    "peopleRole": {
+      "op": "role_in",
+      "set": "ALL"
+    },
+    "peopleReadCapability": {
+      "op": "ref",
+      "name": "peopleRole"
+    },
+    "agreementRole": {
+      "op": "role_in",
+      "set": "AGREEMENT"
+    },
+    "financialRole": {
+      "op": "role_in",
+      "set": "FINANCIAL"
+    },
+    "claimSubmitterRole": {
+      "op": "role_in",
+      "set": "CLAIM_SUBMITTER"
+    },
+    "approvalBaseRole": {
+      "op": "role_in",
+      "set": "APPROVAL_BASE"
+    },
+    "classicOwnerExists": {
+      "op": "fact_eq",
+      "leftPath": "row.ownerExists",
+      "rightValue": true
+    },
+    "activeEffectiveDelegation": {
+      "op": "all",
+      "args": [
+        {
+          "op": "fact_eq",
+          "leftPath": "actor.delegation.rowExists",
+          "rightValue": true
+        },
+        {
+          "op": "fact_eq",
+          "leftPath": "actor.delegation.granteeRelation",
+          "rightValue": "actor_identity_after_normalization"
+        },
+        {
+          "op": "fact_eq",
+          "leftPath": "actor.delegation.revokedAt",
+          "rightValue": null
+        },
+        {
+          "op": "date_lte",
+          "leftPath": "actor.delegation.startsOn",
+          "rightValue": "2035-06-15"
+        },
+        {
+          "op": "date_gte",
+          "leftPath": "actor.delegation.endsOn",
+          "rightValue": "2035-06-15"
+        }
+      ]
+    },
+    "claimReadable": {
+      "op": "all",
+      "args": [
+        {
+          "op": "ref",
+          "name": "tenantSame"
+        },
+        {
+          "op": "any",
+          "args": [
+            {
+              "op": "ref",
+              "name": "financialRole"
+            },
+            {
+              "op": "all",
+              "args": [
+                {
+                  "op": "ref",
+                  "name": "claimSubmitterRole"
+                },
+                {
+                  "op": "fact_eq",
+                  "leftPath": "row.submittedByRelation",
+                  "rightValue": "actor_identity"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    "classicDocumentOwnerReadable": {
+      "op": "owner_dispatch",
+      "ownerTypePath": "row.ownerType",
+      "cases": {
+        "Person": {
+          "op": "all",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicOwnerExists"
+            },
+            {
+              "op": "ref",
+              "name": "peopleRole"
+            }
+          ]
+        },
+        "Mission": {
+          "op": "all",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicOwnerExists"
+            },
+            {
+              "op": "ref",
+              "name": "peopleRole"
+            }
+          ]
+        },
+        "Credential": {
+          "op": "all",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicOwnerExists"
+            },
+            {
+              "op": "ref",
+              "name": "peopleRole"
+            }
+          ]
+        },
+        "Entity": {
+          "op": "all",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicOwnerExists"
+            },
+            {
+              "op": "ref",
+              "name": "peopleRole"
+            }
+          ]
+        },
+        "Agreement": {
+          "op": "all",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicOwnerExists"
+            },
+            {
+              "op": "ref",
+              "name": "agreementRole"
+            }
+          ]
+        },
+        "Invoice": {
+          "op": "all",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicOwnerExists"
+            },
+            {
+              "op": "ref",
+              "name": "financialRole"
+            }
+          ]
+        },
+        "Claim": {
+          "op": "all",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicOwnerExists"
+            },
+            {
+              "op": "any",
+              "args": [
+                {
+                  "op": "ref",
+                  "name": "financialRole"
+                },
+                {
+                  "op": "all",
+                  "args": [
+                    {
+                      "op": "ref",
+                      "name": "claimSubmitterRole"
+                    },
+                    {
+                      "op": "fact_eq",
+                      "leftPath": "row.ownerSubmittedByRelation",
+                      "rightValue": "actor_identity"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "default": {
+        "op": "false"
+      }
+    },
+    "currentAnchoredCommsOwnerReadable": {
+      "op": "owner_dispatch",
+      "ownerTypePath": "row.ownerType",
+      "cases": {
+        "CommsMessage": {
+          "op": "all",
+          "args": [
+            {
+              "op": "fact_eq",
+              "leftPath": "actor.entitlement.rowExists",
+              "rightValue": true
+            },
+            {
+              "op": "fact_eq",
+              "leftPath": "actor.entitlement.moduleKey",
+              "rightValue": "comms"
+            },
+            {
+              "op": "source_dependency_link_eq",
+              "sourcePath": "row.ownerId",
+              "relationship": "document_owner",
+              "dependencyPath": "recordId"
+            },
+            {
+              "op": "dependency_exists",
+              "relationship": "document_owner",
+              "table": "comms_message"
+            },
+            {
+              "op": "dependency_exists",
+              "relationship": "owner_thread",
+              "table": "comms_thread"
+            },
+            {
+              "op": "dependency_link_eq",
+              "leftRelationship": "document_owner",
+              "leftField": "thread_id",
+              "rightRelationship": "owner_thread",
+              "rightField": "thread_id"
+            },
+            {
+              "op": "dependency_field_eq",
+              "relationship": "owner_thread",
+              "field": "kind",
+              "rightValue": "anchored"
+            },
+            {
+              "op": "dependency_field_eq",
+              "relationship": "owner_thread",
+              "field": "anchor_type",
+              "rightValue": "Mission"
+            },
+            {
+              "op": "dependency_link_eq",
+              "leftRelationship": "owner_thread",
+              "leftField": "anchor_id",
+              "rightRelationship": "thread_anchor",
+              "rightField": "mission_id"
+            },
+            {
+              "op": "dependency_register_readable",
+              "relationship": "thread_anchor",
+              "register": "mission"
+            },
+            {
+              "op": "ref",
+              "name": "peopleReadCapability"
+            }
+          ]
+        },
+        "CommsObligation": {
+          "op": "all",
+          "args": [
+            {
+              "op": "fact_eq",
+              "leftPath": "actor.entitlement.rowExists",
+              "rightValue": true
+            },
+            {
+              "op": "fact_eq",
+              "leftPath": "actor.entitlement.moduleKey",
+              "rightValue": "comms"
+            },
+            {
+              "op": "source_dependency_link_eq",
+              "sourcePath": "row.ownerId",
+              "relationship": "document_owner",
+              "dependencyPath": "recordId"
+            },
+            {
+              "op": "dependency_exists",
+              "relationship": "document_owner",
+              "table": "comms_obligation"
+            },
+            {
+              "op": "dependency_exists",
+              "relationship": "owner_thread",
+              "table": "comms_thread"
+            },
+            {
+              "op": "dependency_link_eq",
+              "leftRelationship": "document_owner",
+              "leftField": "thread_id",
+              "rightRelationship": "owner_thread",
+              "rightField": "thread_id"
+            },
+            {
+              "op": "dependency_field_eq",
+              "relationship": "owner_thread",
+              "field": "kind",
+              "rightValue": "anchored"
+            },
+            {
+              "op": "dependency_field_eq",
+              "relationship": "owner_thread",
+              "field": "anchor_type",
+              "rightValue": "Mission"
+            },
+            {
+              "op": "dependency_link_eq",
+              "leftRelationship": "owner_thread",
+              "leftField": "anchor_id",
+              "rightRelationship": "thread_anchor",
+              "rightField": "mission_id"
+            },
+            {
+              "op": "dependency_register_readable",
+              "relationship": "thread_anchor",
+              "register": "mission"
+            },
+            {
+              "op": "ref",
+              "name": "peopleReadCapability"
+            }
+          ]
+        }
+      },
+      "default": {
+        "op": "false"
+      }
+    },
+    "documentReadable": {
+      "op": "all",
+      "args": [
+        {
+          "op": "ref",
+          "name": "tenantSame"
+        },
+        {
+          "op": "fact_eq",
+          "leftPath": "row.active",
+          "rightValue": true
+        },
+        {
+          "op": "any",
+          "args": [
+            {
+              "op": "ref",
+              "name": "classicDocumentOwnerReadable"
+            },
+            {
+              "op": "ref",
+              "name": "currentAnchoredCommsOwnerReadable"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "registers": {
+    "person": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "peopleRole"
+          }
+        ]
+      }
+    },
+    "mission": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "peopleRole"
+          }
+        ]
+      }
+    },
+    "agreement": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "agreementRole"
+          }
+        ]
+      }
+    },
+    "entity": {
+      "readableWhen": {
+        "op": "ref",
+        "name": "tenantSame"
+      },
+      "note": "The authoritative entity list is tenant-only. For the current closed role set, the people-role gate reconstructed from dae27a4 is extensionally equal, but the authoritative register-read predicate and the pinned B0 implementation baseline remain distinct."
+    },
+    "credential": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "peopleRole"
+          }
+        ]
+      }
+    },
+    "journey": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "peopleRole"
+          }
+        ]
+      }
+    },
+    "kit": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "peopleRole"
+          }
+        ]
+      }
+    },
+    "apparel": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "peopleRole"
+          }
+        ]
+      }
+    },
+    "approval": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "any",
+            "args": [
+              {
+                "op": "ref",
+                "name": "approvalBaseRole"
+              },
+              {
+                "op": "ref",
+                "name": "activeEffectiveDelegation"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    "team": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "peopleRole"
+          }
+        ]
+      }
+    },
+    "invoice": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "financialRole"
+          }
+        ]
+      }
+    },
+    "claim": {
+      "readableWhen": {
+        "op": "ref",
+        "name": "claimReadable"
+      }
+    },
+    "distribution": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "financialRole"
+          }
+        ]
+      }
+    },
+    "document": {
+      "readableWhen": {
+        "op": "ref",
+        "name": "documentReadable"
+      },
+      "benchmarkRecallEligibleWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "documentReadable"
+          },
+          {
+            "op": "fact_eq",
+            "leftPath": "row.recordKind",
+            "rightValue": "RegisteredEvidence"
+          }
+        ]
+      },
+      "recordKindClarification": "Current classic-owner read/download semantics do not gate record_kind. Attachment is therefore potentially authoritative-readable but is never benchmark-relevant; an active permitted-owner Attachment returned by search is a hard L0 failure.",
+      "commsClarification": "The current anchored-Mission read slice uses entitlement-row existence and recursive Mission readability. The owner, thread, and Mission anchor must resolve as exact materialized dependencies; absence is a conformance hard failure, never an earned deny. Anchored readership does not currently consult participant rows, but P0/P1 fixtures are both materialized and must be outcome-equivalent. Any participant/direct/delegated thread path is a new gate-class change and requires another predicate version bump; Comms remains outside Wave 1."
+    },
+    "term": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "financialRole"
+          },
+          {
+            "op": "fact_eq",
+            "leftPath": "row.active",
+            "rightValue": true
+          },
+          {
+            "op": "fact_eq",
+            "leftPath": "row.parentExists",
+            "rightValue": true
+          }
+        ]
+      }
+    },
+    "line": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "financialRole"
+          },
+          {
+            "op": "fact_eq",
+            "leftPath": "row.active",
+            "rightValue": true
+          },
+          {
+            "op": "fact_eq",
+            "leftPath": "row.parentExists",
+            "rightValue": true
+          }
+        ]
+      }
+    },
+    "beneficiary": {
+      "readableWhen": {
+        "op": "all",
+        "args": [
+          {
+            "op": "ref",
+            "name": "tenantSame"
+          },
+          {
+            "op": "ref",
+            "name": "financialRole"
+          }
+        ]
+      }
+    }
+  },
+  "defaultBenchmarkRecallEligibility": "For every register except document, human-adjudicated authoritative G recall eligibility equals readableWhen plus an explicit Lumen qrel judgment whose target is present in HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1. B0/O0 match-field and projection sets are reconstructed from the dae27a4 search implementation and evaluated separately only for pinned-baseline drift and C0 diagnostics. They are not an approval oracle and are not inputs to authoritative field-scope derivation.",
+  "nonDecisionStatement": "These predicates classify synthetic read visibility only. They authorize no mutation and initiate no action."
+}

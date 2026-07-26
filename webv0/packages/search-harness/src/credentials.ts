@@ -65,6 +65,11 @@ export interface SeedMeasuredCredentialInput {
   readonly measured: MeasuredProcessEnvironment;
 }
 
+export interface SeedMeasuredCredentialConfigurationInput {
+  readonly seedAdminUrl: string | undefined;
+  readonly measured: MeasuredProcessEnvironment;
+}
+
 export interface MeasuredCredentialAttestation {
   readonly nodeEnv: 'production';
   readonly rateLimitMax: number;
@@ -366,20 +371,17 @@ export function assertMeasuredProcessEnvironment(
 }
 
 /**
- * Proves the seed credential is present only in the exited seed process and is
- * distinct from both measured-process read credentials.
+ * Validates the complete seed/measured credential configuration without
+ * consuming a disposable-target grant. This is safe to run before the first
+ * database or network event; it returns only the already-safe measured
+ * attestation and never returns seed credentials.
  */
-export function assertSeedMeasuredCredentialSeparation(
-  input: SeedMeasuredCredentialInput,
-): MeasuredCredentialAttestation {
-  if (
-    !isTrustedDisposableSeedTargetAttestation(input.seedTargetAttestation)
-  ) {
-    throw new CredentialSeparationError(
-      'SEED_TARGET_ATTESTATION_INVALID',
-      'Seed target attestation must come from the disposable-target guard',
-    );
-  }
+function validateSeedMeasuredCredentialConfiguration(
+  input: SeedMeasuredCredentialConfigurationInput,
+): {
+  readonly seed: ParsedCredential;
+  readonly measured: MeasuredCredentialAttestation;
+} {
   if (!present(input.seedAdminUrl)) {
     throw new CredentialSeparationError(
       'SEED_ADMIN_URL_MISSING',
@@ -391,13 +393,11 @@ export function assertSeedMeasuredCredentialSeparation(
   const measured = assertMeasuredProcessEnvironment(input.measured);
 
   if (
-    seed.targetSha256 !== measured.databaseTargetSha256 ||
-    seed.targetSha256 !== input.seedTargetAttestation.targetIdentitySha256 ||
-    seed.databaseName !== input.seedTargetAttestation.databaseName
+    seed.targetSha256 !== measured.databaseTargetSha256
   ) {
     throw new CredentialSeparationError(
       'SEED_TARGET_MISMATCH',
-      'Seed and measured credentials must bind to the attested disposable database',
+      'Seed and measured credentials must bind to the same disposable database',
     );
   }
 
@@ -431,6 +431,42 @@ export function assertSeedMeasuredCredentialSeparation(
     throw new CredentialSeparationError(
       'SEED_SECRET_REUSED_BY_MEASURED_AUTH',
       'Seed and measured authentication credentials must use distinct secrets',
+    );
+  }
+  return { seed, measured };
+}
+
+export function assertSeedMeasuredCredentialConfiguration(
+  input: SeedMeasuredCredentialConfigurationInput,
+): MeasuredCredentialAttestation {
+  return validateSeedMeasuredCredentialConfiguration(input).measured;
+}
+
+/**
+ * Proves the seed credential is present only in the exited seed process and is
+ * distinct from both measured-process read credentials, then consumes the
+ * one-shot H0 target grant as its final operation.
+ */
+export function assertSeedMeasuredCredentialSeparation(
+  input: SeedMeasuredCredentialInput,
+): MeasuredCredentialAttestation {
+  if (
+    !isTrustedDisposableSeedTargetAttestation(input.seedTargetAttestation)
+  ) {
+    throw new CredentialSeparationError(
+      'SEED_TARGET_ATTESTATION_INVALID',
+      'Seed target attestation must come from the disposable-target guard',
+    );
+  }
+  const { seed, measured } =
+    validateSeedMeasuredCredentialConfiguration(input);
+  if (
+    seed.targetSha256 !== input.seedTargetAttestation.targetIdentitySha256 ||
+    seed.databaseName !== input.seedTargetAttestation.databaseName
+  ) {
+    throw new CredentialSeparationError(
+      'SEED_TARGET_MISMATCH',
+      'Seed and measured credentials must bind to the attested disposable database',
     );
   }
   if (!consumeDisposableSeedTargetAttestation(input.seedTargetAttestation)) {

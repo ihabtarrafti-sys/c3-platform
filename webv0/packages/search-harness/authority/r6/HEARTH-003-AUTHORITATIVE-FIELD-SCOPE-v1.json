@@ -1,0 +1,720 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-authoritative-register-field-scope",
+  "fieldScopeVersion": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "derivationBoundary": {
+    "source": "authoritative register API contracts, DTO projectors, domain read models, and structural omission logic",
+    "forbiddenInputs": [
+      "search.ts",
+      "searchSql.ts",
+      "DOMAIN_SPECS",
+      "runtime search output",
+      "search snapshots",
+      "seeder output",
+      "the B0/O0 pinned-implementation match-field and projection sets"
+    ],
+    "method": "Derive each register's actor-visible DTO field scope first and freeze this matrix without search implementation inputs. Compare it afterward with B0/O0 only as an implementation-drift/reference check against dae27a4; that comparison does not create or evidence a separately approved disclosure envelope."
+  },
+  "classes": {
+    "E": "Exact identifier or reference; eligible for exact lexical identity matching.",
+    "L": "Identity-shaped or bounded display descriptor; eligible for lexical identity matching.",
+    "F": "Readable structured context; facet or display only, never a textual match reason by default.",
+    "N": "Narrative, PII, financial, operator, integrity, or otherwise sensitive content; excluded by default from matching, excerpts, indexes, logs, and gold-query generation. Only fields named in postDerivationPinnedBaselineFinding.currentPinnedBaselineContentExceptions are retained as observed dae27a4 H0-H4 measurement exceptions; this records pinned behavior, not approval, and each remains narrow-by-default before H5.",
+    "J": "Nested joined identity; readable in the nested DTO but not automatically a parent-register search field."
+  },
+  "defaultSearchRelevanceClasses": [
+    "E",
+    "L"
+  ],
+  "classificationPrecedence": "The E/L default governs human G adjudication. A named N exception records pinned dae27a4 H0-H4 behavior for measurement only; it does not reclassify the field, authorize a new index, establish a disclosure oracle, or survive the H5 freeze without a separate ruling.",
+  "registers": {
+    "person": {
+      "E": [
+        "personId",
+        "personnelCode",
+        "entityId"
+      ],
+      "L": [
+        "fullName",
+        "ign",
+        "firstName",
+        "lastName",
+        "primaryRole",
+        "currentTeam",
+        "currentGameTitle",
+        "primaryDepartment",
+        "position"
+      ],
+      "F": [
+        "dateOfJoining",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "nationality",
+        "otherNationalities",
+        "notes",
+        "dateOfBirth",
+        "photoUpdatedAt",
+        "addressLine1",
+        "addressLine2",
+        "addressCity",
+        "addressCountry",
+        "phone",
+        "email"
+      ],
+      "conditionalFields": {
+        "piiProjection": [
+          "dateOfBirth",
+          "photoUpdatedAt",
+          "addressLine1",
+          "addressLine2",
+          "addressCity",
+          "addressCountry",
+          "phone",
+          "email"
+        ]
+      },
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:109-143",
+        "webv0/apps/api/src/dto.ts:491-531",
+        "webv0/packages/domain/src/person.ts:30-69",
+        "webv0/apps/api/src/app.ts:800-814"
+      ]
+    },
+    "mission": {
+      "E": [
+        "missionId",
+        "code",
+        "teamId"
+      ],
+      "L": [
+        "name",
+        "organizer",
+        "city",
+        "gameTitle"
+      ],
+      "F": [
+        "startsOn",
+        "endsOn",
+        "financeStage",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:409-429",
+        "webv0/apps/api/src/dto.ts:133-151",
+        "webv0/packages/domain/src/mission.ts:43-75"
+      ]
+    },
+    "agreement": {
+      "E": [
+        "agreementId",
+        "agreementCode",
+        "personId",
+        "entityId",
+        "linkedAgreementId"
+      ],
+      "L": [
+        "agreementType"
+      ],
+      "F": [
+        "startsOn",
+        "endsOn",
+        "status",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes",
+        "valueUsdCents"
+      ],
+      "conditionalFields": {
+        "financialProjection": [
+          "valueUsdCents"
+        ]
+      },
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:1390-1409",
+        "webv0/apps/api/src/dto.ts:90-114",
+        "webv0/packages/domain/src/agreement.ts:37-80",
+        "webv0/packages/application/src/usecases/queries.ts:89-118"
+      ]
+    },
+    "entity": {
+      "E": [
+        "entityId",
+        "code",
+        "registrationId"
+      ],
+      "L": [
+        "name",
+        "jurisdiction"
+      ],
+      "F": [
+        "localCurrency",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:1442-1456",
+        "webv0/apps/api/src/dto.ts:534-546",
+        "webv0/packages/domain/src/entity.ts:21-42"
+      ]
+    },
+    "credential": {
+      "E": [
+        "credentialId",
+        "personId"
+      ],
+      "L": [
+        "credentialType",
+        "kind",
+        "issuer",
+        "issuingCountry"
+      ],
+      "F": [
+        "issuedOn",
+        "expiresOn",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes",
+        "documentNumber"
+      ],
+      "conditionalFields": {
+        "piiProjection": [
+          "documentNumber"
+        ]
+      },
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:244-263",
+        "webv0/apps/api/src/dto.ts:44-65",
+        "webv0/packages/domain/src/credential.ts:18-40",
+        "webv0/apps/api/src/app.ts:1086-1100"
+      ]
+    },
+    "journey": {
+      "E": [
+        "journeyId",
+        "personId"
+      ],
+      "L": [
+        "journeyType",
+        "title"
+      ],
+      "F": [
+        "startedOn",
+        "endedOn",
+        "status",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:342-356",
+        "webv0/apps/api/src/dto.ts:28-41",
+        "webv0/packages/domain/src/journey.ts:26-43"
+      ]
+    },
+    "kit": {
+      "E": [
+        "kitId",
+        "assignedPersonId"
+      ],
+      "L": [
+        "name",
+        "category",
+        "size"
+      ],
+      "F": [
+        "status",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:373-392",
+        "webv0/apps/api/src/dto.ts:11-25",
+        "webv0/packages/domain/src/equipment.ts:81-105,123-131"
+      ]
+    },
+    "apparel": {
+      "E": [
+        "apparelId",
+        "assignedPersonId"
+      ],
+      "L": [
+        "name",
+        "category",
+        "size"
+      ],
+      "F": [
+        "status",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:373-392",
+        "webv0/apps/api/src/dto.ts:11-25",
+        "webv0/packages/domain/src/equipment.ts:81-105,123-131"
+      ]
+    },
+    "approval": {
+      "E": [
+        "approvalId",
+        "targetPersonId",
+        "targetId",
+        "revisionOf",
+        "supersededBy"
+      ],
+      "L": [
+        "operationType"
+      ],
+      "F": [
+        "status",
+        "submittedAt",
+        "reviewedAt",
+        "executedAt",
+        "version",
+        "editCount",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "reason",
+        "submittedBy",
+        "reviewedBy",
+        "rejectionReason",
+        "executionError"
+      ],
+      "structurallyOmitted": [
+        "payload"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:154-186",
+        "webv0/apps/api/src/dto.ts:680-702",
+        "webv0/packages/domain/src/approval.ts:280-310",
+        "webv0/apps/api/src/app.ts:948"
+      ]
+    },
+    "team": {
+      "E": [
+        "teamId",
+        "code"
+      ],
+      "L": [
+        "name",
+        "kind",
+        "gameTitle"
+      ],
+      "F": [
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:797-811",
+        "webv0/apps/api/src/dto.ts:176-189",
+        "webv0/packages/domain/src/team.ts:27-41"
+      ]
+    },
+    "invoice": {
+      "E": [
+        "invoiceId",
+        "invoiceNumber",
+        "entityId",
+        "missionId",
+        "lineId",
+        "documentId"
+      ],
+      "L": [
+        "billedToName",
+        "incomeCategory"
+      ],
+      "F": [
+        "currency",
+        "status",
+        "issuedOn",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "billedToDetails",
+        "description",
+        "subtotalMinor",
+        "vatRateBps",
+        "vatMinor",
+        "totalMinor",
+        "issuedBy",
+        "voidedReason"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:1281-1307",
+        "webv0/apps/api/src/dto.ts:278-303",
+        "webv0/packages/domain/src/invoice.ts:26-56"
+      ]
+    },
+    "claim": {
+      "E": [
+        "claimId",
+        "personId",
+        "missionId"
+      ],
+      "L": [
+        "category"
+      ],
+      "F": [
+        "currency",
+        "expenseOn",
+        "status",
+        "paidOn",
+        "version",
+        "createdAt"
+      ],
+      "N": [
+        "submittedBy",
+        "description",
+        "amountMinor",
+        "reviewedBy",
+        "rejectionReason",
+        "paymentSourceLabel",
+        "refNo"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:1169-1200",
+        "webv0/apps/api/src/dto.ts:222-241",
+        "webv0/packages/domain/src/claim.ts:45-81,118-124"
+      ]
+    },
+    "distribution": {
+      "E": [
+        "distributionId",
+        "missionId",
+        "lineId"
+      ],
+      "L": [],
+      "F": [
+        "currency",
+        "status",
+        "version",
+        "createdAt"
+      ],
+      "N": [
+        "poolMinor",
+        "orgShareBps",
+        "orgCutMinor",
+        "revokedReason",
+        "notes",
+        "createdBy"
+      ],
+      "J": [
+        "shares.personId",
+        "shares.personName"
+      ],
+      "nestedF": [
+        "shares.payoutStatus",
+        "shares.paidOn",
+        "shares.version"
+      ],
+      "nestedN": [
+        "shares.shareBps",
+        "shares.amountMinor",
+        "shares.paymentSourceLabel",
+        "shares.refNo"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:1219-1249",
+        "webv0/apps/api/src/dto.ts:245-275",
+        "webv0/packages/domain/src/distribution.ts:36-74"
+      ]
+    },
+    "document": {
+      "E": [
+        "documentId",
+        "ownerType",
+        "ownerId"
+      ],
+      "L": [
+        "fileName",
+        "label"
+      ],
+      "F": [
+        "contentType",
+        "sizeBytes",
+        "version",
+        "createdAt"
+      ],
+      "N": [
+        "sha256",
+        "uploadedBy"
+      ],
+      "structurallyOmitted": [
+        "tenantId",
+        "storageKey",
+        "recordKind",
+        "isActive",
+        "updatedAt",
+        "persistenceId"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:613-628",
+        "webv0/apps/api/src/dto.ts:393-406",
+        "webv0/packages/domain/src/document.ts:96-117",
+        "webv0/packages/persistence/src/schema.ts:250-269"
+      ]
+    },
+    "term": {
+      "E": [
+        "termId",
+        "agreementId"
+      ],
+      "L": [
+        "kind"
+      ],
+      "F": [
+        "currency",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "amountMinor",
+        "percentBps",
+        "label"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:1418-1431",
+        "webv0/apps/api/src/dto.ts:117-130",
+        "webv0/packages/domain/src/agreementTerm.ts:55-72"
+      ]
+    },
+    "line": {
+      "E": [
+        "lineId",
+        "missionId"
+      ],
+      "L": [
+        "label",
+        "category",
+        "direction"
+      ],
+      "F": [
+        "currency",
+        "paymentStatus",
+        "isActive",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "amountMinor",
+        "receivedAmountMinor",
+        "receivedUsdPerUnit",
+        "paymentSourceLabel",
+        "refNo"
+      ],
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:472-490",
+        "webv0/apps/api/src/dto.ts:154-173",
+        "webv0/packages/domain/src/missionLine.ts:88-117,121-139"
+      ]
+    },
+    "beneficiary": {
+      "E": [
+        "beneficiaryId",
+        "personId",
+        "freelancerId",
+        "vendorId",
+        "registeredWithEntityId"
+      ],
+      "L": [
+        "label",
+        "bankName"
+      ],
+      "F": [
+        "bankCountry",
+        "currency",
+        "paymentType",
+        "status",
+        "statusDate",
+        "version",
+        "createdAt",
+        "updatedAt"
+      ],
+      "N": [
+        "notes"
+      ],
+      "structuralFinding": "The authoritative model contains no account number, IBAN, routing number, or equivalent credential.",
+      "evidence": [
+        "webv0/packages/api-contracts/src/index.ts:294-314",
+        "webv0/apps/api/src/dto.ts:68-87",
+        "webv0/packages/domain/src/beneficiary.ts:20-53,66-76"
+      ]
+    }
+  },
+  "qrelPhysicalFieldBindings": {
+    "person": {
+      "person_id": ["personId", "E"],
+      "full_name": ["fullName", "L"],
+      "ign": ["ign", "L"],
+      "personnel_code": ["personnelCode", "E"]
+    },
+    "mission": {
+      "mission_id": ["missionId", "E"],
+      "name": ["name", "L"],
+      "code": ["code", "E"],
+      "organizer": ["organizer", "L"],
+      "city": ["city", "L"]
+    },
+    "agreement": {
+      "agreement_id": ["agreementId", "E"],
+      "agreement_code": ["agreementCode", "E"],
+      "agreement_type": ["agreementType", "L"],
+      "person_id": ["personId", "E"],
+      "entity_id": ["entityId", "E"]
+    },
+    "entity": {
+      "entity_id": ["entityId", "E"],
+      "name": ["name", "L"],
+      "code": ["code", "E"],
+      "jurisdiction": ["jurisdiction", "L"]
+    },
+    "credential": {
+      "credential_id": ["credentialId", "E"],
+      "credential_type": ["credentialType", "L"],
+      "person_id": ["personId", "E"],
+      "issuer": ["issuer", "L"]
+    },
+    "journey": {
+      "journey_id": ["journeyId", "E"],
+      "title": ["title", "L"],
+      "journey_type": ["journeyType", "L"],
+      "person_id": ["personId", "E"]
+    },
+    "kit": {
+      "kit_id": ["kitId", "E"],
+      "name": ["name", "L"],
+      "category": ["category", "L"],
+      "assigned_person_id": ["assignedPersonId", "E"]
+    },
+    "apparel": {
+      "apparel_id": ["apparelId", "E"],
+      "name": ["name", "L"],
+      "category": ["category", "L"],
+      "assigned_person_id": ["assignedPersonId", "E"]
+    },
+    "approval": {
+      "approval_id": ["approvalId", "E"],
+      "operation_type": ["operationType", "L"],
+      "target_person_id": ["targetPersonId", "E"],
+      "target_id": ["targetId", "E"]
+    },
+    "team": {
+      "team_id": ["teamId", "E"],
+      "name": ["name", "L"],
+      "code": ["code", "E"],
+      "game_title": ["gameTitle", "L"]
+    },
+    "invoice": {
+      "invoice_id": ["invoiceId", "E"],
+      "invoice_number": ["invoiceNumber", "E"],
+      "billed_to_name": ["billedToName", "L"]
+    },
+    "claim": {
+      "claim_id": ["claimId", "E"],
+      "description": ["description", "N"],
+      "category": ["category", "L"]
+    },
+    "distribution": {
+      "distribution_id": ["distributionId", "E"],
+      "mission_id": ["missionId", "E"],
+      "line_id": ["lineId", "E"]
+    },
+    "document": {
+      "document_id": ["documentId", "E"],
+      "file_name": ["fileName", "L"],
+      "label": ["label", "L"]
+    },
+    "term": {
+      "term_id": ["termId", "E"],
+      "kind": ["kind", "L"],
+      "label": ["label", "N"],
+      "agreement_id": ["agreementId", "E"]
+    },
+    "line": {
+      "line_id": ["lineId", "E"],
+      "ref_no": ["refNo", "N"],
+      "label": ["label", "L"]
+    },
+    "beneficiary": {
+      "beneficiary_id": ["beneficiaryId", "E"],
+      "label": ["label", "L"],
+      "bank_name": ["bankName", "L"]
+    }
+  },
+  "postDerivationPinnedBaselineFinding": {
+    "pinnedBaselineArtifact": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+    "pinnedBaselineSourceCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+    "pinnedBaselinePhysicalFieldCount": 64,
+    "pinnedBaselineFieldsContainedInAuthoritativeDtoScope": 64,
+    "pinnedBaselineEorLFieldCount": 61,
+    "currentPinnedBaselineContentExceptions": [
+      {
+        "field": "claim.description",
+        "classification": "N",
+        "currentStatus": "transitional_H0_through_H4",
+        "h5Disposition": "narrow_by_default"
+      },
+      {
+        "field": "term.label",
+        "classification": "N",
+        "currentStatus": "transitional_H0_through_H4",
+        "h5Disposition": "narrow_by_default"
+      },
+      {
+        "field": "line.ref_no",
+        "classification": "N",
+        "currentStatus": "transitional_H0_through_H4",
+        "h5Disposition": "narrow_by_default"
+      }
+    ],
+    "findingNotInputToAuthoritativeFieldScope": true,
+    "pinnedImplementationBaselineRemainsSeparatelyVersioned": true,
+    "separateDisclosureOracleExists": false,
+    "comparisonBoundary": "These counts describe B0 reconstructed from dae27a4. They establish implementation-baseline equality or drift only; they do not confer approval or prove that B0/O0 is authorized, correct, complete, or leak-free."
+  }
+}

@@ -1,0 +1,639 @@
+{
+  "schemaVersion": 3,
+  "artifactKind": "hearth-003-physical-domain-validation-report",
+  "outcome": "PASS",
+  "authority": "Apex Lumen",
+  "sourceCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+  "inputHashes": {
+    "contractSha256": "f940cc713d8f507faa1c32c0781f7a1aa5d13fb5d558defa8540857fbc191052",
+    "qrelsSha256": "a55881d8ab8e988ef4c6ef21bf8f9830ca56b45d1e7d1b2d3610960fedf6f7e4",
+    "physicalSeedPlanSha256": "458b777278eddff6199706e01a2a2f092fb580e9de9f23c0179eedb1325ec2de",
+    "schemaManifestSha256": "82e1ec8a2fb6e8ac346d70bf37b7dcc5c5ce1c016e4af03990672aa968f3fbce",
+    "validatorSourceSha256": "105b3c52a3270f98dee0337b207281c679047c198106b18f6398db5360e448aa",
+    "projectionParserSourceSha256": "eefb34a26b70bb1740f4e7e1cf39919f14ad13da8cc410d289c3cc4a8a4376c6",
+    "projectionAuthorityBlobSha256": "12268c46c2336e6abbbe7f671a540cb3dd2167741e196a03641ba037ef4de1a1",
+    "projectionSemanticSha256": "2f61eff8322d2b79118a9dbf3e65d09436c95dd5e1ac8caaf02a8d0f101c2b26",
+    "guardSemanticSha256": "b6c9428cb2eee227cc7b8b5c5f4aa5dd4e0fead6d26d276d58083a31dbb442c3",
+    "combinedAuthoritySha256": "dafed5fc89426a723a0f78b2fe1b234900b7c116a0676dabcfe5d43dafc96812",
+    "delegationAuthoritySha256": "e7892cee3e495798e61376acbab7d9981b1018716d747eb2675ac96bfaccb652",
+    "delegationMeasurementAuthoritySha256": "003750790ca954a31b374a7e23cdcaf9c783f8da59ba3693913d7177aa39e938"
+  },
+  "checks": [
+    {
+      "check": "pinned-migration-git-blobs",
+      "status": "PASS",
+      "count": 95,
+      "detail": "complete ordered canonical-text equality to reviewed Git blobs"
+    },
+    {
+      "check": "text-hash-eol-portability",
+      "status": "PASS",
+      "count": 10,
+      "detail": "migration/search pins, contract, qrels, validator/parser source, actor-class and measurement sources, manifest, and pg_get_functiondef use strict UTF-8 LF-canonical hashing; semantic objects use canonical JSON; LF/CRLF/lone-CR equivalence and substantive RED controls fired"
+    },
+    {
+      "check": "postgres-version",
+      "status": "PASS",
+      "detail": "18.4"
+    },
+    {
+      "check": "runtime-migration-ledger",
+      "status": "PASS",
+      "count": 95,
+      "detail": "no missing or extra ledger rows; every checksum equals its pinned Git blob"
+    },
+    {
+      "check": "pg-catalog-domain-manifest",
+      "status": "PASS",
+      "count": 29,
+      "detail": "columns constraints indexes triggers functions and RLS recorded; policy behavior is separately exercised below"
+    },
+    {
+      "check": "pinned-search-authority-ast-derivation",
+      "status": "PASS",
+      "count": 17,
+      "detail": "TypeScript 5.9.3; projection=2f61eff8322d2b79118a9dbf3e65d09436c95dd5e1ac8caaf02a8d0f101c2b26;guard=b6c9428cb2eee227cc7b8b5c5f4aa5dd4e0fead6d26d276d58083a31dbb442c3;combined=dafed5fc89426a723a0f78b2fe1b234900b7c116a0676dabcfe5d43dafc96812"
+    },
+    {
+      "check": "projection-source-structure-parity",
+      "status": "PASS",
+      "detail": "DOMAIN_SPECS and domainBlock projection/guard consumers parsed from the exact pinned Git blob"
+    },
+    {
+      "check": "projection-parser-negative-controls",
+      "status": "PASS",
+      "count": 8,
+      "detail": "projection/claim-column semantic tamper controls changed hashes; dead base hit, extraWhere, claim, document list, false-to-true, and unknown fifth guard push were rejected"
+    },
+    {
+      "check": "projection-static-guards",
+      "status": "PASS",
+      "count": 3,
+      "detail": "document,line,term"
+    },
+    {
+      "check": "static-column-type-nullability-preflight",
+      "status": "PASS",
+      "count": 839,
+      "detail": "baseline=692;overlays=67;measured_profile_rows=80"
+    },
+    {
+      "check": "baseline-physical-seed-plan",
+      "status": "PASS",
+      "count": 692,
+      "detail": "all deferred constraints forced immediate before commit"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:actor_entitlement:comms.E0",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:actor_entitlement:comms.E1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:actor_entitlement:comms.E2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:actor_entitlement:comms.E3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:actor_entitlement:comms.E4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:participant_overlay:THR-8999001.P0",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:participant_overlay:THR-8999001.P1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T02:actor_entitlement:comms.E0",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T02:actor_entitlement:comms.E1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T02:actor_entitlement:comms.E2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T02:actor_entitlement:comms.E3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T02:actor_entitlement:comms.E4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T02:participant_overlay:THR-8999002.P0",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T02:participant_overlay:THR-8999002.P1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.owner.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.owner.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.owner.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.owner.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.operations.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.operations.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.operations.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.operations.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.legal.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.legal.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.legal.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.legal.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.finance.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.finance.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.finance.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.finance.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.hr.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.hr.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.hr.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.hr.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.management.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.management.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.management.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.management.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.visitor.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.visitor.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.visitor.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T01.visitor.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.owner.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.owner.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.owner.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.owner.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.operations.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.operations.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.operations.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.operations.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.legal.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.legal.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.legal.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.legal.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.finance.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.finance.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.finance.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.finance.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.hr.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.hr.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.hr.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.hr.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.management.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.management.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.management.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.management.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.visitor.D1",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.visitor.D2",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.visitor.D3",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3D.T02.visitor.D4",
+      "status": "PASS",
+      "detail": "accept"
+    },
+    {
+      "check": "actor-overlay:H3A.T01:participant_overlay:THR-8999002.CROSS_TENANT_REJECT",
+      "status": "PASS",
+      "detail": "reject:23503:comms_thread_participant_tenant_id_thread_id_fkey"
+    },
+    {
+      "check": "delegation-d1-d4-live-state-matrix",
+      "status": "PASS",
+      "count": 56,
+      "detail": "2 tenants x 7 roles x D1-D4; exact hasActiveDelegation predicate at 2035-06-15"
+    },
+    {
+      "check": "delegation-overlay-transaction-reset",
+      "status": "PASS",
+      "count": 56,
+      "detail": "delegation row count returned to zero after every isolated overlay"
+    },
+    {
+      "check": "overlay-branch-coverage",
+      "status": "PASS",
+      "count": 71,
+      "detail": "accept=70;accept_sql_mutation=66;accept_absence_assertion=4;reject=1"
+    },
+    {
+      "check": "h4-sparse-profile-physical-readback",
+      "status": "PASS",
+      "count": 10,
+      "detail": "profile_delta_rows=80;measured_absence_readbacks=40;delegation_actor_predicates=140;entitlement_readbacks=20;participant_readbacks=20;disposable database only"
+    },
+    {
+      "check": "negative-domain-mutation-suite",
+      "status": "PASS",
+      "count": 15
+    },
+    {
+      "check": "visibility-probe-materialization",
+      "status": "PASS",
+      "count": 6,
+      "detail": "accepted E1/P1/D1 rows fill the three zero-baseline RLS tables in both tenants"
+    },
+    {
+      "check": "restricted-role-attestation",
+      "status": "PASS",
+      "count": 2,
+      "detail": "c3_app and c3_auth session/current roles are NOSUPERUSER NOBYPASSRLS with row_security=on"
+    },
+    {
+      "check": "app-role-missing-context-denial",
+      "status": "PASS",
+      "count": 25,
+      "detail": "every c3_app-readable touched RLS table returned the empty set without app.tenant_id"
+    },
+    {
+      "check": "app-role-rls-actor-matrix",
+      "status": "PASS",
+      "count": 350,
+      "detail": "14 physical actors x 25 exact catalog-PK sets; no explicit tenant predicate"
+    },
+    {
+      "check": "transaction-local-context-reset",
+      "status": "PASS",
+      "count": 14
+    },
+    {
+      "check": "auth-role-control-plane-policy",
+      "status": "PASS",
+      "count": 4,
+      "detail": "exact cross-tenant identity sets; tenant_membership and role_assignment use their combined permissive auth-resolution policy behavior"
+    },
+    {
+      "check": "restricted-role-grant-denials",
+      "status": "PASS",
+      "count": 30,
+      "detail": "c3_app identity reads, c3_auth business reads, and c3_auth identity write rejected with 42501"
+    },
+    {
+      "check": "non-superuser-rls-policy-coverage",
+      "status": "PASS",
+      "count": 29,
+      "detail": "all 29 manifest policies reached through c3_app or c3_auth; permissive control-plane policies are proven as their intended combined OR behavior"
+    },
+    {
+      "check": "source-derived-natural-guarded-projection-through-c3-app",
+      "status": "PASS",
+      "count": 356,
+      "detail": "included=353;static_guard_excluded=3;opposite_tenant_denials=356"
+    },
+    {
+      "check": "source-derived-complete-runtime-guard-branches",
+      "status": "PASS",
+      "count": 902,
+      "detail": "hit_positive=356;hit_negative=356;claim_null=22;claim_equal=22;claim_distinct_denied=22;document_singleton=31;document_nonmatching_denied=31;document_empty_false=31;document_middle_member=31;temporarily_admitted_static=3"
+    },
+    {
+      "check": "own-claim-physical-actor-identity-binding",
+      "status": "PASS",
+      "count": 9,
+      "detail": "each actor_identity claim submitted_by equals its same-tenant physical HR app_user email"
+    },
+    {
+      "check": "projection-static-guard-negative-controls",
+      "status": "PASS",
+      "count": 3
+    },
+    {
+      "check": "qrel-to-fixture-row-projection-binding",
+      "status": "PASS",
+      "count": 280,
+      "detail": "queries/targets/scenarios, fixture/support rows, source identities, rank tiers, forbidden sources, projections, seven amendment-ledger entries, 29 delegation assignments, 370 per-case bindings, and 280 pair edges are bound"
+    }
+  ],
+  "negativeMutationEvidence": [
+    {
+      "mutation": "invoice-status-draft",
+      "sqlState": "23514",
+      "constraint": "invoice_status_check",
+      "signal": "constraint:invoice_status_check"
+    },
+    {
+      "mutation": "approval-operation-whitelist",
+      "sqlState": "23514",
+      "constraint": "approval_operation_type_check",
+      "signal": "constraint:approval_operation_type_check"
+    },
+    {
+      "mutation": "journey-creator-not-null",
+      "sqlState": "23502",
+      "constraint": null,
+      "signal": "column:created_by_approval_id"
+    },
+    {
+      "mutation": "journey-creator-same-tenant-foreign-key",
+      "sqlState": "23503",
+      "constraint": "journey_tenant_id_created_by_approval_id_fkey",
+      "signal": "constraint:journey_tenant_id_created_by_approval_id_fkey"
+    },
+    {
+      "mutation": "missing-not-null",
+      "sqlState": "23502",
+      "constraint": null,
+      "signal": "column:name"
+    },
+    {
+      "mutation": "wrong-bigint-type",
+      "sqlState": "22P02",
+      "constraint": null,
+      "signal": "sqlstate:22P02"
+    },
+    {
+      "mutation": "missing-foreign-key-target",
+      "sqlState": "23503",
+      "constraint": "invoice_mission_fk",
+      "signal": "constraint:invoice_mission_fk"
+    },
+    {
+      "mutation": "cross-tenant-composite-foreign-key",
+      "sqlState": "23503",
+      "constraint": "invoice_mission_fk",
+      "signal": "constraint:invoice_mission_fk"
+    },
+    {
+      "mutation": "agreement-term-bad-shape",
+      "sqlState": "23514",
+      "constraint": "agreement_term_shape",
+      "signal": "constraint:agreement_term_shape"
+    },
+    {
+      "mutation": "expense-line-with-reference-number",
+      "sqlState": "23514",
+      "constraint": "mission_line_payment_shape",
+      "signal": "constraint:mission_line_payment_shape"
+    },
+    {
+      "mutation": "document-bad-sha256",
+      "sqlState": "23514",
+      "constraint": "document_sha256_check",
+      "signal": "constraint:document_sha256_check"
+    },
+    {
+      "mutation": "duplicate-live-invoice-line",
+      "sqlState": "23505",
+      "constraint": "invoice_one_live_per_line",
+      "signal": "constraint:invoice_one_live_per_line"
+    },
+    {
+      "mutation": "invoice-total-exact",
+      "sqlState": "23514",
+      "constraint": "invoice_total_exact",
+      "signal": "constraint:invoice_total_exact"
+    },
+    {
+      "mutation": "invoice-void-shape",
+      "sqlState": "23514",
+      "constraint": "invoice_void_shape",
+      "signal": "constraint:invoice_void_shape"
+    },
+    {
+      "mutation": "distribution-exact-sum",
+      "sqlState": "P0001",
+      "constraint": null,
+      "signal": "message-tag:DISTRIBUTION_SUM_VIOLATION"
+    }
+  ]
+}

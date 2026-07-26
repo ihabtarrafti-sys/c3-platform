@@ -98,6 +98,12 @@ export interface DisposableSeedTargetEvidence {
   readonly observedClusterIdentitySha256: string;
 }
 
+export interface DisposableSeedTargetStaticEvidence {
+  readonly targetDatabaseUrl: string;
+  readonly acknowledgement: string | undefined;
+  readonly runId: string;
+}
+
 export interface DisposableSeedTargetAttestation {
   readonly databaseName: string;
   readonly targetIdentitySha256: string;
@@ -315,6 +321,60 @@ function assertFresh(
     });
   }
   return createdAt;
+}
+
+/**
+ * Runs every target check that does not require a live database observation.
+ * Callers use this before their first connection attempt; the full guard still
+ * repeats these checks when issuing the one-shot H0 grant.
+ */
+export function assertDisposableSeedTargetStatic(
+  evidence: DisposableSeedTargetStaticEvidence,
+  policy: SeederGuardPolicy,
+): void {
+  const target = parsePostgresUrl(
+    evidence.targetDatabaseUrl,
+    'SEED_TARGET_URL_INVALID',
+  );
+  if (!trustedSeederGuardPolicies.has(policy)) {
+    throw new SeederGuardError(
+      'SEED_PROTECTED_ENDPOINTS_INVALID',
+      'Seeder guard policy was not created by the trusted policy factory',
+    );
+  }
+  const targetEndpoint = endpointIdentity(target);
+  const protectedEndpoint = policy.protectedEndpoints.find(
+    ({ identity }) => identity === targetEndpoint,
+  );
+  if (protectedEndpoint !== undefined) {
+    throw new SeederGuardError(
+      'SEED_TARGET_PROTECTED_ENDPOINT',
+      'Seeder target resolves to a protected database endpoint',
+      { protectedEndpoint: protectedEndpoint.label },
+    );
+  }
+  const targetDatabaseName = databaseName(target);
+  if (!targetDatabaseName.startsWith(HEARTH_SEARCH_DATABASE_PREFIX)) {
+    throw new SeederGuardError(
+      'SEED_TARGET_NAME_NOT_RESERVED',
+      `Seeder database name must use the ${HEARTH_SEARCH_DATABASE_PREFIX} prefix`,
+    );
+  }
+  if (evidence.acknowledgement !== HEARTH_SEARCH_SEED_ACK) {
+    throw new SeederGuardError(
+      'SEED_ACK_REQUIRED',
+      'Explicit destructive-seed acknowledgement is required',
+    );
+  }
+  if (
+    evidence.runId.length === 0 ||
+    evidence.runId !== evidence.runId.trim()
+  ) {
+    throw new SeederGuardError(
+      'SEED_RUN_ID_INVALID',
+      'Seeder run ID must be non-blank and trimmed',
+    );
+  }
 }
 
 /**

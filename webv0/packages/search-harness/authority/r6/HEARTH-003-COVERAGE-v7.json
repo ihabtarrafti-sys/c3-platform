@@ -1,0 +1,574 @@
+{
+  "schemaVersion": 6,
+  "artifactKind": "hearth-search-gold-coverage",
+  "coverageVersion": "HEARTH-003-COVERAGE-v7",
+  "syntheticOnly": true,
+  "expected": {
+    "totalLogicalCases": 280,
+    "queryClassCounts": {
+      "exact_id": 40,
+      "exact_name": 40,
+      "prefix": 35,
+      "substring": 30,
+      "multi_token": 40,
+      "common_ambiguous": 35,
+      "typo_fuzzy": 35,
+      "zero_result": 25
+    },
+    "positiveRegisterAllocation": {
+      "person": {
+        "exact_id": 3,
+        "exact_name": 4,
+        "prefix": 3,
+        "substring": 2,
+        "multi_token": 4,
+        "common_ambiguous": 3,
+        "typo_fuzzy": 2
+      },
+      "mission": {
+        "exact_id": 3,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 4,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 3
+      },
+      "agreement": {
+        "exact_id": 3,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "entity": {
+        "exact_id": 2,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "credential": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "journey": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "kit": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "apparel": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "approval": {
+        "exact_id": 3,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 0,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "team": {
+        "exact_id": 2,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "invoice": {
+        "exact_id": 2,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "claim": {
+        "exact_id": 3,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "distribution": {
+        "exact_id": 2,
+        "exact_name": 0,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 0,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "document": {
+        "exact_id": 3,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "term": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "line": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "beneficiary": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      }
+    },
+    "zeroCategoryCounts": {
+      "cross_tenant": 5,
+      "role_denied": 5,
+      "other_submitter": 5,
+      "structural": 5,
+      "forbidden_field": 5
+    },
+    "typoEditCounts": {
+      "insertion": 9,
+      "deletion": 9,
+      "substitution": 9,
+      "transposition": 8
+    },
+    "namedRecallCeilingFamilies": [
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:financial_claim_reader",
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:delegated_approval",
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:hr_own_claim_document",
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:entitled_anchored_comms_document"
+    ],
+    "commsMaterialization": {
+      "commsDocumentFixtureCount": 6,
+      "staticSupportingRowCount": 16,
+      "actorScopedDependencyTemplateCount": 4,
+      "supportingMissionSourceCount": 2,
+      "authorizationConformanceCaseCount": 19
+    },
+    "delegationMaterialization": {
+      "baselineRowCount": 0,
+      "tenantCount": 2,
+      "roleCount": 7,
+      "stateCount": 4,
+      "overlayScenarioCount": 56,
+      "activeStateCount": 1,
+      "materializedInactiveStateCount": 3,
+      "absentInactiveStateCount": 1,
+      "delegatedQrelProbeAssignmentCount": 29,
+      "delegatedQrelLogicalCaseCount": 15,
+      "measuredCorpusProfileCount": 5,
+      "measuredConcreteBindingCount": 370,
+      "measuredPairEdgeCount": 280,
+      "measuredNoEffectControlCount": 20,
+      "measuredActiveBindingCount": 70,
+      "measuredInactiveBindingCount": 300
+    },
+    "runtimeGuardDerivation": {
+      "guardSourceCount": 4,
+      "constructionSiteCount": 5,
+      "guardsPushSiteCount": 4,
+      "fixtureHitPositiveCount": 356,
+      "fixtureHitNegativeCount": 356,
+      "claimFixtureCount": 22,
+      "claimGuardBranchOutcomeCount": 66,
+      "documentFixtureCount": 31,
+      "documentGuardBranchOutcomeCount": 124,
+      "strictEmptyDocumentOwnerListCount": 31,
+      "rlsDiscriminatingCrossTenantCount": 356,
+      "naturalStaticExclusionCount": 3,
+      "ownClaimActorBindingCount": 9
+    },
+    "physicalDomainMaterialization": {
+      "fixtureRowCount": 356,
+      "supportingRowCount": 292,
+      "supportingSearchSourceCount": 278,
+      "tenantAndActorFoundationRowCount": 44,
+      "baselinePhysicalRowCount": 692,
+      "overlayScenarioCount": 71,
+      "migrationFileCount": 95
+    }
+  },
+  "observed": {
+    "totalLogicalCases": 280,
+    "queryClassCounts": {
+      "exact_id": 40,
+      "exact_name": 40,
+      "prefix": 35,
+      "substring": 30,
+      "multi_token": 40,
+      "common_ambiguous": 35,
+      "typo_fuzzy": 35,
+      "zero_result": 25
+    },
+    "positiveRegisterAllocation": {
+      "person": {
+        "exact_id": 3,
+        "exact_name": 4,
+        "prefix": 3,
+        "substring": 2,
+        "multi_token": 4,
+        "common_ambiguous": 3,
+        "typo_fuzzy": 2
+      },
+      "mission": {
+        "exact_id": 3,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 4,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 3
+      },
+      "agreement": {
+        "exact_id": 3,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "entity": {
+        "exact_id": 2,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "credential": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "journey": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "kit": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "apparel": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "approval": {
+        "exact_id": 3,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 0,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "team": {
+        "exact_id": 2,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "invoice": {
+        "exact_id": 2,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "claim": {
+        "exact_id": 3,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "distribution": {
+        "exact_id": 2,
+        "exact_name": 0,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 0,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "document": {
+        "exact_id": 3,
+        "exact_name": 3,
+        "prefix": 2,
+        "substring": 2,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "term": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "line": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 2,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      },
+      "beneficiary": {
+        "exact_id": 2,
+        "exact_name": 2,
+        "prefix": 2,
+        "substring": 1,
+        "multi_token": 3,
+        "common_ambiguous": 2,
+        "typo_fuzzy": 2
+      }
+    },
+    "targetFieldCounts": {
+      "person.person_id": 3,
+      "mission.mission_id": 3,
+      "agreement.agreement_id": 3,
+      "entity.entity_id": 2,
+      "credential.credential_id": 2,
+      "journey.journey_id": 2,
+      "kit.kit_id": 2,
+      "apparel.apparel_id": 2,
+      "approval.approval_id": 3,
+      "team.team_id": 2,
+      "invoice.invoice_id": 2,
+      "claim.claim_id": 3,
+      "distribution.distribution_id": 2,
+      "document.document_id": 3,
+      "term.term_id": 2,
+      "line.line_id": 2,
+      "beneficiary.beneficiary_id": 2,
+      "person.full_name": 15,
+      "mission.name": 13,
+      "agreement.agreement_code": 9,
+      "entity.name": 12,
+      "credential.credential_type": 10,
+      "journey.title": 11,
+      "kit.name": 10,
+      "apparel.name": 10,
+      "approval.operation_type": 6,
+      "team.name": 12,
+      "invoice.invoice_number": 12,
+      "claim.description": 12,
+      "document.file_name": 12,
+      "term.label": 9,
+      "line.label": 9,
+      "beneficiary.label": 11,
+      "person.ign": 2,
+      "person.personnel_code": 1,
+      "mission.code": 1,
+      "agreement.agreement_type": 1,
+      "entity.code": 1,
+      "credential.person_id": 1,
+      "journey.journey_type": 1,
+      "kit.category": 1,
+      "apparel.category": 1,
+      "approval.target_id": 3,
+      "approval.target_person_id": 1,
+      "team.code": 1,
+      "invoice.billed_to_name": 2,
+      "claim.category": 1,
+      "distribution.mission_id": 6,
+      "distribution.line_id": 1,
+      "document.label": 2,
+      "term.kind": 1,
+      "line.ref_no": 2,
+      "beneficiary.bank_name": 1,
+      "mission.organizer": 1,
+      "mission.city": 1,
+      "agreement.person_id": 1,
+      "agreement.entity_id": 1,
+      "entity.jurisdiction": 1,
+      "credential.issuer": 1,
+      "journey.person_id": 1,
+      "kit.assigned_person_id": 1,
+      "apparel.assigned_person_id": 1,
+      "team.game_title": 1,
+      "term.agreement_id": 1
+    },
+    "fieldClassCounts": {
+      "record_id": 40,
+      "primary_label": 126,
+      "code": 13,
+      "type": 19,
+      "reference": 14,
+      "file_name": 12,
+      "alias": 3,
+      "related_record_id": 18,
+      "category": 3,
+      "organization": 5,
+      "location": 2
+    },
+    "zeroCategoryCounts": {
+      "cross_tenant": 5,
+      "role_denied": 5,
+      "other_submitter": 5,
+      "structural": 5,
+      "forbidden_field": 5
+    },
+    "typoEditCounts": {
+      "insertion": 9,
+      "deletion": 9,
+      "substitution": 9,
+      "transposition": 8
+    },
+    "recallCeilingJudgmentCounts": {
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:delegated_approval": 15,
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:financial_claim_reader": 17,
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:hr_own_claim_document": 5,
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:entitled_anchored_comms_document": 4
+    },
+    "fixtureCount": 356,
+    "supportingRowCount": 292,
+    "actorScopedDependencyTemplateCount": 4,
+    "supportingSearchSourceCount": 278,
+    "commsAuthorizationConformanceCaseCount": 19,
+    "delegationOverlayScenarioCount": 56,
+    "delegationMeasuredCorpusProfileCount": 5,
+    "delegationMeasuredConcreteBindingCount": 370,
+    "delegationMeasuredPairEdgeCount": 280,
+    "delegationMeasuredNoEffectControlCount": 20,
+    "baselinePhysicalRowCount": 692,
+    "overlayScenarioCount": 71,
+    "migrationFileCount": 95,
+    "uniqueSourceCount": 634
+  },
+  "canonicalArtifactHashesBeforeCommit": {
+    "delegationMeasurementV2CanonicalJsonSha256": "c885a22fa6f4743a16d69e83c98c15f018938f92e7de3e65edffceb789cc7298",
+    "qrelsV7CanonicalJsonSha256": "7ccd2b04af5968dbd1fbbe8044ddf61f1e4380c8ac351e4f5dfce1a05a715c8d",
+    "fixtureContractCanonicalJsonSha256": "25dd2e8b90fd119f8197f2d61650a57c5339306620515bf911b29ec58d1613bf",
+    "disclosureDriftBaselineV1CanonicalJsonSha256": "d11dcae9e0b70709821bbcdfee20e7a371c1308f1b8fc0080ce3ff16988db6e0",
+    "metricSatisfiabilityV2CanonicalJsonSha256": "0554ceadac6c76c5a0d8409e882a0aeafd280459779dc41d15e84c28744da14d"
+  },
+  "measurementStatus": "NOT_YET_MEASURED",
+  "r6ClaimCorrection": {
+    "claimBoundary": "Coverage counts are unchanged synthetic inventory facts. B0/O0 and J0 measure equality or movement relative to dae27a4 only; they are not authorization, approval, disclosure, or leak-safety oracles.",
+    "preservedGoldAuthority": {
+      "independentlyAdjudicatedG": true,
+      "qrelCaseCount": 280,
+      "sourceJudgmentValueChanges": 0,
+      "rankGroupChanges": 0
+    },
+    "pinnedBaselineDrift": {
+      "productCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+      "registerCount": 17,
+      "mayMatchFieldCount": 64,
+      "syntheticH0H4NClassExceptionCount": 3,
+      "sourcePolicyReconstructionObservationCount": 49840,
+      "sourcePolicyReconstructionMismatchCount": 0,
+      "implementationOutsideBaselineMatchFieldCount": 0,
+      "interpretation": "Zero mismatch means the frozen reconstruction equals the pinned baseline. It does not prove that baseline correct."
+    },
+    "baselineDriftRed": {
+      "historicalMutationCount": 2,
+      "historicalDetectorSensitivityObserved": true,
+      "interpretation": "The historical mutations prove detector sensitivity only. They are not baseline-correctness evidence and are not measured H1/H4 receipts."
+    },
+    "metricSatisfiability": {
+      "positiveNonDelegationAssignmentCount": 456,
+      "positiveDelegationAssignmentCount": 16,
+      "positiveAssignmentCount": 472,
+      "positiveLogicalCaseCount": 255,
+      "pinnedBaselineGapJudgmentCount": 41,
+      "pinnedBaselineGapAffectedCaseCount": 38,
+      "affectedExactIdCaseCount": 9,
+      "exactIdRecallAt1Ceiling": "109/120",
+      "overallRecallAt10Ceiling": "1421/1530",
+      "overallMrrAt10Ceiling": "1423/1530",
+      "targetGuardRedCode": "UNSATISFIABLE_ACCEPTANCE_TARGET"
+    },
+    "projectionExecutionEvidence": {
+      "logicalRecipeFixtureCount": 356,
+      "liveNaturalIncludedCount": 353,
+      "staticGuardExcludedCount": 3,
+      "separateStaticGuardNegativeControlCount": 3,
+      "evidenceBoundary": "Separate JavaScript and PostgreSQL evaluators consume the same pinned recipes. Agreement is dual-execution evidence, not a separate disclosure specification."
+    }
+  }
+}

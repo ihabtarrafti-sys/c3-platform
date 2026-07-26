@@ -1,0 +1,779 @@
+{
+  "schemaVersion": 2,
+  "artifactKind": "hearth-search-authority-bundle-mixing-red-self-test",
+  "selfTestVersion": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "implementationStatus": "AUTHORITY_REFERENCE_R5_NATIVE_RED_OBSERVED_BEFORE_SIDE_EFFECTS",
+  "claimBoundary": "This receipt proves the pure v2 verifier clean-verifies the immutable actual-r5 37-slot/38-identity/33-cross-binding bundle at Neural root fe1fdd3f..., positively exercises three forward pointer modes, and rejects ten in-memory mutations including all four formerly substitutable text slots under four supplemental exact-content bindings. It neither amends the recorded r5 bundle nor creates a production contract, and it is not an H1/H4 measurement certificate. The future reviewed bundle contract remains the production carrier of equivalent bindings.",
+  "baseline": {
+    "authorityRevision": "HEARTH-003-r5",
+    "authorityCommit": "915b4354cdb41a75b98053b3db51226222d2718e",
+    "manifestFilename": "HEARTH-003-SHA256SUMS-v6.json",
+    "manifestCanonicalTextSha256": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+    "contractFilename": "HEARTH-003-BUNDLE-CONTRACT-v1.json",
+    "contractCanonicalTextSha256": "f9cf8a0cec85597b6ee9097d4651fdcc48b25c85c6e5487d5db6f0a4e727a693",
+    "frozenVerifierFilename": "HEARTH-003-authority-bundle-verifier.mjs",
+    "frozenVerifierCanonicalTextSha256": "eeb5329dd8f538999da02f62eed2979d1c17b2b66d56b1dd1daf8f78d929ff45",
+    "verifiedSlotCount": 37,
+    "identityAssertionCount": 38,
+    "originalCrossBindingCount": 33,
+    "actualR5ContractCleanBundlePassed": true,
+    "actualCleanStartSequence": 2,
+    "actualCleanPassSequence": 3
+  },
+  "effectiveAuthorityReferenceContract": {
+    "verifiedSlotCount": 37,
+    "originalCrossBindingCount": 33,
+    "pointerModePositiveControlCount": 3,
+    "effectiveCrossBindingCount": 36,
+    "supplementalSlotContentBindingCount": 4,
+    "effectiveCleanBundlePassed": true,
+    "effectiveCleanStartSequence": 4,
+    "effectiveCleanPassSequence": 5,
+    "pointerModePositiveControls": [
+      {
+        "bindingId": "b4-v2-mode-to-pointer",
+        "expectedFrom": "toPointer",
+        "outcome": "PASS"
+      },
+      {
+        "bindingId": "b4-v2-mode-to-pointer-canonical-json",
+        "expectedFrom": "toPointerCanonicalJsonSha256",
+        "outcome": "PASS"
+      },
+      {
+        "bindingId": "b4-v2-mode-to-pointer-canonical-json-plus-one-lf",
+        "expectedFrom": "toPointerCanonicalJsonLfSha256",
+        "outcome": "PASS"
+      }
+    ],
+    "closureSlotContentBindings": [
+      {
+        "bindingId": "b4-bind-gitattributes",
+        "slot": ".gitattributes",
+        "expectedCanonicalByteLength": 52,
+        "expectedCanonicalTextSha256": "3c0bb26c86a826add28208478cb29a3167034f4073dbca0dd821d440045c80a6",
+        "cleanOutcome": "PASS"
+      },
+      {
+        "bindingId": "b4-bind-r5-gold-authority",
+        "slot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md",
+        "expectedCanonicalByteLength": 13771,
+        "expectedCanonicalTextSha256": "6be926b49296a0d759da79cb88b0c13cde794573bfabae1927fd023d1059a3b4",
+        "cleanOutcome": "PASS"
+      },
+      {
+        "bindingId": "b4-bind-r5-materialization-contract",
+        "slot": "HEARTH-003-r5-MATERIALIZATION-CONTRACT.md",
+        "expectedCanonicalByteLength": 10386,
+        "expectedCanonicalTextSha256": "bdf3dad6a317eb8c18072c0627f3c673e8a5664d68b7ed27ffe6f323a791e40f",
+        "cleanOutcome": "PASS"
+      },
+      {
+        "bindingId": "b4-bind-r5-freezer",
+        "slot": "HEARTH-003-r5-freeze-hashes.mjs",
+        "expectedCanonicalByteLength": 12877,
+        "expectedCanonicalTextSha256": "f3dbfb0361ee18244caa23d7e32284612149fd2ad38948148e75ce1334ca5281",
+        "cleanOutcome": "PASS"
+      }
+    ]
+  },
+  "inputHashes": {
+    "redPlanCanonicalTextSha256": "7670b1ca9f256fbed3445a7af3fe1b2e6a22ef680f4fce6caefd0b0bb33ac420",
+    "verifierV2CanonicalTextSha256": "7b7a6ebe0041beb284b37c99f37576fee4798fcef1f2bfe2765803c8736bd81d",
+    "runnerV2CanonicalTextSha256": "abc9261cdd20bd54cbc135ed9b1d262c1c74175860f92985187b8a4c9af278ff",
+    "baselineManifestCanonicalTextSha256": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+    "baselineContractCanonicalTextSha256": "f9cf8a0cec85597b6ee9097d4651fdcc48b25c85c6e5487d5db6f0a4e727a693",
+    "baselineFrozenVerifierCanonicalTextSha256": "eeb5329dd8f538999da02f62eed2979d1c17b2b66d56b1dd1daf8f78d929ff45"
+  },
+  "verifierPurityAttestation": {
+    "staticImports": [
+      "node:crypto",
+      "node:util"
+    ],
+    "allowedStaticImports": [
+      "node:crypto",
+      "node:util"
+    ],
+    "forbiddenSideEffectModuleImports": [],
+    "outcome": "PASS"
+  },
+  "cases": [
+    {
+      "caseId": "B4.R5.ROOT.MANIFEST_BYTES",
+      "logicalSlot": "root-manifest",
+      "mutationMode": "append_manifest_canonical_lf_keep_external_root",
+      "sourceBytesOrigin": "rootVerifiedImmutableManifestBytes",
+      "originalCanonicalTextSha256": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutatedCanonicalTextSha256": "c910ac29b191c1aa5706ff3137c4a09a77858d43107a315b9a719fedcfdfb6b3",
+      "manifestTreatment": "mutated_bytes_unchanged_fixed_root",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "c910ac29b191c1aa5706ff3137c4a09a77858d43107a315b9a719fedcfdfb6b3",
+      "externallySuppliedRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_ROOT_HASH_MISMATCH",
+      "expectedStage": "external-root",
+      "observedFailureCode": "AUTHORITY_BUNDLE_ROOT_HASH_MISMATCH",
+      "observedStage": "external-root",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 6,
+      "cleanVerifyPassSequence": 7,
+      "mutationAppliedSequence": 8,
+      "mutatedVerifyStartSequence": 9,
+      "failureObservedSequence": 10,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.MISSING.DELEGATION",
+      "logicalSlot": "HEARTH-003-DELEGATION-MEASUREMENT-v1.json",
+      "mutationMode": "omit_verified_slot",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "003750790ca954a31b374a7e23cdcaf9c783f8da59ba3693913d7177aa39e938",
+      "mutatedCanonicalTextSha256": null,
+      "manifestTreatment": "unchanged_fixed_root",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "externallySuppliedRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_REQUIRED_ARTIFACT_MISSING",
+      "expectedStage": "closed-slot-set",
+      "observedFailureCode": "AUTHORITY_BUNDLE_REQUIRED_ARTIFACT_MISSING",
+      "observedStage": "closed-slot-set",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 11,
+      "cleanVerifyPassSequence": 12,
+      "mutationAppliedSequence": 13,
+      "mutatedVerifyStartSequence": 14,
+      "failureObservedSequence": 15,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.UNEXPECTED.SYNTHETIC",
+      "logicalSlot": "unexpected.synthetic.slot",
+      "mutationMode": "add_unexpected_slot",
+      "sourceBytesOrigin": "syntheticClosedSetProbe",
+      "originalCanonicalTextSha256": null,
+      "mutatedCanonicalTextSha256": "531993a2e4c35fabd64538bf2a5275fe945c3550d5e960c5301afbdd7e857351",
+      "manifestTreatment": "unchanged_fixed_root",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "externallySuppliedRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_UNEXPECTED_ARTIFACT",
+      "expectedStage": "closed-slot-set",
+      "observedFailureCode": "AUTHORITY_BUNDLE_UNEXPECTED_ARTIFACT",
+      "observedStage": "closed-slot-set",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 16,
+      "cleanVerifyPassSequence": 17,
+      "mutationAppliedSequence": 18,
+      "mutatedVerifyStartSequence": 19,
+      "failureObservedSequence": 20,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.DUPLICATE.QRELS_V6",
+      "logicalSlot": "HEARTH-003-QRELS-v6.json",
+      "mutationMode": "duplicate_verified_slot",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "4c1d67720b7de1df81b12e59aabb5e344b190c1a812bd027da71ff65a186701f",
+      "mutatedCanonicalTextSha256": "4c1d67720b7de1df81b12e59aabb5e344b190c1a812bd027da71ff65a186701f",
+      "manifestTreatment": "unchanged_fixed_root",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "externallySuppliedRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_DUPLICATE_SLOT",
+      "expectedStage": "closed-slot-set",
+      "observedFailureCode": "AUTHORITY_BUNDLE_DUPLICATE_SLOT",
+      "observedStage": "closed-slot-set",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 21,
+      "cleanVerifyPassSequence": 22,
+      "mutationAppliedSequence": 23,
+      "mutatedVerifyStartSequence": 24,
+      "failureObservedSequence": 25,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.CONTENT.GOLD_BYTES",
+      "logicalSlot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md",
+      "mutationMode": "append_verified_bytes_keep_manifest",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "6be926b49296a0d759da79cb88b0c13cde794573bfabae1927fd023d1059a3b4",
+      "mutatedCanonicalTextSha256": "f23edb84c53061053a8fbbfc8531556d38ce847fb342c32f7628e7b17b8abd18",
+      "manifestTreatment": "unchanged_fixed_root",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "externallySuppliedRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CONTENT_HASH_MISMATCH",
+      "expectedStage": "artifact-content",
+      "observedFailureCode": "AUTHORITY_BUNDLE_CONTENT_HASH_MISMATCH",
+      "observedStage": "artifact-content",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 26,
+      "cleanVerifyPassSequence": 27,
+      "mutationAppliedSequence": 28,
+      "mutatedVerifyStartSequence": 29,
+      "failureObservedSequence": 30,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.IDENTITY.QRELS_VERSION",
+      "logicalSlot": "HEARTH-003-QRELS-v6.json",
+      "mutationMode": "mutate_verified_json_pointer_rehash_manifest_repin",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "4c1d67720b7de1df81b12e59aabb5e344b190c1a812bd027da71ff65a186701f",
+      "mutatedCanonicalTextSha256": "35147e05a6932eb52ba7d31154da7a40eecdb1e49471a05b95caabe27b579f69",
+      "manifestTreatment": "rehashed_and_explicitly_repinned",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "96212d913b52216ba156090821bc80ba917f58b443d1390f6728d6eac88f04ed",
+      "externallySuppliedRoot": "96212d913b52216ba156090821bc80ba917f58b443d1390f6728d6eac88f04ed",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_IDENTITY_MISMATCH",
+      "expectedStage": "artifact-identity",
+      "observedFailureCode": "AUTHORITY_BUNDLE_IDENTITY_MISMATCH",
+      "observedStage": "artifact-identity",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 31,
+      "cleanVerifyPassSequence": 32,
+      "mutationAppliedSequence": 33,
+      "mutatedVerifyStartSequence": 34,
+      "failureObservedSequence": 35,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.BIND.GITATTRIBUTES",
+      "logicalSlot": ".gitattributes",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "3c0bb26c86a826add28208478cb29a3167034f4073dbca0dd821d440045c80a6",
+      "mutatedCanonicalTextSha256": "bdf06b926971ecc592a3068ce6084f896395bdfecb7ffe95099ac47ffc19d9c9",
+      "manifestTreatment": "rehashed_and_explicitly_repinned",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "34647781050686598d37e76ef7ace7d67116c305c94c8b3d976e1b0411b86d88",
+      "externallySuppliedRoot": "34647781050686598d37e76ef7ace7d67116c305c94c8b3d976e1b0411b86d88",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "observedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "observedStage": "cross-binding",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 36,
+      "cleanVerifyPassSequence": 37,
+      "mutationAppliedSequence": 38,
+      "mutatedVerifyStartSequence": 39,
+      "failureObservedSequence": 40,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.BIND.GOLD_AUTHORITY",
+      "logicalSlot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "6be926b49296a0d759da79cb88b0c13cde794573bfabae1927fd023d1059a3b4",
+      "mutatedCanonicalTextSha256": "27f9bfb0dbf48fe5be52892d3bf85fe4137777af4e00170ec5c6aa29fec41c61",
+      "manifestTreatment": "rehashed_and_explicitly_repinned",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "0a815d3632de7be76fd83ddc10ca338bc56c780214a2cf84470a5b856fd042db",
+      "externallySuppliedRoot": "0a815d3632de7be76fd83ddc10ca338bc56c780214a2cf84470a5b856fd042db",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "observedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "observedStage": "cross-binding",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 41,
+      "cleanVerifyPassSequence": 42,
+      "mutationAppliedSequence": 43,
+      "mutatedVerifyStartSequence": 44,
+      "failureObservedSequence": 45,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.BIND.MATERIALIZATION_CONTRACT",
+      "logicalSlot": "HEARTH-003-r5-MATERIALIZATION-CONTRACT.md",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "bdf3dad6a317eb8c18072c0627f3c673e8a5664d68b7ed27ffe6f323a791e40f",
+      "mutatedCanonicalTextSha256": "74e607d3d99c628b851a4c8e1fba0bab96ef4c81f5b7fa1fdb4dfdc43ad3d3f9",
+      "manifestTreatment": "rehashed_and_explicitly_repinned",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "7c2f5c53e675312e8e37039052e715329da82f869f037e7d3d110d04ce5b01b0",
+      "externallySuppliedRoot": "7c2f5c53e675312e8e37039052e715329da82f869f037e7d3d110d04ce5b01b0",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "observedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "observedStage": "cross-binding",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 46,
+      "cleanVerifyPassSequence": 47,
+      "mutationAppliedSequence": 48,
+      "mutatedVerifyStartSequence": 49,
+      "failureObservedSequence": 50,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    },
+    {
+      "caseId": "B4.R5.BIND.FREEZER",
+      "logicalSlot": "HEARTH-003-r5-freeze-hashes.mjs",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "sourceBytesOrigin": "cleanVerifiedMap",
+      "originalCanonicalTextSha256": "f3dbfb0361ee18244caa23d7e32284612149fd2ad38948148e75ce1334ca5281",
+      "mutatedCanonicalTextSha256": "6d5c092678de09faf3f7ecbb66ed2279c56daec9b22270cc28c4fab2a083893f",
+      "manifestTreatment": "rehashed_and_explicitly_repinned",
+      "baselineRoot": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+      "mutationRoot": "9e21b5748598411b4cf80b77f294e3d54e83686018578b8683af40e1e51564f6",
+      "externallySuppliedRoot": "9e21b5748598411b4cf80b77f294e3d54e83686018578b8683af40e1e51564f6",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "observedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "observedStage": "cross-binding",
+      "cleanBundlePassedImmediatelyBeforeMutation": true,
+      "unexpectedPass": false,
+      "wrongFailureCodeOrStage": false,
+      "cleanVerifyStartSequence": 51,
+      "cleanVerifyPassSequence": 52,
+      "mutationAppliedSequence": 53,
+      "mutatedVerifyStartSequence": 54,
+      "failureObservedSequence": 55,
+      "firstSideEffectSequence": null,
+      "observedSideEffectEvents": [],
+      "observedSideEffectEventCount": 0
+    }
+  ],
+  "aggregate": {
+    "expectedCaseCount": 10,
+    "observedCaseCount": 10,
+    "allCasesObserved": true,
+    "allExpectedRejectionsObserved": true,
+    "requiredFailureCodesExpected": [
+      "AUTHORITY_BUNDLE_CONTENT_HASH_MISMATCH",
+      "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "AUTHORITY_BUNDLE_DUPLICATE_SLOT",
+      "AUTHORITY_BUNDLE_IDENTITY_MISMATCH",
+      "AUTHORITY_BUNDLE_REQUIRED_ARTIFACT_MISSING",
+      "AUTHORITY_BUNDLE_ROOT_HASH_MISMATCH",
+      "AUTHORITY_BUNDLE_UNEXPECTED_ARTIFACT"
+    ],
+    "requiredFailureCodesObserved": [
+      "AUTHORITY_BUNDLE_CONTENT_HASH_MISMATCH",
+      "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "AUTHORITY_BUNDLE_DUPLICATE_SLOT",
+      "AUTHORITY_BUNDLE_IDENTITY_MISMATCH",
+      "AUTHORITY_BUNDLE_REQUIRED_ARTIFACT_MISSING",
+      "AUTHORITY_BUNDLE_ROOT_HASH_MISMATCH",
+      "AUTHORITY_BUNDLE_UNEXPECTED_ARTIFACT"
+    ],
+    "exactFailureCodeSetMatched": true,
+    "cleanReverifiedBeforeEveryMutation": true,
+    "everyArtifactMutationUsedCleanVerifiedBytes": true,
+    "counterexampleSlotCoverage": [
+      ".gitattributes",
+      "HEARTH-003-r5-GOLD-SET-AUTHORITY.md",
+      "HEARTH-003-r5-MATERIALIZATION-CONTRACT.md",
+      "HEARTH-003-r5-freeze-hashes.mjs"
+    ],
+    "allFourFormerlySubstitutableSlotsRejectedIndependently": true
+  },
+  "sideEffectBarrier": {
+    "armedAfterAllImmutableInputsLoaded": true,
+    "barrierArmedSequence": 1,
+    "armedThroughSuiteAcceptanceValidation": true,
+    "suiteValidatedSequence": 56,
+    "mode": "runtime-entrypoint-deny-and-record",
+    "deniedCapabilities": [
+      "filesystem-mutation",
+      "child-process-or-seeder-start",
+      "database-via-network-or-subprocess",
+      "network",
+      "http",
+      "metrics-module-load-or-start"
+    ],
+    "patchedRuntimeEntrypoints": [
+      "node:fs.writeFile",
+      "node:fs.writeFileSync",
+      "node:fs.appendFile",
+      "node:fs.appendFileSync",
+      "node:fs.rename",
+      "node:fs.renameSync",
+      "node:fs.unlink",
+      "node:fs.unlinkSync",
+      "node:fs.rm",
+      "node:fs.rmSync",
+      "node:fs.mkdir",
+      "node:fs.mkdirSync",
+      "node:fs.truncate",
+      "node:fs.truncateSync",
+      "node:fs.copyFile",
+      "node:fs.copyFileSync",
+      "node:child_process.exec",
+      "node:child_process.execFile",
+      "node:child_process.execFileSync",
+      "node:child_process.execSync",
+      "node:child_process.fork",
+      "node:child_process.spawn",
+      "node:child_process.spawnSync",
+      "node:http.request",
+      "node:http.get",
+      "node:https.request",
+      "node:https.get",
+      "node:net.connect",
+      "node:net.createConnection",
+      "node:tls.connect",
+      "node:dgram.createSocket",
+      "globalThis.fetch",
+      "node:module._load(database-or-metrics-pattern)"
+    ],
+    "attemptedEvents": [],
+    "observedEventCount": 0,
+    "firstSideEffectSequence": null,
+    "receiptWritePermittedOnlyAfterBarrierDisarm": true,
+    "barrierDisarmedAfterSuiteValidation": true,
+    "barrierArmedDuringReceiptWrite": false
+  },
+  "verificationTimeline": {
+    "finalSequenceBeforeReceiptConstruction": 56,
+    "events": [
+      {
+        "sequence": 1,
+        "event": "side-effect-barrier-armed"
+      },
+      {
+        "sequence": 2,
+        "event": "actual-r5-clean-verify-start"
+      },
+      {
+        "sequence": 3,
+        "event": "actual-r5-clean-verify-pass"
+      },
+      {
+        "sequence": 4,
+        "event": "effective-clean-verify-start"
+      },
+      {
+        "sequence": 5,
+        "event": "effective-clean-verify-pass"
+      },
+      {
+        "sequence": 6,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.ROOT.MANIFEST_BYTES"
+      },
+      {
+        "sequence": 7,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.ROOT.MANIFEST_BYTES"
+      },
+      {
+        "sequence": 8,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.ROOT.MANIFEST_BYTES",
+        "logicalSlot": "root-manifest"
+      },
+      {
+        "sequence": 9,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.ROOT.MANIFEST_BYTES"
+      },
+      {
+        "sequence": 10,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.ROOT.MANIFEST_BYTES",
+        "code": "AUTHORITY_BUNDLE_ROOT_HASH_MISMATCH",
+        "stage": "external-root"
+      },
+      {
+        "sequence": 11,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.MISSING.DELEGATION"
+      },
+      {
+        "sequence": 12,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.MISSING.DELEGATION"
+      },
+      {
+        "sequence": 13,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.MISSING.DELEGATION",
+        "logicalSlot": "HEARTH-003-DELEGATION-MEASUREMENT-v1.json"
+      },
+      {
+        "sequence": 14,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.MISSING.DELEGATION"
+      },
+      {
+        "sequence": 15,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.MISSING.DELEGATION",
+        "code": "AUTHORITY_BUNDLE_REQUIRED_ARTIFACT_MISSING",
+        "stage": "closed-slot-set"
+      },
+      {
+        "sequence": 16,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.UNEXPECTED.SYNTHETIC"
+      },
+      {
+        "sequence": 17,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.UNEXPECTED.SYNTHETIC"
+      },
+      {
+        "sequence": 18,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.UNEXPECTED.SYNTHETIC",
+        "logicalSlot": "unexpected.synthetic.slot"
+      },
+      {
+        "sequence": 19,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.UNEXPECTED.SYNTHETIC"
+      },
+      {
+        "sequence": 20,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.UNEXPECTED.SYNTHETIC",
+        "code": "AUTHORITY_BUNDLE_UNEXPECTED_ARTIFACT",
+        "stage": "closed-slot-set"
+      },
+      {
+        "sequence": 21,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.DUPLICATE.QRELS_V6"
+      },
+      {
+        "sequence": 22,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.DUPLICATE.QRELS_V6"
+      },
+      {
+        "sequence": 23,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.DUPLICATE.QRELS_V6",
+        "logicalSlot": "HEARTH-003-QRELS-v6.json"
+      },
+      {
+        "sequence": 24,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.DUPLICATE.QRELS_V6"
+      },
+      {
+        "sequence": 25,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.DUPLICATE.QRELS_V6",
+        "code": "AUTHORITY_BUNDLE_DUPLICATE_SLOT",
+        "stage": "closed-slot-set"
+      },
+      {
+        "sequence": 26,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.CONTENT.GOLD_BYTES"
+      },
+      {
+        "sequence": 27,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.CONTENT.GOLD_BYTES"
+      },
+      {
+        "sequence": 28,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.CONTENT.GOLD_BYTES",
+        "logicalSlot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md"
+      },
+      {
+        "sequence": 29,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.CONTENT.GOLD_BYTES"
+      },
+      {
+        "sequence": 30,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.CONTENT.GOLD_BYTES",
+        "code": "AUTHORITY_BUNDLE_CONTENT_HASH_MISMATCH",
+        "stage": "artifact-content"
+      },
+      {
+        "sequence": 31,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.IDENTITY.QRELS_VERSION"
+      },
+      {
+        "sequence": 32,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.IDENTITY.QRELS_VERSION"
+      },
+      {
+        "sequence": 33,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.IDENTITY.QRELS_VERSION",
+        "logicalSlot": "HEARTH-003-QRELS-v6.json"
+      },
+      {
+        "sequence": 34,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.IDENTITY.QRELS_VERSION"
+      },
+      {
+        "sequence": 35,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.IDENTITY.QRELS_VERSION",
+        "code": "AUTHORITY_BUNDLE_IDENTITY_MISMATCH",
+        "stage": "artifact-identity"
+      },
+      {
+        "sequence": 36,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.BIND.GITATTRIBUTES"
+      },
+      {
+        "sequence": 37,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.BIND.GITATTRIBUTES"
+      },
+      {
+        "sequence": 38,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.BIND.GITATTRIBUTES",
+        "logicalSlot": ".gitattributes"
+      },
+      {
+        "sequence": 39,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.BIND.GITATTRIBUTES"
+      },
+      {
+        "sequence": 40,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.BIND.GITATTRIBUTES",
+        "code": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+        "stage": "cross-binding"
+      },
+      {
+        "sequence": 41,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.BIND.GOLD_AUTHORITY"
+      },
+      {
+        "sequence": 42,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.BIND.GOLD_AUTHORITY"
+      },
+      {
+        "sequence": 43,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.BIND.GOLD_AUTHORITY",
+        "logicalSlot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md"
+      },
+      {
+        "sequence": 44,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.BIND.GOLD_AUTHORITY"
+      },
+      {
+        "sequence": 45,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.BIND.GOLD_AUTHORITY",
+        "code": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+        "stage": "cross-binding"
+      },
+      {
+        "sequence": 46,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.BIND.MATERIALIZATION_CONTRACT"
+      },
+      {
+        "sequence": 47,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.BIND.MATERIALIZATION_CONTRACT"
+      },
+      {
+        "sequence": 48,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.BIND.MATERIALIZATION_CONTRACT",
+        "logicalSlot": "HEARTH-003-r5-MATERIALIZATION-CONTRACT.md"
+      },
+      {
+        "sequence": 49,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.BIND.MATERIALIZATION_CONTRACT"
+      },
+      {
+        "sequence": 50,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.BIND.MATERIALIZATION_CONTRACT",
+        "code": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+        "stage": "cross-binding"
+      },
+      {
+        "sequence": 51,
+        "event": "case-clean-verify-start",
+        "caseId": "B4.R5.BIND.FREEZER"
+      },
+      {
+        "sequence": 52,
+        "event": "case-clean-verify-pass",
+        "caseId": "B4.R5.BIND.FREEZER"
+      },
+      {
+        "sequence": 53,
+        "event": "mutation-applied",
+        "caseId": "B4.R5.BIND.FREEZER",
+        "logicalSlot": "HEARTH-003-r5-freeze-hashes.mjs"
+      },
+      {
+        "sequence": 54,
+        "event": "case-mutated-verify-start",
+        "caseId": "B4.R5.BIND.FREEZER"
+      },
+      {
+        "sequence": 55,
+        "event": "case-expected-failure-observed",
+        "caseId": "B4.R5.BIND.FREEZER",
+        "code": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+        "stage": "cross-binding"
+      },
+      {
+        "sequence": 56,
+        "event": "suite-acceptance-validated"
+      }
+    ]
+  },
+  "receiptIntegrity": {
+    "algorithm": "sha256",
+    "canonicalization": "recursive-key-sort-json-utf8-no-trailing-lf",
+    "scope": "final receipt object before receiptIntegrity is added",
+    "canonicalJsonSha256ExcludingReceiptIntegrity": "0b1c800a6af46cbcbf58734f06e398edb3c8383c969d1cd3b71fd7cc8f90a4c0"
+  }
+}

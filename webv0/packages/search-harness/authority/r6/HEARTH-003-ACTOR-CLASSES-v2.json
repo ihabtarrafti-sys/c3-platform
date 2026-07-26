@@ -1,0 +1,436 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-actor-classes",
+  "actorClassVersion": "HEARTH-003-ACTOR-CLASSES-v2",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "frozenAsOfDate": "2035-06-15",
+  "normalization": {
+    "actorIdentity": "trim then Unicode case-fold for delegation grantee comparison only",
+    "claimSubmitter": "exact stored submitted_by equality to actor.identity",
+    "tenant": "exact tenantSlot equality"
+  },
+  "tenants": [
+    "T01",
+    "T02"
+  ],
+  "roles": [
+    "owner",
+    "operations",
+    "legal",
+    "finance",
+    "hr",
+    "management",
+    "visitor"
+  ],
+  "roleSets": {
+    "ALL": [
+      "owner",
+      "operations",
+      "legal",
+      "finance",
+      "hr",
+      "management",
+      "visitor"
+    ],
+    "AGREEMENT": [
+      "owner",
+      "operations",
+      "legal",
+      "finance",
+      "management"
+    ],
+    "AGREEMENT_DENIED": [
+      "hr",
+      "visitor"
+    ],
+    "FINANCIAL": [
+      "owner",
+      "operations",
+      "finance",
+      "management"
+    ],
+    "FINANCIAL_DENIED": [
+      "legal",
+      "hr",
+      "visitor"
+    ],
+    "CLAIM_SUBMITTER": [
+      "owner",
+      "operations",
+      "hr"
+    ],
+    "APPROVAL_BASE": [
+      "owner",
+      "operations"
+    ],
+    "APPROVAL_DELEGABLE_NON_BASE": [
+      "legal",
+      "finance",
+      "hr",
+      "management",
+      "visitor"
+    ],
+    "CLAIM_FINANCIAL_GAP": [
+      "finance",
+      "management"
+    ],
+    "CLAIM_NEVER": [
+      "legal",
+      "visitor"
+    ]
+  },
+  "capabilityBindings": {
+    "canReadPeople": {
+      "currentTrueRoles": "$roleSets.ALL",
+      "loadBearing": true,
+      "source": "webv0/packages/domain/src/roles.ts and webv0/packages/authz/src/policy.ts",
+      "sunsetRule": "A role/capability change is a predicate-version trigger even while the current seven-role extension equals ALL.",
+      "responseEquivalenceCaveat": "The current Comms guard reconceals nested NotFoundError only. If a future role loses canReadPeople, ForbiddenError would become distinguishable until the application seam is corrected; the response-equivalence harness must fail."
+    }
+  },
+  "entitlementStates": {
+    "E0": {
+      "rowExists": false,
+      "moduleKey": "comms",
+      "dbState": null,
+      "startsOn": null,
+      "endsOn": null,
+      "writable": false,
+      "meaning": "no entitlement row"
+    },
+    "E1": {
+      "rowExists": true,
+      "moduleKey": "comms",
+      "dbState": "active",
+      "startsOn": "2035-06-01",
+      "endsOn": "2035-06-30",
+      "writable": true,
+      "meaning": "current and writable"
+    },
+    "E2": {
+      "rowExists": true,
+      "moduleKey": "comms",
+      "dbState": "lapsed",
+      "startsOn": "2035-05-01",
+      "endsOn": "2035-05-31",
+      "writable": false,
+      "meaning": "lapsed row still exists"
+    },
+    "E3": {
+      "rowExists": true,
+      "moduleKey": "comms",
+      "dbState": "active",
+      "startsOn": "2035-07-01",
+      "endsOn": "2035-07-31",
+      "writable": false,
+      "meaning": "future row exists"
+    },
+    "E4": {
+      "rowExists": true,
+      "moduleKey": "comms",
+      "dbState": "active",
+      "startsOn": "2035-01-01",
+      "endsOn": "2035-01-31",
+      "writable": false,
+      "meaning": "expired row exists"
+    }
+  },
+  "delegationStates": {
+    "D0": {
+      "rowExists": false,
+      "granteeRelation": "none",
+      "startsOn": null,
+      "endsOn": null,
+      "revokedAt": null,
+      "effectiveAtFrozenDate": false
+    },
+    "D1": {
+      "rowExists": true,
+      "granteeRelation": "actor_identity_after_normalization",
+      "startsOn": "2035-06-01",
+      "endsOn": "2035-06-30",
+      "revokedAt": null,
+      "effectiveAtFrozenDate": true
+    },
+    "D2": {
+      "rowExists": true,
+      "granteeRelation": "actor_identity_after_normalization",
+      "startsOn": "2035-07-01",
+      "endsOn": "2035-07-31",
+      "revokedAt": null,
+      "effectiveAtFrozenDate": false
+    },
+    "D3": {
+      "rowExists": true,
+      "granteeRelation": "actor_identity_after_normalization",
+      "startsOn": "2035-05-01",
+      "endsOn": "2035-05-31",
+      "revokedAt": null,
+      "effectiveAtFrozenDate": false
+    },
+    "D4": {
+      "rowExists": true,
+      "granteeRelation": "actor_identity_after_normalization",
+      "startsOn": "2035-06-01",
+      "endsOn": "2035-06-30",
+      "revokedAt": "2035-06-10T00:00:00Z",
+      "effectiveAtFrozenDate": false
+    }
+  },
+  "participantStates": {
+    "P0": {
+      "participantRowExists": false
+    },
+    "P1": {
+      "participantRowExists": true
+    }
+  },
+  "profileMaterialization": {
+    "profileIdTemplate": "<tenantSlot>.<role>.<entitlementState>.<delegationState>.<identityClass>",
+    "actorFactBinding": "actor.entitlement facts are read from the exact materialized tenant_module_entitlement overlay; E0 yields rowExists=false and no moduleKey, while E1-E4 yield the stored module_key.",
+    "baseCartesian": {
+      "tenantSlots": [
+        "T01",
+        "T02"
+      ],
+      "roles": "$roles",
+      "entitlementStates": [
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ],
+      "delegationStates": [
+        "D0"
+      ],
+      "identityClass": "base",
+      "canReadPeople": true,
+      "expectedProfileCount": 70
+    },
+    "delegationOverlays": {
+      "roles": "$roleSets.ALL",
+      "states": [
+        "D1",
+        "D2",
+        "D3",
+        "D4"
+      ],
+      "rule": "Materialize all four states for every role; owner and operations are no-effect positive controls."
+    },
+    "rowGateOverlays": [
+      "claim_actor_own",
+      "claim_other_submitter",
+      "document_owner_type",
+      "document_record_kind",
+      "active_inactive",
+      "comms_participant_nonparticipant",
+      "anchored_register_readable_denied"
+    ]
+  },
+  "classSelectorSemantics": {
+    "allPropertiesConjoin": true,
+    "listedValuesMean": "membership",
+    "omittedPropertyMeans": "unconstrained",
+    "unknownClass": "fail_closed"
+  },
+  "classes": {
+    "same.all": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.ALL",
+      "entitlementStates": [
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ],
+      "delegationStates": [
+        "D0",
+        "D1",
+        "D2",
+        "D3",
+        "D4"
+      ]
+    },
+    "same.agreement.allowed": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.AGREEMENT"
+    },
+    "same.agreement.denied": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.AGREEMENT_DENIED"
+    },
+    "same.financial.allowed": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.FINANCIAL"
+    },
+    "same.financial.denied": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.FINANCIAL_DENIED"
+    },
+    "same.approval.base": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.APPROVAL_BASE"
+    },
+    "same.approval.delegated_active": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.APPROVAL_DELEGABLE_NON_BASE",
+      "delegationStates": [
+        "D1"
+      ]
+    },
+    "same.approval.delegated_inactive": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.APPROVAL_DELEGABLE_NON_BASE",
+      "delegationStates": [
+        "D0",
+        "D2",
+        "D3",
+        "D4"
+      ]
+    },
+    "same.claim.owner_operations": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": [
+        "owner",
+        "operations"
+      ],
+      "claimSubmitterRelations": [
+        "actor_identity",
+        "other_submitter"
+      ]
+    },
+    "same.claim.finance_management": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.CLAIM_FINANCIAL_GAP",
+      "claimSubmitterRelations": [
+        "actor_identity",
+        "other_submitter"
+      ]
+    },
+    "same.claim.hr_own": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": [
+        "hr"
+      ],
+      "claimSubmitterRelations": [
+        "actor_identity"
+      ]
+    },
+    "same.claim.hr_other": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": [
+        "hr"
+      ],
+      "claimSubmitterRelations": [
+        "other_submitter"
+      ]
+    },
+    "same.claim.denied": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.CLAIM_NEVER"
+    },
+    "same.comms.all_states": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.ALL",
+      "entitlementStates": [
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ],
+      "participantStates": [
+        "P0",
+        "P1"
+      ]
+    },
+    "same.comms.entitled": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.ALL",
+      "entitlementStates": [
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ],
+      "participantStates": [
+        "P0",
+        "P1"
+      ],
+      "meaning": "The current authoritative Comms read gate checks entitlement-row existence, not write-effective state."
+    },
+    "same.comms.never_entitled": {
+      "tenantRelation": [
+        "same"
+      ],
+      "roles": "$roleSets.ALL",
+      "entitlementStates": [
+        "E0"
+      ],
+      "participantStates": [
+        "P0",
+        "P1"
+      ]
+    },
+    "other.all": {
+      "tenantRelation": [
+        "other"
+      ],
+      "roles": "$roleSets.ALL",
+      "entitlementStates": [
+        "E0",
+        "E1",
+        "E2",
+        "E3",
+        "E4"
+      ],
+      "delegationStates": [
+        "D0",
+        "D1",
+        "D2",
+        "D3",
+        "D4"
+      ]
+    }
+  },
+  "wave1NonInterference": {
+    "entitlementStatesAffectApprovedSearch": false,
+    "participantStatesAffectApprovedSearch": false,
+    "delegationAffectsApprovedApprovalSearch": false,
+    "anchoredCommsParticipantStateAffectsAuthoritativeRead": false,
+    "anchoredCommsEntitlementRowExistenceAffectsAuthoritativeRead": true
+  }
+}

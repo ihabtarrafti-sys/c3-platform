@@ -1,0 +1,783 @@
+{
+  "schemaVersion": 2,
+  "artifactKind": "hearth-search-metric-target-satisfiability",
+  "satisfiabilityVersion": "HEARTH-003-METRIC-SATISFIABILITY-v2",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "measurementStatus": "NOT_YET_MEASURED",
+  "implementationStatus": "PRE_CAPTURE_PINNED_BASELINE_REFERENCE_CALCULATION_ONLY",
+  "claimBoundary": "This calculation preserves independently adjudicated G and computes a quality ceiling against the dae27a4 B0 baseline. It is not measured H1/H4 evidence and does not certify authorization, disclosure correctness, leak safety, or baseline completeness.",
+  "inputHashes": {
+    "qrelsCanonicalTextSha256": "bcfdfdde7bba2c13a227fd8b264204c9fdb5c87068d8b09d2c575b0a52eb50c2",
+    "legacyDelegationMeasurementCanonicalTextSha256": "003750790ca954a31b374a7e23cdcaf9c783f8da59ba3693913d7177aa39e938",
+    "delegationMeasurementV2CanonicalTextSha256": "aa7be994078641c5bed5b69a5b53d1e93f3c52de28ddabd039f970455d9c3faa",
+    "disclosureDriftBaselineCanonicalTextSha256": "4dba9f2b89d5f2d24b1e815471d06d050eb04fbe6f9c77a6b17ffb5230247e48",
+    "evaluatorCanonicalTextSha256": "2df4d7559b099182a2b46c0ee197f9b69ac8b74afcd8a8c3875bc726f1b2bb39"
+  },
+  "definitions": {
+    "G": "authoritativeRelevant; independently human-adjudicated actor-readable relevance and the only Recall/MRR denominator",
+    "J0": "baselineRelevantPredictions; the frozen pre-H1 prediction of G intersect B0, used only for pinned-baseline compatibility diagnostics",
+    "B0": "the source, field, and projection set reconstructed from the C3 search implementation pinned at dae27a4 for actor profile a",
+    "O0": "the remainder of the explicitly bounded 17-kind synthetic measurement universe",
+    "C0": "C0(q,a) = |G(q,a) intersect B0(a)| / |G(q,a)|",
+    "operativeRule": "H1 must recompute C0 from B0 before capture and compare G intersect B0 with J0. Any difference is a fail-closed baseline-prediction mismatch. J0 is never substituted for G or treated as authorization truth."
+  },
+  "aggregation": {
+    "observation": "Score the first ten ideal J0 sources by rankGroup then canonical source key. Empty G is excluded from Recall/MRR.",
+    "assignment": "Macro-average positive physical observations or Delegation bindings inside each logical assignment.",
+    "case": "Macro-average positive assignments inside each logical query case.",
+    "class": "Macro-average case scores inside each query class.",
+    "overall": "Macro-average all 255 positive logical cases directly; query classes are not equally reweighted.",
+    "expansionCountNeverWeights": true
+  },
+  "ceilings": {
+    "positiveNonDelegationAssignments": 456,
+    "positiveDelegationAssignments": 16,
+    "positiveAssignmentCount": 472,
+    "positiveCaseCount": 255,
+    "zeroResultCaseCount": 25,
+    "perClass": {
+      "exact_id": {
+        "caseCount": 40,
+        "caseRecallSum": {
+          "numerator": 109,
+          "denominator": 3,
+          "fraction": "109/3",
+          "decimal": 36.333333333333336
+        },
+        "recallAt10Ceiling": {
+          "numerator": 109,
+          "denominator": 120,
+          "fraction": "109/120",
+          "decimal": 0.9083333333333333
+        },
+        "caseReciprocalRankSum": {
+          "numerator": 109,
+          "denominator": 3,
+          "fraction": "109/3",
+          "decimal": 36.333333333333336
+        },
+        "mrrAt10Ceiling": {
+          "numerator": 109,
+          "denominator": 120,
+          "fraction": "109/120",
+          "decimal": 0.9083333333333333
+        }
+      },
+      "exact_name": {
+        "caseCount": 40,
+        "caseRecallSum": {
+          "numerator": 106,
+          "denominator": 3,
+          "fraction": "106/3",
+          "decimal": 35.333333333333336
+        },
+        "recallAt10Ceiling": {
+          "numerator": 53,
+          "denominator": 60,
+          "fraction": "53/60",
+          "decimal": 0.8833333333333333
+        },
+        "caseReciprocalRankSum": {
+          "numerator": 106,
+          "denominator": 3,
+          "fraction": "106/3",
+          "decimal": 35.333333333333336
+        },
+        "mrrAt10Ceiling": {
+          "numerator": 53,
+          "denominator": 60,
+          "fraction": "53/60",
+          "decimal": 0.8833333333333333
+        }
+      },
+      "prefix": {
+        "caseCount": 35,
+        "caseRecallSum": {
+          "numerator": 187,
+          "denominator": 6,
+          "fraction": "187/6",
+          "decimal": 31.166666666666668
+        },
+        "recallAt10Ceiling": {
+          "numerator": 187,
+          "denominator": 210,
+          "fraction": "187/210",
+          "decimal": 0.8904761904761904
+        },
+        "caseReciprocalRankSum": {
+          "numerator": 187,
+          "denominator": 6,
+          "fraction": "187/6",
+          "decimal": 31.166666666666668
+        },
+        "mrrAt10Ceiling": {
+          "numerator": 187,
+          "denominator": 210,
+          "fraction": "187/210",
+          "decimal": 0.8904761904761904
+        }
+      },
+      "substring": {
+        "caseCount": 30,
+        "caseRecallSum": {
+          "numerator": 281,
+          "denominator": 10,
+          "fraction": "281/10",
+          "decimal": 28.1
+        },
+        "recallAt10Ceiling": {
+          "numerator": 281,
+          "denominator": 300,
+          "fraction": "281/300",
+          "decimal": 0.9366666666666666
+        },
+        "caseReciprocalRankSum": {
+          "numerator": 169,
+          "denominator": 6,
+          "fraction": "169/6",
+          "decimal": 28.166666666666668
+        },
+        "mrrAt10Ceiling": {
+          "numerator": 169,
+          "denominator": 180,
+          "fraction": "169/180",
+          "decimal": 0.9388888888888889
+        }
+      },
+      "multi_token": {
+        "caseCount": 40,
+        "caseRecallSum": {
+          "numerator": 235,
+          "denominator": 6,
+          "fraction": "235/6",
+          "decimal": 39.166666666666664
+        },
+        "recallAt10Ceiling": {
+          "numerator": 47,
+          "denominator": 48,
+          "fraction": "47/48",
+          "decimal": 0.9791666666666666
+        },
+        "caseReciprocalRankSum": {
+          "numerator": 235,
+          "denominator": 6,
+          "fraction": "235/6",
+          "decimal": 39.166666666666664
+        },
+        "mrrAt10Ceiling": {
+          "numerator": 47,
+          "denominator": 48,
+          "fraction": "47/48",
+          "decimal": 0.9791666666666666
+        }
+      },
+      "common_ambiguous": {
+        "caseCount": 35,
+        "caseRecallSum": {
+          "numerator": 1007,
+          "denominator": 30,
+          "fraction": "1007/30",
+          "decimal": 33.56666666666667
+        },
+        "recallAt10Ceiling": {
+          "numerator": 1007,
+          "denominator": 1050,
+          "fraction": "1007/1050",
+          "decimal": 0.959047619047619
+        },
+        "caseReciprocalRankSum": {
+          "numerator": 203,
+          "denominator": 6,
+          "fraction": "203/6",
+          "decimal": 33.833333333333336
+        },
+        "mrrAt10Ceiling": {
+          "numerator": 29,
+          "denominator": 30,
+          "fraction": "29/30",
+          "decimal": 0.9666666666666667
+        }
+      },
+      "typo_fuzzy": {
+        "caseCount": 35,
+        "caseRecallSum": {
+          "numerator": 199,
+          "denominator": 6,
+          "fraction": "199/6",
+          "decimal": 33.166666666666664
+        },
+        "recallAt10Ceiling": {
+          "numerator": 199,
+          "denominator": 210,
+          "fraction": "199/210",
+          "decimal": 0.9476190476190476
+        },
+        "caseReciprocalRankSum": {
+          "numerator": 199,
+          "denominator": 6,
+          "fraction": "199/6",
+          "decimal": 33.166666666666664
+        },
+        "mrrAt10Ceiling": {
+          "numerator": 199,
+          "denominator": 210,
+          "fraction": "199/210",
+          "decimal": 0.9476190476190476
+        }
+      }
+    },
+    "overall": {
+      "caseRecallSum": {
+        "numerator": 1421,
+        "denominator": 6,
+        "fraction": "1421/6",
+        "decimal": 236.83333333333334
+      },
+      "recallAt10Ceiling": {
+        "numerator": 1421,
+        "denominator": 1530,
+        "fraction": "1421/1530",
+        "decimal": 0.9287581699346406
+      },
+      "caseReciprocalRankSum": {
+        "numerator": 1423,
+        "denominator": 6,
+        "fraction": "1423/6",
+        "decimal": 237.16666666666666
+      },
+      "mrrAt10Ceiling": {
+        "numerator": 1423,
+        "denominator": 1530,
+        "fraction": "1423/1530",
+        "decimal": 0.9300653594771242
+      },
+      "exactIdRecallAt1Ceiling": {
+        "numerator": 109,
+        "denominator": 120,
+        "fraction": "109/120",
+        "decimal": 0.9083333333333333
+      }
+    },
+    "affectedCaseCount": 38,
+    "affectedCases": [
+      {
+        "queryCaseId": "H3Q.exact_id.approval.001",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.approval.002",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.approval.003",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.claim.001",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.claim.002",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.claim.003",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.document.001",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.document.002",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_id.document.003",
+        "queryClass": "exact_id",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.approval.001",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.approval.002",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.claim.001",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.claim.002",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.claim.003",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.document.001",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.document.002",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 0,
+          "denominator": 1,
+          "fraction": "0/1",
+          "decimal": 0
+        }
+      },
+      {
+        "queryCaseId": "H3Q.exact_name.document.003",
+        "queryClass": "exact_name",
+        "caseRecallCeiling": {
+          "numerator": 0,
+          "denominator": 1,
+          "fraction": "0/1",
+          "decimal": 0
+        }
+      },
+      {
+        "queryCaseId": "H3Q.prefix.approval.001",
+        "queryClass": "prefix",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.prefix.approval.002",
+        "queryClass": "prefix",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.prefix.claim.001",
+        "queryClass": "prefix",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.prefix.claim.002",
+        "queryClass": "prefix",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.prefix.document.001",
+        "queryClass": "prefix",
+        "caseRecallCeiling": {
+          "numerator": 0,
+          "denominator": 1,
+          "fraction": "0/1",
+          "decimal": 0
+        }
+      },
+      {
+        "queryCaseId": "H3Q.prefix.document.002",
+        "queryClass": "prefix",
+        "caseRecallCeiling": {
+          "numerator": 0,
+          "denominator": 1,
+          "fraction": "0/1",
+          "decimal": 0
+        }
+      },
+      {
+        "queryCaseId": "H3Q.substring.journey.001",
+        "queryClass": "substring",
+        "caseRecallCeiling": {
+          "numerator": 14,
+          "denominator": 15,
+          "fraction": "14/15",
+          "decimal": 0.9333333333333333
+        }
+      },
+      {
+        "queryCaseId": "H3Q.substring.approval.001",
+        "queryClass": "substring",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.substring.approval.002",
+        "queryClass": "substring",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.substring.claim.001",
+        "queryClass": "substring",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.substring.claim.002",
+        "queryClass": "substring",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.multi_token.claim.001",
+        "queryClass": "multi_token",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.multi_token.claim.002",
+        "queryClass": "multi_token",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.common_ambiguous.approval.001",
+        "queryClass": "common_ambiguous",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.common_ambiguous.approval.002",
+        "queryClass": "common_ambiguous",
+        "caseRecallCeiling": {
+          "numerator": 9,
+          "denominator": 10,
+          "fraction": "9/10",
+          "decimal": 0.9
+        }
+      },
+      {
+        "queryCaseId": "H3Q.common_ambiguous.claim.001",
+        "queryClass": "common_ambiguous",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.common_ambiguous.claim.002",
+        "queryClass": "common_ambiguous",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.typo_fuzzy.approval.001",
+        "queryClass": "typo_fuzzy",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.typo_fuzzy.approval.002",
+        "queryClass": "typo_fuzzy",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      },
+      {
+        "queryCaseId": "H3Q.typo_fuzzy.claim.001",
+        "queryClass": "typo_fuzzy",
+        "caseRecallCeiling": {
+          "numerator": 2,
+          "denominator": 3,
+          "fraction": "2/3",
+          "decimal": 0.6666666666666666
+        }
+      },
+      {
+        "queryCaseId": "H3Q.typo_fuzzy.claim.002",
+        "queryClass": "typo_fuzzy",
+        "caseRecallCeiling": {
+          "numerator": 1,
+          "denominator": 2,
+          "fraction": "1/2",
+          "decimal": 0.5
+        }
+      }
+    ],
+    "affectedExactIdCaseCount": 9,
+    "gapJudgmentCount": 41,
+    "gapAffectedCaseCount": 38,
+    "gapFamilyCounts": {
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:delegated_approval": 15,
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:entitled_anchored_comms_document": 4,
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:financial_claim_reader": 17,
+      "AUTHORIZATION_PARITY_REVIEW_REQUIRED:hr_own_claim_document": 5
+    }
+  },
+  "acceptanceTargets": [
+    {
+      "targetId": "absolute-exact-id-recall-at-1",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 1,
+      "comparator": "gte",
+      "ceiling": 0.9083333333333333,
+      "satisfiedByPerfectPinnedBaseline": false,
+      "unsatisfiedDisposition": "GOVERNANCE_BLOCKED_PINNED_BASELINE_TARGET",
+      "requiredQualityVerdict": "TARGET_FAIL_KNOWN_PINNED_BASELINE_CEILING",
+      "nonNormalizationRule": "The target remains 1.00. It is not lowered to 109/120 and cannot be replaced by pinned-baseline hit@1."
+    },
+    {
+      "targetId": "absolute-overall-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.9,
+      "comparator": "gte",
+      "ceiling": 0.9287581699346406,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-mrr-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.9300653594771242,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-exact_id-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.9083333333333333,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-exact_name-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.8833333333333333,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-prefix-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.8904761904761904,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-substring-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.9366666666666666,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-multi_token-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.9791666666666666,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-common_ambiguous-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.959047619047619,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    },
+    {
+      "targetId": "absolute-typo_fuzzy-recall-at-10",
+      "metricPlane": "raw_authoritative_quality",
+      "target": 0.8,
+      "comparator": "gte",
+      "ceiling": 0.9476190476190476,
+      "satisfiedByPerfectPinnedBaseline": true,
+      "unsatisfiedDisposition": null
+    }
+  ],
+  "verdictPlanes": {
+    "runIntegrity": {
+      "values": [
+        "VALID_MEASUREMENT",
+        "NON_RECORDABLE"
+      ],
+      "rule": "Chain, runtime authorization, baseline-drift, capture, timing, receipt, repeat, and manifest closure only. Quality-target failure does not retroactively make a complete measurement nonexistent."
+    },
+    "rawAuthoritativeQuality": {
+      "values": [
+        "QUALITY_TARGET_PASS",
+        "TARGET_FAIL_KNOWN_PINNED_BASELINE_CEILING",
+        "QUALITY_TARGET_FAIL"
+      ],
+      "rule": "Compute unchanged Recall/MRR against G and preserve every HEARTH-001 absolute target. The present ideal dae27a4 baseline necessarily fails exact-id Recall@1=1.00."
+    },
+    "pinnedBaselineDiagnostic": {
+      "exactIdMetricName": "pinned-baseline exact-ID hit@1",
+      "permittedValueForPerfectImplementation": 1,
+      "substitutionForbidden": "This diagnostic may not be named Recall@1, placed in the G metric plane, used to erase G minus B0, or cited as authorization evidence."
+    }
+  },
+  "currentIdealDisposition": "BASELINE_CAPTURED · QUALITY_TARGET_FAIL · KNOWN_PINNED_BASELINE_CEILING",
+  "recordTokenRule": "RECORD remains unavailable while an absolute quality target fails. A valid failing baseline may be captured and compared but must not be called RECORD.",
+  "targetSatisfiabilityRedControl": {
+    "mutation": "remove the pinned-baseline governance classification from the known impossible exact-id absolute target",
+    "expectedFailureCode": "UNSATISFIABLE_ACCEPTANCE_TARGET",
+    "observedFailureCode": "UNSATISFIABLE_ACCEPTANCE_TARGET",
+    "targetId": "absolute-exact-id-recall-at-1",
+    "seederStarted": false,
+    "httpRequestCount": 0,
+    "metricsStarted": false
+  },
+  "qrelAmendmentRule": "No independently adjudicated G judgment was changed to make a target pass. Any future G judgment change is a separately declared Lumen authority amendment and requires Neural review."
+}

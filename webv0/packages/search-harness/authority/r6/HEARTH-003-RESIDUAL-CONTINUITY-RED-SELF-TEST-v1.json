@@ -1,0 +1,145 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-residual-continuity-red-self-test",
+  "selfTestVersion": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "implementationStatus": "CONTENT_CONTINUITY_RED_OBSERVED_PRE_SIDE_EFFECT",
+  "claimBoundary": "This receipt proves exact membership and content continuity for the 5 + 8 + 3 inherited groups plus the separately named r6 limits. It does not prove that an open residual is closed.",
+  "inputHashes": {
+    "ledgerCanonicalTextSha256": "9c64a302de56c6bb3f56477b5884c3dea9e503f8575f24920e6b7b100866aba4",
+    "contractCanonicalTextSha256": "ccc73b9d77dbbac622e723d2a81d06d3b79e95992573b659cadcd88ccaac8242",
+    "redPlanCanonicalTextSha256": "dee38d060dff51ecb604003a53bac459b5a4f2bdc87cf6315d4b0a73f3d540de",
+    "verifierCanonicalTextSha256": "d63093ed0835c280e7698a19a5be9a80077259984eb6835060825f12acaf5cca",
+    "historicalR3CanonicalTextSha256": "c04dc09658ac624daaca95b562fb495e0eb626fa76527fa1dc141a7da850ecc7",
+    "historicalR4CanonicalTextSha256": "9b16a700077d27532a9ccb0450142f3fc3874ad76608f03930191970f558afa2"
+  },
+  "clean": {
+    "verifiedGroupCount": 6,
+    "verifiedItemCount": 26,
+    "inherited5Plus8Plus3Count": 16,
+    "observedGroups": {
+      "inheritedR3Residuals": {
+        "count": 5,
+        "canonicalJsonSha256": "a304af1d95240a3ab3a304e55d877b4c4b5169b87362bbfeb956e884dfc22b0b"
+      },
+      "r4DisposableValidatorResiduals": {
+        "count": 8,
+        "canonicalJsonSha256": "bd50a2ee9faee1884ea1368b2a68a0dce2b6225b69840beeaeffadcef9c3eca0"
+      },
+      "r5ForwardResiduals": {
+        "count": 3,
+        "canonicalJsonSha256": "e9c333a1db875b55478a733c0204c34b69176af694c7158272051c8931fe573a"
+      },
+      "r6ClaimLimitResiduals": {
+        "count": 1,
+        "canonicalJsonSha256": "af3fcb60e1b03721086c163a2f262e59161eaff1eb30f8be1e81803fcc942904"
+      },
+      "structuralFindings": {
+        "count": 3,
+        "canonicalJsonSha256": "e78d65adb141d3860f8f10942d4f9e6d733b9ca9df2b0c9d7640ecf2f989af28"
+      },
+      "nonBlockingRecordDefects": {
+        "count": 6,
+        "canonicalJsonSha256": "d1bf8b5897cdf6176a64de0b6df09620681b320895f7ef264db47992bff1ed9d"
+      }
+    },
+    "inherited5Plus8Plus3CanonicalJsonSha256": "277735666d8dbd185e686e4f8a0f28ee602d5abc0be291ff0e576c32de0fc9d5",
+    "allContentBoundItemsCanonicalJsonSha256": "fb5eae2383f8c9cc281b315f89888de579ad272cd868562f7581b67dfbca8d59"
+  },
+  "cases": [
+    {
+      "caseId": "B5.R3.HOLLOW_STATEMENT",
+      "group": "inheritedR3Residuals",
+      "residualId": "R3-RES-01-PER_DIEM",
+      "mutationMode": "replace_field",
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedStage": "content",
+      "cleanLedgerPassedImmediatelyBeforeMutation": true,
+      "sideEffectLedgerDelta": []
+    },
+    {
+      "caseId": "B5.R3.HOLLOW_REQUIRED_MODEL",
+      "group": "inheritedR3Residuals",
+      "residualId": "R3-RES-01-PER_DIEM",
+      "mutationMode": "replace_field",
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedStage": "content",
+      "cleanLedgerPassedImmediatelyBeforeMutation": true,
+      "sideEffectLedgerDelta": []
+    },
+    {
+      "caseId": "B5.R4.GENERIC_REWRITE",
+      "group": "r4DisposableValidatorResiduals",
+      "residualId": "R4-VAL-04-NO-WITH-CHECK-NEGATIVE",
+      "mutationMode": "replace_field",
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedStage": "content",
+      "cleanLedgerPassedImmediatelyBeforeMutation": true,
+      "sideEffectLedgerDelta": []
+    },
+    {
+      "caseId": "B5.R5.HOLLOW_STATEMENT",
+      "group": "r5ForwardResiduals",
+      "residualId": "R5-RES-01-TERM_LABEL",
+      "mutationMode": "replace_field",
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedFailureCode": "RESIDUAL_CONTENT_MISMATCH",
+      "observedStage": "content",
+      "cleanLedgerPassedImmediatelyBeforeMutation": true,
+      "sideEffectLedgerDelta": []
+    },
+    {
+      "caseId": "B5.R4.MISSING_MEMBER",
+      "group": "r4DisposableValidatorResiduals",
+      "residualId": "R4-VAL-08-DATE-BOUNDARY-UNPROVEN",
+      "mutationMode": "remove_item",
+      "expectedFailureCode": "RESIDUAL_MEMBERSHIP_MISMATCH",
+      "observedFailureCode": "RESIDUAL_MEMBERSHIP_MISMATCH",
+      "observedStage": "membership",
+      "cleanLedgerPassedImmediatelyBeforeMutation": true,
+      "sideEffectLedgerDelta": []
+    },
+    {
+      "caseId": "B5.DUPLICATE_ID",
+      "group": "r5ForwardResiduals",
+      "residualId": "R5-RES-02-LINE_REFNO",
+      "mutationMode": "duplicate_item",
+      "expectedFailureCode": "RESIDUAL_DUPLICATE_ID",
+      "observedFailureCode": "RESIDUAL_DUPLICATE_ID",
+      "observedStage": "membership",
+      "cleanLedgerPassedImmediatelyBeforeMutation": true,
+      "sideEffectLedgerDelta": []
+    }
+  ],
+  "expectedCaseCount": 6,
+  "observedCaseCount": 6,
+  "allExpectedRejectionsObserved": true,
+  "expectedFailureCodes": [
+    "RESIDUAL_CONTENT_MISMATCH",
+    "RESIDUAL_DUPLICATE_ID",
+    "RESIDUAL_MEMBERSHIP_MISMATCH"
+  ],
+  "observedFailureCodes": [
+    "RESIDUAL_CONTENT_MISMATCH",
+    "RESIDUAL_DUPLICATE_ID",
+    "RESIDUAL_MEMBERSHIP_MISMATCH"
+  ],
+  "exactFailureCodeSetMatch": true,
+  "sideEffectBarrier": {
+    "mode": "deny_by_construction_reference_verifier",
+    "deniedCapabilities": [
+      "seed",
+      "database",
+      "network",
+      "http",
+      "metrics"
+    ],
+    "attemptedEvents": [],
+    "observedEventCount": 0,
+    "firstSideEffectSequence": null
+  }
+}

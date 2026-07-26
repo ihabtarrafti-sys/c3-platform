@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 3,
+  "artifactKind": "hearth-search-h4-baseline-trust-chain",
+  "trustChainVersion": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "claim": "A captured metric is a claim about the real production-mode C3 HTTP path over an attested synthetic corpus. Measured path/authz evidence, hard L0 canary conformance, B0/O0 pinned-implementation drift, raw authoritative quality, and run integrity are separate verdict planes; none may substitute for another.",
+  "globalMeasurementStatus": "NOT_YET_MEASURED",
+  "implementationStatus": "DESIGN_AUTHORITY_AND_AUTHORITY_REFERENCE_REDS_ONLY: Ember H1-H4 must execute the measured application path. This v3 artifact is not an H4 certificate; no H1 seed, authenticated HTTP capture, latency distribution, relevance result, or H4 verdict is recorded.",
+  "guaranteeSeparation": {
+    "measuredApplicationPath": {
+      "guarantee": "Every measured request must traverse production-mode HTTP authentication, globalSearch, reads.forActor(actor), a c3_app tenant transaction, and PostgreSQL RLS using the attested actor, tenant, role, capability, entitlement, delegation, participant, owner, and claim facts.",
+      "proofSource": "Measured H1-H4 receipts only. Authority-reference validators and drift self-tests cannot satisfy this plane.",
+      "nonClaim": "Attesting route traversal and the named authz controls is not a proof that every C3 authorization rule is complete or correct."
+    },
+    "hardL0Canaries": {
+      "guarantee": "Any active permitted-owner recordKind=Attachment source returned by search is an unconditional L0 conformance failure. Every authored Attachment canary must be materialized and counted independently of B0/O0.",
+      "classification": "Fail-closed defense-in-depth, not evidence of a known live differential.",
+      "nonSubstitution": "An Attachment response may also be outside B0, but BASELINE_SOURCE_DRIFT may not replace, soften, or hide the hard L0 failure."
+    },
+    "pinnedImplementationDrift": {
+      "B0": "For actor profile a, B0(a) is the source, field, and projection set reconstructed from the C3 search implementation pinned at dae27a400868c0c686788ab8e5520690dbf77334.",
+      "O0": "O0(a) is the remainder of the explicitly bounded 17-kind synthetic measurement universe.",
+      "outsideB0": "A resolved response outside B0, or a response whose five-field projection differs from B0, is a pinned-baseline drift finding.",
+      "insideB0": "Equality to B0 proves equality to the pinned implementation baseline only.",
+      "permanentLimit": "B0/O0 is not a disclosure oracle and cannot establish that dae27a4 is authorized, correct, complete, leak-free, or backed by a separate authority source."
+    },
+    "rawAuthoritativeQuality": {
+      "guarantee": "Recall and MRR use only the human-adjudicated authoritative G judgments. The B0 intersection and its C0 diagnostic never replace or shrink G.",
+      "nonSubstitution": "A known pinned-baseline ceiling may explain a quality failure but cannot turn it into PASS."
+    }
+  },
+  "bundleCoherenceRule": {
+    "historicalAuthority": "HEARTH-003-BUNDLE-MIXING-RED-v1.json plus the recorded r5 closed bundle contract remain historical inputs.",
+    "executableConsumer": "HEARTH-003-authority-bundle-verifier.mjs",
+    "authorityReferenceReceipt": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v1.json",
+    "r6Requirement": "Before H1, the next externally pinned closed authority root must include this v3 trust chain, the B0/O0 drift baseline and RED receipt, and the residual-continuity ledger, contract, verifier, RED plan, and receipt. Until that root exists and verifies, status remains NOT_YET_MEASURED.",
+    "h1Requirement": "Verify the externally pinned root and exact logical-slot map, return frozen verified bytes to consumers, execute every bundle-mixing and continuity RED before any seed, database, HTTP, or metric side effect, and reject any missing, duplicate, historical, renamed, or content-mismatched slot.",
+    "noVersionMixing": "No historical artifact may occupy an operative logical slot even when renamed. Byte-identical shared inputs are explicitly classified as shared, not falsely distinguishable by history."
+  },
+  "hashModes": {
+    "authoredTextAndGitBlobs": "strict UTF-8 canonical text; CRLF and lone CR normalize to LF; the artifact terminal-newline convention remains significant",
+    "semanticObjects": "recursively key-sorted UTF-8 JSON.stringify with the declared array ordering and no trailing LF, unless a field explicitly names another versioned algorithm",
+    "legacyPhysicalSemanticObjects": "canonical-json-keysort-plus-one-lf-v1: recursively key-sort object keys, preserve authored array order, UTF-8 JSON.stringify, append exactly one literal LF byte 0x0A, then SHA-256",
+    "postgresFunctionDefinitions": "pg_get_functiondef text normalized CRLF and lone CR to LF before SHA-256",
+    "rawHttpCaptures": "exact captured bytes; no text, line-ending, Unicode, or JSON normalization",
+    "receiptRule": "Every receipt declares its hash mode and recomputes every upstream digest before use. A consumer may not infer a hash mode from a filename or reuse the legacy physical mode outside its two named v3 fields."
+  },
+  "legacyPhysicalCanonicalJsonBinding": {
+    "algorithmId": "canonical-json-keysort-plus-one-lf-v1",
+    "algorithm": "Recursively sort object keys, preserve authored array order, apply UTF-8 JSON.stringify, append exactly one literal LF byte 0x0A, and SHA-256 the resulting bytes.",
+    "scope": [
+      {
+        "artifact": "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+        "pointer": "/migrationPinSetSha256",
+        "sourceArtifact": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+        "sourcePointer": "/physicalSeedPlan/migrationFiles",
+        "sha256": "19681357bbd45d035ebd04f95e9598f18333ecd84eebf1cdb3841a39146f8780"
+      },
+      {
+        "artifact": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+        "pointer": "/inputHashes/physicalSeedPlanSha256",
+        "sourceArtifact": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+        "sourcePointer": "/physicalSeedPlan",
+        "sha256": "458b777278eddff6199706e01a2a2f092fb580e9de9f23c0179eedb1325ec2de"
+      }
+    ],
+    "reinterpretationRule": "The two recorded v3 digests are not repinned or silently reinterpreted under the no-trailing-LF semantic-object algorithm.",
+    "futureRule": "Any future physical manifest or validation that changes this algorithm must bump its artifact version and declare the new algorithm; pretty-file terminal newlines remain separate from semantic hashing."
+  },
+  "policyDependencyBinding": {
+    "artifact": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+    "dependencyVersion": "HEARTH-003-POLICY-DEPENDENCIES-v2",
+    "canonicalTextSha256": "f607df343bd8c1ffeb762b9b0462bb193650b17980abb53800fff3c5e088b1e6",
+    "sourceRepositoryIdentity": "c3-fable",
+    "sourceCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+    "fileCounts": {
+      "applicationPolicy": 18,
+      "migrationState": 95,
+      "completeDependencyTree": 113
+    },
+    "h0Bindings": {
+      "applicationPolicyDependencySha256": "c440971239e10dc0b7d3a09646f2b3d71635c9f7d4b31e72e46b303e590ac1cf",
+      "migrationStateSha256": "0440365537129073377bbea05aa3b760f25573d4c008aab473b7f59e1072a585",
+      "completeDependencyTreeSha256": "bf76302b44c4ab3b5dab68270616dfa1a802f5720563008e3b56d2f09b585d1a"
+    },
+    "crossBindingRule": "The closed authority receipt, this trust chain, and the measured application-read-path receipt must agree on dependencyVersion, sourceCommit, and all three h0Bindings. H4 must independently recompute the dependency tree from the pinned Git blobs; a missing or mismatched value is NON_RECORDABLE."
+  },
+  "residualContinuityBinding": {
+    "ledger": {
+      "artifact": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "version": "HEARTH-003-INHERITED-RESIDUALS-v2",
+      "canonicalTextSha256": "9c64a302de56c6bb3f56477b5884c3dea9e503f8575f24920e6b7b100866aba4"
+    },
+    "contract": {
+      "artifact": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+      "version": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1",
+      "canonicalTextSha256": "ccc73b9d77dbbac622e723d2a81d06d3b79e95992573b659cadcd88ccaac8242"
+    },
+    "authorityReferenceReceipt": {
+      "artifact": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "version": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1",
+      "canonicalTextSha256": "d0e5346a75093827611178ef70c9be5a59ef52d6ee11063548beb1d77c2e3b56",
+      "implementationStatus": "CONTENT_CONTINUITY_RED_OBSERVED_PRE_SIDE_EFFECT",
+      "cleanVerifiedGroupCount": 6,
+      "cleanVerifiedItemCount": 26,
+      "redCaseCount": 6,
+      "allExpectedRejectionsObserved": true,
+      "sideEffectEventCount": 0
+    },
+    "canonicalization": "recursively key-sorted JSON; group items sorted by stable id; arrays inside an item retain authored order; UTF-8 JSON.stringify; no trailing LF",
+    "inheritedGroups": [
+      {
+        "group": "inheritedR3Residuals",
+        "count": 5,
+        "expectedIds": [
+          "R3-RES-01-PER_DIEM",
+          "R3-RES-02-REGISTER_ENUMERATION",
+          "R3-RES-03-QREL_BINDING_ORIGIN",
+          "R3-RES-04-THREE_PARITY_GAPS",
+          "R3-RES-05-CLAIM_DESCRIPTION"
+        ],
+        "canonicalJsonSha256": "a304af1d95240a3ab3a304e55d877b4c4b5169b87362bbfeb956e884dfc22b0b"
+      },
+      {
+        "group": "r4DisposableValidatorResiduals",
+        "count": 8,
+        "expectedIds": [
+          "R4-VAL-01-COMBINED-PERMISSIVE-POLICIES",
+          "R4-VAL-02-OVERLAY-ACCOUNTING",
+          "R4-VAL-03-ACTOR-TABLE-FACT-DENSITY",
+          "R4-VAL-04-NO-WITH-CHECK-NEGATIVE",
+          "R4-VAL-05-DELEGATION-MEASUREMENT-REQUIRED",
+          "R4-VAL-06-DOMAIN-PROBE-COVERAGE",
+          "R4-VAL-07-DELEGATION-NOT-LIVE-AUTH",
+          "R4-VAL-08-DATE-BOUNDARY-UNPROVEN"
+        ],
+        "canonicalJsonSha256": "bd50a2ee9faee1884ea1368b2a68a0dce2b6225b69840beeaeffadcef9c3eca0"
+      },
+      {
+        "group": "r5ForwardResiduals",
+        "count": 3,
+        "expectedIds": [
+          "R5-RES-01-TERM_LABEL",
+          "R5-RES-02-LINE_REFNO",
+          "R5-RES-03-PROJECTION-EMPTY-STRING"
+        ],
+        "canonicalJsonSha256": "e9c333a1db875b55478a733c0204c34b69176af694c7158272051c8931fe573a"
+      }
+    ],
+    "aggregate": {
+      "inherited5Plus8Plus3Count": 16,
+      "inherited5Plus8Plus3CanonicalJsonSha256": "277735666d8dbd185e686e4f8a0f28ee602d5abc0be291ff0e576c32de0fc9d5",
+      "allContentBoundItemCount": 26,
+      "allContentBoundItemsCanonicalJsonSha256": "fb5eae2383f8c9cc281b315f89888de579ad272cd868562f7581b67dfbca8d59"
+    },
+    "h4Rule": "The same production continuity verifier must recheck exact schema, unique IDs, exact membership, and content hashes before H1 side effects. The closed-run manifest must hash that pre-run receipt. A missing, hollowed, duplicated, renamed, or content-mismatched residual is NON_RECORDABLE and may not be replaced by a count-only assertion."
+  },
+  "oneNumber": {
+    "name": "overallRecallAt10",
+    "sourceOfTruth": "human-adjudicated authoritative G only",
+    "responseSet": "the first ten returned items in serialized wire order after strict source resolution; a duplicate canonical source invalidates the observation before scoring, and no deduplication, reordering, retry substitution, or truncation other than top ten is permitted",
+    "observationFormula": "|authoritativeRelevant intersect returnedTop10| / |authoritativeRelevant|",
+    "emptyAuthoritativeSet": "excluded from Recall@10 and reported in the zero-result/denial matrix; never coerced to 1",
+    "aggregation": "macro within each logical actor-class assignment, then macro within each logical query case, then unweighted macro across eligible logical cases",
+    "antiWeightingRule": "The 370 concrete Delegation probes may not give the 15 delegated cases more case weight than any other logical case.",
+    "baselineJudgmentRole": "baselineActorClasses and B0 are pinned-implementation predictions used only for drift and baseline diagnostics; neither may replace authoritativeRelevant or be called an approval oracle.",
+    "authzAndCanaryRole": "Real-path authz controls and hard L0 canaries are evaluated in their own fail-closed plane before B0/O0 drift diagnostics and metrics.",
+    "C0": "C0(q,a) = |G(q,a) intersect B0(a)| / |G(q,a)|. C0 is the maximum quality predicted for exact reproduction of dae27a4, not an approved-disclosure ceiling.",
+    "targetCeiling": "The frozen pinned-baseline prediction gives exact-id Recall@1 <= 109/120, overall Recall@10 <= 1421/1530, and MRR@10 <= 1423/1530. H1 must recompute G intersect B0; any difference is fail-closed.",
+    "nonNormalization": "G remains the only Recall/MRR denominator. The exact-id target remains 1.00 and an exact B0 reproduction is predicted to report TARGET_FAIL_PINNED_BASELINE_CEILING.",
+    "baselineDiagnostic": "pinned-baseline exact-ID hit@1 may report 1.00, but it is not Recall@1, does not prove approval, and may not erase G minus B0."
+  },
+  "links": [
+    {
+      "ordinal": 1,
+      "linkId": "authority-freeze-and-residual-continuity",
+      "mustBeTrue": "One externally rooted closed authority bundle is verified before any seed, database, HTTP request, or metric side effect; version mixing, filename laundering, policy-dependency mismatch, and hollowed residual content fail with typed reasons.",
+      "proof": "Executable closed-slot verifier plus clean bundle receipt, complete version-mixing RED receipt, content-bound residual-continuity receipt, and the six-case continuity RED receipt. The verifier checks the external root first, then identities, slots, canonical hashes, cross-bindings, the 5 + 8 + 3 memberships/content, the policy source commit, and all three dependency-tree hashes.",
+      "executesIn": "pre-run authority verifier",
+      "requiredOutput": "authority-bundle-residual-continuity-and-red-receipts"
+    },
+    {
+      "ordinal": 2,
+      "linkId": "authoritative-and-pinned-baseline-expansion-and-target-satisfiability",
+      "mustBeTrue": "Every logical class expands to exact physical observations; authoritative G, pinned B0/O0, and diagnostic C0 remain separate; every unconditional quality target is checked against the maximum predicted B0 ceiling before capture.",
+      "proof": "The pre-run adapter hashes G, B0/O0, C0, the hard-canary set, and target classifications. It compares the frozen baseline judgments with G intersect B0 and executes the UNSATISFIABLE_ACCEPTANCE_TARGET RED before any response.",
+      "executesIn": "pre-run oracle and pinned-baseline adapter, before any search response exists",
+      "requiredOutput": "authoritative-baseline-expansion-and-target-satisfiability-receipt"
+    },
+    {
+      "ordinal": 3,
+      "linkId": "measured-corpus-materialization",
+      "mustBeTrue": "Each profile execution uses one fresh measured database containing every exact authority row, at least 100000 searchable records across T01/T02, deterministic bulk rows that avoid reserved tokens, every declared hard canary, and exactly its declared sparse D/E/P delta. One complete H4 acceptance run is the closed ordered ten-profile suite H3M.D0, H3M.D1, H3M.D2, H3M.D3, H3M.D4, H3M.E1, H3M.E2, H3M.E3, H3M.E4, H3M.P1, sharing the same baseline/bulk digest and all pins and never merging profiles.",
+      "proof": "Post-seed readback recomputes catalog-primary-key/source/canary counts, the exact profile delta or absence, and a framed row digest. B0/O0 classification covers the bounded corpus exactly once, hard canaries reconcile independently, and no row is silently dropped. D0/E0/P0 are material absence readbacks, not zero-statement overlay assumptions.",
+      "executesIn": "H1 measured database, not the disposable authority validator",
+      "requiredOutput": "measured-corpus-seed-receipt"
+    },
+    {
+      "ordinal": 4,
+      "linkId": "physical-actor-clock-and-authz-control-binding",
+      "mustBeTrue": "Every request token resolves to the exact tenant, app_user, membership, role, identity, and D/E/P/claim/owner facts declared for its profile; the measured API civil clock is the attested advancing 2035-06-15 clock; cross-tenant collision and named denied-versus-absent controls remain indistinguishable on the wire.",
+      "proof": "Authenticated /me plus profile fact receipt, same-process clock IPC attestation, exact Delegation row-set attestation, D1-versus-D0/D2/D3/D4 /me and /approvals discrimination, tenant collision controls, and per-tenant x seven-role Comms /documents preflights proving E0 deny, E1-E4 current row-existence allow, and anchored-Mission P0/P1 equivalence.",
+      "executesIn": "the exact measured API process and measured database",
+      "requiredOutput": "actor-clock-and-authz-control-receipt"
+    },
+    {
+      "ordinal": 5,
+      "linkId": "real-application-read-path",
+      "mustBeTrue": "Every measured query traverses HTTP authentication, globalSearch, reads.forActor(actor), the c3_app tenant transaction, and RLS; no admin credential is present in the measured process; the running source and dependency trees equal the policy-dependency binding in this artifact.",
+      "proof": "Per-checkout pool attestation, route/request correlation, SET ROLE and tenant-context evidence, fixed source/commit dependency attestation, independent recomputation of the 18-file application, 95-file migration, and 113-file complete tree hashes, and a fail-closed request-path receipt tied to every capture.",
+      "executesIn": "production-mode measured API process",
+      "requiredOutput": "application-read-path-and-policy-dependency-receipt"
+    },
+    {
+      "ordinal": 6,
+      "linkId": "raw-response-capture",
+      "mustBeTrue": "Status, complete serialized body, headers, wire order, and monotonic start/end times are captured before any transformation; no response is silently retried, dropped, pooled, or substituted. Any unexpected timeout, cancellation, 5xx, malformed response, or 429 invalidates the run; warm-up responses also traverse the authz, hard-canary, and drift gates, and 429 responses never enter latency.",
+      "proof": "Append-only framed capture with exact-byte hash, request/profile/query ids, and a strict response-envelope parser.",
+      "executesIn": "H2 benchmark collector",
+      "requiredOutput": "raw-capture"
+    },
+    {
+      "ordinal": 7,
+      "linkId": "authz-hard-canary-and-pinned-baseline-drift-gates",
+      "mustBeTrue": "Each wire item resolves exactly once. Real-path authz negatives and hard L0 canaries are evaluated first and independently. The same resolved bytes are then compared with B0/O0: outside-B0 identity is BASELINE_SOURCE_DRIFT and changed five-field projection is BASELINE_PROJECTION_DRIFT. A B0 match is never called authorization or leak-free proof.",
+      "proof": "Measured authz-control receipt, zero-return Attachment hard-canary receipt, strict five-key response-schema receipt, sentinel/EXPLAIN/manifest scan, pinned-baseline conformance receipt, and a two-case measured drift RED reproducing one outside-B0 source rejection and one projection-change rejection before metrics. Missing resolution, wrong code, unexpected PASS, hard-canary return, or metricsStarted=true is NON_RECORDABLE.",
+      "executesIn": "H2/H3 evaluator over raw captures",
+      "requiredOutput": "measured-authz-hard-l0-and-pinned-baseline-drift-receipts"
+    },
+    {
+      "ordinal": 8,
+      "linkId": "metric-computation",
+      "mustBeTrue": "Raw authoritative Recall/MRR, pinned-baseline C0, baseline diagnostics, and latency/timing evidence are computed separately from captured wire order and only after the measured authz, hard-canary, and drift gates complete.",
+      "proof": "Per-observation G/B0/result facts, deterministic macros, pinned-baseline ceiling receipt, evaluator hash, ordering/plan evidence, and metric REDs. A predicted B0 ceiling may explain a quality failure but never turn it into PASS or an authorization claim.",
+      "executesIn": "H3 metric evaluator after all fail-first gates pass",
+      "requiredOutput": "three-plane-quality-and-baseline-diagnostic-report"
+    },
+    {
+      "ordinal": 9,
+      "linkId": "record-and-reproduce",
+      "mustBeTrue": "The measurement remains inseparable from the exact authority root, residual-continuity receipt, policy-dependency binding, all RED receipts, G/B0/O0/C0 expansion, target-satisfiability receipt, ten profiles, captures, evaluator, runtime, and independent repeat.",
+      "proof": "Closed run manifests hash every upstream receipt, including bundle mixing, residual continuity, measured authz controls, hard L0 canaries, pinned-baseline drift mutation, policy dependencies, and target satisfiability; a pair receipt then reconciles invariant pins and allowed per-run differences.",
+      "executesIn": "H3 recorder",
+      "requiredOutput": "closed-run-manifest"
+    },
+    {
+      "ordinal": 10,
+      "linkId": "mechanical-verdict",
+      "mustBeTrue": "Run integrity, measured path/authz-control conformance, hard L0 canary conformance, pinned-baseline drift, and raw authoritative quality are derived as separate verdict planes. A complete failing baseline remains measurable but cannot emit RECORD.",
+      "proof": "First derive VALID_MEASUREMENT or NON_RECORDABLE from chain evidence. Separately emit measured-path, hard-L0, and B0/O0 drift verdicts. Then compute raw G quality PASS/FAIL/PINNED_BASELINE_CEILING and C0 diagnostics. No metric is lowered or renamed, and B0 equality is never upgraded to authorization or disclosure proof.",
+      "executesIn": "H4 verdict evaluator",
+      "requiredOutput": "run-integrity-authz-canary-drift-quality-verdict"
+    }
+  ],
+  "physicalValidationV3Boundary": {
+    "status": "OPEN_BEFORE_H4",
+    "manifest": {
+      "artifact": "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+      "canonicalTextSha256": "82e1ec8a2fb6e8ac346d70bf37b7dcc5c5ce1c016e4af03990672aa968f3fbce",
+      "sourceCommit": "dae27a400868c0c686788ab8e5520690dbf77334"
+    },
+    "validationReport": {
+      "artifact": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "canonicalTextSha256": "b9e9295c4be1c4101b7380aee7b44f12ebd6bdcb25ea5e00c50040d19f0af834",
+      "recordedOutcomeWithinScope": "PASS",
+      "qrelsArtifact": "HEARTH-003-QRELS-v5.json",
+      "qrelsCanonicalTextSha256": "a55881d8ab8e988ef4c6ef21bf8f9830ca56b45d1e7d1b2d3610960fedf6f7e4",
+      "fixtureArtifact": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "physicalSeedPlanLegacyCanonicalJsonSha256": "458b777278eddff6199706e01a2a2f092fb580e9de9f23c0179eedb1325ec2de"
+    },
+    "scope": "This is an r4-era frozen report bound to QRELS-v5 and Fixture-v5. It is carried as historical physical evidence and is not re-executable evidence in the current bundle.",
+    "provesWithinRecordedScope": [
+      "authority-row storability against its pinned 95 migrations",
+      "catalog domain and RLS-policy structure",
+      "restricted-role tenant-boundary mechanics exercised by that validator",
+      "source-derived projection and complete domainBlock guard-program conformance for its bound inputs",
+      "exact D-state rows and explicit-date predicate truth for its bound cases"
+    ],
+    "doesNotProve": [
+      "that B0/O0 is authorized, correct, complete, leak-free, or backed by a separate authority source",
+      "that the current measured H1 corpus contains the required rows and canaries",
+      "that a measured token resolves to the intended actor",
+      "that the measured live application path traverses reads.forActor and RLS",
+      "that the live wall-clock application gate observes D1 as active",
+      "that any HTTP response, latency distribution, relevance metric, or H4 verdict exists"
+    ],
+    "h4Rule": "A measured H4 run cannot record from Physical Validation v3 alone. H1-H4 must produce fresh measured-corpus, actor/clock, real-application-path, authz-control, hard-L0-canary, raw-capture, drift, metric, manifest, repeat, and verdict receipts. Until then both this finding and the global package status remain OPEN_BEFORE_H4 and NOT_YET_MEASURED."
+  },
+  "recordedResidualAccounting": {
+    "authority": "HEARTH-003-INHERITED-RESIDUALS-v2.json plus HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+    "contentBoundInheritedGroups": {
+      "inheritedR3": 5,
+      "r4DisposableValidator": 8,
+      "r5Forward": 3,
+      "total": 16,
+      "canonicalJsonSha256": "277735666d8dbd185e686e4f8a0f28ee602d5abc0be291ff0e576c32de0fc9d5"
+    },
+    "separationRule": "The 5 + 8 + 3 groups remain distinct and content-bound. The r6 pinned-baseline limitation, three structural findings, and six non-blocking record defects are separately bound in the same ledger and may not replace, summarize, close, or renumber any inherited item.",
+    "physicalV3ScopeFinding": {
+      "id": "R6-STRUCT-03-PHYSICAL-V3-SCOPE",
+      "status": "OPEN_BEFORE_H4"
+    },
+    "unsignedFreezeRoot": "SHA-256 plus local Git history and independent recomputation provide tamper evidence against accidental drift. Commits are unsigned and the root is not tamper-resistant against intentional history rewrite. Real PKI or an external append-only anchor remains an owner decision."
+  },
+  "requiredNewHarnessArtifacts": [
+    "authority-bundle-receipt",
+    "authority-bundle-mixing-red-receipt",
+    "residual-continuity-pre-run-receipt",
+    "residual-continuity-red-receipt",
+    "authoritative-baseline-expansion-receipt",
+    "metric-target-satisfiability-receipt",
+    "measured-corpus-seed-receipt",
+    "actor-clock-and-authz-control-receipt",
+    "application-read-path-and-policy-dependency-receipt",
+    "raw-capture",
+    "hard-l0-canary-conformance-receipt",
+    "pinned-baseline-drift-receipt",
+    "pinned-baseline-drift-red-receipt",
+    "timing-equivalence-residual-receipt",
+    "deterministic-ordering-receipt",
+    "query-plan-and-sentinel-receipt",
+    "three-plane-quality-and-baseline-diagnostic-report",
+    "closed-run-manifest",
+    "paired-run-receipt",
+    "run-integrity-authz-canary-drift-quality-verdict"
+  ],
+  "currentH0CompatibilityRuling": {
+    "adapterRequired": true,
+    "reason": "The H0 schemas require a different qrel shape and deferred detached signatures, omit physical seed-plan, residual-continuity, B0/O0, policy-dependency, and gate-state bindings, and have no H1-H4 producers. Ember must implement a hash-bound authority adapter without changing judgments.",
+    "pkiRule": "Real PKI remains a deferred owner decision. v3 uses SHA-256, unsigned local Git history, and Neural independent recomputation as tamper evidence only; it does not claim intentional-history-rewrite resistance."
+  },
+  "verdictPlanes": {
+    "runIntegrity": {
+      "values": [
+        "VALID_MEASUREMENT",
+        "NON_RECORDABLE"
+      ],
+      "rule": "Chain, residual continuity, policy dependency, actor/path, authz controls, hard canaries, capture, timing, receipts, repeat, and manifest closure only. Quality-target failure does not retroactively make a complete measurement nonexistent."
+    },
+    "measuredApplicationPath": {
+      "values": [
+        "MEASURED_PATH_ATTESTED",
+        "MEASURED_PATH_NOT_ATTESTED"
+      ],
+      "rule": "Attests only the named HTTP authentication to globalSearch to reads.forActor to c3_app transaction to RLS path and named actor facts. NOT_ATTESTED makes the run NON_RECORDABLE."
+    },
+    "hardL0Canaries": {
+      "values": [
+        "HARD_L0_CANARIES_CLEAR",
+        "HARD_L0_CANARY_FAIL"
+      ],
+      "rule": "Any returned active permitted-owner Attachment is HARD_L0_CANARY_FAIL and makes the run NON_RECORDABLE, independently of B0/O0."
+    },
+    "pinnedImplementationDrift": {
+      "values": [
+        "PINNED_BASELINE_MATCH",
+        "BASELINE_SOURCE_DRIFT",
+        "BASELINE_PROJECTION_DRIFT",
+        "BASELINE_DRIFT_UNEVALUABLE"
+      ],
+      "rule": "This plane reports movement from dae27a4 only. PINNED_BASELINE_MATCH is never an authorization, correctness, completeness, approval, or leak-free verdict."
+    },
+    "rawAuthoritativeQuality": {
+      "values": [
+        "QUALITY_TARGET_PASS",
+        "TARGET_FAIL_PINNED_BASELINE_CEILING",
+        "QUALITY_TARGET_FAIL"
+      ],
+      "rule": "Compute unchanged Recall/MRR against G and preserve every HEARTH-001 absolute target. Exact reproduction of the present B0 is predicted to fail exact-id Recall@1=1.00; only a measured run may emit a quality value."
+    },
+    "pinnedBaselineDiagnostic": {
+      "exactIdMetricName": "pinned-baseline exact-ID hit@1",
+      "permittedValueForExactBaselineReproduction": 1,
+      "substitutionForbidden": "This diagnostic may not be named Recall@1, placed in the G metric plane, described as approved disclosure, or used to erase G minus B0."
+    }
+  },
+  "currentIdealDisposition": "NOT_YET_MEASURED",
+  "recordTokenRule": "RECORD remains unavailable until every required measured receipt exists, both independent repeats reconcile, no hard L0 or integrity failure occurs, and every absolute quality target passes. A valid failing baseline may be captured and compared but must not be called RECORD; a B0 match alone never earns RECORD."
+}

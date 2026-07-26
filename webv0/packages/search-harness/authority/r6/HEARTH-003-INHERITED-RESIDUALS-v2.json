@@ -1,0 +1,170 @@
+{
+  "schemaVersion": 2,
+  "artifactKind": "hearth-search-residual-ledger",
+  "residualLedgerVersion": "HEARTH-003-INHERITED-RESIDUALS-v2",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "canonicalization": {
+    "algorithm": "recursively key-sorted JSON; residual groups sorted by stable id; arrays inside a residual retain authored order; UTF-8 JSON.stringify; no trailing LF",
+    "duplicateId": "hard_fail",
+    "missingId": "hard_fail",
+    "unexpectedId": "hard_fail",
+    "sameIdChangedContent": "hard_fail"
+  },
+  "separationRule": "The five inherited r3 residuals, eight r4 disposable-validator residuals, and three r5 forward residuals are distinct content-bound groups. The r6 pinned-baseline limitation and structural findings are separately named and may not replace or summarize any inherited group.",
+  "inheritedR3Residuals": [
+    {
+      "id": "R3-RES-01-PER_DIEM",
+      "status": "OPEN",
+      "statement": "toMissionParticipantDto structurally omits perDiemAmountMinor and perDiemCurrency when canViewPerDiem is false. Until that omission is modeled, no HEARTH-003 field artifact is a complete C3 register/API disclosure ceiling.",
+      "requiredFutureModel": [
+        "missionParticipant register/DTO",
+        "perDiemAmountMinor",
+        "perDiemCurrency",
+        "structural key absence rather than null masking",
+        "dto.ts:464-477",
+        "app.ts:1430-1445",
+        "api-contracts/src/index.ts:437-446"
+      ],
+      "nonAuthorization": "Modeling this residual does not add Mission Participant as a Wave-1 search kind."
+    },
+    {
+      "id": "R3-RES-02-REGISTER_ENUMERATION",
+      "status": "OPEN",
+      "statement": "HEARTH-003 covers the bounded 17-kind Wave-1 search corpus, not every C3 register or API DTO."
+    },
+    {
+      "id": "R3-RES-03-QREL_BINDING_ORIGIN",
+      "status": "OPEN_BOUNDED",
+      "historicalStatement": "AUTHORITATIVE-FIELD-SCOPE-v1.qrelPhysicalFieldBindings is a post-derivation copy aligned to DOMAIN_SPECS. It may bind existing qrels or support an after-freeze implementation diff, but it may not derive field scope, A/F, or the v3 match-field authority.",
+      "statement": "AUTHORITATIVE-FIELD-SCOPE-v1.qrelPhysicalFieldBindings and the former sibling object postDerivationApprovedEnvelopeFinding are post-hoc implementation-aligned comparison aids. The binding map may translate physical names for a pinned-baseline drift comparison. The sibling was renamed postDerivationPinnedBaselineFinding; its 64-field value is a dae27a4 baseline count. Neither the binding map nor the renamed finding derives field scope, confers approval, identifies a separate disclosure oracle, or establishes that B0/O0 is authorized, correct, complete, or leak-free.",
+      "clarification": "The DTO field classification was derived without search inputs and remains useful only as a field-scope input to human G adjudication. That source separation does not propagate into B0/O0, whose source, field, and projection sets are reconstructed from the implementation pinned at dae27a4. This residual names both the former postDerivationApprovedEnvelopeFinding key and its postDerivationPinnedBaselineFinding replacement so the historical label cannot be read as current authority."
+    },
+    {
+      "id": "R3-RES-04-THREE_PARITY_GAPS",
+      "status": "OPEN",
+      "statement": "The original financial-Claim, delegated-Approval, and HR-own-Claim-Document under-exposures remain visible pinned-baseline recall ceilings. The later anchored-Comms family is an additive fourth family, not a replacement and not evidence that any original family closed."
+    },
+    {
+      "id": "R3-RES-05-CLAIM_DESCRIPTION",
+      "status": "OPEN",
+      "statement": "claim.description remains an N-class synthetic H0-H4 measurement exception only. H5 remains blocked unless the field is narrowed or a later bounded-subject-line ruling is recorded with evidence and a version bump."
+    }
+  ],
+  "r4DisposableValidatorResiduals": [
+    {
+      "id": "R4-VAL-01-COMBINED-PERMISSIVE-POLICIES",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "The disposable RLS report reaches all 29 policies, but two are discriminated only as their combined permissive set; no claim of 29 isolated effects is made."
+    },
+    {
+      "id": "R4-VAL-02-OVERLAY-ACCOUNTING",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "The 70 accepted overlays comprise 66 SQL mutations and four zero-statement absence/reset assertions; only measured post-seed readback proves D0/E0/P0."
+    },
+    {
+      "id": "R4-VAL-03-ACTOR-TABLE-FACT-DENSITY",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "The 350 actor/table executions resolve 50 distinct tenant/table row-set facts; the remaining executions prove context rebinding/reset, not new predicates."
+    },
+    {
+      "id": "R4-VAL-04-NO-WITH-CHECK-NEGATIVE",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "No c3_app WITH CHECK negative exists, so no write-side RLS claim is made."
+    },
+    {
+      "id": "R4-VAL-05-DELEGATION-MEASUREMENT-REQUIRED",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "The former global Delegation count is superseded by 29 logical assignments, 370 unique per-case bindings, and 280 exact active/inactive pair edges; H4 must execute them."
+    },
+    {
+      "id": "R4-VAL-06-DOMAIN-PROBE-COVERAGE",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "The 15 physical-domain negative probes cover eight of 17 registers and may not be cited as full response-leak RED coverage."
+    },
+    {
+      "id": "R4-VAL-07-DELEGATION-NOT-LIVE-AUTH",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "The validator explicit-date Delegation predicate is not live application authorization; only measured authenticated /me and /approvals receipts close that link."
+    },
+    {
+      "id": "R4-VAL-08-DATE-BOUNDARY-UNPROVEN",
+      "status": "OPEN_SCOPE_BOUND",
+      "statement": "D1-D4 are interior-point states at 2035-06-15; no start/end boundary inclusivity claim is made."
+    }
+  ],
+  "r5ForwardResiduals": [
+    {
+      "id": "R5-RES-01-TERM_LABEL",
+      "status": "OPEN",
+      "statement": "term.label is an N-class synthetic H0-H4 measurement exception. Narrow by default before H5 unless a later bounded-label ruling is recorded."
+    },
+    {
+      "id": "R5-RES-02-LINE_REFNO",
+      "status": "OPEN",
+      "statement": "line.refNo is an N-class synthetic H0-H4 measurement exception. Narrow by default before H5 unless a later bounded-reference ruling is recorded."
+    },
+    {
+      "id": "R5-RES-03-PROJECTION-EMPTY-STRING",
+      "status": "OPEN_BEFORE_FULL_EQUIVALENCE_CLAIM",
+      "statement": "The fixture corpus does not discriminate every null-versus-empty branch of SQL coalesce/concat_ws. The pinned baseline states those semantics; H1 must add null/empty branch controls before claiming complete evaluator equivalence beyond the 353 natural fixtures already exercised."
+    }
+  ],
+  "r6ClaimLimitResiduals": [
+    {
+      "id": "R6-RES-01-PINNED-BASELINE-CORRECTNESS",
+      "status": "OPEN_PERMANENT_UNTIL_NON_CODE_AUTHORITY_EXISTS",
+      "statement": "B0(a) is reconstructed from the C3 search implementation pinned at dae27a4. A response outside B0 is a baseline-drift finding. A response inside B0 establishes only equality to that baseline; it cannot establish that the baseline is authorized, correct, complete, or backed by a separate authority source. The bundle contains no separate disclosure oracle.",
+      "h4Rule": "No H4 receipt may call B0/O0 evaluation disclosure validation or a leak-free-baseline proof."
+    }
+  ],
+  "structuralFindings": [
+    {
+      "id": "R6-STRUCT-01-POLICY-DEPENDENCY-BINDING",
+      "status": "CLOSED_IN_R6_CONTRACT",
+      "statement": "The sole 113-file policy dependency carrier must be identity-checked and cross-bound by source commit plus its application, migration, and complete-tree hashes. The r6 contract and validation receipt supply those bindings."
+    },
+    {
+      "id": "R6-STRUCT-02-LEGACY-CANONICAL-JSON-LF",
+      "status": "CLOSED_DOCUMENTATION_AND_BINDING_R6",
+      "statement": "Physical Manifest/Validation v3 use recursively key-sorted JSON plus one literal LF byte for migrationPinSetSha256 and physicalSeedPlanSha256. r6 names that legacy algorithm, recomputes both bindings, and does not reinterpret or repin the v3 artifacts."
+    },
+    {
+      "id": "R6-STRUCT-03-PHYSICAL-V3-SCOPE",
+      "status": "OPEN_BEFORE_H4",
+      "statement": "Physical Domain Validation v3 is an r4-era report bound to QRELS-v5 and Fixture-v5. It is not re-executable evidence in this bundle and proves nothing about B0/O0 correctness. A measured H4 run cannot record from that report alone."
+    }
+  ],
+  "nonBlockingRecordDefects": [
+    {
+      "id": "R5-REC-B2-01-AUTHORED-SIDE-EFFECT-CONSTANTS",
+      "status": "OPEN_NON_BLOCKING",
+      "statement": "The r5 disclosure RED receipt authored metricsStarted=false and forbidden-value retention booleans rather than observing a capability ledger."
+    },
+    {
+      "id": "R5-REC-B2-02-CONSTRUCTOR-OBSERVED-AT",
+      "status": "OPEN_NON_BLOCKING",
+      "statement": "The r5 disclosure checker stamped observedAt as a constructor constant rather than deriving a trace observation."
+    },
+    {
+      "id": "R5-REC-B2-03-LITERAL-CONTROL-COUNT",
+      "status": "OPEN_NON_BLOCKING",
+      "statement": "The r5 disclosure RED control count was pinned only one literal deep."
+    },
+    {
+      "id": "R5-REC-B3-01-GOVERNANCE-BYPASS",
+      "status": "OPEN_NON_BLOCKING",
+      "statement": "The r5 metric evaluator contains an unvalidated GOVERNANCE_BLOCKED_ABSOLUTE_TARGET bypass that is invisible outside that script."
+    },
+    {
+      "id": "R5-REC-B3-02-COMPARATOR-ENUM",
+      "status": "OPEN_NON_BLOCKING",
+      "statement": "The r5 metric evaluator does not reject an unrecognized target comparator."
+    },
+    {
+      "id": "R5-REC-B3-03-UNUSED-BASELINE-HASH",
+      "status": "OPEN_NON_BLOCKING",
+      "statement": "The r5 metric artifact hashes the disclosure policy without reading it in the ceiling computation. r6 removes that false semantic dependency and names C0 as a pinned-baseline diagnostic."
+    }
+  ]
+}

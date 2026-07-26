@@ -95,6 +95,10 @@ describe('H0 verification fail-fast ordering', () => {
       join(packageRoot, '..', '..', 'scripts', 'test.mts'),
       'utf8',
     );
+    const verifySource = readFileSync(
+      join(packageRoot, 'src', 'cli', 'verify.ts'),
+      'utf8',
+    );
     const preflightIndex = gateSource.indexOf(
       "step('search harness sunset preflight'",
     );
@@ -120,6 +124,25 @@ describe('H0 verification fail-fast ordering', () => {
     );
     expect(testSource).toContain(
       'for (const [plannedMode, plannedExecution] of Object.entries(',
+    );
+    const verifySunsetIndex = verifySource.indexOf(
+      'assertSearchSunsetPreflight();',
+    );
+    const verifySourcePlanIndex = verifySource.indexOf(
+      'const source = prepareH1SourcePlan();',
+    );
+    const verifyRedIndex = verifySource.indexOf(
+      'runHarnessRedSelfTests({',
+    );
+    const verifyPassIndex = verifySource.indexOf("status: 'PASS'");
+    expect(verifySunsetIndex).toBeGreaterThanOrEqual(0);
+    expect(verifySourcePlanIndex).toBeGreaterThan(
+      verifySunsetIndex,
+    );
+    expect(verifyRedIndex).toBeGreaterThan(verifySourcePlanIndex);
+    expect(verifyPassIndex).toBeGreaterThan(verifyRedIndex);
+    expect(verifySource).not.toContain(
+      'runH1VerificationWorkflow',
     );
   });
 });

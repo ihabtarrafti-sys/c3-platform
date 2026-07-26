@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-disclosure-drift-red-control-plan",
+  "controlPlanVersion": "HEARTH-003-DISCLOSURE-DRIFT-RED-CONTROLS-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "driftBaselineArtifact": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+  "fixtureArtifact": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+  "executionBoundary": {
+    "stageOrder": [
+      "exact raw captured bytes",
+      "production capture parser",
+      "complete-corpus source resolver",
+      "assertPinnedBaselineConformance",
+      "metrics"
+    ],
+    "cleanControlMustPass": true,
+    "requiredFailureStage": "assertPinnedBaselineConformance",
+    "parserOrResolverRejectionDoesNotSatisfy": true,
+    "metricsStartedMustRemain": false,
+    "mutantRetention": "Hash each ephemeral mutated byte string, then discard it. Never retain the raw forbidden value in the receipt, log, EXPLAIN artifact, or run manifest."
+  },
+  "baseline": {
+    "controlId": "B2.CLEAN",
+    "corpusProfileId": "H3M.D0",
+    "actorProfileId": "T01.owner.E0.D0.base",
+    "actor": {
+      "tenantSlot": "T01",
+      "role": "owner",
+      "entitlementState": "E0",
+      "delegationState": "D0",
+      "participantState": "P0"
+    },
+    "method": "GET",
+    "pathTemplate": "/api/v1/search?q={encodedQuery}",
+    "queryCase": "PER-9127601",
+    "cleanFixtureId": "H3F.0340",
+    "expectedCanonicalSource": {
+      "tenantSlot": "T01",
+      "register": "person",
+      "recordId": "PER-9127601",
+      "recordKind": null
+    },
+    "expectedCleanOutcome": "PASS"
+  },
+  "controls": [
+    {
+      "controlId": "B2.F_SOURCE",
+      "classification": "O0_SOURCE",
+      "fixtureId": "H3F.0335",
+      "mutationMode": "replace_result_with_fixture_public_projection",
+      "locateBaselineBy": {
+        "kind": "person",
+        "id": "PER-9127601",
+        "requiredMatchCount": 1
+      },
+      "replacementProjectionFromFixture": "H3F.0335",
+      "replacementCanonicalSource": {
+        "tenantSlot": "T01",
+        "register": "document",
+        "recordId": "DOC-9127101",
+        "recordKind": "Attachment"
+      },
+      "mustNotInjectSourceMetadata": true,
+      "resolverRequirement": "Derive recordKind=Attachment from the complete corpus, not from response bytes.",
+      "baselineReason": "An active Attachment under this Person owner lies outside the reconstructed dae27a4 B0 source set. Independently, the Attachment L0 canary remains a hard conformance failure.",
+      "expectedFailureCode": "BASELINE_SOURCE_DRIFT",
+      "expectedObservedAt": "assertPinnedBaselineConformance"
+    },
+    {
+      "controlId": "B2.F_FIELD",
+      "classification": "B0_PROJECTION_DRIFT",
+      "fixtureId": "H3F.0340",
+      "mutationMode": "replace_public_projection_value_with_forbidden_fixture_value",
+      "locateBaselineBy": {
+        "kind": "person",
+        "id": "PER-9127601",
+        "requiredMatchCount": 1
+      },
+      "mutationJsonPointerTemplate": "/results/{resolvedIndex}/title",
+      "forbiddenValueFrom": {
+        "fixtureId": "H3F.0340",
+        "logicalField": "email",
+        "physicalField": "email"
+      },
+      "schemaRemainsValid": true,
+      "baselineReason": "The source remains inside B0, but the title no longer equals the projection reconstructed from dae27a4.",
+      "expectedFailureCode": "BASELINE_PROJECTION_DRIFT",
+      "expectedObservedAt": "assertPinnedBaselineConformance"
+    }
+  ],
+  "mutationDiscipline": {
+    "locateByCanonicalIdentity": true,
+    "requireExactlyOneTarget": true,
+    "mutateEphemeralCopyOfExactCapturedBytes": true,
+    "reuseSameParserResolverChecker": true,
+    "noSpecialRedOnlyCheckerBranch": true,
+    "unexpectedPass": "hard_fail",
+    "wrongFailureCode": "hard_fail",
+    "earlierFailureStage": "hard_fail"
+  },
+  "requiredReceiptFields": [
+    "artifactKind",
+    "schemaVersion",
+    "controlPlanSha256",
+    "authorityBundleReceiptSha256",
+    "baselineExpansionReceiptSha256",
+    "driftCheckerSourceSha256",
+    "captureParserSourceSha256",
+    "resolverSourceSha256",
+    "baselineRawCaptureSha256",
+    "baselineCleanOutcome",
+    "controlId",
+    "fixtureId",
+    "actorProfileId",
+    "corpusProfileId",
+    "mutationMode",
+    "mutationJsonPointer",
+    "classification",
+    "forbiddenIdentityOrValueSha256",
+    "mutatedCaptureSha256",
+    "expectedFailureCode",
+    "observedFailureCode",
+    "observedAt",
+    "metricsStarted",
+    "rawForbiddenValueRetained",
+    "allExpectedFailuresObserved"
+  ],
+  "acceptance": {
+    "baselineCleanOutcome": "PASS",
+    "expectedControlCount": 2,
+    "allExpectedFailuresObserved": true,
+    "metricsStarted": false,
+    "rawForbiddenValueRetained": false,
+    "missingOrWrongReceiptMakesRun": "NON_RECORDABLE"
+  },
+  "claimBoundary": "These controls prove that the B0/O0 drift detector can reject one outside-baseline source and one changed projection. They do not prove that dae27a4 is authorized, correct, complete, or leak-free."
+}

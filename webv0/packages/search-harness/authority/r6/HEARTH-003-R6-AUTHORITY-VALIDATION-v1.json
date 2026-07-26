@@ -1,0 +1,206 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-r6-authority-validation",
+  "validationVersion": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "outcome": "PASS_R6_AUTHORITY_PREMEASUREMENT_ONLY",
+  "implementationStatus": "NOT_YET_MEASURED",
+  "claimBoundary": "This validates the authored r6 authority package, content continuity, drift sensitivity, and cross-binding inputs. It does not authorize the dae27a4 baseline, prove leak safety, execute H1/H4, or certify any measured metric.",
+  "inputHashes": {
+    "gitattributesCanonicalTextSha256": "3c0bb26c86a826add28208478cb29a3167034f4073dbca0dd821d440045c80a6",
+    "actorClassesCanonicalTextSha256": "e7892cee3e495798e61376acbab7d9981b1018716d747eb2675ac96bfaccb652",
+    "authoritativeFieldScopeCanonicalTextSha256": "7e7adf1059ce89741a19885f52e30ae4baffc864eec3d286daa16c2f8630888a",
+    "authoritativePredicatesCanonicalTextSha256": "1a5e5b98c9109a496a4c61cba88abaaf2478d817466afd1c389255f0db1adc93",
+    "driftBaselineCanonicalTextSha256": "4dba9f2b89d5f2d24b1e815471d06d050eb04fbe6f9c77a6b17ffb5230247e48",
+    "residualLedgerCanonicalTextSha256": "9c64a302de56c6bb3f56477b5884c3dea9e503f8575f24920e6b7b100866aba4",
+    "residualContractCanonicalTextSha256": "ccc73b9d77dbbac622e723d2a81d06d3b79e95992573b659cadcd88ccaac8242",
+    "residualRedPlanCanonicalTextSha256": "dee38d060dff51ecb604003a53bac459b5a4f2bdc87cf6315d4b0a73f3d540de",
+    "residualRedReceiptCanonicalTextSha256": "d0e5346a75093827611178ef70c9be5a59ef52d6ee11063548beb1d77c2e3b56",
+    "residualVerifierCanonicalTextSha256": "d63093ed0835c280e7698a19a5be9a80077259984eb6835060825f12acaf5cca",
+    "driftRedPlanCanonicalTextSha256": "16134a92830f207d41f7609652001ee462a957cb058378fd39da3d49a0a9dff9",
+    "driftRedReceiptCanonicalTextSha256": "44a4c05db8d9c4c05c23eef11aa1ba9f2c107e65cefe6bc29c7afbdfe4f98987",
+    "driftCheckerCanonicalTextSha256": "bac369e9f92e27daae4f70b63467724ebba0e91a6a4cdd9e32b0043283436554",
+    "metricReceiptCanonicalTextSha256": "4abbb4dcf482cb4f047b95a6961ad2ba61fd854935ddc93489b30e871bff384c",
+    "metricSourceCanonicalTextSha256": "2df4d7559b099182a2b46c0ee197f9b69ac8b74afcd8a8c3875bc726f1b2bb39",
+    "bundleRedPlanCanonicalTextSha256": "7670b1ca9f256fbed3445a7af3fe1b2e6a22ef680f4fce6caefd0b0bb33ac420",
+    "bundleRedReceiptCanonicalTextSha256": "336b6a5816f13799f1ca50372da3c34a7b9de535bd243f06855fd8a9e8901741",
+    "bundleVerifierCanonicalTextSha256": "7b7a6ebe0041beb284b37c99f37576fee4798fcef1f2bfe2765803c8736bd81d",
+    "bundleRedRunnerCanonicalTextSha256": "abc9261cdd20bd54cbc135ed9b1d262c1c74175860f92985187b8a4c9af278ff",
+    "implementationDriftCanonicalTextSha256": "9a3c697aab8606aaa724a4a352793d348b5612b3a9705ef61c08f32ffed418fa",
+    "implementationDriftSourceCanonicalTextSha256": "9bca9e02489edf3008684f335c76f0273f3d614265eac14361a97a04471b9a3a",
+    "qrelsV7CanonicalTextSha256": "bcfdfdde7bba2c13a227fd8b264204c9fdb5c87068d8b09d2c575b0a52eb50c2",
+    "fixtureCanonicalTextSha256": "f940cc713d8f507faa1c32c0781f7a1aa5d13fb5d558defa8540857fbc191052",
+    "coverageCanonicalTextSha256": "2fa85c0b339000d75d22f95f6c8e8f714c5d62f1931ba148fe6e44a3580f3fd5",
+    "delegationCanonicalTextSha256": "aa7be994078641c5bed5b69a5b53d1e93f3c52de28ddabd039f970455d9c3faa",
+    "trustCanonicalTextSha256": "6b500b3928352ec3ec9af40555988583051d2669aa0e662411f07c69c1f19fdd",
+    "physicalManifestCanonicalTextSha256": "82e1ec8a2fb6e8ac346d70bf37b7dcc5c5ce1c016e4af03990672aa968f3fbce",
+    "physicalValidationCanonicalTextSha256": "b9e9295c4be1c4101b7380aee7b44f12ebd6bdcb25ea5e00c50040d19f0af834",
+    "policyDependenciesCanonicalTextSha256": "f607df343bd8c1ffeb762b9b0462bb193650b17980abb53800fff3c5e088b1e6",
+    "projectionParserCanonicalTextSha256": "eefb34a26b70bb1740f4e7e1cf39919f14ad13da8cc410d289c3cc4a8a4376c6",
+    "physicalValidatorCanonicalTextSha256": "105b3c52a3270f98dee0337b207281c679047c198106b18f6398db5360e448aa",
+    "goldAuthorityCanonicalTextSha256": "44490ceae5863be3a8618145ec4a7304092b88c15c4110f150dc26891faecfba",
+    "materializationContractCanonicalTextSha256": "a9997e188e98ae861ebb1fc53e0dff0dc506303c4c82a42a0bb38f9f7637b2d4",
+    "freezerCanonicalTextSha256": "2cdbdc5bf83d7fa6bde5a50cd7fd920c5d087ea1e82665da79da30650ff2a752",
+    "materializerCanonicalTextSha256": "2a15c41f6e7d4f0e8cccb58510e2611261f8060612df49cf570e1d1f629c8e37"
+  },
+  "qrelsTransition": {
+    "qrelsV6CasesCanonicalJsonSha256": "93aa9280426048334e062c51fa1e88c54eff8316c4a8d13a39884e350e00a1a7",
+    "qrelsV7Artifact": "HEARTH-003-QRELS-v7.json",
+    "qrelsV7CasesCanonicalJsonSha256": "20f406f4aad3829a3788212e0f79d55451d4fa177062243dd1ba22f2284322cd",
+    "qrelsV7CasesNormalizedToV6KeyCanonicalJsonSha256": "93aa9280426048334e062c51fa1e88c54eff8316c4a8d13a39884e350e00a1a7",
+    "normalizedJudgmentEquality": true,
+    "changedJudgmentKeyCount": 315,
+    "judgmentValueChanges": 0,
+    "queryTextChanges": 0,
+    "expectedSourceChanges": 0
+  },
+  "baselineBound": {
+    "registerCount": 17,
+    "matchFieldCount": 64,
+    "projectionExpressionCount": 68,
+    "projectionFieldReferenceCount": 83,
+    "sourceObservationCount": 49840,
+    "label": "B0/O0_PINNED_IMPLEMENTATION_DRIFT_ONLY"
+  },
+  "residualContinuity": {
+    "verifiedGroupCount": 6,
+    "verifiedItemCount": 26,
+    "inherited5Plus8Plus3Count": 16,
+    "observedGroups": {
+      "inheritedR3Residuals": {
+        "count": 5,
+        "canonicalJsonSha256": "a304af1d95240a3ab3a304e55d877b4c4b5169b87362bbfeb956e884dfc22b0b"
+      },
+      "r4DisposableValidatorResiduals": {
+        "count": 8,
+        "canonicalJsonSha256": "bd50a2ee9faee1884ea1368b2a68a0dce2b6225b69840beeaeffadcef9c3eca0"
+      },
+      "r5ForwardResiduals": {
+        "count": 3,
+        "canonicalJsonSha256": "e9c333a1db875b55478a733c0204c34b69176af694c7158272051c8931fe573a"
+      },
+      "r6ClaimLimitResiduals": {
+        "count": 1,
+        "canonicalJsonSha256": "af3fcb60e1b03721086c163a2f262e59161eaff1eb30f8be1e81803fcc942904"
+      },
+      "structuralFindings": {
+        "count": 3,
+        "canonicalJsonSha256": "e78d65adb141d3860f8f10942d4f9e6d733b9ca9df2b0c9d7640ecf2f989af28"
+      },
+      "nonBlockingRecordDefects": {
+        "count": 6,
+        "canonicalJsonSha256": "d1bf8b5897cdf6176a64de0b6df09620681b320895f7ef264db47992bff1ed9d"
+      }
+    },
+    "inherited5Plus8Plus3CanonicalJsonSha256": "277735666d8dbd185e686e4f8a0f28ee602d5abc0be291ff0e576c32de0fc9d5",
+    "allContentBoundItemsCanonicalJsonSha256": "fb5eae2383f8c9cc281b315f89888de579ad272cd868562f7581b67dfbca8d59"
+  },
+  "policyDependencyBindings": {
+    "productCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+    "applicationPolicyDependencySha256": "c440971239e10dc0b7d3a09646f2b3d71635c9f7d4b31e72e46b303e590ac1cf",
+    "migrationStateSha256": "0440365537129073377bbea05aa3b760f25573d4c008aab473b7f59e1072a585",
+    "completeDependencyTreeSha256": "bf76302b44c4ab3b5dab68270616dfa1a802f5720563008e3b56d2f09b585d1a"
+  },
+  "dependencyTreeRecomputation": {
+    "algorithm": "C3_HEARTH_DEPENDENCY_TREE_V1",
+    "kindBytes": {
+      "text": "0x01",
+      "binary": "0x02"
+    },
+    "applicationPolicy": {
+      "fileCount": 18,
+      "recomputedTreeSha256": "c440971239e10dc0b7d3a09646f2b3d71635c9f7d4b31e72e46b303e590ac1cf"
+    },
+    "migrationState": {
+      "fileCount": 95,
+      "recomputedTreeSha256": "0440365537129073377bbea05aa3b760f25573d4c008aab473b7f59e1072a585"
+    },
+    "completeDependencyTree": {
+      "fileCount": 113,
+      "recomputedTreeSha256": "bf76302b44c4ab3b5dab68270616dfa1a802f5720563008e3b56d2f09b585d1a"
+    }
+  },
+  "leafRelabelAssertions": {
+    "authoritativeFieldScopeLegacyKeyQuarantined": true,
+    "authoritativePredicateRegistryClaimRemoved": true,
+    "r3ResidualNamesBothSiblingKeys": true
+  },
+  "legacyCanonicalJsonBindings": {
+    "algorithm": "canonical-json-keysort-plus-one-lf-v1",
+    "terminalByteHex": "0A",
+    "migrationPinSetSha256": "19681357bbd45d035ebd04f95e9598f18333ecd84eebf1cdb3841a39146f8780",
+    "physicalSeedPlanSha256": "458b777278eddff6199706e01a2a2f092fb580e9de9f23c0179eedb1325ec2de"
+  },
+  "basePhysicalProofScope": {
+    "artifact": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+    "status": "OPEN_BEFORE_H4",
+    "sourceRevision": "r4-era report over QRELS-v5 and Fixture-v5",
+    "notReearnedForR6Semantics": true
+  },
+  "textSlotBindings": {
+    "gitattributesCanonicalTextSha256": "3c0bb26c86a826add28208478cb29a3167034f4073dbca0dd821d440045c80a6",
+    "goldAuthorityCanonicalTextSha256": "44490ceae5863be3a8618145ec4a7304092b88c15c4110f150dc26891faecfba",
+    "materializationContractCanonicalTextSha256": "a9997e188e98ae861ebb1fc53e0dff0dc506303c4c82a42a0bb38f9f7637b2d4",
+    "freezerCanonicalTextSha256": "2cdbdc5bf83d7fa6bde5a50cd7fd920c5d087ea1e82665da79da30650ff2a752"
+  },
+  "checks": [
+    {
+      "check": "qrels-v7-semantic-key-transition",
+      "status": "PASS",
+      "count": 315
+    },
+    {
+      "check": "b0-o0-reconstruction-bound",
+      "status": "PASS",
+      "count": 49840
+    },
+    {
+      "check": "drift-red-sensitivity",
+      "status": "PASS"
+    },
+    {
+      "check": "residual-content-continuity",
+      "status": "PASS",
+      "count": 16
+    },
+    {
+      "check": "actual-r5-bundle-red",
+      "status": "PASS",
+      "count": 10
+    },
+    {
+      "check": "policy-dependency-semantic-pins",
+      "status": "PASS",
+      "count": 4
+    },
+    {
+      "check": "policy-dependency-tree-recomputation",
+      "status": "PASS",
+      "count": 3
+    },
+    {
+      "check": "legacy-leaf-relabel-and-quarantine",
+      "status": "PASS",
+      "count": 3
+    },
+    {
+      "check": "legacy-canonical-json-lf-cross-bindings",
+      "status": "PASS",
+      "count": 2
+    },
+    {
+      "check": "metric-target-satisfiability",
+      "status": "PASS",
+      "count": 8
+    }
+  ],
+  "doesNotProve": [
+    "that B0 is authorized, correct, complete, or leak-free",
+    "that H1 seeded the corpus",
+    "that any application response traversed reads.forActor and RLS",
+    "that any latency, Recall, or MRR metric was captured",
+    "that Physical Validation v3 was rerun for r6 semantics",
+    "that H4 may emit RECORD"
+  ]
+}

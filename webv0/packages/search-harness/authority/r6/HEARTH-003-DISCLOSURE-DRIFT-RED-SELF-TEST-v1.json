@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-disclosure-drift-red-self-test-receipt",
+  "selfTestVersion": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "implementationStatus": "PINNED_BASELINE_DRIFT_RED_OBSERVED_NOT_MEASURED_H1_H4_RECEIPT",
+  "claimBoundary": "This receipt proves detector sensitivity: the reference parser/resolver/checker rejects one outside-B0 source and one changed projection. It does not prove that dae27a4 is authorized, correct, complete, or leak-free. H1 must repeat the plan on measured application bytes before metrics.",
+  "inputHashes": {
+    "controlPlanCanonicalTextSha256": "16134a92830f207d41f7609652001ee462a957cb058378fd39da3d49a0a9dff9",
+    "driftBaselineCanonicalTextSha256": "4dba9f2b89d5f2d24b1e815471d06d050eb04fbe6f9c77a6b17ffb5230247e48",
+    "authoritativePredicatesCanonicalTextSha256": "1a5e5b98c9109a496a4c61cba88abaaf2478d817466afd1c389255f0db1adc93",
+    "actorClassesCanonicalTextSha256": "e7892cee3e495798e61376acbab7d9981b1018716d747eb2675ac96bfaccb652",
+    "fixtureContractCanonicalTextSha256": "f940cc713d8f507faa1c32c0781f7a1aa5d13fb5d558defa8540857fbc191052",
+    "driftCheckerCanonicalTextSha256": "bac369e9f92e27daae4f70b63467724ebba0e91a6a4cdd9e32b0043283436554"
+  },
+  "baselineRawCaptureSha256": "07e1e6ad64e83960ea97b14dcac5f1e211dc6f9adca9f1d718e0fde5047df000",
+  "baselineCleanOutcome": "PASS",
+  "baselineResolvedResultCount": 1,
+  "logicalProjectionRecipeValidatedFixtureCount": 356,
+  "controls": [
+    {
+      "controlId": "B2.F_SOURCE",
+      "fixtureId": "H3F.0335",
+      "actorProfileId": "T01.owner.E0.D0.base",
+      "corpusProfileId": "H3M.D0",
+      "mutationMode": "replace_result_with_fixture_public_projection",
+      "mutationJsonPointer": "/results/0",
+      "classification": "O0_SOURCE",
+      "forbiddenIdentityOrValueSha256": "16ad8897587899dd7bda10093f15b0cd7a9ea4a395a43040d5eee2644abf4cf4",
+      "mutatedCaptureSha256": "4df6cd7f6ed3b198d28f1b1f01009065c825b64e91dc67d5e51b9c056cdcae11",
+      "expectedFailureCode": "BASELINE_SOURCE_DRIFT",
+      "observedFailureCode": "BASELINE_SOURCE_DRIFT",
+      "observedAt": "assertPinnedBaselineConformance",
+      "metricsStarted": false,
+      "rawForbiddenValueRetained": false
+    },
+    {
+      "controlId": "B2.F_FIELD",
+      "fixtureId": "H3F.0340",
+      "actorProfileId": "T01.owner.E0.D0.base",
+      "corpusProfileId": "H3M.D0",
+      "mutationMode": "replace_public_projection_value_with_forbidden_fixture_value",
+      "mutationJsonPointer": "/results/0/title",
+      "classification": "B0_PROJECTION_DRIFT",
+      "forbiddenIdentityOrValueSha256": "3fbf5b8f53f4f504decf0774aeb855b53fd8bd5dd04dafa6c644e34d146cf6dd",
+      "mutatedCaptureSha256": "4ffb9ed189b2a149a9182011ad364a3ad065e7fc66142dad4078f8562a8f21c7",
+      "expectedFailureCode": "BASELINE_PROJECTION_DRIFT",
+      "observedFailureCode": "BASELINE_PROJECTION_DRIFT",
+      "observedAt": "assertPinnedBaselineConformance",
+      "metricsStarted": false,
+      "rawForbiddenValueRetained": false
+    }
+  ],
+  "expectedControlCount": 2,
+  "observedControlCount": 2,
+  "allExpectedFailuresObserved": true,
+  "metricsStarted": false,
+  "rawForbiddenValueRetained": false
+}

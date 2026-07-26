@@ -1,0 +1,100 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-residual-continuity-contract",
+  "continuityContractVersion": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "ledgerArtifact": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+  "canonicalization": "recursively key-sorted JSON; group items sorted by stable id; arrays inside an item retain authored order; UTF-8 JSON.stringify; no trailing LF",
+  "historicalSourcePins": {
+    "r3Artifact": "HEARTH-003-INHERITED-RESIDUALS-v1.json",
+    "r3InheritedObjectsCanonicalJsonSha256": "b2667fa7825029b399d3983f6ae01fdb601489a0bf3eee9f91ad163356650a60",
+    "r4Artifact": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v1.json",
+    "r4RecordedResidualStringsCanonicalJsonSha256": "7905402c7ab3291c6bc246db35c8b07b0d4683af9a02c3fa7497a3f4efb08636",
+    "r5Artifact": "HEARTH-003-INHERITED-RESIDUALS-v1.json",
+    "r5ForwardObjectsCanonicalJsonSha256": "73d5e640b375d5b072f4a8920016d594d978776858738dd24a4efb7259124ffb"
+  },
+  "groups": [
+    {
+      "group": "inheritedR3Residuals",
+      "expectedCount": 5,
+      "expectedIds": [
+        "R3-RES-01-PER_DIEM",
+        "R3-RES-02-REGISTER_ENUMERATION",
+        "R3-RES-03-QREL_BINDING_ORIGIN",
+        "R3-RES-04-THREE_PARITY_GAPS",
+        "R3-RES-05-CLAIM_DESCRIPTION"
+      ],
+      "canonicalJsonSha256": "a304af1d95240a3ab3a304e55d877b4c4b5169b87362bbfeb956e884dfc22b0b"
+    },
+    {
+      "group": "r4DisposableValidatorResiduals",
+      "expectedCount": 8,
+      "expectedIds": [
+        "R4-VAL-01-COMBINED-PERMISSIVE-POLICIES",
+        "R4-VAL-02-OVERLAY-ACCOUNTING",
+        "R4-VAL-03-ACTOR-TABLE-FACT-DENSITY",
+        "R4-VAL-04-NO-WITH-CHECK-NEGATIVE",
+        "R4-VAL-05-DELEGATION-MEASUREMENT-REQUIRED",
+        "R4-VAL-06-DOMAIN-PROBE-COVERAGE",
+        "R4-VAL-07-DELEGATION-NOT-LIVE-AUTH",
+        "R4-VAL-08-DATE-BOUNDARY-UNPROVEN"
+      ],
+      "canonicalJsonSha256": "bd50a2ee9faee1884ea1368b2a68a0dce2b6225b69840beeaeffadcef9c3eca0"
+    },
+    {
+      "group": "r5ForwardResiduals",
+      "expectedCount": 3,
+      "expectedIds": [
+        "R5-RES-01-TERM_LABEL",
+        "R5-RES-02-LINE_REFNO",
+        "R5-RES-03-PROJECTION-EMPTY-STRING"
+      ],
+      "canonicalJsonSha256": "e9c333a1db875b55478a733c0204c34b69176af694c7158272051c8931fe573a"
+    },
+    {
+      "group": "r6ClaimLimitResiduals",
+      "expectedCount": 1,
+      "expectedIds": [
+        "R6-RES-01-PINNED-BASELINE-CORRECTNESS"
+      ],
+      "canonicalJsonSha256": "af3fcb60e1b03721086c163a2f262e59161eaff1eb30f8be1e81803fcc942904"
+    },
+    {
+      "group": "structuralFindings",
+      "expectedCount": 3,
+      "expectedIds": [
+        "R6-STRUCT-01-POLICY-DEPENDENCY-BINDING",
+        "R6-STRUCT-02-LEGACY-CANONICAL-JSON-LF",
+        "R6-STRUCT-03-PHYSICAL-V3-SCOPE"
+      ],
+      "canonicalJsonSha256": "e78d65adb141d3860f8f10942d4f9e6d733b9ca9df2b0c9d7640ecf2f989af28"
+    },
+    {
+      "group": "nonBlockingRecordDefects",
+      "expectedCount": 6,
+      "expectedIds": [
+        "R5-REC-B2-01-AUTHORED-SIDE-EFFECT-CONSTANTS",
+        "R5-REC-B2-02-CONSTRUCTOR-OBSERVED-AT",
+        "R5-REC-B2-03-LITERAL-CONTROL-COUNT",
+        "R5-REC-B3-01-GOVERNANCE-BYPASS",
+        "R5-REC-B3-02-COMPARATOR-ENUM",
+        "R5-REC-B3-03-UNUSED-BASELINE-HASH"
+      ],
+      "canonicalJsonSha256": "d1bf8b5897cdf6176a64de0b6df09620681b320895f7ef264db47992bff1ed9d"
+    }
+  ],
+  "aggregatePins": {
+    "inherited5Plus8Plus3Count": 16,
+    "inherited5Plus8Plus3CanonicalJsonSha256": "277735666d8dbd185e686e4f8a0f28ee602d5abc0be291ff0e576c32de0fc9d5",
+    "allContentBoundItemCount": 26,
+    "allContentBoundItemsCanonicalJsonSha256": "fb5eae2383f8c9cc281b315f89888de579ad272cd868562f7581b67dfbca8d59"
+  },
+  "failureCodes": [
+    "RESIDUAL_SCHEMA_MISMATCH",
+    "RESIDUAL_DUPLICATE_ID",
+    "RESIDUAL_MEMBERSHIP_MISMATCH",
+    "RESIDUAL_CONTENT_MISMATCH",
+    "RESIDUAL_HISTORICAL_SOURCE_MISMATCH"
+  ]
+}

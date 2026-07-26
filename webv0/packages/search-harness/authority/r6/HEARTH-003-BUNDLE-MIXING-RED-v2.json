@@ -1,0 +1,202 @@
+{
+  "schemaVersion": 2,
+  "artifactKind": "hearth-search-authority-bundle-mixing-red-plan",
+  "redPlanVersion": "HEARTH-003-BUNDLE-MIXING-RED-v2",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "implementationStatus": "AUTHORITY_REFERENCE_RED_PLAN_FOR_IMMUTABLE_R5",
+  "claimBoundary": "This plan does not amend the recorded r5 bundle or its v1 contract. It loads every baseline byte from immutable authority commit 915b4354cdb41a75b98053b3db51226222d2718e, first proves the actual 37-slot/38-identity/33-cross-binding contract at externally pinned root fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249, then exercises three forward verifier modes and four explicit B4 text-slot content bindings in memory. A future production bundle contract must carry equivalent reviewed bindings; this authority reference RED is not an H1 or H4 measurement certificate.",
+  "baseline": {
+    "authorityRevision": "HEARTH-003-r5",
+    "authorityCommit": "915b4354cdb41a75b98053b3db51226222d2718e",
+    "manifestFilename": "HEARTH-003-SHA256SUMS-v6.json",
+    "manifestCanonicalTextSha256": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+    "contractFilename": "HEARTH-003-BUNDLE-CONTRACT-v1.json",
+    "contractCanonicalTextSha256": "f9cf8a0cec85597b6ee9097d4651fdcc48b25c85c6e5487d5db6f0a4e727a693",
+    "frozenVerifierFilename": "HEARTH-003-authority-bundle-verifier.mjs",
+    "frozenVerifierCanonicalTextSha256": "eeb5329dd8f538999da02f62eed2979d1c17b2b66d56b1dd1daf8f78d929ff45",
+    "expectedVerifiedSlotCount": 37,
+    "expectedIdentityAssertionCount": 38,
+    "expectedCrossBindingCount": 33
+  },
+  "pointerModePositiveControls": [
+    {
+      "bindingId": "b4-v2-mode-to-pointer",
+      "fromSlot": "HEARTH-003-QRELS-v6.json",
+      "fromPointer": "/syntheticOnly",
+      "toSlot": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "toPointer": "/syntheticOnly",
+      "expectedFrom": "toPointer"
+    },
+    {
+      "bindingId": "b4-v2-mode-to-pointer-canonical-json",
+      "fromSlot": "HEARTH-003-R5-AUTHORITY-VALIDATION-v1.json",
+      "fromPointer": "/inputHashes/qrelsV6CanonicalJsonSha256",
+      "toSlot": "HEARTH-003-QRELS-v6.json",
+      "toPointer": "",
+      "expectedFrom": "toPointerCanonicalJsonSha256"
+    },
+    {
+      "bindingId": "b4-v2-mode-to-pointer-canonical-json-plus-one-lf",
+      "fromSlot": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "fromPointer": "/inputHashes/physicalSeedPlanSha256",
+      "toSlot": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "toPointer": "/physicalSeedPlan",
+      "expectedFrom": "toPointerCanonicalJsonLfSha256"
+    }
+  ],
+  "closureSlotContentBindings": [
+    {
+      "bindingId": "b4-bind-gitattributes",
+      "slot": ".gitattributes",
+      "expectedCanonicalByteLength": 52,
+      "expectedCanonicalTextSha256": "3c0bb26c86a826add28208478cb29a3167034f4073dbca0dd821d440045c80a6"
+    },
+    {
+      "bindingId": "b4-bind-r5-gold-authority",
+      "slot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md",
+      "expectedCanonicalByteLength": 13771,
+      "expectedCanonicalTextSha256": "6be926b49296a0d759da79cb88b0c13cde794573bfabae1927fd023d1059a3b4"
+    },
+    {
+      "bindingId": "b4-bind-r5-materialization-contract",
+      "slot": "HEARTH-003-r5-MATERIALIZATION-CONTRACT.md",
+      "expectedCanonicalByteLength": 10386,
+      "expectedCanonicalTextSha256": "bdf3dad6a317eb8c18072c0627f3c673e8a5664d68b7ed27ffe6f323a791e40f"
+    },
+    {
+      "bindingId": "b4-bind-r5-freezer",
+      "slot": "HEARTH-003-r5-freeze-hashes.mjs",
+      "expectedCanonicalByteLength": 12877,
+      "expectedCanonicalTextSha256": "f3dbfb0361ee18244caa23d7e32284612149fd2ad38948148e75ce1334ca5281"
+    }
+  ],
+  "requiredFailureCodes": [
+    "AUTHORITY_BUNDLE_ROOT_HASH_MISMATCH",
+    "AUTHORITY_BUNDLE_REQUIRED_ARTIFACT_MISSING",
+    "AUTHORITY_BUNDLE_UNEXPECTED_ARTIFACT",
+    "AUTHORITY_BUNDLE_DUPLICATE_SLOT",
+    "AUTHORITY_BUNDLE_CONTENT_HASH_MISMATCH",
+    "AUTHORITY_BUNDLE_IDENTITY_MISMATCH",
+    "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH"
+  ],
+  "cases": [
+    {
+      "caseId": "B4.R5.ROOT.MANIFEST_BYTES",
+      "mutationMode": "append_manifest_canonical_lf_keep_external_root",
+      "logicalSlot": "root-manifest",
+      "appendUtf8": "\n",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_ROOT_HASH_MISMATCH",
+      "expectedStage": "external-root",
+      "manifestTreatment": "mutated_bytes_unchanged_fixed_root"
+    },
+    {
+      "caseId": "B4.R5.MISSING.DELEGATION",
+      "mutationMode": "omit_verified_slot",
+      "logicalSlot": "HEARTH-003-DELEGATION-MEASUREMENT-v1.json",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_REQUIRED_ARTIFACT_MISSING",
+      "expectedStage": "closed-slot-set",
+      "manifestTreatment": "unchanged_fixed_root"
+    },
+    {
+      "caseId": "B4.R5.UNEXPECTED.SYNTHETIC",
+      "mutationMode": "add_unexpected_slot",
+      "logicalSlot": "unexpected.synthetic.slot",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_UNEXPECTED_ARTIFACT",
+      "expectedStage": "closed-slot-set",
+      "manifestTreatment": "unchanged_fixed_root"
+    },
+    {
+      "caseId": "B4.R5.DUPLICATE.QRELS_V6",
+      "mutationMode": "duplicate_verified_slot",
+      "logicalSlot": "HEARTH-003-QRELS-v6.json",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_DUPLICATE_SLOT",
+      "expectedStage": "closed-slot-set",
+      "manifestTreatment": "unchanged_fixed_root"
+    },
+    {
+      "caseId": "B4.R5.CONTENT.GOLD_BYTES",
+      "mutationMode": "append_verified_bytes_keep_manifest",
+      "logicalSlot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md",
+      "appendUtf8": "\nB4 RED content mutation without manifest amendment.\n",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CONTENT_HASH_MISMATCH",
+      "expectedStage": "artifact-content",
+      "manifestTreatment": "unchanged_fixed_root"
+    },
+    {
+      "caseId": "B4.R5.IDENTITY.QRELS_VERSION",
+      "mutationMode": "mutate_verified_json_pointer_rehash_manifest_repin",
+      "logicalSlot": "HEARTH-003-QRELS-v6.json",
+      "jsonPointer": "/querySetVersion",
+      "replacementValue": "HEARTH-003-QRELS-v5",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_IDENTITY_MISMATCH",
+      "expectedStage": "artifact-identity",
+      "manifestTreatment": "rehashed_and_explicitly_repinned"
+    },
+    {
+      "caseId": "B4.R5.BIND.GITATTRIBUTES",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "logicalSlot": ".gitattributes",
+      "appendUtf8": "*.b4-red text eol=lf\n",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "manifestTreatment": "rehashed_and_explicitly_repinned"
+    },
+    {
+      "caseId": "B4.R5.BIND.GOLD_AUTHORITY",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "logicalSlot": "HEARTH-003-r5-GOLD-SET-AUTHORITY.md",
+      "appendUtf8": "\nB4 RED substituted authority text.\n",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "manifestTreatment": "rehashed_and_explicitly_repinned"
+    },
+    {
+      "caseId": "B4.R5.BIND.MATERIALIZATION_CONTRACT",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "logicalSlot": "HEARTH-003-r5-MATERIALIZATION-CONTRACT.md",
+      "appendUtf8": "\nB4 RED substituted materialization text.\n",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "manifestTreatment": "rehashed_and_explicitly_repinned"
+    },
+    {
+      "caseId": "B4.R5.BIND.FREEZER",
+      "mutationMode": "append_verified_bytes_rehash_manifest_repin",
+      "logicalSlot": "HEARTH-003-r5-freeze-hashes.mjs",
+      "appendUtf8": "\n// B4 RED substituted freezer text.\n",
+      "expectedFailureCode": "AUTHORITY_BUNDLE_CROSS_BINDING_MISMATCH",
+      "expectedStage": "cross-binding",
+      "manifestTreatment": "rehashed_and_explicitly_repinned"
+    }
+  ],
+  "acceptance": {
+    "expectedCaseCount": 10,
+    "cleanActualR5ContractMustPass": true,
+    "cleanEffectiveContractMustPassBeforeEveryMutation": true,
+    "allSevenTypedFailureCodesMustFire": true,
+    "exactFailureCodeSetMustMatch": true,
+    "allFourClosureSlotsMustRejectIndependently": true,
+    "everyArtifactMutationMustUseCleanVerifiedBytes": true,
+    "unexpectedPass": "hard_fail",
+    "wrongFailureCodeOrStage": "hard_fail",
+    "anyRuntimeSideEffectAttempt": "hard_fail",
+    "receiptWriteOnlyAfterBarrierDisarmedFollowingSuiteValidation": true
+  },
+  "runtimeSideEffectContract": {
+    "armAfterAllImmutableInputsAreLoaded": true,
+    "keepArmedThroughAllCleanAndMutatedVerification": true,
+    "recordActualAttemptEvents": true,
+    "deniedCapabilities": [
+      "filesystem-mutation",
+      "child-process-or-seeder-start",
+      "database-via-network-or-subprocess",
+      "network",
+      "http",
+      "metrics-module-load-or-start"
+    ],
+    "allowedAfterSuccessfulSuiteValidation": [
+      "write-the-single-v2-self-test-receipt"
+    ]
+  }
+}

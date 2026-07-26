@@ -1,0 +1,411 @@
+{
+  "schemaVersion": 6,
+  "artifactKind": "hearth-search-authority-content-hashes",
+  "hashManifestVersion": "HEARTH-003-SHA256SUMS-v7",
+  "authority": "Apex Lumen",
+  "authoredOn": "2026-07-26",
+  "sourceRepositoryIdentity": "local read-only C3 product repository pinned by exact Git commit",
+  "sourceCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+  "contentHashAlgorithm": "SHA-256",
+  "canonicalTextHashAlgorithm": "strict UTF-8; CRLF and lone CR normalize to LF; terminal-newline and every other byte remain significant",
+  "canonicalJsonHashAlgorithms": [
+    {
+      "algorithmId": "canonical-json-keysort-no-lf-v1",
+      "definition": "SHA-256 over UTF-8 JSON.stringify after recursively sorting object keys; array order and JSON scalar semantics preserved; no trailing LF",
+      "defaultForBundleCanonicalJsonSha256": true
+    },
+    {
+      "algorithmId": "canonical-json-keysort-plus-one-lf-v1",
+      "definition": "SHA-256 over the same key-sorted JSON bytes followed by exactly one byte 0x0A",
+      "legacyFieldsOnly": [
+        "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3#/migrationPinSetSha256",
+        "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3#/inputHashes/physicalSeedPlanSha256"
+      ]
+    }
+  ],
+  "bundleContract": {
+    "artifact": "HEARTH-003-BUNDLE-CONTRACT-v2.json",
+    "canonicalTextSha256": "6f089224573cf089e7f7970eb00f8559ae3ed29909d7b7a3e71285c1f2c380eb",
+    "canonicalJsonSha256": "3858b8dabe71041677aaea18770bc6912d7aeb1f6d9c36f75b39211c120284b4",
+    "closedSlotCount": 37,
+    "identityAssertionCount": 36,
+    "crossBindingCount": 59,
+    "slotContentBindingCount": 4
+  },
+  "r5FixFirstBaseline": {
+    "authorityRevision": "HEARTH-003-r5",
+    "authorityCommit": "915b4354cdb41a75b98053b3db51226222d2718e",
+    "manifestCanonicalTextSha256": "fe1fdd3fb4e9624b32485bc7967f98c663ff3c3f311dca61d887243927776249",
+    "use": "opaque immutable input to the actual-r5 ten-case bundle RED only"
+  },
+  "hashPathInventory": [
+    {
+      "pathClass": "bundle-text-and-source",
+      "hashMode": "canonical-text",
+      "consumers": [
+        "r6 freezer",
+        "bundle verifier v2",
+        "R6 Authority Validation",
+        "Neural separate recomputation"
+      ],
+      "everySlotTestedWithLfCrLfAndCr": true,
+      "everySlotSubstantiveMutationChangedHash": true
+    },
+    {
+      "pathClass": "bundle-json",
+      "hashModes": [
+        "canonical-text",
+        "canonical-json-keysort-no-lf-v1"
+      ],
+      "everyJsonSlotUsesBothHashes": true
+    },
+    {
+      "pathClass": "legacy-physical-semantic-json",
+      "hashMode": "canonical-json-keysort-plus-one-lf-v1",
+      "bindingCount": 2,
+      "historicalValuesNotRepinned": true
+    },
+    {
+      "pathClass": "product-dependency-git-blobs",
+      "hashMode": "canonical-text then framed tree hash",
+      "productCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+      "fileCounts": [
+        18,
+        95,
+        113
+      ],
+      "entryLedgerRecomputedInBundle": "r6 materializer recomputes all three framed tree hashes from POLICY-DEPENDENCIES-v2 entry metadata",
+      "gitBlobVerificationBoundary": "the in-bundle recomputation does not reread dae27a4 Git blobs; Neural separate recomputation and eventual H4 read-path evidence retain that responsibility"
+    },
+    {
+      "pathClass": "postgres-function-definitions",
+      "hashMode": "pg_get_functiondef output with CRLF and lone CR normalized to LF",
+      "consumerFixOnly": true,
+      "frozenValueUnchanged": true
+    },
+    {
+      "pathClass": "future-raw-http-capture",
+      "hashMode": "exact bytes without normalization",
+      "excludedBecause": "NOT_YET_MEASURED"
+    },
+    {
+      "pathClass": "closed-root-manifest",
+      "hashMode": "canonical-text",
+      "selfExcluded": true,
+      "externalPinRequired": true
+    }
+  ],
+  "eolSensitiveComparisonInventory": {
+    "slotCount": 37,
+    "canonicalTextPaths": [
+      ".gitattributes",
+      "HEARTH-003-ACTOR-CLASSES-v2.json",
+      "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+      "HEARTH-003-AUTHORITATIVE-PREDICATES-v2.json",
+      "HEARTH-003-BUNDLE-CONTRACT-v2.json",
+      "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2.json",
+      "HEARTH-003-BUNDLE-MIXING-RED-v2.json",
+      "HEARTH-003-COVERAGE-v7.json",
+      "HEARTH-003-DELEGATION-MEASUREMENT-v2.json",
+      "HEARTH-003-DISCLOSURE-DRIFT-RED-CONTROLS-v1.json",
+      "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1.json",
+      "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+      "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "HEARTH-003-QRELS-v7.json",
+      "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+      "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "HEARTH-003-RESIDUAL-CONTINUITY-RED-v1.json",
+      "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "HEARTH-003-authority-bundle-verifier-v2.mjs",
+      "HEARTH-003-bundle-mixing-self-test-v2.mjs",
+      "HEARTH-003-disclosure-drift-checker.mjs",
+      "HEARTH-003-metric-satisfiability-v2.mjs",
+      "HEARTH-003-physical-domain-validator.ts",
+      "HEARTH-003-projection-authority-parser.ts",
+      "HEARTH-003-r6-GOLD-SET-AUTHORITY.md",
+      "HEARTH-003-r6-MATERIALIZATION-CONTRACT.md",
+      "HEARTH-003-r6-disclosure-drift-diff.ts",
+      "HEARTH-003-r6-freeze-hashes.mjs",
+      "HEARTH-003-r6-materialize-gold.mjs",
+      "HEARTH-003-residual-continuity.mjs"
+    ],
+    "everyPathTestedWithLfCrLfAndCr": true,
+    "everyPathSubstantiveMutationChangedHash": true,
+    "rawFutureCaptureDeliberatelyExcludedFromNormalization": true
+  },
+  "authorityValidation": {
+    "artifact": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+    "canonicalTextSha256": "267b09e34624fec7b6860a7fcfb7f4e51f0bf5e495cb79a8d11f13b3e04b7986",
+    "canonicalJsonSha256": "66d9f8e25aa85b829dfd13413dbe3867be01ec1496ffdda6eac096ab8af65185",
+    "outcome": "PASS_R6_AUTHORITY_PREMEASUREMENT_ONLY",
+    "implementationStatus": "NOT_YET_MEASURED"
+  },
+  "policyDependencies": {
+    "artifact": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+    "canonicalTextSha256": "f607df343bd8c1ffeb762b9b0462bb193650b17980abb53800fff3c5e088b1e6",
+    "canonicalJsonSha256": "a33ebf226f081f264c6d5e7e9a4ab0ac415303489d0b4dbebba4d2ac34141afc",
+    "sourceCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+    "applicationPolicyDependencySha256": "c440971239e10dc0b7d3a09646f2b3d71635c9f7d4b31e72e46b303e590ac1cf",
+    "migrationStateSha256": "0440365537129073377bbea05aa3b760f25573d4c008aab473b7f59e1072a585",
+    "completeDependencyTreeSha256": "bf76302b44c4ab3b5dab68270616dfa1a802f5720563008e3b56d2f09b585d1a"
+  },
+  "selfExcluded": "HEARTH-003-SHA256SUMS-v7.json",
+  "selfExclusionReason": "The manifest cannot contain its own hash without a fixed point. Neural records its canonical-text SHA-256 outside this bundle.",
+  "provenance": "Apex Lumen authored the authority. SHA-256, local unsigned Git history, and Neural separate recomputation provide accidental-drift evidence only. Real PKI or an append-only external anchor remains an owner decision.",
+  "globalMeasurementStatus": "NOT_YET_MEASURED",
+  "artifacts": [
+    {
+      "filename": ".gitattributes",
+      "contentKind": "text",
+      "canonicalByteLength": 52,
+      "canonicalTextSha256": "3c0bb26c86a826add28208478cb29a3167034f4073dbca0dd821d440045c80a6"
+    },
+    {
+      "filename": "HEARTH-003-ACTOR-CLASSES-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 9986,
+      "canonicalTextSha256": "e7892cee3e495798e61376acbab7d9981b1018716d747eb2675ac96bfaccb652",
+      "canonicalJsonSha256": "d9ad1724cc1cdaf5c9e6109c910329f218544d5970b91102d5ca846f89b6b072"
+    },
+    {
+      "filename": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 18120,
+      "canonicalTextSha256": "7e7adf1059ce89741a19885f52e30ae4baffc864eec3d286daa16c2f8630888a",
+      "canonicalJsonSha256": "af974e8b2eef5dd586c89a1e7d18b959d07b13e79fb299d205676c4ddfa965cf"
+    },
+    {
+      "filename": "HEARTH-003-AUTHORITATIVE-PREDICATES-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 20531,
+      "canonicalTextSha256": "1a5e5b98c9109a496a4c61cba88abaaf2478d817466afd1c389255f0db1adc93",
+      "canonicalJsonSha256": "570c2c32e869f59aa46dd1209dbbbd6fbde079bb4fee576dcb89d51620543be4"
+    },
+    {
+      "filename": "HEARTH-003-BUNDLE-CONTRACT-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 31672,
+      "canonicalTextSha256": "6f089224573cf089e7f7970eb00f8559ae3ed29909d7b7a3e71285c1f2c380eb",
+      "canonicalJsonSha256": "3858b8dabe71041677aaea18770bc6912d7aeb1f6d9c36f75b39211c120284b4"
+    },
+    {
+      "filename": "HEARTH-003-BUNDLE-MIXING-RED-SELF-TEST-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 30963,
+      "canonicalTextSha256": "336b6a5816f13799f1ca50372da3c34a7b9de535bd243f06855fd8a9e8901741",
+      "canonicalJsonSha256": "48aa2fdd08ad9e648fc8c2a6550b3f7d1f3c24e7a3200d8de47b104f7eda6b79"
+    },
+    {
+      "filename": "HEARTH-003-BUNDLE-MIXING-RED-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 8975,
+      "canonicalTextSha256": "7670b1ca9f256fbed3445a7af3fe1b2e6a22ef680f4fce6caefd0b0bb33ac420",
+      "canonicalJsonSha256": "b75fea2d886554319a880231b3ac72c40077f5ce82933131622ac4926feee410"
+    },
+    {
+      "filename": "HEARTH-003-COVERAGE-v7.json",
+      "contentKind": "json",
+      "canonicalByteLength": 16196,
+      "canonicalTextSha256": "2fa85c0b339000d75d22f95f6c8e8f714c5d62f1931ba148fe6e44a3580f3fd5",
+      "canonicalJsonSha256": "f6e3636d7d7aaae3f0e4f87b2ead2e1ecc8f2b63b1c9a45e8a596991884442cd"
+    },
+    {
+      "filename": "HEARTH-003-DELEGATION-MEASUREMENT-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 29761733,
+      "canonicalTextSha256": "aa7be994078641c5bed5b69a5b53d1e93f3c52de28ddabd039f970455d9c3faa",
+      "canonicalJsonSha256": "c885a22fa6f4743a16d69e83c98c15f018938f92e7de3e65edffceb789cc7298"
+    },
+    {
+      "filename": "HEARTH-003-DISCLOSURE-DRIFT-RED-CONTROLS-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 4971,
+      "canonicalTextSha256": "16134a92830f207d41f7609652001ee462a957cb058378fd39da3d49a0a9dff9",
+      "canonicalJsonSha256": "d1f5f258c7753fdff9171615bc497e4496bf8e0d089f8de411a7b30c94ba4075"
+    },
+    {
+      "filename": "HEARTH-003-DISCLOSURE-DRIFT-RED-SELF-TEST-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 3250,
+      "canonicalTextSha256": "44a4c05db8d9c4c05c23eef11aa1ba9f2c107e65cefe6bc29c7afbdfe4f98987",
+      "canonicalJsonSha256": "d6962bbd9dd4f15b64dc416148a3f9469e1b510501ef862fee71050365ede217"
+    },
+    {
+      "filename": "HEARTH-003-FIXTURE-CONTRACT-v5.json",
+      "contentKind": "json",
+      "canonicalByteLength": 4212206,
+      "canonicalTextSha256": "f940cc713d8f507faa1c32c0781f7a1aa5d13fb5d558defa8540857fbc191052",
+      "canonicalJsonSha256": "25dd2e8b90fd119f8197f2d61650a57c5339306620515bf911b29ec58d1613bf"
+    },
+    {
+      "filename": "HEARTH-003-H4-BASELINE-TRUST-CHAIN-v3.json",
+      "contentKind": "json",
+      "canonicalByteLength": 29262,
+      "canonicalTextSha256": "6b500b3928352ec3ec9af40555988583051d2669aa0e662411f07c69c1f19fdd",
+      "canonicalJsonSha256": "71adc861e2a620dc7d5395edf3a4969042cab9e2b2925097f74563943f5e2394"
+    },
+    {
+      "filename": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 11619,
+      "canonicalTextSha256": "9a3c697aab8606aaa724a4a352793d348b5612b3a9705ef61c08f32ffed418fa",
+      "canonicalJsonSha256": "960e382273ddf4e862e3cd0ad5bff0515b8f04b013e0f06b285030acf841f533"
+    },
+    {
+      "filename": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 10210,
+      "canonicalTextSha256": "9c64a302de56c6bb3f56477b5884c3dea9e503f8575f24920e6b7b100866aba4",
+      "canonicalJsonSha256": "29b19fd6a0313977c0cbce0ea9db43d3f0f9a150413112f591c8e6f9d484eb7a"
+    },
+    {
+      "filename": "HEARTH-003-METRIC-SATISFIABILITY-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 24160,
+      "canonicalTextSha256": "4abbb4dcf482cb4f047b95a6961ad2ba61fd854935ddc93489b30e871bff384c",
+      "canonicalJsonSha256": "0554ceadac6c76c5a0d8409e882a0aeafd280459779dc41d15e84c28744da14d"
+    },
+    {
+      "filename": "HEARTH-003-PHYSICAL-DOMAIN-MANIFEST-v3.json",
+      "contentKind": "json",
+      "canonicalByteLength": 447148,
+      "canonicalTextSha256": "82e1ec8a2fb6e8ac346d70bf37b7dcc5c5ce1c016e4af03990672aa968f3fbce",
+      "canonicalJsonSha256": "492ee6dc4204cfcac6942bcc99e7eebb7f7e89d3e8b0ebfeca4d820909d13f5b"
+    },
+    {
+      "filename": "HEARTH-003-PHYSICAL-DOMAIN-VALIDATION-v3.json",
+      "contentKind": "json",
+      "canonicalByteLength": 18863,
+      "canonicalTextSha256": "b9e9295c4be1c4101b7380aee7b44f12ebd6bdcb25ea5e00c50040d19f0af834",
+      "canonicalJsonSha256": "762dd8ea1d55caab06f252b00bcd9f3a974b35b251c593c3f53d3e8364d7f153"
+    },
+    {
+      "filename": "HEARTH-003-POLICY-DEPENDENCIES-v2.json",
+      "contentKind": "json",
+      "canonicalByteLength": 118746,
+      "canonicalTextSha256": "f607df343bd8c1ffeb762b9b0462bb193650b17980abb53800fff3c5e088b1e6",
+      "canonicalJsonSha256": "a33ebf226f081f264c6d5e7e9a4ab0ac415303489d0b4dbebba4d2ac34141afc"
+    },
+    {
+      "filename": "HEARTH-003-QRELS-v7.json",
+      "contentKind": "json",
+      "canonicalByteLength": 567675,
+      "canonicalTextSha256": "bcfdfdde7bba2c13a227fd8b264204c9fdb5c87068d8b09d2c575b0a52eb50c2",
+      "canonicalJsonSha256": "7ccd2b04af5968dbd1fbbe8044ddf61f1e4380c8ac351e4f5dfce1a05a715c8d"
+    },
+    {
+      "filename": "HEARTH-003-R6-AUTHORITY-VALIDATION-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 10203,
+      "canonicalTextSha256": "267b09e34624fec7b6860a7fcfb7f4e51f0bf5e495cb79a8d11f13b3e04b7986",
+      "canonicalJsonSha256": "66d9f8e25aa85b829dfd13413dbe3867be01ec1496ffdda6eac096ab8af65185"
+    },
+    {
+      "filename": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 3927,
+      "canonicalTextSha256": "ccc73b9d77dbbac622e723d2a81d06d3b79e95992573b659cadcd88ccaac8242",
+      "canonicalJsonSha256": "1c7398093d3f55e124281d6b811fa2f251558bd47c186abd626797a71827aa06"
+    },
+    {
+      "filename": "HEARTH-003-RESIDUAL-CONTINUITY-RED-SELF-TEST-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 5730,
+      "canonicalTextSha256": "d0e5346a75093827611178ef70c9be5a59ef52d6ee11063548beb1d77c2e3b56",
+      "canonicalJsonSha256": "5054d2e48b50599ddcc0b1515e3f65fc36d93bdb940211c936466d5cbbe6572c"
+    },
+    {
+      "filename": "HEARTH-003-RESIDUAL-CONTINUITY-RED-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 2517,
+      "canonicalTextSha256": "dee38d060dff51ecb604003a53bac459b5a4f2bdc87cf6315d4b0a73f3d540de",
+      "canonicalJsonSha256": "4a9277063ee5e709aff239d988cd78d3470cc43fcaf129598725cf72906ac510"
+    },
+    {
+      "filename": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+      "contentKind": "json",
+      "canonicalByteLength": 27637,
+      "canonicalTextSha256": "4dba9f2b89d5f2d24b1e815471d06d050eb04fbe6f9c77a6b17ffb5230247e48",
+      "canonicalJsonSha256": "d11dcae9e0b70709821bbcdfee20e7a371c1308f1b8fc0080ce3ff16988db6e0"
+    },
+    {
+      "filename": "HEARTH-003-authority-bundle-verifier-v2.mjs",
+      "contentKind": "text",
+      "canonicalByteLength": 15465,
+      "canonicalTextSha256": "7b7a6ebe0041beb284b37c99f37576fee4798fcef1f2bfe2765803c8736bd81d"
+    },
+    {
+      "filename": "HEARTH-003-bundle-mixing-self-test-v2.mjs",
+      "contentKind": "text",
+      "canonicalByteLength": 30831,
+      "canonicalTextSha256": "abc9261cdd20bd54cbc135ed9b1d262c1c74175860f92985187b8a4c9af278ff"
+    },
+    {
+      "filename": "HEARTH-003-disclosure-drift-checker.mjs",
+      "contentKind": "text",
+      "canonicalByteLength": 25062,
+      "canonicalTextSha256": "bac369e9f92e27daae4f70b63467724ebba0e91a6a4cdd9e32b0043283436554"
+    },
+    {
+      "filename": "HEARTH-003-metric-satisfiability-v2.mjs",
+      "contentKind": "text",
+      "canonicalByteLength": 32147,
+      "canonicalTextSha256": "2df4d7559b099182a2b46c0ee197f9b69ac8b74afcd8a8c3875bc726f1b2bb39"
+    },
+    {
+      "filename": "HEARTH-003-physical-domain-validator.ts",
+      "contentKind": "text",
+      "canonicalByteLength": 198300,
+      "canonicalTextSha256": "105b3c52a3270f98dee0337b207281c679047c198106b18f6398db5360e448aa"
+    },
+    {
+      "filename": "HEARTH-003-projection-authority-parser.ts",
+      "contentKind": "text",
+      "canonicalByteLength": 51128,
+      "canonicalTextSha256": "eefb34a26b70bb1740f4e7e1cf39919f14ad13da8cc410d289c3cc4a8a4376c6"
+    },
+    {
+      "filename": "HEARTH-003-r6-GOLD-SET-AUTHORITY.md",
+      "contentKind": "text",
+      "canonicalByteLength": 8808,
+      "canonicalTextSha256": "44490ceae5863be3a8618145ec4a7304092b88c15c4110f150dc26891faecfba"
+    },
+    {
+      "filename": "HEARTH-003-r6-MATERIALIZATION-CONTRACT.md",
+      "contentKind": "text",
+      "canonicalByteLength": 5614,
+      "canonicalTextSha256": "a9997e188e98ae861ebb1fc53e0dff0dc506303c4c82a42a0bb38f9f7637b2d4"
+    },
+    {
+      "filename": "HEARTH-003-r6-disclosure-drift-diff.ts",
+      "contentKind": "text",
+      "canonicalByteLength": 15343,
+      "canonicalTextSha256": "9bca9e02489edf3008684f335c76f0273f3d614265eac14361a97a04471b9a3a"
+    },
+    {
+      "filename": "HEARTH-003-r6-freeze-hashes.mjs",
+      "contentKind": "text",
+      "canonicalByteLength": 12257,
+      "canonicalTextSha256": "2cdbdc5bf83d7fa6bde5a50cd7fd920c5d087ea1e82665da79da30650ff2a752"
+    },
+    {
+      "filename": "HEARTH-003-r6-materialize-gold.mjs",
+      "contentKind": "text",
+      "canonicalByteLength": 27292,
+      "canonicalTextSha256": "2a15c41f6e7d4f0e8cccb58510e2611261f8060612df49cf570e1d1f629c8e37"
+    },
+    {
+      "filename": "HEARTH-003-residual-continuity.mjs",
+      "contentKind": "text",
+      "canonicalByteLength": 14431,
+      "canonicalTextSha256": "d63093ed0835c280e7698a19a5be9a80077259984eb6835060825f12acaf5cca"
+    }
+  ]
+}

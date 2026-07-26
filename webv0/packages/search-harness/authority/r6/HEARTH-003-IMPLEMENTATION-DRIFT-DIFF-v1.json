@@ -1,0 +1,361 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-implementation-drift-diff",
+  "diffVersion": "HEARTH-003-IMPLEMENTATION-DRIFT-DIFF-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "overallOutcome": "PASS_PINNED_BASELINE_RECONSTRUCTION_EQUAL",
+  "claimBoundary": "This receipt proves that B0 reconstructs the dae27a4 implementation baseline over the stated bounded universe. It proves drift sensitivity and equality only. It does not prove authorization, correctness, completeness, leak safety, or a separate disclosure specification.",
+  "baselineIdentity": {
+    "artifact": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1.json",
+    "canonicalTextSha256": "4dba9f2b89d5f2d24b1e815471d06d050eb04fbe6f9c77a6b17ffb5230247e48",
+    "productCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+    "historicalTranscriptAuthorityCommit": "1dd953e91907482f3c70b4beba17a7e81cd80662",
+    "historicalTranscriptFilename": "HEARTH-003-APPROVED-DISCLOSURE-PREDICATES-v2.json",
+    "historicalTranscriptCanonicalTextSha256": "8810f8ebf378e6c64ef55441af36812dd055e4de79bd8e5c38d4ca3857736bcb"
+  },
+  "productInputs": {
+    "searchSqlPath": "webv0/packages/persistence/src/searchSql.ts",
+    "searchSqlCanonicalTextSha256": "12268c46c2336e6abbbe7f671a540cb3dd2167741e196a03641ba037ef4de1a1",
+    "searchUsecasePath": "webv0/packages/application/src/usecases/search.ts",
+    "searchUsecaseCanonicalTextSha256": "05b99eddfa76f49d0e6f6bf5f2d40f2ef5fca3561a4680456ab968950d7ad0cf",
+    "parserVersion": "HEARTH-003-PROJECTION-AUTHORITY-PARSER-v2",
+    "typescriptVersion": "5.9.3",
+    "parserCombinedSemanticSha256": "dafed5fc89426a723a0f78b2fe1b234900b7c116a0676dabcfe5d43dafc96812"
+  },
+  "authorityInputHashes": {
+    "authoritativePredicatesCanonicalTextSha256": "1a5e5b98c9109a496a4c61cba88abaaf2478d817466afd1c389255f0db1adc93",
+    "actorClassesCanonicalTextSha256": "e7892cee3e495798e61376acbab7d9981b1018716d747eb2675ac96bfaccb652",
+    "fieldScopeCanonicalTextSha256": "7e7adf1059ce89741a19885f52e30ae4baffc864eec3d286daa16c2f8630888a",
+    "fixtureCanonicalTextSha256": "f940cc713d8f507faa1c32c0781f7a1aa5d13fb5d558defa8540857fbc191052",
+    "delegationMeasurementCanonicalTextSha256": "aa7be994078641c5bed5b69a5b53d1e93f3c52de28ddabd039f970455d9c3faa",
+    "driftReceiptCanonicalTextSha256": "44a4c05db8d9c4c05c23eef11aa1ba9f2c107e65cefe6bc29c7afbdfe4f98987",
+    "physicalValidationCanonicalTextSha256": "b9e9295c4be1c4101b7380aee7b44f12ebd6bdcb25ea5e00c50040d19f0af834",
+    "diffSourceCanonicalTextSha256": "9bca9e02489edf3008684f335c76f0273f3d614265eac14361a97a04471b9a3a"
+  },
+  "sourceBaselineReconstruction": {
+    "comparisonUniverse": "140 exact actor profiles x 356 exact fixtures",
+    "observationCount": 49840,
+    "baselineIncludedObservationCount": 19130,
+    "mismatchCount": 0,
+    "outcome": "PINNED_BASELINE_EQUAL",
+    "interpretation": "The 49,840 observations compare B0 with the immutable historical implementation transcript. They prove reconstruction equality, not disclosure authority."
+  },
+  "matchFieldBaselineReconstruction": {
+    "sourceDerivedRegisterCount": 17,
+    "sourceDerivedPhysicalMatchFieldCount": 64,
+    "baselineLogicalMatchFieldCount": 64,
+    "mismatchRegisterCount": 0,
+    "outcome": "PINNED_BASELINE_EQUAL",
+    "perRegister": [
+      {
+        "register": "person",
+        "baselineFields": [
+          "personId:E",
+          "fullName:L",
+          "ign:L",
+          "personnelCode:E"
+        ],
+        "implementationFields": [
+          "personId:E",
+          "fullName:L",
+          "ign:L",
+          "personnelCode:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "mission",
+        "baselineFields": [
+          "missionId:E",
+          "name:L",
+          "code:E",
+          "organizer:L",
+          "city:L"
+        ],
+        "implementationFields": [
+          "missionId:E",
+          "name:L",
+          "code:E",
+          "organizer:L",
+          "city:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "agreement",
+        "baselineFields": [
+          "agreementId:E",
+          "agreementCode:E",
+          "agreementType:L",
+          "personId:E",
+          "entityId:E"
+        ],
+        "implementationFields": [
+          "agreementId:E",
+          "agreementCode:E",
+          "agreementType:L",
+          "personId:E",
+          "entityId:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "entity",
+        "baselineFields": [
+          "entityId:E",
+          "name:L",
+          "code:E",
+          "jurisdiction:L"
+        ],
+        "implementationFields": [
+          "entityId:E",
+          "name:L",
+          "code:E",
+          "jurisdiction:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "credential",
+        "baselineFields": [
+          "credentialId:E",
+          "credentialType:L",
+          "personId:E",
+          "issuer:L"
+        ],
+        "implementationFields": [
+          "credentialId:E",
+          "credentialType:L",
+          "personId:E",
+          "issuer:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "journey",
+        "baselineFields": [
+          "journeyId:E",
+          "title:L",
+          "journeyType:L",
+          "personId:E"
+        ],
+        "implementationFields": [
+          "journeyId:E",
+          "title:L",
+          "journeyType:L",
+          "personId:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "kit",
+        "baselineFields": [
+          "kitId:E",
+          "name:L",
+          "category:L",
+          "assignedPersonId:E"
+        ],
+        "implementationFields": [
+          "kitId:E",
+          "name:L",
+          "category:L",
+          "assignedPersonId:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "apparel",
+        "baselineFields": [
+          "apparelId:E",
+          "name:L",
+          "category:L",
+          "assignedPersonId:E"
+        ],
+        "implementationFields": [
+          "apparelId:E",
+          "name:L",
+          "category:L",
+          "assignedPersonId:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "approval",
+        "baselineFields": [
+          "approvalId:E",
+          "operationType:L",
+          "targetPersonId:E",
+          "targetId:E"
+        ],
+        "implementationFields": [
+          "approvalId:E",
+          "operationType:L",
+          "targetPersonId:E",
+          "targetId:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "team",
+        "baselineFields": [
+          "teamId:E",
+          "name:L",
+          "code:E",
+          "gameTitle:L"
+        ],
+        "implementationFields": [
+          "teamId:E",
+          "name:L",
+          "code:E",
+          "gameTitle:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "invoice",
+        "baselineFields": [
+          "invoiceId:E",
+          "invoiceNumber:E",
+          "billedToName:L"
+        ],
+        "implementationFields": [
+          "invoiceId:E",
+          "invoiceNumber:E",
+          "billedToName:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "claim",
+        "baselineFields": [
+          "claimId:E",
+          "description:N",
+          "category:L"
+        ],
+        "implementationFields": [
+          "claimId:E",
+          "description:N",
+          "category:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "distribution",
+        "baselineFields": [
+          "distributionId:E",
+          "missionId:E",
+          "lineId:E"
+        ],
+        "implementationFields": [
+          "distributionId:E",
+          "missionId:E",
+          "lineId:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "document",
+        "baselineFields": [
+          "documentId:E",
+          "fileName:L",
+          "label:L"
+        ],
+        "implementationFields": [
+          "documentId:E",
+          "fileName:L",
+          "label:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "term",
+        "baselineFields": [
+          "termId:E",
+          "kind:L",
+          "label:N",
+          "agreementId:E"
+        ],
+        "implementationFields": [
+          "termId:E",
+          "kind:L",
+          "label:N",
+          "agreementId:E"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "line",
+        "baselineFields": [
+          "lineId:E",
+          "refNo:N",
+          "label:L"
+        ],
+        "implementationFields": [
+          "lineId:E",
+          "refNo:N",
+          "label:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      },
+      {
+        "register": "beneficiary",
+        "baselineFields": [
+          "beneficiaryId:E",
+          "label:L",
+          "bankName:L"
+        ],
+        "implementationFields": [
+          "beneficiaryId:E",
+          "label:L",
+          "bankName:L"
+        ],
+        "implementationOutsideBaseline": [],
+        "baselineOutsideImplementation": [],
+        "outcome": "PINNED_BASELINE_EQUAL"
+      }
+    ]
+  },
+  "projectionBaselineReconstruction": {
+    "logicalRecipeToFixtureBaselineProjectionCount": 356,
+    "livePostgresSourceDerivedNaturalIncludedCount": 353,
+    "livePostgresStaticGuardExcludedCount": 3,
+    "separateStaticGuardNegativeControlCount": 3,
+    "oppositeTenantRlsDenialCount": 356,
+    "outcome": "PINNED_BASELINE_EQUAL",
+    "scope": "The JavaScript checker and the r4 PostgreSQL report are dual execution implementations over shared baseline recipes. Physical Validation v3 remains an r4-era report and does not prove B0 authorization or re-earn r6 policy semantics."
+  },
+  "noDecisionStatement": "No output of this diff authorizes disclosure, changes a product gate, starts H4, or upgrades NOT_YET_MEASURED."
+}

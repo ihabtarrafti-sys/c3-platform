@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-residual-continuity-red-plan",
+  "redPlanVersion": "HEARTH-003-RESIDUAL-CONTINUITY-RED-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "ledgerArtifact": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+  "contractArtifact": "HEARTH-003-RESIDUAL-CONTINUITY-CONTRACT-v1.json",
+  "cleanPassRequiredBeforeEveryMutation": true,
+  "cases": [
+    {
+      "caseId": "B5.R3.HOLLOW_STATEMENT",
+      "mutationMode": "replace_field",
+      "group": "inheritedR3Residuals",
+      "residualId": "R3-RES-01-PER_DIEM",
+      "field": "statement",
+      "replacementValue": "A residual remains open.",
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH"
+    },
+    {
+      "caseId": "B5.R3.HOLLOW_REQUIRED_MODEL",
+      "mutationMode": "replace_field",
+      "group": "inheritedR3Residuals",
+      "residualId": "R3-RES-01-PER_DIEM",
+      "field": "requiredFutureModel",
+      "replacementValue": [],
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH"
+    },
+    {
+      "caseId": "B5.R4.GENERIC_REWRITE",
+      "mutationMode": "replace_field",
+      "group": "r4DisposableValidatorResiduals",
+      "residualId": "R4-VAL-04-NO-WITH-CHECK-NEGATIVE",
+      "field": "statement",
+      "replacementValue": "A validator limitation remains.",
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH"
+    },
+    {
+      "caseId": "B5.R5.HOLLOW_STATEMENT",
+      "mutationMode": "replace_field",
+      "group": "r5ForwardResiduals",
+      "residualId": "R5-RES-01-TERM_LABEL",
+      "field": "statement",
+      "replacementValue": "A residual remains open.",
+      "expectedFailureCode": "RESIDUAL_CONTENT_MISMATCH"
+    },
+    {
+      "caseId": "B5.R4.MISSING_MEMBER",
+      "mutationMode": "remove_item",
+      "group": "r4DisposableValidatorResiduals",
+      "residualId": "R4-VAL-08-DATE-BOUNDARY-UNPROVEN",
+      "expectedFailureCode": "RESIDUAL_MEMBERSHIP_MISMATCH"
+    },
+    {
+      "caseId": "B5.DUPLICATE_ID",
+      "mutationMode": "duplicate_item",
+      "group": "r5ForwardResiduals",
+      "residualId": "R5-RES-02-LINE_REFNO",
+      "expectedFailureCode": "RESIDUAL_DUPLICATE_ID"
+    }
+  ],
+  "requiredFailureCodes": [
+    "RESIDUAL_CONTENT_MISMATCH",
+    "RESIDUAL_DUPLICATE_ID",
+    "RESIDUAL_MEMBERSHIP_MISMATCH"
+  ],
+  "sideEffectRule": {
+    "barrier": "deny_by_construction_reference_verifier",
+    "seed": "unavailable",
+    "database": "unavailable",
+    "network": "unavailable",
+    "http": "unavailable",
+    "metrics": "unavailable"
+  }
+}

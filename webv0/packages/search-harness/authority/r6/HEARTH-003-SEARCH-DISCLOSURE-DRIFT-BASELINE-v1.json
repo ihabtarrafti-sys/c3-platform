@@ -1,0 +1,743 @@
+{
+  "schemaVersion": 1,
+  "artifactKind": "hearth-search-disclosure-drift-baseline",
+  "driftBaselineVersion": "HEARTH-003-SEARCH-DISCLOSURE-DRIFT-BASELINE-v1",
+  "sourceSetVersion": "HEARTH-003-B0-SOURCE-BASELINE-v1",
+  "fieldSetVersion": "HEARTH-003-B0-FIELD-BASELINE-v1",
+  "projectionSetVersion": "HEARTH-003-B0-PROJECTION-BASELINE-v1",
+  "syntheticOnly": true,
+  "authority": "Apex Lumen",
+  "actorClassArtifact": "HEARTH-003-ACTOR-CLASSES-v2.json",
+  "authoritativePredicateArtifact": "HEARTH-003-AUTHORITATIVE-PREDICATES-v2.json",
+  "authoritativeFieldScopeArtifact": "HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+  "inheritedResidualArtifact": "HEARTH-003-INHERITED-RESIDUALS-v2.json",
+  "baselineLineage": {
+    "productCommit": "dae27a400868c0c686788ab8e5520690dbf77334",
+    "implementationSources": [
+      "webv0/packages/application/src/usecases/search.ts",
+      "webv0/packages/persistence/src/searchSql.ts",
+      "REGISTER_SPECS",
+      "DOMAIN_SPECS",
+      "HEARTH-003-APPROVED-DISCLOSURE-PREDICATES-v2.json",
+      "qrelPhysicalFieldBindings"
+    ],
+    "reconstructionFinding": "The 64 mayMatch fields and 68 projection expressions are exact order-preserving reconstructions of the C3 search implementation pinned at dae27a4. The source visibility matrix is extensionally equal to the pinned implementation transcript over the frozen actor/fixture universe.",
+    "specificationStatus": "The implementation is the only extant specification of this source, field, and projection set.",
+    "comparisonRule": "Future implementation bytes are compared with this frozen reconstruction for movement from dae27a4.",
+    "noOracleClaim": "This artifact is not a disclosure oracle and cannot establish that the pinned implementation is authorized, correct, complete, or backed by a separate authority source."
+  },
+  "coverageBound": "B0/O0 classifies the explicitly bounded 17-kind synthetic measurement universe and declared canaries only for equality or movement relative to dae27a4. Coverage does not establish authorization, correctness, completeness, or a C3 register/API disclosure ceiling.",
+  "baselineSemantics": {
+    "B0": "For actor profile a, B0(a) is the source, field, and projection set reconstructed from the C3 search implementation pinned at dae27a4.",
+    "O0": "O0(a) is the remainder of the explicitly bounded 17-kind synthetic measurement universe.",
+    "outsideB0": "baseline_drift_finding",
+    "insideB0": "equal_to_pinned_baseline_only",
+    "permanentLimit": "Inside B0 is not evidence that the baseline is authorized, correct, complete, leak-free, or backed by a separate authority source."
+  },
+  "compositionRule": {
+    "baselineIncludedSource": "authoritativePredicates.registers[register].readableWhen AND registers[register].baselineNarrowing, reconstructed as the dae27a4 baseline",
+    "baselineOutsideSource": "NOT baselineIncludedSource",
+    "deriveFactsFrom": "raw source rows, raw dependency rows, and frozen actor facts only",
+    "runtimeDriftCheckerMustNotTrust": [
+      "fixture.rowFacts visibility labels",
+      "seeder-authored allowed flags",
+      "search result snapshots as expected truth"
+    ],
+    "missingFact": false,
+    "unknownRegister": "hard_fail",
+    "unknownOwnerType": "false",
+    "unknownRecordKind": "false",
+    "duplicateDependency": "hard_fail",
+    "missingDeclaredBaselineDependency": "hard_fail",
+    "deliberatelyOmittedCounterfactualDependency": "false"
+  },
+  "narrowingDsl": {
+    "closedOperators": [
+      "true",
+      "false",
+      "all",
+      "any",
+      "not",
+      "role_in",
+      "fact_eq",
+      "owner_dispatch"
+    ],
+    "roleSetsFrom": "HEARTH-003-ACTOR-CLASSES-v2.json",
+    "noImplicitCoercion": true
+  },
+  "projectionDsl": {
+    "closedOperators": [
+      "literal",
+      "field",
+      "coalesce",
+      "concat_ws",
+      "null_if_empty",
+      "concat",
+      "null"
+    ],
+    "fieldNamespace": "logical DTO fields recorded in HEARTH-003-AUTHORITATIVE-FIELD-SCOPE-v1.json",
+    "missingField": "hard_fail",
+    "coalesce": "Return the first value that is not null. Empty string is not null and is preserved.",
+    "concat_ws": "Use the exact separator; skip null values only; preserve empty strings; return a string.",
+    "null_if_empty": "Convert only the exact empty string to null.",
+    "concat": "Concatenate every operand after requiring each operand to be a non-null string.",
+    "null": "Return JSON null.",
+    "noImplicitCoercion": true
+  },
+  "fieldClassificationRule": {
+    "boundedUniverse": "Every physical column in the 17 baseline source tables is enumerated from the pinned catalog and classified exactly once for B0/O0 drift comparison.",
+    "mayMatch": "Logical fields reconstructed as match inputs at dae27a4.",
+    "mayProject": "Logical fields reached by the projection recipes reconstructed at dae27a4.",
+    "gateOrRankOnly": "Predicate, join, active-state, owner, parent, status, and rank-control fields may be consumed internally but never become a match reason or serialized value unless separately listed.",
+    "unlistedLogicalOrPhysicalField": {
+      "mayMatch": false,
+      "mayProject": false,
+      "serializable": false
+    },
+    "outsideBaselineMatchUse": "BASELINE_MATCH_FIELD_DRIFT",
+    "outsideBaselineProjectionUse": "BASELINE_PROJECTION_FIELD_DRIFT",
+    "unknownResponseKey": "BASELINE_RESPONSE_SHAPE_DRIFT"
+  },
+  "responseShape": {
+    "rootOnlyKeys": [
+      "results"
+    ],
+    "resultOnlyKeys": [
+      "kind",
+      "id",
+      "title",
+      "subtitle",
+      "parentId"
+    ],
+    "sourceIdentityKey": [
+      "actor.tenantSlot",
+      "result.kind",
+      "result.id",
+      "resolved.recordKind"
+    ],
+    "publicProvenanceOmits": [
+      "tenantSlot",
+      "rawMatchedValue",
+      "rawQueryText",
+      "rawProjectionInputs"
+    ],
+    "exactProjectionRule": "Every result object must byte-value equal the five-field publicProjection computed for its uniquely resolved source. An allowed source with any different public value is a field failure."
+  },
+  "registers": {
+    "person": {
+      "authoritativeReadableRef": "person.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "personId", "class": "E" },
+        { "field": "fullName", "class": "L" },
+        { "field": "ign", "class": "L" },
+        { "field": "personnelCode", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "person" },
+        "id": { "op": "field", "path": "personId" },
+        "title": { "op": "field", "path": "fullName" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "ign" },
+              { "op": "field", "path": "currentTeam" }
+            ]
+          }
+        },
+        "parentId": { "op": "null" }
+      }
+    },
+    "mission": {
+      "authoritativeReadableRef": "mission.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "missionId", "class": "E" },
+        { "field": "name", "class": "L" },
+        { "field": "code", "class": "E" },
+        { "field": "organizer", "class": "L" },
+        { "field": "city", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "mission" },
+        "id": { "op": "field", "path": "missionId" },
+        "title": { "op": "field", "path": "name" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "code" },
+              { "op": "field", "path": "city" }
+            ]
+          }
+        },
+        "parentId": { "op": "null" }
+      }
+    },
+    "agreement": {
+      "authoritativeReadableRef": "agreement.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "AGREEMENT"
+      },
+      "mayMatch": [
+        { "field": "agreementId", "class": "E" },
+        { "field": "agreementCode", "class": "E" },
+        { "field": "agreementType", "class": "L" },
+        { "field": "personId", "class": "E" },
+        { "field": "entityId", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "agreement" },
+        "id": { "op": "field", "path": "agreementId" },
+        "title": {
+          "op": "coalesce",
+          "args": [
+            { "op": "field", "path": "agreementCode" },
+            { "op": "field", "path": "agreementId" }
+          ]
+        },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "agreementType" },
+              {
+                "op": "coalesce",
+                "args": [
+                  { "op": "field", "path": "personId" },
+                  { "op": "field", "path": "entityId" }
+                ]
+              }
+            ]
+          }
+        },
+        "parentId": { "op": "null" }
+      }
+    },
+    "entity": {
+      "authoritativeReadableRef": "entity.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "entityId", "class": "E" },
+        { "field": "name", "class": "L" },
+        { "field": "code", "class": "E" },
+        { "field": "jurisdiction", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "entity" },
+        "id": { "op": "field", "path": "entityId" },
+        "title": { "op": "field", "path": "name" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "code" },
+              { "op": "field", "path": "jurisdiction" }
+            ]
+          }
+        },
+        "parentId": { "op": "null" }
+      }
+    },
+    "credential": {
+      "authoritativeReadableRef": "credential.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "credentialId", "class": "E" },
+        { "field": "credentialType", "class": "L" },
+        { "field": "personId", "class": "E" },
+        { "field": "issuer", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "credential" },
+        "id": { "op": "field", "path": "credentialId" },
+        "title": { "op": "field", "path": "credentialType" },
+        "subtitle": { "op": "field", "path": "personId" },
+        "parentId": { "op": "field", "path": "personId" }
+      }
+    },
+    "journey": {
+      "authoritativeReadableRef": "journey.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "journeyId", "class": "E" },
+        { "field": "title", "class": "L" },
+        { "field": "journeyType", "class": "L" },
+        { "field": "personId", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "journey" },
+        "id": { "op": "field", "path": "journeyId" },
+        "title": {
+          "op": "coalesce",
+          "args": [
+            { "op": "field", "path": "title" },
+            { "op": "field", "path": "journeyType" }
+          ]
+        },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "journeyType" },
+              { "op": "field", "path": "personId" }
+            ]
+          }
+        },
+        "parentId": { "op": "field", "path": "personId" }
+      }
+    },
+    "kit": {
+      "authoritativeReadableRef": "kit.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "kitId", "class": "E" },
+        { "field": "name", "class": "L" },
+        { "field": "category", "class": "L" },
+        { "field": "assignedPersonId", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "kit" },
+        "id": { "op": "field", "path": "kitId" },
+        "title": { "op": "field", "path": "name" },
+        "subtitle": { "op": "field", "path": "assignedPersonId" },
+        "parentId": { "op": "field", "path": "assignedPersonId" }
+      }
+    },
+    "apparel": {
+      "authoritativeReadableRef": "apparel.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "apparelId", "class": "E" },
+        { "field": "name", "class": "L" },
+        { "field": "category", "class": "L" },
+        { "field": "assignedPersonId", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "apparel" },
+        "id": { "op": "field", "path": "apparelId" },
+        "title": { "op": "field", "path": "name" },
+        "subtitle": { "op": "field", "path": "assignedPersonId" },
+        "parentId": { "op": "field", "path": "assignedPersonId" }
+      }
+    },
+    "approval": {
+      "authoritativeReadableRef": "approval.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "APPROVAL_BASE"
+      },
+      "mayMatch": [
+        { "field": "approvalId", "class": "E" },
+        { "field": "operationType", "class": "L" },
+        { "field": "targetPersonId", "class": "E" },
+        { "field": "targetId", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "approval" },
+        "id": { "op": "field", "path": "approvalId" },
+        "title": { "op": "field", "path": "operationType" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "status" },
+              { "op": "field", "path": "targetPersonId" }
+            ]
+          }
+        },
+        "parentId": { "op": "null" }
+      },
+      "narrowingReason": "Delegated authoritative reads remain a visible recall ceiling; approval search disclosure stays owner/operations only."
+    },
+    "team": {
+      "authoritativeReadableRef": "team.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "ALL"
+      },
+      "mayMatch": [
+        { "field": "teamId", "class": "E" },
+        { "field": "name", "class": "L" },
+        { "field": "code", "class": "E" },
+        { "field": "gameTitle", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "team" },
+        "id": { "op": "field", "path": "teamId" },
+        "title": { "op": "field", "path": "name" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "code" },
+              { "op": "field", "path": "kind" }
+            ]
+          }
+        },
+        "parentId": { "op": "null" }
+      }
+    },
+    "invoice": {
+      "authoritativeReadableRef": "invoice.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "FINANCIAL"
+      },
+      "mayMatch": [
+        { "field": "invoiceId", "class": "E" },
+        { "field": "invoiceNumber", "class": "E" },
+        { "field": "billedToName", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "invoice" },
+        "id": { "op": "field", "path": "invoiceId" },
+        "title": { "op": "field", "path": "invoiceNumber" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "billedToName" },
+              { "op": "field", "path": "status" }
+            ]
+          }
+        },
+        "parentId": { "op": "field", "path": "missionId" }
+      }
+    },
+    "claim": {
+      "authoritativeReadableRef": "claim.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "CLAIM_SUBMITTER"
+      },
+      "mayMatch": [
+        { "field": "claimId", "class": "E" },
+        {
+          "field": "description",
+          "class": "N",
+          "exception": "R5-H0H4-CLAIM-DESCRIPTION"
+        },
+        { "field": "category", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "claim" },
+        "id": { "op": "field", "path": "claimId" },
+        "title": { "op": "field", "path": "description" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "category" },
+              { "op": "field", "path": "status" }
+            ]
+          }
+        },
+        "parentId": { "op": "null" }
+      },
+      "narrowingReason": "Finance/management authoritative reads stay a visible recall ceiling. HR remains allowed only when authoritative claim ownership resolves to the actor."
+    },
+    "distribution": {
+      "authoritativeReadableRef": "distribution.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "FINANCIAL"
+      },
+      "mayMatch": [
+        { "field": "distributionId", "class": "E" },
+        { "field": "missionId", "class": "E" },
+        { "field": "lineId", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "distribution" },
+        "id": { "op": "field", "path": "distributionId" },
+        "title": { "op": "field", "path": "distributionId" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "status" },
+              { "op": "field", "path": "missionId" }
+            ]
+          }
+        },
+        "parentId": { "op": "field", "path": "missionId" }
+      }
+    },
+    "document": {
+      "authoritativeReadableRef": "document.readableWhen",
+      "baselineNarrowing": {
+        "op": "all",
+        "args": [
+          {
+            "op": "fact_eq",
+            "leftPath": "row.recordKind",
+            "rightValue": "RegisteredEvidence"
+          },
+          {
+            "op": "owner_dispatch",
+            "ownerTypePath": "row.ownerType",
+            "cases": {
+              "Person": { "op": "role_in", "set": "ALL" },
+              "Mission": { "op": "role_in", "set": "ALL" },
+              "Credential": { "op": "role_in", "set": "ALL" },
+              "Entity": { "op": "role_in", "set": "ALL" },
+              "Agreement": { "op": "role_in", "set": "AGREEMENT" },
+              "Invoice": { "op": "role_in", "set": "FINANCIAL" },
+              "Claim": { "op": "role_in", "set": "FINANCIAL" },
+              "CommsMessage": { "op": "false" },
+              "CommsObligation": { "op": "false" }
+            },
+            "default": { "op": "false" }
+          }
+        ]
+      },
+      "mayMatch": [
+        { "field": "documentId", "class": "E" },
+        { "field": "fileName", "class": "L" },
+        { "field": "label", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "document" },
+        "id": { "op": "field", "path": "documentId" },
+        "title": { "op": "field", "path": "fileName" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "ownerType" },
+              { "op": "field", "path": "ownerId" }
+            ]
+          }
+        },
+        "parentId": {
+          "op": "concat",
+          "args": [
+            { "op": "field", "path": "ownerType" },
+            { "op": "literal", "value": ":" },
+            { "op": "field", "path": "ownerId" }
+          ]
+        }
+      },
+      "attachmentHardFail": "Any active permitted-owner recordKind=Attachment source returned by search is an unconditional L0 conformance failure. This is fail-closed defense-in-depth, not evidence of a live differential.",
+      "classicClaimNarrowing": "Claim-owned documents require FINANCIAL even when authoritative HR-own-claim readability is true.",
+      "commsNarrowing": "CommsMessage and CommsObligation are false for every role, entitlement, participant, and anchor state in Wave 1. Authoritative anchored-Comms readability remains a visible recall ceiling."
+    },
+    "term": {
+      "authoritativeReadableRef": "term.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "FINANCIAL"
+      },
+      "mayMatch": [
+        { "field": "termId", "class": "E" },
+        { "field": "kind", "class": "L" },
+        {
+          "field": "label",
+          "class": "N",
+          "exception": "R5-H0H4-TERM-LABEL"
+        },
+        { "field": "agreementId", "class": "E" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "term" },
+        "id": { "op": "field", "path": "termId" },
+        "title": {
+          "op": "coalesce",
+          "args": [
+            { "op": "field", "path": "label" },
+            { "op": "field", "path": "kind" }
+          ]
+        },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "kind" },
+              { "op": "field", "path": "agreementId" }
+            ]
+          }
+        },
+        "parentId": { "op": "field", "path": "agreementId" }
+      }
+    },
+    "line": {
+      "authoritativeReadableRef": "line.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "FINANCIAL"
+      },
+      "mayMatch": [
+        { "field": "lineId", "class": "E" },
+        {
+          "field": "refNo",
+          "class": "N",
+          "exception": "R5-H0H4-LINE-REFNO"
+        },
+        { "field": "label", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "line" },
+        "id": { "op": "field", "path": "lineId" },
+        "title": { "op": "field", "path": "label" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "refNo" },
+              { "op": "field", "path": "missionId" }
+            ]
+          }
+        },
+        "parentId": { "op": "field", "path": "missionId" }
+      }
+    },
+    "beneficiary": {
+      "authoritativeReadableRef": "beneficiary.readableWhen",
+      "baselineNarrowing": {
+        "op": "role_in",
+        "set": "FINANCIAL"
+      },
+      "mayMatch": [
+        { "field": "beneficiaryId", "class": "E" },
+        { "field": "label", "class": "L" },
+        { "field": "bankName", "class": "L" }
+      ],
+      "publicProjection": {
+        "kind": { "op": "literal", "value": "beneficiary" },
+        "id": { "op": "field", "path": "beneficiaryId" },
+        "title": { "op": "field", "path": "label" },
+        "subtitle": {
+          "op": "null_if_empty",
+          "arg": {
+            "op": "concat_ws",
+            "separator": " · ",
+            "args": [
+              { "op": "field", "path": "bankName" },
+              {
+                "op": "coalesce",
+                "args": [
+                  { "op": "field", "path": "personId" },
+                  { "op": "field", "path": "freelancerId" },
+                  { "op": "field", "path": "vendorId" }
+                ]
+              },
+              { "op": "field", "path": "status" }
+            ]
+          }
+        },
+        "parentId": { "op": "field", "path": "personId" }
+      }
+    }
+  },
+  "h0ThroughH4SyntheticMeasurementExceptions": [
+    {
+      "id": "R5-H0H4-CLAIM-DESCRIPTION",
+      "field": "claim.description",
+      "classification": "N",
+      "authorityDecision": "Preserve only so the already-adjudicated synthetic H0-H4 baseline can measure current Wave-1 behavior.",
+      "h5Disposition": "narrow_by_default",
+      "h5FreezeBlocker": true
+    },
+    {
+      "id": "R5-H0H4-TERM-LABEL",
+      "field": "term.label",
+      "classification": "N",
+      "authorityDecision": "Ratified here as a synthetic H0-H4 measurement exception; this does not classify agreement-term narrative text as identity.",
+      "h5Disposition": "narrow_by_default",
+      "h5FreezeBlocker": true
+    },
+    {
+      "id": "R5-H0H4-LINE-REFNO",
+      "field": "line.refNo",
+      "classification": "N",
+      "authorityDecision": "Ratified here as a synthetic H0-H4 measurement exception; this does not classify a financial routing/reference value as public identity.",
+      "h5Disposition": "narrow_by_default",
+      "h5FreezeBlocker": true
+    }
+  ],
+  "pinnedBaselineRecallCeilings": [
+    {
+      "id": "financial_claim_reader",
+      "reason": "AUTHORIZATION_PARITY_REVIEW_REQUIRED:financial_claim_reader",
+      "authoritative": "finance and management read all claim rows",
+      "baseline": "dae27a4 Claim search intersects authoritative readability with CLAIM_SUBMITTER"
+    },
+    {
+      "id": "delegated_approval",
+      "reason": "AUTHORIZATION_PARITY_REVIEW_REQUIRED:delegated_approval",
+      "authoritative": "an active effective delegate reads approvals",
+      "baseline": "dae27a4 Approval search stays in APPROVAL_BASE"
+    },
+    {
+      "id": "hr_own_claim_document",
+      "reason": "AUTHORIZATION_PARITY_REVIEW_REQUIRED:hr_own_claim_document",
+      "authoritative": "HR reads active registered-evidence documents on HR's own claim",
+      "baseline": "dae27a4 Claim-owned Document search requires FINANCIAL"
+    },
+    {
+      "id": "entitled_anchored_comms_document",
+      "reason": "AUTHORIZATION_PARITY_REVIEW_REQUIRED:entitled_anchored_comms_document",
+      "authoritative": "an entitled actor reads an active RegisteredEvidence document through a recursively readable anchored-Mission Comms chain",
+      "baseline": "dae27a4 treats CommsMessage and CommsObligation owners as outside the Wave-1 search set"
+    }
+  ],
+  "implementationDriftDiff": {
+    "baseline": "dae27a400868c0c686788ab8e5520690dbf77334",
+    "implementationOutsideBaseline": "baseline_drift_finding",
+    "implementationInsideBaseline": "baseline_equal_finding",
+    "matchedFieldDiffStatus": "A static source-contract drift detector until the wire response carries a resolved match reason. It is not proof that a raw matched value is authorized.",
+    "projectionDiff": "Parse product SQL and compare it with the pinned logical recipe. Separate JavaScript and PostgreSQL evaluators consume the same baseline recipes; agreement is dual-execution evidence, not a separate disclosure specification.",
+    "sourceDiff": "The 49,840 observations compare reconstructed baseline forms. Equality proves reconstruction and future drift sensitivity only."
+  },
+  "noDecisionStatement": "This artifact authorizes no disclosure, mutation, ranking of people, semantic/vector/LLM surface, or widening. It is a pinned implementation baseline only. Any product change remains subject to the recorded authz and human-governance contracts."
+}
