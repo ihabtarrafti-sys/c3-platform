@@ -203,21 +203,12 @@ function AgreementDetailRecord({ agreementId }: { agreementId: string }) {
                   data-testid={`edit-agreement-link-${a.agreementId}`}
                   placeholder="Not linked"
                   value={editState.link}
-                  // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                  // GAP: Selector resolves its trigger text as `display ??
-                  //   selected?.label ?? placeholder`. `linkOptions` carries a REAL
-                  //   ''-valued "Not linked" option, so at value === '' the kit finds
-                  //   a `selected` option and `placeholder` can never render. Second,
-                  //   `editState.linkLabel` seeds to the BARE parent ID while the
-                  //   option text is "ID — type", and the kit offers no way to show a
-                  //   trigger string that is not one of the option labels.
-                  // WORKAROUND: pass `display` off the parallel `linkLabel` state —
-                  //   restating the placeholder when empty, and the bare ID when set,
-                  //   which is what the Fluent trigger read.
-                  // CLASS: contractual  — the honest fix (placeholder wins while
-                  //   nothing is chosen) changes Selector's rendering for every screen
-                  //   already converted and gated.
-                  display={editState.linkLabel === '' ? 'Not linked' : editState.linkLabel}
+                  // A LINKED agreement must never read "Not linked": `linkLabel`
+                  // seeds to the bare parent ID (the option text is "ID — type"),
+                  // and a parent outside `linkOptions` has no label to look up, so
+                  // the trigger states it from here. Empty is left to the kit,
+                  // which now renders the placeholder for it.
+                  display={editState.link ? editState.linkLabel : undefined}
                   options={linkOptions}
                   onSelect={(value, label) => setEdit({ ...editState, link: value, linkLabel: value ? label : '' })}
                 />

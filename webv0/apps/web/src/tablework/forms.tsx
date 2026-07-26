@@ -17,6 +17,7 @@
  * work-surface raised; Float glass stays for menus/toasts/confirms.
  */
 import { cloneElement, isValidElement, useEffect, useId, useRef, useState, type ReactElement, type ReactNode } from 'react';
+import { selectorTriggerText } from './selector';
 
 interface FieldProps {
   label: string;
@@ -170,8 +171,9 @@ export function Selector({
     triggerRef.current?.focus();
   };
 
-  const selected = options.find((o) => o.value === value);
-  const label = display ?? selected?.label ?? placeholder ?? '';
+  // A1: one decision drives BOTH the text and the quiet styling — see
+  // selector.ts for why a ''-valued option must not answer "what is chosen".
+  const trigger = selectorTriggerText({ value, display, placeholder, options });
 
   return (
     <div className="selector" ref={rootRef} {...rest}>
@@ -229,7 +231,7 @@ export function Selector({
           }
         }}
       >
-        <span className={selected ? undefined : 'selector-placeholder'}>{label}</span>
+        <span className={trigger.isPlaceholder ? 'selector-placeholder' : undefined}>{trigger.label}</span>
         <span aria-hidden="true">▾</span>
       </button>
       {open ? (

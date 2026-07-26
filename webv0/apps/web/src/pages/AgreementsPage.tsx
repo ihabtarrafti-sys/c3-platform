@@ -87,16 +87,13 @@ function AgreementsRegister() {
   const [filter, setFilter] = useState<'all' | AgreementRenewalState>('all');
   const [showForm, setShowForm] = useState(false);
   const [personId, setPersonId] = useState('');
-  const [personLabel, setPersonLabel] = useState('');
   const [entityId, setEntityId] = useState('');
-  const [entityLabel, setEntityLabel] = useState('');
   const [agreementType, setAgreementType] = useState('');
   const [agreementCode, setAgreementCode] = useState('');
   const [startsOn, setStartsOn] = useState('');
   const [endsOn, setEndsOn] = useState('');
   const [valueUsd, setValueUsd] = useState('');
   const [linkedId, setLinkedId] = useState('');
-  const [linkedLabel, setLinkedLabel] = useState('');
   const activeEntities = (entities.data?.entities ?? []).filter((e) => e.isActive);
   const entityName = (id: string | null): string => {
     if (!id) return '—';
@@ -159,8 +156,8 @@ function AgreementsRegister() {
       } as Parameters<typeof api.submitAddAgreement>[0]);
       notify('success', `Submitted ${res.approval.approvalId} for approval. The agreement is not created until an owner executes it.`);
       setShowForm(false);
-      setPersonId(''); setPersonLabel(''); setEntityId(''); setEntityLabel(''); setAgreementType(''); setAgreementCode('');
-      setStartsOn(''); setEndsOn(''); setValueUsd(''); setLinkedId(''); setLinkedLabel('');
+      setPersonId(''); setEntityId(''); setAgreementType(''); setAgreementCode('');
+      setStartsOn(''); setEndsOn(''); setValueUsd(''); setLinkedId('');
       void qc.invalidateQueries({ queryKey: ['approvals'] });
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Submission failed.');
@@ -325,26 +322,8 @@ function AgreementsRegister() {
               data-testid="add-agreement-person"
               placeholder="Select a person"
               value={personId}
-              // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-              // GAP: Selector resolves its trigger text as `display ?? selected?.label
-              //   ?? placeholder`. This list carries a REAL ''-valued option ("No
-              //   person — entity-level"), so at value === '' the kit finds a
-              //   `selected` option and the `placeholder` can never render — the
-              //   trigger reads "No person — entity-level" where Fluent read
-              //   "Select a person".
-              // WORKAROUND: pass `display`, computed from the parallel `personLabel`
-              //   state, restating the placeholder string when nothing is chosen.
-              //   `display` is documented as "the trigger text when a value IS
-              //   chosen"; this repurposes it for the not-chosen case.
-              // CLASS: contractual  — the honest fix is for `placeholder` to win
-              //   while nothing is chosen, which changes Selector's rendering for
-              //   every screen already converted and gated.
-              display={personLabel === '' ? 'Select a person' : personLabel}
               options={personOptions}
-              onSelect={(value, label) => {
-                setPersonId(value);
-                setPersonLabel(value ? label : '');
-              }}
+              onSelect={(value) => setPersonId(value)}
             />
           </Field>
           {activeEntities.length > 0 && (
@@ -353,20 +332,8 @@ function AgreementsRegister() {
                 data-testid="add-agreement-entity"
                 placeholder="Not assigned"
                 value={entityId}
-                // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                // GAP: same Selector gap as the person field above — a real
-                //   ''-valued option ("Not assigned") suppresses the placeholder.
-                //   Here the two strings happen to be identical, so this site is
-                //   defensive rather than load-bearing; it must still come out with
-                //   the rest, or it survives as dead code against a closed gap.
-                // WORKAROUND: pass `display` from the parallel `entityLabel` state.
-                // CLASS: contractual  — same fix, same blast radius as above.
-                display={entityLabel === '' ? 'Not assigned' : entityLabel}
                 options={entityOptions}
-                onSelect={(value, label) => {
-                  setEntityId(value);
-                  setEntityLabel(value ? label : '');
-                }}
+                onSelect={(value) => setEntityId(value)}
               />
             </Field>
           )}
@@ -381,18 +348,8 @@ function AgreementsRegister() {
               data-testid="add-agreement-link"
               placeholder="Not linked"
               value={linkedId}
-              // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-              // GAP: same Selector gap — a real ''-valued option ("Not linked")
-              //   suppresses the placeholder. Defensive here (the strings match),
-              //   but it comes out with the rest when the gap closes.
-              // WORKAROUND: pass `display` from the parallel `linkedLabel` state.
-              // CLASS: contractual  — same fix, same blast radius as above.
-              display={linkedLabel === '' ? 'Not linked' : linkedLabel}
               options={linkOptions}
-              onSelect={(value, label) => {
-                setLinkedId(value);
-                setLinkedLabel(value ? label : '');
-              }}
+              onSelect={(value) => setLinkedId(value)}
             />
           </Field>
           <Field label="Starts on" required>

@@ -265,15 +265,6 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                   data-testid={`edit-mission-team-${m.missionId}`}
                   placeholder="— none —"
                   value={editState.teamId}
-                  // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                  // GAP: Selector conflates a real ''-valued option with "nothing
-                  // selected" — `options.find(o => o.value === value)` matches the blank
-                  // option, so its label renders as the trigger text where Fluent showed
-                  // the placeholder, and `selector-placeholder` styling never applies.
-                  // WORKAROUND: the kit's own public `display` prop (the extra fallback
-                  // below is a SEPARATE, deliberate concern — see its own comment).
-                  // Cosmetic only: `teamId` is coerced `=== '' ? null` at submit, so
-                  // "chose — none —" and "chose nothing" are identical payloads.
                   display={
                     // A set team must NEVER read as "— none —": if it isn't in
                     // the active-GameDivision options, show its name from the

@@ -10,6 +10,7 @@ import {
   TableworkPage,
   CollectionFrame,
   ComparisonTable,
+  FactList,
   WorkSurface,
   StatusBadge,
   EmptyState,
@@ -360,33 +361,16 @@ function IntakeDesk() {
                     <div className="record-row-meta">{sub.id.slice(0, 8).toUpperCase()} · {sub.uploads.length} file(s)</div>
                     {open && sub.payload && (
                       <>
-                        {/*
-                          // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                          // GAP: FactList is the kit's label/value primitive, but it cannot
-                          //   render DATA-DERIVED keys. Its <dt> is `text-transform:
-                          //   uppercase` — right for an authored label, wrong for a key that
-                          //   came from the wire: the D1 QA pass observed the guest's own
-                          //   field names coming back as "FULLNAME" / "IGN". Its `isEmpty`
-                          //   also substitutes a <span class="unknown-value" aria-label="not
-                          //   set">—</span>, where this screen must print the literal '—' the
-                          //   Fluent page printed for a blank field.
-                          // WORKAROUND: hand-rolled `record-rows` / `record-row-item` /
-                          //   `record-row-name` pairs instead of FactList, so the submission's
-                          //   own vocabulary keeps its casing.
-                          // CLASS: additive — an opt-in variant on FactList (a `literalLabels`
-                          //   prop, or a sibling DataList for wire-derived keys) leaves the
-                          //   authored-label casing correct on every screen already converted.
-                          //   Removing the uppercase from <dt> itself WOULD be contractual.
-                        */}
-                        <div className="record-rows">
-                          {Object.entries(sub.payload).map(([k, v]) => (
-                            <div className="record-row-item" key={k}>
-                              <span className="record-row-name">{k}</span>
-                              <span className="record-row-spacer" />
-                              <span className="record-row-name">{v === null || v === undefined || v === '' ? '—' : String(v)}</span>
-                            </div>
-                          ))}
-                        </div>
+                        {/* `literal`: these keys and values are the GUEST's, not ours —
+                            neither the casing nor a typed "-" is ours to reinterpret. */}
+                        <FactList
+                          literal
+                          items={Object.entries(sub.payload).map(([k, v]) => ({
+                            label: k,
+                            value: v === null || v === undefined || v === '' ? '—' : String(v),
+                          }))}
+                        />
+
                         {sub.uploads.length > 0 && (
                           <div className="record-rows">
                             {sub.uploads.map((u) => (

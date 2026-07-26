@@ -194,14 +194,27 @@ function isEmpty(v: ReactNode): boolean {
   return v === null || v === undefined || v === '' || v === '-';
 }
 
-export function FactList({ items }: { items: DefItem[] }) {
+/**
+ * D2 — `literal` marks a list whose labels AND values came from OUTSIDE the org,
+ * and it turns off both of this component's editorial touches:
+ *
+ *  - the uppercase `<dt>`, right for a label we authored and wrong for a key off
+ *    the wire (a guest's own "fullName" was being shown back as "FULLNAME"), and
+ *  - the `isEmpty` substitution, which rewrites a value of "-" into a labelled
+ *    "not set" marker — reasonable for our own data-entry shorthand, but a
+ *    misreading of a hyphen that someone outside the org deliberately typed.
+ *
+ * Both are the same rule: do not restyle or reinterpret data we did not write.
+ * Opt-in, so every authored list already converted is untouched.
+ */
+export function FactList({ items, literal }: { items: DefItem[]; literal?: boolean }) {
   return (
-    <dl className="fact-list" data-tablework="FactClusters">
+    <dl className={literal ? 'fact-list is-literal' : 'fact-list'} data-tablework="FactClusters">
       {items.map((it, i) => (
         <div className="fact-pair" key={i}>
           <dt>{it.label}</dt>
           <dd className={it.mono ? 'mono' : undefined} data-testid={it.testId}>
-            {isEmpty(it.value) ? (
+            {!literal && isEmpty(it.value) ? (
               <span className="unknown-value" aria-label="not set">
                 —
               </span>

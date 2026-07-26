@@ -68,7 +68,6 @@ function PeopleRegister() {
   const [ign, setIgn] = useState('');
   const [team, setTeam] = useState('');
   const [entityId, setEntityId] = useState('');
-  const [entityLabel, setEntityLabel] = useState('');
   const [busy, setBusy] = useState(false);
 
   // ── register filter/sort state (client-side over the loaded roster) ────────
@@ -115,7 +114,6 @@ function PeopleRegister() {
       setIgn('');
       setTeam('');
       setEntityId('');
-      setEntityLabel('');
       setShowForm(false);
       void qc.invalidateQueries({ queryKey: ['approvals'] });
     } catch (err) {
@@ -282,25 +280,11 @@ function PeopleRegister() {
                 data-testid="add-person-entity"
                 placeholder="Not assigned"
                 value={entityId}
-                // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                // GAP: Selector conflates a real ''-valued option with "nothing
-                // selected" — `options.find(o => o.value === value)` matches the blank
-                // option, so its label renders as the trigger text where Fluent showed
-                // the placeholder, and `selector-placeholder` styling never applies.
-                // WORKAROUND: the kit's own public `display` prop, forced undefined when
-                // unset. Cosmetic only — every consumer coerces '' at the submit boundary
-                // (here `entityId` -> the API omits it), so "chose blank" and "chose
-                // nothing" are provably identical payloads. Traced across all 16 Wave-2
-                // screens + Wave 1: no data path needs them distinguished.
-                display={entityId ? entityLabel : undefined}
                 options={[
                   { value: '', label: 'Not assigned' },
                   ...activeEntities.map((e) => ({ value: e.entityId, label: `${e.name} (${e.jurisdiction})` })),
                 ]}
-                onSelect={(value, label) => {
-                  setEntityId(value);
-                  setEntityLabel(value ? label : '');
-                }}
+                onSelect={(value) => setEntityId(value)}
               />
             </Field>
           )}

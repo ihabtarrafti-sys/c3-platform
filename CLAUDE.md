@@ -140,6 +140,22 @@ the verification produces a report identical to performing it, which makes it de
 rendered anchor, plus the body font as a negative control proving the rule applied rather
 than was inherited.)*
 
+### Bulk text surgery: match exactly, or don't do it
+
+**Never edit source by scanning for a start marker and deleting to the next landmark.** A
+span defined by "from here to the next `options={`" is unbounded when the landmark is far
+away, and a sanity guard *inside* that span (`if 'Selector' not in segment: break`) passes
+vacuously precisely because the span grew too wide to be wrong about. That deleted **321
+lines** of `AgreementsPage.tsx` in one pass on 2026-07-26. Use exact-match replacement of a
+literal block, assert it applies **exactly once**, and let ambiguity be an error.
+
+**⚑ And the part worth keeping: what caught it was an EXPECTED COUNT, not an absence check.**
+The script reported `markers left: 0`, which reads as complete success — the damage was
+visible only because the correct answer was **2** (that file had two non-Selector markers
+that had to survive). *A "0 remaining" is indistinguishable from over-deletion.* So when
+removing a subset of anything, state the expected survivor count BEFORE the edit and check
+against that number — never against zero, and never against "did it error".
+
 > **The running tally of instances lives in `C:\Projects\C3-LANE-BOARD.md`, and NOWHERE
 > else — including here.** Full law set: **`C:\Projects\C3-APEX-LAWS.md`** (grouped by when
 > each law fires).

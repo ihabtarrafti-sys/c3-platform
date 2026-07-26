@@ -1013,6 +1013,13 @@
   align-self: baseline;
 }
 
+/* D2: wire-derived keys keep their author's casing. The label tracking goes
+   with the uppercase — it exists to open up capitals, and hurts mixed case. */
+.tw-root .fact-list.is-literal dt {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .tw-root .fact-list dd {
   margin: 0;
   color: var(--c3-ink-default);
