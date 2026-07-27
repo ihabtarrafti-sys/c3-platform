@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { makeStyles } from '@fluentui/react-components';
 import { agreementRenewalStateOn, credentialStatusOn } from '@c3web/domain';
 import {
   usePerson,
@@ -19,7 +18,6 @@ import { BeneficiarySection, CredentialFactsAction } from '../components/PersonS
 import { PersonActions } from '../components/PersonActions';
 import '../theme/person-hero.css';
 import { PersonPhotoControl } from '../components/PersonPhotoControl';
-import { useRegisterStyles } from '../components/registerStyles';
 import { agreementRenewalStateOf, approvalStatusOf, auditActionOf, credentialStatusOf, formatUsdCents, journeyStatusOf, operationOf } from '../labels';
 import {
   TableworkGate,
@@ -29,7 +27,9 @@ import {
   DocumentsSection,
   CommentThread,
   AuditTimeline,
+  ComparisonTable,
   FactList,
+  RecordLink,
   StatusBadge,
   ErrorState,
   LoadingState,
@@ -41,11 +41,6 @@ function localTodayIso(): string {
   const p = (n: number, w = 2) => String(n).padStart(w, '0');
   return `${p(d.getFullYear(), 4)}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
-
-const useStyles = makeStyles({
-  section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
-});
 
 export function PersonProfilePage() {
   // Gate before hooks: an anonymous Entra deep link must reach the sign-in
@@ -60,8 +55,6 @@ export function PersonProfilePage() {
 }
 
 function PersonProfileBody({ personId }: { personId: string }) {
-  const s = useStyles();
-  const r = useRegisterStyles();
   const { me } = useSession();
   const canReadAgreements = me?.capabilities.canReadAgreements ?? false;
   const showValue = me?.capabilities.canViewFinancials ?? false;
@@ -162,9 +155,7 @@ function PersonProfileBody({ personId }: { personId: string }) {
                         .map((m, i) => (
                           <span key={m.teamId}>
                             {i > 0 && ' · '}
-                            <Link className={r.idLink} to={`/teams/${m.teamId}`}>
-                              {m.teamId}
-                            </Link>
+                            <RecordLink to={`/teams/${m.teamId}`}>{m.teamId}</RecordLink>
                             {` (${m.role})`}
                           </span>
                         ))}
@@ -186,176 +177,180 @@ function PersonProfileBody({ personId }: { personId: string }) {
           <BeneficiarySection personId={data.person.personId} />
           <PersonActions personId={data.person.personId} personName={data.person.fullName} />
           {(credentials.data?.credentials.length ?? 0) > 0 && (
-            <div id="person-section-credentials" className={s.section}>
-              <h2 className={s.h2}>Credentials</h2>
-              <table className={r.table} data-testid="person-credentials" aria-label="Person credentials">
+            <section id="person-section-credentials" className="record-section">
+              <h2>Credentials</h2>
+              <ComparisonTable label="Person credentials" testId="person-credentials">
                 <thead>
                   <tr>
-                    <th className={r.th}>Credential</th>
-                    <th className={r.th}>Type</th>
-                    <th className={r.th}>Expires</th>
-                    <th className={r.th}>Status</th>
-                    <th className={r.th}></th>
+                    <th>Credential</th>
+                    <th>Type</th>
+                    <th>Expires</th>
+                    <th>Status</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
                   {credentials.data!.credentials.map((c) => {
                     const badge = credentialStatusOf(credentialStatusOn(c, today));
                     return (
-                      <tr key={c.credentialId} className={r.row}>
-                        <td className={r.td}>{c.credentialId}</td>
-                        <td className={`${r.td} ${r.name}`}>{c.credentialType}</td>
-                        <td className={r.td}>{c.expiresOn ?? '—'}</td>
-                        <td className={r.td}>
+                      <tr key={c.credentialId}>
+                        {/* Plain cell, deliberately: this id was never a link and
+                            never mono in the Fluent original (`r.td` alone), so
+                            neither RecordLink nor `.mono` is the honest port. */}
+                        <td>{c.credentialId}</td>
+                        <td>{c.credentialType}</td>
+                        <td>{c.expiresOn ?? '—'}</td>
+                        <td>
                           <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
                         </td>
-                        <td className={r.td}>
+                        <td>
                           <CredentialFactsAction credential={c} personId={data.person.personId} />
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </ComparisonTable>
+            </section>
           )}
           {(journeys.data?.journeys.length ?? 0) > 0 && (
-            <div id="person-section-journeys" className={s.section}>
-              <h2 className={s.h2}>Journeys</h2>
-              <table className={r.table} data-testid="person-journeys" aria-label="Person journeys">
+            <section id="person-section-journeys" className="record-section">
+              <h2>Journeys</h2>
+              <ComparisonTable label="Person journeys" testId="person-journeys">
                 <thead>
                   <tr>
-                    <th className={r.th}>Journey</th>
-                    <th className={r.th}>Type</th>
-                    <th className={r.th}>Started</th>
-                    <th className={r.th}>Status</th>
+                    <th>Journey</th>
+                    <th>Type</th>
+                    <th>Started</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {journeys.data!.journeys.map((j) => {
                     const badge = journeyStatusOf(j.status);
                     return (
-                      <tr key={j.journeyId} className={r.row}>
-                        <td className={r.td}>{j.journeyId}</td>
-                        <td className={`${r.td} ${r.name}`}>{j.title ?? j.journeyType}</td>
-                        <td className={r.td}>{j.startedOn}</td>
-                        <td className={r.td}>
+                      <tr key={j.journeyId}>
+                        <td>{j.journeyId}</td>
+                        <td>{j.title ?? j.journeyType}</td>
+                        {/* NEGATIVE CONTRACT: startedOn stays the raw ISO the
+                            wire sends — formatDisplayDate must NOT be adopted
+                            here; the frozen oracle pins the bytes. */}
+                        <td>{j.startedOn}</td>
+                        <td>
                           <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </ComparisonTable>
+            </section>
           )}
           {canReadAgreements && (agreements.data?.agreements.length ?? 0) > 0 && (
-            <div id="person-section-agreements" className={s.section}>
-              <h2 className={s.h2}>Agreements</h2>
-              <table className={r.table} data-testid="person-agreements" aria-label="Person agreements">
+            <section id="person-section-agreements" className="record-section">
+              <h2>Agreements</h2>
+              <ComparisonTable label="Person agreements" testId="person-agreements">
                 <thead>
                   <tr>
-                    <th className={r.th}>Agreement</th>
-                    <th className={r.th}>Type</th>
-                    <th className={r.th}>Ends</th>
-                    {showValue && <th className={r.th}>Value</th>}
-                    <th className={r.th}>Status</th>
+                    <th>Agreement</th>
+                    <th>Type</th>
+                    <th>Ends</th>
+                    {showValue && <th>Value</th>}
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {agreements.data!.agreements.map((a) => {
                     const badge = agreementRenewalStateOf(agreementRenewalStateOn(a, today));
                     return (
-                      <tr key={a.agreementId} className={r.row}>
-                        <td className={r.td}>
-                          <Link className={r.idLink} to={`/agreements/${a.agreementId}`}>
-                            {a.agreementId}
-                          </Link>
+                      <tr key={a.agreementId}>
+                        <td>
+                          <RecordLink to={`/agreements/${a.agreementId}`}>{a.agreementId}</RecordLink>
                         </td>
-                        <td className={`${r.td} ${r.name}`}>{a.agreementType}</td>
-                        <td className={r.td}>{a.endsOn}</td>
-                        {showValue && <td className={r.td}>{formatUsdCents(a.valueUsdCents)}</td>}
-                        <td className={r.td}>
+                        <td>{a.agreementType}</td>
+                        <td>{a.endsOn}</td>
+                        {/* The Value column stays behind `showValue` — the
+                            capability gate is the render gate AND the wire gate
+                            (`usePersonAgreements(personId, canReadAgreements)`
+                            above); neither may become a visual hide. */}
+                        {showValue && <td>{formatUsdCents(a.valueUsdCents)}</td>}
+                        <td>
                           <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </ComparisonTable>
+            </section>
           )}
           {(missions.data?.missions.length ?? 0) > 0 && (
-            <div id="person-section-missions" className={s.section}>
-              <h2 className={s.h2}>Missions</h2>
-              <table className={r.table} data-testid="person-missions" aria-label="Person missions">
+            <section id="person-section-missions" className="record-section">
+              <h2>Missions</h2>
+              <ComparisonTable label="Person missions" testId="person-missions">
                 <thead>
                   <tr>
-                    <th className={r.th}>Mission</th>
-                    <th className={r.th}>Name</th>
-                    <th className={r.th}>Role</th>
-                    <th className={r.th}>Membership</th>
+                    <th>Mission</th>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Membership</th>
                   </tr>
                 </thead>
                 <tbody>
                   {missions.data!.missions.map((m) => (
-                    <tr key={m.missionId} className={r.row}>
-                      <td className={r.td}>
-                        <Link className={r.idLink} to={`/missions/${m.missionId}`}>
-                          {m.missionId}
-                        </Link>
+                    <tr key={m.missionId}>
+                      <td>
+                        <RecordLink to={`/missions/${m.missionId}`}>{m.missionId}</RecordLink>
                       </td>
-                      <td className={`${r.td} ${r.name}`}>{m.missionName}</td>
-                      <td className={r.td}>{m.role}</td>
-                      <td className={r.td}>
+                      <td>{m.missionName}</td>
+                      <td>{m.role}</td>
+                      <td>
                         <StatusBadge variant={m.isActive ? 'ready' : 'neutral'}>{m.isActive ? 'Active' : 'Removed'}</StatusBadge>
                       </td>
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+              </ComparisonTable>
+            </section>
           )}
           {canViewApprovals && (approvals.data?.approvals.length ?? 0) > 0 && (
-            <div id="person-section-approvals" className={s.section}>
-              <h2 className={s.h2}>Approvals</h2>
-              <table className={r.table} data-testid="person-approvals" aria-label="Person approvals">
+            <section id="person-section-approvals" className="record-section">
+              <h2>Approvals</h2>
+              <ComparisonTable label="Person approvals" testId="person-approvals">
                 <thead>
                   <tr>
-                    <th className={r.th}>Approval</th>
-                    <th className={r.th}>Operation</th>
-                    <th className={r.th}>Status</th>
+                    <th>Approval</th>
+                    <th>Operation</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
                   {approvals.data!.approvals.map((ap) => {
                     const badge = approvalStatusOf(ap.status);
                     return (
-                      <tr key={ap.approvalId} className={r.row}>
-                        <td className={r.td}>
-                          <Link className={r.idLink} to={`/approvals/${ap.approvalId}`}>
-                            {ap.approvalId}
-                          </Link>
+                      <tr key={ap.approvalId}>
+                        <td>
+                          <RecordLink to={`/approvals/${ap.approvalId}`}>{ap.approvalId}</RecordLink>
                         </td>
-                        <td className={`${r.td} ${r.name}`}>{operationOf(ap.operationType)}</td>
-                        <td className={r.td}>
+                        <td>{operationOf(ap.operationType)}</td>
+                        <td>
                           <StatusBadge variant={badge.variant}>{badge.label}</StatusBadge>
                         </td>
                       </tr>
                     );
                   })}
                 </tbody>
-              </table>
-            </div>
+              </ComparisonTable>
+            </section>
           )}
           <DocumentsSection ownerType="Person" ownerId={personId} canManage={me?.capabilities.canSubmitApproval ?? false} />
 
           <CommentThread subjectType="Person" subjectId={personId} />
 
-          <div id="person-section-history" className={s.section}>
-            <h2 className={s.h2}>History</h2>
+          <section id="person-section-history" className="record-section">
+            <h2>History</h2>
             <AuditTimeline entries={entries} testId="person-audit" />
-          </div>
+          </section>
         </>
       )}
       </RecordPage>
