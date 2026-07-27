@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { AppShell } from './components/AppShell';
+import { TableworkGate } from './tablework';
 import { useSession } from './session';
 import { HomePage } from './pages/HomePage';
 import { AuthCallback } from './pages/AuthCallback';
@@ -105,12 +105,12 @@ export const router = createBrowserRouter([
   { path: '/activity', element: <ActivityPage /> },
   { path: '/recycle-bin', element: <RecycleBinPage /> },
   { path: '/settings', element: <SettingsPage /> },
-  {
-    path: '/',
-    element: <AppShell />,
-    children: [
-      { index: true, element: <HomeRedirect /> },
-      { path: '*', element: <Navigate to="/people" replace /> },
-    ],
-  },
+  // Wave 4 Phase 1b: `AppShell` wrapped only these two REDIRECTS, and carried a
+  // session gate for the unauthenticated `/` entry. `TableworkGate` is that gate
+  // — line-for-line identical on `anonymous` (same `intended` deep link, same
+  // IS_ENTRA branch) and byte-identical on `unprovisioned`. Neither child
+  // renders anything visible, so the only delta was a Fluent spinner during
+  // `loading` on a route that immediately leaves.
+  { path: '/', element: <TableworkGate><HomeRedirect /></TableworkGate> },
+  { path: '*', element: <TableworkGate><Navigate to="/people" replace /></TableworkGate> },
 ]);
