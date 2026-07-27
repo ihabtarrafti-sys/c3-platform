@@ -1,18 +1,42 @@
 import { useState } from 'react';
-import { Button, Dropdown, Field, Input, Option } from '@fluentui/react-components';
 import { useSession, useNotify } from '../session';
 import { ApiError } from '../api';
 import { AuthScreen } from '../components/AuthScreen';
+import { Field, Input, Selector } from '../tablework';
 
 const ROLES = ['owner', 'operations', 'legal', 'finance', 'hr', 'management', 'visitor'];
+const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: r }));
 
 /**
  * Development sign-in (backed by the API's signed dev IdP) — wears the
  * signature-01 front door. Not a production surface — dead-code-eliminated
  * from the Entra build — it exists so every slice can be exercised as
  * different roles. Production uses Entra OIDC at the same boundary
- * (EntraSignIn). The Fluent controls and login-* test ids are the e2e
- * suite's sign-in contract — all 25 specs enter through them.
+ * (EntraSignIn).
+ *
+ * ⚠️ THE `login-*` TEST IDS ARE THE E2E SUITE'S SIGN-IN CONTRACT, AND THIS IS
+ * THE MOST DEPENDED-ON FILE IN THE APP. 27 of the 28 spec files enter through
+ * all four of them (the exception is `pwa.spec.ts`, which never signs in). If
+ * one moves, 27 specs fail at sign-in — and each failure reads as a defect in
+ * whatever that spec was actually testing, not here.
+ *
+ * It is also mounted from THREE places, one of which is the kit wrapper:
+ * `components/AppShell.tsx` (Fluent, Wave 4), `pages/MissionCommsPage.tsx`,
+ * and `tablework/TableworkPage.tsx` — through which every Wave-1 and Wave-2
+ * screen signs in. This is the sign-in surface of all three tiers at once.
+ *
+ * ⚖️ THE PILOT'S LAW (stated by TableworkPage, enforced by its caller):
+ * loading → sign-in WITH THE DEEP LINK PRESERVED → unprovisioned → the screen,
+ * and queries mount ONLY once authenticated. `intendedPath` below is that
+ * preservation; do not "simplify" the history replace, and do not let anything
+ * in this file fetch.
+ *
+ * CONVERSION NOTE (Wave 3 pre-wave): the Fluent `Dropdown`/`Option` became the
+ * kit `Selector`, which keeps the contract exactly — its `data-testid` lands on
+ * the trigger button (so `getByTestId('login-role').click()` opens it) and its
+ * rows are REAL `role="option"` elements (so `getByRole('option', { name,
+ * exact: true })` resolves). Option labels are the bare role strings, because
+ * that `exact: true` match is on the accessible name.
  */
 export function LoginGate({ intendedPath }: { intendedPath?: string }) {
   const { devLogin } = useSession();
@@ -43,28 +67,22 @@ export function LoginGate({ intendedPath }: { intendedPath?: string }) {
       <p className="fd-support">Development identity provider (dev IdP). Production uses Microsoft Entra.</p>
       <div className="fd-slot">
         <Field label="Email">
-          <Input value={email} onChange={(_, d) => setEmail(d.value)} data-testid="login-email" />
+          <Input value={email} onChange={(e) => setEmail(e.target.value)} data-testid="login-email" />
         </Field>
         <Field label="Role">
-          <Dropdown
+          <Selector
             value={role}
-            selectedOptions={[role]}
-            onOptionSelect={(_, d) => d.optionValue && setRole(d.optionValue)}
+            options={ROLE_OPTIONS}
+            onSelect={(value) => setRole(value)}
             data-testid="login-role"
-          >
-            {ROLES.map((r) => (
-              <Option key={r} value={r}>
-                {r}
-              </Option>
-            ))}
-          </Dropdown>
+          />
         </Field>
         <Field label="Tenant">
-          <Input value={tenantSlug} onChange={(_, d) => setTenantSlug(d.value)} data-testid="login-tenant" />
+          <Input value={tenantSlug} onChange={(e) => setTenantSlug(e.target.value)} data-testid="login-tenant" />
         </Field>
-        <Button appearance="primary" onClick={onSubmit} disabled={busy} data-testid="login-submit">
+        <button className="primary-action" type="button" onClick={onSubmit} disabled={busy} data-testid="login-submit">
           {busy ? 'Signing in...' : 'Sign in'}
-        </Button>
+        </button>
       </div>
     </AuthScreen>
   );
