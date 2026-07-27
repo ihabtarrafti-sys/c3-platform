@@ -1,12 +1,10 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { FluentProvider } from '@fluentui/react-components';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
 import { NotificationProvider, SessionProvider } from './session';
-import { c3DarkTheme, c3LightTheme } from './theme/c3Theme';
-import { ThemeModeProvider, useThemeMode } from './theme/mode';
+import { ThemeModeProvider } from './theme/mode';
 import './theme/fonts.css';
 // Strategy-B (re-skin chapter closed): the LOCKED identity tokens (Afterglow +
 // Blue Hour v1.2.0, vendored byte-identical + sha-pinned) are the sole value
@@ -31,22 +29,44 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
 });
 
-/** Inside ThemeModeProvider so the Fluent theme follows the E mode toggle. */
+/**
+ * Wave 4 Phase 3 — the Tablework pivot's last Fluent removal.
+ *
+ * `FluentProvider` used to wrap this tree and no longer does. It contributed
+ * exactly three things, each independently accounted for before removal:
+ *
+ *   1. It emitted every theme slot as a CSS custom property on its own div.
+ *      NOTHING reads those — a scan for Fluent-shaped `var(--colorX/fontX/
+ *      durationX/curveX/spacingX/borderRadiusX/strokeWidthX/shadowN)` over the
+ *      whole of src/ returns zero, on an instrument proven able to find them.
+ *      The app speaks `--c3-*` (the locked brand tokens) exclusively.
+ *   2. It set font-family and color on that div. `body` already sets the SAME
+ *      two values (--c3-font-family-human / --c3-ink-default), so the cascade
+ *      is unchanged.
+ *   3. It set a background, which this call site was already overriding to
+ *      `transparent` so the body's ambient gradient could show through.
+ *
+ * The mode toggle never rode Fluent: ThemeModeProvider writes
+ * `data-c3-theme` on documentElement and the brand token file keys on it, so
+ * light/dark is untouched by this removal. It stays exactly where it was —
+ * only Root's consumption of `mode` goes, since nothing here needs it now.
+ *
+ * One div leaves the DOM. Nothing depended on it as a box: `#root` is the
+ * height:100% element and `.tw-root` sizes itself against the viewport
+ * (min-height: 100dvh), so neither anchored to the intermediate.
+ */
 function Root() {
-  const { mode } = useThemeMode();
   return (
-    <FluentProvider theme={mode === 'dark' ? c3DarkTheme : c3LightTheme} style={{ background: 'transparent' }}>
-      <QueryClientProvider client={queryClient}>
-        {/* SessionProvider OUTSIDE so notices can clear on actor/tenant change
-            (UX11) — a notice minted under one identity must never survive into
-            another. SessionProvider does not consume notices. */}
-        <SessionProvider>
-          <NotificationProvider>
-            <RouterProvider router={router} />
-          </NotificationProvider>
-        </SessionProvider>
-      </QueryClientProvider>
-    </FluentProvider>
+    <QueryClientProvider client={queryClient}>
+      {/* SessionProvider OUTSIDE so notices can clear on actor/tenant change
+          (UX11) — a notice minted under one identity must never survive into
+          another. SessionProvider does not consume notices. */}
+      <SessionProvider>
+        <NotificationProvider>
+          <RouterProvider router={router} />
+        </NotificationProvider>
+      </SessionProvider>
+    </QueryClientProvider>
   );
 }
 

@@ -80,17 +80,49 @@ describe('identity token integrity (Phase 0)', () => {
     expect(tokenValue(tw, '--c3-tw-float-fill')).toMatch(/var\(--c3-glass-/);
   });
 
-  it('the Tablework component library is Fluent-free by law (the pilot boundary)', () => {
-    const twDir = join(themeDir, '..', 'tablework');
-    // Recursive: a future subdirectory must not escape the law.
-    const files = readdirSync(twDir, { recursive: true })
+  /**
+   * WIDENED at the Tablework pivot's close (Wave 4 Phase 3). This law used to
+   * read `src/tablework/` only and was called "the pilot boundary" — the kit
+   * was Fluent-free while the app around it was not. The pivot moved that
+   * boundary to the whole app, so the law now reads ALL of `src/`, which
+   * contains `src/tablework/` and therefore SUPERSEDES the narrower rule
+   * rather than sitting beside it.
+   *
+   * ⚠️ THIS GUARD IS LOAD-BEARING, not ceremonial. `@fluentui/react-icons` is
+   * no longer a declared dependency of webv0, but it REMAINS RESOLVABLE from
+   * this source tree: Node walks up out of `webv0/` into the legacy
+   * SharePoint app's `c3-fable/node_modules/@fluentui/react-icons`, which is a
+   * different project and not ours to delete. Measured, not assumed —
+   * require.resolve from `apps/web/src` returns it, while `react-components`
+   * is MODULE_NOT_FOUND. So a stray Fluent-icon import would typecheck AND
+   * bundle silently. Nothing but this test would catch it.
+   */
+  it('the app is Fluent-free by law, and does not declare Fluent as a dependency', () => {
+    const srcDir = join(themeDir, '..');
+    const files = readdirSync(srcDir, { recursive: true })
       .map(String)
       .filter((f) => /\.(ts|tsx|css)$/.test(f));
-    expect(files.length, 'the tablework library exists').toBeGreaterThan(0);
+    // Positive control: a law whose finding is an ABSENCE proves nothing until
+    // the scan is shown to have actually read the app. The two toContain pairs
+    // below are the PRECISE controls — they prove the walk reached both the app
+    // root and the deepest kit directory. The count is a coarse backstop against
+    // a walk that silently returns almost nothing; the floor sits well under the
+    // real figure (90 at the pivot's close) so ordinary deletion never trips it.
+    expect(files.length, 'the scan must actually reach the app sources').toBeGreaterThan(60);
+    expect(files, 'the scan must reach the kit').toContain(join('tablework', 'collections.tsx'));
+    expect(files, 'the scan must reach the app root').toContain('main.tsx');
     for (const f of files) {
-      const src = readFileSync(join(twDir, f), 'utf8');
-      expect(src, `${f} must not import Fluent — Tablework speaks only the brand/Tablework tokens`).not.toContain('@fluentui');
+      const src = readFileSync(join(srcDir, f), 'utf8');
+      expect(src, `${f} must not import Fluent — the pivot retired it app-wide`).not.toContain('@fluentui');
     }
+    // The other half of the retirement: it must not come back as a dependency.
+    const pkg = JSON.parse(readFileSync(join(srcDir, '..', 'package.json'), 'utf8')) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    const declared = [...Object.keys(pkg.dependencies ?? {}), ...Object.keys(pkg.devDependencies ?? {})];
+    expect(declared.length, 'the package manifest must actually have been read').toBeGreaterThan(0);
+    expect(declared.filter((d) => d.startsWith('@fluentui'))).toEqual([]);
   });
 });
 
