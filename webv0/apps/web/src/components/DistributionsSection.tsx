@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { makeStyles } from '@fluentui/react-components';
 import { formatMoney, type CurrencyCode } from '@c3web/domain';
 import { useMissionDistributions, useMissionPnl, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify } from '../session';
-import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, percentToBpsAllowingZero } from '../tablework';
+import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, WorkSurface, percentToBpsAllowingZero } from '../tablework';
 
 /**
  * Distributions (S8) — the payout list under a mission's P&L. A distribution
@@ -14,22 +13,87 @@ import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, p
  * shares (the allocator guarantees org + shares == pool EXACTLY). Payouts
  * flip Pending → Paid with a bank LABEL (never account numbers) + reference;
  * revoking (reason recorded) is legal only while every payout is pending.
+ *
+ * Wave 4 (Lane C): the Fluent `makeStyles` block is retired. Its consumer
+ * (MissionDetailPage) already converted in Wave 3 and settled the mapping for
+ * the four declarations this file shares with it — they are token-for-token,
+ * not approximations:
+ *
+ *   section  → `.record-section`      (margin-top --c3-space-8 = the same 32px)
+ *   h2       → `.record-section h2`   (--c3-font-size-lead = the same 20px,
+ *                                      semibold, ink-strong, margin 0 0 12px)
+ *   h2Row    → `.record-section-head` (flex/baseline/space-between/wrap,
+ *                                      gap --c3-space-3 = the same 12px)
+ *   fields   → DELETED at both sites. Both were inside a `GovernedAction`'s
+ *              `extra`, and `.governed-extra` already IS that stack; its
+ *              340px min-width was never load-bearing either, since
+ *              `dialog.float-surface` is min(28rem) and its body pads to
+ *              ~408px of content.
+ *
+ * The rest:
+ *
+ *   card     → `WorkSurface tier="elevated" className="record-card"`. ⚠️
+ *              `.record-card` carries the padding/rhythm and NO SURFACE — the
+ *              border and background come from WorkSurface. Pairing them is
+ *              mandatory; `.record-card` alone renders an invisible panel that
+ *              typechecks and gates green.
+ *   cardHead → `.form-row` (flex/wrap, gap --c3-space-3 = the same 12px; the
+ *              kit centres where Fluent baselined, which reads better with a
+ *              dotted StatusBadge and a button in the cluster). The 8px
+ *              bottom margin is now `.record-card`'s own grid gap.
+ *   subtle   → `.record-quiet` everywhere EXCEPT the one in-cell aside, which
+ *              keeps a carried style under the KIT-GAP marker below.
+ *   head     → `.record-quiet` on the same <p>. Deliberately NOT `EmptyState`:
+ *              its two sibling empties on this very screen (`participants-empty`,
+ *              `mission-pnl-empty`) are quiet in-place sentences, and a centred
+ *              48px block would be the odd one out on the mission hub.
+ *   mono     → `.mono-wrap` on the distribution id. ⚠️ NOT `className="mono"`:
+ *              `.mono` exists ONLY as `.data-grid td.mono` / `.fact-list
+ *              dd.mono`, so it styles the CELL and does nothing at all on a
+ *              <span>. The two `<td className="mono">` below are inside
+ *              `.data-grid` and are therefore already correct.
+ *
+ * The card list is wrapped in `.record-rows` (grid, --c3-space-2) — the cards
+ * are direct children of a `.record-section`, which carries no rhythm of its
+ * own, so without it the stacked cards would touch.
  */
 
-const useStyles = makeStyles({
-  section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
-  h2Row: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: '12px', flexWrap: 'wrap' },
-  fields: { display: 'flex', flexDirection: 'column', rowGap: '8px', minWidth: '340px' },
-  shareRow: { display: 'flex', alignItems: 'center', columnGap: '8px' },
-  shareName: { flexGrow: 1, fontSize: '13px' },
-  bpsInput: { width: '90px' },
-  subtle: { fontSize: '12.5px', color: 'var(--c3-ink-quiet)' },
-  head: { fontSize: '13px', color: 'var(--c3-ink-muted)', margin: '0 0 8px' },
-  card: { border: '1px solid var(--c3-border-subtle)', borderRadius: 'var(--c3-radius-data)', padding: '12px 16px', marginBottom: '12px', backgroundColor: 'var(--c3-surface-base)' },
-  cardHead: { display: 'flex', alignItems: 'baseline', columnGap: '12px', flexWrap: 'wrap', marginBottom: '8px' },
-  mono: { fontFamily: 'var(--c3-font-mono)' },
-});
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no WIDTH affordance for a bare native input. B1 put
+//   `input[type='number']` in the styled list at `width: 100%`, which is right
+//   inside a `Field` (a grid track that sizes to the control) and wrong for a
+//   share row: in a flex row a `width: 100%` item's flex base is the whole row,
+//   so the input claims a line to itself and the row breaks apart. `Selector`
+//   carries the answer for pickers (`width="compact" | "wide"`); `Input` has no
+//   equivalent. A `Field` cannot be substituted here either — `Field` renders a
+//   visible label, and the share row's label IS the person's name beside it.
+//   (SettingsPage hit the identical gap and answered it the identical way.)
+// WORKAROUND: the Fluent-era `bpsInput` width carried verbatim as an inline
+//   style — 90px, byte-identical to the pre-pivot row.
+// CLASS: additive — a `width` prop on the kit's `Input` mirroring `Selector`'s
+//   (or a `.field-compact` class) closes it and changes no converted call site.
+const SHARE_INPUT: React.CSSProperties = { width: '90px' };
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: no quiet aside sized for the INSIDE of a data cell. MEASURED in the
+//   running app: the money cells beside this trailer render at 12px
+//   (`.data-grid td.mono` = --c3-font-size-caption) and `.record-quiet` renders
+//   at 14px, so adopting it would set the annotation 2px LARGER than the figure
+//   it annotates. Every other quiet class the kit has is either cell-scoped by
+//   selector (`.mono`) or belongs to a different primitive (`.record-row-meta`
+//   is row furniture and `white-space: nowrap`, which would stop this aside
+//   wrapping inside its cell).
+// WORKAROUND: the Fluent-era `subtle` declaration carried verbatim for this ONE
+//   in-cell site — the " · <bank label> · <ref> · <paid on>" trailer beside the
+//   payout badge. 12.5px: still half a pixel above the figure, but that is the
+//   PRE-PIVOT value carried unchanged, not a new choice. Its eight standalone
+//   siblings are on the page, not in a cell, and correctly take `.record-quiet`.
+//   MissionDetailPage carries the identical workaround for the identical
+//   trailer on its own payment cell.
+// CLASS: additive — an in-cell quiet class (ink-quiet at caption size) breaks
+//   nothing already converted. Re-sizing `.record-quiet` itself WOULD be
+//   contractual: it is live on this screen and five others.
+const CELL_ASIDE: React.CSSProperties = { fontSize: '12.5px', color: 'var(--c3-ink-quiet)' };
 
 interface ShareDraft {
   personId: string;
@@ -38,7 +102,6 @@ interface ShareDraft {
 }
 
 export function DistributionsSection({ missionId, canManage }: { missionId: string; canManage: boolean }) {
-  const s = useStyles();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const dists = useMissionDistributions(missionId);
@@ -66,6 +129,9 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
     setLineId(forLineId);
     try {
       const seed = await api.distributionSeed(missionId);
+      // ⚖️ MONEY — `!== null`, never truthiness. A seeded suggestion of 0 bps is
+      // a real suggestion; `r0.suggestedBps ? …` would blank the row and report
+      // "no term on file" for a term that exists and says zero.
       setDrafts(seed.rows.map((r0) => ({ personId: r0.personId, personName: r0.personName, bps: r0.suggestedBps !== null ? String(r0.suggestedBps / 100) : '' })));
     } catch {
       setDrafts([]);
@@ -73,8 +139,15 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
   }
 
   const activeDrafts = (drafts ?? []).filter((d) => d.bps.trim() !== '');
-  // orgBps legitimately accepts 0 (all-to-players); the per-row `> 0` guard
-  // below is a CALL-SITE rule and must not migrate into the shared parser.
+  // ⚖️ MONEY — ALL FOUR percent sites below stay on `percentToBpsAllowingZero`,
+  // and the `> 0` on the share rows stays HERE. orgBps legitimately accepts 0
+  // (all-to-players) while each share row must be > 0; both read the SAME
+  // parser and the row rule is a CALL-SITE rule. Swapping the row sites to
+  // `positivePercentToBps` would compute the same booleans today, and is still
+  // refused: it moves a visible per-row condition into an import, and it would
+  // split the validator (below) from the WRITE (`onConfirm`) — which must parse
+  // under identical rules or an input can pass the gate and reach the API as
+  // something else. A blank row is EXCLUDED (the trim filter above), not zero.
   const orgBps = percentToBpsAllowingZero(orgPct);
   const draftBpsSum = activeDrafts.reduce((n, d) => n + (percentToBpsAllowingZero(d.bps) ?? 0), 0);
   const draftsValid =
@@ -82,12 +155,15 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
     activeDrafts.every((d) => percentToBpsAllowingZero(d.bps) !== null && percentToBpsAllowingZero(d.bps)! > 0) &&
     (activeDrafts.length === 0 ? orgBps === 10000 : draftBpsSum === 10000);
   const chosenLine = lines.find((l) => l.lineId === lineId);
+  // ⚖️ MONEY — `??`, never `||`. A line that landed exactly 0 minor units has a
+  // real received amount of 0; `||` would fall through to the EXPECTED amount
+  // and state a pool that never arrived.
   const pool = chosenLine ? (chosenLine.receivedAmountMinor ?? chosenLine.amountMinor) : 0;
 
   return (
-    <section className={s.section} data-testid="mission-distributions">
-      <div className={s.h2Row}>
-        <h2 className={s.h2}>Prize distributions</h2>
+    <section className="record-section" data-testid="mission-distributions">
+      <div className="record-section-head">
+        <h2>Prize distributions</h2>
         {canManage && distributable.length > 0 && (
           <GovernedAction
             triggerLabel="Distribute…"
@@ -95,7 +171,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
             title="Allocate received money into a payout list"
             description="Org cut + player shares must equal the landed money EXACTLY — the allocator guarantees it to the cent. Shares are % of the player pool and must sum to 100%. Immediate and recorded; payouts are marked as the money moves."
             extra={
-              <div className={s.fields}>
+              <>
                 <Field label="Received income line" required>
                   <Selector
                     data-testid="distribute-line"
@@ -103,6 +179,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                     display={chosenLine ? `${chosenLine.label} — ${formatMoney(pool, chosenLine.currency as CurrencyCode)}` : undefined}
                     options={distributable.map((l) => ({
                       value: l.lineId,
+                      // ⚖️ MONEY — the same `??` law as `pool` above, per option.
                       label: `${l.label} — ${formatMoney(l.receivedAmountMinor ?? l.amountMinor, l.currency as CurrencyCode)}`,
                     }))}
                     onSelect={(value) => value && void openSeed(value)}
@@ -113,20 +190,21 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                 </Field>
                 {drafts !== null && (
                   <>
-                    <span className={s.subtle}>
+                    <span className="record-quiet">
                       Player shares (% of the player pool — leave blank to exclude; seeded from PrizeShare terms where they exist):
                     </span>
                     {drafts.map((d, i) => (
-                      <div key={d.personId} className={s.shareRow}>
-                        <span className={s.shareName}>{d.personName}</span>
+                      <div key={d.personId} className="form-row">
+                        <span className="record-row-name">{d.personName}</span>
+                        <span className="record-row-spacer" />
                         <Input
-                          className={s.bpsInput}
+                          style={SHARE_INPUT}
                           type="number"
                           value={d.bps}
                           onChange={(e) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, bps: e.target.value } : x)))}
                           data-testid={`distribute-share-${d.personId}`}
                         />
-                        <span className={s.subtle}>%</span>
+                        <span className="record-quiet">%</span>
                       </div>
                     ))}
                     <Selector
@@ -143,7 +221,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                         }
                       }}
                     />
-                    <span className={s.subtle} data-testid="distribute-share-sum">
+                    <span className="record-quiet" data-testid="distribute-share-sum">
                       {activeDrafts.length === 0
                         ? orgBps === 10000
                           ? 'No player rows — the org takes 100%.'
@@ -152,7 +230,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                     </span>
                   </>
                 )}
-              </div>
+              </>
             }
             confirmLabel="Create distribution"
             confirmDisabled={!chosenLine || !draftsValid}
@@ -161,6 +239,10 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                 const res = await api.createDistribution({
                   missionId,
                   lineId,
+                  // ⚖️ MONEY — the WRITE reads the SAME parser as the validator
+                  // above, deliberately. Both `!` are safe only because
+                  // `confirmDisabled={!chosenLine || !draftsValid}` proved the
+                  // parse on these exact strings.
                   orgShareBps: orgBps!,
                   shares: activeDrafts.map((d) => ({ personId: d.personId, shareBps: percentToBpsAllowingZero(d.bps)! })),
                 });
@@ -178,150 +260,152 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
       </div>
 
       {dists.data && dists.data.distributions.length === 0 && (
-        <p className={s.head} data-testid="distributions-empty">
+        <p className="record-quiet" data-testid="distributions-empty">
           No distributions yet — they become available once income is recorded as Received.
         </p>
       )}
 
-      {(dists.data?.distributions ?? []).map(({ distribution: d, shares }) => (
-        <div key={d.distributionId} className={s.card} data-testid={`distribution-${d.distributionId}`}>
-          <div className={s.cardHead}>
-            <span className={s.mono}>{d.distributionId}</span>
-            <StatusBadge variant={d.status === 'Live' ? 'ready' : 'neutral'} data-testid={`distribution-status-${d.distributionId}`} title={d.revokedReason ?? undefined}>
-              {d.status}
-            </StatusBadge>
-            <span className={s.subtle}>
-              {`Pool ${formatMoney(d.poolMinor, d.currency)} · org ${(d.orgShareBps / 100).toFixed(2)}% = ${formatMoney(d.orgCutMinor, d.currency)}`}
-            </span>
-            {canManage && d.status === 'Live' && shares.every((x) => x.payoutStatus === 'Pending') && (
-              <GovernedAction
-                triggerLabel="Revoke…"
-                triggerTestId={`revoke-${d.distributionId}`}
-                triggerAppearance="secondary"
-                title={`Revoke ${d.distributionId}?`}
-                description="Legal only while every payout is pending. The allocation stays in history; the line frees up for a corrected distribution. A reason is required and recorded."
-                extra={
-                  <Field label="Reason" required>
-                    <Input
-                      value={revokeReason[d.distributionId] ?? ''}
-                      onChange={(e) => setRevokeReason((c) => ({ ...c, [d.distributionId]: e.target.value }))}
-                      data-testid={`revoke-reason-${d.distributionId}`}
-                    />
-                  </Field>
-                }
-                confirmLabel="Revoke distribution"
-                confirmDisabled={(revokeReason[d.distributionId] ?? '').trim() === ''}
-                onConfirm={async () => {
-                  try {
-                    await api.revokeDistribution(d.distributionId, (revokeReason[d.distributionId] ?? '').trim(), d.version);
-                    notify('success', `${d.distributionId} revoked — the line is free for a corrected allocation.`);
-                    invalidate();
-                  } catch (err) {
-                    notify('error', err instanceof ApiError ? err.message : 'The revoke failed.');
-                    throw err instanceof Error ? err : new Error('failed');
+      <div className="record-rows">
+        {(dists.data?.distributions ?? []).map(({ distribution: d, shares }) => (
+          <WorkSurface key={d.distributionId} tier="elevated" className="record-card" data-testid={`distribution-${d.distributionId}`}>
+            <div className="form-row">
+              <span className="mono-wrap">{d.distributionId}</span>
+              <StatusBadge variant={d.status === 'Live' ? 'ready' : 'neutral'} data-testid={`distribution-status-${d.distributionId}`} title={d.revokedReason ?? undefined}>
+                {d.status}
+              </StatusBadge>
+              <span className="record-quiet">
+                {`Pool ${formatMoney(d.poolMinor, d.currency)} · org ${(d.orgShareBps / 100).toFixed(2)}% = ${formatMoney(d.orgCutMinor, d.currency)}`}
+              </span>
+              {canManage && d.status === 'Live' && shares.every((x) => x.payoutStatus === 'Pending') && (
+                <GovernedAction
+                  triggerLabel="Revoke…"
+                  triggerTestId={`revoke-${d.distributionId}`}
+                  triggerAppearance="secondary"
+                  title={`Revoke ${d.distributionId}?`}
+                  description="Legal only while every payout is pending. The allocation stays in history; the line frees up for a corrected distribution. A reason is required and recorded."
+                  extra={
+                    <Field label="Reason" required>
+                      <Input
+                        value={revokeReason[d.distributionId] ?? ''}
+                        onChange={(e) => setRevokeReason((c) => ({ ...c, [d.distributionId]: e.target.value }))}
+                        data-testid={`revoke-reason-${d.distributionId}`}
+                      />
+                    </Field>
                   }
-                }}
-              />
-            )}
-          </div>
-          {shares.length > 0 && (
-            <ComparisonTable label="Payout list">
-              <thead>
-                <tr>
-                  <th>Person</th>
-                  <th>Share</th>
-                  <th>Amount</th>
-                  <th>Payout</th>
-                  {canManage && <th aria-label="Actions" />}
-                </tr>
-              </thead>
-              <tbody>
-                {shares.map((sh) => (
-                  <tr key={sh.personId} data-testid={`payout-${d.distributionId}-${sh.personId}`}>
-                    <td>{sh.personName}</td>
-                    <td className="mono">{(sh.shareBps / 100).toFixed(2)}%</td>
-                    <td className="mono">{formatMoney(sh.amountMinor, d.currency)}</td>
-                    <td>
-                      <StatusBadge variant={sh.payoutStatus === 'Paid' ? 'ready' : 'pending'} data-testid={`payout-status-${d.distributionId}-${sh.personId}`}>
-                        {sh.payoutStatus}
-                      </StatusBadge>
-                      {sh.payoutStatus === 'Paid' && <span className={s.subtle}>{` · ${sh.paymentSourceLabel}${sh.refNo ? ` · ${sh.refNo}` : ''} · ${sh.paidOn}`}</span>}
-                    </td>
-                    {canManage && (
-                      <td>
-                        {d.status === 'Live' && sh.payoutStatus === 'Pending' && (
-                          <GovernedAction
-                            triggerLabel="Mark paid…"
-                            triggerTestId={`pay-${d.distributionId}-${sh.personId}`}
-                            triggerAppearance="secondary"
-                            title={`Mark ${sh.personName}'s payout as paid?`}
-                            description="Record the payment fact: bank LABEL only (never account numbers) plus the bank reference."
-                            extra={
-                              <div className={s.fields}>
-                                <Field label="Payment source (bank LABEL)" required>
-                                  <Input
-                                    value={payoutForms[`${d.distributionId}/${sh.personId}`]?.label ?? ''}
-                                    onChange={(e) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: e.target.value, refNo: c[`${d.distributionId}/${sh.personId}`]?.refNo ?? '' } }))}
-                                    data-testid={`pay-label-${d.distributionId}-${sh.personId}`}
-                                  />
-                                </Field>
-                                <Field label="Bank reference">
-                                  <Input
-                                    value={payoutForms[`${d.distributionId}/${sh.personId}`]?.refNo ?? ''}
-                                    onChange={(e) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: c[`${d.distributionId}/${sh.personId}`]?.label ?? '', refNo: e.target.value } }))}
-                                  />
-                                </Field>
-                              </div>
-                            }
-                            confirmLabel="Mark paid"
-                            confirmDisabled={(payoutForms[`${d.distributionId}/${sh.personId}`]?.label ?? '').trim() === ''}
-                            onConfirm={async () => {
-                              const f = payoutForms[`${d.distributionId}/${sh.personId}`]!;
-                              try {
-                                await api.markPayout(d.distributionId, sh.personId, {
-                                  expectedVersion: sh.version,
-                                  paid: true,
-                                  paymentSourceLabel: f.label.trim(),
-                                  refNo: f.refNo.trim() === '' ? null : f.refNo.trim(),
-                                });
-                                notify('success', `Payout to ${sh.personName} recorded as paid.`);
-                                invalidate();
-                              } catch (err) {
-                                notify('error', err instanceof ApiError ? err.message : 'The payout update failed.');
-                                throw err instanceof Error ? err : new Error('failed');
-                              }
-                            }}
-                          />
-                        )}
-                        {d.status === 'Live' && sh.payoutStatus === 'Paid' && (
-                          <GovernedAction
-                            triggerLabel="Unmark…"
-                            triggerTestId={`unpay-${d.distributionId}-${sh.personId}`}
-                            triggerAppearance="secondary"
-                            title="Return this payout to pending?"
-                            description="An audited correction — the history keeps both events."
-                            confirmLabel="Return to pending"
-                            onConfirm={async () => {
-                              try {
-                                await api.markPayout(d.distributionId, sh.personId, { expectedVersion: sh.version, paid: false });
-                                notify('success', 'Payout returned to pending (recorded).');
-                                invalidate();
-                              } catch (err) {
-                                notify('error', err instanceof ApiError ? err.message : 'The correction failed.');
-                                throw err instanceof Error ? err : new Error('failed');
-                              }
-                            }}
-                          />
-                        )}
-                      </td>
-                    )}
+                  confirmLabel="Revoke distribution"
+                  confirmDisabled={(revokeReason[d.distributionId] ?? '').trim() === ''}
+                  onConfirm={async () => {
+                    try {
+                      await api.revokeDistribution(d.distributionId, (revokeReason[d.distributionId] ?? '').trim(), d.version);
+                      notify('success', `${d.distributionId} revoked — the line is free for a corrected allocation.`);
+                      invalidate();
+                    } catch (err) {
+                      notify('error', err instanceof ApiError ? err.message : 'The revoke failed.');
+                      throw err instanceof Error ? err : new Error('failed');
+                    }
+                  }}
+                />
+              )}
+            </div>
+            {shares.length > 0 && (
+              <ComparisonTable label="Payout list">
+                <thead>
+                  <tr>
+                    <th>Person</th>
+                    <th>Share</th>
+                    <th>Amount</th>
+                    <th>Payout</th>
+                    {canManage && <th aria-label="Actions" />}
                   </tr>
-                ))}
-              </tbody>
-            </ComparisonTable>
-          )}
-        </div>
-      ))}
+                </thead>
+                <tbody>
+                  {shares.map((sh) => (
+                    <tr key={sh.personId} data-testid={`payout-${d.distributionId}-${sh.personId}`}>
+                      <td>{sh.personName}</td>
+                      <td className="mono">{(sh.shareBps / 100).toFixed(2)}%</td>
+                      <td className="mono">{formatMoney(sh.amountMinor, d.currency)}</td>
+                      <td>
+                        <StatusBadge variant={sh.payoutStatus === 'Paid' ? 'ready' : 'pending'} data-testid={`payout-status-${d.distributionId}-${sh.personId}`}>
+                          {sh.payoutStatus}
+                        </StatusBadge>
+                        {sh.payoutStatus === 'Paid' && <span style={CELL_ASIDE}>{` · ${sh.paymentSourceLabel}${sh.refNo ? ` · ${sh.refNo}` : ''} · ${sh.paidOn}`}</span>}
+                      </td>
+                      {canManage && (
+                        <td>
+                          {d.status === 'Live' && sh.payoutStatus === 'Pending' && (
+                            <GovernedAction
+                              triggerLabel="Mark paid…"
+                              triggerTestId={`pay-${d.distributionId}-${sh.personId}`}
+                              triggerAppearance="secondary"
+                              title={`Mark ${sh.personName}'s payout as paid?`}
+                              description="Record the payment fact: bank LABEL only (never account numbers) plus the bank reference."
+                              extra={
+                                <>
+                                  <Field label="Payment source (bank LABEL)" required>
+                                    <Input
+                                      value={payoutForms[`${d.distributionId}/${sh.personId}`]?.label ?? ''}
+                                      onChange={(e) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: e.target.value, refNo: c[`${d.distributionId}/${sh.personId}`]?.refNo ?? '' } }))}
+                                      data-testid={`pay-label-${d.distributionId}-${sh.personId}`}
+                                    />
+                                  </Field>
+                                  <Field label="Bank reference">
+                                    <Input
+                                      value={payoutForms[`${d.distributionId}/${sh.personId}`]?.refNo ?? ''}
+                                      onChange={(e) => setPayoutForms((c) => ({ ...c, [`${d.distributionId}/${sh.personId}`]: { label: c[`${d.distributionId}/${sh.personId}`]?.label ?? '', refNo: e.target.value } }))}
+                                    />
+                                  </Field>
+                                </>
+                              }
+                              confirmLabel="Mark paid"
+                              confirmDisabled={(payoutForms[`${d.distributionId}/${sh.personId}`]?.label ?? '').trim() === ''}
+                              onConfirm={async () => {
+                                const f = payoutForms[`${d.distributionId}/${sh.personId}`]!;
+                                try {
+                                  await api.markPayout(d.distributionId, sh.personId, {
+                                    expectedVersion: sh.version,
+                                    paid: true,
+                                    paymentSourceLabel: f.label.trim(),
+                                    refNo: f.refNo.trim() === '' ? null : f.refNo.trim(),
+                                  });
+                                  notify('success', `Payout to ${sh.personName} recorded as paid.`);
+                                  invalidate();
+                                } catch (err) {
+                                  notify('error', err instanceof ApiError ? err.message : 'The payout update failed.');
+                                  throw err instanceof Error ? err : new Error('failed');
+                                }
+                              }}
+                            />
+                          )}
+                          {d.status === 'Live' && sh.payoutStatus === 'Paid' && (
+                            <GovernedAction
+                              triggerLabel="Unmark…"
+                              triggerTestId={`unpay-${d.distributionId}-${sh.personId}`}
+                              triggerAppearance="secondary"
+                              title="Return this payout to pending?"
+                              description="An audited correction — the history keeps both events."
+                              confirmLabel="Return to pending"
+                              onConfirm={async () => {
+                                try {
+                                  await api.markPayout(d.distributionId, sh.personId, { expectedVersion: sh.version, paid: false });
+                                  notify('success', 'Payout returned to pending (recorded).');
+                                  invalidate();
+                                } catch (err) {
+                                  notify('error', err instanceof ApiError ? err.message : 'The correction failed.');
+                                  throw err instanceof Error ? err : new Error('failed');
+                                }
+                              }}
+                            />
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </ComparisonTable>
+            )}
+          </WorkSurface>
+        ))}
+      </div>
     </section>
   );
 }
