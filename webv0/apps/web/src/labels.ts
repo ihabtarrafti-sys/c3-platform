@@ -1,6 +1,6 @@
 import { formatMoney, formatPercentBps } from '@c3web/domain';
 import type { AgreementTermDto } from '@c3web/api-contracts';
-import type { StatusVariant } from './components/StatusBadge';
+import type { StatusVariant } from './tablework';
 
 /**
  * Enum → human-label mappings (D.4–D.6). Raw internal enums must never appear in
