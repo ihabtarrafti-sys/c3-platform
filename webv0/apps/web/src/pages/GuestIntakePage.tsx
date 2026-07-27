@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Field, Input, SectionHeading, Textarea } from '../tablework';
+import { Field, Input, SectionHeading, Textarea, WorkSurface } from '../tablework';
 
 /**
  * Guest intake (Track B6) — the PUBLIC form. Rendered OUTSIDE the app shell and
@@ -135,25 +135,28 @@ export function GuestIntakePage() {
 
         {peek.status === 'loading' && <p className="record-quiet">Loading…</p>}
 
+        {/* `.record-card` is padding/radius/rhythm ONLY — the surface (base
+            background + subtle border, matching the Fluent-era `s.panel`) comes
+            from WorkSurface. A bare div renders an invisible panel. */}
         {peek.status === 'notfound' && (
-          <div className="record-card">
+          <WorkSurface className="record-card">
             <h1 className="collection-title">Link not found</h1>
             <p className="record-quiet">This intake link doesn’t exist. Please check the link your contact sent you.</p>
-          </div>
+          </WorkSurface>
         )}
 
         {peek.status === 'closed' && (
-          <div className="record-card" data-testid="guest-closed">
+          <WorkSurface className="record-card" data-testid="guest-closed">
             <h1 className="collection-title">Link unavailable</h1>
             <p className="record-quiet">{peek.message ?? 'This link is no longer available. Ask your contact for a fresh one.'}</p>
-          </div>
+          </WorkSurface>
         )}
 
         {peek.status === 'open' && done && (
-          <div className="record-card" data-testid="guest-done">
+          <WorkSurface className="record-card" data-testid="guest-done">
             <strong>Thank you — your details were received.</strong>
             <p className="record-quiet">Reference {done}. The team will review your submission. You can close this page.</p>
-          </div>
+          </WorkSurface>
         )}
 
         {peek.status === 'open' && !done && (
