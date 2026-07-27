@@ -9,6 +9,7 @@ import {
   parseCanonicalFrozenJson,
   parseFrozenSunsetCoverageManifest,
   parseFrozenSunsetRegistry,
+  serializeCanonicalFrozenJson,
   listSunsetEnforcementTreeFiles,
   searchHarnessWebv0Root,
   SUNSET_FROZEN_DATA_FILES,
@@ -73,6 +74,28 @@ describe('H0 frozen sunset data purity', () => {
         'crlf.json',
       ),
     ).toEqual({ roles: ['owner'] });
+  });
+
+  it('writes one deterministic LF-only canonical representation', () => {
+    const source = serializeCanonicalFrozenJson({
+      roles: ['owner'],
+      nested: { enabled: true },
+    });
+    expect(source).toBe(
+      '{\n' +
+        '  "roles": [\n' +
+        '    "owner"\n' +
+        '  ],\n' +
+        '  "nested": {\n' +
+        '    "enabled": true\n' +
+        '  }\n' +
+        '}\n',
+    );
+    expect(source).not.toContain('\r');
+    expect(parseCanonicalFrozenJson(source, 'generated.json')).toEqual({
+      roles: ['owner'],
+      nested: { enabled: true },
+    });
   });
 
   it('RED: length-framed tree hashing cannot merge or split NUL-bearing files', () => {

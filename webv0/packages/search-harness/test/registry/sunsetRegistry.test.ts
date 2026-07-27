@@ -128,6 +128,53 @@ describe('H0 permanent search sunset registry', () => {
     ).not.toThrow();
   });
 
+  it('RED: generated coverage metadata, order, and ID bindings cannot drift', () => {
+    const surface = 'qrels';
+    const inventory =
+      FROZEN_SUNSET_COVERAGE_MANIFEST.surfaces[surface];
+    const swappedIds = inventory.entries.map((entry, index) => {
+      if (index === 0) {
+        return {
+          ...entry,
+          plannedRecordId: inventory.entries[1]!.plannedRecordId,
+        };
+      }
+      if (index === 1) {
+        return {
+          ...entry,
+          plannedRecordId: inventory.entries[0]!.plannedRecordId,
+        };
+      }
+      return entry;
+    });
+    const mutationCodes = (
+      patch: Partial<typeof inventory>,
+    ) =>
+      compareSunsetCoverage(
+        FROZEN_SUNSET_REGISTRY,
+        {
+          ...FROZEN_SUNSET_COVERAGE_MANIFEST,
+          surfaces: {
+            ...FROZEN_SUNSET_COVERAGE_MANIFEST.surfaces,
+            [surface]: {
+              ...inventory,
+              ...patch,
+            },
+          },
+        },
+      ).map(({ code }) => code);
+
+    expect(
+      mutationCodes({ artifactVersion: 'tampered/version' }),
+    ).toContain('SUNSET_COVERAGE_ARTIFACT_VERSION_CHANGED');
+    expect(mutationCodes({ entries: swappedIds })).toContain(
+      'SUNSET_COVERAGE_PLANNED_ID_CHANGED',
+    );
+    expect(
+      mutationCodes({ entries: [...inventory.entries].reverse() }),
+    ).toContain('SUNSET_COVERAGE_ENTRY_ORDER_CHANGED');
+  });
+
   it.each(SUNSET_COVERAGE_SURFACES)(
     'RED: missing, unknown, and duplicate %s coverage fail before sampling',
     (surface) => {
@@ -190,10 +237,22 @@ describe('H0 permanent search sunset registry', () => {
       grown,
       FROZEN_SUNSET_COVERAGE_MANIFEST,
     );
-    expect(failures).toHaveLength(SUNSET_COVERAGE_SURFACES.length);
+    const missingFailures = failures.filter(
+      ({ code }) => code === 'SUNSET_COVERAGE_FACT_MISSING',
+    );
+    expect(missingFailures).toHaveLength(
+      SUNSET_COVERAGE_SURFACES.length,
+    );
     expect(
-      failures.every(
-        ({ code }) => code === 'SUNSET_COVERAGE_FACT_MISSING',
+      SUNSET_COVERAGE_SURFACES.every((surface) =>
+        missingFailures.some(
+          (failure) => failure.surface === surface,
+        ),
+      ),
+    ).toBe(true);
+    expect(
+      failures.some(
+        ({ code }) => code === 'SUNSET_COVERAGE_PLANNED_ID_CHANGED',
       ),
     ).toBe(true);
   });

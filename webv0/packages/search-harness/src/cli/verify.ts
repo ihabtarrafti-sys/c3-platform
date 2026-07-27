@@ -30,7 +30,7 @@ runCommand(() => {
   assertSearchSunsetPreflight();
   const source = prepareH1SourcePlan();
   assertTrustedH1SourcePlan(source);
-  runHarnessRedSelfTests({
+  const selfTests = runHarnessRedSelfTests({
     executablePath: process.execPath,
     vitestPath: vitest,
     configPath: harnessConfig,
@@ -53,7 +53,7 @@ runCommand(() => {
       signatureTrustStoreConfigured: false,
       sunsetCoverageManifest: SUNSET_COVERAGE_MANIFEST_VERSION,
       sunsetCoverageSurfaceCount: SUNSET_COVERAGE_SURFACES.length,
-      redSelfTestsExecuted: true,
+      ...selfTests,
       sourcePlanSha256: source.manifestSha256,
       externallyPinnedAuthorityRoot:
         source.manifestInputs.externallyPinnedAuthorityRoot,

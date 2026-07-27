@@ -4,7 +4,9 @@ export {
 } from './frozenManifest';
 export {
   assertSunsetCoverage,
+  buildSunsetCoverageManifest,
   compareSunsetCoverage,
+  SUNSET_COVERAGE_ARTIFACT_VERSIONS,
   SUNSET_COVERAGE_MANIFEST_VERSION,
   SUNSET_COVERAGE_SURFACES,
   SunsetCoverageError,
@@ -15,6 +17,7 @@ export {
 } from './frozenCoverageManifest';
 export {
   parseCanonicalFrozenJson,
+  serializeCanonicalFrozenJson,
   SUNSET_FROZEN_DATA_FILES,
 } from './frozenData';
 export {
@@ -24,10 +27,12 @@ export {
 } from './compare';
 export {
   buildLiveSunsetRegistrySnapshot,
+  canonicalizeSunsetFingerprintBytes,
   fingerprintSunsetTypeScriptDeclarations,
   hashSunsetTreeEntries,
   isSunsetEnforcementTreePath,
   listSunsetEnforcementTreeFiles,
+  listSunsetFingerprintInputFiles,
   searchHarnessWebv0Root,
   SUNSET_ENFORCEMENT_TREE_KEY,
   SUNSET_POLICY_ROOTS,
@@ -36,6 +41,18 @@ export {
 export {
   assertSearchSunsetPreflight,
 } from './preflight';
+export {
+  applySearchSunsetRefresh,
+  applySunsetRefreshPlan,
+  applySunsetRefreshSources,
+  assertFreshSunsetPreflightReceipt,
+  buildSearchSunsetRefreshPlan,
+  createSearchSunsetRefreshPlan,
+  createSearchSunsetRefreshPlanWithDependencies,
+  inspectSunsetRefreshGitEvidence,
+  parseSunsetRefreshRequest,
+  publicSunsetRefreshPlan,
+} from './refresh';
 export {
   SUNSET_REASON_CODES,
 } from './types';
@@ -57,3 +74,21 @@ export type {
 export type {
   SunsetTreeHashEntry,
 } from './liveSnapshot';
+export type {
+  SunsetFrozenDataFile,
+} from './frozenData';
+export type {
+  AppliedSunsetRefresh,
+  SunsetRefreshArtifactEvidence,
+  SunsetRefreshBindingChange,
+  SunsetRefreshCoverageDelta,
+  SunsetRefreshFalsifiers,
+  SunsetRefreshGitEvidence,
+  SunsetRefreshGitDependencies,
+  SunsetRefreshIo,
+  SunsetRefreshIndexBinding,
+  SunsetRefreshPlan,
+  SunsetRefreshPlanDependencies,
+  SunsetRefreshPlanEvidence,
+  SunsetRefreshRequest,
+} from './refresh';

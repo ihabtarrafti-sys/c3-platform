@@ -621,12 +621,28 @@ function recursiveSourceFiles(relativeRoot: string): string[] {
   );
 }
 
-function hashableFileContent(relativePath: string): string | Buffer {
-  const bytes = readFileSync(repoPath(relativePath));
+function hashableFileContent(relativePath: string): Buffer {
+  return canonicalizeSunsetFingerprintBytes(
+    readFileSync(repoPath(relativePath)),
+  );
+}
+
+/**
+ * The single checkout-portability boundary used for both live fingerprints
+ * and refresh index parity. UTF-8 text is EOL-normalized; NUL-bearing or
+ * invalid UTF-8 input remains byte-exact.
+ */
+export function canonicalizeSunsetFingerprintBytes(
+  value: Uint8Array,
+): Buffer {
+  const bytes = Buffer.from(value);
   try {
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     if (text.includes('\u0000')) return bytes;
-    return text;
+    return Buffer.from(
+      canonicalizeSunsetFingerprintText(text),
+      'utf8',
+    );
   } catch {
     return bytes;
   }
@@ -759,6 +775,18 @@ export function listSunsetEnforcementTreeFiles(): readonly string[] {
   )
     .filter(isSunsetEnforcementTreePath)
     .sort();
+}
+
+export function listSunsetFingerprintInputFiles(): readonly string[] {
+  return [
+    ...new Set([
+      ...SUNSET_POLICY_ROOTS.flatMap((root) =>
+        recursiveRegularFiles(root),
+      ),
+      ...listSunsetEnforcementTreeFiles(),
+      ...SUNSET_WIRING_FILES,
+    ]),
+  ].sort();
 }
 
 function extractModuleKeys(): string[] {

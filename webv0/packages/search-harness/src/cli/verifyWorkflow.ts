@@ -1,10 +1,13 @@
 import {
   SUNSET_COVERAGE_MANIFEST_VERSION,
 } from '../registry/coverage.js';
+import type {
+  HarnessSelfTestReceipt,
+} from './selfTestRunner.js';
 
 export interface H0VerificationDependencies {
   readonly assertSunsetPreflight: () => void;
-  readonly runRedSelfTests: () => void;
+  readonly runRedSelfTests: () => HarnessSelfTestReceipt;
 }
 
 export interface H0VerificationResult {
@@ -19,6 +22,7 @@ export interface H0VerificationResult {
     readonly sunsetCoverageManifest: typeof SUNSET_COVERAGE_MANIFEST_VERSION;
     readonly sunsetCoverageSurfaceCount: number;
     readonly redSelfTestsExecuted: true;
+    readonly harnessTestCount: number;
   };
 }
 
@@ -31,7 +35,7 @@ export function runH0VerificationWorkflow(
   sunsetCoverageSurfaceCount: number,
 ): H0VerificationResult {
   dependencies.assertSunsetPreflight();
-  dependencies.runRedSelfTests();
+  const selfTests = dependencies.runRedSelfTests();
 
   return {
     command: 'search:harness:verify',
@@ -44,7 +48,7 @@ export function runH0VerificationWorkflow(
       signatureTrustStoreConfigured: false,
       sunsetCoverageManifest: SUNSET_COVERAGE_MANIFEST_VERSION,
       sunsetCoverageSurfaceCount,
-      redSelfTestsExecuted: true,
+      ...selfTests,
     },
   };
 }

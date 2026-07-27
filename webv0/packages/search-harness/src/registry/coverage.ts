@@ -14,6 +14,14 @@ export const SUNSET_COVERAGE_SURFACES = [
 export type SunsetCoverageSurface =
   (typeof SUNSET_COVERAGE_SURFACES)[number];
 
+export const SUNSET_COVERAGE_ARTIFACT_VERSIONS = {
+  'visibility-matrix': 'hearth-search-visibility/coverage-v1',
+  qrels: 'hearth-search-qrels/coverage-v1',
+  provenance: 'hearth-search-provenance/coverage-v1',
+  'positive-conformance': 'hearth-search-positive/coverage-v1',
+  'negative-conformance': 'hearth-search-negative/coverage-v1',
+} as const satisfies Readonly<Record<SunsetCoverageSurface, string>>;
+
 export interface SunsetCoverageEntry {
   readonly factKey: string;
   readonly plannedRecordId: string;
@@ -37,17 +45,22 @@ export interface SunsetCoverageManifest {
 }
 
 export type SunsetCoverageFailureCode =
+  | 'SUNSET_COVERAGE_ARTIFACT_VERSION_CHANGED'
   | 'SUNSET_COVERAGE_DUPLICATE_FACT'
   | 'SUNSET_COVERAGE_DUPLICATE_PLANNED_ID'
+  | 'SUNSET_COVERAGE_ENTRY_ORDER_CHANGED'
   | 'SUNSET_COVERAGE_FACT_MISSING'
   | 'SUNSET_COVERAGE_FACT_UNKNOWN'
-  | 'SUNSET_COVERAGE_MANIFEST_INVALID';
+  | 'SUNSET_COVERAGE_MANIFEST_INVALID'
+  | 'SUNSET_COVERAGE_PLANNED_ID_CHANGED';
 
 export interface SunsetCoverageFailure {
   readonly code: SunsetCoverageFailureCode;
   readonly surface: string;
   readonly factKey?: string;
   readonly plannedRecordId?: string;
+  readonly expected?: unknown;
+  readonly actual?: unknown;
 }
 
 function orderedFacts(path: string, values: readonly string[]): string[] {
@@ -129,6 +142,38 @@ export function sunsetClosedFactKeys(
   return Object.freeze(facts);
 }
 
+/**
+ * H0 coverage IDs are deterministic planning slots, not signed reviewer
+ * records. Every refresh therefore re-derives them from the sorted live fact
+ * set. Once a later stage binds real records to these IDs, that stage must
+ * replace plannedCoverageOnly with a versioned non-regenerable contract.
+ */
+export function buildSunsetCoverageManifest(
+  snapshot: SunsetRegistrySnapshot,
+): SunsetCoverageManifest {
+  const facts = sunsetClosedFactKeys(snapshot);
+  const surfaces = {} as Record<
+    SunsetCoverageSurface,
+    SunsetCoverageInventory
+  >;
+  for (const surface of SUNSET_COVERAGE_SURFACES) {
+    surfaces[surface] = {
+      artifactVersion: SUNSET_COVERAGE_ARTIFACT_VERSIONS[surface],
+      entries: facts.map((factKey, index) => ({
+        factKey,
+        plannedRecordId: `hearth-search:${surface}:${String(
+          index + 1,
+        ).padStart(3, '0')}`,
+      })),
+    };
+  }
+  return {
+    manifestVersion: SUNSET_COVERAGE_MANIFEST_VERSION,
+    plannedCoverageOnly: true,
+    surfaces,
+  };
+}
+
 export function compareSunsetCoverage(
   snapshot: SunsetRegistrySnapshot,
   manifest: SunsetCoverageManifest,
@@ -157,6 +202,7 @@ export function compareSunsetCoverage(
   }
 
   const requiredFacts = new Set(sunsetClosedFactKeys(snapshot));
+  const generatedManifest = buildSunsetCoverageManifest(snapshot);
   for (const surface of SUNSET_COVERAGE_SURFACES) {
     const inventory = manifest.surfaces[surface];
     if (
@@ -169,6 +215,17 @@ export function compareSunsetCoverage(
         surface,
       });
       continue;
+    }
+    const generatedInventory = generatedManifest.surfaces[surface];
+    if (
+      inventory.artifactVersion !== generatedInventory.artifactVersion
+    ) {
+      failures.push({
+        code: 'SUNSET_COVERAGE_ARTIFACT_VERSION_CHANGED',
+        surface,
+        expected: generatedInventory.artifactVersion,
+        actual: inventory.artifactVersion,
+      });
     }
 
     const coveredFacts = new Set<string>();
@@ -216,6 +273,44 @@ export function compareSunsetCoverage(
           code: 'SUNSET_COVERAGE_FACT_MISSING',
           surface,
           factKey,
+        });
+      }
+    }
+    if (
+      inventory.entries.length === generatedInventory.entries.length &&
+      inventory.entries.every(({ factKey }) =>
+        requiredFacts.has(factKey),
+      ) &&
+      coveredFacts.size === requiredFacts.size &&
+      inventory.entries.some(
+        (entry, index) =>
+          entry.factKey !== generatedInventory.entries[index]?.factKey,
+      )
+    ) {
+      failures.push({
+        code: 'SUNSET_COVERAGE_ENTRY_ORDER_CHANGED',
+        surface,
+      });
+    }
+    const generatedByFact = new Map(
+      generatedInventory.entries.map((entry) => [
+        entry.factKey,
+        entry.plannedRecordId,
+      ]),
+    );
+    for (const entry of inventory.entries) {
+      const expectedPlannedRecordId = generatedByFact.get(entry.factKey);
+      if (
+        expectedPlannedRecordId !== undefined &&
+        entry.plannedRecordId !== expectedPlannedRecordId
+      ) {
+        failures.push({
+          code: 'SUNSET_COVERAGE_PLANNED_ID_CHANGED',
+          surface,
+          factKey: entry.factKey,
+          plannedRecordId: entry.plannedRecordId,
+          expected: expectedPlannedRecordId,
+          actual: entry.plannedRecordId,
         });
       }
     }

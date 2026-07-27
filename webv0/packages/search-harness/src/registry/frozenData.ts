@@ -51,6 +51,16 @@ export function parseCanonicalFrozenJson(
   return parsed;
 }
 
+export function serializeCanonicalFrozenJson(value: unknown): string {
+  const serialized = JSON.stringify(value, null, 2);
+  if (serialized === undefined) {
+    throw new Error('Frozen sunset data cannot be serialized as JSON');
+  }
+  const source = `${serialized}\n`;
+  parseCanonicalFrozenJson(source, 'generated frozen sunset data');
+  return source;
+}
+
 export function readFrozenSunsetData(file: SunsetFrozenDataFile): unknown {
   const url = FROZEN_DATA_URLS[file];
   return parseCanonicalFrozenJson(

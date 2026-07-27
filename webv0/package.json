@@ -33,6 +33,7 @@
     "search:harness:benchmark": "tsx packages/search-harness/src/cli/benchmark.ts",
     "search:harness:report": "tsx packages/search-harness/src/cli/report.ts",
     "search:harness:verify": "tsx packages/search-harness/src/cli/verify.ts",
+    "search:harness:sunset": "tsx packages/search-harness/src/cli/sunsetPreflight.ts",
     "api:dev": "tsx watch apps/api/src/server.ts",
     "web:dev": "npm --workspace apps/web run dev",
     "e2e": "npm --workspace apps/web run e2e",

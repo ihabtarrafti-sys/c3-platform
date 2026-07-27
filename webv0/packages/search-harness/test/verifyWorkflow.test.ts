@@ -1,10 +1,48 @@
-import { readFileSync } from 'node:fs';
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
-import { runHarnessRedSelfTests } from '../src/cli/selfTestRunner.js';
+import {
+  parseHarnessSelfTestReport,
+  runHarnessRedSelfTests,
+} from '../src/cli/selfTestRunner.js';
 import { runH0VerificationWorkflow } from '../src/cli/verifyWorkflow.js';
+
+function selfTestReport(count: number): string {
+  return JSON.stringify({
+    numFailedTests: 0,
+    numFailedTestSuites: 0,
+    numPassedTests: count,
+    numPassedTestSuites: 1,
+    numPendingTests: 0,
+    numPendingTestSuites: 0,
+    numTodoTests: 0,
+    numTotalTests: count,
+    numTotalTestSuites: 1,
+    startTime: 0,
+    success: true,
+    testResults: [
+      {
+        assertionResults: Array.from({ length: count }, (_, index) => ({
+          status: 'passed',
+          title: `test ${index + 1}`,
+        })),
+        endTime: 1,
+        message: '',
+        name: 'synthetic.test.ts',
+        startTime: 0,
+        status: 'passed',
+      },
+    ],
+  });
+}
 
 describe('H0 verification fail-fast ordering', () => {
   it('runs the sunset preflight before RED/self-tests', () => {
@@ -16,6 +54,10 @@ describe('H0 verification fail-fast ordering', () => {
         },
         runRedSelfTests: () => {
           order.push('red-self-tests');
+          return {
+            redSelfTestsExecuted: true,
+            harnessTestCount: 386,
+          };
         },
       },
       5,
@@ -23,6 +65,7 @@ describe('H0 verification fail-fast ordering', () => {
 
     expect(order).toEqual(['sunset-preflight', 'red-self-tests']);
     expect(result.attestations.redSelfTestsExecuted).toBe(true);
+    expect(result.attestations.harnessTestCount).toBe(386);
   });
 
   it('RED: sunset drift prevents the test process from starting', () => {
@@ -35,6 +78,10 @@ describe('H0 verification fail-fast ordering', () => {
           },
           runRedSelfTests: () => {
             testsStarted = true;
+            return {
+              redSelfTestsExecuted: true,
+              harnessTestCount: 1,
+            };
           },
         },
         5,
@@ -76,10 +123,106 @@ describe('H0 verification fail-fast ordering', () => {
       '--root',
       'pinned/search-harness',
       '--no-color',
+      '--silent',
+      '--reporter=json',
     ]);
     expect(thrown).toMatchObject({ code: 'HARNESS_SELF_TEST_FAILED' });
     expect(JSON.stringify(thrown)).not.toContain(sentinel);
     expect(JSON.stringify(thrown)).not.toContain(encodeURIComponent(sentinel));
+  });
+
+  it('binds the receipt to the JSON reporter assertion count', () => {
+    expect(parseHarnessSelfTestReport(selfTestReport(386))).toEqual({
+      redSelfTestsExecuted: true,
+      harnessTestCount: 386,
+    });
+    expect(parseHarnessSelfTestReport(selfTestReport(1))).toEqual({
+      redSelfTestsExecuted: true,
+      harnessTestCount: 1,
+    });
+  });
+
+  it('RED: a declared count cannot exceed the executed assertion results', () => {
+    const forged = JSON.parse(selfTestReport(1)) as Record<string, unknown>;
+    forged.numTotalTests = 386;
+    forged.numPassedTests = 386;
+    expect(() =>
+      parseHarnessSelfTestReport(JSON.stringify(forged)),
+    ).toThrow(/RED\/self-test suite failed/u);
+  });
+
+  it('RED: a failed test file cannot hide passed nested assertions', () => {
+    const forged = JSON.parse(selfTestReport(1)) as {
+      testResults: Array<Record<string, unknown>>;
+    };
+    forged.testResults[0]!.status = 'failed';
+    expect(() =>
+      parseHarnessSelfTestReport(JSON.stringify(forged)),
+    ).toThrow(/RED\/self-test suite failed/u);
+  });
+
+  it.each([
+    ['missing output', undefined],
+    ['malformed JSON', '{"success":true'],
+    ['zero tests', selfTestReport(0)],
+    [
+      'failed status',
+      selfTestReport(1).replace('"status":"passed"', '"status":"failed"'),
+    ],
+    [
+      'false success',
+      selfTestReport(1).replace('"success":true', '"success":false'),
+    ],
+  ])('RED: rejects %s without reflecting child output', (_name, output) => {
+    const sentinel = 'HEARTH-COUNT-OUTPUT-PII@example.invalid';
+    let thrown: unknown;
+    try {
+      parseHarnessSelfTestReport(`${String(output)}${sentinel}`);
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toMatchObject({ code: 'HARNESS_SELF_TEST_FAILED' });
+    expect(JSON.stringify(thrown)).not.toContain(sentinel);
+  });
+
+  it('RED: a real one-test suite reports one rather than a pinned count', () => {
+    const packageRoot = join(
+      dirname(fileURLToPath(import.meta.url)),
+      '..',
+    );
+    const cacheRoot = join(packageRoot, '.cache');
+    mkdirSync(cacheRoot, { recursive: true });
+    const syntheticRoot = mkdtempSync(
+      join(cacheRoot, 'harness-count-'),
+    );
+    try {
+      const configPath = join(syntheticRoot, 'vitest.config.ts');
+      const testPath = join(syntheticRoot, 'count.test.ts');
+      writeFileSync(
+        configPath,
+        "export default { test: { globals: true, include: ['*.test.ts'] } };\n",
+        'utf8',
+      );
+      writeFileSync(testPath, "test('one', () => {});\n", 'utf8');
+
+      expect(
+        runHarnessRedSelfTests({
+          executablePath: process.execPath,
+          vitestPath: join(
+            packageRoot,
+            '..',
+            '..',
+            'node_modules',
+            'vitest',
+            'vitest.mjs',
+          ),
+          configPath,
+          harnessRoot: syntheticRoot,
+        }).harnessTestCount,
+      ).toBe(1);
+    } finally {
+      rmSync(syntheticRoot, { recursive: true, force: true });
+    }
   });
 
   it('keeps the root gate sunset preflight ahead of every test process', () => {
@@ -141,6 +284,12 @@ describe('H0 verification fail-fast ordering', () => {
     );
     expect(verifyRedIndex).toBeGreaterThan(verifySourcePlanIndex);
     expect(verifyPassIndex).toBeGreaterThan(verifyRedIndex);
+    expect(verifySource).toContain(
+      'const selfTests = runHarnessRedSelfTests({',
+    );
+    expect(verifySource).toContain('...selfTests,');
+    expect(verifySource).not.toContain('redSelfTestsExecuted: true');
+    expect(verifySource).not.toContain('harnessTestCount:');
     expect(verifySource).not.toContain(
       'runH1VerificationWorkflow',
     );
