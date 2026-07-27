@@ -62,12 +62,13 @@ exists is an **observed range** and a list of **unseparated candidates**:
 | Tier 2 | 554.68s · 533.98s | **0 orphans at start** (paired measurement) |
 | B1 | 524.91s · **482.86s** | same machine, same day |
 | Tier 3 · cluster A | **451.41s** · **448.41s** | same machine, same day |
+| Ember maintenance | **417.23s** · **428.20s** | **AC power** — same tree on battery: **2799s** |
 
 **The orphan hypothesis is FALSIFIED**: sweeping to zero produced 554.68s, *inside* the
 contaminated range. The leak is a real defect and **not** this cause.
 
-**⚑ AND THE SPREAD ITSELF IS THE ANSWER.** Runs in one day on one machine span
-**451.41s → 585.83s**, with no orphan correlation — and **486s, the figure once called "the
+**⚑ AND THE SPREAD ITSELF IS THE ANSWER.** Healthy runs on this machine span
+**417.23s → 585.83s**, with no orphan correlation — and **486s, the figure once called "the
 baseline," sits in the MIDDLE of that spread, not at its floor.** It was never a healthy
 state that later degraded; it was one draw from a wide distribution, and later runs went
 *faster* than it. A single run cannot distinguish "fast machine" from "lucky draw," which is
@@ -90,7 +91,30 @@ single number — high or low — as one sample.**
 
 **Record machine conditions with every verdict**, in this form — never a CPU percentage:
 
-    credentialsV2 11.91s [healthy 12.7 | slow 33.4] · CPU bench 316ms · 0 postgres · 0 orphans
+    credentialsV2 8.03s [healthy 12.7 | slow 33.4] · AC power · 0 postgres · 0 orphans
+
+> ⛔ **`CPU bench 316ms` STRUCK from this form (2026-07-27), for the same reason as `486s`:**
+> single sample, unknown provenance — **and it does not track the thing it is used to judge.**
+> Measured on 2026-07-27 it read **~1200ms on battery AND ~1200ms on AC**, while the machine
+> was genuinely ~6× degraded on battery. **That is not a weak instrument, it is a
+> NON-DISCRIMINATING one: it cannot produce evidence about the variable in question at all**,
+> and it was used to "falsify" a correct diagnosis before the real workload overturned it back.
+>
+> **Use `credentialsV2` against its own range. It discriminated in one measurement.**
+
+### 🔋 POWER STATE — the mechanism, with a number
+
+**AC vs battery is worth ~6.7× on this machine, measured: same tree, same gate, one variable.**
+
+| Condition | Test phase | Outcome |
+|---|---|---|
+| on battery | **2799s** | `exitUploadSafety` **timed out at 30s** — 1 failure |
+| on AC | **417s** | 1033/1033 passed |
+
+**So a battery-state gate does not merely run slow — it manufactures TIMEOUT failures in tests
+that are not slow**, and those read as real defects in files the change never touched. **Check
+`Win32_Battery.BatteryStatus` (1 = battery, 2 = AC) BEFORE diagnosing a timeout**, and note
+that the power *scheme* will still say "Performance" and load will look low.
 
 **An aggregate system metric is WEAK evidence; a known workload against its own known
 baseline is STRONG evidence.** `Win32_Processor.LoadPercentage` reported 65% while
