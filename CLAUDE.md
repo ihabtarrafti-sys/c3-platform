@@ -204,6 +204,41 @@ the verification produces a report identical to performing it, which makes it de
 rendered anchor, plus the body font as a negative control proving the rule applied rather
 than was inherited.)*
 
+### ⚖️ A CHECK MUST STATE ITS OWN SCOPE, AND A NEGATIVE RESULT NEEDS A POSITIVE CONTROL
+
+**Three defects in this repo's verification tooling in one week, all the same shape:**
+
+| # | The check | What it actually answered |
+|---|---|---|
+| 34 | grep `webv0 gate:` | matched **PASSED**, silently missed every **FAILED** |
+| 39 | grep the token `equipment` | that page serves **`/kit`** and **`/apparel`** |
+| 42 | testid **value**-set diff | values, **not placement** — `ComparisonTable` moves the attribute off the `<table>` |
+
+**None was carelessness, and none was findable by inspection.** A check that answers a
+narrower question than the one asked produces output that is well-formed, confident, and
+**indistinguishable from an answer to the broader question**. All three surfaced because
+someone contradicted the result.
+
+> **⭐ LAW 3b (Wave 3 Lane 3, adopted verbatim): THE INSTRUMENT STATES ITS OWN SCOPE IN THE
+> SAME BREATH AS ITS RESULT.** Never *"testids verified."* Always **"testid VALUES verified;
+> PLACEMENT NOT COVERED."**
+>
+> It shares Law 3's design principle — **skipping the discipline must not produce a report
+> identical to performing it.** Every other proposal here reduces to "be more careful," and
+> **"be more careful" does not survive a tired session. A sentence the check is required to
+> emit does.** Its real property: it converts an invisible-from-the-inside defect into a
+> visible one **without requiring a second party to be present.** *A countermeasure that
+> depends on a reviewer being there is not a countermeasure — it is luck with good staffing.*
+
+> **⭐ AND ITS TWIN, for any scan whose finding is an ABSENCE: RUN A POSITIVE CONTROL.**
+> A fourth instance, same week: an orphan scan reported **`AppShell`** — a file `router.tsx`
+> plainly imports — because the pattern matched two import forms and missed a third. **It was
+> caught only because one entry was visibly absurd.**
+>
+> **A scan that returns "not found" for everything proves nothing until you show it CAN find
+> something.** Point it at a case you know is positive, in the same run, and report both.
+> *That is what the broken scan was missing — not care.*
+
 ### A marker records the gap you HIT, not the divergence you INTRODUCED
 
 **Marker discipline is load-bearing and structurally blind to workaround divergence.** Seven
