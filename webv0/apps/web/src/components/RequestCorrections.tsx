@@ -10,9 +10,8 @@
  * "Polish freely until review starts — every change on the record; after
  * that, frozen; corrections are new requests."
  */
-import { useMemo, useState } from 'react';
-import { makeStyles } from '@fluentui/react-components';
-import { Checkbox, Field, Input, Select, Textarea } from '../tablework';
+import { useMemo, useState, type CSSProperties } from 'react';
+import { Checkbox, Field, GovernedAction, Input, Select, Textarea } from '../tablework';
 import {
   CORRECTIONS_EXCLUDED_OPS,
   EDIT_TARGET_KEYS,
@@ -20,7 +19,6 @@ import {
   parseDecimalToMinor,
   type OperationType,
 } from '@c3web/domain';
-import { GovernedAction } from './GovernedAction';
 
 // ── zod introspection (one level of nesting; effects unwrapped) ──────────────
 
@@ -156,19 +154,52 @@ function mergeDraft(specs: readonly FieldSpec[], original: Record<string, unknow
 
 // ── the dialog ───────────────────────────────────────────────────────────────
 
-const useStyles = makeStyles({
-  fields: { display: 'flex', flexDirection: 'column', rowGap: '10px', maxHeight: '46vh', overflowY: 'auto', paddingRight: '4px' },
-  nested: {
-    display: 'flex',
-    flexDirection: 'column',
-    rowGap: '8px',
-    padding: '8px 10px',
-    border: '1px solid var(--c3-border-subtle)',
-    borderRadius: 'var(--c3-radius)',
-  },
-  nestedTitle: { fontSize: '12px', fontWeight: 600, color: 'var(--c3-ink-muted)' },
-  zodError: { fontSize: '12.5px', color: 'var(--c3-state-danger)', whiteSpace: 'pre-wrap' },
-});
+// The four Fluent-era `makeStyles` declarations, carried VERBATIM as plain style
+// objects (the call-site precedent set by EntitiesPage / AgreementDetailPage /
+// EquipmentPage / MissionDetailPage), so the dialog renders byte-identically to
+// the pre-conversion screen. Only FIELDS's stack role is redundant — the kit's
+// GovernedAction already wraps `extra` in `.governed-extra`, itself a grid with a
+// token gap. The three markers below cover what the kit genuinely does not say.
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: `.governed-extra` is an UNCAPPED grid. The corrections form is derived
+//   from the op's own zod schema, so its height is unbounded — a wide op
+//   overflows `dialog.float-surface`'s own `max-height: min(42rem, …)` and the
+//   whole Float scrolls, taking the title and the confirm row with it. The kit
+//   has no capped-scroll variant of the governed `extra` slot.
+// WORKAROUND: the Fluent-era `fields` declaration carried verbatim, so the field
+//   region keeps its own 46vh scroll box and the action row stays put.
+// CLASS: additive — a capped-scroll modifier on `.governed-extra` breaks nothing
+//   already converted.
+const FIELDS: CSSProperties = { display: 'flex', flexDirection: 'column', rowGap: '10px', maxHeight: '46vh', overflowY: 'auto', paddingRight: '4px' };
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the kit has no HAIRLINE SUB-GROUP box for the nested-object branch of a
+//   derived form. `.record-card` and `.work-surface` are page surfaces that carry
+//   their own fill and --tw-surface-pad; neither is an 8px/10px bordered group
+//   sitting inside a Float.
+// WORKAROUND: the Fluent-era `nested` / `nestedTitle` declarations carried
+//   verbatim, so `correction-group-*` renders exactly as before.
+// CLASS: additive — a group-box class breaks nothing already converted.
+const NESTED: CSSProperties = {
+  display: 'flex',
+  flexDirection: 'column',
+  rowGap: '8px',
+  padding: '8px 10px',
+  border: '1px solid var(--c3-border-subtle)',
+  borderRadius: 'var(--c3-radius)',
+};
+const NESTED_TITLE: CSSProperties = { fontSize: '12px', fontWeight: 600, color: 'var(--c3-ink-muted)' };
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the kit's `.field-error` is single-line caption text with no
+//   `white-space: pre-wrap`. This error is a MULTI-LINE zod report (issues joined
+//   with '\n'), so `.field-error` would collapse every issue onto one line —
+//   a legibility regression on the one surface that explains a refusal.
+// WORKAROUND: the Fluent-era `zodError` declaration carried verbatim.
+// CLASS: additive — adding pre-wrap to a multi-line error class breaks nothing;
+//   changing `.field-error` itself WOULD be contractual and must not be the fix.
+const ZOD_ERROR: CSSProperties = { fontSize: '12.5px', color: 'var(--c3-state-danger)', whiteSpace: 'pre-wrap' };
 
 export function CorrectionDialog({
   mode,
@@ -183,7 +214,6 @@ export function CorrectionDialog({
   triggerTestId: string;
   onSubmit: (input: Record<string, unknown>) => Promise<void>;
 }) {
-  const s = useStyles();
   const specs = useMemo(() => correctionFieldSpecs(operationType), [operationType]);
   const targetKeys = (EDIT_TARGET_KEYS as Record<string, readonly string[]>)[operationType] ?? [];
   const [draft, setDraft] = useState<Draft>(() => draftFrom(specs, originalInput));
@@ -236,11 +266,11 @@ export function CorrectionDialog({
   }
 
   const body = (
-    <div className={s.fields}>
+    <div style={FIELDS}>
       {specs.map((spec) =>
         spec.kind === 'object' ? (
-          <div key={spec.key} className={s.nested} data-testid={`correction-group-${spec.key}`}>
-            <span className={s.nestedTitle}>{spec.label}</span>
+          <div key={spec.key} style={NESTED} data-testid={`correction-group-${spec.key}`}>
+            <span style={NESTED_TITLE}>{spec.label}</span>
             {(spec.nested ?? []).map((n) =>
               renderField(
                 n,
@@ -255,7 +285,7 @@ export function CorrectionDialog({
         ),
       )}
       {zodError && (
-        <span className={s.zodError} data-testid="correction-zod-error">
+        <span style={ZOD_ERROR} data-testid="correction-zod-error">
           {zodError}
         </span>
       )}
