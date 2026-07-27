@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { makeStyles } from '@fluentui/react-components';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
 import {
   MISSION_LINE_DIRECTIONS,
@@ -30,6 +29,7 @@ import {
   TableworkGate,
   TableworkPage,
   RecordPage,
+  RecordLink,
   FactList,
   StatusBadge,
   AuditTimeline,
@@ -56,18 +56,83 @@ import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf }
  * approval an owner must review and execute — the dialogs say so honestly.
  */
 
-const useStyles = makeStyles({
-  section: { marginTop: '32px' },
-  h2: { fontSize: '20px', lineHeight: '28px', fontWeight: 600, color: 'var(--c3-ink-strong)', margin: '0 0 12px' },
-  h2Row: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', columnGap: '12px', flexWrap: 'wrap' },
-  headerActions: { display: 'flex', columnGap: '8px', flexWrap: 'wrap' },
-  fields: { display: 'flex', flexDirection: 'column', rowGap: '8px' },
-  personSelect: { minWidth: '260px' },
-  rosterIntro: { fontSize: '13px', color: 'var(--c3-ink-muted)', margin: '0 0 12px' },
-  pnlTotals: { marginTop: '12px', display: 'flex', flexDirection: 'column', rowGap: '4px', fontSize: '14px' },
-  pnlSubtle: { color: 'var(--c3-ink-muted)', fontSize: '13px' },
-  pnlProfit: { fontWeight: 600 },
-});
+/**
+ * Wave 3 (Lane 1): the Fluent `makeStyles` block is retired. SIX of its ten
+ * declarations had an exact kit answer and are gone outright — the four
+ * geometry ones match the kit's tokens to the pixel:
+ *
+ *   section       → `.record-section`      (margin-top --c3-space-8 = the same 32px)
+ *   h2            → `.record-section h2`   (--c3-font-size-lead = the same 20px,
+ *                                           semibold, ink-strong, margin 0 0 12px)
+ *   h2Row         → `.record-section-head` (flex/baseline/space-between/wrap,
+ *                                           gap --c3-space-3 = the same 12px)
+ *   headerActions → `.row-actions` in a cell or a section head (gap
+ *                   --c3-space-2 = the same 8px), and NOTHING at all on the
+ *                   shell cluster: RecordPage already wraps `actions` in
+ *                   `.local-actions`, which is that same row
+ *   rosterIntro   → `.record-quiet`
+ *   personSelect  → deleted. Declared in the Fluent era and never once applied
+ *                   — dead on arrival. What it reached for now exists as the
+ *                   kit's `Selector width="wide"`, but this screen has never
+ *                   rendered a wide person picker and a conversion may not
+ *                   introduce one.
+ *
+ * FOUR survive as carried-verbatim style objects, each under its own KIT-GAP
+ * marker below: `fields` (page-level forms only — inside a GovernedAction the
+ * kit's `.governed-extra` already IS the stack, so those six wrappers are gone),
+ * `pnlTotals`, `pnlProfit`, and `pnlSubtle` — the last only at its two IN-CELL
+ * sites; its six standalone sentences take `.record-quiet`.
+ */
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the kit has no BARE VERTICAL STACK for a form that sits directly on the
+//   page. `.governed-extra` (grid, --c3-space-3) covers a stack inside a
+//   GovernedAction and `.form-sheet-fields` covers one inside a FormDrawer —
+//   this screen's three inline roster forms are outside both. The only
+//   page-level containers the kit offers are `.record-card`, which adds
+//   --tw-surface-pad of padding and a --c3-space-4 gap, and `.form-row`, which
+//   is a horizontal flex row. Neither is a bare column.
+// WORKAROUND: the Fluent-era `makeStyles.fields` declaration carried verbatim as
+//   a plain style object, so all three call sites render byte-identically to the
+//   pre-conversion screen.
+// CLASS: additive — a page-level vertical-stack class breaks nothing already
+//   converted. Making `.record-card` shed its padding WOULD be contractual and
+//   must not be the fix.
+const FIELD_STACK: React.CSSProperties = { display: 'flex', flexDirection: 'column', rowGap: '8px' };
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the kit's totals vocabulary is TABLE-BOUND. `.data-grid tr.total-row`
+//   states outright that "a totals row reads as a conclusion, not one more data
+//   row" — and it is the ONLY emphasis the kit offers, scoped to a <tr> inside
+//   `.data-grid`. The P&L's totals are a stack of standalone sentences BELOW the
+//   table, so neither the stack nor the profit line's conclusion emphasis has a
+//   legal class. (`.record-quiet` carries the quiet lines and IS used here; it
+//   is a colour/size, not a stack and not an emphasis.)
+// WORKAROUND: both Fluent-era declarations carried verbatim as plain style
+//   objects — the stack keeps its 4px rhythm, the profit keeps its weight, and
+//   the totals block renders byte-identically.
+// CLASS: additive — a non-tabular totals stack plus a conclusion-emphasis class
+//   break nothing already converted. Widening `.total-row` past `.data-grid tr`
+//   WOULD be contractual.
+const PNL_TOTALS: React.CSSProperties = { marginTop: '12px', display: 'flex', flexDirection: 'column', rowGap: '4px', fontSize: '14px' };
+const PNL_PROFIT: React.CSSProperties = { fontWeight: 600 };
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: no quiet aside sized for the INSIDE of a data cell. `.record-quiet` is
+//   the kit's quiet text and it is --c3-font-size-body-small (14px), while
+//   `.data-grid td.mono` is --c3-font-size-caption (12px). Using it on the two
+//   asides that annotate a money cell — "(received …)" beside the expected
+//   amount, and " · <bank ref>" beside the payment badge — would render the
+//   annotation 2px LARGER than the figure it annotates. Every other quiet class
+//   the kit has is either cell-scoped by selector (`.mono`) or belongs to a
+//   different primitive (`.record-row-meta` is DocumentsSection's row furniture).
+// WORKAROUND: the Fluent-era `makeStyles.pnlSubtle` declaration carried verbatim
+//   for these two IN-CELL sites only. The six standalone totals sentences below
+//   the table are on the page, not in a cell, and correctly take `.record-quiet`.
+// CLASS: additive — an in-cell quiet class (ink-quiet at caption size) breaks
+//   nothing already converted. Re-sizing `.record-quiet` itself WOULD be
+//   contractual: it is live on the totals block here and on five other screens.
+const CELL_ASIDE: React.CSSProperties = { color: 'var(--c3-ink-muted)', fontSize: '13px' };
 
 // R4 L-02 (v2 P&L): a tagged amount renders its exact money, or an HONEST reason —
 // never a silently-rounded figure, never the wrong excuse.
@@ -94,7 +159,6 @@ export function MissionDetailPage() {
 }
 
 function MissionDetailBody({ missionId }: { missionId: string }) {
-  const s = useStyles();
   const navigate = useNavigate();
   const { me } = useSession();
   const { notify } = useNotify();
@@ -206,6 +270,17 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
   // (direct-audited, version-guarded per person — the existing setter).
   async function applyRosterPerDiem(): Promise<void> {
     if (!m) return;
+    // MONEY SITE 1 of 3 — the DOMAIN parser, deliberately not migrated.
+    // Policy here: a well-formed amount, ZERO ALLOWED (a 0.00 daily rate is a
+    // real rate), and '' is malformed like any other bad string — this form has
+    // no "clear" verb, so both land on one refusal. That policy IS the kit's
+    // `amountToMinorAllowingZero`, which is a verbatim re-export of this call
+    // (`return parseDecimalToMinor(input)`) — so the swap would be provably
+    // behaviour-identical. It is still not made here: Wave 3 does not do F-1
+    // call-site parser migrations, and moving ONE of the three per-diem sites to
+    // a second name would leave one quantity parsed under two names on one
+    // screen, which is how a zero policy drifts unnoticed. All three move
+    // together, in the F-1 pass, or none do.
     const minor = parseDecimalToMinor(rosterPd.amount);
     if (minor === null) return notify('error', 'Enter a valid per-diem amount (up to 2 decimals).');
     const active = (participants.data?.participants ?? []).filter((p) => p.isActive);
@@ -239,7 +314,11 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
 
   const manageActions =
     m && canManage && m.isActive ? (
-      <div className={s.headerActions}>
+      // No wrapper: RecordPage already puts `actions` inside `.local-actions`
+      // (flex/center/wrap, gap --c3-space-2 — the same 8px the retired
+      // `headerActions` set), and these fold in beside the Conversation button
+      // exactly as before.
+      <>
         <GovernedAction
           triggerLabel="Edit…"
           triggerTestId={`edit-mission-${m.missionId}`}
@@ -247,7 +326,9 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
           title={`Edit ${m.missionId}?`}
           description="Changes take effect immediately; what changed is recorded in the audit history."
           extra={
-            <div className={s.fields}>
+            // GovernedAction wraps `extra` in `.governed-extra`, itself a grid
+            // with a token gap — the Fluent-era stack wrapper is redundant here.
+            <>
               <Field label="Name" required>
                 <Input value={editState.name} onChange={(e) => setEdit({ ...editState, name: e.target.value })} data-testid={`edit-mission-name-${m.missionId}`} />
               </Field>
@@ -291,7 +372,7 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
               <Field label="Ends on">
                 <Input type="date" value={editState.endsOn} onChange={(e) => setEdit({ ...editState, endsOn: e.target.value })} data-testid={`edit-mission-ends-${m.missionId}`} />
               </Field>
-            </div>
+            </>
           }
           confirmLabel="Save changes"
           confirmDisabled={editState.name.trim() === '' || !/^\d{4}-\d{2}-\d{2}$/.test(editState.startsOn)}
@@ -322,7 +403,7 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
           confirmLabel="Deactivate"
           onConfirm={() => run(() => api.deactivateMission(m.missionId, m.version), () => `${m.missionId} deactivated and recorded.`)}
         />
-      </div>
+      </>
     ) : undefined;
 
   const shellActions = (
@@ -362,7 +443,10 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                     {
                       label: 'Finance stage',
                       value: (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', columnGap: '8px' }}>
+                        // `.row-actions` — the kit's flex-START trigger cluster
+                        // (gap --c3-space-2 = the same 8px). The badge and its
+                        // one advance trigger sit inside a fact's <dd>.
+                        <span className="row-actions">
                           <StatusBadge variant={missionFinanceStageOf(m.financeStage).variant} data-testid="mission-finance-stage">
                             {missionFinanceStageOf(m.financeStage).label}
                           </StatusBadge>
@@ -408,15 +492,15 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
             ]}
           />
 
-          <div className={s.section}>
-            <h2 className={s.h2}>Participants</h2>
+          <div className="record-section">
+            <h2>Participants</h2>
             {canSubmit && (
-              <p className={s.rosterIntro}>
+              <p className="record-quiet">
                 Roster changes go through approval — an owner must review and execute before membership changes.
               </p>
             )}
             {canSubmit && m.isActive && (
-              <div className={s.fields} style={{ maxWidth: '440px', marginBottom: '16px' }}>
+              <div style={{ ...FIELD_STACK, maxWidth: '440px', marginBottom: '16px' }}>
                 <Field label="Person" required>
                   <Selector
                     data-testid="add-participant-person"
@@ -456,7 +540,7 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
               </div>
             )}
             {canSubmit && m.isActive && (
-              <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-border-subtle)' }}>
+              <div style={{ ...FIELD_STACK, maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-border-subtle)' }}>
                 {/* Spec-free multiselect → the established chips pattern
                     (toggle to pick), same container testid. */}
                 <div className="tw-field">
@@ -482,25 +566,35 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                 <Field label="Mission role for all">
                   <Input value={bulkRole} onChange={(e) => setBulkRole(e.target.value)} data-testid="bulk-add-role" />
                 </Field>
-                <div>
+                <div className="row-actions">
                   <button className="primary-action" type="button" onClick={() => void bulkAdd()} disabled={bulkBusy || bulkPersonIds.length === 0 || !bulkRole.trim()} data-testid="bulk-add-submit">
                     {bulkBusy ? 'Submitting…' : `Submit ${bulkPersonIds.length || ''} for approval`}
                   </button>
-                  <span className={s.rosterIntro} style={{ marginLeft: '10px' }}>One approval per person — membership stays a governed decision.</span>
+                  <span className="record-quiet">One approval per person — membership stays a governed decision.</span>
                 </div>
               </div>
             )}
             {canManage && canViewPerDiem && m.isActive && (participants.data?.participants ?? []).some((p) => p.isActive) && (
-              <div className={s.fields} style={{ maxWidth: '520px', marginBottom: '16px' }}>
+              <div style={{ ...FIELD_STACK, maxWidth: '520px', marginBottom: '16px' }}>
                 <Field label="Roster-wide per-diem — apply one daily rate to every active participant">
-                  <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                  {/* `.form-row` — the kit's inline create-form row (these are
+                      fields, not filters, which is exactly the distinction the
+                      class was added to keep). */}
+                  <div className="form-row">
                     <Input value={rosterPd.amount} onChange={(e) => setRosterPd((c) => ({ ...c, amount: e.target.value }))} placeholder="100.00" data-testid="roster-perdiem-amount" style={{ maxWidth: '120px' }} />
                     <Selector
                       data-testid="roster-perdiem-currency"
                       value={rosterPd.currency}
                       options={CURRENCY_CODES.map((c) => ({ value: c, label: c }))}
                       onSelect={(value) => setRosterPd((c) => ({ ...c, currency: value || 'USD' }))}
-                      style={{ minWidth: '6rem' }}
+                      // Was an inline `minWidth: 6rem` ridden in through the
+                      // rest-spread — precisely the narrower-than-the-12rem-floor
+                      // case the kit's width scale exists to end.
+                      // ⚠️ NOT a like-for-like: `compact` is 10rem, so this
+                      // currency picker gets wider than it was. The scale's steps
+                      // are the kit's decision, not this screen's, and a
+                      // three-letter code has room to spare either way.
+                      width="compact"
                     />
                     {perDiemPresets.map((p) => (
                       <button key={`${p.amountMinor}-${p.currency}`} type="button" className="mini-action" onClick={() => setRosterPd({ amount: (p.amountMinor / 100).toFixed(2), currency: p.currency })}>
@@ -531,9 +625,10 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                   {roster.map((p) => (
                     <tr key={p.personId} data-testid={`participant-row-${p.personId}`}>
                       <td>
-                        <Link to={`/people/${p.personId}`}>
-                          {p.personId}
-                        </Link>
+                        {/* A business-ID link → RecordLink. `.mono` styles the
+                            CELL, so a plain anchor here has always rendered in
+                            the body font; this is the kit primitive for it. */}
+                        <RecordLink to={`/people/${p.personId}`}>{p.personId}</RecordLink>
                       </td>
                       <td>{p.personName}</td>
                       <td>{p.role}</td>
@@ -560,7 +655,7 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                       {canSubmit && (
                         <td>
                           {p.isActive && (
-                            <div style={{ display: 'flex', columnGap: '8px', flexWrap: 'wrap' }}>
+                            <div className="row-actions">
                               {canManage &&
                                 (() => {
                                   const draft = perDiemDraft[p.personId] ?? {
@@ -571,6 +666,18 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                                     setPerDiemDraft((c) => ({ ...c, [p.personId]: { ...draft, ...patch } }));
                                   const amt = draft.amount.trim();
                                   // M-02: exact-decimal law — excess precision disables Save.
+                                  //
+                                  // MONEY SITE 2 of 3 — the DOMAIN parser, and here
+                                  // the migration is not merely out of scope, it is
+                                  // WRONG. This site has THREE outcomes, not two:
+                                  // '' means "no value stated → clear the per-diem",
+                                  // a parse means a value (0 included — a 0.00 daily
+                                  // rate is real), and null means malformed. Every
+                                  // kit parser collapses '' and malformed into the
+                                  // same null, so the '' arm has to be answered
+                                  // before the parser is consulted — which is what
+                                  // this line does. A kit name here would claim a
+                                  // policy that does not describe the call site.
                                   const validAmt = amt === '' || parseDecimalToMinor(amt) !== null;
                                   return (
                                     <GovernedAction
@@ -580,9 +687,9 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                                       title={`Set ${p.personId}'s per-diem?`}
                                       description="This is the daily rate for this person on this mission. It takes effect immediately and is recorded. Leave the amount empty to clear it."
                                       extra={
-                                        <div className={s.fields}>
+                                        <>
                                           {perDiemPresets.length > 0 && (
-                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }} data-testid={`perdiem-presets-${p.personId}`}>
+                                            <div className="row-actions" data-testid={`perdiem-presets-${p.personId}`}>
                                               {perDiemPresets.map((pre) => (
                                                 <button
                                                   key={`${pre.amountMinor}-${pre.currency}`}
@@ -617,13 +724,22 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
                                               onSelect={(value) => value && setDraft({ currency: value })}
                                             />
                                           </Field>
-                                        </div>
+                                        </>
                                       }
                                       confirmLabel="Save per-diem"
                                       confirmDisabled={!validAmt}
                                       onConfirm={() =>
                                         run(
                                           () =>
+                                            // MONEY SITE 3 of 3 — the same parser as
+                                            // site 2 on purpose. This is the WRITE that
+                                            // `validAmt` gated; if the validator and the
+                                            // write ever parsed under different rules,
+                                            // an amount could pass the gate and reach
+                                            // the API as something else. They move
+                                            // together or not at all. The `!` is safe
+                                            // only because `confirmDisabled={!validAmt}`
+                                            // proved the parse on this exact string.
                                             amt === ''
                                               ? api.setParticipantPerDiem(m.missionId, p.personId, null, null, p.version)
                                               : api.setParticipantPerDiem(m.missionId, p.personId, parseDecimalToMinor(amt)!, draft.currency, p.version),
@@ -670,8 +786,8 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
           <CommentThread subjectType="Mission" subjectId={m.missionId} />
 
           {canViewHistory && (
-            <div className={s.section}>
-              <h2 className={s.h2}>History</h2>
+            <div className="record-section">
+              <h2>History</h2>
               <AuditTimeline entries={entries} testId="mission-audit" />
             </div>
           )}
@@ -709,7 +825,6 @@ function lineFormInvalid(f: LineForm): boolean {
  * honestly: a missing rate means "no blended figure", never an invented one.
  */
 function MissionPnlSection({ missionId, canManage, organizer }: { missionId: string; canManage: boolean; organizer: string | null }) {
-  const s = useStyles();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const { data, isLoading } = useMissionPnl(missionId);
@@ -742,9 +857,11 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
     }
   }
 
+  // Both call sites pass this straight to GovernedAction's `extra`, which is
+  // already `.governed-extra` — a grid with a token gap. No wrapper needed.
   function lineFields(form: LineForm, setForm: (f: LineForm) => void, idPrefix: string, directionEditable: boolean) {
     return (
-      <div className={s.fields}>
+      <>
         {directionEditable && (
           <Field label="Type" required>
             <Selector
@@ -784,7 +901,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
             onSelect={(value) => setForm({ ...form, currency: (value || 'USD') as CurrencyCode })}
           />
         </Field>
-      </div>
+      </>
     );
   }
 
@@ -807,11 +924,11 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
   const perDiemEntries = pnl?.perDiem.entries ?? [];
 
   return (
-    <div className={s.section} data-testid="mission-pnl-panel">
-      <div className={s.h2Row}>
-        <h2 className={s.h2}>Profit &amp; loss</h2>
+    <div className="record-section" data-testid="mission-pnl-panel">
+      <div className="record-section-head">
+        <h2>Profit &amp; loss</h2>
         {canManage && (
-          <div className={s.headerActions}>
+          <div className="row-actions">
             <GovernedAction
               triggerLabel="Set budget…"
               triggerTestId="set-budget"
@@ -819,7 +936,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
               title="Set a budget cell"
               description="One planned amount per type + category + currency (the tournament budget template). Leave the amount empty to clear the cell. Takes effect immediately and is recorded."
               extra={
-                <div className={s.fields}>
+                <>
                   <Field label="Type" required>
                     <Selector
                       data-testid="set-budget-direction"
@@ -848,7 +965,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                   <Field label="Planned amount (empty clears)">
                     <Input type="number" value={budget.amount} onChange={(e) => setBudget({ ...budget, amount: e.target.value })} data-testid="set-budget-amount" />
                   </Field>
-                </div>
+                </>
               }
               confirmLabel="Save budget"
               confirmDisabled={budget.amount.trim() !== '' && positiveAmountToMinor(budget.amount) == null}
@@ -929,7 +1046,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                   <td className="mono" data-testid={`pnl-line-amount-${l.lineId}`}>
                     {formatMoney(l.amountMinor, l.currency)}
                     {l.paymentStatus === 'Received' && l.receivedAmountMinor != null && l.receivedAmountMinor !== l.amountMinor && (
-                      <span className={s.pnlSubtle}>{` (received ${formatMoney(l.receivedAmountMinor, l.currency)})`}</span>
+                      <span style={CELL_ASIDE}>{` (received ${formatMoney(l.receivedAmountMinor, l.currency)})`}</span>
                     )}
                   </td>
                   <td>
@@ -940,11 +1057,11 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                     ) : (
                       '—'
                     )}
-                    {l.refNo && <span className={s.pnlSubtle}>{` · ${l.refNo}`}</span>}
+                    {l.refNo && <span style={CELL_ASIDE}>{` · ${l.refNo}`}</span>}
                   </td>
                   {canManage && (
                     <td>
-                      <div className={s.headerActions}>
+                      <div className="row-actions">
                         {l.direction === 'Income' && l.paymentStatus === 'Expected' && (
                           <GovernedAction
                             triggerLabel="Invoice…"
@@ -956,7 +1073,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                               const setF = (n: InvoiceForm) => setInvoiceForms((c) => ({ ...c, [l.lineId]: n }));
                               const chosen = invoiceEntities.find((e) => e.entityId === f.entityId);
                               return (
-                                <div className={s.fields}>
+                                <>
                                   <Field label="Issuing entity (its code numbers the series)" required hint={chosen && !chosen.code ? 'This entity has no code — set one on the Entities register first.' : undefined}>
                                     <Selector
                                       data-testid={`invoice-entity-${l.lineId}`}
@@ -978,7 +1095,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                                   <Field label="Description (appears on the PDF; optional)">
                                     <Input value={f.description} onChange={(e) => setF({ ...f, description: e.target.value })} data-testid={`invoice-description-${l.lineId}`} />
                                   </Field>
-                                </div>
+                                </>
                               );
                             })()}
                             confirmLabel="Issue invoice"
@@ -1021,7 +1138,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                             title={`Update payment for ${l.lineId}?`}
                             description="Expected → Invoiced → Received (corrections are legal; the audit trail is the truth). Received may carry the actual amount landed, the FX rate at receipt, the bank label, and the bank reference. Never account numbers."
                             extra={
-                              <div className={s.fields}>
+                              <>
                                 <Field label="Status" required>
                                   <Selector
                                     data-testid={`payment-status-${l.lineId}`}
@@ -1047,7 +1164,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                                 <Field label="Bank reference">
                                   <Input value={pf.refNo} onChange={(e) => setPf({ ...pf, refNo: e.target.value })} data-testid={`payment-ref-${l.lineId}`} />
                                 </Field>
-                              </div>
+                              </>
                             }
                             confirmLabel="Save payment"
                             confirmDisabled={
@@ -1167,24 +1284,24 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
       )}
 
       {pnl && (lines.length > 0 || perDiemEntries.length > 0) && (
-        <div className={s.pnlTotals}>
+        <div style={PNL_TOTALS}>
           {pnl.settlement.outstandingIncomeCount > 0 && (
-            <span className={s.pnlSubtle} data-testid="pnl-outstanding-income">
+            <span className="record-quiet" data-testid="pnl-outstanding-income">
               {`${pnl.settlement.outstandingIncomeCount} income line${pnl.settlement.outstandingIncomeCount === 1 ? '' : 's'} not yet received.`}
             </span>
           )}
           {pnl.settlement.incomeComplete && (
-            <span className={s.pnlSubtle} data-testid="pnl-income-complete">
+            <span className="record-quiet" data-testid="pnl-income-complete">
               All income received — settlement-ready.
             </span>
           )}
           {pnl.perDiem.openEnded && perDiemEntries.length > 0 && (
-            <span className={s.pnlSubtle} data-testid="pnl-open-ended-note">
+            <span className="record-quiet" data-testid="pnl-open-ended-note">
               This mission has no end date — per-diem totals are not included until one is set.
             </span>
           )}
           {pnl.perCurrency.map((t) => (
-            <span key={t.currency} className={s.pnlSubtle} data-testid={`pnl-currency-${t.currency}`}>
+            <span key={t.currency} className="record-quiet" data-testid={`pnl-currency-${t.currency}`}>
               {`${t.currency}: income ${pnlAmountText(t.income, t.currency)} · expenses ${pnlAmountText(t.expense, t.currency)}`}
             </span>
           ))}
@@ -1192,16 +1309,16 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
             <>
               <span data-testid="pnl-income-usd">{`Income ≈ ${formatMoney(pnl.blended.income.amountMinor, 'USD')}`}</span>
               <span data-testid="pnl-expense-usd">{`Expenses ≈ ${formatMoney(pnl.blended.expense.amountMinor, 'USD')}`}</span>
-              <span className={s.pnlProfit} data-testid="pnl-profit-usd">{`Profit ≈ ${formatMoney(pnl.blended.profit.amountMinor, 'USD')}`}</span>
+              <span style={PNL_PROFIT} data-testid="pnl-profit-usd">{`Profit ≈ ${formatMoney(pnl.blended.profit.amountMinor, 'USD')}`}</span>
             </>
           ) : pnl.blended.profit.status === 'unavailable' && pnl.blended.profit.reason === 'overflow' ? (
             // R4 L-02: the HONEST reason — an overflow is a data-integrity refusal, never
             // to be misreported as a missing exchange rate.
-            <span className={s.pnlSubtle} data-testid="pnl-overflow-note">
+            <span className="record-quiet" data-testid="pnl-overflow-note">
               No USD total — an amount in this P&L exceeds the exactly-representable range, so a trustworthy total cannot be computed.
             </span>
           ) : (
-            <span className={s.pnlSubtle} data-testid="pnl-missing-rates">
+            <span className="record-quiet" data-testid="pnl-missing-rates">
               {`No USD total — missing exchange rate${pnl.missingRates.length > 1 ? 's' : ''} for ${pnl.missingRates.join(', ')} (set in Settings → Exchange rates).`}
             </span>
           )}
