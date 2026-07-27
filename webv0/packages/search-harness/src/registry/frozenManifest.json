@@ -818,7 +818,7 @@
     "apps/api/test/contract.test.ts#wiring": "e42b5ebf29efd4c80fda7ae0128bcc6ec4e29b6c16c73c4283bd53c1caaf122c",
     "apps/api/test/logger.test.ts#wiring": "a6fec754a0c6ef416ccbe252ce60cb3810ed7651dbb81fe6855f3305fa6674a9",
     "apps/api/tsconfig.json#wiring": "55a3fa6041f2ee0d3d16757da032238e19d7896f3634b0d8ddcf20ecf0d23f8f",
-    "package-lock.json#wiring": "c41ccddd02dc64f761bee8439b90b80e045f390ccbd43ac6d9a83c88d29b1ee5",
+    "package-lock.json#wiring": "da945fa5fe409c4c7a19d5b73edc48b508133e303fa8fc0dffcabe1688e81118",
     "package.json#wiring": "8a9f647801474084c856d9c32a67e2d26c4ae605cefa7262937bc89b5db38984",
     "packages/api-contracts/package.json#wiring": "8780ce5776f09a0179d83bb339fab097f6059a723d662c46c3abe995d3eab782",
     "packages/api-contracts/tsconfig.json#wiring": "28282abe534bce160861ed5c0798292c960cb61c7dfa5636d552a245c7223d09",
