@@ -1,10 +1,16 @@
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { Button, makeStyles } from '@fluentui/react-components';
 import { usePerson, usePersonAgreements, usePersonCredentials, usePersonJourneys, usePersonMissionMemberships, usePersonTeams } from '../queries';
 import { useSession } from '../session';
-import { ErrorState, LoadingState } from '../components/states';
-import { PersonAvatar } from '../components/PersonAvatar';
+import {
+  TableworkPage,
+  PersonAvatar,
+  SectionHeading,
+  FactList,
+  ErrorState,
+  LoadingState,
+  type DefItem,
+} from '../tablework';
 import { ApiError } from '../api';
 
 /**
@@ -14,26 +20,17 @@ import { ApiError } from '../api';
  * "Print / Save as PDF" uses the browser; a print stylesheet isolates the
  * sheet so the app chrome never prints. Reuses each domain's read gate (PII
  * fields are simply absent for roles without them — structural omission).
+ *
+ * Tablework conversion (pivot W3, Lane 4). Behaviour/testids/copy verbatim.
+ *
+ * 🔴 THIS PAGE HAS ZERO E2E COVERAGE AND ITS PURPOSE IS INVISIBLE TO THE GATE.
+ * `PRINT_CSS` below is the ONLY `@media print` block in the app. It is carried
+ * BYTE-IDENTICAL, and the two class names it targets — `c3-noprint` on the
+ * on-screen bar, `c3-onepager` on the sheet — stay on exactly the elements they
+ * were on. A conversion can render perfectly and gate green while breaking the
+ * one job this page exists to do; the only proof is a print preview, which is
+ * recorded in the lane's QA artifact.
  */
-
-const useStyles = makeStyles({
-  wrap: { maxWidth: '820px' },
-  bar: { display: 'flex', gap: '8px', marginBottom: '16px' },
-  sheet: { border: '1px solid var(--c3-border-subtle)', borderRadius: '12px', padding: '28px 32px', backgroundColor: 'var(--c3-surface-base, transparent)' },
-  headRow: { display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', columnGap: '16px' },
-  brand: { fontFamily: 'var(--c3-font-mono)', fontSize: '11px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)' },
-  name: { fontSize: '24px', fontWeight: 600, color: 'var(--c3-ink-default)', margin: '4px 0 2px' },
-  sub: { fontSize: '13px', color: 'var(--c3-ink-muted)' },
-  grid: { display: 'grid', gridTemplateColumns: '150px 1fr', columnGap: '14px', rowGap: '5px', fontSize: '13px', marginTop: '14px' },
-  k: { color: 'var(--c3-ink-quiet)' },
-  v: { color: 'var(--c3-ink-default)' },
-  section: { marginTop: '20px' },
-  sTitle: { fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', borderBottom: '1px solid var(--c3-border-subtle)', paddingBottom: '4px', marginBottom: '8px' },
-  row: { fontSize: '13px', color: 'var(--c3-ink-default)', padding: '2px 0' },
-  rowMuted: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-  empty: { fontSize: '12.5px', color: 'var(--c3-ink-quiet)' },
-  gen: { fontSize: '11px', color: 'var(--c3-ink-quiet)', marginTop: '20px' },
-});
 
 const PRINT_CSS = `@media print {
   body * { visibility: hidden !important; }
@@ -43,13 +40,21 @@ const PRINT_CSS = `@media print {
 }`;
 
 export function OnePagerPage() {
-  const s = useStyles();
   const { personId = '' } = useParams();
+  return (
+    <TableworkPage record={personId} section="One-pager">
+      <OnePagerSheet personId={personId} />
+    </TableworkPage>
+  );
+}
+
+function OnePagerSheet({ personId }: { personId: string }) {
   const { me } = useSession();
   const canReadAgreements = me?.capabilities.canReadAgreements ?? false;
 
   const person = usePerson(personId);
   const credentials = usePersonCredentials(personId);
+  // The wire law: the capability IS the `enabled` flag.
   const agreements = usePersonAgreements(personId, canReadAgreements);
   const missions = usePersonMissionMemberships(personId);
   const journeys = usePersonJourneys(personId);
@@ -78,90 +83,112 @@ export function OnePagerPage() {
   const sectionsFailed = sectionQueries.some((q) => q.isError);
   const sectionBody = (q: { isLoading: boolean; isError: boolean }, ready: () => ReactNode): ReactNode =>
     q.isError ? (
-      <div className={s.empty} data-testid="onepager-section-error">Couldn’t load this section — reopen the one-pager to retry.</div>
+      <div className="record-quiet" data-testid="onepager-section-error">Couldn’t load this section — reopen the one-pager to retry.</div>
     ) : q.isLoading ? (
-      <div className={s.empty}>Loading…</div>
+      <div className="record-quiet">Loading…</div>
     ) : (
       ready()
     );
-  const kv = (label: string, value: string | null | undefined) =>
-    value ? [<span key={`${label}k`} className={s.k}>{label}</span>, <span key={`${label}v`} className={s.v}>{value}</span>] : [];
+
+  /**
+   * The identity facts. TWO properties of the original are load-bearing and
+   * both are preserved deliberately:
+   *
+   *  1. A field with no value is OMITTED ENTIRELY, never rendered as an empty
+   *     row. That is the PII contract stated in this file's docstring —
+   *     structural omission. A role without the read gate must not even see
+   *     that a field exists, so the list is BUILT from present values rather
+   *     than filtered at render.
+   *  2. `literal` is on. Its two effects are the faithful ones here: the
+   *     original labels are sentence case (`s.k` set colour only, never
+   *     `text-transform`), and a person record's identity values can be
+   *     GUEST-TYPED — nationality, date of birth, email and phone all arrive
+   *     through the public intake form and are promoted onto the record — so a
+   *     deliberately typed "-" must reach the printed sheet as typed, not be
+   *     rewritten into the "not set" marker.
+   */
+  const facts: DefItem[] = [];
+  const kv = (label: string, value: string | null | undefined) => {
+    if (value) facts.push({ label, value });
+  };
+  kv('Nationality', p.nationality);
+  kv('Game title', p.currentGameTitle);
+  kv('Department', p.primaryDepartment);
+  kv('Position', p.position);
+  kv('Date of birth', p.dateOfBirth);
+  kv('Date of joining', p.dateOfJoining);
+  kv('Email', p.email);
+  kv('Phone', p.phone);
+  kv('Nationality (other)', p.otherNationalities?.length ? p.otherNationalities.join(', ') : null);
 
   return (
-    <div className={s.wrap}>
+    <div className="record-rows">
       <style>{PRINT_CSS}</style>
-      <div className={`${s.bar} c3-noprint`}>
-        <Button
-          appearance="primary"
+      <div className="row-actions c3-noprint">
+        <button
+          className="primary-action"
+          type="button"
           onClick={() => window.print()}
           data-testid="onepager-print"
           disabled={sectionsPending || sectionsFailed}
         >
           {sectionsPending ? 'Assembling…' : sectionsFailed ? 'Incomplete — cannot print' : 'Print / Save as PDF'}
-        </Button>
-        <Link to={`/people/${personId}`}><Button appearance="secondary">Back to profile</Button></Link>
+        </button>
+        {/* Flattened from `<Link><Button/></Link>` — a <button> inside an <a>
+            was never valid HTML; same copy, same destination. */}
+        <Link className="secondary-action" to={`/people/${personId}`}>Back to profile</Link>
       </div>
 
-      <div className={`${s.sheet} c3-onepager`} data-testid="onepager-sheet">
-        <div className={s.headRow}>
+      <div className="record-card c3-onepager" data-testid="onepager-sheet">
+        <div className="surface-heading">
           <div>
-            <div className={s.brand}>C3 · Geekay Esports · Person one-pager</div>
-            <div className={s.name}>{p.fullName}</div>
-            <div className={s.sub}>
+            <p className="eyebrow">C3 · Geekay Esports · Person one-pager</p>
+            <h2>{p.fullName}</h2>
+            <p>
               {p.personId}{p.ign ? ` · ${p.ign}` : ''}{p.primaryRole ? ` · ${p.primaryRole}` : ''}{p.currentTeam ? ` · ${p.currentTeam}` : ''}
-            </div>
+            </p>
           </div>
           <PersonAvatar personId={p.personId} photoUpdatedAt={p.photoUpdatedAt} name={p.fullName} size={72} />
         </div>
 
-        <div className={s.grid}>
-          {kv('Nationality', p.nationality)}
-          {kv('Game title', p.currentGameTitle)}
-          {kv('Department', p.primaryDepartment)}
-          {kv('Position', p.position)}
-          {kv('Date of birth', p.dateOfBirth)}
-          {kv('Date of joining', p.dateOfJoining)}
-          {kv('Email', p.email)}
-          {kv('Phone', p.phone)}
-          {kv('Nationality (other)', p.otherNationalities?.length ? p.otherNationalities.join(', ') : null)}
-        </div>
+        <FactList items={facts} literal />
 
-        <div className={s.section}>
-          <div className={s.sTitle}>Teams</div>
-          {sectionBody(teams, () => activeTeams.length === 0 ? <div className={s.empty}>None</div> : activeTeams.map((t) => (
-            <div className={s.row} key={t.teamId}>{t.teamId} <span className={s.rowMuted}>· {t.role}</span></div>
+        <div>
+          <SectionHeading level={3}>Teams</SectionHeading>
+          {sectionBody(teams, () => activeTeams.length === 0 ? <div className="record-quiet">None</div> : activeTeams.map((t) => (
+            <div className="record-row-name" key={t.teamId}>{t.teamId} <span className="record-quiet">· {t.role}</span></div>
           )))}
         </div>
 
-        <div className={s.section}>
-          <div className={s.sTitle}>Active agreements</div>
-          {!canReadAgreements ? <div className={s.empty}>—</div> : sectionBody(agreements, () => activeAgreements.length === 0 ? <div className={s.empty}>None</div> : activeAgreements.map((a) => (
-            <div className={s.row} key={a.agreementId}>{a.agreementType} <span className={s.rowMuted}>· {a.agreementId} · {a.startsOn} → {a.endsOn}</span></div>
+        <div>
+          <SectionHeading level={3}>Active agreements</SectionHeading>
+          {!canReadAgreements ? <div className="record-quiet">—</div> : sectionBody(agreements, () => activeAgreements.length === 0 ? <div className="record-quiet">None</div> : activeAgreements.map((a) => (
+            <div className="record-row-name" key={a.agreementId}>{a.agreementType} <span className="record-quiet">· {a.agreementId} · {a.startsOn} → {a.endsOn}</span></div>
           )))}
         </div>
 
-        <div className={s.section}>
-          <div className={s.sTitle}>Credentials</div>
-          {sectionBody(credentials, () => activeCreds.length === 0 ? <div className={s.empty}>None</div> : activeCreds.map((c) => (
-            <div className={s.row} key={c.credentialId}>{c.credentialType} <span className={s.rowMuted}>· {c.credentialId}{c.expiresOn ? ` · expires ${c.expiresOn}` : ''}</span></div>
+        <div>
+          <SectionHeading level={3}>Credentials</SectionHeading>
+          {sectionBody(credentials, () => activeCreds.length === 0 ? <div className="record-quiet">None</div> : activeCreds.map((c) => (
+            <div className="record-row-name" key={c.credentialId}>{c.credentialType} <span className="record-quiet">· {c.credentialId}{c.expiresOn ? ` · expires ${c.expiresOn}` : ''}</span></div>
           )))}
         </div>
 
-        <div className={s.section}>
-          <div className={s.sTitle}>Mission roster</div>
-          {sectionBody(missions, () => activeMissions.length === 0 ? <div className={s.empty}>None</div> : activeMissions.map((m) => (
-            <div className={s.row} key={m.missionId}>{m.missionName ?? m.missionId} <span className={s.rowMuted}>· {m.role}</span></div>
+        <div>
+          <SectionHeading level={3}>Mission roster</SectionHeading>
+          {sectionBody(missions, () => activeMissions.length === 0 ? <div className="record-quiet">None</div> : activeMissions.map((m) => (
+            <div className="record-row-name" key={m.missionId}>{m.missionName ?? m.missionId} <span className="record-quiet">· {m.role}</span></div>
           )))}
         </div>
 
-        <div className={s.section}>
-          <div className={s.sTitle}>Journeys in progress</div>
-          {sectionBody(journeys, () => openJourneys.length === 0 ? <div className={s.empty}>None</div> : openJourneys.map((j) => (
-            <div className={s.row} key={j.journeyId}>{j.journeyType}{j.title ? ` — ${j.title}` : ''} <span className={s.rowMuted}>· {j.status}</span></div>
+        <div>
+          <SectionHeading level={3}>Journeys in progress</SectionHeading>
+          {sectionBody(journeys, () => openJourneys.length === 0 ? <div className="record-quiet">None</div> : openJourneys.map((j) => (
+            <div className="record-row-name" key={j.journeyId}>{j.journeyType}{j.title ? ` — ${j.title}` : ''} <span className="record-quiet">· {j.status}</span></div>
           )))}
         </div>
 
-        <div className={s.gen}>Generated by C3 on {new Date().toISOString().slice(0, 10)} — {p.personId}</div>
+        <div className="record-quiet">Generated by C3 on {new Date().toISOString().slice(0, 10)} — {p.personId}</div>
       </div>
     </div>
   );

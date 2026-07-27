@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Button, Field, Input, Textarea, makeStyles } from '@fluentui/react-components';
+import { Field, Input, SectionHeading, Textarea } from '../tablework';
 
 /**
  * Guest intake (Track B6) — the PUBLIC form. Rendered OUTSIDE the app shell and
@@ -9,6 +9,24 @@ import { Button, Field, Input, Textarea, makeStyles } from '@fluentui/react-comp
  * It talks to the public API directly (no bearer token); the tenant is resolved
  * server-side from the unguessable token. Nothing here reaches live data — a
  * staff member reviews and promotes it through the governed pipeline.
+ *
+ * Tablework conversion (pivot W3, Lane 4). Behaviour/testids/copy verbatim.
+ *
+ * 🔴 THE THINGS THIS FILE MUST NOT LOSE
+ *  - `autoComplete="off"` on all FIFTEEN controls (F3 ④). The Fluent controls
+ *    carried it through the `input=`/`textarea=` SLOT props; the kit controls
+ *    are thin native elements, so it is now a plain attribute on each one.
+ *    Count them before you touch this file: 14 Inputs + 1 Textarea.
+ *  - The `guest-*` testids — `zzz-intake-erasure.spec.ts` walks this form
+ *    through `guest-fullName`, `guest-submit` and `guest-done`, and the rest
+ *    are the same contract.
+ *  - Values here are typed by someone OUTSIDE the org. Nothing may restyle or
+ *    reinterpret them. (There is no label/value list on this screen, so no
+ *    `FactList` is involved; if one is ever added it must be `FactList
+ *    literal` — the plain one uppercases the `<dt>` and rewrites a typed "-".)
+ *
+ * The `required` word replaces Fluent's asterisk on "Full name" — the ruled
+ * kit contract, accepted uniformly across the wave.
  */
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? 'http://localhost:4000';
@@ -18,39 +36,40 @@ interface PeekState {
   message?: string;
 }
 
-const useStyles = makeStyles({
-  wrap: { minHeight: '100vh', display: 'flex', justifyContent: 'center', padding: '32px 16px', boxSizing: 'border-box' },
-  card: {
-    width: '100%',
-    maxWidth: '560px',
-    display: 'flex',
-    flexDirection: 'column',
-    rowGap: '18px',
-  },
-  brand: { fontFamily: 'var(--c3-font-mono)', fontSize: '12px', letterSpacing: '0.14em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)' },
-  title: { fontSize: '26px', fontWeight: 600, color: 'var(--c3-ink-default)', margin: 0 },
-  lede: { fontSize: '13.5px', lineHeight: '20px', color: 'var(--c3-ink-muted)' },
-  group: { display: 'flex', flexDirection: 'column', rowGap: '12px' },
-  groupTitle: { fontSize: '11px', letterSpacing: '0.08em', textTransform: 'uppercase', color: 'var(--c3-ink-quiet)', fontFamily: 'var(--c3-font-mono)', marginTop: '8px' },
-  twoCol: { display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: '12px', rowGap: '12px' },
-  fileNote: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-  panel: {
-    padding: '18px 20px',
-    border: '1px solid var(--c3-border-subtle)',
-    borderRadius: 'var(--c3-radius-md, 14px)',
-    backgroundColor: 'var(--c3-surface-base, transparent)',
-    display: 'flex',
-    flexDirection: 'column',
-    rowGap: '10px',
-  },
-  ok: { color: 'var(--c3-ink-default)', fontSize: '15px', fontWeight: 600 },
-  actions: { marginTop: '6px' },
-});
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the kit has no page shell for a SESSION-LESS public route. Two parts:
+//   (a) every selector in `tablework.css` nests under `.tw-root`, and the only
+//       component that emits that class is `AppFrame` — which requires a
+//       `TableworkActor` and renders the rail, the ContextHeader and the shell
+//       intents. A guest has no account, so this route cannot mount it, and
+//       without the scope root every kit class on this page renders unstyled.
+//   (b) the kit's only measure is `Room`'s (`min(100%, 76rem)`, and `.room`
+//       only exists inside `AppFrame`). This form is a 560px centred card;
+//       there is no token, class or component for that width.
+// WORKAROUND: emit `.tw-root` by hand (the class only — no styling is
+//   redeclared) and carry the shell's centring + the card's measure as the two
+//   inline style objects below. Every element INSIDE the card uses kit classes
+//   and kit components; nothing else on this page is hand-styled.
+// CLASS: additive — the kit needs a public/standalone surface (a `Room` usable
+//   without `AppFrame`, plus a narrow measure). No existing kit behaviour is
+//   contradicted, so nothing here has to change when it lands.
+const PUBLIC_SHELL: React.CSSProperties = {
+  display: 'flex',
+  justifyContent: 'center',
+  padding: '32px 16px',
+  boxSizing: 'border-box',
+};
+const PUBLIC_CARD: React.CSSProperties = {
+  width: '100%',
+  maxWidth: '560px',
+  display: 'flex',
+  flexDirection: 'column',
+  rowGap: '18px',
+};
 
 type Fields = Record<string, string>;
 
 export function GuestIntakePage() {
-  const s = useStyles();
   const { token } = useParams<{ token: string }>();
   const [peek, setPeek] = useState<PeekState>({ status: 'loading' });
   const [f, setF] = useState<Fields>({});
@@ -59,7 +78,8 @@ export function GuestIntakePage() {
   const [done, setDone] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const set = (k: string) => (_: unknown, d: { value: string }) => setF((prev) => ({ ...prev, [k]: d.value }));
+  const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+    setF((prev) => ({ ...prev, [k]: e.target.value }));
 
   useEffect(() => {
     let cancelled = false;
@@ -109,97 +129,99 @@ export function GuestIntakePage() {
   }
 
   return (
-    <div className={s.wrap}>
-      <div className={s.card}>
-        <div className={s.brand}>C3 · Geekay Esports</div>
+    <div className="tw-root" style={PUBLIC_SHELL}>
+      <div style={PUBLIC_CARD}>
+        <div className="eyebrow">C3 · Geekay Esports</div>
 
-        {peek.status === 'loading' && <p className={s.lede}>Loading…</p>}
+        {peek.status === 'loading' && <p className="record-quiet">Loading…</p>}
 
         {peek.status === 'notfound' && (
-          <div className={s.panel}>
-            <h1 className={s.title}>Link not found</h1>
-            <p className={s.lede}>This intake link doesn’t exist. Please check the link your contact sent you.</p>
+          <div className="record-card">
+            <h1 className="collection-title">Link not found</h1>
+            <p className="record-quiet">This intake link doesn’t exist. Please check the link your contact sent you.</p>
           </div>
         )}
 
         {peek.status === 'closed' && (
-          <div className={s.panel} data-testid="guest-closed">
-            <h1 className={s.title}>Link unavailable</h1>
-            <p className={s.lede}>{peek.message ?? 'This link is no longer available. Ask your contact for a fresh one.'}</p>
+          <div className="record-card" data-testid="guest-closed">
+            <h1 className="collection-title">Link unavailable</h1>
+            <p className="record-quiet">{peek.message ?? 'This link is no longer available. Ask your contact for a fresh one.'}</p>
           </div>
         )}
 
         {peek.status === 'open' && done && (
-          <div className={s.panel} data-testid="guest-done">
-            <span className={s.ok}>Thank you — your details were received.</span>
-            <p className={s.lede}>Reference {done}. The team will review your submission. You can close this page.</p>
+          <div className="record-card" data-testid="guest-done">
+            <strong>Thank you — your details were received.</strong>
+            <p className="record-quiet">Reference {done}. The team will review your submission. You can close this page.</p>
           </div>
         )}
 
         {peek.status === 'open' && !done && (
           <>
-            <h1 className={s.title}>Welcome — tell us about you</h1>
-            <p className={s.lede}>
+            <h1 className="collection-title">Welcome — tell us about you</h1>
+            <p className="record-quiet">
               Fill in what you can. Only your full name is required. Nothing here is final — a team member reviews it
               before anything is created.
             </p>
 
-            <div className={s.group}>
-              <div className={s.groupTitle}>Identity</div>
+            <div className="record-rows">
+              <SectionHeading>Identity</SectionHeading>
               <Field label="Full name" required>
-                <Input input={{ autoComplete: 'off' }} value={f.fullName ?? ''} onChange={set('fullName')} data-testid="guest-fullName" />
+                <Input autoComplete="off" value={f.fullName ?? ''} onChange={set('fullName')} data-testid="guest-fullName" />
               </Field>
-              <div className={s.twoCol}>
-                <Field label="Nationality"><Input input={{ autoComplete: 'off' }} value={f.nationality ?? ''} onChange={set('nationality')} data-testid="guest-nationality" /></Field>
-                <Field label="Date of birth (YYYY-MM-DD)"><Input input={{ autoComplete: 'off' }} value={f.dateOfBirth ?? ''} onChange={set('dateOfBirth')} placeholder="1999-05-20" data-testid="guest-dob" /></Field>
+              <div className="form-row">
+                <Field label="Nationality"><Input autoComplete="off" value={f.nationality ?? ''} onChange={set('nationality')} data-testid="guest-nationality" /></Field>
+                <Field label="Date of birth (YYYY-MM-DD)"><Input autoComplete="off" value={f.dateOfBirth ?? ''} onChange={set('dateOfBirth')} placeholder="1999-05-20" data-testid="guest-dob" /></Field>
               </div>
 
-              <div className={s.groupTitle}>Contact</div>
-              <div className={s.twoCol}>
-                <Field label="Email"><Input input={{ autoComplete: 'off' }} value={f.email ?? ''} onChange={set('email')} data-testid="guest-email" /></Field>
-                <Field label="Phone"><Input input={{ autoComplete: 'off' }} value={f.phone ?? ''} onChange={set('phone')} data-testid="guest-phone" /></Field>
+              <SectionHeading>Contact</SectionHeading>
+              <div className="form-row">
+                <Field label="Email"><Input autoComplete="off" value={f.email ?? ''} onChange={set('email')} data-testid="guest-email" /></Field>
+                <Field label="Phone"><Input autoComplete="off" value={f.phone ?? ''} onChange={set('phone')} data-testid="guest-phone" /></Field>
               </div>
-              <Field label="Address line"><Input input={{ autoComplete: 'off' }} value={f.addressLine1 ?? ''} onChange={set('addressLine1')} /></Field>
-              <div className={s.twoCol}>
-                <Field label="City"><Input input={{ autoComplete: 'off' }} value={f.addressCity ?? ''} onChange={set('addressCity')} /></Field>
-                <Field label="Country"><Input input={{ autoComplete: 'off' }} value={f.addressCountry ?? ''} onChange={set('addressCountry')} /></Field>
-              </div>
-
-              <div className={s.groupTitle}>Gaming</div>
-              <div className={s.twoCol}>
-                <Field label="In-game name"><Input input={{ autoComplete: 'off' }} value={f.ign ?? ''} onChange={set('ign')} data-testid="guest-ign" /></Field>
-                <Field label="Game title"><Input input={{ autoComplete: 'off' }} value={f.currentGameTitle ?? ''} onChange={set('currentGameTitle')} /></Field>
-              </div>
-              <div className={s.twoCol}>
-                <Field label="Role"><Input input={{ autoComplete: 'off' }} value={f.primaryRole ?? ''} onChange={set('primaryRole')} /></Field>
-                <Field label="Team"><Input input={{ autoComplete: 'off' }} value={f.currentTeam ?? ''} onChange={set('currentTeam')} /></Field>
+              <Field label="Address line"><Input autoComplete="off" value={f.addressLine1 ?? ''} onChange={set('addressLine1')} /></Field>
+              <div className="form-row">
+                <Field label="City"><Input autoComplete="off" value={f.addressCity ?? ''} onChange={set('addressCity')} /></Field>
+                <Field label="Country"><Input autoComplete="off" value={f.addressCountry ?? ''} onChange={set('addressCountry')} /></Field>
               </div>
 
-              <div className={s.groupTitle}>Sizes</div>
-              <div className={s.twoCol}>
-                <Field label="Apparel size"><Input input={{ autoComplete: 'off' }} value={f.apparelSize ?? ''} onChange={set('apparelSize')} data-testid="guest-apparel" /></Field>
-                <Field label="Shoe size"><Input input={{ autoComplete: 'off' }} value={f.shoeSize ?? ''} onChange={set('shoeSize')} /></Field>
+              <SectionHeading>Gaming</SectionHeading>
+              <div className="form-row">
+                <Field label="In-game name"><Input autoComplete="off" value={f.ign ?? ''} onChange={set('ign')} data-testid="guest-ign" /></Field>
+                <Field label="Game title"><Input autoComplete="off" value={f.currentGameTitle ?? ''} onChange={set('currentGameTitle')} /></Field>
+              </div>
+              <div className="form-row">
+                <Field label="Role"><Input autoComplete="off" value={f.primaryRole ?? ''} onChange={set('primaryRole')} /></Field>
+                <Field label="Team"><Input autoComplete="off" value={f.currentTeam ?? ''} onChange={set('currentTeam')} /></Field>
               </div>
 
-              <div className={s.groupTitle}>Documents (optional)</div>
+              <SectionHeading>Sizes</SectionHeading>
+              <div className="form-row">
+                <Field label="Apparel size"><Input autoComplete="off" value={f.apparelSize ?? ''} onChange={set('apparelSize')} data-testid="guest-apparel" /></Field>
+                <Field label="Shoe size"><Input autoComplete="off" value={f.shoeSize ?? ''} onChange={set('shoeSize')} /></Field>
+              </div>
+
+              <SectionHeading>Documents (optional)</SectionHeading>
+              {/* B1 deliberately does NOT style input[type=file] — left bare. */}
               <input
                 type="file"
                 multiple
                 data-testid="guest-files"
                 onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
               />
-              <span className={s.fileNote}>e.g. a passport or ID scan. Up to 6 files.{files.length > 0 ? ` ${files.length} selected.` : ''}</span>
+              <span className="record-quiet">e.g. a passport or ID scan. Up to 6 files.{files.length > 0 ? ` ${files.length} selected.` : ''}</span>
 
               <Field label="Anything else">
-                <Textarea textarea={{ autoComplete: 'off' }} value={f.note ?? ''} onChange={set('note')} data-testid="guest-note" />
+                <Textarea autoComplete="off" value={f.note ?? ''} onChange={set('note')} data-testid="guest-note" />
               </Field>
 
-              {error && <p className={s.lede} data-testid="guest-error" style={{ color: 'var(--c3-state-danger, #d13438)' }}>{error}</p>}
+              {/* The kit's state-coloured SENTENCE — never a raw inline colour. */}
+              {error && <p className="record-quiet danger" data-testid="guest-error">{error}</p>}
 
-              <div className={s.actions}>
-                <Button appearance="primary" onClick={submit} disabled={!canSubmit} data-testid="guest-submit">
+              <div className="row-actions">
+                <button className="primary-action" type="button" onClick={submit} disabled={!canSubmit} data-testid="guest-submit">
                   {submitting ? 'Sending…' : 'Submit'}
-                </Button>
+                </button>
               </div>
             </div>
           </>
