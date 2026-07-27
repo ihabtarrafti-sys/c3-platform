@@ -1,73 +1,71 @@
 import { useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Input, Option, makeStyles } from '@fluentui/react-components';
 import { CURRENCY_CODES, type DataQualityReportDto } from '@c3web/api-contracts';
-import { formatMoney, parseDecimalToMinor, type CurrencyCode } from '@c3web/domain';
+import { formatMoney, type CurrencyCode } from '@c3web/domain';
 import { useDataQuality, useFxRates, usePerDiemPresets } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
+import {
+  TableworkPage,
+  CollectionFrame,
+  WorkSurface,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Input,
+  Selector,
+  positiveAmountToMinor,
+} from '../tablework';
 import { BackupStatusSection, DelegationSection } from '../components/SettingsGovernanceSections';
 
 /**
- * Settings (Finance S1) — org configuration. The first real setting worth
+ * Settings (Finance S1) — org configuration, on the Tablework frame (pivot W3
+ * Lane 2; behaviour, testids and copy verbatim). The first real setting worth
  * housing: the exchange-rate table. The org maintains one rate per currency —
  * its value in USD (the pivot) — and every cross-rate is derived from those, so
  * money booked in AED can always be shown a truthful "≈ USD" (and any pair).
+ *
+ * ⚖️ TIER B stays Fluent. `SettingsGovernanceSections` (DelegationSection /
+ * BackupStatusSection) is a `components/` file — Wave 4, read-only here — so it
+ * renders Fluent inside `.tw-root` exactly as ApprovalDetailPage already hosts
+ * `CorrectionDialog`. Its testids and behaviour are untouched by this file.
  */
 
 const PIVOT = 'USD';
 
-const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '640px', marginBottom: '18px' },
-  panel: {
-    maxWidth: '720px',
-    border: '1px solid var(--c3-border-subtle)',
-    borderRadius: 'var(--c3-radius-data)',
-    backgroundColor: 'var(--c3-surface-base)',
-    boxShadow: 'var(--c3-e1)',
-    overflow: 'hidden',
-  },
-  head: {
-    display: 'flex',
-    alignItems: 'baseline',
-    // QA sweep: a flexGrow spacer (FX head) starves meta's auto margin, so
-    // title and meta collide without an explicit gap.
-    columnGap: '10px',
-    padding: '14px 20px',
-    borderBottom: '1px solid var(--c3-border-subtle)',
-  },
-  title: { fontSize: '14px', fontWeight: 600, color: 'var(--c3-ink-default)' },
-  meta: {
-    marginLeft: 'auto',
-    fontFamily: 'var(--c3-font-mono)',
-    fontSize: '10.5px',
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: 'var(--c3-ink-quiet)',
-  },
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    columnGap: '16px',
-    padding: '12px 20px',
-    borderBottom: '1px solid var(--c3-border-subtle)',
-    flexWrap: 'wrap',
-  },
-  cur: { fontFamily: 'var(--c3-font-mono)', fontSize: '14px', fontWeight: 600, width: '48px', color: 'var(--c3-ink-default)' },
-  eq: { fontSize: '13px', color: 'var(--c3-ink-muted)', whiteSpace: 'nowrap' },
-  rateInput: { width: '120px' },
-  inverse: { fontFamily: 'var(--c3-font-mono)', fontSize: '12px', color: 'var(--c3-ink-quiet)', minWidth: '160px' },
-  pivotNote: { fontSize: '13px', color: 'var(--c3-ink-quiet)' },
-});
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no WIDTH affordance for a bare native input. B1 added
+//   `input[type='number']` / `input[type='date']` to the styled list at
+//   `width: 100%`, which is right inside a `Field` (a grid track that sizes to
+//   the control) and wrong for the two inline money rows on this screen: in a
+//   `.form-row` (flex + wrap) a `width: 100%` item's flex base is the whole row,
+//   so the input claims a line to itself and the row it belongs to breaks apart.
+//   `Selector` already carries the answer for pickers (`width="compact" |
+//   "wide"`, expressed as min-width, no inline style); `Input` has no
+//   equivalent. Neither field can be wrapped in a `Field` instead: `Field`
+//   renders a visible label and this screen's copy is frozen — the FX row's
+//   label is the sentence "1 AED =" that sits beside it, and the per-diem
+//   amount has no label at all.
+// WORKAROUND: the Fluent-era `rateInput` width carried verbatim as an inline
+//   style on the two inputs — 120px, byte-identical to the pre-pivot screen.
+// CLASS: additive — a `width` prop on the kit's `Input` mirroring `Selector`'s
+//   (or a `.field-compact` class) closes it and changes no converted call site.
+const NARROW_MONEY_INPUT: React.CSSProperties = { width: '120px' };
+
+const CURRENCY_OPTIONS = CURRENCY_CODES.map((c) => ({ value: c, label: c }));
 
 function RateRow({ currency, current, onSaved }: { currency: string; current: number | undefined; onSaved: () => void }) {
-  const s = useStyles();
   const { notify } = useNotify();
   const [value, setValue] = useState(current !== undefined ? String(current) : '');
   const [busy, setBusy] = useState(false);
+  // ⚖️ MONEY — deliberately NOT a kit-parser site, and NOT `parseDecimalToMinor`
+  // either. An FX rate is a RATIO (the domain's `FxRate.usdPerUnit`, e.g. AED →
+  // 0.272294), not an amount in minor units: `parseDecimalToMinor` allows at
+  // most two decimals and would REFUSE the four-decimal rate the oracle enters
+  // (0.2723). None of the kit's four parsers expresses a ratio, so `Number`
+  // stays verbatim with its own zero policy — `> 0`, because a zero rate is
+  // meaningless AND would make the derived inverse `1 / parsed` infinite.
   const parsed = Number(value);
   const valid = value.trim() !== '' && !Number.isNaN(parsed) && parsed > 0;
 
@@ -85,33 +83,45 @@ function RateRow({ currency, current, onSaved }: { currency: string; current: nu
   }
 
   return (
-    <div className={s.row}>
-      <span className={s.cur}>{currency}</span>
-      <span className={s.eq}>1 {currency} =</span>
+    <div className="form-row">
+      <span className="record-row-meta">{currency}</span>
+      <span className="record-quiet">1 {currency} =</span>
       <Input
-        className={s.rateInput}
+        style={NARROW_MONEY_INPUT}
         type="number"
         value={value}
-        onChange={(_, d) => setValue(d.value)}
+        onChange={(e) => setValue(e.target.value)}
         placeholder="0.00"
-        contentAfter={<span style={{ fontSize: 12, color: 'var(--c3-ink-quiet)' }}>{PIVOT}</span>}
         data-testid={`fx-rate-${currency}`}
       />
-      <span className={s.inverse}>
+      {/* Fluent's `contentAfter` drew the pivot code INSIDE the input's border;
+          the kit's input is a bare native control, so the same word sits beside
+          it. The copy is unchanged. */}
+      <span className="record-row-meta">{PIVOT}</span>
+      <span className="record-row-meta">
         {valid ? `≈ 1 ${PIVOT} = ${(1 / parsed).toLocaleString('en-US', { maximumFractionDigits: 4 })} ${currency}` : '—'}
       </span>
-      <Button appearance="primary" size="small" disabled={!valid || busy} onClick={save} data-testid={`fx-save-${currency}`}>
+      <button className="primary-action" type="button" disabled={!valid || busy} onClick={() => void save()} data-testid={`fx-save-${currency}`}>
         {busy ? 'Saving…' : 'Save'}
-      </Button>
+      </button>
     </div>
   );
 }
 
 export function SettingsPage() {
-  const s = useStyles();
+  return (
+    <TableworkPage record="Settings" section="Configuration">
+      <SettingsBody />
+    </TableworkPage>
+  );
+}
+
+function SettingsBody() {
   const { me } = useSession();
   const qc = useQueryClient();
   const canManage = me?.capabilities.canManageEntities ?? false;
+  // THE WIRE LAW: the capability IS the react-query `enabled` flag. It stays the
+  // flag — never a fetch that always fires and is hidden in the render.
   const { data, isLoading, isError, error } = useFxRates(canManage);
   const { notify } = useNotify();
   const [refreshing, setRefreshing] = useState(false);
@@ -136,25 +146,28 @@ export function SettingsPage() {
   }
 
   if (!canManage) {
+    // denied ≠ empty: the `settings-denied` testid is the role-gate assertion.
     return (
-      <div>
-        <PageHeader title="Settings" />
+      <CollectionFrame title="Settings">
         <EmptyState data-testid="settings-denied" message="Settings are available to owners and operations." />
-      </div>
+      </CollectionFrame>
     );
   }
 
   const rateOf = (cur: string): number | undefined => data?.rates.find((r) => r.currency === cur)?.usdPerUnit;
 
   return (
-    <div>
-      <PageHeader kicker="Configuration" title="Settings" />
-      <p className={s.intro}>
-        Exchange rates. Set each currency’s value in {PIVOT} — every cross-rate (any currency to any other) is derived
-        from these, so money booked in one currency can always be shown a truthful “≈” in another. Maintain them by hand,
-        or pull the current rates from a live source with <em>Refresh from source</em>; either way the numbers stay yours.
-      </p>
-
+    <CollectionFrame
+      kicker="Configuration"
+      title="Settings"
+      scope={
+        <>
+          Exchange rates. Set each currency’s value in {PIVOT} — every cross-rate (any currency to any other) is derived
+          from these, so money booked in one currency can always be shown a truthful “≈” in another. Maintain them by hand,
+          or pull the current rates from a live source with <em>Refresh from source</em>; either way the numbers stay yours.
+        </>
+      }
+    >
       {isLoading && <LoadingState label="Loading rates…" />}
       {isError && (
         <ErrorState
@@ -163,23 +176,26 @@ export function SettingsPage() {
         />
       )}
       {data && (
-        <div className={s.panel} data-testid="fx-rates-panel">
-          <div className={s.head}>
-            <span className={s.title}>Exchange rates</span>
-            <span className={s.meta}>pivot · {PIVOT}</span>
-            <span style={{ flexGrow: 1 }} />
-            <Button appearance="secondary" size="small" disabled={refreshing} onClick={() => void refreshRates()} data-testid="fx-refresh">
-              {refreshing ? 'Refreshing…' : 'Refresh from source'}
-            </Button>
-          </div>
-          <div className={s.row}>
-            <span className={s.cur}>{PIVOT}</span>
-            <span className={s.pivotNote}>The pivot currency. Fixed at 1 — every other rate is expressed against it.</span>
+        <WorkSurface tier="elevated" className="record-card" data-testid="fx-rates-panel">
+          <header className="surface-heading">
+            <div>
+              <h2>Exchange rates</h2>
+            </div>
+            <div className="row-actions">
+              <span className="record-row-meta">pivot · {PIVOT}</span>
+              <button className="secondary-action" type="button" disabled={refreshing} onClick={() => void refreshRates()} data-testid="fx-refresh">
+                {refreshing ? 'Refreshing…' : 'Refresh from source'}
+              </button>
+            </div>
+          </header>
+          <div className="form-row">
+            <span className="record-row-meta">{PIVOT}</span>
+            <span className="record-quiet">The pivot currency. Fixed at 1 — every other rate is expressed against it.</span>
           </div>
           {CURRENCY_CODES.filter((c) => c !== PIVOT).map((c) => (
             <RateRow key={c} currency={c} current={rateOf(c)} onSaved={() => void qc.invalidateQueries({ queryKey: ['fxRates'] })} />
           ))}
-        </div>
+        </WorkSurface>
       )}
 
       <PerDiemPresetsSection />
@@ -187,7 +203,7 @@ export function SettingsPage() {
       <DataQualitySection />
       <DelegationSection />
       <BackupStatusSection />
-    </div>
+    </CollectionFrame>
   );
 }
 
@@ -197,7 +213,6 @@ export function SettingsPage() {
 // are version-guarded (M-03): a concurrent editor refuses, never merges.
 
 function PerDiemPresetsSection() {
-  const s = useStyles();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const { data, isLoading, isError, error } = usePerDiemPresets();
@@ -207,8 +222,15 @@ function PerDiemPresetsSection() {
   const [busy, setBusy] = useState(false);
 
   const presets = draft ?? (data?.presets as Array<{ amountMinor: number; currency: CurrencyCode }> | undefined) ?? [];
-  const addMinor = parseDecimalToMinor(amount);
-  const addValid = addMinor !== null && addMinor > 0 && !presets.some((p) => p.amountMinor === addMinor && p.currency === currency);
+  // ⚖️ MONEY — migrated onto the kit, zero policy UNCHANGED. The Fluent site
+  // read `parseDecimalToMinor(amount)` then `addMinor !== null && addMinor > 0`;
+  // `positiveAmountToMinor` IS that pair (`parseDecimalToMinor` + `!== null &&
+  // > 0 ? minor : null`), so the zero policy (reject) and the output (integer
+  // minor units, `null` otherwise) are identical. The domain regex admits no
+  // negatives, so there is no third case either policy would answer differently.
+  // The guard stays `!== null` — never truthiness; 0 is a real amount elsewhere.
+  const addMinor = positiveAmountToMinor(amount);
+  const addValid = addMinor !== null && !presets.some((p) => p.amountMinor === addMinor && p.currency === currency);
 
   async function save() {
     setBusy(true);
@@ -230,18 +252,20 @@ function PerDiemPresetsSection() {
 
   return (
     <>
-      <p className={s.intro} style={{ marginTop: '32px' }}>
+      <p className="record-quiet">
         Per-diem presets. The daily rates your missions actually use — they appear as one-click picks in every
         per-diem dialog. Edit the list here; saving is recorded, and a colleague editing at the same time is refused
         rather than silently overwritten.
       </p>
-      <div className={s.panel} data-testid="perdiem-presets-panel">
-        <div className={s.head}>
-          <span className={s.title}>Per-diem presets</span>
-          <span className={s.meta} data-testid="perdiem-presets-state">
+      <WorkSurface tier="elevated" className="record-card" data-testid="perdiem-presets-panel">
+        <header className="surface-heading">
+          <div>
+            <h2>Per-diem presets</h2>
+          </div>
+          <span className="record-row-meta" data-testid="perdiem-presets-state">
             {data ? (data.version === null && !draft ? 'defaults' : draft ? 'unsaved changes' : `v${data.version}`) : '…'}
           </span>
-        </div>
+        </header>
         {isLoading && <LoadingState label="Loading presets…" />}
         {isError && (
           <ErrorState
@@ -251,44 +275,42 @@ function PerDiemPresetsSection() {
         )}
         {data && (
           <>
-            {presets.map((p, i) => (
-              <div key={`${p.amountMinor}-${p.currency}`} className={s.row} data-testid={`perdiem-preset-row-${i}`}>
-                <span className={s.eq} style={{ fontWeight: 600 }}>{formatMoney(p.amountMinor, p.currency)}/day</span>
-                <Button
-                  size="small"
-                  appearance="transparent"
-                  disabled={presets.length <= 1}
-                  onClick={() => setDraft(presets.filter((_, j) => j !== i))}
-                  data-testid={`perdiem-preset-remove-${i}`}
-                >
-                  Remove
-                </Button>
-              </div>
-            ))}
-            <div className={s.row}>
+            <div className="record-rows">
+              {presets.map((p, i) => (
+                <div key={`${p.amountMinor}-${p.currency}`} className="record-row-item" data-testid={`perdiem-preset-row-${i}`}>
+                  <span className="record-row-name">{formatMoney(p.amountMinor, p.currency)}/day</span>
+                  <div className="row-actions">
+                    <button
+                      className="quiet-action"
+                      type="button"
+                      disabled={presets.length <= 1}
+                      onClick={() => setDraft(presets.filter((_, j) => j !== i))}
+                      data-testid={`perdiem-preset-remove-${i}`}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="form-row">
               <Input
-                className={s.rateInput}
+                style={NARROW_MONEY_INPUT}
                 value={amount}
-                onChange={(_, d) => setAmount(d.value)}
+                onChange={(e) => setAmount(e.target.value)}
                 placeholder="e.g. 65"
                 data-testid="perdiem-preset-amount"
               />
-              <Dropdown
+              <Selector
+                width="compact"
                 value={currency}
-                selectedOptions={[currency]}
-                onOptionSelect={(_, d) => d.optionValue && setCurrency(d.optionValue as CurrencyCode)}
-                style={{ minWidth: '90px' }}
+                options={CURRENCY_OPTIONS}
+                onSelect={(value) => setCurrency(value as CurrencyCode)}
                 data-testid="perdiem-preset-currency"
-              >
-                {CURRENCY_CODES.map((c) => (
-                  <Option key={c} value={c} text={c}>
-                    {c}
-                  </Option>
-                ))}
-              </Dropdown>
-              <Button
-                size="small"
-                appearance="secondary"
+              />
+              <button
+                className="secondary-action"
+                type="button"
                 disabled={!addValid || presets.length >= 8}
                 onClick={() => {
                   setDraft([...presets, { amountMinor: addMinor!, currency }]);
@@ -297,14 +319,14 @@ function PerDiemPresetsSection() {
                 data-testid="perdiem-preset-add"
               >
                 Add
-              </Button>
-              <Button size="small" appearance="primary" disabled={!draft || busy} onClick={save} data-testid="perdiem-presets-save">
+              </button>
+              <button className="primary-action" type="button" disabled={!draft || busy} onClick={() => void save()} data-testid="perdiem-presets-save">
                 {busy ? 'Saving…' : 'Save presets'}
-              </Button>
+              </button>
             </div>
           </>
         )}
-      </div>
+      </WorkSurface>
     </>
   );
 }
@@ -313,6 +335,11 @@ function PerDiemPresetsSection() {
 
 const IMPORT_DOMAIN_LABELS = { people: 'People', credentials: 'Credentials', agreements: 'Agreements' } as const;
 type ImportDomainKey = keyof typeof IMPORT_DOMAIN_LABELS;
+
+const IMPORT_DOMAIN_OPTIONS = (['people', 'credentials', 'agreements'] as const).map((d) => ({
+  value: d,
+  label: IMPORT_DOMAIN_LABELS[d],
+}));
 
 function saveBlob(blob: Blob, fileName: string): void {
   const url = URL.createObjectURL(blob);
@@ -324,7 +351,6 @@ function saveBlob(blob: Blob, fileName: string): void {
 }
 
 function ImportExportSection() {
-  const s = useStyles();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -372,72 +398,74 @@ function ImportExportSection() {
 
   return (
     <>
-      <p className={s.intro} style={{ marginTop: '32px' }}>
+      <p className="record-quiet">
         Import &amp; export. Each register exports as CSV in exactly the shape import accepts — the export is the
         template. Imports are validated all-or-nothing: one bad cell fails the whole file with a per-row report, and a
         clean file becomes ONE approval an owner must execute before anything lands.
       </p>
-      <div className={s.panel} data-testid="import-export-panel">
-        <div className={s.head}>
-          <span className={s.title}>Export</span>
-          <span className={s.meta}>csv · full register</span>
-        </div>
-        <div className={s.row}>
+      <WorkSurface tier="elevated" className="record-card" data-testid="import-export-panel">
+        <header className="surface-heading">
+          <div>
+            <h2>Export</h2>
+          </div>
+          <span className="record-row-meta">csv · full register</span>
+        </header>
+        <div className="row-actions">
           {(['people', 'credentials', 'agreements'] as const).map((d) => (
-            <Button key={d} size="small" appearance="secondary" onClick={() => void onDownload('export', d)} data-testid={`export-${d}`}>
+            <button key={d} className="secondary-action" type="button" onClick={() => void onDownload('export', d)} data-testid={`export-${d}`}>
               {IMPORT_DOMAIN_LABELS[d]}
-            </Button>
+            </button>
           ))}
-          <Button size="small" appearance="secondary" onClick={() => void onDownload('export', 'audit')} data-testid="export-audit">
+          <button className="secondary-action" type="button" onClick={() => void onDownload('export', 'audit')} data-testid="export-audit">
             Audit trail
-          </Button>
+          </button>
         </div>
-        <div className={s.head}>
-          <span className={s.title}>Import</span>
-          <span className={s.meta}>staged → owner executes</span>
-        </div>
-        <div className={s.row}>
-          <Dropdown
-            value={IMPORT_DOMAIN_LABELS[domain]}
-            selectedOptions={[domain]}
-            onOptionSelect={(_, d) => d.optionValue && setDomain(d.optionValue as ImportDomainKey)}
+        <header className="surface-heading">
+          <div>
+            <h2>Import</h2>
+          </div>
+          <span className="record-row-meta">staged → owner executes</span>
+        </header>
+        <div className="form-row">
+          <Selector
+            width="compact"
+            value={domain}
+            options={IMPORT_DOMAIN_OPTIONS}
+            onSelect={(value) => setDomain(value as ImportDomainKey)}
             data-testid="import-domain"
-            style={{ minWidth: '160px' }}
-          >
-            {(['people', 'credentials', 'agreements'] as const).map((d) => (
-              <Option key={d} value={d} text={IMPORT_DOMAIN_LABELS[d]}>
-                {IMPORT_DOMAIN_LABELS[d]}
-              </Option>
-            ))}
-          </Dropdown>
-          <Button size="small" appearance="secondary" onClick={() => void onDownload('template', domain)} data-testid="import-template">
+          />
+          <button className="secondary-action" type="button" onClick={() => void onDownload('template', domain)} data-testid="import-template">
             Blank template
-          </Button>
+          </button>
+          {/* LANE-2 LAW: this stays a bare, UNSTYLED native file input. B1
+              deliberately left `input[type='file']` out of the kit's styled list
+              (a file control has a UA button inside it), and it is `hidden`
+              anyway — the visible affordance is the button beside it. */}
           <input ref={fileRef} type="file" hidden accept=".csv,text/csv" onChange={(e) => void onPick(e.target.files)} data-testid="import-file-input" />
-          <Button size="small" appearance="primary" disabled={busy} onClick={() => fileRef.current?.click()} data-testid="import-upload">
+          <button className="primary-action" type="button" disabled={busy} onClick={() => fileRef.current?.click()} data-testid="import-upload">
             {busy ? 'Validating…' : 'Upload CSV…'}
-          </Button>
+          </button>
         </div>
         {staged && (
-          <div className={s.row} data-testid="import-staged">
-            <span className={s.eq}>{`Staged ${staged.approvalId} — ${staged.rowCount} ${staged.domain}. Nothing lands until an owner executes it.`}</span>
-          </div>
+          <p className="record-quiet" data-testid="import-staged">
+            {`Staged ${staged.approvalId} — ${staged.rowCount} ${staged.domain}. Nothing lands until an owner executes it.`}
+          </p>
         )}
         {errors.length > 0 && (
-          <div style={{ padding: '12px 20px' }} data-testid="import-errors">
-            <span className={s.eq} style={{ color: 'var(--c3-state-danger)' }}>
+          <div data-testid="import-errors">
+            <p className="record-quiet danger">
               {`${errorCount} validation error${errorCount === 1 ? '' : 's'} — nothing was imported${errorCount > errors.length ? ` (showing first ${errors.length})` : ''}:`}
-            </span>
-            <ul style={{ margin: '8px 0 0', paddingLeft: '18px' }}>
+            </p>
+            <ul>
               {errors.slice(0, 20).map((e, i) => (
-                <li key={i} className={s.eq} data-testid={`import-error-row`}>
+                <li key={i} className="record-quiet" data-testid="import-error-row">
                   {e.row === 0 ? e.column : `Row ${e.row}, ${e.column}`}: {e.message}
                 </li>
               ))}
             </ul>
           </div>
         )}
-      </div>
+      </WorkSurface>
     </>
   );
 }
@@ -479,7 +507,6 @@ const DQ_CHECKS: Array<{
 const DQ_REASON_LABEL: Record<string, string> = { fullName: 'same name', ign: 'same IGN', personnelCode: 'same personnel code' };
 
 function DataQualitySection() {
-  const s = useStyles();
   const { data, isLoading, isError, error, refetch, isRefetching } = useDataQuality();
   const [open, setOpen] = useState<string | null>(null);
 
@@ -490,21 +517,25 @@ function DataQualitySection() {
 
   return (
     <>
-      <p className={s.intro} style={{ marginTop: '32px' }}>
+      <p className="record-quiet">
         Data quality. Import enforces the hard rules; these are the soft signals it must not block on — potential
         duplicate people (exact match after trimming and casing; no guessing) and records whose basics are missing or
         whose dates have quietly gone stale. Review and fix in the registers; nothing here changes data.
       </p>
-      <div className={s.panel} data-testid="dq-panel">
-        <div className={s.head}>
-          <span className={s.title}>Data quality</span>
-          <span className={s.meta} data-testid="dq-total">
-            {report ? (total === 0 ? 'all clear' : `${total} finding${total === 1 ? '' : 's'}`) : '…'}
-          </span>
-          <Button size="small" appearance="secondary" style={{ marginLeft: '12px' }} disabled={isRefetching} onClick={() => void refetch()} data-testid="dq-refresh">
-            {isRefetching ? 'Checking…' : 'Re-run checks'}
-          </Button>
-        </div>
+      <WorkSurface tier="elevated" className="record-card" data-testid="dq-panel">
+        <header className="surface-heading">
+          <div>
+            <h2>Data quality</h2>
+          </div>
+          <div className="row-actions">
+            <span className="record-row-meta" data-testid="dq-total">
+              {report ? (total === 0 ? 'all clear' : `${total} finding${total === 1 ? '' : 's'}`) : '…'}
+            </span>
+            <button className="secondary-action" type="button" disabled={isRefetching} onClick={() => void refetch()} data-testid="dq-refresh">
+              {isRefetching ? 'Checking…' : 'Re-run checks'}
+            </button>
+          </div>
+        </header>
         {isLoading && <LoadingState label="Running checks…" />}
         {isError && (
           <ErrorState
@@ -513,44 +544,46 @@ function DataQualitySection() {
           />
         )}
         {report && (
-          <>
-            <div className={s.row} data-testid="dq-duplicates">
-              <span className={s.eq} style={{ fontWeight: 600 }}>Potential duplicate people</span>
-              <span className={s.meta}>{report.duplicatePeople.length}</span>
-              {report.duplicatePeople.length > 0 && (
-                <Button size="small" appearance="transparent" onClick={() => setOpen(open === 'dup' ? null : 'dup')} data-testid="dq-duplicates-toggle">
-                  {open === 'dup' ? 'Hide' : 'Show'}
-                </Button>
+          <div className="record-rows">
+            <div>
+              <div className="record-row-item" data-testid="dq-duplicates">
+                <span className="record-row-name">Potential duplicate people</span>
+                <span className="record-row-meta">{report.duplicatePeople.length}</span>
+                {report.duplicatePeople.length > 0 && (
+                  <button className="quiet-action" type="button" onClick={() => setOpen(open === 'dup' ? null : 'dup')} data-testid="dq-duplicates-toggle">
+                    {open === 'dup' ? 'Hide' : 'Show'}
+                  </button>
+                )}
+              </div>
+              {open === 'dup' && report.duplicatePeople.length > 0 && (
+                <div data-testid="dq-duplicates-list">
+                  <ul>
+                    {report.duplicatePeople.map((g, i) => (
+                      <li key={i} className="record-quiet">
+                        “{g.value}” ({DQ_REASON_LABEL[g.reason] ?? g.reason}):{' '}
+                        {g.people.map((p) => `${p.personId}${p.isActive ? '' : ' (inactive)'}`).join(', ')}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               )}
             </div>
-            {open === 'dup' && report.duplicatePeople.length > 0 && (
-              <div style={{ padding: '4px 20px 12px' }} data-testid="dq-duplicates-list">
-                <ul style={{ margin: 0, paddingLeft: '18px' }}>
-                  {report.duplicatePeople.map((g, i) => (
-                    <li key={i} className={s.eq}>
-                      “{g.value}” ({DQ_REASON_LABEL[g.reason] ?? g.reason}):{' '}
-                      {g.people.map((p) => `${p.personId}${p.isActive ? '' : ' (inactive)'}`).join(', ')}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
             {DQ_CHECKS.map((c) => (
               <div key={c.key}>
-                <div className={s.row} data-testid={`dq-${c.key}`}>
-                  <span className={s.eq}>{c.label}</span>
-                  <span className={s.meta}>{report[c.key].length}</span>
+                <div className="record-row-item" data-testid={`dq-${c.key}`}>
+                  <span className="record-row-name">{c.label}</span>
+                  <span className="record-row-meta">{report[c.key].length}</span>
                   {report[c.key].length > 0 && (
-                    <Button size="small" appearance="transparent" onClick={() => setOpen(open === c.key ? null : c.key)} data-testid={`dq-${c.key}-toggle`}>
+                    <button className="quiet-action" type="button" onClick={() => setOpen(open === c.key ? null : c.key)} data-testid={`dq-${c.key}-toggle`}>
                       {open === c.key ? 'Hide' : 'Show'}
-                    </Button>
+                    </button>
                   )}
                 </div>
                 {open === c.key && report[c.key].length > 0 && (
-                  <div style={{ padding: '4px 20px 12px' }} data-testid={`dq-${c.key}-list`}>
-                    <ul style={{ margin: 0, paddingLeft: '18px' }}>
+                  <div data-testid={`dq-${c.key}-list`}>
+                    <ul>
                       {report[c.key].map((x, i) => (
-                        <li key={i} className={s.eq}>
+                        <li key={i} className="record-quiet">
                           {c.line(x as never)}
                         </li>
                       ))}
@@ -559,9 +592,9 @@ function DataQualitySection() {
                 )}
               </div>
             ))}
-          </>
+          </div>
         )}
-      </div>
+      </WorkSurface>
     </>
   );
 }
