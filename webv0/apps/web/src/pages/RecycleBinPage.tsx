@@ -1,17 +1,23 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import { Field, Input, makeStyles, mergeClasses } from '@fluentui/react-components';
 import type { RecycleItemDto } from '@c3web/api-contracts';
 import { useRecycleBin } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
-import { PageHeader } from '../components/PageHeader';
-import { EmptyState, ErrorState, LoadingState } from '../components/states';
-import { StatusBadge } from '../components/StatusBadge';
-import { GovernedAction } from '../components/GovernedAction';
-import { useRegisterStyles } from '../components/registerStyles';
+import {
+  TableworkPage,
+  CollectionFrame,
+  ComparisonTable,
+  StatusBadge,
+  EmptyState,
+  ErrorState,
+  LoadingState,
+  Field,
+  Input,
+  GovernedAction,
+} from '../tablework';
 
 /**
  * Recycle Bin (Track B2) — one place to see everything soft-removed, with who
@@ -20,6 +26,16 @@ import { useRegisterStyles } from '../components/registerStyles';
  * entities and teams restore immediately (direct-audited, as they were
  * removed). Credentials/kit/apparel are visible here but managed from their
  * own record. Owner/operations only. Nothing is ever lost — this is a door.
+ *
+ * Tablework conversion (pivot W3, Lane 4). Behaviour/testids/copy verbatim.
+ *
+ * ⚠️ `recycleBin.spec.ts:47` reads a row's `data-testid` off the element and
+ * strips the `recycle-row-` prefix to recover the id, so THE ROW TESTID MUST
+ * STAY ON THE `<tr>` — `ComparisonTable` only owns the outer scroll div (which
+ * carries `recycle-table`) and the `<table>`; every `<tr>` is still ours.
+ *
+ * The removed-on date stays the raw ISO slice — `formatDisplayDate` is a
+ * NEGATIVE contract for converted screens.
  */
 
 const KIND_LABEL: Record<RecycleItemDto['kind'], string> = {
@@ -30,40 +46,6 @@ const KIND_LABEL: Record<RecycleItemDto['kind'], string> = {
   kit: 'Kit',
   apparel: 'Apparel',
 };
-
-const useStyles = makeStyles({
-  intro: { fontSize: '13px', lineHeight: '20px', color: 'var(--c3-ink-muted)', maxWidth: '660px', marginBottom: '16px' },
-  chips: { display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px' },
-  chip: {
-    fontFamily: 'var(--c3-font-mono)',
-    fontSize: '11px',
-    letterSpacing: '0.06em',
-    color: 'var(--c3-ink-muted)',
-    backgroundColor: 'transparent',
-    border: '1px solid var(--c3-border-subtle)',
-    borderRadius: '999px',
-    padding: '3px 11px',
-    cursor: 'pointer',
-    ':hover': { backgroundColor: 'var(--c3-hover)' },
-  },
-  chipActive: {
-    color: 'var(--c3-ink-default)',
-    borderTopColor: 'var(--c3-action-primary)',
-    borderRightColor: 'var(--c3-action-primary)',
-    borderBottomColor: 'var(--c3-action-primary)',
-    borderLeftColor: 'var(--c3-action-primary)',
-    backgroundColor: 'var(--c3-hover)',
-  },
-  recWrap: { fontSize: '13.5px', color: 'var(--c3-ink-default)', display: 'flex', flexDirection: 'column', rowGap: '2px' },
-  recTitle: { display: 'flex', alignItems: 'baseline', columnGap: '8px' },
-  recId: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-quiet)' },
-  recSub: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-  meta: { fontSize: '12.5px', color: 'var(--c3-ink-muted)' },
-  metaWho: { fontFamily: 'var(--c3-font-mono)', fontSize: '11.5px', color: 'var(--c3-ink-quiet)' },
-  recordLink: { fontSize: '12.5px', color: 'var(--c3-action-primary)' },
-  muted: { fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-  fields: { display: 'flex', flexDirection: 'column', rowGap: '10px' },
-});
 
 function removedOn(iso: string): string {
   return iso.slice(0, 10);
@@ -84,12 +66,19 @@ function recordRoute(item: RecycleItemDto): string {
 }
 
 export function RecycleBinPage() {
-  const s = useStyles();
-  const r = useRegisterStyles();
+  return (
+    <TableworkPage record="Recycle bin" section="Register" wide>
+      <RecycleBinRegister />
+    </TableworkPage>
+  );
+}
+
+function RecycleBinRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
   const canManage = me?.capabilities.canManageEntities ?? false;
+  // The wire law: the capability IS the react-query `enabled` flag.
   const { data, isLoading, isError, error } = useRecycleBin(canManage);
   const [kindFilter, setKindFilter] = useState<RecycleItemDto['kind'] | null>(null);
   const [reason, setReason] = useState('');
@@ -97,15 +86,6 @@ export function RecycleBinPage() {
   const all = useMemo(() => data?.items ?? [], [data]);
   const items = kindFilter ? all.filter((i) => i.kind === kindFilter) : all;
   const kindsPresent = useMemo(() => (Object.keys(KIND_LABEL) as RecycleItemDto['kind'][]).filter((k) => all.some((i) => i.kind === k)), [all]);
-
-  if (!canManage) {
-    return (
-      <div>
-        <PageHeader title="Recycle bin" />
-        <EmptyState data-testid="recycle-denied" message="The recycle bin is available to owners and operations." />
-      </div>
-    );
-  }
 
   async function restore(item: RecycleItemDto, withReason?: string): Promise<void> {
     try {
@@ -123,15 +103,21 @@ export function RecycleBinPage() {
     }
   }
 
-  return (
-    <div>
-      <PageHeader kicker="Nothing is ever lost" title="Recycle bin" />
-      <p className={s.intro}>
-        Everything that has been removed, with who removed it and when. Restoring goes through the record’s own
-        governance — a person’s restore is an approval an owner executes; an entity or team comes straight back.
-        Credentials, kit and apparel are shown here and managed from their own page.
-      </p>
+  if (!canManage) {
+    return (
+      <CollectionFrame title="Recycle bin">
+        {/* denied !== empty: `recycle-denied` is the role-gate assertion. */}
+        <EmptyState data-testid="recycle-denied" message="The recycle bin is available to owners and operations." />
+      </CollectionFrame>
+    );
+  }
 
+  return (
+    <CollectionFrame
+      kicker="Nothing is ever lost"
+      title="Recycle bin"
+      scope="Everything that has been removed, with who removed it and when. Restoring goes through the record’s own governance — a person’s restore is an approval an owner executes; an entity or team comes straight back. Credentials, kit and apparel are shown here and managed from their own page."
+    >
       {isLoading && <LoadingState label="Gathering removed records…" />}
       {isError && (
         <ErrorState
@@ -147,15 +133,20 @@ export function RecycleBinPage() {
       {data && all.length > 0 && (
         <>
           {kindsPresent.length > 1 && (
-            <div className={s.chips} data-testid="recycle-chips">
-              <button type="button" className={mergeClasses(s.chip, kindFilter === null && s.chipActive)} onClick={() => setKindFilter(null)} data-testid="recycle-chip-all">
+            <div className="filter-chips" data-testid="recycle-chips">
+              <button
+                type="button"
+                className={kindFilter === null ? 'filter-chip active' : 'filter-chip'}
+                onClick={() => setKindFilter(null)}
+                data-testid="recycle-chip-all"
+              >
                 All ({all.length})
               </button>
               {kindsPresent.map((k) => (
                 <button
                   type="button"
                   key={k}
-                  className={mergeClasses(s.chip, kindFilter === k && s.chipActive)}
+                  className={kindFilter === k ? 'filter-chip active' : 'filter-chip'}
                   onClick={() => setKindFilter(kindFilter === k ? null : k)}
                   data-testid={`recycle-chip-${k}`}
                 >
@@ -165,32 +156,30 @@ export function RecycleBinPage() {
             </div>
           )}
 
-          <table className={r.table} data-testid="recycle-table" aria-label="Recycle bin register">
+          <ComparisonTable label="Recycle bin register" testId="recycle-table">
             <thead>
               <tr>
-                <th className={r.th}>Record</th>
-                <th className={r.th}>Removed</th>
-                <th className={r.th}>Restore</th>
+                <th>Record</th>
+                <th>Removed</th>
+                <th>Restore</th>
               </tr>
             </thead>
             <tbody>
               {items.map((item) => (
-                <tr key={`${item.kind}-${item.id}`} className={r.row} data-testid={`recycle-row-${item.id}`}>
-                  <td className={r.td}>
-                    <div className={s.recWrap}>
-                      <span className={s.recTitle}>
-                        {item.label}
-                        <span className={s.recId}>{item.id}</span>
-                        <StatusBadge variant="neutral">{KIND_LABEL[item.kind]}</StatusBadge>
-                      </span>
-                      {item.sublabel && <span className={s.recSub}>{item.sublabel}</span>}
+                <tr key={`${item.kind}-${item.id}`} data-testid={`recycle-row-${item.id}`}>
+                  <td>
+                    <div>
+                      {item.label}{' '}
+                      <span className="record-row-meta">{item.id}</span>{' '}
+                      <StatusBadge variant="neutral">{KIND_LABEL[item.kind]}</StatusBadge>
                     </div>
+                    {item.sublabel && <div className="record-quiet">{item.sublabel}</div>}
                   </td>
-                  <td className={r.td}>
-                    <div className={s.meta}>{removedOn(item.removedAt)}</div>
-                    <div className={s.metaWho}>{item.removedBy ?? '—'}</div>
+                  <td>
+                    <div>{removedOn(item.removedAt)}</div>
+                    <div className="record-row-meta">{item.removedBy ?? '—'}</div>
                   </td>
-                  <td className={r.td}>
+                  <td>
                     {item.restoreClass === 'direct' && (
                       <GovernedAction
                         triggerLabel="Restore"
@@ -210,11 +199,9 @@ export function RecycleBinPage() {
                         title={`Request restoring ${item.id}?`}
                         description="This restore goes through approval — an owner must execute it before the record is active again."
                         extra={
-                          <div className={s.fields}>
-                            <Field label="Reason" required>
-                              <Input value={reason} onChange={(_, d) => setReason(d.value)} data-testid={`recycle-reason-${item.id}`} />
-                            </Field>
-                          </div>
+                          <Field label="Reason" required>
+                            <Input value={reason} onChange={(e) => setReason(e.target.value)} data-testid={`recycle-reason-${item.id}`} />
+                          </Field>
                         }
                         confirmLabel="Submit for approval"
                         confirmDisabled={reason.trim() === ''}
@@ -222,7 +209,7 @@ export function RecycleBinPage() {
                       />
                     )}
                     {item.restoreClass === 'recordPage' && (
-                      <Link className={s.recordLink} to={recordRoute(item)} data-testid={`recycle-open-${item.id}`}>
+                      <Link className="quiet-action" to={recordRoute(item)} data-testid={`recycle-open-${item.id}`}>
                         Open record →
                       </Link>
                     )}
@@ -230,9 +217,9 @@ export function RecycleBinPage() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </ComparisonTable>
         </>
       )}
-    </div>
+    </CollectionFrame>
   );
 }
