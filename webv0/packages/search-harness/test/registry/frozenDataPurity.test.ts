@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FROZEN_SUNSET_COVERAGE_MANIFEST,
   FROZEN_SUNSET_REGISTRY,
+  canonicalizeSunsetFingerprintBytes,
   fingerprintSunsetTypeScriptDeclarations,
   hashSunsetTreeEntries,
   parseCanonicalFrozenJson,
@@ -141,6 +142,24 @@ describe('H0 frozen sunset data purity', () => {
       new Uint8Array([0x61, 0x0d, 0x62, 0x0d]),
     ].map(textHash);
     expect(new Set(binaryHashes).size).toBe(binaryHashes.length);
+  });
+
+  it('keeps the shared byte boundary EOL-only and BOM-discriminating', () => {
+    const canonicalBytes = (value: Uint8Array) =>
+      canonicalizeSunsetFingerprintBytes(value);
+    const lf = Buffer.from('alpha\nbeta\n', 'utf8');
+    const crlf = Buffer.from('alpha\r\nbeta\r\n', 'utf8');
+    const bareCr = Buffer.from('alpha\rbeta\r', 'utf8');
+    const withBom = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      lf,
+    ]);
+
+    expect(canonicalBytes(crlf)).toEqual(canonicalBytes(lf));
+    expect(canonicalBytes(bareCr)).toEqual(canonicalBytes(lf));
+    expect(canonicalBytes(withBom)).not.toEqual(
+      canonicalBytes(lf),
+    );
   });
 
   it('canonicalizes TypeScript declaration fingerprints before token scanning', () => {

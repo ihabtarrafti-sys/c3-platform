@@ -637,7 +637,10 @@ export function canonicalizeSunsetFingerprintBytes(
 ): Buffer {
   const bytes = Buffer.from(value);
   try {
-    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    const text = new TextDecoder('utf-8', {
+      fatal: true,
+      ignoreBOM: true,
+    }).decode(bytes);
     if (text.includes('\u0000')) return bytes;
     return Buffer.from(
       canonicalizeSunsetFingerprintText(text),
