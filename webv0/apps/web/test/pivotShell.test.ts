@@ -74,10 +74,18 @@ describe('the pivot shell laws (Wave 0)', () => {
     expect(frame).toContain('Dismiss');
   });
 
-  it('ONE routing table: both shells import routeFor from shellModel, neither defines it', () => {
+  it('ONE routing table: the shell search imports routeFor from shellModel and does not define it', () => {
+    // Wave 4 Phase 1b: this law was written when there were TWO shells and read
+    // `components/GlobalSearch.tsx` alongside the kit's. The Fluent shell is
+    // gone — AppShell was retired and GlobalSearch orphaned with it — so half
+    // the law's subject no longer exists.
+    //
+    // The GUARD survives and is still worth having: a search that defines its
+    // own `routeFor` diverges from the one routing table silently, and nothing
+    // else would catch it. Only the deleted consumer is dropped, not the rule.
     const model = read('shellModel.ts');
     expect(model).toContain('export function routeFor');
-    for (const consumer of ['components/GlobalSearch.tsx', 'tablework/ShellSearch.tsx']) {
+    for (const consumer of ['tablework/ShellSearch.tsx']) {
       const src = read(consumer);
       expect(src, `${consumer} must import the shared routing table`).toMatch(/from '..\/shellModel'/);
       expect(src, `${consumer} must not define its own routeFor`).not.toMatch(/function routeFor/);
