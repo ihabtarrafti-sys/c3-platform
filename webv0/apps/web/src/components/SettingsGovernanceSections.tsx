@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Button, Dropdown, Input, Option, makeStyles } from '@fluentui/react-components';
 import type { DelegationDto } from '@c3web/api-contracts';
 import { useBackupStatus, useDelegations, useMembers } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
+import { DateInput, EmptyState, Input, Selector, StatusBadge, WorkSurface, type StatusVariant } from '../tablework';
 
 /**
  * Tier 0.5 Settings sections (owner-only):
@@ -18,64 +18,88 @@ import { useNotify, useSession } from '../session';
  *
  *  - BackupStatusSection — one honest question: when did the last backup
  *    succeed? Reads the cron's status marker only. Unconfigured = says so.
+ *
+ * ── Wave 4 (Lane C): the last Fluent inside `.tw-root` ───────────────────────
+ *
+ * This file was the one component still rendering Fluent `Button` / `Input` /
+ * `Dropdown` / `Option` INSIDE the kit's scope root — its consumer,
+ * `SettingsPage`, converted in Wave 3 and left it read-only. Measured, that was
+ * benign (a single 1px border, rgb(43,29,38) on rgb(247,234,215), legible) but
+ * INCONSISTENT: the Grant button read square (4px) beside four sibling panels
+ * whose buttons are pills. Converting it is what makes the screen one screen.
+ *
+ * Every mapping below is `SettingsPage`'s own, so these two panels are now
+ * indistinguishable in construction from the four they sit under:
+ *
+ *   panel      → `WorkSurface tier="elevated" className="record-card"`. ⚠️
+ *                `.record-card` carries the padding/rhythm and NO SURFACE — the
+ *                border, background and elevation come from WorkSurface. Pairing
+ *                them is mandatory; `.record-card` alone renders an invisible
+ *                panel that typechecks and gates green.
+ *                The Fluent-era `max-width: 720px` is DELIBERATELY dropped: the
+ *                four sibling panels on this screen are full width, and being
+ *                narrower than them was half of the inconsistency being fixed.
+ *   head/title → `<header className="surface-heading"><div><h2>…` — the title
+ *                becomes a REAL heading (it was a <span>), matching every
+ *                sibling panel and making the section reachable by heading
+ *                navigation. Copy verbatim.
+ *   meta       → `.record-row-meta`
+ *   row        → `.form-row` for the control rows; `.record-rows` +
+ *                `.record-row-item` for the delegation LIST (the kit's register-
+ *                row idiom, and what the per-diem list on this screen uses)
+ *   note       → `.record-quiet`
+ *   mono       → `.record-row-meta` (mono, caption, ink-quiet, nowrap — the id
+ *                and the date window must not wrap)
+ *   grantee    → `.record-row-name`
+ *   state·…    → `StatusBadge`, whose variant colours ARE the Fluent-era ones
+ *                (see STATE_VARIANT / the backup badges below)
+ *
+ * The empty list becomes the kit's `EmptyState` — the app-wide answer for a
+ * `*-empty` testid, and honest by construction (empty ≠ unavailable ≠ denied).
+ * Copy byte-identical.
  */
 
-const useStyles = makeStyles({
-  panel: {
-    maxWidth: '720px',
-    marginTop: '24px',
-    border: '1px solid var(--c3-border-subtle)',
-    borderRadius: 'var(--c3-radius-data)',
-    backgroundColor: 'var(--c3-surface-base)',
-    boxShadow: 'var(--c3-e1)',
-    overflow: 'hidden',
-  },
-  head: { display: 'flex', alignItems: 'baseline', padding: '14px 20px', borderBottom: '1px solid var(--c3-border-subtle)' },
-  title: { fontSize: '14px', fontWeight: 600, color: 'var(--c3-ink-default)' },
-  meta: {
-    marginLeft: 'auto',
-    fontFamily: 'var(--c3-font-mono)',
-    fontSize: '10.5px',
-    letterSpacing: '0.14em',
-    textTransform: 'uppercase',
-    color: 'var(--c3-ink-quiet)',
-  },
-  row: {
-    display: 'flex',
-    alignItems: 'center',
-    columnGap: '12px',
-    rowGap: '8px',
-    padding: '12px 20px',
-    borderBottom: '1px solid var(--c3-border-subtle)',
-    flexWrap: 'wrap',
-  },
-  note: { fontSize: '13px', color: 'var(--c3-ink-muted)', lineHeight: '20px' },
-  mono: { fontFamily: 'var(--c3-font-mono)', fontSize: '12px', color: 'var(--c3-ink-quiet)' },
-  state: {
-    fontFamily: 'var(--c3-font-mono)',
-    fontSize: '10.5px',
-    letterSpacing: '0.1em',
-    textTransform: 'uppercase',
-    padding: '2px 8px',
-    borderRadius: '999px',
-    border: '1px solid var(--c3-border-subtle)',
-  },
-  stateActive: { color: 'var(--c3-state-success)', borderTopColor: 'var(--c3-state-success)', borderRightColor: 'var(--c3-state-success)', borderBottomColor: 'var(--c3-state-success)', borderLeftColor: 'var(--c3-state-success)' },
-  stateOff: { color: 'var(--c3-ink-quiet)' },
-  stateWarn: { color: 'var(--c3-state-danger)', borderTopColor: 'var(--c3-state-danger)', borderRightColor: 'var(--c3-state-danger)', borderBottomColor: 'var(--c3-state-danger)', borderLeftColor: 'var(--c3-state-danger)' },
-  grantee: { fontSize: '13px', fontWeight: 600, color: 'var(--c3-ink-default)' },
-  dateInput: { width: '150px' },
-  reasonInput: { minWidth: '220px', flexGrow: 1 },
-});
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no WIDTH affordance for a bare native input. B1 added
+//   `input[type='date']` / `input[type='number']` to the styled list at
+//   `width: 100%`, which is right inside a `Field` (a grid track that sizes to
+//   the control) and wrong for this screen's inline grant row: in a `.form-row`
+//   (flex + wrap) a `width: 100%` item's flex base is the whole row, so each
+//   input claims a line to itself and the row breaks apart. `Selector` already
+//   carries the answer for pickers (`width="compact" | "wide"`, expressed as
+//   min-width, no inline style); `Input`/`DateInput` have no equivalent. Nor can
+//   these be wrapped in a `Field` instead — `Field` renders a visible label and
+//   this row's copy is frozen: the two dates and the reason are labelled by
+//   their placeholders and by the panel's own sentence, not by field labels.
+//   (SettingsPage hit the identical gap on its two money rows and answered it
+//   the identical way.)
+// WORKAROUND: the Fluent-era `dateInput` / `reasonInput` declarations carried
+//   verbatim as inline styles — 150px and min-width 220px + grow, byte-identical
+//   to the pre-conversion row.
+// CLASS: additive — a `width` prop on the kit's `Input`/`DateInput` mirroring
+//   `Selector`'s (or `.field-compact` / `.field-grow` classes) closes it and
+//   changes no converted call site.
+const DATE_INPUT: React.CSSProperties = { width: '150px' };
+const REASON_INPUT: React.CSSProperties = { minWidth: '220px', flexGrow: 1 };
 
-function stateClass(s: ReturnType<typeof useStyles>, state: DelegationDto['state']): string {
-  if (state === 'Active') return `${s.state} ${s.stateActive}`;
-  if (state === 'Scheduled') return s.state;
-  return `${s.state} ${s.stateOff}`;
-}
+/**
+ * The delegation state's badge variant. Three of the four are the Fluent-era
+ * colour EXACTLY: `ready` is --c3-state-success (the old `stateActive`), and
+ * `neutral` is --c3-ink-quiet (the old `stateOff`, which both Expired and
+ * Revoked carried). `Scheduled` is the one judgement call — Fluent gave it a
+ * bare pill with no colour of its own; `info` follows this app's own vocabulary
+ * for a decided-but-not-yet-in-force state (labels.ts maps mission `Confirmed`
+ * to `info`), rather than `pending`, which this codebase reserves for something
+ * awaiting a PERSON. A scheduled delegation awaits only the calendar.
+ */
+const STATE_VARIANT: Record<DelegationDto['state'], StatusVariant> = {
+  Active: 'ready',
+  Scheduled: 'info',
+  Expired: 'neutral',
+  Revoked: 'neutral',
+};
 
 export function DelegationSection() {
-  const s = useStyles();
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -132,89 +156,90 @@ export function DelegationSection() {
   const valid = grantee !== '' && /^\d{4}-\d{2}-\d{2}$/.test(startsOn) && /^\d{4}-\d{2}-\d{2}$/.test(endsOn) && endsOn >= startsOn && reason.trim() !== '';
 
   return (
-    <div className={s.panel} data-testid="delegation-panel">
-      <div className={s.head}>
-        <span className={s.title}>Approver delegation</span>
-        <span className={s.meta}>owner only · window-bounded · audited</span>
-      </div>
-      <div className={s.row}>
-        <span className={s.note}>
-          Grant review+execute standing to a member while you are away. The delegate can never decide their own
-          submissions, the cockpit shows the delegation for its whole life, and you can revoke it at any moment.
-        </span>
-      </div>
-      <div className={s.row}>
-        <Dropdown
-          placeholder="Member…"
-          value={grantee}
-          selectedOptions={grantee ? [grantee] : []}
-          onOptionSelect={(_, d) => setGrantee(d.optionValue ?? '')}
+    <WorkSurface tier="elevated" className="record-card" data-testid="delegation-panel">
+      <header className="surface-heading">
+        <div>
+          <h2>Approver delegation</h2>
+        </div>
+        <span className="record-row-meta">owner only · window-bounded · audited</span>
+      </header>
+      <p className="record-quiet">
+        Grant review+execute standing to a member while you are away. The delegate can never decide their own
+        submissions, the cockpit shows the delegation for its whole life, and you can revoke it at any moment.
+      </p>
+      <div className="form-row">
+        <Selector
           data-testid="delegation-grantee"
-        >
-          {candidates.map((m) => (
-            <Option key={m.email} value={m.email} text={`${m.email} (${m.role})`}>
-              {m.email} ({m.role})
-            </Option>
-          ))}
-        </Dropdown>
-        <Input className={s.dateInput} type="date" value={startsOn} onChange={(_, d) => setStartsOn(d.value)} data-testid="delegation-starts" />
-        <Input className={s.dateInput} type="date" value={endsOn} onChange={(_, d) => setEndsOn(d.value)} data-testid="delegation-ends" />
+          value={grantee}
+          // The Fluent Dropdown's trigger showed `value` — the bare email — while
+          // the LIST showed "email (role)". `display` keeps that split verbatim;
+          // `|| undefined` lets the unset state fall through to the placeholder.
+          display={grantee || undefined}
+          placeholder="Member…"
+          options={candidates.map((m) => ({ value: m.email, label: `${m.email} (${m.role})` }))}
+          onSelect={(value) => setGrantee(value)}
+        />
+        <DateInput style={DATE_INPUT} value={startsOn} onChange={(e) => setStartsOn(e.target.value)} data-testid="delegation-starts" />
+        <DateInput style={DATE_INPUT} value={endsOn} onChange={(e) => setEndsOn(e.target.value)} data-testid="delegation-ends" />
         <Input
-          className={s.reasonInput}
+          style={REASON_INPUT}
           placeholder="Reason (audit narrative)"
           value={reason}
-          onChange={(_, d) => setReason(d.value)}
+          onChange={(e) => setReason(e.target.value)}
           data-testid="delegation-reason"
         />
-        <Button appearance="primary" size="small" disabled={!valid || busy} onClick={() => void grant()} data-testid="delegation-grant">
+        <button className="primary-action" type="button" disabled={!valid || busy} onClick={() => void grant()} data-testid="delegation-grant">
           Grant
-        </Button>
+        </button>
       </div>
-      {(data?.delegations ?? []).length === 0 && (
-        <div className={s.row} data-testid="delegation-empty">
-          <span className={s.note}>No delegations have ever been granted.</span>
-        </div>
-      )}
-      {(data?.delegations ?? []).map((d) => (
-        <div className={s.row} key={d.delegationId} data-testid={`delegation-row-${d.delegationId}`}>
-          <span className={s.mono}>{d.delegationId}</span>
-          <span className={s.grantee}>{d.granteeIdentity}</span>
-          <span className={s.mono}>
-            {d.startsOn} → {d.endsOn}
-          </span>
-          <span className={stateClass(s, d.state)} data-testid={`delegation-state-${d.delegationId}`}>
-            {d.state}
-          </span>
-          {(d.state === 'Active' || d.state === 'Scheduled') &&
-            (revokeFor?.delegationId === d.delegationId ? (
-              <>
-                <Input
-                  className={s.reasonInput}
-                  placeholder="Revocation reason (mandatory)"
-                  value={revokeReason}
-                  onChange={(_, dd) => setRevokeReason(dd.value)}
-                  data-testid="delegation-revoke-reason"
-                />
-                <Button size="small" appearance="primary" disabled={revokeReason.trim() === '' || busy} onClick={() => void revoke()} data-testid="delegation-revoke-confirm">
-                  Confirm revoke
-                </Button>
-                <Button size="small" appearance="secondary" onClick={() => setRevokeFor(null)}>
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button size="small" appearance="secondary" onClick={() => setRevokeFor(d)} data-testid={`delegation-revoke-${d.delegationId}`}>
-                Revoke…
-              </Button>
-            ))}
-        </div>
-      ))}
-    </div>
+      {(data?.delegations ?? []).length === 0 && <EmptyState data-testid="delegation-empty" message="No delegations have ever been granted." />}
+      <div className="record-rows">
+        {(data?.delegations ?? []).map((d) => (
+          <div className="record-row-item" key={d.delegationId} data-testid={`delegation-row-${d.delegationId}`}>
+            <span className="record-row-meta">{d.delegationId}</span>
+            <span className="record-row-name">{d.granteeIdentity}</span>
+            <span className="record-row-meta">
+              {d.startsOn} → {d.endsOn}
+            </span>
+            <StatusBadge variant={STATE_VARIANT[d.state]} data-testid={`delegation-state-${d.delegationId}`}>
+              {d.state}
+            </StatusBadge>
+            {(d.state === 'Active' || d.state === 'Scheduled') &&
+              (revokeFor?.delegationId === d.delegationId ? (
+                <>
+                  <Input
+                    style={REASON_INPUT}
+                    placeholder="Revocation reason (mandatory)"
+                    value={revokeReason}
+                    onChange={(e) => setRevokeReason(e.target.value)}
+                    data-testid="delegation-revoke-reason"
+                  />
+                  <button
+                    className="primary-action"
+                    type="button"
+                    disabled={revokeReason.trim() === '' || busy}
+                    onClick={() => void revoke()}
+                    data-testid="delegation-revoke-confirm"
+                  >
+                    Confirm revoke
+                  </button>
+                  <button className="secondary-action" type="button" onClick={() => setRevokeFor(null)}>
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button className="secondary-action" type="button" onClick={() => setRevokeFor(d)} data-testid={`delegation-revoke-${d.delegationId}`}>
+                  Revoke…
+                </button>
+              ))}
+          </div>
+        ))}
+      </div>
+    </WorkSurface>
   );
 }
 
 export function BackupStatusSection() {
-  const s = useStyles();
   const { me } = useSession();
   const canManage = me?.capabilities.canManageDelegations ?? false;
   const { data } = useBackupStatus(canManage);
@@ -222,39 +247,46 @@ export function BackupStatusSection() {
   if (!canManage) return null;
 
   return (
-    <div className={s.panel} data-testid="backup-status-panel">
-      <div className={s.head}>
-        <span className={s.title}>Backups</span>
-        <span className={s.meta}>read-only marker · threshold 36h</span>
-      </div>
-      <div className={s.row}>
+    <WorkSurface tier="elevated" className="record-card" data-testid="backup-status-panel">
+      <header className="surface-heading">
+        <div>
+          <h2>Backups</h2>
+        </div>
+        <span className="record-row-meta">read-only marker · threshold 36h</span>
+      </header>
+      <div className="form-row">
         {!data ? (
-          <span className={s.note}>Checking…</span>
+          <span className="record-quiet">Checking…</span>
         ) : !data.configured ? (
           <>
-            <span className={`${s.state} ${s.stateOff}`} data-testid="backup-state">
+            {/* `neutral` IS --c3-ink-quiet — the Fluent-era `stateOff` colour, exactly. */}
+            <StatusBadge variant="neutral" data-testid="backup-state">
               Not configured
-            </span>
-            <span className={s.note}>{data.reason}</span>
+            </StatusBadge>
+            <span className="record-quiet">{data.reason}</span>
           </>
         ) : data.healthy ? (
           <>
-            <span className={`${s.state} ${s.stateActive}`} data-testid="backup-state">
+            {/* `ready` IS --c3-state-success — the Fluent-era `stateActive` colour. */}
+            <StatusBadge variant="ready" data-testid="backup-state">
               Healthy
-            </span>
-            <span className={s.note}>
-              Last successful backup {data.ageHours}h ago (<span className={s.mono}>{data.lastSuccessUtc}</span>).
+            </StatusBadge>
+            <span className="record-quiet">
+              Last successful backup {data.ageHours}h ago (<span className="record-row-meta">{data.lastSuccessUtc}</span>).
             </span>
           </>
         ) : (
           <>
-            <span className={`${s.state} ${s.stateWarn}`} data-testid="backup-state">
+            {/* `blocked` IS --c3-state-danger — the Fluent-era `stateWarn` colour.
+                A stale backup is a red fact, not an amber one; the pre-pivot
+                screen already said so and this conversion does not soften it. */}
+            <StatusBadge variant="blocked" data-testid="backup-state">
               Stale
-            </span>
-            <span className={s.note}>{data.reason}</span>
+            </StatusBadge>
+            <span className="record-quiet">{data.reason}</span>
           </>
         )}
       </div>
-    </div>
+    </WorkSurface>
   );
 }
