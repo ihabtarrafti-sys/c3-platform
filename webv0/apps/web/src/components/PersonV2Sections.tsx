@@ -1,6 +1,5 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { makeStyles } from '@fluentui/react-components';
 import type { PersonDto } from '@c3web/api-contracts';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -21,25 +20,46 @@ import { Field, Input, GovernedAction, FactList } from '../tablework';
  *    mandatory reason (feeds the future Departure workflow).
  */
 
-const useStyles = makeStyles({
-  section: { marginTop: '24px' },
-  h2: {
-    fontSize: '11px',
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'var(--c3-ink-muted)',
-    marginBottom: '8px',
-  },
-  row: { display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '12px' },
-  fields: { display: 'flex', flexDirection: 'column', rowGap: '10px' },
-  two: { display: 'flex', gap: '10px', '> *': { flexGrow: 1 } },
-});
+/**
+ * Tablework conversion (Wave 4, Lane A) — the local `makeStyles` sheet is gone.
+ * Its declarations map onto the kit as follows, and NOTHING here re-states a
+ * value the kit already owns:
+ *
+ *   section → `.record-section` (the record's section rhythm — the same class
+ *             PersonProfilePage's own Credentials/Journeys/History blocks use)
+ *   h2     → a PLAIN `<h2>` inside `.record-section`, which `.record-section h2`
+ *            styles. ⚠️ NOT `SectionHeading`: `.tw-root .record-section h2`
+ *            (0,2,1) outranks `.tw-root .section-heading` (0,2,0), so nesting
+ *            one here yields a 20px heading wearing the eyebrow's uppercase +
+ *            letter-spacing — a mixture neither class intends.
+ *   row    → `.record-section` + `.row-actions` (the kit's flex-START trigger
+ *            cluster; the two classes touch disjoint properties)
+ *   fields → DEAD in the Fluent original — never referenced. Deleted, not ported.
+ *   two    → see FIELD_PAIR below.
+ */
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no TWO-UP field row. `.form-sheet-fields` is a
+//   single-column grid; `.form-row` and `.row-actions` are `align-items:center`
+//   flex rows built for bare controls, not for labelled `Field` pairs (a Field
+//   is a grid of label-over-control, so centring them misaligns the controls).
+//   There is no class that puts two Fields side by side at equal width.
+// WORKAROUND: an inline two-column grid on the row wrapper. `Field` accepts
+//   neither `className` nor `style`, so the original's `'> *': { flexGrow: 1 }`
+//   cannot be reproduced on the children — a 2-track grid is the one form that
+//   yields the same geometry from the PARENT alone. The gap is the kit's
+//   `--c3-space-3` (12px) rather than the original's off-scale 10px, so the
+//   horizontal rhythm matches `.form-sheet-fields`'s own 12px row gap; that one
+//   value is a deliberate token alignment, not a carry.
+// CLASS: additive — a `.field-pair` class in the kit (2 tracks, collapsing to 1
+//   below the float's width) breaks nothing already converted. Changing
+//   `.form-sheet-fields` itself to auto-fit WOULD be contractual and must not
+//   be the fix: every converted governed form is single-column on purpose.
+const FIELD_PAIR: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--c3-space-3)' };
 
 const show = (v: string | null | undefined) => (v === undefined ? undefined : (v ?? null));
 
 export function PersonV2Sections({ person }: { person: PersonDto }) {
-  const s = useStyles();
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -114,8 +134,8 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
 
   return (
     <>
-      <div className={s.section} data-testid="person-identity-card">
-        <h2 className={s.h2}>Identity</h2>
+      <div className="record-section" data-testid="person-identity-card">
+        <h2>Identity</h2>
         <FactList
           items={[
             { label: 'First name', value: show(person.firstName) ?? null, testId: 'person-first-name' },
@@ -134,8 +154,8 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
       </div>
 
       {piiVisible && (
-        <div className={s.section} data-testid="person-pii-block">
-          <h2 className={s.h2}>Contact & address (PII)</h2>
+        <div className="record-section" data-testid="person-pii-block">
+          <h2>Contact & address (PII)</h2>
           <FactList
             items={[
               { label: 'Phone', value: person.phone ?? null, testId: 'person-phone' },
@@ -151,7 +171,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
         </div>
       )}
 
-      <div className={s.row} data-testid="person-v2-actions">
+      <div className="record-section row-actions" data-testid="person-v2-actions">
         {canSubmit && (
           <GovernedAction
             triggerLabel="Request identity change…"
@@ -164,7 +184,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
                 <Field label="Full name (display)">
                   <Input value={idPatch.fullName} onChange={(e) => setIdPatch({ ...idPatch, fullName: e.target.value })} data-testid="identity-fullname" />
                 </Field>
-                <div className={s.two}>
+                <div style={FIELD_PAIR}>
                   <Field label="First name">
                     <Input value={idPatch.firstName} onChange={(e) => setIdPatch({ ...idPatch, firstName: e.target.value })} data-testid="identity-first" />
                   </Field>
@@ -203,7 +223,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
             description="Position, joining date, contacts and notes apply immediately and are audited (before → after)."
             extra={
               <div className="form-sheet-fields">
-                <div className={s.two}>
+                <div style={FIELD_PAIR}>
                   <Field label="Position">
                     <Input value={ops.position} onChange={(e) => setOps({ ...ops, position: e.target.value })} data-testid="ops-position" />
                   </Field>
@@ -211,7 +231,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
                     <Input type="date" value={ops.dateOfJoining} onChange={(e) => setOps({ ...ops, dateOfJoining: e.target.value })} data-testid="ops-joined" />
                   </Field>
                 </div>
-                <div className={s.two}>
+                <div style={FIELD_PAIR}>
                   <Field label="Phone">
                     <Input value={ops.phone} onChange={(e) => setOps({ ...ops, phone: e.target.value })} data-testid="ops-phone" />
                   </Field>
@@ -225,7 +245,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
                 <Field label="Address line 2">
                   <Input value={ops.addressLine2} onChange={(e) => setOps({ ...ops, addressLine2: e.target.value })} />
                 </Field>
-                <div className={s.two}>
+                <div style={FIELD_PAIR}>
                   <Field label="City">
                     <Input value={ops.addressCity} onChange={(e) => setOps({ ...ops, addressCity: e.target.value })} data-testid="ops-city" />
                   </Field>

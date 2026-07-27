@@ -1,13 +1,11 @@
-import { useState } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { makeStyles } from '@fluentui/react-components';
 import type { BeneficiaryDto, CredentialDto } from '@c3web/api-contracts';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import { usePersonBeneficiaries } from '../queries';
-import { Field, Input, GovernedAction, StatusBadge } from '../tablework';
-import { useRegisterStyles } from './registerStyles';
+import { Field, Input, GovernedAction, StatusBadge, ComparisonTable } from '../tablework';
 
 /**
  * S12 person-page surfaces:
@@ -21,21 +19,79 @@ import { useRegisterStyles } from './registerStyles';
  *    issuer/notes move fast through the direct PATCH.
  */
 
-const useStyles = makeStyles({
-  section: { marginTop: '24px' },
-  h2: {
-    fontSize: '11px',
-    fontWeight: 700,
-    letterSpacing: '0.08em',
-    textTransform: 'uppercase',
-    color: 'var(--c3-ink-muted)',
-    marginBottom: '8px',
-  },
-  row: { display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' },
-  fields: { display: 'flex', flexDirection: 'column', rowGap: '10px' },
-  two: { display: 'flex', gap: '10px', '> *': { flexGrow: 1 } },
-  law: { fontSize: '12px', color: 'var(--c3-ink-quiet)', marginTop: '6px' },
-});
+/**
+ * Tablework conversion (Wave 4, Lane A) — both Fluent sheets are gone: this
+ * file's local `makeStyles` AND `./registerStyles`, whose ONLY importer this
+ * was (the file is deleted with this commit). The mapping, kit class by kit
+ * class, with nothing re-stated that the kit already owns:
+ *
+ *   LOCAL SHEET
+ *     section → `.record-section`
+ *     h2      → a PLAIN `<h2>` inside it, styled by `.record-section h2`.
+ *               ⚠️ NOT `SectionHeading`: `.tw-root .record-section h2` (0,2,1)
+ *               outranks `.tw-root .section-heading` (0,2,0), so nesting one
+ *               here yields a 20px heading wearing the eyebrow's uppercase and
+ *               letter-spacing — a mixture neither class intends.
+ *     row     → `.row-actions` (the kit's flex-START trigger cluster)
+ *     law     → `.record-quiet.record-note` — the quiet SENTENCE that stands
+ *               BETWEEN blocks, which is exactly where this standing-law line sits
+ *     fields  → DEAD in the Fluent original — never referenced. Deleted, not ported.
+ *     two     → see FIELD_PAIR below.
+ *
+ *   registerStyles (`useRegisterStyles`)
+ *     table / th / td / row → `ComparisonTable`, i.e. `.comparison-scroll` +
+ *               `.data-grid` (+ its `th`, `td`, `tbody tr:hover` rules). The
+ *               register's own panel chrome — surface fill, 1px border, radius,
+ *               `--c3-e1` shadow, 14px tabular-nums — is NOT carried: in the kit
+ *               a data grid is bare and the SURFACE around it carries the panel.
+ *     mono / idLink / nameLink / count → had NO call site in the surviving
+ *               consumer (this file). Deleted rather than ported; their kit
+ *               answers, had they been live, are `.data-grid td.mono`,
+ *               `RecordLink`, — (no kit answer for a sans name link) and
+ *               `.collection-count`.
+ *     name    → dropped. `color: --c3-ink-strong` on the Label cell has NO kit
+ *               class: every converted register in the app renders its name
+ *               column as a plain `<td>` at `--c3-ink-default`, so a per-cell
+ *               emphasis here would be the only one of its kind.
+ */
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: the frozen kit has no TWO-UP field row. `.form-sheet-fields` is a
+//   single-column grid; `.form-row` and `.row-actions` are `align-items:center`
+//   flex rows built for bare controls, not for labelled `Field` pairs (a Field
+//   is a grid of label-over-control, so centring them misaligns the controls).
+//   There is no class that puts two Fields side by side at equal width.
+// WORKAROUND: an inline two-column grid on the row wrapper. `Field` accepts
+//   neither `className` nor `style`, so the original's `'> *': { flexGrow: 1 }`
+//   cannot be reproduced on the children — a 2-track grid is the one form that
+//   yields the same geometry from the PARENT alone. The gap is the kit's
+//   `--c3-space-3` (12px) rather than the original's off-scale 10px, so the
+//   horizontal rhythm matches `.form-sheet-fields`'s own 12px row gap; that one
+//   value is a deliberate token alignment, not a carry.
+// CLASS: additive — a `.field-pair` class in the kit (2 tracks, collapsing to 1
+//   below the float's width) breaks nothing already converted. Changing
+//   `.form-sheet-fields` itself to auto-fit WOULD be contractual and must not
+//   be the fix: every converted governed form is single-column on purpose.
+const FIELD_PAIR: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--c3-space-3)' };
+
+// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
+// GAP: `tablework.css` sets `input[type='text'] { width: 100% }` unconditionally.
+//   That is right inside a `.tw-field` (a grid track) and WRONG for a bare
+//   control sharing a flex row: in `.row-actions` the input's 100% resolves
+//   against the whole row, so it claims every pixel and pushes its siblings
+//   onto a second line. MEASURED on the rendered page before this line existed:
+//   input 446px, row children at tops [514, 566, 566] — Submit and Cancel had
+//   wrapped — and the cell inflated to 470px, distorting the register's column
+//   rhythm for as long as the editor was open. The kit has no width-bounded
+//   input; nothing in it expresses "a control that shares a row".
+// WORKAROUND: an inline width on this ONE inline editor. 12rem is not invented —
+//   it is the kit's own stated picker floor (`.selector`, forms.tsx), so the
+//   inline editor and a picker in the same position agree.
+// CLASS: additive — a kit class for a row-sharing control (or a `.row-actions >
+//   input` rule) breaks nothing already converted. Dropping the global
+//   `width: 100%` WOULD be contractual and must not be the fix: every converted
+//   `Field` depends on it.
+const INLINE_INPUT: CSSProperties = { width: '12rem' };
 
 function useSubmitToast() {
   const { notify } = useNotify();
@@ -58,7 +114,6 @@ function useSubmitToast() {
 
 export function CredentialFactsAction({ credential, personId }: { credential: CredentialDto; personId: string }) {
   const { me } = useSession();
-  const s = useStyles();
   const run = useSubmitToast();
   const canSubmit = me?.capabilities.canSubmitApproval ?? false;
   const [f, setF] = useState({ kind: '', documentNumber: '', issuingCountry: '', issuedOn: '', expiresOn: '' });
@@ -83,7 +138,7 @@ export function CredentialFactsAction({ credential, personId }: { credential: Cr
       description="Dates, document number, issuing country and kind are compliance facts — the change goes to an approver. Fill only what changes."
       extra={
         <div className="form-sheet-fields">
-          <div className={s.two}>
+          <div style={FIELD_PAIR}>
             <Field label="Kind (Passport / NationalID / Visa / License / Other)">
               <Input value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} data-testid="cred-facts-kind" />
             </Field>
@@ -94,7 +149,7 @@ export function CredentialFactsAction({ credential, personId }: { credential: Cr
           <Field label="Document number (PII — owner/ops/hr only)">
             <Input value={f.documentNumber} onChange={(e) => setF({ ...f, documentNumber: e.target.value })} data-testid="cred-facts-number" />
           </Field>
-          <div className={s.two}>
+          <div style={FIELD_PAIR}>
             <Field label="Issued on">
               <Input type="date" value={f.issuedOn} onChange={(e) => setF({ ...f, issuedOn: e.target.value })} data-testid="cred-facts-issued" />
             </Field>
@@ -116,8 +171,6 @@ export function CredentialFactsAction({ credential, personId }: { credential: Cr
 }
 
 export function BeneficiarySection({ personId }: { personId: string }) {
-  const s = useStyles();
-  const r = useRegisterStyles();
   const { me } = useSession();
   const { notify } = useNotify();
   const run = useSubmitToast();
@@ -148,45 +201,57 @@ export function BeneficiarySection({ personId }: { personId: string }) {
   const valid = b.label.trim() !== '' && b.bankName.trim() !== '' && b.bankCountry.trim() !== '' && /^[A-Za-z]{3}$/.test(b.currency.trim());
 
   return (
-    <div className={s.section} data-testid="beneficiary-section">
-      <h2 className={s.h2}>Beneficiaries (payment routing)</h2>
-      <p className={s.law}>
+    <div className="record-section" data-testid="beneficiary-section">
+      <h2>Beneficiaries (payment routing)</h2>
+      <p className="record-quiet record-note">
         Labels, banks and currencies only — account numbers and IBANs never enter C3. The bank form downloads with
         those columns blank, to be completed by hand.
       </p>
       {rows.length > 0 && (
-        <table className={r.table} data-testid="beneficiary-table" aria-label="Beneficiaries">
+        // ⚠️ TESTID PLACEMENT MOVES: `ComparisonTable` puts `testId` on the outer
+        // `.comparison-scroll` div, not on the <table> that carried it before.
+        // Checked against the whole suite: `beneficiary-table` has ZERO
+        // references in e2e/, and the suite's only structural descents are
+        // `people-table` and `participants-table` — neither is here.
+        <ComparisonTable label="Beneficiaries" testId="beneficiary-table">
           <thead>
             <tr>
-              <th className={r.th}>ID</th>
-              <th className={r.th}>Label</th>
-              <th className={r.th}>Bank</th>
-              <th className={r.th}>Currency</th>
-              <th className={r.th}>Status</th>
-              <th className={r.th}></th>
+              <th>ID</th>
+              <th>Label</th>
+              <th>Bank</th>
+              <th>Currency</th>
+              <th>Status</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
             {rows.map((x) => (
-              <tr key={x.beneficiaryId} className={r.row} data-testid={`beneficiary-row-${x.beneficiaryId}`}>
-                <td className={r.td}>{x.beneficiaryId}</td>
-                <td className={`${r.td} ${r.name}`}>{x.label}</td>
-                <td className={r.td}>{`${x.bankName} (${x.bankCountry})`}</td>
-                <td className={r.td}>{x.currency}</td>
-                <td className={r.td}>
+              <tr key={x.beneficiaryId} data-testid={`beneficiary-row-${x.beneficiaryId}`}>
+                {/* Plain cells, deliberately: the beneficiary id was never mono
+                    and never a link in the Fluent original (`r.td` alone), and
+                    the Label's `--c3-ink-strong` has no kit class — every
+                    converted register renders its name column plain. */}
+                <td>{x.beneficiaryId}</td>
+                <td>{x.label}</td>
+                <td>{`${x.bankName} (${x.bankCountry})`}</td>
+                <td>{x.currency}</td>
+                <td>
                   <StatusBadge variant={x.status === 'Registered' ? 'ready' : x.status === 'Retired' ? 'neutral' : 'pending'}>
                     {x.status}
                   </StatusBadge>
                 </td>
-                <td className={r.td}>
+                <td>
                   {canSubmit && x.status !== 'Retired' && (
                     retireFor?.beneficiaryId === x.beneficiaryId ? (
-                      <span style={{ display: 'inline-flex', gap: 8 }}>
+                      // `.row-actions` — the kit's flex-START trigger cluster for
+                      // controls INSIDE a table cell; its 8px gap is the original's.
+                      <span className="row-actions">
                         <Input
                           placeholder="Reason (mandatory)"
                           value={retireReason}
                           onChange={(e) => setRetireReason(e.target.value)}
                           data-testid="beneficiary-retire-reason"
+                          style={INLINE_INPUT}
                         />
                         <button
                           className="primary-action"
@@ -220,9 +285,9 @@ export function BeneficiarySection({ personId }: { personId: string }) {
               </tr>
             ))}
           </tbody>
-        </table>
+        </ComparisonTable>
       )}
-      <div className={s.row}>
+      <div className="row-actions">
         {canSubmit && (
           <GovernedAction
             triggerLabel="Request beneficiary…"
@@ -232,7 +297,7 @@ export function BeneficiarySection({ personId }: { personId: string }) {
             description="Payment-routing facts get dual control — this goes to an approver. Account numbers and IBANs are refused by law; use the org's label for the route."
             extra={
               <div className="form-sheet-fields">
-                <div className={s.two}>
+                <div style={FIELD_PAIR}>
                   <Field label="Label" required>
                     <Input value={b.label} onChange={(e) => setB({ ...b, label: e.target.value })} data-testid="beneficiary-label" />
                   </Field>
@@ -240,7 +305,7 @@ export function BeneficiarySection({ personId }: { personId: string }) {
                     <Input value={b.currency} onChange={(e) => setB({ ...b, currency: e.target.value })} data-testid="beneficiary-currency" />
                   </Field>
                 </div>
-                <div className={s.two}>
+                <div style={FIELD_PAIR}>
                   <Field label="Bank name" required>
                     <Input value={b.bankName} onChange={(e) => setB({ ...b, bankName: e.target.value })} data-testid="beneficiary-bank" />
                   </Field>
@@ -248,7 +313,7 @@ export function BeneficiarySection({ personId }: { personId: string }) {
                     <Input value={b.bankCountry} onChange={(e) => setB({ ...b, bankCountry: e.target.value })} data-testid="beneficiary-country" />
                   </Field>
                 </div>
-                <div className={s.two}>
+                <div style={FIELD_PAIR}>
                   <Field label="Payment type">
                     <Input value={b.paymentType} onChange={(e) => setB({ ...b, paymentType: e.target.value })} />
                   </Field>
