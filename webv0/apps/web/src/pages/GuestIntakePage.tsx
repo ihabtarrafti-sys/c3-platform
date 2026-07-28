@@ -36,36 +36,11 @@ interface PeekState {
   message?: string;
 }
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the kit has no page shell for a SESSION-LESS public route. Two parts:
-//   (a) every selector in `tablework.css` nests under `.tw-root`, and the only
-//       component that emits that class is `AppFrame` — which requires a
-//       `TableworkActor` and renders the rail, the ContextHeader and the shell
-//       intents. A guest has no account, so this route cannot mount it, and
-//       without the scope root every kit class on this page renders unstyled.
-//   (b) the kit's only measure is `Room`'s (`min(100%, 76rem)`, and `.room`
-//       only exists inside `AppFrame`). This form is a 560px centred card;
-//       there is no token, class or component for that width.
-// WORKAROUND: emit `.tw-root` by hand (the class only — no styling is
-//   redeclared) and carry the shell's centring + the card's measure as the two
-//   inline style objects below. Every element INSIDE the card uses kit classes
-//   and kit components; nothing else on this page is hand-styled.
-// CLASS: additive — the kit needs a public/standalone surface (a `Room` usable
-//   without `AppFrame`, plus a narrow measure). No existing kit behaviour is
-//   contradicted, so nothing here has to change when it lands.
-const PUBLIC_SHELL: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'center',
-  padding: '32px 16px',
-  boxSizing: 'border-box',
-};
-const PUBLIC_CARD: React.CSSProperties = {
-  width: '100%',
-  maxWidth: '560px',
-  display: 'flex',
-  flexDirection: 'column',
-  rowGap: '18px',
-};
+// K6 CLOSED (marker chapter): the standalone PUBLIC posture is now the kit's
+// own `.tw-root.tw-public` + `.public-card` — the weld kept (full-viewport
+// canvas), the centring shell and the 560px measure carried byte-identically
+// from the two inline objects this file held. Everything inside the card was
+// already kit classes and components; now the shell is too.
 
 type Fields = Record<string, string>;
 
@@ -129,8 +104,8 @@ export function GuestIntakePage() {
   }
 
   return (
-    <div className="tw-root" style={PUBLIC_SHELL}>
-      <div style={PUBLIC_CARD}>
+    <div className="tw-root tw-public">
+      <div className="public-card">
         <div className="eyebrow">C3 · Geekay Esports</div>
 
         {peek.status === 'loading' && <p className="record-quiet">Loading…</p>}
