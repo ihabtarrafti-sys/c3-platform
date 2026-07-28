@@ -1,6 +1,6 @@
 import { useState, type ChangeEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { CURRENCY_CODES, SUBSCRIPTION_CADENCES, parseDecimalToMinor } from '@c3web/domain';
+import { formatMoney, CURRENCY_CODES, SUBSCRIPTION_CADENCES, parseDecimalToMinor, type CurrencyCode } from '@c3web/domain';
 import type { SubscriptionDto } from '@c3web/api-contracts';
 import { useSubscriptions } from '../queries';
 import { ApiError } from '../api';
@@ -46,22 +46,14 @@ const EMPTY: FormState = { name: '', vendorName: '', amount: '', currency: 'USD'
  *    returns `0` and the guard below is `=== null`. The kit's
  *    `positiveAmountToMinor` REJECTS zero, so adopting it would make a 0.00
  *    subscription unsaveable. Kept local.
- *  - FORMATTER: `fmt` renders "99.00 USD"; the kit's `formatMoney` renders
- *    "USD 99.00" (and with U+00A0). Consolidating would reverse every visible
- *    amount on this screen. The ordering inconsistency is a known product item
- *    with the owner — NOT conversion work. Kept local, byte-identical.
+ *  - FORMATTER: RESOLVED by the owner's 2026-07-28 ruling — see the note
+ *    below; the canonical `formatMoney` renders this screen now.
  */
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has NO money DISPLAY capability at all — `tablework/
-//   money.ts` is parse-only. The product's only formatter, `formatMoney`
-//   (@c3web/domain), renders code-FIRST separated by U+00A0 ("USD 99.00"),
-//   which is the reverse of this register's frozen output ("99.00 USD").
-// WORKAROUND: a screen-local `fmt` that renders amount-then-code, kept
-//   byte-identical to the Fluent page so no visible amount moves.
-// CLASS: contractual — the honest fix is ONE order for the whole product, and
-//   settling it (either way) changes what every already-converted, already-
-//   gated money screen renders. It is not something a screen can opt into.
-const fmt = (minor: number, currency: string) => `${(minor / 100).toFixed(2)} ${currency}`;
+// OWNER-RULED (2026-07-28) — THE MARKER THAT STOOD HERE IS CLOSED: one money
+// display order product-wide, CODE-FIRST via the canonical `formatMoney`
+// (@c3web/domain). The screen-local amount-first `fmt` is gone; the ruling
+// supersedes this register's frozen output, and the oracle (none pinned this
+// screen's amounts) plus the visible order move IN THIS COMMIT.
 
 export function SubscriptionsPage() {
   return (
@@ -206,7 +198,7 @@ function SubscriptionsRegister() {
                       the date is raw ISO (the date formatter is a NEGATIVE
                       contract). */}
                   <td className="mono">
-                    <div>{fmt(sub.amountMinor, sub.currency)}</div>
+                    <div>{formatMoney(sub.amountMinor, sub.currency as CurrencyCode)}</div>
                     <div className="record-row-meta">{sub.cadence}</div>
                   </td>
                   <td className="mono">{sub.nextRenewalOn ?? '—'}</td>

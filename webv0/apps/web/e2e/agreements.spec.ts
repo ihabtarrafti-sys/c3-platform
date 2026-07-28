@@ -83,7 +83,8 @@ test('Agreements governed lifecycle, end to end', async ({ page }) => {
 
     await page.getByTestId('nav-agreements').click();
     await expect(page.getByTestId('agreement-row-AGR-0001')).toBeVisible();
-    await expect(page.getByTestId('agreement-value-AGR-0001')).toHaveText('$250,000.00');
+    // OWNER-RULED money order (2026-07-28): code-first via formatMoney (NBSP).
+    await expect(page.getByTestId('agreement-value-AGR-0001')).toHaveText('USD 250,000.00');
     await page.getByTestId('agreement-link-AGR-0001').click();
     await expect(page.getByTestId('agreement-title')).toHaveText('GKE-PL-2026-001');
     await expect(page.getByTestId('agreement-ends')).toHaveText('2027-07-31');

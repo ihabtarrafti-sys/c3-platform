@@ -207,10 +207,14 @@ export function agreementRenewalStateOf(state: string): { label: string; variant
   return AGREEMENT_RENEWAL_STATE[state] ?? { label: state, variant: 'neutral' };
 }
 
-/** Integer US cents → display currency (money is integers everywhere else). */
+/** Integer US cents → display currency (money is integers everywhere else).
+ *  OWNER-RULED (2026-07-28): ONE money display order product-wide, CODE-FIRST
+ *  ("USD 99.00", NBSP separator) — this now delegates to the canonical
+ *  `formatMoney`; the symbol-first local implementation is gone. The null →
+ *  em-dash branch survives (formatMoney takes a number). */
 export function formatUsdCents(cents: number | null | undefined): string {
   if (cents === null || cents === undefined) return '—';
-  return (cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  return formatMoney(cents, 'USD');
 }
 
 /** Finance S3 — agreement financial term kind → human label. */
