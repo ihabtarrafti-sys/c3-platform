@@ -800,7 +800,7 @@
     "packages/persistence/src/searchSql.ts#DOMAIN_SPECS": "c1945ac8daa00610ad0e9925c3a3721234a7b50a08cd9c250898a8473c56fe30",
     "packages/persistence/src/searchSql.ts#domainBlock": "78f109be960e9c027505364f20633bedcd7b4957a8018093be26c366d3b4069b",
     "packages/api-contracts/src/index.ts#searchResultsSchema": "4aff386126c762bbf7544cb981339a1158dbb0b659b62d8f9b595dec139fe415",
-    "apps/api/src#tree": "10c933f49dbf2ada7e9891f579fd691cdce56e3429aa6b801a0ae50a25de7b56",
+    "apps/api/src#tree": "250ff7db581252d853ed3cd0662e6fc8b30868ba2284426cea84d123a9c1b26a",
     "packages/authz/src#tree": "35da34bf35368dd25fb51e6784d323a1e639a4c714b6b3937c0a97d53014d4f7",
     "packages/domain/src#tree": "8636022ff4c8c0a70239ac72fa9bbe738e42f1a1338a9f04a3d0063480aaa2ec",
     "packages/application/src#tree": "2885c31455abc847643393838d8cc33c334defe5eddc4aad35a935a80a8cb473",
