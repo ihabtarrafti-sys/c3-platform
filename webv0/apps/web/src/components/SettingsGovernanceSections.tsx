@@ -242,7 +242,7 @@ export function DelegationSection() {
 export function BackupStatusSection() {
   const { me } = useSession();
   const canManage = me?.capabilities.canManageDelegations ?? false;
-  const { data } = useBackupStatus(canManage);
+  const { data, isError } = useBackupStatus(canManage);
 
   if (!canManage) return null;
 
@@ -255,7 +255,23 @@ export function BackupStatusSection() {
         <span className="record-row-meta">read-only marker · threshold 36h</span>
       </header>
       <div className="form-row">
-        {!data ? (
+        {/* T1 (ruled truthfulness fix): the FIFTH state. A failed status fetch
+            used to fall into the !data branch and render "Checking…" forever —
+            an error dressed as progress. Unknown outranks any cached data: this
+            is a HEALTH check, and health that cannot be verified now is not
+            health; last-known-good is not offered. `pending` IS the warning
+            amber — unverified is neither the proven green nor the proven-stale
+            red, and this panel must not soften OR overstate. */}
+        {isError ? (
+          <>
+            <StatusBadge variant="pending" data-testid="backup-state">
+              Unknown
+            </StatusBadge>
+            <span className="record-quiet">
+              The status marker can&rsquo;t be read — backup health is unverified, not proven absent.
+            </span>
+          </>
+        ) : !data ? (
           <span className="record-quiet">Checking…</span>
         ) : !data.configured ? (
           <>
