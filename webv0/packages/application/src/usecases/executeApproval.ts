@@ -150,20 +150,26 @@ export async function executeApproval(
 
   try {
     return await p.writes.transaction(actor, async (tx: WriteTx) => {
-      const approval = await tx.lockApproval(approvalId);
-      if (!approval) throw new NotFoundError('Approval', approvalId);
-
-      // Role (owner) + separation of duties (submitter may not execute).
-      // Tier 0.5: an ACTIVE delegation substitutes for the ROLE half only —
-      // the self-review separation is NOT delegable.
-      if (canExecuteApproval(actor.role)) {
-        assertExecuteApproval(actor, approval.submittedBy);
-      } else {
+      // F11 (disclosure chapter): the ROLE half resolves BEFORE the lookup —
+      // same reorder as the review family (see reviewApproval.ts); an actor
+      // with no execute standing and no delegation reads the same 403 for an
+      // existing and an absent id. Separation stays row-dependent, after.
+      const roleHeld = canExecuteApproval(actor.role);
+      if (!roleHeld) {
         const today = new Date().toISOString().slice(0, 10);
         const delegated = await tx.hasActiveDelegation(actor.identity.toLowerCase(), today);
         if (!delegated) {
           throw new ForbiddenError('Your role may not execute approvals.', { role: actor.role, action: 'execute' });
         }
+      }
+
+      const approval = await tx.lockApproval(approvalId);
+      if (!approval) throw new NotFoundError('Approval', approvalId);
+
+      // Separation of duties (submitter may not execute) — NOT delegable.
+      if (roleHeld) {
+        assertExecuteApproval(actor, approval.submittedBy);
+      } else {
         const check = checkSelfReview(actor.identity, approval.submittedBy);
         if (check.blocked) throw new SelfReviewError(check.reason);
       }

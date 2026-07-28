@@ -43,20 +43,30 @@ async function transition(
   extra: { rejectionReason?: string } = {},
 ): Promise<Approval> {
   return p.writes.transaction(actor, async (tx: WriteTx) => {
-    const approval = await tx.lockApproval(approvalId);
-    if (!approval) throw new NotFoundError('Approval', approvalId);
-
-    // Role + separation of duties (fail closed on indeterminate identity).
-    // Tier 0.5: an ACTIVE delegation substitutes for the ROLE half only —
-    // the self-review separation is NOT delegable and runs on every path.
-    if (canReviewApproval(actor.role)) {
-      assertReviewApproval(actor, approval.submittedBy, action);
-    } else {
+    // F11 (disclosure chapter): the ROLE half of authorization resolves BEFORE
+    // the row lookup. An actor whose role holds no review standing and no
+    // active delegation gets the SAME 403 whether the id exists or not —
+    // 403-vs-404 no longer answers "does this approval exist" for a caller
+    // with no standing to know. The row-dependent half (self-review
+    // separation) necessarily runs after the lock; those actors already hold
+    // register read. RED-proven at the wire in disclosure.test.ts.
+    const roleHeld = canReviewApproval(actor.role);
+    if (!roleHeld) {
       const today = new Date().toISOString().slice(0, 10);
       const delegated = await tx.hasActiveDelegation(actor.identity.toLowerCase(), today);
       if (!delegated) {
         throw new ForbiddenError('Your role may not review approvals.', { role: actor.role, action });
       }
+    }
+
+    const approval = await tx.lockApproval(approvalId);
+    if (!approval) throw new NotFoundError('Approval', approvalId);
+
+    // Separation of duties (fail closed on indeterminate identity) — the
+    // self-review check is NOT delegable and runs on every path (Tier 0.5).
+    if (roleHeld) {
+      assertReviewApproval(actor, approval.submittedBy, action);
+    } else {
       const check = checkSelfReview(actor.identity, approval.submittedBy);
       if (check.blocked) throw new SelfReviewError(check.reason);
     }
@@ -143,14 +153,13 @@ export async function withdrawApproval(
     const submitter = approval.submittedBy?.trim().toLowerCase();
     const requester = actor.identity?.trim().toLowerCase();
     if (!submitter || !requester || submitter !== requester) {
-      // F12 (disclosure chapter): the denial names ONLY what the caller
-      // already holds. Forwarding `submittedBy` here told any authenticated
-      // actor who submitted any approval they could name — an identity
-      // disclosure through an error envelope, RED-proven at the wire in
-      // apps/api/test/disclosure.test.ts before this line changed.
-      throw new ForbiddenError('Only the submitter may withdraw their own request.', {
-        approvalId,
-      });
+      // F12 stripped `submittedBy` from this denial; F11 then went further:
+      // withdraw has NO row-independent gate (anyone might be a submitter),
+      // so a 403 here vs a 404 on an absent id answered "does this approval
+      // exist" for any authenticated caller. The mismatch now CONCEALS as the
+      // row's own 404 — denied and absent are byte-identical by construction
+      // (the ObjectLink/comms-doc pattern). RED-proven at the wire.
+      throw new NotFoundError('Approval', approvalId);
     }
 
     if (!canApply('withdraw', approval.status)) {

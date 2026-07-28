@@ -202,12 +202,17 @@ describe('documents over HTTP (S4)', () => {
     expect(legalList.statusCode).toBe(200);
     const legalDl = await app.inject({ method: 'GET', url: '/api/v1/documents/DOC-0001/content', headers: auth(tokens.legal) });
     expect(legalDl.statusCode).toBe(200);
-    for (const denied of [
-      await app.inject({ method: 'GET', url: '/api/v1/documents?ownerType=Agreement&ownerId=AGR-0001', headers: auth(tokens.visitor) }),
-      await app.inject({ method: 'GET', url: '/api/v1/documents/DOC-0001/content', headers: auth(tokens.visitor) }),
-    ]) {
-      expect(denied.statusCode).toBe(403);
-    }
+    // NEO-DOC-01 SUPERSEDED the single 403 loop that stood here: the two
+    // routes now obey DIFFERENT laws by ruling. The LIST keeps VISIBLE denial
+    // (instance 21 — a denied list must never read as empty or absent)...
+    const deniedList = await app.inject({ method: 'GET', url: '/api/v1/documents?ownerType=Agreement&ownerId=AGR-0001', headers: auth(tokens.visitor) });
+    expect(deniedList.statusCode).toBe(403);
+    // ...while the direct-ID BYTE route conceals denial as the document's own
+    // 404 — a role with no read on the owner domain is not entitled to the
+    // document's existence (denied == absent, byte-identical; disclosure.test.ts
+    // carries the strong-form proof).
+    const deniedContent = await app.inject({ method: 'GET', url: '/api/v1/documents/DOC-0001/content', headers: auth(tokens.visitor) });
+    expect(deniedContent.statusCode).toBe(404);
     // Write gate: legal/visitor cannot attach.
     expect((await uploadDoc(tokens.legal, 'Agreement', 'AGR-0001', 'x.pdf', 'application/pdf', bytes)).statusCode).toBe(403);
     expect((await uploadDoc(tokens.visitor, 'Agreement', 'AGR-0001', 'x.pdf', 'application/pdf', bytes)).statusCode).toBe(403);

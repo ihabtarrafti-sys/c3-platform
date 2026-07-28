@@ -118,7 +118,9 @@ describe('claims over HTTP (S9)', () => {
     expect(up.statusCode, up.body).toBe(201); // ops attaches (owner/ops attach documents)
     const docId = up.json().document.documentId as string;
     expect((await app.inject({ method: 'GET', url: `/api/v1/documents/${docId}/content`, headers: auth(tokens.hr) })).statusCode).toBe(200); // the submitter
-    expect((await app.inject({ method: 'GET', url: `/api/v1/documents/${docId}/content`, headers: auth(tokens.visitor) })).statusCode).toBe(403);
+    // NEO-DOC-01: the byte route conceals denial as the document's own 404
+    // (was 403; denied == absent by ruling on direct-ID probes).
+    expect((await app.inject({ method: 'GET', url: `/api/v1/documents/${docId}/content`, headers: auth(tokens.visitor) })).statusCode).toBe(404);
 
     // ── the lifecycle: review → approve → pay (label mandatory) ──────────────
     let cur = (await post(tokens.ops, `/api/v1/claims/${claim.claimId}/decide`, { expectedVersion: claim.version, decision: 'beginReview' }, 200)).claim;

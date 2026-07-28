@@ -127,7 +127,10 @@ describe('invoices over HTTP (S6)', () => {
     expect(pdf.headers['content-type']).toBe('application/pdf');
     expect(pdf.headers['content-disposition']).toContain(`GKA-INV-${YEAR}-001.pdf`);
     expect(pdf.rawPayload.subarray(0, 5).toString()).toBe('%PDF-');
-    expect((await app.inject({ method: 'GET', url: `/api/v1/documents/${inv1.documentId}/content`, headers: auth(tokens.visitor) })).statusCode).toBe(403);
+    // NEO-DOC-01: the byte route conceals denial as the document's own 404
+    // (was 403; the invoice REGISTER below keeps its visible 403 — lists are
+    // instance-21 surfaces and the ruling never reaches them).
+    expect((await app.inject({ method: 'GET', url: `/api/v1/documents/${inv1.documentId}/content`, headers: auth(tokens.visitor) })).statusCode).toBe(404);
 
     // ── refusals: double-issue (409), expense line (409), codeless entity (400) ──
     await post(tokens.ops, '/api/v1/invoices', { missionId: msn, lineId: line1.lineId, entityId: gka.entityId, billedToName: 'VSPN', vatRateBps: 0 }, 409);

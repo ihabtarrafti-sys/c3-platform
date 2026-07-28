@@ -17,6 +17,7 @@ import {
   type DocumentOwnerType,
   documentAttachInputSchema,
   ConcurrencyError,
+  ForbiddenError,
   formatDocumentId,
   NotFoundError,
   ValidationError,
@@ -107,26 +108,47 @@ export async function getDocumentForDownload(p: Persistence, actor: Actor, docum
   if (!doc) throw new NotFoundError('Document', documentId);
   // Every arm RETURNS through its own gate; a dropped gate line makes the case
   // fall through to the throwing default — fail-closed by construction.
-  switch (doc.ownerType) {
-    case 'Agreement':
-    case 'Invoice':
-    case 'Mission':
-    case 'Person':
-    case 'Credential':
-    case 'Entity':
-      assertReadOwner(actor, doc.ownerType);
-      return doc;
-    case 'Claim':
-      await claimReadGuard(p, actor, doc.ownerId);
-      return doc;
-    case 'CommsMessage':
-    case 'CommsObligation':
-      // The SOLE gate for Comms bytes — record-scoped, uniformly concealed as
-      // this document's own 404. Guard + return are FUSED: deleting this line
-      // falls through to the throwing default, never serves un-gated bytes.
-      return commsDocReadGuard(p, actor, doc.ownerType, doc.ownerId, { entityType: 'Document', entityId: documentId }).then(() => doc);
-    default:
-      throw new ValidationError(`Unhandled document owner type: ${doc.ownerType as string}`);
+  //
+  // NEO-DOC-01 (disclosure chapter, ruled): on this DIRECT-ID byte route,
+  // every denial converts to this document's own 404 — a role with no
+  // entitlement to the owner domain is not entitled to the document's
+  // EXISTENCE either; 403-vs-404 answered "does it exist" within a tenant.
+  // The Comms arm already met this standard; the conversion happens HERE, at
+  // the documentOps boundary, never inside the shared guards — claimReadGuard
+  // keeps its truthful 403 for the claim-detail route it was built for, and
+  // listDocuments keeps VISIBLE denial (instance 21 is the law for lists).
+  try {
+    switch (doc.ownerType) {
+      case 'Agreement':
+      case 'Invoice':
+      case 'Mission':
+      case 'Person':
+      case 'Credential':
+      case 'Entity':
+        assertReadOwner(actor, doc.ownerType);
+        return doc;
+      case 'Claim':
+        await claimReadGuard(p, actor, doc.ownerId);
+        return doc;
+      case 'CommsMessage':
+      case 'CommsObligation':
+        // The SOLE gate for Comms bytes — record-scoped, uniformly concealed as
+        // this document's own 404. Guard + return are FUSED: deleting this line
+        // falls through to the throwing default, never serves un-gated bytes.
+        return await commsDocReadGuard(p, actor, doc.ownerType, doc.ownerId, { entityType: 'Document', entityId: documentId }).then(() => doc);
+      default:
+        throw new ValidationError(`Unhandled document owner type: ${doc.ownerType as string}`);
+    }
+  } catch (e) {
+    // ForbiddenError = an owner-gate denial; a guard's NotFound about a
+    // DIFFERENT entity (e.g. the claim row) is the same statement one level
+    // down. Both become this document's own 404. ValidationError (the
+    // fail-closed default) and the document's own NotFound pass unchanged.
+    if (e instanceof ForbiddenError) throw new NotFoundError('Document', documentId);
+    if (e instanceof NotFoundError && e.details?.entity !== 'Document') {
+      throw new NotFoundError('Document', documentId);
+    }
+    throw e;
   }
 }
 
