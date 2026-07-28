@@ -143,9 +143,13 @@ export async function withdrawApproval(
     const submitter = approval.submittedBy?.trim().toLowerCase();
     const requester = actor.identity?.trim().toLowerCase();
     if (!submitter || !requester || submitter !== requester) {
+      // F12 (disclosure chapter): the denial names ONLY what the caller
+      // already holds. Forwarding `submittedBy` here told any authenticated
+      // actor who submitted any approval they could name — an identity
+      // disclosure through an error envelope, RED-proven at the wire in
+      // apps/api/test/disclosure.test.ts before this line changed.
       throw new ForbiddenError('Only the submitter may withdraw their own request.', {
         approvalId,
-        submittedBy: approval.submittedBy,
       });
     }
 
