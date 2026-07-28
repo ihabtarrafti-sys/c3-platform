@@ -96,11 +96,17 @@ describe('withdrawApproval (submitter-only, before a decision)', () => {
 
   it('anyone else is refused — including an owner; and Approved is too late even for the submitter', async () => {
     const a = await submitAddPerson(p, alphaOps, { input: { fullName: 'Guarded' } as AddPersonInput });
-    await expect(withdrawApproval(p, alphaOwner, a.approvalId, a.version)).rejects.toThrow(/Only the submitter/i);
+    // ⚠️ F11 SUPERSEDED the /Only the submitter/ pin that stood here: a
+    // non-submitter's withdraw now CONCEALS as the row's own 404 — withdraw
+    // has no row-independent gate, so a truthful 403 next to an absent-id 404
+    // was an existence oracle for any authenticated caller. Denied == absent
+    // by construction (disclosure.test.ts carries the byte-identity proof).
+    await expect(withdrawApproval(p, alphaOwner, a.approvalId, a.version)).rejects.toThrow(/Approval not found/i);
 
     const inReview = await beginReview(p, alphaOwner, a.approvalId, a.version);
-    // Still withdrawable while InReview — by the submitter only.
-    await expect(withdrawApproval(p, alphaOwner, a.approvalId, inReview.version)).rejects.toThrow(/Only the submitter/i);
+    // Still withdrawable while InReview — refused to a non-submitter the same
+    // concealed way.
+    await expect(withdrawApproval(p, alphaOwner, a.approvalId, inReview.version)).rejects.toThrow(/Approval not found/i);
     const approved = await approveApproval(p, alphaOwner, inReview.approvalId, inReview.version);
     await expect(withdrawApproval(p, alphaOps, a.approvalId, approved.version)).rejects.toThrow(/Illegal approval transition/i);
   });
