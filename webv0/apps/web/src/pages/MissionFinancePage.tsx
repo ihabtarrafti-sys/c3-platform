@@ -116,13 +116,25 @@ function MissionFinanceOverview() {
                     // NOT a dash: this branch names the missing rates.
                     //
                     // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                    // GAP: the frozen kit's warning vocabulary is SHAPED — it is
-                    //   badges and pills only. `StatusBadge variant="pending"`
-                    //   draws a leading dot, and `.state-label.warning` draws a
-                    //   bordered pill. There is no class for amber running TEXT
-                    //   inside a data cell, and adopting either kit form would
-                    //   change what this cell renders, which a conversion may
-                    //   not do.
+                    // ⚠️ REWRITTEN 2026-07-28 (Neural sweep, R0): the original
+                    //   claim — "the kit's warning vocabulary is badges and
+                    //   pills only" — went stale when the gap triage grew
+                    //   `.record-quiet.warning` (tablework.css), which IS amber
+                    //   running text. Do not mint a second tone vocabulary; the
+                    //   family exists.
+                    // WHY IT STILL DOES NOT FIT AS-IS: `.record-quiet` is the
+                    //   14px quiet BASE with no weight rule; this cell is
+                    //   owner-ruled amber + emphasis at the inherited 12px cell
+                    //   scale inside a `td.mono` money column — the class
+                    //   swapped in mechanically would inflate an owner-ruled
+                    //   treatment to 14px beside 12px figures.
+                    // WHERE THE CLOSURE LANDS (tone ruling, Neural 2026-07-28):
+                    //   ONE family, TWO scales — a cell-scale (12px) text tier
+                    //   carrying the SAME tone modifiers and colour tokens as
+                    //   `.record-quiet` (never a parallel scheme, never new
+                    //   colour values), emphasis as a WEIGHT AXIS on that tier.
+                    //   This cell closes onto the tier's amber emphasis
+                    //   variant; K3's asides close onto its quiet variant.
                     // WORKAROUND: a raw inline `style` on a bare span, carried
                     //   verbatim across the conversion from the pre-Tablework
                     //   screen (it was already inline — registerStyles had no
