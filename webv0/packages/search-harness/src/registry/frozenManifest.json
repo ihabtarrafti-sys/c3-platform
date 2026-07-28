@@ -805,7 +805,7 @@
     "packages/domain/src#tree": "a81c6f8e2d968d99dbbf0a292b451d56499163657af8329e7c039b57fb2d521a",
     "packages/application/src#tree": "3fd9c0e2b2f170c329b87a0b9571d9f888c478c0195c516a1844949b081449ab",
     "packages/persistence/src#tree": "44a4376bafebfcd26472aff6f287685d58f71d171e8ae53d0f9a89b07afa4390",
-    "packages/persistence/migrations#tree": "7bd05d17864f3c6d729c862956c4e89a0c638fdc25846f64103bdbacc5da0326",
+    "packages/persistence/migrations#tree": "da58495aa502bcaca71763cd2e4f271ec7ba5eea2dc89ff6a43877cf2449e896",
     "packages/api-contracts/src#tree": "00216716fe9f6b3503c496df71ab8aafaaca81ba694cbb075814f2328853c282",
     "packages/search-harness#enforcement-tree": "d6ebbbc1211cbabf1e25ebab127164efaf6d7ae77ff0a85810f06ecc7a288948",
     "../.github/workflows/webv0-ci.yml#wiring": "c907e9e4910ef762b8625b7a90282cdb9451ae6c8b82f247e2a8654ef7a97de4",
