@@ -1,12 +1,13 @@
 import { useState, type ChangeEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { formatMoney, CURRENCY_CODES, SUBSCRIPTION_CADENCES, parseDecimalToMinor, type CurrencyCode } from '@c3web/domain';
+import { formatMoney, CURRENCY_CODES, SUBSCRIPTION_CADENCES, type CurrencyCode } from '@c3web/domain';
 import type { SubscriptionDto } from '@c3web/api-contracts';
 import { useSubscriptions } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import {
+  amountToMinorAllowingZero,
   TableworkPage,
   CollectionFrame,
   ComparisonTable,
@@ -42,10 +43,8 @@ const EMPTY: FormState = { name: '', vendorName: '', amount: '', currency: 'USD'
  * a money parser may be replaced only when the replacement's zero-policy AND
  * output order are identical).
  *
- *  - PARSER: this register accepts `0.00` today — `parseDecimalToMinor('0')`
- *    returns `0` and the guard below is `=== null`. The kit's
- *    `positiveAmountToMinor` REJECTS zero, so adopting it would make a 0.00
- *    subscription unsaveable. Kept local.
+ *  - PARSER: RESOLVED — migrated to the kit's `amountToMinorAllowingZero`
+ *    (the named zero-ALLOWED policy; `=== null` guard unchanged, 0.00 lives).
  *  - FORMATTER: RESOLVED by the owner's 2026-07-28 ruling — see the note
  *    below; the canonical `formatMoney` renders this screen now.
  */
@@ -96,19 +95,11 @@ function SubscriptionsRegister() {
   };
 
   async function submit(): Promise<void> {
-    // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-    // ⚠️ REWRITTEN 2026-07-28 (Neural ruling — rewrite, do not delete): this
-    //   marker's original claim, "the kit ships exactly one amount parser",
-    //   went stale when F-1 shipped `amountToMinorAllowingZero`
-    //   (tablework/index.ts). The STATED gap is closed; do not add a second
-    //   zero-allowing parser — one already exists.
-    // WHAT IS STILL OWED: the call-site migration. F-1's own close-out: it
-    //   "gave them a legal target for the first time; it did not close them."
-    //   This site still calls the domain's `parseDecimalToMinor` directly; the
-    //   kit export IS that call verbatim, so the swap is behaviour-identical —
-    //   but it is F-1 migration-pass work, not a drive-by, and the `=== null`
-    //   guard (0 lives) stays visible at the call site either way.
-    const amountMinor = parseDecimalToMinor(f.amount);
+    // F-1 CALL-SITE MIGRATION COMPLETE (the marker that stood here is CLOSED):
+    // the zero-allowing parse rides the kit's NAMED policy — behaviour-
+    // identical by construction (the kit export IS the domain parser,
+    // verbatim). The `=== null` guard below is untouched: 0.00 stays saveable.
+    const amountMinor = amountToMinorAllowingZero(f.amount);
     // `=== null` (not `== null`, not falsy): 0 is a valid amount here.
     if (amountMinor === null) return notify('error', 'Enter a valid amount (up to 2 decimals).');
     if (!f.name.trim() || !f.vendorName.trim() || !f.startedOn) return notify('error', 'Name, vendor, and start date are required.');

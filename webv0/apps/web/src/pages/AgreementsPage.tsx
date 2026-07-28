@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { agreementRenewalStateOn, parseDecimalToMinor, type AgreementRenewalState } from '@c3web/domain';
+import { agreementRenewalStateOn, type AgreementRenewalState } from '@c3web/domain';
 import { useAgreements, useEntities, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
 import {
+  amountToMinorAllowingZero,
   TableworkPage,
   CollectionFrame,
   ComparisonTable,
@@ -106,9 +107,10 @@ function AgreementsRegister() {
     try {
       // M-02: exact-decimal law — a malformed value is a refusal, not a rounded guess.
       //
-      // ⚠️ MONEY, DO NOT CONSOLIDATE. This screen accepts 0 deliberately, so the
-      // kit's `positiveAmountToMinor` (which rejects zero) is NOT a valid
-      // replacement — its zero-policy differs.
+      // ⚠️ MONEY: consolidated onto the kit's zero-ALLOWING policy below. The
+      // standing warning survives with sharper aim: `positiveAmountToMinor`
+      // (zero-REJECTING) is NOT a valid substitute here — this screen accepts
+      // 0 deliberately, and the two parsers differ exactly there.
       //
       // ⚠️ The guard below is STRICT `=== null` on purpose. `parsedCents` is
       // `undefined` when the field is empty (no value stated — legitimate, and
@@ -116,21 +118,15 @@ function AgreementsRegister() {
       // malformed. Loosening this to `== null` would refuse every value-less
       // agreement.
       //
-      // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-      // ⚠️ REWRITTEN 2026-07-28 (Neural ruling — rewrite, do not delete): this
-      //   marker's original claim, "the frozen kit's only amount parser is
-      //   `positiveAmountToMinor`", went stale when F-1 shipped
-      //   `amountToMinorAllowingZero` (tablework/index.ts). The STATED gap is
-      //   closed; the F3 consolidation HAS a legal target on this screen now.
-      //   Do not add a second zero-allowing parser — one already exists.
-      // WHAT IS STILL OWED: the call-site migration (F-1's close-out: a legal
-      //   target "did not close them"). The kit export IS `parseDecimalToMinor`
-      //   verbatim, so the swap is behaviour-identical. The `undefined` ("no
-      //   value stated", from the `trim() === ''` branch) vs `null`
-      //   ("malformed") separation is CALL-SITE logic and remains here either
-      //   way — the parser never sees the empty string, so no kit change is
-      //   needed for it.
-      const parsedCents = valueUsd.trim() === '' ? undefined : parseDecimalToMinor(valueUsd);
+      // F-1 CALL-SITE MIGRATION COMPLETE (the marker that stood here is
+      // CLOSED — the ledger's last pair): the zero-allowing parse now rides
+      // the kit's NAMED policy. Behaviour-identical by construction (the kit
+      // export IS the domain parser, verbatim), and the two invariants the
+      // standing table protects are UNTOUCHED here at the call site:
+      //   - `undefined` ("no value stated", the trim()==='' branch) vs `null`
+      //     ("malformed") — the parser never sees the empty string;
+      //   - `=== null` (never `== null`, never falsy) — a 0.00 value LIVES.
+      const parsedCents = valueUsd.trim() === '' ? undefined : amountToMinorAllowingZero(valueUsd);
       if (parsedCents === null) {
         notify('error', 'The value must be a plain amount with at most 2 decimals (e.g. 2500 or 2500.50).');
         return;
