@@ -1588,6 +1588,12 @@ export const executeResponseSchema = z.object({
   agreement: agreementSchema.nullable(),
   idempotent: z.boolean(),
 });
+/** PRISM-F15: the client consumes THIS inferred type, never a hand-copied
+ *  inline shape — the hand copy had silently omitted four served wire keys
+ *  (credential/journey/participant/agreement), which is how F16's side
+ *  object stayed invisible to client-type inspection. z.infer means the
+ *  client type IS the route schema; they cannot drift apart. */
+export type ExecuteApprovalResponse = z.infer<typeof executeResponseSchema>;
 
 // ── identity / capabilities ─────────────────────────────────────────────────
 export const capabilityViewSchema = z.object({

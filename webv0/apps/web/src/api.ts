@@ -19,6 +19,8 @@ import type {
   AgreementTermDto,
   ApparelDto,
   ApprovalDto,
+  ApprovalSummaryDto,
+  ExecuteApprovalResponse,
   CredentialDto,
   DocumentDto,
   EntityDto,
@@ -299,7 +301,9 @@ export function createApiClient(deps: ApiClientDeps) {
     },
     getPersonPhoto: (personId: string) => download(`/api/v1/people/${personId}/photo`),
     removePersonPhoto: (personId: string) => request<{ person: PersonDto }>('POST', `/api/v1/people/${personId}/photo/remove`),
-    listApprovals: () => request<{ approvals: ApprovalDto[] }>('GET', '/api/v1/approvals'),
+    // PRISM-F15 (the opposite direction): the register serves payload-free
+    // SUMMARIES; claiming ApprovalDto[] over-declared fields that never arrive.
+    listApprovals: () => request<{ approvals: ApprovalSummaryDto[] }>('GET', '/api/v1/approvals'),
     getApproval: (id: string) => request<{ approval: ApprovalDto }>('GET', `/api/v1/approvals/${id}`),
     approvalEvents: (id: string) => request<{ events: ApprovalEventDto[] }>('GET', `/api/v1/approvals/${id}/events`),
     submitAddPerson: (input: Record<string, unknown>) => request<{ approval: ApprovalDto }>('POST', '/api/v1/approvals', { input }),
@@ -312,7 +316,9 @@ export function createApiClient(deps: ApiClientDeps) {
       request<{ approval: ApprovalDto }>('POST', `/api/v1/approvals/${id}/edit`, { expectedVersion, input }),
     reviseApproval: (id: string, expectedVersion: number, input: Record<string, unknown>, reason?: string | null) =>
       request<{ approval: ApprovalDto; superseded: string }>('POST', `/api/v1/approvals/${id}/revise`, { expectedVersion, input, reason }),
-    execute: (id: string, expectedVersion: number) => request<{ approval: ApprovalDto; person: PersonDto | null; idempotent: boolean }>('POST', `/api/v1/approvals/${id}/execute`, { expectedVersion }),
+    // PRISM-F15: schema-derived — the inline shape that stood here omitted four
+    // served wire keys and hid the F16 side object from client-type review.
+    execute: (id: string, expectedVersion: number) => request<ExecuteApprovalResponse>('POST', `/api/v1/approvals/${id}/execute`, { expectedVersion }),
     // Sprint 35 tenant-admin: member directory + governed member changes.
     listMembers: () => request<{ members: MemberDto[] }>('GET', '/api/v1/members'),
     submitMemberChange: (payload: SubmitMemberChangeRequest['payload'], reason?: string) =>
@@ -391,7 +397,7 @@ export function createApiClient(deps: ApiClientDeps) {
     // Sprint 42: the person hub.
     personMissionMemberships: (personId: string) =>
       request<{ missions: PersonMissionMembershipDto[] }>('GET', `/api/v1/people/${personId}/missions`),
-    personApprovals: (personId: string) => request<{ approvals: ApprovalDto[] }>('GET', `/api/v1/people/${personId}/approvals`),
+    personApprovals: (personId: string) => request<{ approvals: ApprovalSummaryDto[] }>('GET', `/api/v1/people/${personId}/approvals`),
     // Sprint 43: the Situation Room.
     situation: () => request<SituationResponse>('GET', '/api/v1/situation'),
     // S3: global search (role-aware; denied domains simply absent).

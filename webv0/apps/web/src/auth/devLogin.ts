@@ -14,7 +14,9 @@ export async function performDevLogin(input: { email: string; role: string; tena
     getToken: async () => null,
     onUnauthorized: async () => {},
   });
-  const res = await api.request<{ token: string; identity: string; displayName: string }>(
+  // F15's dev nit (one line, rides along): the server echoes role + tenantSlug;
+  // the type now says so.
+  const res = await api.request<{ token: string; identity: string; displayName: string; role: string; tenantSlug: string }>(
     'POST',
     '/api/v1/dev/login',
     { ...input, displayName: input.email },
