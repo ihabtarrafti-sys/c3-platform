@@ -225,7 +225,7 @@ import {
 // (withdrawApproval imported with the application use-cases below)
 import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, createCommsObligationInputSchema, commsObligationTransitionInputSchema, advanceCommsCursorInputSchema, setCommsPrefsInputSchema, type PostCommsMessageInput, type CreateCommsObligationInput, type CommsObligationTransitionInput, type AdvanceCommsCursorInput, type SetCommsPrefsInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
-import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations, assertManageEntities } from '@c3web/authz';
+import { capabilityView, canReadAgreements, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations, assertManageEntities } from '@c3web/authz';
 import { buildInvoicePdf } from './invoicePdf';
 import {
   approveApproval,
@@ -1018,8 +1018,21 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
         credential: res.credential ? toCredentialDto(res.credential, piiOf(req)) : null,
         journey: res.journey ? toJourneyDto(res.journey) : null,
         participant: res.participant ? toMissionParticipantDto(res.participant) : null,
-        // H-03: actor-project the agreement side object (strip value without financial standing).
-        agreement: res.agreement ? toAgreementDto(res.agreement, discOf(req).financial) : null,
+        // H-03: actor-project the agreement side object (strip value without
+        // financial standing). F16 (disclosure chapter, Block 2): the SUBJECT
+        // decision comes first — a role without canReadAgreements receives NO
+        // agreement content at all (absence, not masking), exactly as the
+        // ordinary register denies it. Delegation grants the standing to
+        // DECIDE, never to SEE more (H-03.1's own words); the delegate's
+        // execute still succeeds and the approval DTO still returns. The
+        // other four side objects ride the universal people-read — CURRENT
+        // ROLE MATRIX SAFE per both sweeps, sealed by the outcome assertion
+        // in disclosureOutcome.test.ts, which fails on any new role or side
+        // object until its outcome is STATED. The fourth disclosure axis
+        // stays DEFERRED by ruling — this is the bounded route-boundary gate,
+        // deliberately consulting the same authoritative predicate the
+        // register uses, not a new axis on PayloadDisclosure.
+        agreement: res.agreement && canReadAgreements(actorOf(req).role) ? toAgreementDto(res.agreement, discOf(req).financial) : null,
         idempotent: res.idempotent,
       };
     }),
