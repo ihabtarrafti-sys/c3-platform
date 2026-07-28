@@ -436,6 +436,20 @@
   pointer-events: none;
 }
 
+/* UX13 — the truthful bell states. The `?` dot is uncertainty, not a count:
+   warning amber, never the action blue a proven nudge wears. */
+.tw-root .bell-badge.unavailable {
+  background: var(--c3-state-warning);
+  color: var(--c3-ground-canvas);
+}
+
+.tw-root .bell-badge.stale {
+  /* Last-known truth, visibly unconfirmed: the count hollows out. */
+  background: transparent;
+  color: var(--c3-accent-blue);
+  box-shadow: inset 0 0 0 1px var(--c3-accent-blue);
+}
+
 .tw-root .notif-list {
   display: grid;
   padding: 0;
@@ -446,6 +460,20 @@
   color: var(--c3-ink-muted);
   font-size: var(--c3-font-size-body-small);
   text-align: center;
+}
+
+/* UX13 — the stale line above last-known rows (and above a stale empty copy). */
+.tw-root .notif-stale {
+  padding: var(--c3-space-2) var(--c3-space-5);
+  color: var(--c3-state-warning);
+  font-size: var(--c3-font-size-caption);
+  text-align: center;
+  border-bottom: 1px solid var(--c3-border-subtle);
+}
+
+/* The unavailable copy is an honest warning, not a muted shrug. */
+.tw-root .notif-empty.notif-unavailable {
+  color: var(--c3-state-warning);
 }
 
 .tw-root .notif-item {
