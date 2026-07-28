@@ -245,7 +245,13 @@ describe('governed participant membership (the Set-D guard matrix)', () => {
 
     const failed = await p.reads.forActor(alphaOwner).getApprovalById(crafted.approvalId);
     expect(failed?.status).toBe('ExecutionFailed');
-    expect(failed?.executionError).toMatch(/already an active participant/i);
+    // N-2 SUPERSEDED the prose pin: the RECORDED executionError is a typed
+    // code + canonical id references (the thrown error above keeps its prose
+    // — only the durable row is grammar-bound). Better than the old pin: the
+    // record now names WHICH mission and person collided.
+    expect(failed?.executionError).toMatch(/^PARTICIPANT_CONFLICT\b/);
+    expect(failed?.executionError).toContain(m.missionId);
+    expect(failed?.executionError).toContain(personId);
     const roster = await listMissionParticipants(p, alphaOwner, m.missionId);
     expect(roster).toHaveLength(1);
     expect(roster[0]!.role).toBe('Player'); // the live membership is untouched
