@@ -160,6 +160,9 @@ export const AUDIT_ACTIONS = [
   'DepartureInitiated',
   'DepartureCompleted',
   'DepartureCancelled',
+  // Block 6 (R2-02): a recall is an audited act — the tombstone renders the
+  // occurrence, and the trail records it under N-2's meta-channel law.
+  'CommsMessageRecalled',
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

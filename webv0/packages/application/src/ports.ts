@@ -51,6 +51,8 @@ import type {
   ModuleEntitlement,
   CommsThread,
   CommsMessageView,
+  CommsRecallView,
+  CommsRecallReason,
   CommsObligationView,
   CommsCursor,
   CommsReceipt,
@@ -259,6 +261,13 @@ export interface ReadStore {
   getCommsThreadByAnchor(anchorType: string, anchorId: string): Promise<CommsThread | null>;
   /** The message spine row (no body — revisions carry it), for the doc read guard. */
   getCommsMessageByMessageId(messageId: string): Promise<{ messageId: string; threadId: string } | null>;
+  /** Block 6 (R2-02): the message's tombstone, or null when it stands. */
+  getCommsMessageRecall(messageId: string): Promise<CommsRecallView | null>;
+  /** Block 6: the author + age facts the recall window is judged on. */
+  getCommsMessageForRecall(messageId: string): Promise<{ authorUserId: string; createdAt: string } | null>;
+  /** Block 6 item 6: does an obligation/attachment already derive from this
+   *  message? Recall never cascades — this REPORTS so the caller can say so. */
+  countCommsMessageDownstreamFacts(messageId: string): Promise<number>;
   /** The obligation's thread, for the CommsObligation doc read guard arm. */
   getCommsObligationByObligationId(obligationId: string): Promise<{ obligationId: string; threadId: string } | null>;
   /** The full obligation read model: row + transition history + evidence. */
@@ -1277,6 +1286,15 @@ export interface WriteTx {
   insertCommsMessage(row: NewCommsMessageRow): Promise<boolean>;
   /** Append a revision (revision 1 IS the post's body); returns the revision uuid. */
   insertCommsMessageRevision(row: NewCommsMessageRevisionRow): Promise<string>;
+  /** Block 6 (R2-02): the tombstone writer — IDEMPOTENT (the unique
+   *  (tenant_id, message_id) makes a repeat a no-op returning false). */
+  insertCommsMessageTombstone(row: {
+    messageId: string;
+    actorUserId: string;
+    actorLabel: string | null;
+    reasonCode: CommsRecallReason;
+    moderationNote: string | null;
+  }): Promise<boolean>;
   /** Append the room's change history (Created, …) — the thread narrates itself. */
   insertCommsThreadEvent(row: { threadId: string; eventType: string; actorUserId: string; actorLabel: string | null }): Promise<void>;
   insertCommsObjectLink(row: { revisionId: string; targetType: string; targetId: string }): Promise<void>;

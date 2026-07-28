@@ -100,18 +100,57 @@ export interface CommsMessageAttachment {
 }
 
 /** The thread read model: the message spine joined with its LATEST revision. */
-export interface CommsMessageView {
-  readonly messageId: string;
-  readonly threadId: string;
-  readonly seq: number;
-  readonly authorUserId: string;
-  readonly authorLabel: string | null;
-  readonly body: string;
-  readonly revisionNo: number;
-  readonly links: CommsMessageLink[];
-  readonly attachments: CommsMessageAttachment[];
-  readonly createdAt: string;
+/**
+ * Block 6 (R2-02, Model B): the recall tombstone's rendered facts. A recall
+ * that hides its own occurrence is a lie in the other direction, so the
+ * tombstone RENDERS — who removed it, under which reason class, when — while
+ * the body and attachments become structurally unavailable.
+ */
+export interface CommsRecallView {
+  readonly reasonCode: CommsRecallReason;
+  readonly actorLabel: string | null;
+  readonly at: string;
 }
+
+/** Author self-recall vs a reasoned moderator removal — the disposition's
+ *  item 5 distinction, carried on the wire so the placeholder can honour it. */
+/** Ratified (R2-02 disposition item 5): reason-FREE author recall is bounded
+ *  to 15 minutes — it covers "I just posted that wrong", not history revision.
+ *  After the window, removal is a REASONED moderator act (item 7). */
+export const COMMS_AUTHOR_RECALL_WINDOW_MS = 15 * 60 * 1000;
+export const COMMS_RECALL_REASONS = ['AuthorRecall', 'ModeratorRemoval'] as const;
+export type CommsRecallReason = (typeof COMMS_RECALL_REASONS)[number];
+
+/**
+ * THE DISCRIMINATED MESSAGE VIEW (R2-02 disposition item 3). The recalled
+ * variant has NO `body`, NO `links`, NO `attachments` KEYS AT ALL — structural
+ * absence, not a flag an old client can ignore. A consumer that wants the body
+ * must narrow on `recalled`, and the type system refuses the alternative.
+ */
+export type CommsMessageView =
+  | {
+      readonly recalled?: undefined;
+      readonly messageId: string;
+      readonly threadId: string;
+      readonly seq: number;
+      readonly authorUserId: string;
+      readonly authorLabel: string | null;
+      readonly body: string;
+      readonly revisionNo: number;
+      readonly links: CommsMessageLink[];
+      readonly attachments: CommsMessageAttachment[];
+      readonly createdAt: string;
+    }
+  | {
+      readonly recalled: CommsRecallView;
+      readonly messageId: string;
+      readonly threadId: string;
+      readonly seq: number;
+      readonly authorUserId: string;
+      readonly authorLabel: string | null;
+      readonly revisionNo: number;
+      readonly createdAt: string;
+    };
 
 // ── The Obligation (the scar-killer): delivered ≠ accepted ≠ done ────────────
 

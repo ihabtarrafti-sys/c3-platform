@@ -213,6 +213,9 @@ import {
   versionedRequestSchema,
   commsMissionParamSchema,
   commsPageQuerySchema,
+  commsRecallRequestSchema,
+  commsRecallResponseSchema,
+  commsMessageParamSchema,
   missionThreadResponseSchema,
   commsMessageResponseSchema,
   commsObligationParamSchema,
@@ -394,6 +397,7 @@ import {
   reviseApproval,
   drainApprovalRevisions,
   getMissionThread,
+  recallMissionMessage,
   postMissionMessage,
   registerCommsAttachment,
   createMissionObligation,
@@ -414,7 +418,7 @@ import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
-import { toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toSavedViewDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toMissionPnlV2Dto, toPersonDto } from './dto';
+import { toCommsMessageDto, toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toSavedViewDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toMissionPnlV2Dto, toPersonDto } from './dto';
 
 function sendError(req: FastifyRequest, reply: FastifyReply, status: number, code: string, message: string, details?: Record<string, unknown>): void {
   reply.status(status).send({ error: { code, message, ...(details ? { details } : {}) }, correlationId: req.id });
@@ -1786,7 +1790,8 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { missionId } = req.params as { missionId: string };
       const q = req.query as { limit?: number; beforeSeq?: number };
-      return getMissionThread(P, actorOf(req), missionId, { limit: q.limit, beforeSeq: q.beforeSeq ?? null });
+      const view = await getMissionThread(P, actorOf(req), missionId, { limit: q.limit, beforeSeq: q.beforeSeq ?? null });
+      return { ...view, messages: view.messages.map(toCommsMessageDto) };
     },
   );
 
@@ -1796,7 +1801,19 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req, reply) => {
       const { missionId } = req.params as { missionId: string };
       const message = await postMissionMessage(P, actorOf(req), missionId, req.body as PostCommsMessageInput);
-      return reply.status(201).send({ message });
+      return reply.status(201).send({ message: toCommsMessageDto(message) });
+    },
+  );
+
+  // Block 6 (R2-02): recall a message. The body and its attachments become
+  // unreachable through every consumer; the tombstone renders.
+  r.post(
+    '/api/v1/comms/messages/:messageId/recall',
+    { schema: { params: commsMessageParamSchema, body: commsRecallRequestSchema, response: { 200: commsRecallResponseSchema } } },
+    async (req) => {
+      const { messageId } = req.params as { messageId: string };
+      const body = req.body as { reasonCode: 'AuthorRecall' | 'ModeratorRemoval'; moderationNote?: string };
+      return recallMissionMessage(P, actorOf(req), messageId, { reasonCode: body.reasonCode, moderationNote: body.moderationNote ?? null });
     },
   );
 
@@ -1983,7 +2000,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
           caption: fieldVal('caption') || null,
           clientMutationId,
         });
-        return reply.status(201).send({ message }); // the tx resolved the intent
+        return reply.status(201).send({ message: toCommsMessageDto(message) }); // the tx resolved the intent
       } catch (err) {
         await armCompensation(storageKey, req);
         throw err;

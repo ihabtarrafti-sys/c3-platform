@@ -6,6 +6,7 @@ import { Pool } from 'pg';
 import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
 import type { Actor, Agreement, AgreementTerm, Apparel, Approval, ApprovalEvent, ApprovalRevision, ApprovalStatus, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, RecycleItem, Comment, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Team, TeamMembership, Distribution, DistributionShare, Claim, C3Notification, Delegation, Beneficiary, Kit, Member, Mission, C3Document, MissionBudget, MissionLine, MissionParticipant, Person, CommsMessageView, CommsLinkTargetType, CommsObligationView } from '@c3web/domain';
 import { IntakeLinkUnavailableError } from '@c3web/domain';
+import type { CommsRecallReason } from '@c3web/domain';
 import type { GuestIntakePort, GuestIntakePeek, NewGuestSubmission, PayableClaimRow, Persistence, PersonMissionMembership, ReadStore, TenantSearchRow, TenantSearchSpec, WriteStore, WriteTransactionOptions, WriteTx } from '@c3web/application';
 import * as schema from './schema';
 import { withTenantTx, type Db } from './tenantContext';
@@ -27,11 +28,22 @@ interface CommsSpineRow {
   revision_id: string;
   revision_no: number;
   body: string;
+  recall_reason: CommsRecallReason | null;
+  recall_actor_label: string | null;
+  recall_at: Date | string | null;
 }
 
+/**
+ * Block 6 (R2-02): the tombstone joins THE SPINE, so every consumer that
+ * reads a message reads its recall state in the same row — instance 7 existed
+ * because the writer had no join. Hydration then refuses to fetch bodies,
+ * links or attachments for recalled rows: structural absence at the source,
+ * not filtering after the fact.
+ */
 const commsMessageViewSql = (where: ReturnType<typeof sql>, limit: number) => sql`
   SELECT m.message_id, m.thread_id, m.seq, m.author_user_id, m.author_label, m.created_at,
-         r.id AS revision_id, r.revision_no, r.body
+         r.id AS revision_id, r.revision_no, r.body,
+         t.reason_code AS recall_reason, t.actor_label AS recall_actor_label, t.created_at AS recall_at
     FROM comms_message m
     JOIN LATERAL (
       SELECT id, revision_no, body
@@ -40,6 +52,8 @@ const commsMessageViewSql = (where: ReturnType<typeof sql>, limit: number) => sq
        ORDER BY rr.revision_no DESC
        LIMIT 1
     ) r ON true
+    LEFT JOIN comms_message_tombstone t
+      ON t.tenant_id = m.tenant_id AND t.message_id = m.message_id
    WHERE ${where}
    ORDER BY m.seq DESC
    LIMIT ${limit}
@@ -47,18 +61,29 @@ const commsMessageViewSql = (where: ReturnType<typeof sql>, limit: number) => sq
 
 async function hydrateCommsMessageViews(db: Db, rows: CommsSpineRow[]): Promise<CommsMessageView[]> {
   if (rows.length === 0) return [];
-  const revisionIds = rows.map((r) => r.revision_id);
-  const messageIds = rows.map((r) => r.message_id);
-  const linkRes = await db.execute(sql`
+  // Block 6 (R2-02): a RECALLED row's content is never fetched at all — its
+  // links/attachments are excluded from the hydration queries, so the body,
+  // the object links and the attachment metadata have no path to the wire.
+  // Structural absence at the source; the discriminated view then has no
+  // field to put them in.
+  const liveRows = rows.filter((r) => r.recall_reason === null);
+  const revisionIds = liveRows.map((r) => r.revision_id);
+  const messageIds = liveRows.map((r) => r.message_id);
+  // An all-recalled page leaves both lists empty — never emit `IN ()`.
+  const linkRes = revisionIds.length
+    ? await db.execute(sql`
     SELECT revision_id, target_type, target_id FROM comms_object_link
      WHERE revision_id IN (${sql.join(revisionIds.map((id) => sql`${id}`), sql`, `)}) ORDER BY created_at, id
-  `);
-  const attRes = await db.execute(sql`
+  `)
+    : { rows: [] as unknown[] };
+  const attRes = messageIds.length
+    ? await db.execute(sql`
     SELECT a.message_id, a.document_id, d.file_name, d.content_type, d.size_bytes
       FROM comms_document_attachment a
       JOIN document d ON d.tenant_id = a.tenant_id AND d.document_id = a.document_id AND d.is_active = true
      WHERE a.message_id IN (${sql.join(messageIds.map((id) => sql`${id}`), sql`, `)}) ORDER BY a.created_at, a.id
-  `);
+  `)
+    : { rows: [] as unknown[] };
   const linksByRevision = new Map<string, { targetType: CommsLinkTargetType; targetId: string }[]>();
   for (const l of linkRes.rows as Array<{ revision_id: string; target_type: CommsLinkTargetType; target_id: string }>) {
     const arr = linksByRevision.get(l.revision_id) ?? [];
@@ -71,18 +96,35 @@ async function hydrateCommsMessageViews(db: Db, rows: CommsSpineRow[]): Promise<
     arr.push({ documentId: a.document_id, fileName: a.file_name, contentType: a.content_type, sizeBytes: Number(a.size_bytes) });
     attByMessage.set(a.message_id, arr);
   }
-  return rows.map((r) => ({
-    messageId: r.message_id,
-    threadId: r.thread_id,
-    seq: Number(r.seq),
-    authorUserId: r.author_user_id,
-    authorLabel: r.author_label,
-    body: r.body,
-    revisionNo: r.revision_no,
-    links: linksByRevision.get(r.revision_id) ?? [],
-    attachments: attByMessage.get(r.message_id) ?? [],
-    createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : new Date(r.created_at).toISOString(),
-  }));
+  return rows.map((r) => {
+    const spine = {
+      messageId: r.message_id,
+      threadId: r.thread_id,
+      seq: Number(r.seq),
+      authorUserId: r.author_user_id,
+      authorLabel: r.author_label,
+      revisionNo: r.revision_no,
+      createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : new Date(r.created_at).toISOString(),
+    };
+    if (r.recall_reason !== null) {
+      // The tombstone RENDERS (who/why-class/when) — a recall that hides its
+      // own occurrence is the same lie in the other direction.
+      return {
+        ...spine,
+        recalled: {
+          reasonCode: r.recall_reason,
+          actorLabel: r.recall_actor_label,
+          at: r.recall_at instanceof Date ? r.recall_at.toISOString() : new Date(r.recall_at as string).toISOString(),
+        },
+      };
+    }
+    return {
+      ...spine,
+      body: r.body,
+      links: linksByRevision.get(r.revision_id) ?? [],
+      attachments: attByMessage.get(r.message_id) ?? [],
+    };
+  });
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -701,6 +743,38 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           exec(async (db) => {
             const rows = await db.select().from(schema.commsMessage).where(eq(schema.commsMessage.messageId, messageId)).limit(1);
             return rows[0] ? { messageId: rows[0].messageId, threadId: rows[0].threadId } : null;
+          }),
+        getCommsMessageForRecall: (messageId: string) =>
+          exec(async (db) => {
+            const res = await db.execute(sql`
+              SELECT m.author_user_id, m.created_at FROM comms_message m
+               WHERE m.message_id = ${messageId} LIMIT 1
+            `);
+            const row = (res.rows as Array<{ author_user_id: string; created_at: Date | string }>)[0];
+            return row ? { authorUserId: row.author_user_id, createdAt: isoStr(row.created_at) } : null;
+          }),
+
+        // Block 6 item 6: obligations + attachments that already derive from
+        // the message. Recall does NOT remove them; the caller reports them.
+        countCommsMessageDownstreamFacts: (messageId: string) =>
+          exec(async (db) => {
+            const res = await db.execute(sql`
+              SELECT (SELECT count(*) FROM comms_obligation o WHERE o.source_message_id = ${messageId})
+                   + (SELECT count(*) FROM comms_document_attachment a WHERE a.message_id = ${messageId}) AS n
+            `);
+            return Number((res.rows as Array<{ n: string | number }>)[0]?.n ?? 0);
+          }),
+
+        // Block 6 (R2-02): the tombstone read the guard consults.
+        getCommsMessageRecall: (messageId: string) =>
+          exec(async (db) => {
+            const res = await db.execute(sql`
+              SELECT reason_code, actor_label, created_at FROM comms_message_tombstone
+               WHERE message_id = ${messageId} LIMIT 1
+            `);
+            const row = (res.rows as Array<{ reason_code: CommsRecallReason; actor_label: string | null; created_at: Date | string }>)[0];
+            if (!row) return null;
+            return { reasonCode: row.reason_code, actorLabel: row.actor_label, at: isoStr(row.created_at) };
           }),
 
         getCommsObligationByObligationId: (obligationId: string) =>

@@ -5807,6 +5807,65 @@
     },
     {
       "method": "POST",
+      "url": "/api/v1/comms/messages/:messageId/recall",
+      "body": {
+        "t": "object",
+        "keys": {
+          "moderationNote": {
+            "t": "string",
+            "optional": true
+          },
+          "reasonCode": {
+            "t": "enum",
+            "values": [
+              "AuthorRecall",
+              "ModeratorRemoval"
+            ]
+          }
+        }
+      },
+      "params": {
+        "t": "object",
+        "keys": {
+          "messageId": {
+            "t": "string"
+          }
+        }
+      },
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "downstreamFactsRemain": {
+              "t": "boolean"
+            },
+            "recall": {
+              "t": "object",
+              "keys": {
+                "actorLabel": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
+                "at": {
+                  "t": "string"
+                },
+                "reasonCode": {
+                  "t": "enum",
+                  "values": [
+                    "AuthorRecall",
+                    "ModeratorRemoval"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "POST",
       "url": "/api/v1/comms/missions/:missionId/attachments",
       "params": {
         "t": "object",
@@ -5821,80 +5880,143 @@
           "t": "object",
           "keys": {
             "message": {
-              "t": "object",
-              "keys": {
-                "attachments": {
-                  "t": "array",
-                  "item": {
-                    "t": "object",
-                    "keys": {
-                      "contentType": {
-                        "t": "string"
-                      },
-                      "documentId": {
-                        "t": "string"
-                      },
-                      "fileName": {
-                        "t": "string"
-                      },
-                      "sizeBytes": {
-                        "t": "number"
+              "t": "union",
+              "options": [
+                {
+                  "t": "object",
+                  "keys": {
+                    "attachments": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "contentType": {
+                            "t": "string"
+                          },
+                          "documentId": {
+                            "t": "string"
+                          },
+                          "fileName": {
+                            "t": "string"
+                          },
+                          "sizeBytes": {
+                            "t": "number"
+                          }
+                        }
                       }
+                    },
+                    "authorLabel": {
+                      "t": "nullable",
+                      "inner": {
+                        "t": "string"
+                      }
+                    },
+                    "authorUserId": {
+                      "t": "string"
+                    },
+                    "body": {
+                      "t": "string"
+                    },
+                    "createdAt": {
+                      "t": "string"
+                    },
+                    "links": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "targetId": {
+                            "t": "string"
+                          },
+                          "targetType": {
+                            "t": "enum",
+                            "values": [
+                              "Approval",
+                              "Credential",
+                              "Document",
+                              "Journey",
+                              "Message",
+                              "Mission",
+                              "Obligation",
+                              "Person"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "messageId": {
+                      "t": "string"
+                    },
+                    "recalled": {
+                      "t": "literal",
+                      "value": false
+                    },
+                    "revisionNo": {
+                      "t": "number"
+                    },
+                    "seq": {
+                      "t": "number"
+                    },
+                    "threadId": {
+                      "t": "string"
                     }
                   }
                 },
-                "authorLabel": {
-                  "t": "nullable",
-                  "inner": {
-                    "t": "string"
-                  }
-                },
-                "authorUserId": {
-                  "t": "string"
-                },
-                "body": {
-                  "t": "string"
-                },
-                "createdAt": {
-                  "t": "string"
-                },
-                "links": {
-                  "t": "array",
-                  "item": {
-                    "t": "object",
-                    "keys": {
-                      "targetId": {
+                {
+                  "t": "object",
+                  "keys": {
+                    "authorLabel": {
+                      "t": "nullable",
+                      "inner": {
                         "t": "string"
-                      },
-                      "targetType": {
-                        "t": "enum",
-                        "values": [
-                          "Approval",
-                          "Credential",
-                          "Document",
-                          "Journey",
-                          "Message",
-                          "Mission",
-                          "Obligation",
-                          "Person"
-                        ]
                       }
+                    },
+                    "authorUserId": {
+                      "t": "string"
+                    },
+                    "createdAt": {
+                      "t": "string"
+                    },
+                    "messageId": {
+                      "t": "string"
+                    },
+                    "recall": {
+                      "t": "object",
+                      "keys": {
+                        "actorLabel": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "at": {
+                          "t": "string"
+                        },
+                        "reasonCode": {
+                          "t": "enum",
+                          "values": [
+                            "AuthorRecall",
+                            "ModeratorRemoval"
+                          ]
+                        }
+                      }
+                    },
+                    "recalled": {
+                      "t": "literal",
+                      "value": true
+                    },
+                    "revisionNo": {
+                      "t": "number"
+                    },
+                    "seq": {
+                      "t": "number"
+                    },
+                    "threadId": {
+                      "t": "string"
                     }
                   }
-                },
-                "messageId": {
-                  "t": "string"
-                },
-                "revisionNo": {
-                  "t": "number"
-                },
-                "seq": {
-                  "t": "number"
-                },
-                "threadId": {
-                  "t": "string"
                 }
-              }
+              ]
             }
           }
         }
@@ -5951,80 +6073,143 @@
           "t": "object",
           "keys": {
             "message": {
-              "t": "object",
-              "keys": {
-                "attachments": {
-                  "t": "array",
-                  "item": {
-                    "t": "object",
-                    "keys": {
-                      "contentType": {
-                        "t": "string"
-                      },
-                      "documentId": {
-                        "t": "string"
-                      },
-                      "fileName": {
-                        "t": "string"
-                      },
-                      "sizeBytes": {
-                        "t": "number"
+              "t": "union",
+              "options": [
+                {
+                  "t": "object",
+                  "keys": {
+                    "attachments": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "contentType": {
+                            "t": "string"
+                          },
+                          "documentId": {
+                            "t": "string"
+                          },
+                          "fileName": {
+                            "t": "string"
+                          },
+                          "sizeBytes": {
+                            "t": "number"
+                          }
+                        }
                       }
+                    },
+                    "authorLabel": {
+                      "t": "nullable",
+                      "inner": {
+                        "t": "string"
+                      }
+                    },
+                    "authorUserId": {
+                      "t": "string"
+                    },
+                    "body": {
+                      "t": "string"
+                    },
+                    "createdAt": {
+                      "t": "string"
+                    },
+                    "links": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "targetId": {
+                            "t": "string"
+                          },
+                          "targetType": {
+                            "t": "enum",
+                            "values": [
+                              "Approval",
+                              "Credential",
+                              "Document",
+                              "Journey",
+                              "Message",
+                              "Mission",
+                              "Obligation",
+                              "Person"
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    "messageId": {
+                      "t": "string"
+                    },
+                    "recalled": {
+                      "t": "literal",
+                      "value": false
+                    },
+                    "revisionNo": {
+                      "t": "number"
+                    },
+                    "seq": {
+                      "t": "number"
+                    },
+                    "threadId": {
+                      "t": "string"
                     }
                   }
                 },
-                "authorLabel": {
-                  "t": "nullable",
-                  "inner": {
-                    "t": "string"
-                  }
-                },
-                "authorUserId": {
-                  "t": "string"
-                },
-                "body": {
-                  "t": "string"
-                },
-                "createdAt": {
-                  "t": "string"
-                },
-                "links": {
-                  "t": "array",
-                  "item": {
-                    "t": "object",
-                    "keys": {
-                      "targetId": {
+                {
+                  "t": "object",
+                  "keys": {
+                    "authorLabel": {
+                      "t": "nullable",
+                      "inner": {
                         "t": "string"
-                      },
-                      "targetType": {
-                        "t": "enum",
-                        "values": [
-                          "Approval",
-                          "Credential",
-                          "Document",
-                          "Journey",
-                          "Message",
-                          "Mission",
-                          "Obligation",
-                          "Person"
-                        ]
                       }
+                    },
+                    "authorUserId": {
+                      "t": "string"
+                    },
+                    "createdAt": {
+                      "t": "string"
+                    },
+                    "messageId": {
+                      "t": "string"
+                    },
+                    "recall": {
+                      "t": "object",
+                      "keys": {
+                        "actorLabel": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "at": {
+                          "t": "string"
+                        },
+                        "reasonCode": {
+                          "t": "enum",
+                          "values": [
+                            "AuthorRecall",
+                            "ModeratorRemoval"
+                          ]
+                        }
+                      }
+                    },
+                    "recalled": {
+                      "t": "literal",
+                      "value": true
+                    },
+                    "revisionNo": {
+                      "t": "number"
+                    },
+                    "seq": {
+                      "t": "number"
+                    },
+                    "threadId": {
+                      "t": "string"
                     }
                   }
-                },
-                "messageId": {
-                  "t": "string"
-                },
-                "revisionNo": {
-                  "t": "number"
-                },
-                "seq": {
-                  "t": "number"
-                },
-                "threadId": {
-                  "t": "string"
                 }
-              }
+              ]
             }
           }
         }
@@ -6598,80 +6783,143 @@
             "messages": {
               "t": "array",
               "item": {
-                "t": "object",
-                "keys": {
-                  "attachments": {
-                    "t": "array",
-                    "item": {
-                      "t": "object",
-                      "keys": {
-                        "contentType": {
-                          "t": "string"
-                        },
-                        "documentId": {
-                          "t": "string"
-                        },
-                        "fileName": {
-                          "t": "string"
-                        },
-                        "sizeBytes": {
-                          "t": "number"
+                "t": "union",
+                "options": [
+                  {
+                    "t": "object",
+                    "keys": {
+                      "attachments": {
+                        "t": "array",
+                        "item": {
+                          "t": "object",
+                          "keys": {
+                            "contentType": {
+                              "t": "string"
+                            },
+                            "documentId": {
+                              "t": "string"
+                            },
+                            "fileName": {
+                              "t": "string"
+                            },
+                            "sizeBytes": {
+                              "t": "number"
+                            }
+                          }
                         }
+                      },
+                      "authorLabel": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
+                      "authorUserId": {
+                        "t": "string"
+                      },
+                      "body": {
+                        "t": "string"
+                      },
+                      "createdAt": {
+                        "t": "string"
+                      },
+                      "links": {
+                        "t": "array",
+                        "item": {
+                          "t": "object",
+                          "keys": {
+                            "targetId": {
+                              "t": "string"
+                            },
+                            "targetType": {
+                              "t": "enum",
+                              "values": [
+                                "Approval",
+                                "Credential",
+                                "Document",
+                                "Journey",
+                                "Message",
+                                "Mission",
+                                "Obligation",
+                                "Person"
+                              ]
+                            }
+                          }
+                        }
+                      },
+                      "messageId": {
+                        "t": "string"
+                      },
+                      "recalled": {
+                        "t": "literal",
+                        "value": false
+                      },
+                      "revisionNo": {
+                        "t": "number"
+                      },
+                      "seq": {
+                        "t": "number"
+                      },
+                      "threadId": {
+                        "t": "string"
                       }
                     }
                   },
-                  "authorLabel": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "string"
-                    }
-                  },
-                  "authorUserId": {
-                    "t": "string"
-                  },
-                  "body": {
-                    "t": "string"
-                  },
-                  "createdAt": {
-                    "t": "string"
-                  },
-                  "links": {
-                    "t": "array",
-                    "item": {
-                      "t": "object",
-                      "keys": {
-                        "targetId": {
+                  {
+                    "t": "object",
+                    "keys": {
+                      "authorLabel": {
+                        "t": "nullable",
+                        "inner": {
                           "t": "string"
-                        },
-                        "targetType": {
-                          "t": "enum",
-                          "values": [
-                            "Approval",
-                            "Credential",
-                            "Document",
-                            "Journey",
-                            "Message",
-                            "Mission",
-                            "Obligation",
-                            "Person"
-                          ]
                         }
+                      },
+                      "authorUserId": {
+                        "t": "string"
+                      },
+                      "createdAt": {
+                        "t": "string"
+                      },
+                      "messageId": {
+                        "t": "string"
+                      },
+                      "recall": {
+                        "t": "object",
+                        "keys": {
+                          "actorLabel": {
+                            "t": "nullable",
+                            "inner": {
+                              "t": "string"
+                            }
+                          },
+                          "at": {
+                            "t": "string"
+                          },
+                          "reasonCode": {
+                            "t": "enum",
+                            "values": [
+                              "AuthorRecall",
+                              "ModeratorRemoval"
+                            ]
+                          }
+                        }
+                      },
+                      "recalled": {
+                        "t": "literal",
+                        "value": true
+                      },
+                      "revisionNo": {
+                        "t": "number"
+                      },
+                      "seq": {
+                        "t": "number"
+                      },
+                      "threadId": {
+                        "t": "string"
                       }
                     }
-                  },
-                  "messageId": {
-                    "t": "string"
-                  },
-                  "revisionNo": {
-                    "t": "number"
-                  },
-                  "seq": {
-                    "t": "number"
-                  },
-                  "threadId": {
-                    "t": "string"
                   }
-                }
+                ]
               }
             },
             "myLastReadSeq": {

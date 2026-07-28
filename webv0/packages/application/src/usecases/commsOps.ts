@@ -22,12 +22,17 @@
 import {
   type Actor,
   type CommsMessageView,
+  type CommsRecallReason,
+  type CommsRecallView,
   type CommsThread,
   type ModuleEntitlement,
   type PostCommsMessageInput,
   COMMS_MODULE_KEY,
   COMMS_MESSAGES_PAGE_MAX,
+  COMMS_AUTHOR_RECALL_WINDOW_MS,
   ConflictError,
+  ForbiddenError,
+  ValidationError,
   formatDocumentId,
   formatMessageId,
   formatThreadId,
@@ -35,7 +40,7 @@ import {
   NotFoundError,
   postCommsMessageInputSchema,
 } from '@c3web/domain';
-import { assertReadPeople } from '@c3web/authz';
+import { assertReadPeople, canManageMissions } from '@c3web/authz';
 import type { Persistence, ReadStore } from '../ports';
 
 /** active AND inside the effective window — the write-side license test. */
@@ -59,6 +64,21 @@ async function assertViewCommsThread(reads: ReadStore, actor: Actor, thread: Com
     return;
   }
   throw new NotFoundError('Thread', thread.threadId);
+}
+
+/**
+ * Block 6 (disposition item 7): moderator standing for a reasoned removal.
+ * A thread member who manages the anchoring domain — mission management is
+ * the existing authority for a mission-anchored thread, reused rather than
+ * invented (a new moderator role would be product surface this ruling does
+ * not authorize).
+ */
+async function canModerateCommsThread(reads: ReadStore, actor: Actor, thread: CommsThread): Promise<boolean> {
+  if (!canManageMissions(actor.role)) return false;
+  if (thread.kind === 'anchored' && thread.anchorType === 'Mission' && thread.anchorId) {
+    return (await reads.getMissionById(thread.anchorId)) !== null;
+  }
+  return false;
 }
 
 /**
@@ -86,6 +106,11 @@ export async function commsDocReadGuard(
         ? await reads.getCommsMessageByMessageId(ownerId)
         : await reads.getCommsObligationByObligationId(ownerId);
     if (!ownerRef) throw conceal;
+    // R2-02-C9 (Block 6): the guard CONSULTS TOMBSTONE STATE. Without this a
+    // known attachment id stayed authorized forever after recall — the bytes
+    // outliving the message is the whole defect. Denial is this document's
+    // own 404, per the NEO-DOC-01 ruling already in force (not re-decided).
+    if (ownerType === 'CommsMessage' && (await reads.getCommsMessageRecall(ownerId)) !== null) throw conceal;
     const thread = await reads.getCommsThreadByThreadId(ownerRef.threadId);
     if (!thread) throw conceal;
     await assertViewCommsThread(reads, actor, thread);
@@ -323,4 +348,103 @@ export async function registerCommsAttachment(
   const view = await reads.getCommsMessageByMutation(actor.userId, upload.clientMutationId);
   if (!view) throw new NotFoundError('Message', upload.clientMutationId);
   return view;
+}
+
+/**
+ * Block 6 (R2-02, Model B): RECALL a message — the body and its attachments
+ * become unreachable through every consumer, while the tombstone RENDERS.
+ *
+ * The two paths, per the disposition:
+ *   - AUTHOR RECALL (item 5, ratified): reason-free, the author's own message,
+ *     inside the 15-minute window. "I just posted that wrong", not history
+ *     revision.
+ *   - MODERATOR REMOVAL (item 7): a REASONED act — the note is mandatory —
+ *     available to a thread member with mission-management standing, at any
+ *     age. The two are distinguished on the wire so the placeholder can say
+ *     which happened (item 5's second half).
+ *
+ * RECALL NEVER CASCADES (exclusion 9 / item 6): where an obligation, approval,
+ * Document or financial fact already derives from the message, the recall
+ * SUCCEEDS on the message and the caller is told plainly that the downstream
+ * facts remain — silence there is the same lie in a smaller font.
+ *
+ * Idempotent: a second recall of the same message returns the standing
+ * tombstone rather than erroring (the writer's UNIQUE makes it a no-op).
+ */
+export async function recallMissionMessage(
+  p: Persistence,
+  actor: Actor,
+  messageId: string,
+  input: { reasonCode: CommsRecallReason; moderationNote?: string | null },
+): Promise<{ recall: CommsRecallView; downstreamFactsRemain: boolean }> {
+  const conceal = new NotFoundError('CommsMessage', messageId);
+  const reads = p.reads.forActor(actor);
+
+  const ent = await reads.getModuleEntitlement(COMMS_MODULE_KEY);
+  if (!ent) throw conceal; // never-entitled: module state never leaks
+  const message = await reads.getCommsMessageByMessageId(messageId);
+  if (!message) throw conceal;
+  const thread = await reads.getCommsThreadByThreadId(message.threadId);
+  if (!thread) throw conceal;
+  // Read standing first — a non-member learns nothing, not even existence.
+  await assertViewCommsThread(reads, actor, thread);
+
+  // Already recalled → return the standing tombstone (idempotent, no error).
+  const standing = await reads.getCommsMessageRecall(messageId);
+  if (standing) return { recall: standing, downstreamFactsRemain: await hasDownstreamFacts(reads, messageId) };
+
+  // A lapsed licence reads what exists but writes nothing (R2-C10: recall
+  // gains no survives-lapse superpower).
+  if (!isEntitlementWritable(ent)) {
+    throw new ForbiddenError('This tenant’s Comms licence is read-only.', { module: COMMS_MODULE_KEY });
+  }
+
+  const full = await reads.getCommsMessageForRecall(messageId);
+  if (!full) throw conceal;
+  const isAuthor = full.authorUserId === actor.userId;
+  const ageMs = Date.now() - new Date(full.createdAt).getTime();
+
+  if (input.reasonCode === 'AuthorRecall') {
+    if (!isAuthor) throw new ForbiddenError('Only the author may recall their own message.', { messageId });
+    if (ageMs > COMMS_AUTHOR_RECALL_WINDOW_MS) {
+      throw new ForbiddenError('The author recall window has closed; a moderator removal is the remaining path.', { messageId });
+    }
+  } else {
+    // ModeratorRemoval — reasoned by construction.
+    if (!(await canModerateCommsThread(reads, actor, thread))) {
+      throw new ForbiddenError('Your role may not remove another member’s message.', { messageId });
+    }
+    if (!input.moderationNote || input.moderationNote.trim() === '') {
+      throw new ValidationError('A moderator removal requires a note — a reasoned act, never a silent one.');
+    }
+  }
+
+  await p.writes.transaction(actor, async (tx) => {
+    await tx.insertCommsMessageTombstone({
+      messageId,
+      actorUserId: actor.userId,
+      actorLabel: actor.displayName,
+      reasonCode: input.reasonCode,
+      moderationNote: input.moderationNote?.trim() ?? null,
+    });
+    await tx.appendAuditEvent({
+      entityType: 'CommsMessage',
+      entityId: messageId,
+      action: 'CommsMessageRecalled',
+      actor: actor.identity,
+      // N-2 (already in force): audit is a META-channel — the field NAMES of
+      // what became unreachable, never the recalled body.
+      before: { body: null, links: null, attachments: null },
+      after: { recalled: null },
+    });
+  });
+
+  const recall = await reads.getCommsMessageRecall(messageId);
+  if (!recall) throw new Error('tombstone written but not readable');
+  return { recall, downstreamFactsRemain: await hasDownstreamFacts(reads, messageId) };
+}
+
+/** Item 6: recall never cascades — this reports, it does not remove. */
+async function hasDownstreamFacts(reads: ReadStore, messageId: string): Promise<boolean> {
+  return (await reads.countCommsMessageDownstreamFacts(messageId)) > 0;
 }

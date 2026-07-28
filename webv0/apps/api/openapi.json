@@ -13329,103 +13329,184 @@
                     "messages": {
                       "type": "array",
                       "items": {
-                        "type": "object",
-                        "properties": {
-                          "messageId": {
-                            "type": "string"
-                          },
-                          "threadId": {
-                            "type": "string"
-                          },
-                          "seq": {
-                            "type": "integer"
-                          },
-                          "authorUserId": {
-                            "type": "string"
-                          },
-                          "authorLabel": {
-                            "type": "string",
-                            "nullable": true
-                          },
-                          "body": {
-                            "type": "string"
-                          },
-                          "revisionNo": {
-                            "type": "integer"
-                          },
-                          "links": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "targetType": {
-                                  "type": "string",
-                                  "enum": [
-                                    "Approval",
-                                    "Mission",
-                                    "Journey",
-                                    "Person",
-                                    "Credential",
-                                    "Document",
-                                    "Message",
-                                    "Obligation"
-                                  ]
-                                },
-                                "targetId": {
-                                  "type": "string"
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "recalled": {
+                                "type": "boolean",
+                                "enum": [
+                                  false
+                                ]
+                              },
+                              "messageId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "seq": {
+                                "type": "integer"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "authorLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "revisionNo": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": "string"
+                              },
+                              "links": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "targetType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Approval",
+                                        "Mission",
+                                        "Journey",
+                                        "Person",
+                                        "Credential",
+                                        "Document",
+                                        "Message",
+                                        "Obligation"
+                                      ]
+                                    },
+                                    "targetId": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "targetType",
+                                    "targetId"
+                                  ],
+                                  "additionalProperties": false
                                 }
                               },
-                              "required": [
-                                "targetType",
-                                "targetId"
-                              ],
-                              "additionalProperties": false
-                            }
-                          },
-                          "attachments": {
-                            "type": "array",
-                            "items": {
-                              "type": "object",
-                              "properties": {
-                                "documentId": {
-                                  "type": "string"
-                                },
-                                "fileName": {
-                                  "type": "string"
-                                },
-                                "contentType": {
-                                  "type": "string"
-                                },
-                                "sizeBytes": {
-                                  "type": "integer"
+                              "attachments": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "documentId": {
+                                      "type": "string"
+                                    },
+                                    "fileName": {
+                                      "type": "string"
+                                    },
+                                    "contentType": {
+                                      "type": "string"
+                                    },
+                                    "sizeBytes": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "documentId",
+                                    "fileName",
+                                    "contentType",
+                                    "sizeBytes"
+                                  ],
+                                  "additionalProperties": false
                                 }
-                              },
-                              "required": [
-                                "documentId",
-                                "fileName",
-                                "contentType",
-                                "sizeBytes"
-                              ],
-                              "additionalProperties": false
-                            }
+                              }
+                            },
+                            "required": [
+                              "recalled",
+                              "messageId",
+                              "threadId",
+                              "seq",
+                              "authorUserId",
+                              "authorLabel",
+                              "revisionNo",
+                              "createdAt",
+                              "body",
+                              "links",
+                              "attachments"
+                            ],
+                            "additionalProperties": false
                           },
-                          "createdAt": {
-                            "type": "string"
+                          {
+                            "type": "object",
+                            "properties": {
+                              "recalled": {
+                                "type": "boolean",
+                                "enum": [
+                                  true
+                                ]
+                              },
+                              "messageId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "seq": {
+                                "type": "integer"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "authorLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "revisionNo": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "recall": {
+                                "type": "object",
+                                "properties": {
+                                  "reasonCode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "AuthorRecall",
+                                      "ModeratorRemoval"
+                                    ]
+                                  },
+                                  "actorLabel": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "at": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "reasonCode",
+                                  "actorLabel",
+                                  "at"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "recalled",
+                              "messageId",
+                              "threadId",
+                              "seq",
+                              "authorUserId",
+                              "authorLabel",
+                              "revisionNo",
+                              "createdAt",
+                              "recall"
+                            ],
+                            "additionalProperties": false
                           }
-                        },
-                        "required": [
-                          "messageId",
-                          "threadId",
-                          "seq",
-                          "authorUserId",
-                          "authorLabel",
-                          "body",
-                          "revisionNo",
-                          "links",
-                          "attachments",
-                          "createdAt"
-                        ],
-                        "additionalProperties": false
+                        ]
                       }
                     },
                     "myLastReadSeq": {
@@ -13526,107 +13607,278 @@
                   "type": "object",
                   "properties": {
                     "message": {
-                      "type": "object",
-                      "properties": {
-                        "messageId": {
-                          "type": "string"
-                        },
-                        "threadId": {
-                          "type": "string"
-                        },
-                        "seq": {
-                          "type": "integer"
-                        },
-                        "authorUserId": {
-                          "type": "string"
-                        },
-                        "authorLabel": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "body": {
-                          "type": "string"
-                        },
-                        "revisionNo": {
-                          "type": "integer"
-                        },
-                        "links": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "targetType": {
-                                "type": "string",
-                                "enum": [
-                                  "Approval",
-                                  "Mission",
-                                  "Journey",
-                                  "Person",
-                                  "Credential",
-                                  "Document",
-                                  "Message",
-                                  "Obligation"
-                                ]
-                              },
-                              "targetId": {
-                                "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "recalled": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "messageId": {
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "type": "string"
+                            },
+                            "seq": {
+                              "type": "integer"
+                            },
+                            "authorUserId": {
+                              "type": "string"
+                            },
+                            "authorLabel": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "body": {
+                              "type": "string"
+                            },
+                            "links": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "targetType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "Approval",
+                                      "Mission",
+                                      "Journey",
+                                      "Person",
+                                      "Credential",
+                                      "Document",
+                                      "Message",
+                                      "Obligation"
+                                    ]
+                                  },
+                                  "targetId": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "targetType",
+                                  "targetId"
+                                ],
+                                "additionalProperties": false
                               }
                             },
-                            "required": [
-                              "targetType",
-                              "targetId"
-                            ],
-                            "additionalProperties": false
-                          }
-                        },
-                        "attachments": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "documentId": {
-                                "type": "string"
-                              },
-                              "fileName": {
-                                "type": "string"
-                              },
-                              "contentType": {
-                                "type": "string"
-                              },
-                              "sizeBytes": {
-                                "type": "integer"
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "documentId": {
+                                    "type": "string"
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "documentId",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes"
+                                ],
+                                "additionalProperties": false
                               }
-                            },
-                            "required": [
-                              "documentId",
-                              "fileName",
-                              "contentType",
-                              "sizeBytes"
-                            ],
-                            "additionalProperties": false
-                          }
+                            }
+                          },
+                          "required": [
+                            "recalled",
+                            "messageId",
+                            "threadId",
+                            "seq",
+                            "authorUserId",
+                            "authorLabel",
+                            "revisionNo",
+                            "createdAt",
+                            "body",
+                            "links",
+                            "attachments"
+                          ],
+                          "additionalProperties": false
                         },
-                        "createdAt": {
-                          "type": "string"
+                        {
+                          "type": "object",
+                          "properties": {
+                            "recalled": {
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "messageId": {
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "type": "string"
+                            },
+                            "seq": {
+                              "type": "integer"
+                            },
+                            "authorUserId": {
+                              "type": "string"
+                            },
+                            "authorLabel": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "recall": {
+                              "type": "object",
+                              "properties": {
+                                "reasonCode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "AuthorRecall",
+                                    "ModeratorRemoval"
+                                  ]
+                                },
+                                "actorLabel": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "at": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "reasonCode",
+                                "actorLabel",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "recalled",
+                            "messageId",
+                            "threadId",
+                            "seq",
+                            "authorUserId",
+                            "authorLabel",
+                            "revisionNo",
+                            "createdAt",
+                            "recall"
+                          ],
+                          "additionalProperties": false
                         }
-                      },
-                      "required": [
-                        "messageId",
-                        "threadId",
-                        "seq",
-                        "authorUserId",
-                        "authorLabel",
-                        "body",
-                        "revisionNo",
-                        "links",
-                        "attachments",
-                        "createdAt"
-                      ],
-                      "additionalProperties": false
+                      ]
                     }
                   },
                   "required": [
                     "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comms/messages/{messageId}/recall": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reasonCode": {
+                    "type": "string",
+                    "enum": [
+                      "AuthorRecall",
+                      "ModeratorRemoval"
+                    ]
+                  },
+                  "moderationNote": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 2000
+                  }
+                },
+                "required": [
+                  "reasonCode"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^MSG-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "messageId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "recall": {
+                      "type": "object",
+                      "properties": {
+                        "reasonCode": {
+                          "type": "string",
+                          "enum": [
+                            "AuthorRecall",
+                            "ModeratorRemoval"
+                          ]
+                        },
+                        "actorLabel": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "at": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "reasonCode",
+                        "actorLabel",
+                        "at"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "downstreamFactsRemain": {
+                      "type": "boolean"
+                    }
+                  },
+                  "required": [
+                    "recall",
+                    "downstreamFactsRemain"
                   ],
                   "additionalProperties": false
                 }
@@ -16238,103 +16490,184 @@
                   "type": "object",
                   "properties": {
                     "message": {
-                      "type": "object",
-                      "properties": {
-                        "messageId": {
-                          "type": "string"
-                        },
-                        "threadId": {
-                          "type": "string"
-                        },
-                        "seq": {
-                          "type": "integer"
-                        },
-                        "authorUserId": {
-                          "type": "string"
-                        },
-                        "authorLabel": {
-                          "type": "string",
-                          "nullable": true
-                        },
-                        "body": {
-                          "type": "string"
-                        },
-                        "revisionNo": {
-                          "type": "integer"
-                        },
-                        "links": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "targetType": {
-                                "type": "string",
-                                "enum": [
-                                  "Approval",
-                                  "Mission",
-                                  "Journey",
-                                  "Person",
-                                  "Credential",
-                                  "Document",
-                                  "Message",
-                                  "Obligation"
-                                ]
-                              },
-                              "targetId": {
-                                "type": "string"
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "recalled": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "messageId": {
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "type": "string"
+                            },
+                            "seq": {
+                              "type": "integer"
+                            },
+                            "authorUserId": {
+                              "type": "string"
+                            },
+                            "authorLabel": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "body": {
+                              "type": "string"
+                            },
+                            "links": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "targetType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "Approval",
+                                      "Mission",
+                                      "Journey",
+                                      "Person",
+                                      "Credential",
+                                      "Document",
+                                      "Message",
+                                      "Obligation"
+                                    ]
+                                  },
+                                  "targetId": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "targetType",
+                                  "targetId"
+                                ],
+                                "additionalProperties": false
                               }
                             },
-                            "required": [
-                              "targetType",
-                              "targetId"
-                            ],
-                            "additionalProperties": false
-                          }
-                        },
-                        "attachments": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "documentId": {
-                                "type": "string"
-                              },
-                              "fileName": {
-                                "type": "string"
-                              },
-                              "contentType": {
-                                "type": "string"
-                              },
-                              "sizeBytes": {
-                                "type": "integer"
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "documentId": {
+                                    "type": "string"
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "documentId",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes"
+                                ],
+                                "additionalProperties": false
                               }
-                            },
-                            "required": [
-                              "documentId",
-                              "fileName",
-                              "contentType",
-                              "sizeBytes"
-                            ],
-                            "additionalProperties": false
-                          }
+                            }
+                          },
+                          "required": [
+                            "recalled",
+                            "messageId",
+                            "threadId",
+                            "seq",
+                            "authorUserId",
+                            "authorLabel",
+                            "revisionNo",
+                            "createdAt",
+                            "body",
+                            "links",
+                            "attachments"
+                          ],
+                          "additionalProperties": false
                         },
-                        "createdAt": {
-                          "type": "string"
+                        {
+                          "type": "object",
+                          "properties": {
+                            "recalled": {
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "messageId": {
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "type": "string"
+                            },
+                            "seq": {
+                              "type": "integer"
+                            },
+                            "authorUserId": {
+                              "type": "string"
+                            },
+                            "authorLabel": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "recall": {
+                              "type": "object",
+                              "properties": {
+                                "reasonCode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "AuthorRecall",
+                                    "ModeratorRemoval"
+                                  ]
+                                },
+                                "actorLabel": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "at": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "reasonCode",
+                                "actorLabel",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "recalled",
+                            "messageId",
+                            "threadId",
+                            "seq",
+                            "authorUserId",
+                            "authorLabel",
+                            "revisionNo",
+                            "createdAt",
+                            "recall"
+                          ],
+                          "additionalProperties": false
                         }
-                      },
-                      "required": [
-                        "messageId",
-                        "threadId",
-                        "seq",
-                        "authorUserId",
-                        "authorLabel",
-                        "body",
-                        "revisionNo",
-                        "links",
-                        "attachments",
-                        "createdAt"
-                      ],
-                      "additionalProperties": false
+                      ]
                     }
                   },
                   "required": [

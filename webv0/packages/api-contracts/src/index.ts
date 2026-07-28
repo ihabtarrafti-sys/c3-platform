@@ -667,29 +667,66 @@ export const commsMessageAttachmentSchema = z.object({
   contentType: z.string(),
   sizeBytes: z.number().int(),
 });
-export const commsMessageSchema = z.object({
+/** Block 6 (R2-02): the recall tombstone's rendered facts — who removed it,
+ *  under which reason CLASS, when. The moderation note is deliberately NOT on
+ *  the wire: the class is the disclosure, the note is the record. */
+export const commsRecallSchema = z.object({
+  reasonCode: z.enum(['AuthorRecall', 'ModeratorRemoval']),
+  actorLabel: z.string().nullable(),
+  at: z.string(),
+});
+
+const commsMessageSpine = {
   messageId: z.string(),
   threadId: z.string(),
   seq: z.number().int(),
   authorUserId: z.string(),
   authorLabel: z.string().nullable(),
-  body: z.string(),
   revisionNo: z.number().int(),
-  links: z.array(commsMessageLinkSchema),
-  attachments: z.array(commsMessageAttachmentSchema),
   createdAt: z.string(),
-});
+};
+
+/**
+ * THE DISCRIMINATED MESSAGE (R2-02 disposition item 3). The recalled variant
+ * has NO body/links/attachments KEYS — structural absence on the wire, not a
+ * flag an old client can ignore. `.strict()` on both arms means a body cannot
+ * ride along even by accident: the schema itself refuses to serialize it.
+ */
+export const commsMessageSchema = z.discriminatedUnion('recalled', [
+  z.object({
+    recalled: z.literal(false),
+    ...commsMessageSpine,
+    body: z.string(),
+    links: z.array(commsMessageLinkSchema),
+    attachments: z.array(commsMessageAttachmentSchema),
+  }).strict(),
+  z.object({
+    recalled: z.literal(true),
+    ...commsMessageSpine,
+    recall: commsRecallSchema,
+  }).strict(),
+]);
 export const missionThreadResponseSchema = z.object({
   thread: commsThreadSchema.nullable(),
   messages: z.array(commsMessageSchema),
   myLastReadSeq: z.number().int().nullable(),
 });
 export const commsMessageResponseSchema = z.object({ message: commsMessageSchema });
+export const commsRecallResponseSchema = z.object({
+  recall: commsRecallSchema,
+  /** Item 6: recall never cascades — say so plainly when facts derive from it. */
+  downstreamFactsRemain: z.boolean(),
+});
+export const commsRecallRequestSchema = z.object({
+  reasonCode: z.enum(['AuthorRecall', 'ModeratorRemoval']),
+  moderationNote: z.string().trim().min(1).max(2000).optional(),
+});
 export const commsPageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   beforeSeq: z.coerce.number().int().min(1).optional(),
 });
 export const commsMissionParamSchema = z.object({ missionId: z.string().regex(/^MSN-\d{4,}$/) });
+export const commsMessageParamSchema = z.object({ messageId: z.string().regex(/^MSG-\d{4,}$/) });
 export { postCommsMessageInputSchema };
 
 // The Obligation: delivered ≠ accepted ≠ done — the domain schemas ARE the wire.

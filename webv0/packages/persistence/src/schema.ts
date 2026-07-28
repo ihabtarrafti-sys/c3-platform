@@ -867,6 +867,21 @@ export const commsMessageRevision = pgTable('comms_message_revision', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// 0091: the recall tombstone. ⚠️ The SQL table has existed since 0091 with an
+// append-only trigger and forced RLS; it was NEVER mirrored here because no
+// product code had ever written or read it (instance 7's purest form). Block 6
+// (R2-02) makes it load-bearing.
+export const commsMessageTombstone = pgTable('comms_message_tombstone', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull(),
+  messageId: text('message_id').notNull(),
+  actorUserId: uuid('actor_user_id').notNull(),
+  actorLabel: text('actor_label'),
+  reasonCode: text('reason_code').notNull(),
+  moderationNote: text('moderation_note'),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // 0091: "link, never execute" chips on a revision; every render re-gates.
 export const commsObjectLink = pgTable('comms_object_link', {
   id: uuid('id').primaryKey().defaultRandom(),

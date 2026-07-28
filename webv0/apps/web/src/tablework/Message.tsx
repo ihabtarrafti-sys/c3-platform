@@ -131,17 +131,32 @@ export function Message({ message }: { message: CommsMessageDto }) {
           <strong>{message.authorLabel ?? 'Member'}</strong>
           <time dateTime={message.createdAt}>{hhmm}</time>
         </header>
-        <p>{message.body}</p>
-        {message.attachments.map((attachment) => (
-          <AttachmentRow key={attachment.documentId} attachment={attachment} />
-        ))}
-        {message.links.length > 0 ? (
-          <div className="message-actions" data-tablework="ObjectLinks">
-            {message.links.map((link) => (
-              <ObjectLinkChip key={`${link.targetType}:${link.targetId}`} link={link} />
+        {message.recalled ? (
+          /* Block 6 (R2-02 item 5): the PLACEHOLDER. The wire's recalled arm
+             carries no body/links/attachments AT ALL — this branch is the
+             type system forcing the narrowing, not a courtesy check. The two
+             removal classes render distinctly, and the occurrence is honest:
+             a recall that hides itself is the same lie the other way. */
+          <p className="record-quiet record-note" data-testid={`msg-recalled-${message.messageId}`}>
+            {message.recall.reasonCode === 'ModeratorRemoval'
+              ? `Removed by ${message.recall.actorLabel ?? 'a moderator'}.`
+              : 'Recalled by the author.'}
+          </p>
+        ) : (
+          <>
+            <p>{message.body}</p>
+            {message.attachments.map((attachment) => (
+              <AttachmentRow key={attachment.documentId} attachment={attachment} />
             ))}
-          </div>
-        ) : null}
+            {message.links.length > 0 ? (
+              <div className="message-actions" data-tablework="ObjectLinks">
+                {message.links.map((link) => (
+                  <ObjectLinkChip key={`${link.targetType}:${link.targetId}`} link={link} />
+                ))}
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
     </article>
   );

@@ -1874,6 +1874,25 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return r.id;
     },
 
+    // Block 6 (R2-02): the tombstone writer. IDEMPOTENT by the table's own
+    // UNIQUE (tenant_id, message_id) — a repeated recall is a no-op returning
+    // false, never a duplicate row and never an error the caller must parse.
+    async insertCommsMessageTombstone(row): Promise<boolean> {
+      const res = await db
+        .insert(schema.commsMessageTombstone)
+        .values({
+          tenantId,
+          messageId: row.messageId,
+          actorUserId: row.actorUserId,
+          actorLabel: row.actorLabel,
+          reasonCode: row.reasonCode,
+          moderationNote: row.moderationNote,
+        })
+        .onConflictDoNothing()
+        .returning();
+      return res.length > 0;
+    },
+
     async insertCommsThreadEvent(row): Promise<void> {
       await db.insert(schema.commsThreadEvent).values({
         tenantId,

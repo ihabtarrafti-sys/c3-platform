@@ -4,7 +4,7 @@
  */
 import { delegationState, ADD_PERSON_PII_FIELDS } from '@c3web/domain';
 import type { PayloadDisclosure } from '@c3web/authz';
-import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person } from '@c3web/domain';
+import type { AgreementTerm, Apparel, C3Document, Approval, ApprovalEvent, AuditEvent, Credential, Entity, FxRate, Invoice, Journey, Team, TeamMembership, Distribution, DistributionShare, Claim, Delegation, Beneficiary, IntakeLink, IntakeSubmission, Subscription, SavedView, Departure, Kit, Member, Mission, MissionBudget, MissionLine, MissionParticipant, MissionPnl, Person, CommsMessageView} from '@c3web/domain';
 import type { AgreementView } from '@c3web/application';
 import type { AgreementDto, AgreementTermDto, ApparelDto, DocumentDto, ApprovalDto, CredentialDto, EntityDto, FxRateDto, InvoiceDto, IntakeLinkDto, IntakeSubmissionDto, SubscriptionDto, SavedViewDto, DepartureDto, JourneyDto, TeamDto, TeamMembershipDto, DistributionDto, DistributionShareDto, ClaimDto, DelegationDto, BeneficiaryDto, ApprovalSummaryDto, KitDto, MemberDto, MissionBudgetDto, MissionDto, MissionLineDto, MissionParticipantDto, MissionPnlDto, MissionPnlV2Dto, PersonDto } from '@c3web/api-contracts';
 
@@ -809,4 +809,25 @@ export function toAuditEventDto(e: AuditEvent, d: PayloadDisclosure) {
   const changedFields = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort();
   const entityId = e.entityType === 'Member' && !d.members ? null : e.entityId;
   return { entityType: e.entityType, entityId, action: e.action, actor: e.actor, at: e.at, changedFields };
+}
+
+/**
+ * Block 6 (R2-02): the message view → the DISCRIMINATED wire shape. The
+ * `recalled` literal is what the contract's discriminated union narrows on;
+ * the recalled arm carries NO body/links/attachments keys, and the contract's
+ * `.strict()` refuses them even if a future edit tried. Structural absence,
+ * end to end — the domain view has no field, the wire schema has no key.
+ */
+export function toCommsMessageDto(m: CommsMessageView) {
+  const spine = {
+    messageId: m.messageId,
+    threadId: m.threadId,
+    seq: m.seq,
+    authorUserId: m.authorUserId,
+    authorLabel: m.authorLabel,
+    revisionNo: m.revisionNo,
+    createdAt: m.createdAt,
+  };
+  if (m.recalled) return { recalled: true as const, ...spine, recall: m.recalled };
+  return { recalled: false as const, ...spine, body: m.body, links: m.links, attachments: m.attachments };
 }
