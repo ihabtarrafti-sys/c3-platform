@@ -117,15 +117,19 @@ function AgreementsRegister() {
       // agreement.
       //
       // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-      // GAP: the frozen kit's only amount parser is `positiveAmountToMinor`, which
-      //   rejects 0. This register accepts a 0 value, so the F3 money-input
-      //   consolidation has no legal target on this screen.
-      // WORKAROUND: keeps the pre-pivot `parseDecimalToMinor` from @c3web/domain,
-      //   plus the strict `=== null` guard below that separates "malformed" (null)
-      //   from "no value stated" (undefined) — a distinction the kit parser, which
-      //   returns null for both, cannot express.
-      // CLASS: additive  — a zero-permitting parser (or an explicit zero policy on
-      //   the existing one) is a NEW export; nothing already converted changes.
+      // ⚠️ REWRITTEN 2026-07-28 (Neural ruling — rewrite, do not delete): this
+      //   marker's original claim, "the frozen kit's only amount parser is
+      //   `positiveAmountToMinor`", went stale when F-1 shipped
+      //   `amountToMinorAllowingZero` (tablework/index.ts). The STATED gap is
+      //   closed; the F3 consolidation HAS a legal target on this screen now.
+      //   Do not add a second zero-allowing parser — one already exists.
+      // WHAT IS STILL OWED: the call-site migration (F-1's close-out: a legal
+      //   target "did not close them"). The kit export IS `parseDecimalToMinor`
+      //   verbatim, so the swap is behaviour-identical. The `undefined` ("no
+      //   value stated", from the `trim() === ''` branch) vs `null`
+      //   ("malformed") separation is CALL-SITE logic and remains here either
+      //   way — the parser never sees the empty string, so no kit change is
+      //   needed for it.
       const parsedCents = valueUsd.trim() === '' ? undefined : parseDecimalToMinor(valueUsd);
       if (parsedCents === null) {
         notify('error', 'The value must be a plain amount with at most 2 decimals (e.g. 2500 or 2500.50).');

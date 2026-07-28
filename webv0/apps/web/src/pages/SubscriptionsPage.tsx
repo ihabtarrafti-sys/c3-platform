@@ -105,16 +105,17 @@ function SubscriptionsRegister() {
 
   async function submit(): Promise<void> {
     // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-    // GAP: the kit ships exactly one amount parser — `positiveAmountToMinor` —
-    //   and it REJECTS zero. This register accepts 0.00 today, so adopting it
-    //   would make a 0.00 subscription unsaveable. money.ts already ships the
-    //   zero-allowed / zero-rejected PAIR on the percent side (percentToBpsAllowingZero /
-    //   positivePercentToBps); the amount side has only the rejecting half.
-    // WORKAROUND: bypass the kit and call the domain's `parseDecimalToMinor`
-    //   directly, guarded with `=== null` (not `== null`, not falsy) so 0 lives.
-    // CLASS: additive — an `amountToMinor` export beside `positiveAmountToMinor`
-    //   completes the pair the module's own naming already implies, and changes
-    //   no converted call site.
+    // ⚠️ REWRITTEN 2026-07-28 (Neural ruling — rewrite, do not delete): this
+    //   marker's original claim, "the kit ships exactly one amount parser",
+    //   went stale when F-1 shipped `amountToMinorAllowingZero`
+    //   (tablework/index.ts). The STATED gap is closed; do not add a second
+    //   zero-allowing parser — one already exists.
+    // WHAT IS STILL OWED: the call-site migration. F-1's own close-out: it
+    //   "gave them a legal target for the first time; it did not close them."
+    //   This site still calls the domain's `parseDecimalToMinor` directly; the
+    //   kit export IS that call verbatim, so the swap is behaviour-identical —
+    //   but it is F-1 migration-pass work, not a drive-by, and the `=== null`
+    //   guard (0 lives) stays visible at the call site either way.
     const amountMinor = parseDecimalToMinor(f.amount);
     // `=== null` (not `== null`, not falsy): 0 is a valid amount here.
     if (amountMinor === null) return notify('error', 'Enter a valid amount (up to 2 decimals).');
