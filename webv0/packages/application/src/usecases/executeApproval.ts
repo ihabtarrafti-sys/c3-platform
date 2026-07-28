@@ -48,6 +48,7 @@ import {
   assertTermShape,
   NotFoundError,
   ParticipantConflictError,
+  note,
 } from '@c3web/domain';
 import { assertExecuteApproval, assertTenantMatch, canExecuteApproval } from '@c3web/authz';
 import type { Persistence, WriteTx } from '../ports';
@@ -81,6 +82,10 @@ async function executeMemberOperation(
   actor: Actor,
   payload: MemberOperationPayload,
 ): Promise<{ entityId: string; action: AuditAction; before: Record<string, unknown> | null; after: Record<string, unknown>; note: string }> {
+  // N-1 (disclosure chapter): member notes reference the member by USER ID,
+  // never by email — the note channel is unprojected and reaches delegates
+  // without member-directory standing. The audit before/after keeps the
+  // richer shape under its own (F06/N-2) contract. RED-proven at the wire.
   switch (payload.operationType) {
     case 'ProvisionMember': {
       const { input } = payload;
@@ -97,7 +102,7 @@ async function executeMemberOperation(
         action: 'MemberProvisioned',
         before: null,
         after: { userId, email: input.email, role: input.role },
-        note: `Executed: provisioned member ${input.email} (${input.role})`,
+        note: note.composeNote`Executed: provisioned member ${note.id(userId)} (${note.token(input.role)})`,
       };
     }
     case 'ChangeRole': {
@@ -108,7 +113,7 @@ async function executeMemberOperation(
         action: 'MemberRoleChanged',
         before: { roles: previousRoles },
         after: { role: input.toRole, email: input.email },
-        note: `Executed: role changed to ${input.toRole} for ${input.email}`,
+        note: note.composeNote`Executed: role changed to ${note.token(input.toRole)} for ${note.id(input.targetUserId)}`,
       };
     }
     case 'DeactivateMember': {
@@ -119,7 +124,7 @@ async function executeMemberOperation(
         action: 'MemberDeactivated',
         before: { isActive: true },
         after: { isActive: false, mode, email: input.email },
-        note: `Executed: deactivated ${input.email} (${mode})`,
+        note: note.composeNote`Executed: deactivated member ${note.id(input.targetUserId)}`,
       };
     }
     case 'ReactivateMember': {
@@ -130,7 +135,7 @@ async function executeMemberOperation(
         action: 'MemberReactivated',
         before: { isActive: false },
         after: { isActive: true, mode, email: input.email },
-        note: `Executed: reactivated ${input.email}`,
+        note: note.composeNote`Executed: reactivated member ${note.id(input.targetUserId)}`,
       };
     }
   }
@@ -686,7 +691,7 @@ export async function executeApproval(
 
           const executed = await tx.updateApprovalStatus(approvalId, expectedVersion, { status: 'Executed', executedAt: new Date().toISOString(), executionError: null });
           if (!executed) throw new ConcurrencyError('Approval', approvalId);
-          await tx.appendApprovalEvent({ approvalId, fromStatus: approval.status, toStatus: 'Executed', actor: actor.identity, note: `Executed: added ${input.kind} term ${term.termId} to ${input.agreementId}` });
+          await tx.appendApprovalEvent({ approvalId, fromStatus: approval.status, toStatus: 'Executed', actor: actor.identity, note: note.composeNote`Executed: added term ${note.id(term.termId)} to ${note.id(input.agreementId)}` });
           await tx.appendAuditEvent({
             entityType: 'Agreement',
             entityId: input.agreementId,
@@ -932,7 +937,9 @@ export async function executeApproval(
             fromStatus: approval.status,
             toStatus: 'Executed',
             actor: actor.identity,
-            note: `Executed: ${deactivating ? 'deactivated' : 'reactivated'} ${input.personId} — ${input.reason}`,
+            note: deactivating
+              ? note.composeNote`Executed: deactivated ${note.id(input.personId)}`
+              : note.composeNote`Executed: reactivated ${note.id(input.personId)}`,
           });
           await tx.appendAuditEvent({
             entityType: 'Person',
@@ -1046,7 +1053,7 @@ export async function executeApproval(
             fromStatus: approval.status,
             toStatus: 'Executed',
             actor: actor.identity,
-            note: `Executed: beneficiary ${beneficiaryId} "${input.label}" for ${input.personId}`,
+            note: note.composeNote`Executed: beneficiary ${note.id(beneficiaryId)} for ${note.id(input.personId)}`,
           });
           await tx.appendAuditEvent({
             entityType: 'Beneficiary',

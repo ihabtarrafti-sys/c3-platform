@@ -218,3 +218,57 @@ describe('F13 - the mention fan-out validates its recipients', () => {
     expect(oBell.body).toContain(a.approvalId);
   });
 });
+
+describe('N-1 - the note channel is ID-and-enum-only at the producer', () => {
+  it('the AddBeneficiary submit note carries the person ID, never the bank label or bank name', async () => {
+    const pr = await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'Note Channel Person' } });
+    expect(pr.statusCode, pr.body).toBe(201);
+    const personId = (await governedExecute(pr.json().approval.approvalId, pr.json().approval.version)).person.personId as string;
+
+    const add = await post(tokens.ops, '/api/v1/beneficiaries/requests', {
+      input: { personId, label: 'Household Main', bankName: 'First Emirates Trust', bankCountry: 'UAE', currency: 'AED' },
+    });
+    expect(add.statusCode, add.body).toBe(201);
+    const approvalId = add.json().approval.approvalId as string;
+
+    // The submitted event's note is UNPROJECTED - it reaches every reader the
+    // surface reaches. It must reference the record by ID only.
+    const events = await app.inject({ method: 'GET', url: `/api/v1/approvals/${approvalId}/events`, headers: auth(tokens.owner) });
+    expect(events.statusCode, events.body).toBe(200);
+    expect(events.body, 'the bank LABEL is financial routing data and must not enter the note').not.toContain('Household Main');
+    expect(events.body, 'the bank NAME is financial routing data and must not enter the note').not.toContain('First Emirates Trust');
+    // POSITIVE CONTROL on the same body: the ID currency is present.
+    expect(events.body).toContain(personId);
+
+    // THE EXECUTE SIDE (found by the N-1 sweep, not the trace): the executed
+    // note carried the label too. Execute and re-assert on the full timeline.
+    const a2 = (await app.inject({ method: 'GET', url: `/api/v1/approvals/${approvalId}`, headers: auth(tokens.owner) })).json().approval;
+    await governedExecute(approvalId, a2.version);
+    const after = await app.inject({ method: 'GET', url: `/api/v1/approvals/${approvalId}/events`, headers: auth(tokens.owner) });
+    expect(after.body, 'the executed note must not carry the label either').not.toContain('Household Main');
+    expect(after.body).toContain('BEN-');
+  });
+
+  it('the executed member note carries the member user ID, never the email', async () => {
+    const submit = await post(tokens.ops, '/api/v1/members/changes', {
+      payload: { operationType: 'ProvisionMember', input: { email: 'note.probe@alpha.com', displayName: 'note.probe@alpha.com', role: 'management', identity: { provider: 'dev', issuerTenantId: 'dev', subject: 'oid-note-probe' } } },
+      reason: 'N-1 probe',
+    });
+    expect(submit.statusCode, submit.body).toBe(201);
+    const a = submit.json().approval;
+    await governedExecute(a.approvalId, a.version);
+
+    const events = await app.inject({ method: 'GET', url: `/api/v1/approvals/${a.approvalId}/events`, headers: auth(tokens.owner) });
+    expect(events.statusCode, events.body).toBe(200);
+    // The ACTOR fields legitimately carry acting identities (attribution);
+    // the TARGET email reaches the body only through the note - assert it out.
+    expect(events.body, 'the target member email must not enter the note').not.toContain('note.probe@alpha.com');
+
+    // POSITIVE CONTROL: the note references the created member by USER ID -
+    // fetched independently from the members register.
+    const members = await app.inject({ method: 'GET', url: '/api/v1/members', headers: auth(tokens.owner) });
+    const created = members.json().members.find((m: { email: string }) => m.email === 'note.probe@alpha.com');
+    expect(created, members.body).toBeTruthy();
+    expect(events.body).toContain(created.userId);
+  });
+});

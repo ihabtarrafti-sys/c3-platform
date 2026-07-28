@@ -16,6 +16,7 @@ export * from './businessIds';
 export * from './claim';
 export * from './calendar';
 export * from './comment';
+export * as note from './composeNote';
 export * from './comms';
 export * from './departure';
 export * from './delegation';

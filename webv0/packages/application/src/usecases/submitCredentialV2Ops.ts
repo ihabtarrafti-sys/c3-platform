@@ -20,6 +20,7 @@ import {
   retireBeneficiaryInputSchema,
   updateBeneficiaryInputSchema,
   updateCredentialFactsInputSchema,
+  note,
 } from '@c3web/domain';
 import { assertSubmitApproval } from '@c3web/authz';
 import type { Persistence } from '../ports';
@@ -113,7 +114,10 @@ export async function submitAddBeneficiary(
     targetPersonId: input.personId,
     targetId: null,
     input,
-    note: `AddBeneficiary request submitted: "${input.label}" (${input.bankName}, ${input.currency}) for ${input.personId}`,
+    // N-1: the note is ID-and-enum-only — the LABEL and BANK NAME are financial
+    // routing data on an unprojected channel. The reader entitled to them gets
+    // them from the projected record, not from here. RED-proven at the wire.
+    note: note.composeNote`AddBeneficiary request submitted for ${note.id(input.personId)}`,
     auditAfter: { personId: input.personId, label: input.label, bankName: input.bankName },
   }, command.revisionOf);
 }
@@ -155,7 +159,10 @@ export async function submitRetireBeneficiary(
     targetPersonId: current.personId ?? 'N/A-PAYEE', // dormant freelancer/vendor seats (0035)
     targetId: input.beneficiaryId,
     input,
-    note: `RetireBeneficiary request submitted for ${input.beneficiaryId}: ${input.reason}`,
+    // N-1 sweep: the caller's free-text REASON is dropped from the note — it
+    // already rides the approval's own reason field; duplicating it here put
+    // an unprojected copy on the events channel.
+    note: note.composeNote`RetireBeneficiary request submitted for ${note.id(input.beneficiaryId)}`,
     auditAfter: { beneficiaryId: input.beneficiaryId, retireReason: input.reason },
   }, command.revisionOf);
 }
