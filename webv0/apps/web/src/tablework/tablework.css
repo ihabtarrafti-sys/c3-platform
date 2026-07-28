@@ -922,6 +922,18 @@
   gap: var(--c3-space-3);
 }
 
+/* K5 — the bare vertical stack for a form that sits directly ON THE PAGE
+   (marker chapter). `.governed-extra` covers a stack inside a GovernedAction,
+   `.form-sheet-fields` inside a FormDrawer; this is the third position. The
+   8px rhythm is the carried Fluent value (--c3-space-2, exact). Per-site
+   geometry (max-width, margins) stays at the call site — it is layout, not
+   the primitive. */
+.tw-root .field-stack {
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--c3-space-2);
+}
+
 .tw-root .collection-filter-summary {
   margin: 0;
   color: var(--c3-ink-quiet);
@@ -1251,6 +1263,35 @@
   color: var(--c3-state-danger);
 }
 
+/* K3 — the CELL-SCALE half of the tone family (marker chapter; RULED, Neural
+   2026-07-28: one family, two scales — never a parallel scheme, never new
+   colour values). `.cell-note` is annotation text INSIDE a data cell, sized to
+   the cell (`.data-grid td.mono` = caption), where `.record-quiet`'s 14px
+   would render an aside larger than the figure it annotates. Same base ink,
+   same tone modifiers, same tokens as the page-scale half above. Emphasis is
+   a WEIGHT AXIS (`.strong`), not a size change — the owner-ruled amber
+   rates-missing cell is `.cell-note.warning.strong`. */
+.tw-root .cell-note {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .cell-note.success {
+  color: var(--c3-state-success);
+}
+
+.tw-root .cell-note.warning {
+  color: var(--c3-state-warning);
+}
+
+.tw-root .cell-note.danger {
+  color: var(--c3-state-danger);
+}
+
+.tw-root .cell-note.strong {
+  font-weight: 600;
+}
+
 /* …and its vertical-rhythm modifier, for a note that STANDS BETWEEN blocks
    rather than trailing one. Separate from the tones because colour and rhythm
    are independent choices. */
@@ -1274,6 +1315,29 @@
    emphasis at all. */
 .tw-root .data-grid tr.total-row {
   font-weight: var(--c3-font-weight-semibold);
+}
+
+/* K5 — the NON-TABULAR totals vocabulary (marker chapter): a stack of
+   standalone conclusion sentences BELOW a table, where tr.total-row cannot
+   reach. The spacing tokens are px-exact carries (12px top, 4px rhythm).
+   ⚠️ DISCLOSED px→rem CHANGE (refuter-caught): the carried font-size was an
+   absolute 14px; body-small is 0.875rem — identical at the default root,
+   but it now SCALES with a user-changed root font size. Kept deliberately:
+   the stack's own `.record-quiet` children already scale (same token), so a
+   px-frozen container would diverge from its own contents exactly when a
+   user resizes text. `.totals-conclusion` is the same statement tr.total-row
+   makes — a conclusion, not one more line — as a weight, for text outside a
+   grid. Widening `.total-row` past `.data-grid tr` remains contractual. */
+.tw-root .totals-stack {
+  margin-top: var(--c3-space-3);
+  display: flex;
+  flex-direction: column;
+  row-gap: var(--c3-space-1);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .totals-conclusion {
+  font-weight: 600;
 }
 
 .tw-root .record-rows {
@@ -1829,6 +1893,40 @@
   color: var(--c3-ink-default);
 }
 
+/* K1 — the Input width vocabulary (marker chapter; ruled attribute-based).
+   Content-named EXACT stops replacing the four screens' carried inline widths
+   byte-for-byte: digits 90px (bps share) · amount 120px (money) · date 150px ·
+   editor 12rem (the Selector floor) · grow (min 220px + fill). ⚠️ ORDER IS
+   LOAD-BEARING: these tie the width:100% block above at (0,2,1), and win by
+   coming AFTER it — do not move this block above the form-control rules. */
+.tw-root input.input-digits {
+  width: 90px;
+}
+
+.tw-root input.input-amount {
+  width: 120px;
+}
+
+.tw-root input.input-date {
+  width: 150px;
+}
+
+.tw-root input.input-editor {
+  width: 12rem;
+}
+
+/* ⚠️ NO width property here, deliberately: the carried inline style
+   (`minWidth + flexGrow`, nothing else) rode the base `width: 100%`, making
+   the flex base the full row — so the grow input takes its own line and the
+   action wraps below it. `width: auto` here was written first and MEASURED
+   as a layout change (the reason input joined the control line at 310px
+   instead of taking its own at 838px) — byte-identity says the base width
+   stays. */
+.tw-root input.input-grow {
+  min-width: 220px;
+  flex-grow: 1;
+}
+
 .tw-root .tw-field {
   display: grid;
   gap: var(--c3-space-1);
@@ -1978,6 +2076,26 @@
   gap: var(--c3-space-3);
 }
 
+/* K2 — the two-up field row (marker chapter). Two labelled Fields side by side
+   at equal width; the parent alone carries the geometry because Field accepts
+   neither className nor style. Byte-identical to the two screens' carried
+   inline grid (1fr 1fr, the kit's 12px gap). The narrow collapse is the
+   marker's own CLASS prescription — below 30rem the pair stacks rather than
+   squeezing two ~160px tracks into a compressed sheet. `.form-sheet-fields`
+   itself stays single-column BY CONTRACT: every governed form is single-column
+   on purpose, and this class exists so nobody auto-fits that one. */
+.tw-root .field-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--c3-space-3);
+}
+
+@media (max-width: 30rem) {
+  .tw-root .field-pair {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tw-root .form-sheet-foot {
   flex-shrink: 0;
   display: flex;
@@ -2002,6 +2120,52 @@
   margin-top: var(--c3-space-3);
   display: grid;
   gap: var(--c3-space-3);
+}
+
+/* K4 — three OPT-IN governed-dialog additions (marker chapter). Each is a
+   class a call site asks for, NEVER folded into the base: capping
+   `.governed-extra` itself would give every governed confirm app-wide a 46vh
+   scrollbox, and pre-wrap on `.field-error` itself would make every Field
+   error whitespace-sensitive. ⚠️ BYTE-IDENTITY (the sweep's documented traps):
+   the 10px row gap is NOT the 12px token, and the error's 12.5px is NOT the
+   12px caption — both are the Fluent-era values carried exactly; snapping
+   them to scale is a visible change and needs a design ruling, not a lane. */
+
+/* A capped-scroll field region for a DERIVED (unbounded-height) form: the
+   region scrolls, the Float's title and confirm row stay put. */
+.tw-root .governed-scroll {
+  display: flex;
+  flex-direction: column;
+  row-gap: 10px;
+  max-height: 46vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* The hairline sub-group box for a nested-object branch — deliberately NOT
+   `.record-card`/`.work-surface`, which are page surfaces with their own fill
+   and padding. */
+.tw-root .group-box {
+  display: flex;
+  flex-direction: column;
+  row-gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius);
+}
+
+.tw-root .group-box-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--c3-ink-muted);
+}
+
+/* The multi-line error block (a zod report, issues joined with newlines) —
+   `.field-error` stays single-line by contract. */
+.tw-root .field-error-block {
+  font-size: 12.5px;
+  color: var(--c3-state-danger);
+  white-space: pre-wrap;
 }
 
 /* ── The Thread (list rail · conversation · composer) ──────────────────── */

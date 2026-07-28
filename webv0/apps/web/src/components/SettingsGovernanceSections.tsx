@@ -59,28 +59,10 @@ import { DateInput, EmptyState, Input, Selector, StatusBadge, WorkSurface, type 
  * Copy byte-identical.
  */
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no WIDTH affordance for a bare native input. B1 added
-//   `input[type='date']` / `input[type='number']` to the styled list at
-//   `width: 100%`, which is right inside a `Field` (a grid track that sizes to
-//   the control) and wrong for this screen's inline grant row: in a `.form-row`
-//   (flex + wrap) a `width: 100%` item's flex base is the whole row, so each
-//   input claims a line to itself and the row breaks apart. `Selector` already
-//   carries the answer for pickers (`width="compact" | "wide"`, expressed as
-//   min-width, no inline style); `Input`/`DateInput` have no equivalent. Nor can
-//   these be wrapped in a `Field` instead — `Field` renders a visible label and
-//   this row's copy is frozen: the two dates and the reason are labelled by
-//   their placeholders and by the panel's own sentence, not by field labels.
-//   (SettingsPage hit the identical gap on its two money rows and answered it
-//   the identical way.)
-// WORKAROUND: the Fluent-era `dateInput` / `reasonInput` declarations carried
-//   verbatim as inline styles — 150px and min-width 220px + grow, byte-identical
-//   to the pre-conversion row.
-// CLASS: additive — a `width` prop on the kit's `Input`/`DateInput` mirroring
-//   `Selector`'s (or `.field-compact` / `.field-grow` classes) closes it and
-//   changes no converted call site.
-const DATE_INPUT: React.CSSProperties = { width: '150px' };
-const REASON_INPUT: React.CSSProperties = { minWidth: '220px', flexGrow: 1 };
+// K1 CLOSED (marker chapter): the grant row's carried inline widths ride the
+// kit's Input width vocabulary — `width="date"` (EXACT 150px) on the two
+// dates, `width="grow"` (min 220px + fill) on the reasons; byte-identical to
+// the Fluent-era declarations they replace (see forms.tsx).
 
 /**
  * The delegation state's badge variant. Three of the four are the Fluent-era
@@ -179,10 +161,10 @@ export function DelegationSection() {
           options={candidates.map((m) => ({ value: m.email, label: `${m.email} (${m.role})` }))}
           onSelect={(value) => setGrantee(value)}
         />
-        <DateInput style={DATE_INPUT} value={startsOn} onChange={(e) => setStartsOn(e.target.value)} data-testid="delegation-starts" />
-        <DateInput style={DATE_INPUT} value={endsOn} onChange={(e) => setEndsOn(e.target.value)} data-testid="delegation-ends" />
+        <DateInput width="date" value={startsOn} onChange={(e) => setStartsOn(e.target.value)} data-testid="delegation-starts" />
+        <DateInput width="date" value={endsOn} onChange={(e) => setEndsOn(e.target.value)} data-testid="delegation-ends" />
         <Input
-          style={REASON_INPUT}
+          width="grow"
           placeholder="Reason (audit narrative)"
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -208,7 +190,7 @@ export function DelegationSection() {
               (revokeFor?.delegationId === d.delegationId ? (
                 <>
                   <Input
-                    style={REASON_INPUT}
+                    width="grow"
                     placeholder="Revocation reason (mandatory)"
                     value={revokeReason}
                     onChange={(e) => setRevokeReason(e.target.value)}

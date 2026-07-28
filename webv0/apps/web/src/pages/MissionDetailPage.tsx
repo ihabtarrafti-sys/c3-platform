@@ -77,62 +77,27 @@ import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf }
  *                   rendered a wide person picker and a conversion may not
  *                   introduce one.
  *
- * FOUR survive as carried-verbatim style objects, each under its own KIT-GAP
- * marker below: `fields` (page-level forms only — inside a GovernedAction the
- * kit's `.governed-extra` already IS the stack, so those six wrappers are gone),
- * `pnlTotals`, `pnlProfit`, and `pnlSubtle` — the last only at its two IN-CELL
- * sites; its six standalone sentences take `.record-quiet`.
+ * The four styles that survived conversion as carried-verbatim objects closed
+ * onto kit classes in the marker chapter (K3/K5): `fields` → `.field-stack`,
+ * `pnlTotals` → `.totals-stack`, `pnlProfit` → `.totals-conclusion`,
+ * `pnlSubtle` → `.cell-note` (its six standalone sentences stay
+ * `.record-quiet`).
  */
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the kit has no BARE VERTICAL STACK for a form that sits directly on the
-//   page. `.governed-extra` (grid, --c3-space-3) covers a stack inside a
-//   GovernedAction and `.form-sheet-fields` covers one inside a FormDrawer —
-//   this screen's three inline roster forms are outside both. The only
-//   page-level containers the kit offers are `.record-card`, which adds
-//   --tw-surface-pad of padding and a --c3-space-4 gap, and `.form-row`, which
-//   is a horizontal flex row. Neither is a bare column.
-// WORKAROUND: the Fluent-era `makeStyles.fields` declaration carried verbatim as
-//   a plain style object, so all three call sites render byte-identically to the
-//   pre-conversion screen.
-// CLASS: additive — a page-level vertical-stack class breaks nothing already
-//   converted. Making `.record-card` shed its padding WOULD be contractual and
-//   must not be the fix.
-const FIELD_STACK: React.CSSProperties = { display: 'flex', flexDirection: 'column', rowGap: '8px' };
+// K5 CLOSED (marker chapter): the three page-level roster forms ride the
+// kit's `.field-stack` (bare column, the carried 8px rhythm = --c3-space-2
+// exact); their max-widths/margins stay inline as SITE geometry, not the
+// primitive. The P&L totals ride `.totals-stack` + `.totals-conclusion` —
+// the non-tabular totals vocabulary (carried values, token-exact); the six
+// quiet sentences keep `.record-quiet` and `.total-row` stays table-bound.
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the kit's totals vocabulary is TABLE-BOUND. `.data-grid tr.total-row`
-//   states outright that "a totals row reads as a conclusion, not one more data
-//   row" — and it is the ONLY emphasis the kit offers, scoped to a <tr> inside
-//   `.data-grid`. The P&L's totals are a stack of standalone sentences BELOW the
-//   table, so neither the stack nor the profit line's conclusion emphasis has a
-//   legal class. (`.record-quiet` carries the quiet lines and IS used here; it
-//   is a colour/size, not a stack and not an emphasis.)
-// WORKAROUND: both Fluent-era declarations carried verbatim as plain style
-//   objects — the stack keeps its 4px rhythm, the profit keeps its weight, and
-//   the totals block renders byte-identically.
-// CLASS: additive — a non-tabular totals stack plus a conclusion-emphasis class
-//   break nothing already converted. Widening `.total-row` past `.data-grid tr`
-//   WOULD be contractual.
-const PNL_TOTALS: React.CSSProperties = { marginTop: '12px', display: 'flex', flexDirection: 'column', rowGap: '4px', fontSize: '14px' };
-const PNL_PROFIT: React.CSSProperties = { fontWeight: 600 };
-
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: no quiet aside sized for the INSIDE of a data cell. `.record-quiet` is
-//   the kit's quiet text and it is --c3-font-size-body-small (14px), while
-//   `.data-grid td.mono` is --c3-font-size-caption (12px). Using it on the two
-//   asides that annotate a money cell — "(received …)" beside the expected
-//   amount, and " · <bank ref>" beside the payment badge — would render the
-//   annotation 2px LARGER than the figure it annotates. Every other quiet class
-//   the kit has is either cell-scoped by selector (`.mono`) or belongs to a
-//   different primitive (`.record-row-meta` is DocumentsSection's row furniture).
-// WORKAROUND: the Fluent-era `makeStyles.pnlSubtle` declaration carried verbatim
-//   for these two IN-CELL sites only. The six standalone totals sentences below
-//   the table are on the page, not in a cell, and correctly take `.record-quiet`.
-// CLASS: additive — an in-cell quiet class (ink-quiet at caption size) breaks
-//   nothing already converted. Re-sizing `.record-quiet` itself WOULD be
-//   contractual: it is live on the totals block here and on five other screens.
-const CELL_ASIDE: React.CSSProperties = { color: 'var(--c3-ink-muted)', fontSize: '13px' };
+// K3 CLOSED (marker chapter; tone ruling 2026-07-28): both money-cell asides
+// ride the kit's `.cell-note` — the cell-scale half of the tone family.
+// DISCLOSED NORMALIZATION, ruled in ("one family, two scales — never a
+// parallel scheme"): the carried 13px/ink-muted lands on the tier's
+// 12px/ink-quiet — the annotation now sits AT the figure's own size instead
+// of 1px above it, and takes the family's base ink. The six standalone totals
+// sentences below the table stay `.record-quiet` (page scale), untouched.
 
 // R4 L-02 (v2 P&L): a tagged amount renders its exact money, or an HONEST reason —
 // never a silently-rounded figure, never the wrong excuse.
@@ -514,7 +479,7 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
               </p>
             )}
             {canSubmit && m.isActive && (
-              <div style={{ ...FIELD_STACK, maxWidth: '440px', marginBottom: '16px' }}>
+              <div className="field-stack" style={{ maxWidth: '440px', marginBottom: '16px' }}>
                 <Field label="Person" required>
                   <Selector
                     data-testid="add-participant-person"
@@ -554,7 +519,7 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
               </div>
             )}
             {canSubmit && m.isActive && (
-              <div style={{ ...FIELD_STACK, maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-border-subtle)' }}>
+              <div className="field-stack" style={{ maxWidth: '520px', marginBottom: '16px', paddingTop: '10px', borderTop: '1px solid var(--c3-border-subtle)' }}>
                 {/* Spec-free multiselect → the established chips pattern
                     (toggle to pick), same container testid. */}
                 <div className="tw-field">
@@ -589,7 +554,7 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
               </div>
             )}
             {canManage && canViewPerDiem && m.isActive && (participants.data?.participants ?? []).some((p) => p.isActive) && (
-              <div style={{ ...FIELD_STACK, maxWidth: '520px', marginBottom: '16px' }}>
+              <div className="field-stack" style={{ maxWidth: '520px', marginBottom: '16px' }}>
                 <Field label="Roster-wide per-diem — apply one daily rate to every active participant">
                   {/* `.form-row` — the kit's inline create-form row (these are
                       fields, not filters, which is exactly the distinction the
@@ -1060,7 +1025,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                   <td className="mono" data-testid={`pnl-line-amount-${l.lineId}`}>
                     {formatMoney(l.amountMinor, l.currency)}
                     {l.paymentStatus === 'Received' && l.receivedAmountMinor != null && l.receivedAmountMinor !== l.amountMinor && (
-                      <span style={CELL_ASIDE}>{` (received ${formatMoney(l.receivedAmountMinor, l.currency)})`}</span>
+                      <span className="cell-note">{` (received ${formatMoney(l.receivedAmountMinor, l.currency)})`}</span>
                     )}
                   </td>
                   <td>
@@ -1071,7 +1036,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                     ) : (
                       '—'
                     )}
-                    {l.refNo && <span style={CELL_ASIDE}>{` · ${l.refNo}`}</span>}
+                    {l.refNo && <span className="cell-note">{` · ${l.refNo}`}</span>}
                   </td>
                   {canManage && (
                     <td>
@@ -1298,7 +1263,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
       )}
 
       {pnl && (lines.length > 0 || perDiemEntries.length > 0) && (
-        <div style={PNL_TOTALS}>
+        <div className="totals-stack">
           {pnl.settlement.outstandingIncomeCount > 0 && (
             <span className="record-quiet" data-testid="pnl-outstanding-income">
               {`${pnl.settlement.outstandingIncomeCount} income line${pnl.settlement.outstandingIncomeCount === 1 ? '' : 's'} not yet received.`}
@@ -1323,7 +1288,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
             <>
               <span data-testid="pnl-income-usd">{`Income ≈ ${formatMoney(pnl.blended.income.amountMinor, 'USD')}`}</span>
               <span data-testid="pnl-expense-usd">{`Expenses ≈ ${formatMoney(pnl.blended.expense.amountMinor, 'USD')}`}</span>
-              <span style={PNL_PROFIT} data-testid="pnl-profit-usd">{`Profit ≈ ${formatMoney(pnl.blended.profit.amountMinor, 'USD')}`}</span>
+              <span className="totals-conclusion" data-testid="pnl-profit-usd">{`Profit ≈ ${formatMoney(pnl.blended.profit.amountMinor, 'USD')}`}</span>
             </>
           ) : pnl.blended.profit.status === 'unavailable' && pnl.blended.profit.reason === 'overflow' ? (
             // R4 L-02: the HONEST reason — an overflow is a data-integrity refusal, never

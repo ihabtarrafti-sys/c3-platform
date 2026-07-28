@@ -115,38 +115,16 @@ function MissionFinanceOverview() {
                     // speaks up in amber — honest numbers are never muted.
                     // NOT a dash: this branch names the missing rates.
                     //
-                    // KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-                    // ⚠️ REWRITTEN 2026-07-28 (Neural sweep, R0): the original
-                    //   claim — "the kit's warning vocabulary is badges and
-                    //   pills only" — went stale when the gap triage grew
-                    //   `.record-quiet.warning` (tablework.css), which IS amber
-                    //   running text. Do not mint a second tone vocabulary; the
-                    //   family exists.
-                    // WHY IT STILL DOES NOT FIT AS-IS: `.record-quiet` is the
-                    //   14px quiet BASE with no weight rule; this cell is
-                    //   owner-ruled amber + emphasis at the inherited 12px cell
-                    //   scale inside a `td.mono` money column — the class
-                    //   swapped in mechanically would inflate an owner-ruled
-                    //   treatment to 14px beside 12px figures.
-                    // WHERE THE CLOSURE LANDS (tone ruling, Neural 2026-07-28):
-                    //   ONE family, TWO scales — a cell-scale (12px) text tier
-                    //   carrying the SAME tone modifiers and colour tokens as
-                    //   `.record-quiet` (never a parallel scheme, never new
-                    //   colour values), emphasis as a WEIGHT AXIS on that tier.
-                    //   This cell closes onto the tier's amber emphasis
-                    //   variant; K3's asides close onto its quiet variant.
-                    // WORKAROUND: a raw inline `style` on a bare span, carried
-                    //   verbatim across the conversion from the pre-Tablework
-                    //   screen (it was already inline — registerStyles had no
-                    //   warning class either).
-                    // CLASS: additive — a new inline warning-text class (amber +
-                    //   semibold, no border, no dot) breaks nothing already
-                    //   converted; changing `.state-label` to drop its pill
-                    //   WOULD be contractual and must not be the fix.
-                    // ⚠️ The amber treatment and the "rates missing: …" copy are
-                    //   OWNER-RULED (polish wave #5) and survive the fix. Only
-                    //   the raw inline style is provisional here.
-                    <span style={{ color: 'var(--c3-state-warning)', fontWeight: 600 }}>
+                    // K3 CLOSED (marker chapter; tone ruling 2026-07-28): the
+                    //   owner-ruled amber rates warning rides the kit's
+                    //   `.cell-note.warning.strong` — the cell-scale half of
+                    //   the tone family, emphasis as the ruled weight axis.
+                    //   TRUE byte-identity at this site: the old inline span
+                    //   inherited the cell's 12px (it set no size), and the
+                    //   class carries the SAME warning token and the SAME 600.
+                    //   The amber treatment and the "rates missing: …" copy
+                    //   remain OWNER-RULED (polish wave #5).
+                    <span className="cell-note warning strong">
                       rates missing: {m.missingRates.join(', ')}
                     </span>
                   )}

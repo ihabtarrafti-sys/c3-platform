@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { PersonDto } from '@c3web/api-contracts';
 import { ApiError } from '../api';
@@ -35,27 +35,13 @@ import { Field, Input, GovernedAction, FactList } from '../tablework';
  *   row    → `.record-section` + `.row-actions` (the kit's flex-START trigger
  *            cluster; the two classes touch disjoint properties)
  *   fields → DEAD in the Fluent original — never referenced. Deleted, not ported.
- *   two    → see FIELD_PAIR below.
+ *   two    → `.field-pair` (K2, marker chapter — closed).
  */
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no TWO-UP field row. `.form-sheet-fields` is a
-//   single-column grid; `.form-row` and `.row-actions` are `align-items:center`
-//   flex rows built for bare controls, not for labelled `Field` pairs (a Field
-//   is a grid of label-over-control, so centring them misaligns the controls).
-//   There is no class that puts two Fields side by side at equal width.
-// WORKAROUND: an inline two-column grid on the row wrapper. `Field` accepts
-//   neither `className` nor `style`, so the original's `'> *': { flexGrow: 1 }`
-//   cannot be reproduced on the children — a 2-track grid is the one form that
-//   yields the same geometry from the PARENT alone. The gap is the kit's
-//   `--c3-space-3` (12px) rather than the original's off-scale 10px, so the
-//   horizontal rhythm matches `.form-sheet-fields`'s own 12px row gap; that one
-//   value is a deliberate token alignment, not a carry.
-// CLASS: additive — a `.field-pair` class in the kit (2 tracks, collapsing to 1
-//   below the float's width) breaks nothing already converted. Changing
-//   `.form-sheet-fields` itself to auto-fit WOULD be contractual and must not
-//   be the fix: every converted governed form is single-column on purpose.
-const FIELD_PAIR: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--c3-space-3)' };
+// K2 CLOSED (marker chapter): the two-up rows ride the kit's `.field-pair` —
+// 2 equal tracks at the kit's 12px gap, byte-identical to the carried inline
+// grid; the ≤30rem single-column collapse is the marker's own CLASS
+// prescription, new at narrow widths only.
 
 const show = (v: string | null | undefined) => (v === undefined ? undefined : (v ?? null));
 
@@ -184,7 +170,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
                 <Field label="Full name (display)">
                   <Input value={idPatch.fullName} onChange={(e) => setIdPatch({ ...idPatch, fullName: e.target.value })} data-testid="identity-fullname" />
                 </Field>
-                <div style={FIELD_PAIR}>
+                <div className="field-pair">
                   <Field label="First name">
                     <Input value={idPatch.firstName} onChange={(e) => setIdPatch({ ...idPatch, firstName: e.target.value })} data-testid="identity-first" />
                   </Field>
@@ -223,7 +209,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
             description="Position, joining date, contacts and notes apply immediately and are audited (before → after)."
             extra={
               <div className="form-sheet-fields">
-                <div style={FIELD_PAIR}>
+                <div className="field-pair">
                   <Field label="Position">
                     <Input value={ops.position} onChange={(e) => setOps({ ...ops, position: e.target.value })} data-testid="ops-position" />
                   </Field>
@@ -231,7 +217,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
                     <Input type="date" value={ops.dateOfJoining} onChange={(e) => setOps({ ...ops, dateOfJoining: e.target.value })} data-testid="ops-joined" />
                   </Field>
                 </div>
-                <div style={FIELD_PAIR}>
+                <div className="field-pair">
                   <Field label="Phone">
                     <Input value={ops.phone} onChange={(e) => setOps({ ...ops, phone: e.target.value })} data-testid="ops-phone" />
                   </Field>
@@ -245,7 +231,7 @@ export function PersonV2Sections({ person }: { person: PersonDto }) {
                 <Field label="Address line 2">
                   <Input value={ops.addressLine2} onChange={(e) => setOps({ ...ops, addressLine2: e.target.value })} />
                 </Field>
-                <div style={FIELD_PAIR}>
+                <div className="field-pair">
                   <Field label="City">
                     <Input value={ops.addressCity} onChange={(e) => setOps({ ...ops, addressCity: e.target.value })} data-testid="ops-city" />
                   </Field>

@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { BeneficiaryDto, CredentialDto } from '@c3web/api-contracts';
 import { ApiError } from '../api';
@@ -36,7 +36,7 @@ import { Field, Input, GovernedAction, StatusBadge, ComparisonTable } from '../t
  *     law     → `.record-quiet.record-note` — the quiet SENTENCE that stands
  *               BETWEEN blocks, which is exactly where this standing-law line sits
  *     fields  → DEAD in the Fluent original — never referenced. Deleted, not ported.
- *     two     → see FIELD_PAIR below.
+ *     two     → `.field-pair` (K2, marker chapter — closed).
  *
  *   registerStyles (`useRegisterStyles`)
  *     table / th / td / row → `ComparisonTable`, i.e. `.comparison-scroll` +
@@ -55,43 +55,16 @@ import { Field, Input, GovernedAction, StatusBadge, ComparisonTable } from '../t
  *               emphasis here would be the only one of its kind.
  */
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no TWO-UP field row. `.form-sheet-fields` is a
-//   single-column grid; `.form-row` and `.row-actions` are `align-items:center`
-//   flex rows built for bare controls, not for labelled `Field` pairs (a Field
-//   is a grid of label-over-control, so centring them misaligns the controls).
-//   There is no class that puts two Fields side by side at equal width.
-// WORKAROUND: an inline two-column grid on the row wrapper. `Field` accepts
-//   neither `className` nor `style`, so the original's `'> *': { flexGrow: 1 }`
-//   cannot be reproduced on the children — a 2-track grid is the one form that
-//   yields the same geometry from the PARENT alone. The gap is the kit's
-//   `--c3-space-3` (12px) rather than the original's off-scale 10px, so the
-//   horizontal rhythm matches `.form-sheet-fields`'s own 12px row gap; that one
-//   value is a deliberate token alignment, not a carry.
-// CLASS: additive — a `.field-pair` class in the kit (2 tracks, collapsing to 1
-//   below the float's width) breaks nothing already converted. Changing
-//   `.form-sheet-fields` itself to auto-fit WOULD be contractual and must not
-//   be the fix: every converted governed form is single-column on purpose.
-const FIELD_PAIR: CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--c3-space-3)' };
+// K2 CLOSED (marker chapter): the two-up rows ride the kit's `.field-pair` —
+// 2 equal tracks at the kit's 12px gap, byte-identical to the carried inline
+// grid; the ≤30rem single-column collapse is the marker's own CLASS
+// prescription, new at narrow widths only.
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: `tablework.css` sets `input[type='text'] { width: 100% }` unconditionally.
-//   That is right inside a `.tw-field` (a grid track) and WRONG for a bare
-//   control sharing a flex row: in `.row-actions` the input's 100% resolves
-//   against the whole row, so it claims every pixel and pushes its siblings
-//   onto a second line. MEASURED on the rendered page before this line existed:
-//   input 446px, row children at tops [514, 566, 566] — Submit and Cancel had
-//   wrapped — and the cell inflated to 470px, distorting the register's column
-//   rhythm for as long as the editor was open. The kit has no width-bounded
-//   input; nothing in it expresses "a control that shares a row".
-// WORKAROUND: an inline width on this ONE inline editor. 12rem is not invented —
-//   it is the kit's own stated picker floor (`.selector`, forms.tsx), so the
-//   inline editor and a picker in the same position agree.
-// CLASS: additive — a kit class for a row-sharing control (or a `.row-actions >
-//   input` rule) breaks nothing already converted. Dropping the global
-//   `width: 100%` WOULD be contractual and must not be the fix: every converted
-//   `Field` depends on it.
-const INLINE_INPUT: CSSProperties = { width: '12rem' };
+// K1 CLOSED (marker chapter): the retire editor rides the kit's
+// `width="editor"` stop — EXACT 12rem, the Selector floor, byte-identical to
+// the carried inline width. (The measured defect this replaced: at width:100%
+// the input claimed 446px of the flex row and wrapped Submit/Cancel to a
+// second line, inflating the cell to 470px.)
 
 function useSubmitToast() {
   const { notify } = useNotify();
@@ -138,7 +111,7 @@ export function CredentialFactsAction({ credential, personId }: { credential: Cr
       description="Dates, document number, issuing country and kind are compliance facts — the change goes to an approver. Fill only what changes."
       extra={
         <div className="form-sheet-fields">
-          <div style={FIELD_PAIR}>
+          <div className="field-pair">
             <Field label="Kind (Passport / NationalID / Visa / License / Other)">
               <Input value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} data-testid="cred-facts-kind" />
             </Field>
@@ -149,7 +122,7 @@ export function CredentialFactsAction({ credential, personId }: { credential: Cr
           <Field label="Document number (PII — owner/ops/hr only)">
             <Input value={f.documentNumber} onChange={(e) => setF({ ...f, documentNumber: e.target.value })} data-testid="cred-facts-number" />
           </Field>
-          <div style={FIELD_PAIR}>
+          <div className="field-pair">
             <Field label="Issued on">
               <Input type="date" value={f.issuedOn} onChange={(e) => setF({ ...f, issuedOn: e.target.value })} data-testid="cred-facts-issued" />
             </Field>
@@ -251,7 +224,7 @@ export function BeneficiarySection({ personId }: { personId: string }) {
                           value={retireReason}
                           onChange={(e) => setRetireReason(e.target.value)}
                           data-testid="beneficiary-retire-reason"
-                          style={INLINE_INPUT}
+                          width="editor"
                         />
                         <button
                           className="primary-action"
@@ -297,7 +270,7 @@ export function BeneficiarySection({ personId }: { personId: string }) {
             description="Payment-routing facts get dual control — this goes to an approver. Account numbers and IBANs are refused by law; use the org's label for the route."
             extra={
               <div className="form-sheet-fields">
-                <div style={FIELD_PAIR}>
+                <div className="field-pair">
                   <Field label="Label" required>
                     <Input value={b.label} onChange={(e) => setB({ ...b, label: e.target.value })} data-testid="beneficiary-label" />
                   </Field>
@@ -305,7 +278,7 @@ export function BeneficiarySection({ personId }: { personId: string }) {
                     <Input value={b.currency} onChange={(e) => setB({ ...b, currency: e.target.value })} data-testid="beneficiary-currency" />
                   </Field>
                 </div>
-                <div style={FIELD_PAIR}>
+                <div className="field-pair">
                   <Field label="Bank name" required>
                     <Input value={b.bankName} onChange={(e) => setB({ ...b, bankName: e.target.value })} data-testid="beneficiary-bank" />
                   </Field>
@@ -313,7 +286,7 @@ export function BeneficiarySection({ personId }: { personId: string }) {
                     <Input value={b.bankCountry} onChange={(e) => setB({ ...b, bankCountry: e.target.value })} data-testid="beneficiary-country" />
                   </Field>
                 </div>
-                <div style={FIELD_PAIR}>
+                <div className="field-pair">
                   <Field label="Payment type">
                     <Input value={b.paymentType} onChange={(e) => setB({ ...b, paymentType: e.target.value })} />
                   </Field>

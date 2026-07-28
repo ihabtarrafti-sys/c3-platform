@@ -34,24 +34,10 @@ import { BackupStatusSection, DelegationSection } from '../components/SettingsGo
 
 const PIVOT = 'USD';
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no WIDTH affordance for a bare native input. B1 added
-//   `input[type='number']` / `input[type='date']` to the styled list at
-//   `width: 100%`, which is right inside a `Field` (a grid track that sizes to
-//   the control) and wrong for the two inline money rows on this screen: in a
-//   `.form-row` (flex + wrap) a `width: 100%` item's flex base is the whole row,
-//   so the input claims a line to itself and the row it belongs to breaks apart.
-//   `Selector` already carries the answer for pickers (`width="compact" |
-//   "wide"`, expressed as min-width, no inline style); `Input` has no
-//   equivalent. Neither field can be wrapped in a `Field` instead: `Field`
-//   renders a visible label and this screen's copy is frozen — the FX row's
-//   label is the sentence "1 AED =" that sits beside it, and the per-diem
-//   amount has no label at all.
-// WORKAROUND: the Fluent-era `rateInput` width carried verbatim as an inline
-//   style on the two inputs — 120px, byte-identical to the pre-pivot screen.
-// CLASS: additive — a `width` prop on the kit's `Input` mirroring `Selector`'s
-//   (or a `.field-compact` class) closes it and changes no converted call site.
-const NARROW_MONEY_INPUT: React.CSSProperties = { width: '120px' };
+// K1 CLOSED (marker chapter): both money rows ride the kit's `width="amount"`
+// stop — an EXACT 120px, byte-identical to the carried inline style (and the
+// reason the vocabulary has no min-width `compact`: 120px sits below every
+// minimum stop, so a min would silently widen these money inputs).
 
 const CURRENCY_OPTIONS = CURRENCY_CODES.map((c) => ({ value: c, label: c }));
 
@@ -87,7 +73,7 @@ function RateRow({ currency, current, onSaved }: { currency: string; current: nu
       <span className="record-row-meta">{currency}</span>
       <span className="record-quiet">1 {currency} =</span>
       <Input
-        style={NARROW_MONEY_INPUT}
+        width="amount"
         type="number"
         value={value}
         onChange={(e) => setValue(e.target.value)}
@@ -295,7 +281,7 @@ function PerDiemPresetsSection() {
             </div>
             <div className="form-row">
               <Input
-                style={NARROW_MONEY_INPUT}
+                width="amount"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="e.g. 65"

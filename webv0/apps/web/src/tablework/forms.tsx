@@ -68,8 +68,49 @@ export function Field({ label, required, hint, error, children }: FieldProps) {
 
 /* Thin native controls — tablework.css styles them under .tw-root; these exist
  * so converted pages read like the contract, not like raw HTML. */
-export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input type="text" {...props} />;
+
+/**
+ * K1 (marker chapter) — the Input width vocabulary. The kit's unconditional
+ * `input { width: 100% }` is right inside a Field's grid track and wrong for a
+ * control sharing a flex row; four screens independently carried inline widths
+ * for it. Ruled (Neural, C3-MARKER-CHAPTER-SCOPE.md): attribute-based, never
+ * inline-style; carried values reproduced EXACTLY.
+ *
+ * The stops are CONTENT-named, not size-named, on the kit's own
+ * name-the-policy idiom (money.ts): a call site states what the control
+ * holds, and the kit maps content to geometry. All fixed stops are EXACT
+ * widths — `SettingsPage`'s 120px money input sits below every min-width
+ * stop, which is exactly why a generic `compact` (a 10rem MINIMUM) is not
+ * offered here.
+ *
+ *   digits  90px  — a short numeric (bps share)
+ *   amount 120px  — a money amount
+ *   date   150px  — a date
+ *   editor 12rem  — a row-sharing inline text editor (the Selector floor)
+ *   grow          — min-width 220px + flex-grow 1 (fill the row's remainder)
+ *
+ * Omitted = the 100% default, so every existing converted call site is
+ * untouched.
+ */
+export type InputWidth = 'digits' | 'amount' | 'date' | 'editor' | 'grow';
+const INPUT_WIDTH_CLASS: Record<InputWidth, string> = {
+  digits: 'input-digits',
+  amount: 'input-amount',
+  date: 'input-date',
+  editor: 'input-editor',
+  grow: 'input-grow',
+};
+function widthClass(width: InputWidth | undefined, className: string | undefined): string | undefined {
+  const cls = [width ? INPUT_WIDTH_CLASS[width] : '', className ?? ''].filter(Boolean).join(' ');
+  return cls === '' ? undefined : cls;
+}
+
+export function Input({
+  width,
+  className,
+  ...props
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'width'> & { width?: InputWidth }) {
+  return <input type="text" className={widthClass(width, className)} {...props} />;
 }
 
 /** Checkbox under the Fluent use-site contract (label/checked/disabled/
@@ -97,8 +138,12 @@ export function Checkbox({
   );
 }
 
-export function DateInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
-  return <input type="date" {...props} />;
+export function DateInput({
+  width,
+  className,
+  ...props
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'width'> & { width?: InputWidth }) {
+  return <input type="date" className={widthClass(width, className)} {...props} />;
 }
 
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {

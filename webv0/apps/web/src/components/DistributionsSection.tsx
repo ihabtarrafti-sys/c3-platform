@@ -42,7 +42,8 @@ import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, W
  *              dotted StatusBadge and a button in the cluster). The 8px
  *              bottom margin is now `.record-card`'s own grid gap.
  *   subtle   → `.record-quiet` everywhere EXCEPT the one in-cell aside, which
- *              keeps a carried style under the KIT-GAP marker below.
+ *              rides the kit's `.cell-note` (K3, marker chapter — closed; no
+ *              carried style survives in this file).
  *   head     → `.record-quiet` on the same <p>. Deliberately NOT `EmptyState`:
  *              its two sibling empties on this very screen (`participants-empty`,
  *              `mission-pnl-empty`) are quiet in-place sentences, and a centred
@@ -58,42 +59,15 @@ import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, W
  * own, so without it the stacked cards would touch.
  */
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: the frozen kit has no WIDTH affordance for a bare native input. B1 put
-//   `input[type='number']` in the styled list at `width: 100%`, which is right
-//   inside a `Field` (a grid track that sizes to the control) and wrong for a
-//   share row: in a flex row a `width: 100%` item's flex base is the whole row,
-//   so the input claims a line to itself and the row breaks apart. `Selector`
-//   carries the answer for pickers (`width="compact" | "wide"`); `Input` has no
-//   equivalent. A `Field` cannot be substituted here either — `Field` renders a
-//   visible label, and the share row's label IS the person's name beside it.
-//   (SettingsPage hit the identical gap and answered it the identical way.)
-// WORKAROUND: the Fluent-era `bpsInput` width carried verbatim as an inline
-//   style — 90px, byte-identical to the pre-pivot row.
-// CLASS: additive — a `width` prop on the kit's `Input` mirroring `Selector`'s
-//   (or a `.field-compact` class) closes it and changes no converted call site.
-const SHARE_INPUT: React.CSSProperties = { width: '90px' };
+// K1 CLOSED (marker chapter): the share input's Fluent-era 90px rides the
+// kit's `width="digits"` stop — an EXACT width, byte-identical to the carried
+// inline style it replaces (see forms.tsx, the Input width vocabulary).
 
-// KIT-GAP WORKAROUND (provisional — remove when the gap closes).
-// GAP: no quiet aside sized for the INSIDE of a data cell. MEASURED in the
-//   running app: the money cells beside this trailer render at 12px
-//   (`.data-grid td.mono` = --c3-font-size-caption) and `.record-quiet` renders
-//   at 14px, so adopting it would set the annotation 2px LARGER than the figure
-//   it annotates. Every other quiet class the kit has is either cell-scoped by
-//   selector (`.mono`) or belongs to a different primitive (`.record-row-meta`
-//   is row furniture and `white-space: nowrap`, which would stop this aside
-//   wrapping inside its cell).
-// WORKAROUND: the Fluent-era `subtle` declaration carried verbatim for this ONE
-//   in-cell site — the " · <bank label> · <ref> · <paid on>" trailer beside the
-//   payout badge. 12.5px: still half a pixel above the figure, but that is the
-//   PRE-PIVOT value carried unchanged, not a new choice. Its eight standalone
-//   siblings are on the page, not in a cell, and correctly take `.record-quiet`.
-//   MissionDetailPage carries the identical workaround for the identical
-//   trailer on its own payment cell.
-// CLASS: additive — an in-cell quiet class (ink-quiet at caption size) breaks
-//   nothing already converted. Re-sizing `.record-quiet` itself WOULD be
-//   contractual: it is live on this screen and five others.
-const CELL_ASIDE: React.CSSProperties = { fontSize: '12.5px', color: 'var(--c3-ink-quiet)' };
+// K3 CLOSED (marker chapter; tone ruling 2026-07-28): the payout trailer rides
+// the kit's `.cell-note` — the cell-scale half of the tone family (same base
+// ink, caption size). DISCLOSED NORMALIZATION: the carried 12.5px lands on the
+// 12px cell scale — half a pixel, ruled in ("one family, two scales"); the ink
+// (quiet) is unchanged.
 
 interface ShareDraft {
   personId: string;
@@ -198,7 +172,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                         <span className="record-row-name">{d.personName}</span>
                         <span className="record-row-spacer" />
                         <Input
-                          style={SHARE_INPUT}
+                          width="digits"
                           type="number"
                           value={d.bps}
                           onChange={(e) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, bps: e.target.value } : x)))}
@@ -328,7 +302,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                         <StatusBadge variant={sh.payoutStatus === 'Paid' ? 'ready' : 'pending'} data-testid={`payout-status-${d.distributionId}-${sh.personId}`}>
                           {sh.payoutStatus}
                         </StatusBadge>
-                        {sh.payoutStatus === 'Paid' && <span style={CELL_ASIDE}>{` · ${sh.paymentSourceLabel}${sh.refNo ? ` · ${sh.refNo}` : ''} · ${sh.paidOn}`}</span>}
+                        {sh.payoutStatus === 'Paid' && <span className="cell-note">{` · ${sh.paymentSourceLabel}${sh.refNo ? ` · ${sh.refNo}` : ''} · ${sh.paidOn}`}</span>}
                       </td>
                       {canManage && (
                         <td>
