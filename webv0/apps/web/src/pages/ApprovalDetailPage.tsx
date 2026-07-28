@@ -445,7 +445,13 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
 
             <section className="record-section">
               <h2>History</h2>
-              <AuditTimeline entries={entries} testId="approval-events" />
+              {/* F04 (instance 21): a denied or failed history fetch surfaces —
+                  an empty timeline is a CLAIM about what happened here. */}
+              {events.isError ? (
+                <ErrorState data-testid="approval-events-error" message="The history could not be loaded — what happened here may not be shown." correlationId={events.error instanceof ApiError ? events.error.correlationId : undefined} />
+              ) : (
+                <AuditTimeline entries={entries} testId="approval-events" />
+              )}
             </section>
           </main>
         </div>

@@ -352,3 +352,39 @@ describe('N-2 - audit is a META-channel, not a content channel', () => {
     expect(dto.json().approval.status).toBe('ExecutionFailed'); // the truth survives
   });
 });
+
+describe('F18 - the per-diem PROMISE is kept on the roster (the register first UNDER-exposure)', () => {
+  it('finance and management see roster per-diem, as the capability contract has always said', async () => {
+    const finance = await login('finance@alpha.com', 'finance', 'alpha');
+    const management = await login('mgmt@alpha.com', 'management', 'alpha');
+    const visitor = await login('vis.f18@alpha.com', 'visitor', 'alpha');
+
+    // A mission with a per-diem'd participant (the missions.test fixture shape).
+    const mres = await post(tokens.ops, '/api/v1/missions', { name: 'Promise Mission', startsOn: '2026-08-01' });
+    expect(mres.statusCode, mres.body).toBe(201);
+    const missionId = mres.json().mission.missionId as string;
+    const pr = await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'Promise Player' } });
+    const personId = (await governedExecute(pr.json().approval.approvalId, pr.json().approval.version)).person.personId as string;
+    const sub = await post(tokens.ops, '/api/v1/missions/participants/requests', { input: { missionId, personId, role: 'Player' } });
+    expect(sub.statusCode, sub.body).toBe(201);
+    await governedExecute(sub.json().approval.approvalId, sub.json().approval.version);
+    const pd = await post(tokens.ops, `/api/v1/missions/${missionId}/participants/${personId}/per-diem`, { perDiemAmountMinor: 25_000, perDiemCurrency: 'SAR', expectedVersion: 0 });
+    expect(pd.statusCode, pd.body).toBe(200);
+
+    // RED (pre-fix): finance/management inherited canViewPerDiem=false and the
+    // roster omitted the fields the written contract promised them.
+    for (const [who, token] of [['finance', finance], ['management', management]] as const) {
+      const roster = await app.inject({ method: 'GET', url: `/api/v1/missions/${missionId}/participants`, headers: auth(token) });
+      expect(roster.statusCode, roster.body).toBe(200);
+      const row = roster.json().participants.find((x: { personId: string }) => x.personId === personId);
+      expect(row.perDiemAmountMinor, `${who} was PROMISED roster per-diem (roles.ts's own contract)`).toBe(25_000);
+      expect(row.perDiemCurrency).toBe('SAR');
+    }
+
+    // CONTROL (no over-widening): a visitor still gets ABSENCE, not masking.
+    const vRoster = await app.inject({ method: 'GET', url: `/api/v1/missions/${missionId}/participants`, headers: auth(visitor) });
+    expect(vRoster.statusCode, vRoster.body).toBe(200);
+    const vRow = vRoster.json().participants.find((x: { personId: string }) => x.personId === personId);
+    expect(vRow).not.toHaveProperty('perDiemAmountMinor');
+  });
+});

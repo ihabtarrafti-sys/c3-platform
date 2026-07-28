@@ -230,7 +230,7 @@ export function CommentThread({ subjectType, subjectId }: { subjectType: Comment
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
-  const { data, isLoading } = useComments(subjectType, subjectId);
+  const { data, isLoading, isError } = useComments(subjectType, subjectId);
   // The member list drives the @mention chips — fetched only when the viewer
   // can read members (owner/ops). Other roles still comment, just without
   // the mention affordance (no 403 noise).
@@ -270,7 +270,15 @@ export function CommentThread({ subjectType, subjectId }: { subjectType: Comment
 
       <div className="comment-list">
         {isLoading && <span className="record-quiet">Loading discussion…</span>}
-        {!isLoading && comments.length === 0 && (
+        {/* F14 (instance 21): a failed thread fetch must not read as a
+            started-less thread — "No comments yet" is a claim, and an error
+            is not evidence for it. */}
+        {!isLoading && isError && (
+          <span className="record-quiet record-note" role="alert" data-testid="comments-error">
+            Comments could not be loaded — the thread may not be shown.
+          </span>
+        )}
+        {!isLoading && !isError && comments.length === 0 && (
           <span className="record-quiet" data-testid="comments-empty">
             No comments yet. Start the thread.
           </span>

@@ -349,7 +349,13 @@ function PersonProfileBody({ personId }: { personId: string }) {
 
           <section id="person-section-history" className="record-section">
             <h2>History</h2>
-            <AuditTimeline entries={entries} testId="person-audit" />
+            {/* F04 (instance 21): a denied or failed history fetch surfaces —
+                an empty timeline is a CLAIM about what happened here. */}
+            {audit.isError ? (
+              <ErrorState data-testid="person-audit-error" message="The history could not be loaded — what happened here may not be shown." correlationId={audit.error instanceof ApiError ? audit.error.correlationId : undefined} />
+            ) : (
+              <AuditTimeline entries={entries} testId="person-audit" />
+            )}
           </section>
         </>
       )}

@@ -767,7 +767,13 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
           {canViewHistory && (
             <div className="record-section">
               <h2>History</h2>
-              <AuditTimeline entries={entries} testId="mission-audit" />
+              {/* F04 (instance 21): a denied or failed history fetch surfaces —
+                  an empty timeline is a CLAIM about what happened here. */}
+              {audit.isError ? (
+                <ErrorState data-testid="mission-audit-error" message="The history could not be loaded — what happened here may not be shown." correlationId={audit.error instanceof ApiError ? audit.error.correlationId : undefined} />
+              ) : (
+                <AuditTimeline entries={entries} testId="mission-audit" />
+              )}
             </div>
           )}
         </>

@@ -201,10 +201,14 @@ const CAPABILITIES: Readonly<Record<C3Role, C3Capabilities>> = {
   // values; finance and management read contracts WITH values. All three
   // remain read-only (no write/governance affordance).
   legal: { ...READ_ONLY, canReadAgreements: true },
-  finance: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true },
+  // PRISM-F18 (Block 4): the capability's own contract above names finance +
+  // management ("may see per-diem amounts — owner, operations, finance,
+  // management"); both inherited READ_ONLY's false and the promise broke on
+  // the roster surface. The acceptance is the PROMISE KEPT.
+  finance: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true, canViewPerDiem: true },
   // Sprint 38 (CP-parity): HR manages Apparel — no longer fully read-only.
   hr: { ...READ_ONLY, canManageApparel: true, canViewPersonPII: true, isReadOnly: false },
-  management: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true },
+  management: { ...READ_ONLY, canReadAgreements: true, canViewFinancials: true, canViewPerDiem: true },
   visitor: READ_ONLY,
 };
 

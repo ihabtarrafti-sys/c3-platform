@@ -383,7 +383,13 @@ function TeamDetailBody({ teamId }: { teamId: string }) {
             {/* ── history ──────────────────────────────────────────────────── */}
             <section className="record-section">
               <h2>History</h2>
-              <AuditTimeline entries={entries} testId="team-audit" emptyMessage="No events recorded yet." />
+              {/* F04 (instance 21): a denied or failed history fetch surfaces —
+                  an empty timeline is a CLAIM about what happened here. */}
+              {audit.isError ? (
+                <ErrorState data-testid="team-audit-error" message="The history could not be loaded — what happened here may not be shown." correlationId={audit.error instanceof ApiError ? audit.error.correlationId : undefined} />
+              ) : (
+                <AuditTimeline entries={entries} testId="team-audit" emptyMessage="No events recorded yet." />
+              )}
             </section>
           </>
         )}

@@ -29,7 +29,7 @@ export function ShellSearch() {
   }, [q]);
 
   const enabled = debouncedQ.length >= 2;
-  const { data, isFetching } = useQuery({
+  const { data, isFetching, isError } = useQuery({
     queryKey: ['search', debouncedQ],
     // …and CANCEL a superseded request (react-query aborts on key change).
     queryFn: ({ signal }) => api.search(debouncedQ, signal),
@@ -134,7 +134,14 @@ export function ShellSearch() {
               ))}
             </div>
           )}
-          {results.length === 0 && actions.length === 0 && <div className="search-empty">{isFetching ? 'Searching…' : 'No matches you can see.'}</div>}
+          {results.length === 0 && actions.length === 0 && (
+            // F14 (instance 21): a FAILED search must never claim proven
+            // emptiness — "No matches you can see" is a statement about the
+            // world, and an error is not evidence for it.
+            <div className="search-empty" role={isError ? 'alert' : undefined}>
+              {isFetching ? 'Searching…' : isError ? 'Search is unavailable right now.' : 'No matches you can see.'}
+            </div>
+          )}
           {actions.length > 0 && (
             <div>
               <div className="search-group">Actions</div>
