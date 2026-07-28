@@ -218,7 +218,7 @@
           "plannedRecordId": "hearth-search:visibility-matrix:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8f8dcae33e488bce9c724ec4ae0d85aa3a609c0b584d7f529ab7cceef0e53736",
+          "factKey": "criticalSourceFingerprintsSha256=120091ff5a289ebe182dd17bf4404f500bb582e4694af19fdbf1ea00e863c8be",
           "plannedRecordId": "hearth-search:visibility-matrix:054"
         },
         {
@@ -542,7 +542,7 @@
           "plannedRecordId": "hearth-search:visibility-matrix:134"
         },
         {
-          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:visibility-matrix:135"
         },
         {
@@ -554,7 +554,7 @@
           "plannedRecordId": "hearth-search:visibility-matrix:137"
         },
         {
-          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:visibility-matrix:138"
         },
         {
@@ -883,7 +883,7 @@
           "plannedRecordId": "hearth-search:qrels:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8f8dcae33e488bce9c724ec4ae0d85aa3a609c0b584d7f529ab7cceef0e53736",
+          "factKey": "criticalSourceFingerprintsSha256=120091ff5a289ebe182dd17bf4404f500bb582e4694af19fdbf1ea00e863c8be",
           "plannedRecordId": "hearth-search:qrels:054"
         },
         {
@@ -1207,7 +1207,7 @@
           "plannedRecordId": "hearth-search:qrels:134"
         },
         {
-          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:qrels:135"
         },
         {
@@ -1219,7 +1219,7 @@
           "plannedRecordId": "hearth-search:qrels:137"
         },
         {
-          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:qrels:138"
         },
         {
@@ -1548,7 +1548,7 @@
           "plannedRecordId": "hearth-search:provenance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8f8dcae33e488bce9c724ec4ae0d85aa3a609c0b584d7f529ab7cceef0e53736",
+          "factKey": "criticalSourceFingerprintsSha256=120091ff5a289ebe182dd17bf4404f500bb582e4694af19fdbf1ea00e863c8be",
           "plannedRecordId": "hearth-search:provenance:054"
         },
         {
@@ -1872,7 +1872,7 @@
           "plannedRecordId": "hearth-search:provenance:134"
         },
         {
-          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:provenance:135"
         },
         {
@@ -1884,7 +1884,7 @@
           "plannedRecordId": "hearth-search:provenance:137"
         },
         {
-          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:provenance:138"
         },
         {
@@ -2213,7 +2213,7 @@
           "plannedRecordId": "hearth-search:positive-conformance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8f8dcae33e488bce9c724ec4ae0d85aa3a609c0b584d7f529ab7cceef0e53736",
+          "factKey": "criticalSourceFingerprintsSha256=120091ff5a289ebe182dd17bf4404f500bb582e4694af19fdbf1ea00e863c8be",
           "plannedRecordId": "hearth-search:positive-conformance:054"
         },
         {
@@ -2537,7 +2537,7 @@
           "plannedRecordId": "hearth-search:positive-conformance:134"
         },
         {
-          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:positive-conformance:135"
         },
         {
@@ -2549,7 +2549,7 @@
           "plannedRecordId": "hearth-search:positive-conformance:137"
         },
         {
-          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:positive-conformance:138"
         },
         {
@@ -2878,7 +2878,7 @@
           "plannedRecordId": "hearth-search:negative-conformance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8f8dcae33e488bce9c724ec4ae0d85aa3a609c0b584d7f529ab7cceef0e53736",
+          "factKey": "criticalSourceFingerprintsSha256=120091ff5a289ebe182dd17bf4404f500bb582e4694af19fdbf1ea00e863c8be",
           "plannedRecordId": "hearth-search:negative-conformance:054"
         },
         {
@@ -3202,7 +3202,7 @@
           "plannedRecordId": "hearth-search:negative-conformance:134"
         },
         {
-          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.finance={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:negative-conformance:135"
         },
         {
@@ -3214,7 +3214,7 @@
           "plannedRecordId": "hearth-search:negative-conformance:137"
         },
         {
-          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":false,\"canViewPersonPII\":false,\"isReadOnly\":true}",
+          "factKey": "roleCapabilities.management={\"canExecuteApproval\":false,\"canManageApparel\":false,\"canManageDelegations\":false,\"canManageEntities\":false,\"canManageIntake\":false,\"canManageKit\":false,\"canManageMissions\":false,\"canManageSubscriptions\":false,\"canOperateJourneys\":false,\"canReadAgreements\":true,\"canReadMembers\":false,\"canReadPeople\":true,\"canReviewApproval\":false,\"canSubmitApproval\":false,\"canSubmitMemberChange\":false,\"canViewFinancials\":true,\"canViewPerDiem\":true,\"canViewPersonPII\":false,\"isReadOnly\":true}",
           "plannedRecordId": "hearth-search:negative-conformance:138"
         },
         {

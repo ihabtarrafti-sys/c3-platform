@@ -109,7 +109,7 @@
       "canManageSubscriptions": false,
       "canReadAgreements": true,
       "canViewFinancials": true,
-      "canViewPerDiem": false,
+      "canViewPerDiem": true,
       "canManageDelegations": false,
       "canViewPersonPII": false,
       "isReadOnly": true
@@ -151,7 +151,7 @@
       "canManageSubscriptions": false,
       "canReadAgreements": true,
       "canViewFinancials": true,
-      "canViewPerDiem": false,
+      "canViewPerDiem": true,
       "canManageDelegations": false,
       "canViewPersonPII": false,
       "isReadOnly": true
@@ -802,7 +802,7 @@
     "packages/api-contracts/src/index.ts#searchResultsSchema": "4aff386126c762bbf7544cb981339a1158dbb0b659b62d8f9b595dec139fe415",
     "apps/api/src#tree": "21f67a901b218b6beef2c48053f81865bb8878f9f24cdf4cd14841b058f46453",
     "packages/authz/src#tree": "0b877a9c803c4fa41db0190cbd28304ca5e258076ebaad771c8bda14eae39e52",
-    "packages/domain/src#tree": "8636022ff4c8c0a70239ac72fa9bbe738e42f1a1338a9f04a3d0063480aaa2ec",
+    "packages/domain/src#tree": "a81c6f8e2d968d99dbbf0a292b451d56499163657af8329e7c039b57fb2d521a",
     "packages/application/src#tree": "3fd9c0e2b2f170c329b87a0b9571d9f888c478c0195c516a1844949b081449ab",
     "packages/persistence/src#tree": "44a4376bafebfcd26472aff6f287685d58f71d171e8ae53d0f9a89b07afa4390",
     "packages/persistence/migrations#tree": "7bd05d17864f3c6d729c862956c4e89a0c638fdc25846f64103bdbacc5da0326",
