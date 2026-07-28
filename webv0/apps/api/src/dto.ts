@@ -583,6 +583,15 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
       return { operationType: payload.operationType, input };
     }
     case 'AddAgreement': {
+      // Block 7 (the OWNER-authorized agreements axis): agreement CONTENT
+      // (type/code/window/notes/linkage) is agreement-domain data — omitted
+      // without register standing, exactly as the register itself denies it.
+      // The person/entity anchors STAY: which-person is people-domain identity
+      // every role reads. The financial facet nests beneath as before.
+      if (!d.agreements) {
+        const i = payload.input as Record<string, unknown>;
+        return { operationType: payload.operationType, input: { personId: i.personId ?? null, entityId: i.entityId ?? null } };
+      }
       if (d.financial) return payload as unknown as Record<string, unknown>;
       const { valueUsdCents: _v, ...input } = payload.input as Record<string, unknown>;
       return { operationType: payload.operationType, input };
@@ -645,10 +654,16 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
     case 'InitiateJourney':
     case 'AddMissionParticipant':
     case 'RemoveMissionParticipant':
-    case 'RenewAgreement':
-    case 'TerminateAgreement':
     case 'RetireBeneficiary':
       return payload as unknown as Record<string, unknown>;
+    case 'RenewAgreement':
+    case 'TerminateAgreement': {
+      // Block 7: were pass-through. The AGR id stays (which record — F02's own
+      // law); the new window / termination reason are agreement CONTENT.
+      if (d.agreements) return payload as unknown as Record<string, unknown>;
+      const i = payload.input as Record<string, unknown>;
+      return { operationType: payload.operationType, input: { agreementId: i.agreementId } };
+    }
     case 'RemoveAgreementTerm': {
       // PRISM-F17: was pass-through, but its input is {agreementId, termId} and
       // the TERM id is financial-term identity (see the Update case above).

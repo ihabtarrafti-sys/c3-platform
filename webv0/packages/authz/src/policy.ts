@@ -310,10 +310,18 @@ export interface PayloadDisclosure {
    *  immutable external identity + display name). Derived from role, like the
    *  others: delegation grants standing to DECIDE, never to SEE more (H-03.1). */
   readonly members: boolean;
+  /** Block 7 (disclosure chapter; OWNER-authorized 2026-07-28): the EVIDENCED
+   *  fourth axis — agreement-domain standing, derived from the SAME register
+   *  predicate the F16 route fix used. The evidence that forced it: with the
+   *  execute side object nulled, agreement content still crossed the wire in
+   *  the projected payload (proven live by Block 2's own assertion). Minimal
+   *  by ruling: no speculative domain map — further axes follow evidence, and
+   *  the 35-cell outcome seal forces any future object to state its outcomes. */
+  readonly agreements: boolean;
 }
 export function disclosureOf(role: C3Role): PayloadDisclosure {
   const c = capabilitiesFor(role);
-  return { pii: c.canViewPersonPII, financial: c.canViewFinancials, members: c.canReadMembers };
+  return { pii: c.canViewPersonPII, financial: c.canViewFinancials, members: c.canReadMembers, agreements: c.canReadAgreements };
 }
 
 export const canManageDelegations = (role: C3Role): boolean => capabilitiesFor(role).canManageDelegations;

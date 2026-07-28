@@ -123,13 +123,13 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
                   : payload!.operationType === 'RemoveMissionParticipant'
                     ? [{ label: 'Participant', value: <span data-testid="approval-participant-subject">{`Remove ${payload!.input.personId} from ${payload!.input.missionId}`}</span> }]
                     : payload!.operationType === 'AddAgreement'
-                      ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`${payload!.input.agreementType} for ${payload!.input.personId ?? payload!.input.entityId}`}</span> }]
+                      ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`${payload!.input.agreementType ?? 'A withheld agreement'} for ${payload!.input.personId ?? payload!.input.entityId}`}</span> }]
                       : payload!.operationType === 'RenewAgreement'
-                        ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Renew ${payload!.input.agreementId} to ${payload!.input.newEndsOn}`}</span> }]
+                        ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Renew ${payload!.input.agreementId}${payload!.input.newEndsOn ? ` to ${payload!.input.newEndsOn}` : ''}`}</span> }]
                         : payload!.operationType === 'TerminateAgreement'
                           ? [{ label: 'Agreement', value: <span data-testid="approval-agreement-subject">{`Terminate ${payload!.input.agreementId}`}</span> }]
                           : payload!.operationType === 'AddAgreementTerm'
-                            ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Add ${agreementTermKindOf(payload!.input.kind)} to ${payload!.input.agreementId}`}</span> }]
+                            ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Add ${payload!.input.kind ? agreementTermKindOf(payload!.input.kind) : 'a withheld term'} to ${payload!.input.agreementId}`}</span> }]
                             : payload!.operationType === 'UpdateAgreementTerm'
                               ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Change ${payload!.input.termId ?? 'a withheld term'} on ${payload!.input.agreementId}`}</span> }]
                               : payload!.operationType === 'RemoveAgreementTerm'

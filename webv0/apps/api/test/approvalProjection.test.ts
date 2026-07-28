@@ -13,7 +13,7 @@ import { disclosureOf, canReadMembers, type PayloadDisclosure } from '@c3web/aut
 import { projectApprovalPayload, toApprovalDto, toApprovalSummaryDto } from '../src/dto';
 
 /** A disclosure literal with everything closed by default; open what a case needs. */
-const disc = (over: Partial<PayloadDisclosure> = {}): PayloadDisclosure => ({ pii: false, financial: false, members: false, ...over });
+const disc = (over: Partial<PayloadDisclosure> = {}): PayloadDisclosure => ({ pii: false, financial: false, members: false, agreements: false, ...over });
 
 const addPersonPayload = {
   operationType: 'AddPerson',
@@ -309,5 +309,44 @@ describe('F02 + F17 — identity fields obey the SAME disclosure decision as the
   it('F02/F17: non-sensitive ops keep their targetId untouched (no over-omission)', () => {
     const renew = { operationType: 'RenewAgreement', input: { agreementId: 'AGR-0001', endsOn: '2027-01-01' } };
     expect(toApprovalDto(approvalOf(renew, 'AGR-0001'), disc()).targetId).toBe('AGR-0001');
+  });
+});
+
+describe('Block 7 — the agreements axis (owner-authorized; the evidenced minimal)', () => {
+  const add = { operationType: 'AddAgreement', input: { personId: 'PER-0001', entityId: null, agreementCode: 'AG-77', agreementType: 'Player Contract', linkedAgreementId: null, startsOn: '2026-08-01', endsOn: '2027-07-31', notes: 'Signed at the summit', valueUsdCents: 250000 } } as unknown as Approval['payload'];
+  const renew = { operationType: 'RenewAgreement', input: { agreementId: 'AGR-0001', newEndsOn: '2028-07-31' } } as unknown as Approval['payload'];
+  const term = { operationType: 'TerminateAgreement', input: { agreementId: 'AGR-0001', reason: 'Mutual separation' } } as unknown as Approval['payload'];
+
+  it('agreement CONTENT is omitted without register standing; the anchors stay', () => {
+    const projected = projectApprovalPayload(add, disc({ pii: true, financial: true }));
+    for (const leak of ['Player Contract', 'AG-77', 'Signed at the summit', '2026-08-01', '250000']) {
+      expect(JSON.stringify(projected), leak).not.toContain(leak);
+    }
+    // which-person identity is people-domain and stays
+    expect((projected as { input: Record<string, unknown> }).input.personId).toBe('PER-0001');
+  });
+
+  it('Renew/Terminate keep only the AGR id (which record, not what it says)', () => {
+    const r = projectApprovalPayload(renew, disc());
+    expect(JSON.stringify(r)).not.toContain('2028-07-31');
+    expect((r as { input: Record<string, unknown> }).input.agreementId).toBe('AGR-0001');
+    const t = projectApprovalPayload(term, disc());
+    expect(JSON.stringify(t)).not.toContain('Mutual separation');
+    expect((t as { input: Record<string, unknown> }).input.agreementId).toBe('AGR-0001');
+  });
+
+  it('a register-standing reader is untouched (no over-omission); the financial facet still nests beneath', () => {
+    const noFin = projectApprovalPayload(add, disc({ agreements: true }));
+    expect((noFin as { input: Record<string, unknown> }).input.agreementType).toBe('Player Contract');
+    expect(JSON.stringify(noFin)).not.toContain('250000'); // value still needs financial
+    const withFin = projectApprovalPayload(add, disc({ agreements: true, financial: true }));
+    expect((withFin as { input: Record<string, unknown> }).input.valueUsdCents).toBe(250000);
+    expect(JSON.stringify(projectApprovalPayload(renew, disc({ agreements: true })))).toContain('2028-07-31');
+  });
+
+  it('the axis derives from the register predicate, role by role', () => {
+    for (const role of C3_ROLES) {
+      expect(disclosureOf(role).agreements, role).toBe(['owner', 'operations', 'legal', 'finance', 'management'].includes(role));
+    }
   });
 });

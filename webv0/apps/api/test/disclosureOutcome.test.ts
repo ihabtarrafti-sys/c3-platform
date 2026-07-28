@@ -184,18 +184,13 @@ describe('F16 + the five-object role × domain outcome assertion', () => {
       }
     }
 
-    // ── F16's sharpest edge: outside the approval envelope, the hr response
-    //    carries NO agreement content anywhere — not a projected subset,
-    //    ABSENCE. ⚠️ NAMED RESIDUAL, ruled-deferred (Neo §1.4 / the ATLAS
-    //    disposition): the approval PAYLOAD still passes agreement fields for
-    //    agreement ops, because projecting it needs the domain decision that
-    //    is deferred owner-visible model work. This assertion PROVES that
-    //    boundary honestly: everything the BOUNDED repair governs is clean;
-    //    the payload channel is the deferred remainder, not a silent one.
+    // ── BLOCK 7 UN-SCOPED THIS ASSERTION (the owner-authorized acceptance):
+    //    Block 2 had to scope it to "outside the approval envelope" because
+    //    the payload channel had no agreements axis to strip with — and that
+    //    scoping PROVED the residual live, which is what authorized the axis.
+    //    Now the WHOLE hr response must carry no agreement content anywhere.
     const hrProbe = await post(tokens.hr, `/api/v1/approvals/${FIXTURES.agreement}/execute`, { expectedVersion: 1 });
-    const outsideEnvelope = { ...hrProbe.json() };
-    delete (outsideEnvelope as Record<string, unknown>).approval;
-    expect(JSON.stringify(outsideEnvelope)).not.toContain('Player Contract');
+    expect(hrProbe.body, 'no agreement content ANYWHERE in a domain-unread response').not.toContain('Player Contract');
   });
 
   it('the fix covers the FIRST execute too, not only the idempotent branch', async () => {
@@ -220,11 +215,8 @@ describe('F16 + the five-object role × domain outcome assertion', () => {
     expect(exec.statusCode, exec.body).toBe(200);
     expect(exec.json().approval.status).toBe('Executed'); // the DECISION stood
     expect(exec.json().agreement, 'hr executed it and still does not SEE it').toBeNull();
-    // Outside the approval envelope (the ruled-deferred payload channel),
-    // no agreement content anywhere in the first-execute response either.
-    const rest = { ...exec.json() };
-    delete (rest as Record<string, unknown>).approval;
-    expect(JSON.stringify(rest)).not.toContain('Player Contract');
+    // Block 7 un-scoped: the WHOLE first-execute response, envelope included.
+    expect(exec.body).not.toContain('Player Contract');
 
     // POSITIVE CONTROL on the same route: an agreement-reading executor (the
     // owner — base standing, no delegation needed in this test) gets the
