@@ -241,24 +241,33 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
     }
   }
 
+  // UX12 (ruled truthfulness fix): a bulk loop must retain PER-ROW outcomes.
+  // The old error notice named the failing ids but guessed ONE cause for all
+  // of them; the server said why each row failed and the notice discarded it.
+  const rowReason = (e: unknown): string => (e instanceof ApiError ? e.message : 'request failed');
+
   // Bulk roster: fire N governed AddMissionParticipant requests (one approval
-  // each — membership stays a per-person governed decision) and report once.
+  // each — membership stays a per-person governed decision) and report each row.
   async function bulkAdd(): Promise<void> {
     if (!m || bulkPersonIds.length === 0 || !bulkRole.trim()) return;
     setBulkBusy(true);
     let ok = 0;
-    const fails: string[] = [];
+    const fails: { personId: string; reason: string }[] = [];
     for (const personId of bulkPersonIds) {
       try {
         await api.submitAddMissionParticipant({ missionId: m.missionId, personId, role: bulkRole.trim() });
         ok += 1;
-      } catch {
-        fails.push(personId);
+      } catch (e) {
+        fails.push({ personId, reason: rowReason(e) });
       }
     }
     setBulkBusy(false);
     if (ok > 0) notify('success', `Submitted ${ok} add request${ok > 1 ? 's' : ''} for approval — the roster is unchanged until an owner executes each.`);
-    if (fails.length) notify('error', `${fails.length} could not be submitted (${fails.join(', ')}) — already on the roster, or a request is pending.`);
+    if (fails.length) notify('error', `${fails.length} could not be submitted — ${fails.map((f) => `${f.personId}: ${f.reason}`).join(' · ')}`);
+    // The selection still clears on any outcome: retained ids can go stale
+    // against the chip list (a person whose add "failed" as already-active
+    // leaves the eligible set on refresh, stranding an invisible selection).
+    // The notice's per-row ids are what make the re-pick informed.
     setBulkPersonIds([]);
     setBulkRole('');
     invalidate();
@@ -287,19 +296,24 @@ function MissionDetailBody({ missionId }: { missionId: string }) {
     if (active.length === 0) return notify('error', 'No active participants to apply to.');
     setRosterBusy(true);
     let ok = 0;
-    const fails: string[] = [];
+    // UX12: per-row outcomes. The old notice reported only a count and one
+    // assumed cause; this money-adjacent surface must say WHICH people were
+    // not set and what the server said for each.
+    const fails: { personId: string; reason: string }[] = [];
     for (const p of active) {
       try {
         await api.setParticipantPerDiem(m.missionId, p.personId, minor, rosterPd.currency, p.version);
         ok += 1;
-      } catch {
-        fails.push(p.personId);
+      } catch (e) {
+        fails.push({ personId: p.personId, reason: rowReason(e) });
       }
     }
     setRosterBusy(false);
     if (ok > 0) notify('success', `Set per-diem on ${ok} participant${ok > 1 ? 's' : ''}.`);
-    if (fails.length) notify('error', `${fails.length} could not be set (changed since load — reload and retry).`);
-    setRosterPd({ amount: '', currency: rosterPd.currency });
+    if (fails.length) notify('error', `${fails.length} could not be set — ${fails.map((f) => `${f.personId}: ${f.reason}`).join(' · ')}. Reload to see current values before retrying.`);
+    // UX12: a partial failure keeps the entered amount so the retry does not
+    // depend on the operator re-typing money; a full success clears it.
+    if (fails.length === 0) setRosterPd({ amount: '', currency: rosterPd.currency });
     invalidate();
     void qc.invalidateQueries({ queryKey: ['missionParticipants', missionId] });
   }
