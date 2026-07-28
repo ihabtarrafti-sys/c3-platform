@@ -189,3 +189,32 @@ describe('NEO-DOC-01 - the Document byte route conceals denial as the document o
     expect((await app.inject({ method: 'GET', url: `/api/v1/documents/${docId}/content`, headers: auth(tokens.hr) })).statusCode).toBe(200);
   });
 });
+
+describe('F13 - the mention fan-out validates its recipients', () => {
+  it('a mention notifies ONLY active members whose own standing can read the subject', async () => {
+    const visitor = await login('guest.visitor@alpha.com', 'visitor', 'alpha');
+    const a = await submitPerson(tokens.ops, 'Mention Fanout Probe');
+
+    // ops comments on the APPROVAL, mentioning a read-only visitor (no
+    // approvals standing, no delegation) and the owner (full standing).
+    const c = await post(tokens.ops, '/api/v1/comments', {
+      subjectType: 'Approval',
+      subjectId: a.approvalId,
+      body: 'disclosure probe',
+      mentions: ['guest.visitor@alpha.com', 'owner@alpha.com'],
+    });
+    expect(c.statusCode, c.body).toBe(201);
+    // the comment ROW keeps the full mention list - the register is unchanged
+    expect(c.json().comment.mentions).toEqual(['guest.visitor@alpha.com', 'owner@alpha.com']);
+
+    // The visitor's bell must NOT name an approval their role cannot read:
+    // the notification IS a disclosure ("... mentioned you on Approval APR-x").
+    const vBell = await app.inject({ method: 'GET', url: '/api/v1/notifications', headers: auth(visitor) });
+    expect(vBell.statusCode, vBell.body).toBe(200);
+    expect(vBell.body, 'a subject-naming notification reached a reader with no subject access').not.toContain(a.approvalId);
+
+    // POSITIVE CONTROL on the same instrument: the owner's bell HAS the row.
+    const oBell = await app.inject({ method: 'GET', url: '/api/v1/notifications', headers: auth(tokens.owner) });
+    expect(oBell.body).toContain(a.approvalId);
+  });
+});

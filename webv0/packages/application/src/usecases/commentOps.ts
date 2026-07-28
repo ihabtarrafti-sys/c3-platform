@@ -16,7 +16,7 @@ import {
   postCommentInputSchema,
   subjectRoute,
 } from '@c3web/domain';
-import { assertReadAgreements, assertReadPeople } from '@c3web/authz';
+import { assertReadAgreements, assertReadPeople, canReadAgreements, canReadPeople, canReviewApproval, canSubmitApproval } from '@c3web/authz';
 import { assertViewApprovalsEffective } from './queries';
 import type { Persistence } from '../ports';
 
@@ -64,6 +64,41 @@ export async function postComment(p: Persistence, actor: Actor, input: PostComme
   const me = actor.identity.trim().toLowerCase();
   const mentions = [...new Set(parsed.mentions.map((m) => m.trim()).filter((m) => m && m.toLowerCase() !== me))];
 
+  // F13 (disclosure chapter): the mention notification NAMES its subject
+  // ("… mentioned you on Approval APR-0001"), so the fan-out is itself a
+  // disclosure surface — and unvalidated it was a probe/spam vector: any
+  // commenter could land subject-naming rows on any string, including members
+  // whose role cannot read the subject at all. Fan out ONLY to ACTIVE members
+  // whose OWN standing can read the subject (delegation honoured for
+  // approvals, same as the read path). The comment ROW keeps the full mention
+  // list — the register is unchanged; only the bell is gated. RED-proven at
+  // the wire in disclosure.test.ts.
+  const members = await p.reads.forActor(actor).listMembers();
+  const activeByEmail = new Map(members.filter((m) => m.isActive).map((m) => [m.email.toLowerCase(), m]));
+  const today = new Date().toISOString().slice(0, 10);
+  const recipients: string[] = [];
+  for (const identity of mentions) {
+    const member = activeByEmail.get(identity.toLowerCase());
+    if (!member) continue;
+    switch (parsed.subjectType) {
+      case 'Person':
+      case 'Mission':
+        if (canReadPeople(member.role)) recipients.push(identity);
+        break;
+      case 'Agreement':
+        if (canReadAgreements(member.role)) recipients.push(identity);
+        break;
+      case 'Approval': {
+        const stands =
+          canSubmitApproval(member.role) ||
+          canReviewApproval(member.role) ||
+          (await p.reads.forActor(actor).hasActiveDelegation(identity.toLowerCase(), today));
+        if (stands) recipients.push(identity);
+        break;
+      }
+    }
+  }
+
   return p.writes.transaction(actor, async (tx) => {
     const comment = await tx.insertComment({
       subjectType: parsed.subjectType,
@@ -73,13 +108,11 @@ export async function postComment(p: Persistence, actor: Actor, input: PostComme
       mentions,
     });
 
-    // Fan out to the S10 bell — one row per mentioned member (deduped by the
-    // notification unique key). Best-effort: a mention that isn't a member
-    // simply lands no row (the insert is tenant-RLS'd; a stranger has no
-    // notification surface anyway).
+    // Fan out to the S10 bell — one row per VALIDATED recipient (deduped by
+    // the notification unique key).
     const link = subjectRoute(parsed.subjectType, parsed.subjectId);
     const title = `${actor.identity} mentioned you on ${parsed.subjectType} ${parsed.subjectId}`;
-    for (const identity of mentions) {
+    for (const identity of recipients) {
       await tx.insertNotification({
         userIdentity: identity,
         signalKey: `Mention:${comment.id}:${identity}`,
