@@ -155,7 +155,12 @@ describe('executeApproval', () => {
     await expect(executeApproval(p, owner, approved.approvalId, approved.version)).rejects.toThrow('simulated execution fault');
     const [after] = await listApprovals(p, owner);
     expect(after?.status).toBe('ExecutionFailed');
-    expect(after?.executionError).toContain('simulated');
+    // N-2 SUPERSEDED the prose pin ("contains 'simulated'"): the recorded
+    // executionError is a TYPED CODE + id references — exception prose stays
+    // in the server log, because a driver/conflict message can quote
+    // restricted values (the residual the N-1 sweep named). An untyped Error
+    // records as the generic code.
+    expect(after?.executionError).toBe('EXECUTION_FAILED');
     expect(await listPeople(p, owner)).toHaveLength(0);
   });
 

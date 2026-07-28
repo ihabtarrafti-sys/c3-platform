@@ -1470,7 +1470,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -1481,15 +1482,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -1498,8 +1495,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }
@@ -4360,7 +4356,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -4371,15 +4368,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -4388,8 +4381,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }
@@ -9684,7 +9676,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -9695,15 +9688,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -9712,8 +9701,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }
@@ -18072,7 +18060,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -18083,15 +18072,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -18100,8 +18085,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }
@@ -21759,7 +21743,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -21770,15 +21755,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -21787,8 +21768,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }
@@ -23397,7 +23377,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -23408,15 +23389,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -23425,8 +23402,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }
@@ -24007,7 +23983,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -24018,15 +23995,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -24035,8 +24008,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }
@@ -25600,7 +25572,8 @@
                             "type": "string"
                           },
                           "entityId": {
-                            "type": "string"
+                            "type": "string",
+                            "nullable": true
                           },
                           "action": {
                             "type": "string"
@@ -25611,15 +25584,11 @@
                           "at": {
                             "type": "string"
                           },
-                          "before": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
-                          },
-                          "after": {
-                            "type": "object",
-                            "additionalProperties": {},
-                            "nullable": true
+                          "changedFields": {
+                            "type": "array",
+                            "items": {
+                              "type": "string"
+                            }
                           }
                         },
                         "required": [
@@ -25628,8 +25597,7 @@
                           "action",
                           "actor",
                           "at",
-                          "before",
-                          "after"
+                          "changedFields"
                         ],
                         "additionalProperties": false
                       }

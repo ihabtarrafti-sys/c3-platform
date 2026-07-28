@@ -144,7 +144,9 @@ describe('import/export over HTTP (S5)', () => {
     // The audit trail exports alongside.
     const auditExp = await app.inject({ method: 'GET', url: '/api/v1/exports/audit', headers: auth(tokens.owner) });
     expect(auditExp.statusCode).toBe(200);
-    expect(auditExp.body.split('\n')[0]).toBe('at,entityType,entityId,action,actor,before,after');
+    // N-2 SUPERSEDED the before/after columns: the export is the same audit
+    // META-channel as the JSON surface — changed field NAMES, never values.
+    expect(auditExp.body.split('\n')[0]).toBe('at,entityType,entityId,action,actor,changedFields');
     expect(auditExp.body).toContain('PersonCreated');
 
     // ── S5 riders: the data-quality report sees what import let through ──────

@@ -272,3 +272,83 @@ describe('N-1 - the note channel is ID-and-enum-only at the producer', () => {
     expect(events.body).toContain(created.userId);
   });
 });
+
+describe('N-2 - audit is a META-channel, not a content channel', () => {
+  it('the audit wire carries changed field NAMES, never values; the purity law holds shape-wide', async () => {
+    // A person with a distinctive value, edited operationally.
+    const pr = await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'Meta Channel Person' } });
+    expect(pr.statusCode, pr.body).toBe(201);
+    const created = (await governedExecute(pr.json().approval.approvalId, pr.json().approval.version)).person as { personId: string; version: number };
+    const personId = created.personId;
+    const patch = await app.inject({ method: 'PATCH', url: `/api/v1/people/${personId}`, headers: auth(tokens.ops), payload: { expectedVersion: created.version, patch: { position: 'Quartermaster General' } } });
+    expect(patch.statusCode, patch.body).toBe(200);
+
+    // RED (pre-fix): the audit JSON carried before/after with the value.
+    const audit = await app.inject({ method: 'GET', url: `/api/v1/people/${personId}/audit`, headers: auth(tokens.owner) });
+    expect(audit.statusCode, audit.body).toBe(200);
+    expect(audit.body, 'audit must not carry VALUES').not.toContain('Quartermaster General');
+    const op = audit.json().events.find((e: { action: string }) => e.action === 'PersonOperationalUpdated');
+    expect(op, audit.body).toBeTruthy();
+    // POSITIVE CONTROL on the same body: the NAME arrives.
+    expect(op.changedFields).toContain('position');
+    // ...and the value is exactly one projected read away, for the entitled.
+    const person = await app.inject({ method: 'GET', url: `/api/v1/people/${personId}`, headers: auth(tokens.owner) });
+    expect(person.body).toContain('Quartermaster General');
+
+    // THE PURITY LAW (shape-level, the frozenDataPurity pattern): no audit
+    // event field may be record-shaped -- names are strings, and the whole
+    // event serializes to scalars + the string[] manifest.
+    for (const e of audit.json().events) {
+      for (const [k, v] of Object.entries(e)) {
+        if (k === 'changedFields') {
+          expect(Array.isArray(v)).toBe(true);
+          for (const f of v as unknown[]) expect(typeof f).toBe('string');
+        } else {
+          expect(v === null || typeof v === 'string', `audit field ${k} must be scalar, got ${typeof v}`).toBe(true);
+        }
+      }
+    }
+
+    // The CSV export obeys the same law (it is reachable to every submitting
+    // role -- values there would make the JSON conversion cosmetic).
+    const csv = await app.inject({ method: 'GET', url: '/api/v1/exports/audit', headers: auth(tokens.owner) });
+    expect(csv.statusCode, csv.body).toBe(200);
+    expect(csv.body).not.toContain('Quartermaster General');
+    expect(csv.body.split('\n')[0]).toContain('changedFields');
+  });
+
+  it('executionError is a typed code + id references on the wire, never exception prose', async () => {
+    // Force a REAL execution failure whose raw message quotes a bank label:
+    // two AddBeneficiary approvals for the same label, both submitted before
+    // either executes -- the first executes, the second hits the DB partial
+    // unique at execute and fails with a ConflictError quoting the label.
+    const pr = await post(tokens.ops, '/api/v1/approvals', { input: { fullName: 'ExecError Person' } });
+    expect(pr.statusCode, pr.body).toBe(201);
+    const personId = (await governedExecute(pr.json().approval.approvalId, pr.json().approval.version)).person.personId as string;
+
+    const mk = () => post(tokens.ops, '/api/v1/beneficiaries/requests', { input: { personId, label: 'Primary Household Route', bankName: 'Distinctive Trust House', bankCountry: 'UAE', currency: 'AED' } });
+    const first = await mk();
+    expect(first.statusCode, first.body).toBe(201);
+    const second = await mk();
+    expect(second.statusCode, second.body).toBe(201);
+
+    await governedExecute(first.json().approval.approvalId, first.json().approval.version);
+    // the second walks the ceremony and FAILS at execute
+    const a2 = second.json().approval;
+    const rev = await post(tokens.owner, `/api/v1/approvals/${a2.approvalId}/begin-review`, { expectedVersion: a2.version });
+    const appr = await post(tokens.owner, `/api/v1/approvals/${a2.approvalId}/approve`, { expectedVersion: rev.json().approval.version });
+    const exec = await post(tokens.owner, `/api/v1/approvals/${a2.approvalId}/execute`, { expectedVersion: appr.json().approval.version });
+    expect(exec.statusCode, exec.body).toBeGreaterThanOrEqual(400);
+
+    // RED (pre-fix): the recorded executionError quoted the label + bank name.
+    const dto = await app.inject({ method: 'GET', url: `/api/v1/approvals/${a2.approvalId}`, headers: auth(tokens.owner) });
+    expect(dto.statusCode, dto.body).toBe(200);
+    const err = dto.json().approval.executionError as string | null;
+    expect(err, dto.body).toBeTruthy();
+    expect(err, 'exception prose must not reach the wire').not.toContain('Primary Household Route');
+    expect(err).not.toContain('Distinctive Trust House');
+    // the typed grammar: CODE, optionally followed by id-shaped references
+    expect(err).toMatch(/^[A-Z][A-Z0-9_]{0,79}( [A-Za-z0-9-]+(, [A-Za-z0-9-]+)*)?$/);
+    expect(dto.json().approval.status).toBe('ExecutionFailed'); // the truth survives
+  });
+});

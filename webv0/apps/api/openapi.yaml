@@ -1094,28 +1094,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events
@@ -3276,28 +3272,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events
@@ -7147,28 +7139,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events
@@ -13173,28 +13161,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events
@@ -15780,28 +15764,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events
@@ -16916,28 +16896,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events
@@ -17353,28 +17329,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events
@@ -18496,28 +18468,24 @@ paths:
                           type: string
                         entityId:
                           type: string
+                          nullable: true
                         action:
                           type: string
                         actor:
                           type: string
                         at:
                           type: string
-                        before:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
-                        after:
-                          type: object
-                          additionalProperties: {}
-                          nullable: true
+                        changedFields:
+                          type: array
+                          items:
+                            type: string
                       required:
                         - entityType
                         - entityId
                         - action
                         - actor
                         - at
-                        - before
-                        - after
+                        - changedFields
                       additionalProperties: false
                 required:
                   - events

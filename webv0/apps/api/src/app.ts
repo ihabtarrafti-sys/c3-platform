@@ -865,7 +865,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   r.get('/api/v1/people/:personId/audit', { schema: { params: personIdParamSchema, response: { 200: auditEventsListSchema } } }, async (req) => {
     const { personId } = req.params as { personId: string };
     const events = await listAuditEvents(P, actorOf(req), 'Person', personId);
-    return { events: events.map(toAuditEventDto) };
+    return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
   });
 
   // ── person photo (Track B): image bytes through the API under the person ──
@@ -1093,7 +1093,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   r.get('/api/v1/approvals/:approvalId/audit', { schema: { params: approvalIdParamSchema, response: { 200: auditEventsListSchema } } }, async (req) => {
     const { approvalId } = req.params as { approvalId: string };
     const events = await listAuditEvents(P, actorOf(req), 'Approval', approvalId);
-    return { events: events.map(toAuditEventDto) };
+    return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
   });
 
   // ── credentials (Sprint 36) ────────────────────────────────────────────────
@@ -1465,7 +1465,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { missionId } = req.params as { missionId: string };
       const events = await listAuditEvents(P, actorOf(req), 'Mission', missionId);
-      return { events: events.map(toAuditEventDto) };
+      return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
     },
   );
 
@@ -2372,7 +2372,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { claimId } = req.params as { claimId: string };
       const events = await listAuditEvents(P, actorOf(req), 'Claim', claimId);
-      return { events: events.map(toAuditEventDto) };
+      return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
     },
   );
 
@@ -2684,7 +2684,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { distributionId } = req.params as { distributionId: string };
       const events = await listAuditEvents(P, actorOf(req), 'Distribution', distributionId);
-      return { events: events.map(toAuditEventDto) };
+      return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
     },
   );
 
@@ -2810,7 +2810,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { teamId } = req.params as { teamId: string };
       const events = await listAuditEvents(P, actorOf(req), 'Team', teamId);
-      return { events: events.map(toAuditEventDto) };
+      return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
     },
   );
 
@@ -2892,7 +2892,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { invoiceId } = req.params as { invoiceId: string };
       const events = await listAuditEvents(P, actorOf(req), 'Invoice', invoiceId);
-      return { events: events.map(toAuditEventDto) };
+      return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
     },
   );
 
@@ -3021,7 +3021,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     async (req) => {
       const { agreementId } = req.params as { agreementId: string };
       const events = await listAuditEvents(P, actorOf(req), 'Agreement', agreementId);
-      return { events: events.map(toAuditEventDto) };
+      return { events: events.map((e) => toAuditEventDto(e, discOf(req))) };
     },
   );
 

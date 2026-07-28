@@ -712,6 +712,20 @@ function projectApprovalTargetId(a: Approval, d: PayloadDisclosure): string | nu
   }
 }
 
+/**
+ * N-2: the wire executionError is TYPED-CODE + ID-REFERENCES only. New rows
+ * are produced that way (composeExecutionError); rows recorded BEFORE the
+ * ruling hold raw exception prose -- which can quote restricted values (a
+ * ConflictError quotes the duplicate bank label) -- and are CONCEALED to the
+ * generic code. Grammar, not vigilance: anything off-grammar is legacy prose
+ * by definition.
+ */
+const EXECUTION_ERROR_WIRE = /^[A-Z][A-Z0-9_]{0,79}( [A-Za-z0-9-]+(, [A-Za-z0-9-]+)*)?$/;
+function projectExecutionError(stored: string | null): string | null {
+  if (stored === null) return null;
+  return EXECUTION_ERROR_WIRE.test(stored) ? stored : 'EXECUTION_FAILED';
+}
+
 export function toApprovalDto(a: Approval, d: PayloadDisclosure): ApprovalDto {
   return {
     approvalId: a.approvalId,
@@ -727,7 +741,7 @@ export function toApprovalDto(a: Approval, d: PayloadDisclosure): ApprovalDto {
     reviewedAt: a.reviewedAt,
     rejectionReason: a.rejectionReason,
     executedAt: a.executedAt,
-    executionError: a.executionError,
+    executionError: projectExecutionError(a.executionError),
     version: a.version,
     editCount: a.editCount,
     revisionOf: a.revisionOf,
@@ -754,7 +768,7 @@ export function toApprovalSummaryDto(a: Approval, d: PayloadDisclosure): Approva
     reviewedAt: a.reviewedAt,
     rejectionReason: a.rejectionReason,
     executedAt: a.executedAt,
-    executionError: a.executionError,
+    executionError: projectExecutionError(a.executionError),
     version: a.version,
     editCount: a.editCount,
     revisionOf: a.revisionOf,
@@ -768,6 +782,16 @@ export function toApprovalEventDto(e: ApprovalEvent) {
   return { approvalId: e.approvalId, fromStatus: e.fromStatus, toStatus: e.toStatus, actor: e.actor, at: e.at, note: e.note };
 }
 
-export function toAuditEventDto(e: AuditEvent) {
-  return { entityType: e.entityType, entityId: e.entityId, action: e.action, actor: e.actor, at: e.at, before: e.before, after: e.after };
+/**
+ * N-2: the audit META-channel. Raw before/after never leave the server --
+ * only the changed field NAMES (schema words; a name cannot encode a value).
+ * The target id obeys the F02 disclosure decision: Member entity ids are
+ * member-directory identity and are withheld without that standing; every
+ * other entity id is which-record identity and passes (the same per-axis map
+ * projectApprovalTargetId applies to approvals).
+ */
+export function toAuditEventDto(e: AuditEvent, d: PayloadDisclosure) {
+  const changedFields = [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort();
+  const entityId = e.entityType === 'Member' && !d.members ? null : e.entityId;
+  return { entityType: e.entityType, entityId, action: e.action, actor: e.actor, at: e.at, changedFields };
 }

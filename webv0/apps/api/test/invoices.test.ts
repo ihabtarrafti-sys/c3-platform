@@ -120,7 +120,14 @@ describe('invoices over HTTP (S6)', () => {
     const invAudit = await get(tokens.owner, `/api/v1/invoices/${inv1.invoiceId}/audit`);
     expect(invAudit.json().events.some((e: { action: string }) => e.action === 'InvoiceIssued')).toBe(true);
     const msnAudit = await get(tokens.owner, `/api/v1/missions/${msn}/audit`);
-    expect(JSON.stringify(msnAudit.json())).toContain(inv1.invoiceNumber);
+    // N-2 SUPERSEDED the value pin here (the audit used to carry the invoice
+    // NUMBER through after.invoiceNumber): the wire is a META-channel — the
+    // flip names WHICH FIELDS moved; the number itself reads from the
+    // invoice's own projected record, for the entitled.
+    const flip = msnAudit.json().events.find((e: { action: string }) => e.action === 'MissionLinePaymentSet');
+    expect(flip, msnAudit.body).toBeTruthy();
+    expect(flip.changedFields).toContain('invoiceNumber');
+    expect(JSON.stringify(msnAudit.json())).not.toContain(inv1.invoiceNumber);
 
     // The PDF artifact: %PDF magic, honest headers, Invoice-owner read gate.
     const pdf = await get(tokens.owner, `/api/v1/documents/${inv1.documentId}/content`);

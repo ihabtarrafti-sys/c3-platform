@@ -382,29 +382,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"
@@ -2770,29 +2761,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"
@@ -5395,29 +5377,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"
@@ -10229,29 +10202,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"
@@ -12888,29 +12852,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"
@@ -14911,29 +14866,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"
@@ -17874,29 +17820,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"
@@ -20833,29 +20770,20 @@
                   "actor": {
                     "t": "string"
                   },
-                  "after": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
-                    }
-                  },
                   "at": {
                     "t": "string"
                   },
-                  "before": {
-                    "t": "nullable",
-                    "inner": {
-                      "t": "record",
-                      "value": {
-                        "t": "unknown"
-                      }
+                  "changedFields": {
+                    "t": "array",
+                    "item": {
+                      "t": "string"
                     }
                   },
                   "entityId": {
-                    "t": "string"
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
                   },
                   "entityType": {
                     "t": "string"

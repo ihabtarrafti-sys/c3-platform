@@ -30,7 +30,7 @@ import {
   toCsv,
   validateImportCsv,
 } from '@c3web/domain';
-import { assertSubmitApproval, assertViewFinancials } from '@c3web/authz';
+import { assertSubmitApproval, assertViewFinancials, disclosureOf } from '@c3web/authz';
 import type { Persistence } from '../ports';
 
 export type StageImportResult =
@@ -201,18 +201,22 @@ export function templateCsv(domain: ImportDomain): string {
   return toCsv(columnsForDomain(domain), []);
 }
 
-/** The audit trail as CSV (read-only history; not importable by design). */
+/** The audit trail as CSV (read-only history; not importable by design).
+ *  N-2 (Block 3b): the SAME meta-channel law as the JSON audit surface — the
+ *  export carries changed field NAMES, never values (this route is reachable
+ *  to every submitting role; full before/after here would have made the JSON
+ *  conversion cosmetic), and Member entity ids obey the F02 decision. */
 export async function exportAuditCsv(p: Persistence, actor: Actor): Promise<string> {
   assertSubmitApproval(actor);
+  const d = disclosureOf(actor.role);
   const events = await p.reads.forActor(actor).listAllAuditEvents();
   const rows = events.map((e) => [
     e.at,
     e.entityType,
-    e.entityId,
+    e.entityType === 'Member' && !d.members ? '' : e.entityId,
     e.action,
     e.actor,
-    e.before ? JSON.stringify(e.before) : '',
-    e.after ? JSON.stringify(e.after) : '',
+    [...new Set([...Object.keys(e.before ?? {}), ...Object.keys(e.after ?? {})])].sort().join('; '),
   ]);
-  return toCsv(['at', 'entityType', 'entityId', 'action', 'actor', 'before', 'after'], rows);
+  return toCsv(['at', 'entityType', 'entityId', 'action', 'actor', 'changedFields'], rows);
 }

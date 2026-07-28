@@ -1265,11 +1265,35 @@ export async function executeApproval(
 
     // Genuine fault after the point of no return -> record ExecutionFailed truthfully.
     if (enteredExecution) {
-      const message = err instanceof Error ? err.message : String(err);
-      await recordExecutionFailure(p, actor, approvalId, message).catch(() => {});
+      await recordExecutionFailure(p, actor, approvalId, composeExecutionError(err)).catch(() => {});
     }
     throw err;
   }
+}
+
+/**
+ * N-2 (disclosure chapter, Block 3b): the STORED executionError is a typed
+ * code + canonical ID references, NEVER exception prose -- a ConflictError's
+ * message can quote a bank label verbatim (the residual the N-1 sweep named),
+ * and executionError is a raw top-level wire field on every approval reader's
+ * surface. The full error text goes to the (already-redacting) server log at
+ * the throw site, not to the row. Same construction discipline as composeNote:
+ * the code rides the DomainError's own validated grammar, and only id-shaped
+ * detail values survive as references.
+ */
+const EXECUTION_ERROR_CODE = /^[A-Z][A-Z0-9_]{0,79}$/;
+const EXECUTION_ERROR_REF = /^([A-Z]{2,4}-\d{4,}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i;
+export function composeExecutionError(err: unknown): string {
+  const code =
+    typeof err === 'object' && err !== null && 'code' in err && typeof (err as { code: unknown }).code === 'string' && EXECUTION_ERROR_CODE.test((err as { code: string }).code)
+      ? (err as { code: string }).code
+      : 'EXECUTION_FAILED';
+  const details =
+    typeof err === 'object' && err !== null && 'details' in err ? ((err as { details?: Record<string, unknown> }).details ?? {}) : {};
+  const refs = Object.values(details)
+    .filter((v): v is string => typeof v === 'string' && EXECUTION_ERROR_REF.test(v))
+    .sort();
+  return refs.length > 0 ? `${code} ${refs.join(', ')}` : code;
 }
 
 async function recordExecutionFailure(p: Persistence, actor: Actor, approvalId: string, message: string): Promise<void> {

@@ -204,14 +204,20 @@ export const approvalEventSchema = z.object({
 });
 export const approvalEventsListSchema = z.object({ events: z.array(approvalEventSchema) });
 
+/** N-2 (disclosure chapter, Block 3b): AUDIT IS A META-CHANNEL, NOT A CONTENT
+ *  CHANNEL. The raw before/after records are GONE from the wire -- audit
+ *  carries WHAT happened (kind/actor/time/target + the changed field NAMES,
+ *  never values); the values come through the record's own PROJECTED read
+ *  path, for exactly the callers entitled to them. Fixed schemas mean a field
+ *  name cannot encode a value. `entityId` is nullable because Member targets
+ *  are projected under the F02 disclosure decision. */
 export const auditEventSchema = z.object({
   entityType: z.string(),
-  entityId: z.string(),
+  entityId: z.string().nullable(),
   action: z.string(),
   actor: z.string(),
   at: z.string(),
-  before: z.record(z.unknown()).nullable(),
-  after: z.record(z.unknown()).nullable(),
+  changedFields: z.array(z.string()),
 });
 export const auditEventsListSchema = z.object({ events: z.array(auditEventSchema) });
 

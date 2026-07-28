@@ -123,8 +123,12 @@ describe('people v2 over HTTP (S11)', () => {
     const events = (await call('GET', tokens.owner, `/api/v1/people/${personId}/audit`)).events;
     const op = events.find((e: { action: string }) => e.action === 'PersonOperationalUpdated');
     expect(op, JSON.stringify(events.map((e: { action: string }) => e.action))).toBeTruthy();
-    expect(op.before.position).toBeNull();
-    expect(op.after.position).toBe('Team Manager');
+    // N-2 SUPERSEDED the value pins that stood here (before.position null /
+    // after.position 'Team Manager'): audit is a META-channel -- the wire
+    // carries the changed field NAMES, never values; the values come through
+    // the person's own projected read.
+    expect(op.changedFields).toContain('position');
+    expect(JSON.stringify(op)).not.toContain('Team Manager');
     // role law: hr and visitor cannot use the operational edit
     await call('PATCH', tokens.hr, `/api/v1/people/${personId}`, { expectedVersion: 1, patch: { position: 'Y' } }, 403);
     await call('PATCH', tokens.visitor, `/api/v1/people/${personId}`, { expectedVersion: 1, patch: { position: 'Y' } }, 403);
@@ -165,8 +169,9 @@ describe('people v2 over HTTP (S11)', () => {
 
     const events = (await call('GET', tokens.owner, `/api/v1/people/${personId}/audit`)).events;
     const idu = events.find((e: { action: string }) => e.action === 'PersonIdentityUpdated');
-    expect(idu.before.firstName).toBeNull();
-    expect(idu.after.firstName).toBe('Lena');
+    // N-2: meta-channel -- names, never values (supersedes the value pins).
+    expect(idu.changedFields).toContain('firstName');
+    expect(JSON.stringify(idu)).not.toContain('Lena');
   });
 
   it('governed lifecycle: deactivate with reason → inactive; reactivate mirrors; moot requests refuse', async () => {
