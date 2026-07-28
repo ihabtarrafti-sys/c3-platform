@@ -594,8 +594,11 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
       // with `label` free text describing it. Both are financial CONTENT, not
       // identity. The agreement id stays: that is which record, not what it says.
       if (d.financial) return payload as unknown as Record<string, unknown>;
+      // PRISM-F17: `termId` is financial-TERM identity — it names which financial
+      // term exists, on a register the reader cannot open. The AGREEMENT id stays
+      // (which record); the TERM id goes with the content it identifies.
       const {
-        amountMinor: _a, currency: _c, percentBps: _p, kind: _k, label: _l,
+        amountMinor: _a, currency: _c, percentBps: _p, kind: _k, label: _l, termId: _t,
         ...input
       } = payload.input as Record<string, unknown>;
       return { operationType: payload.operationType, input };
@@ -644,9 +647,15 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
     case 'RemoveMissionParticipant':
     case 'RenewAgreement':
     case 'TerminateAgreement':
-    case 'RemoveAgreementTerm':
     case 'RetireBeneficiary':
       return payload as unknown as Record<string, unknown>;
+    case 'RemoveAgreementTerm': {
+      // PRISM-F17: was pass-through, but its input is {agreementId, termId} and
+      // the TERM id is financial-term identity (see the Update case above).
+      if (d.financial) return payload as unknown as Record<string, unknown>;
+      const { termId: _t, ...input } = payload.input as Record<string, unknown>;
+      return { operationType: payload.operationType, input };
+    }
     // H-03.1: member operations name a member — ProvisionMember carries email +
     // immutable external identity + display name; the others target a member id.
     // That is member-directory data: omit it for readers without member-directory
@@ -678,12 +687,37 @@ export function projectApprovalPayload(payload: Approval['payload'], d: PayloadD
   }
 }
 
+/**
+ * PRISM-F02/F17: the top-level `targetId` obeys the SAME per-op disclosure
+ * decision as the payload — the projector's promise ("WHO the op names does
+ * not survive", H-03.1) was defeated by this sibling riding beside it raw.
+ * Member ops carry the target member user id (member-directory standing);
+ * Update/Remove term ops carry the TRM id (financial-term identity). Every
+ * other op's targetId is which-record identity and passes untouched. Ruled:
+ * projected, never deleted — the contract field stays, nullable as it always
+ * was at submission time.
+ */
+function projectApprovalTargetId(a: Approval, d: PayloadDisclosure): string | null {
+  switch (a.operationType) {
+    case 'ProvisionMember':
+    case 'ChangeRole':
+    case 'DeactivateMember':
+    case 'ReactivateMember':
+      return d.members ? a.targetId : null;
+    case 'UpdateAgreementTerm':
+    case 'RemoveAgreementTerm':
+      return d.financial ? a.targetId : null;
+    default:
+      return a.targetId;
+  }
+}
+
 export function toApprovalDto(a: Approval, d: PayloadDisclosure): ApprovalDto {
   return {
     approvalId: a.approvalId,
     operationType: a.operationType,
     targetPersonId: a.targetPersonId,
-    targetId: a.targetId,
+    targetId: projectApprovalTargetId(a, d),
     reason: a.reason,
     status: a.status,
     payload: projectApprovalPayload(a.payload, d) as ApprovalDto['payload'],
@@ -704,12 +738,14 @@ export function toApprovalDto(a: Approval, d: PayloadDisclosure): ApprovalDto {
 }
 
 /** H-01: the REGISTER view — no payload at all. Detail is where disclosure happens. */
-export function toApprovalSummaryDto(a: Approval): ApprovalSummaryDto {
+export function toApprovalSummaryDto(a: Approval, d: PayloadDisclosure): ApprovalSummaryDto {
   return {
     approvalId: a.approvalId,
     operationType: a.operationType,
     targetPersonId: a.targetPersonId,
-    targetId: a.targetId,
+    // F02: the register view carries no payload, but the raw sibling leaked the
+    // same identity the detail's projector withholds. Same decision, same axis.
+    targetId: projectApprovalTargetId(a, d),
     reason: a.reason,
     status: a.status,
     submittedBy: a.submittedBy,

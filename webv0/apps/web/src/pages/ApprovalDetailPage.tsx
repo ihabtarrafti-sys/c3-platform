@@ -131,9 +131,9 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
                           : payload!.operationType === 'AddAgreementTerm'
                             ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Add ${agreementTermKindOf(payload!.input.kind)} to ${payload!.input.agreementId}`}</span> }]
                             : payload!.operationType === 'UpdateAgreementTerm'
-                              ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Change ${payload!.input.termId} on ${payload!.input.agreementId}`}</span> }]
+                              ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Change ${payload!.input.termId ?? 'a withheld term'} on ${payload!.input.agreementId}`}</span> }]
                               : payload!.operationType === 'RemoveAgreementTerm'
-                                ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Remove ${payload!.input.termId} from ${payload!.input.agreementId}`}</span> }]
+                                ? [{ label: 'Financial term', value: <span data-testid="approval-term-subject">{`Remove ${payload!.input.termId ?? 'a withheld term'} from ${payload!.input.agreementId}`}</span> }]
                                 : payload!.operationType === 'ImportBatch'
                                   ? [{ label: 'Import batch', value: <span data-testid="approval-import-subject">{`Import ${payload!.input.rowCount} ${payload!.input.domain} from "${payload!.input.fileName}"`}</span> }]
                                   : payload!.operationType === 'UpdatePersonIdentity'

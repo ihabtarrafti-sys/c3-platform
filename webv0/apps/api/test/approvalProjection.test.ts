@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 import type { Approval } from '@c3web/domain';
 import { C3_ROLES } from '@c3web/domain';
 import { disclosureOf, canReadMembers, type PayloadDisclosure } from '@c3web/authz';
-import { projectApprovalPayload } from '../src/dto';
+import { projectApprovalPayload, toApprovalDto, toApprovalSummaryDto } from '../src/dto';
 
 /** A disclosure literal with everything closed by default; open what a case needs. */
 const disc = (over: Partial<PayloadDisclosure> = {}): PayloadDisclosure => ({ pii: false, financial: false, members: false, ...over });
@@ -135,8 +135,13 @@ describe('projectApprovalPayload — H-03 exhaustive + fail-closed', () => {
     const noFin = projectApprovalPayload(upd, disc({ pii: true }));
     expect(JSON.stringify(noFin)).not.toContain('Revised retainer');
     expect(JSON.stringify(noFin)).not.toContain('900000');
-    // termId is identity, not content — it stays (Neural: lower class than F09).
-    expect((noFin as { input: Record<string, unknown> }).input.termId).toBe('TRM-0001');
+    // ⚠️ F17 SUPERSEDED the pin that stood here ("termId is identity, it
+    // stays"). The ruling: the TRM id is financial-TERM identity — it names
+    // which financial term exists, on a register this reader cannot open — so
+    // it goes WITH the content it identifies. The AGREEMENT id remains: that
+    // is which record, not what it says.
+    expect((noFin as { input: Record<string, unknown> }).input.termId).toBeUndefined();
+    expect((noFin as { input: Record<string, unknown> }).input.agreementId).toBe('AGR-0001');
   });
 
   it('F10: ImportBatch carries people/credentials rows too — the strip covered only `agreements`', () => {
@@ -234,5 +239,75 @@ describe('projectApprovalPayload — H-03.1 member-directory disclosure (op × r
     const nonMember = C3_ROLES.find((r) => !canReadMembers(r))!;
     const projected = projectApprovalPayload(provision, disclosureOf(nonMember));
     for (const s of IDENTIFIERS) expect(JSON.stringify(projected)).not.toContain(s);
+  });
+});
+
+describe('F02 + F17 — identity fields obey the SAME disclosure decision as the payload', () => {
+  /** A minimal Approval whose identity siblings are the probe values. */
+  const approvalOf = (payload: unknown, targetId: string | null): Approval =>
+    ({
+      approvalId: 'APR-0001',
+      operationType: (payload as { operationType: string }).operationType,
+      targetPersonId: 'PER-0001',
+      targetId,
+      reason: null,
+      status: 'Submitted',
+      payload,
+      submittedBy: 'ops@alpha.com',
+      submittedAt: '2026-07-28T00:00:00.000Z',
+      reviewedBy: null,
+      reviewedAt: null,
+      rejectionReason: null,
+      executedAt: null,
+      executionError: null,
+      version: 1,
+      editCount: 0,
+      revisionOf: null,
+      supersededBy: null,
+      createdAt: '2026-07-28T00:00:00.000Z',
+      tenantId: 'alpha',
+    }) as unknown as Approval;
+
+  const MEMBER_UUID = '11111111-2222-3333-4444-555555555555';
+  const changeRole = { operationType: 'ChangeRole', input: { targetUserId: MEMBER_UUID, email: 'target.member@example.com', toRole: 'finance' } };
+  const updateTerm = { operationType: 'UpdateAgreementTerm', input: { agreementId: 'AGR-0001', termId: 'TRM-0001', amountMinor: 500000, currency: 'USD', percentBps: null, label: 'Base salary' } };
+  const removeTerm = { operationType: 'RemoveAgreementTerm', input: { agreementId: 'AGR-0001', termId: 'TRM-0001' } };
+
+  it('F02: a member-op targetId does NOT survive to a reader without member standing (detail DTO)', () => {
+    const dto = toApprovalDto(approvalOf(changeRole, MEMBER_UUID), disc());
+    expect(dto.targetId, 'the projector hides WHO the op names; the sibling must too').toBeNull();
+    expect(JSON.stringify(dto)).not.toContain(MEMBER_UUID);
+    // and DOES survive for a member-directory reader (never over-omit)
+    expect(toApprovalDto(approvalOf(changeRole, MEMBER_UUID), disc({ members: true })).targetId).toBe(MEMBER_UUID);
+  });
+
+  it('F02: the register summary makes the same decision', () => {
+    // Pre-fix this function took no disclosure; the extra argument is ignored by
+    // JS, so THIS EXACT TEXT ran RED against the raw pass-through.
+    const summary = (toApprovalSummaryDto as unknown as (a: Approval, d: PayloadDisclosure) => { targetId: string | null })(
+      approvalOf(changeRole, MEMBER_UUID),
+      disc(),
+    );
+    expect(summary.targetId, 'the register view must not leak member identity either').toBeNull();
+  });
+
+  it('F17: term-op identity (the TRM id) does not survive to a reader without financial standing — payload OR sibling', () => {
+    for (const p of [updateTerm, removeTerm]) {
+      const projected = JSON.stringify(projectApprovalPayload(p as unknown as Approval['payload'], disc()));
+      expect(projected, `${(p as { operationType: string }).operationType}: payload termId is financial-term identity`).not.toContain('TRM-0001');
+      // the AGREEMENT id is which-record identity and STAYS (the projector's own law)
+      expect(projected).toContain('AGR-0001');
+      const dto = toApprovalDto(approvalOf(p, 'TRM-0001'), disc());
+      expect(dto.targetId, 'the sibling targetId carries the same TRM id').toBeNull();
+    }
+    // a financial reader keeps everything (never over-omit)
+    const full = JSON.stringify(projectApprovalPayload(updateTerm as unknown as Approval['payload'], disc({ financial: true })));
+    expect(full).toContain('TRM-0001');
+    expect(toApprovalDto(approvalOf(updateTerm, 'TRM-0001'), disc({ financial: true })).targetId).toBe('TRM-0001');
+  });
+
+  it('F02/F17: non-sensitive ops keep their targetId untouched (no over-omission)', () => {
+    const renew = { operationType: 'RenewAgreement', input: { agreementId: 'AGR-0001', endsOn: '2027-01-01' } };
+    expect(toApprovalDto(approvalOf(renew, 'AGR-0001'), disc()).targetId).toBe('AGR-0001');
   });
 });

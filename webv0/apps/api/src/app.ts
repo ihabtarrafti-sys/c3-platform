@@ -945,7 +945,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── approvals ──────────────────────────────────────────────────────────────
   r.get('/api/v1/approvals', { schema: { response: { 200: approvalsListSchema } } }, async (req) => {
     const approvals = await listApprovals(P, actorOf(req));
-    return { approvals: approvals.map(toApprovalSummaryDto) };
+    return { approvals: approvals.map((a) => toApprovalSummaryDto(a, discOf(req))) };
   });
 
   r.post('/api/v1/approvals', { schema: { body: submitAddPersonRequestSchema, response: { 201: approvalResponseSchema } } }, async (req, reply) => {
@@ -2973,7 +2973,7 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { params: personIdParamSchema, response: { 200: approvalsListSchema } } },
     async (req) => {
       const { personId } = req.params as { personId: string };
-      return { approvals: (await listApprovalsForPerson(P, actorOf(req), personId)).map(toApprovalSummaryDto) };
+      return { approvals: (await listApprovalsForPerson(P, actorOf(req), personId)).map((a) => toApprovalSummaryDto(a, discOf(req))) };
     },
   );
 
