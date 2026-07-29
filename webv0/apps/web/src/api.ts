@@ -72,6 +72,7 @@ import type {
   SubmitTerminateAgreementRequest,
   CommsMessageDto,
   CommsLedgerResponse,
+  CommsDirectoryResponse,
   ThreadRoomResponse,
   CommsThreadDto,
   CommsObligationDto,
@@ -640,6 +641,8 @@ export function createApiClient(deps: ApiClientDeps) {
       request<CommsReceiptsResponse>('GET', `/api/v1/comms/missions/${missionId}/receipts`),
     // ── Phase B (activation): rooms, DMs, the attention ledger ───────────────
     getCommsLedger: () => request<CommsLedgerResponse>('GET', '/api/v1/comms/ledger'),
+    /** B8: the comms address book — {userId, displayName, roleClass}, no email. */
+    getCommsDirectory: () => request<CommsDirectoryResponse>('GET', '/api/v1/comms/directory'),
     getThreadRoom: (threadId: string, page?: { limit?: number; beforeSeq?: number }) => {
       const params = new URLSearchParams();
       if (page?.limit) params.set('limit', String(page.limit));

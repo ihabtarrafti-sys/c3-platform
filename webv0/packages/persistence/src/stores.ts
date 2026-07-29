@@ -1307,6 +1307,28 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           }),
 
         // Sprint 35: the member directory is read through the tenant-scoped
+        /**
+         * B8 — THE COMMS ADDRESSABLE DIRECTORY (owner-ruled 2026-07-30: "all
+         * can talk to all"). A SEPARATE read from the owner/ops members
+         * register, with its own narrower projection: **email is dropped HERE,
+         * in SQL, so it never enters the application layer at all** — the
+         * strongest form of "no email on a comms wire". Active members only;
+         * `roleClass` is the role string (a class of people, not a person
+         * fact). Rides the SAME member_list() definer gateway — the identity
+         * plane stays unreadable to c3_app (the Block-5 armor).
+         */
+        listCommsAddressable: () =>
+          exec(async (db) => {
+            const res = await db.execute(sql`
+              SELECT user_id, display_name, role FROM member_list() WHERE is_active
+               ORDER BY display_name ASC`);
+            return (res.rows as Array<{ user_id: string; display_name: string; role: string }>).map((r) => ({
+              userId: r.user_id,
+              displayName: r.display_name,
+              roleClass: r.role,
+            }));
+          }),
+
         // member_list() SECURITY DEFINER gateway — c3_app has no table access.
         listMembers: () =>
           exec(async (db): Promise<Member[]> => {

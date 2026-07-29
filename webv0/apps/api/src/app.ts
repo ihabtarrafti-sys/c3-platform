@@ -216,6 +216,7 @@ import {
   commsRecallRequestSchema,
   commsLedgerResponseSchema,
   commsOpenDirectRequestSchema,
+  commsDirectoryResponseSchema,
   commsThreadResponseSchema,
   commsThreadParamSchema,
   commsThreadRoomResponseSchema,
@@ -409,6 +410,7 @@ import {
   getAttentionLedger,
   getThreadRoom,
   openDirectThread,
+  listCommsDirectory,
   postThreadMessage,
   createStandingRoom,
   inviteToRoom,
@@ -1837,6 +1839,11 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     '/api/v1/comms/ledger',
     { schema: { response: { 200: commsLedgerResponseSchema } } },
     async (req) => getAttentionLedger(P, actorOf(req)),
+  );
+  r.get(
+    '/api/v1/comms/directory',
+    { schema: { response: { 200: commsDirectoryResponseSchema } } },
+    async (req) => ({ people: await listCommsDirectory(P, actorOf(req)) }),
   );
   r.post(
     '/api/v1/comms/direct',

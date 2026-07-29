@@ -118,6 +118,8 @@ export interface ReadStore {
   listAuditEventsForEntity(entityType: string, entityId: string): Promise<AuditEvent[]>;
   /** Tenant-scoped member directory (via the member_list gateway; Sprint 35). */
   listMembers(): Promise<Member[]>;
+  /** B8: the comms directory's OWN projection — no email, active only. */
+  listCommsAddressable(): Promise<Array<{ userId: string; displayName: string; roleClass: string }>>;
   // Sprint 36: credentials (plain ISO dates end-to-end).
   listCredentials(): Promise<Credential[]>;
   listCredentialsForPerson(personId: string): Promise<Credential[]>;

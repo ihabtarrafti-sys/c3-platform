@@ -14,7 +14,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import type { CommsLedgerResponse } from '@c3web/api-contracts';
 import { useSession } from '../session';
-import { useCommsLedger } from '../queries';
+import { useCommsDirectory, useCommsLedger } from '../queries';
 import { api } from '../apiClient';
 import { IS_ENTRA } from '../auth';
 import { EntraSignIn, AccessNotProvisioned } from './EntraSignIn';
@@ -88,6 +88,11 @@ function LedgerScreen() {
   const canManage = me?.capabilities.canManageMissions ?? false;
   const [creating, setCreating] = useState(false);
   const [roomError, setRoomError] = useState<string | null>(null);
+  // B8 (owner-ruled: "all can talk to all") — the address book. Every entitled
+  // member reads it, so there is NO capability gate on the affordance either:
+  // a narrower render here would silently re-fuse addressability with
+  // visibility, the two things the ruling separated.
+  const directory = useCommsDirectory();
 
   const truth = truthStateOf(
     { data: ledger.data, error: ledger.error, isLoading: ledger.isLoading, dataUpdatedAt: ledger.dataUpdatedAt },
@@ -110,6 +115,14 @@ function LedgerScreen() {
       .then((res) => navigate(`/comms/threads/${res.thread.threadId}`))
       .catch((err) => setRoomError(err instanceof Error ? err.message : 'The room was not created.'))
       .finally(() => setCreating(false));
+  };
+
+  const openDirect = (userId: string) => {
+    setRoomError(null);
+    api
+      .openDirectThread(userId)
+      .then((res) => navigate(`/comms/threads/${res.thread.threadId}`))
+      .catch((err) => setRoomError(err instanceof Error ? err.message : 'The direct thread did not open.'));
   };
 
   return (
@@ -139,6 +152,37 @@ function LedgerScreen() {
       {roomError ? (
         <div className="lapsed-banner" role="alert">
           {roomError}
+        </div>
+      ) : null}
+      {/* B8: the address book. Addressability only — opening a thread WITH
+          someone discloses nothing ABOUT them, and every record they hold
+          stays behind its own gate (the per-kind 404, unchanged). */}
+      {directory.data && directory.data.people.length > 1 ? (
+        <div className="panel-actions" data-testid="comms-directory" style={{ justifyContent: 'flex-start' }}>
+          <label className="cell-note" htmlFor="direct-open">
+            Start a direct thread
+          </label>
+          <select
+            id="direct-open"
+            defaultValue=""
+            onChange={(e) => {
+              const userId = e.target.value;
+              e.target.value = '';
+              if (userId) openDirect(userId);
+            }}
+          >
+            <option value="" disabled>
+              Choose a person…
+            </option>
+            {directory.data.people
+              .filter((p) => p.userId !== me?.userId)
+              .map((p) => (
+                <option key={p.userId} value={p.userId}>
+                  {p.displayName} · {p.roleClass}
+                </option>
+              ))}
+          </select>
+          <span className="cell-note">Anyone here can be written to. What they can SEE is unchanged.</span>
         </div>
       ) : null}
       <TruthPanel state={truth} emptyLabel="You are caught up — nothing awaits your act.">

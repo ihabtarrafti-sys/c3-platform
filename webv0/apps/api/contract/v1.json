@@ -5879,6 +5879,34 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/comms/directory",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "people": {
+              "t": "array",
+              "item": {
+                "t": "object",
+                "keys": {
+                  "displayName": {
+                    "t": "string"
+                  },
+                  "roleClass": {
+                    "t": "string"
+                  },
+                  "userId": {
+                    "t": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/comms/ledger",
       "response": {
         "200": {

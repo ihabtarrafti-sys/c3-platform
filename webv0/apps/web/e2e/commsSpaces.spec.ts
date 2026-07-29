@@ -10,6 +10,15 @@ import { test, expect, type Page } from '@playwright/test';
 
 async function login(page: Page, email: string, role: string): Promise<void> {
   await page.goto('/');
+  // Sign out first when a session already exists (the house pattern) — a
+  // re-login without it finds no gate to fill.
+  const logout = page.getByTestId('logout');
+  try {
+    await logout.waitFor({ state: 'visible', timeout: 4000 });
+    await logout.click();
+  } catch {
+    /* already signed out */
+  }
   await page.getByTestId('login-email').fill(email);
   await page.getByTestId('login-role').click();
   await page.getByRole('option', { name: role, exact: true }).click();
@@ -60,4 +69,28 @@ test('the treaty disables Send when the audience cannot be verified', async ({ p
   await page.goto('/missions/MSN-0042/comms');
   await expect(page.locator('[data-treaty="unverified"]')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Send', exact: true })).toBeDisabled();
+});
+
+test('B8: the address book opens a direct thread, and the DM states its retention where the talking happens', async ({ page }) => {
+  // A second member must EXIST to be addressable (one-time provisioning login,
+  // the house pattern). With a single-member tenant the picker's absence is
+  // CORRECT — there is nobody else to write to — so the test provisions rather
+  // than asserting against an empty world.
+  await login(page, 'lead@alpha.com', 'operations');
+  await login(page, 'ops@alpha.com', 'operations');
+  await page.getByTestId('nav-comms').click();
+
+  // The address book renders for an entitled member and can be acted on.
+  const picker = page.getByTestId('comms-directory');
+  await expect(picker).toBeVisible();
+  const options = picker.locator('option:not([disabled])');
+  await expect(options.first()).toBeAttached();
+  await picker.locator('select').selectOption({ index: 1 });
+
+  // A DM opens, and the retention posture is stated in-surface (the artifact,
+  // not the prose — instance 48).
+  await expect(page).toHaveURL(/\/comms\/threads\/THR-\d+/);
+  await expect(page.getByTestId('retention-notice')).toBeVisible();
+  // Its audience treaty is verified and names the pair, so Send is live.
+  await expect(page.locator('[data-treaty="verified"]')).toBeVisible();
 });

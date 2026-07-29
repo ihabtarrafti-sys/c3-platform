@@ -152,5 +152,7 @@ export const useCommsPrefs = (enabled = true) =>
 // Phase B (activation).
 export const useCommsLedger = (enabled = true) =>
   useQuery({ queryKey: ['commsLedger'], queryFn: () => api.getCommsLedger(), enabled });
+export const useCommsDirectory = (enabled = true) =>
+  useQuery({ queryKey: ['commsDirectory'], queryFn: () => api.getCommsDirectory(), enabled });
 export const useThreadRoom = (threadId: string, enabled = true) =>
   useQuery({ queryKey: ['commsRoom', threadId], queryFn: () => api.getThreadRoom(threadId), enabled });

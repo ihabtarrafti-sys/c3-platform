@@ -12,16 +12,17 @@
  * room read that produced the messages — if the audience is unverifiable,
  * Send is disabled rather than guessing.
  *
- * DM-opening UI is deliberately ABSENT: offering "message this person"
- * requires the addressable directory, whose width is the OWNER's open PII
- * ruling. The backend exists; the affordance waits for the ruling.
+ * B8: the DM-opening affordance the first cut withheld now lives on the ledger
+ * (the front door), and the room's invite picker draws on the comms ADDRESS
+ * BOOK — owner-ruled "all can talk to all". Addressability only: nothing here
+ * widened what anyone can SEE.
  */
 import { useCallback, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CommsLinkInput } from '@c3web/domain';
 import { useSession } from '../session';
-import { useMembers, useThreadRoom } from '../queries';
+import { useCommsDirectory, useThreadRoom } from '../queries';
 import { api } from '../apiClient';
 import { ApiError } from '../api';
 import { IS_ENTRA } from '../auth';
@@ -61,9 +62,12 @@ function RoomScreen({ threadId }: { threadId: string }) {
   );
 
   const iAmAdmin = data?.participants.some((p) => p.userId === me?.userId && p.role === 'admin') ?? false;
-  // The invite picker uses the EXISTING owner/ops members surface — the
-  // directory-PII seam stays closed pending the owner's width ruling.
-  const members = useMembers(iAmAdmin && (me?.capabilities.canManageMissions ?? false));
+  // B8: the invite picker now draws on the COMMS ADDRESS BOOK (owner-ruled),
+  // not the owner/ops members register. This also CORRECTS a render-gate that
+  // was narrower than its API: the room's authority is the ADMIN SEAT, and the
+  // backend never required canManageMissions to invite — an affordance hidden
+  // from someone who actually holds the authority is its own small lie.
+  const directory = useCommsDirectory(iAmAdmin);
 
   const invalidate = useCallback(() => qc.invalidateQueries({ queryKey: ['commsRoom', threadId] }), [qc, threadId]);
 
@@ -186,7 +190,7 @@ function RoomScreen({ threadId }: { threadId: string }) {
                   </div>
                 </>
               ) : null}
-              {iAmAdmin && data?.thread.kind === 'standing' && members.data ? (
+              {iAmAdmin && data?.thread.kind === 'standing' && directory.data ? (
                 <div className="panel-actions" data-testid="room-invite" style={{ justifyContent: 'flex-start' }}>
                   <select
                     aria-label="Invite a member to this room"
@@ -200,11 +204,11 @@ function RoomScreen({ threadId }: { threadId: string }) {
                     <option value="" disabled>
                       Invite to the room…
                     </option>
-                    {members.data.members
-                      .filter((m) => m.isActive && !data.participants.some((p) => p.userId === m.userId))
-                      .map((m) => (
-                        <option key={m.userId} value={m.userId}>
-                          {m.displayName} · {m.role}
+                    {directory.data.people
+                      .filter((p) => !data.participants.some((seat) => seat.userId === p.userId))
+                      .map((p) => (
+                        <option key={p.userId} value={p.userId}>
+                          {p.displayName} · {p.roleClass}
                         </option>
                       ))}
                   </select>

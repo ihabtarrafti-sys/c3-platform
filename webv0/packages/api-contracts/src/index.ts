@@ -740,6 +740,13 @@ export const commsThreadRoomResponseSchema = z.object({
   events: z.array(commsThreadEventViewSchema),
   retentionDays: z.number().int().nullable(),
 });
+/** B8: the addressable directory — {userId, displayName, roleClass}, NO email. */
+export const commsDirectoryPersonSchema = z.object({
+  userId: z.string(),
+  displayName: z.string(),
+  roleClass: z.string(),
+}).strict();
+export const commsDirectoryResponseSchema = z.object({ people: z.array(commsDirectoryPersonSchema) });
 export const commsOpenDirectRequestSchema = z.object({ otherUserId: z.string().uuid() });
 export const commsThreadResponseSchema = z.object({ thread: commsThreadSchema });
 export const commsThreadParamSchema = z.object({ threadId: z.string().regex(/^THR-\d{4,}$/) });
@@ -849,6 +856,8 @@ export type CommsCursorResponse = z.infer<typeof commsCursorResponseSchema>;
 export type CommsLedgerResponse = z.infer<typeof commsLedgerResponseSchema>;
 export type ThreadRoomResponse = z.infer<typeof commsThreadRoomResponseSchema>;
 export type CommsThreadParticipantDto = z.infer<typeof commsThreadParticipantSchema>;
+export type CommsDirectoryResponse = z.infer<typeof commsDirectoryResponseSchema>;
+export type CommsDirectoryPersonDto = z.infer<typeof commsDirectoryPersonSchema>;
 
 // ── global search (S3 → S3.1): role-aware, identity fields only ──────────────
 export const SEARCH_RESULT_KINDS = [

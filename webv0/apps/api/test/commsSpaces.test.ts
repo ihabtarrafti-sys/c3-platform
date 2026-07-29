@@ -308,6 +308,72 @@ describe('the attention ledger', () => {
   });
 });
 
+describe('B8 — the addressable directory (owner-ruled: "all can talk to all")', () => {
+  const directory = (t: string) => app.inject({ method: 'GET', url: '/api/v1/comms/directory', headers: auth(t) });
+
+  it('EVERY entitled member reads it — visitor included — and the projection carries NO email', async () => {
+    for (const t of [tokens.owner, tokens.ops, tokens.fin, tokens.visitor]) {
+      const res = await directory(t);
+      expect(res.statusCode, res.body).toBe(200);
+      const people = (res.json() as { people: Array<Record<string, unknown>> }).people;
+      expect(people.length).toBe(4);
+      // The projection is EXACTLY the ruled three fields…
+      for (const person of people) {
+        expect(Object.keys(person).sort()).toEqual(['displayName', 'roleClass', 'userId']);
+      }
+      // …and no email appears anywhere on the wire (the dev logins USE emails
+      // as display names, so assert the KEY is absent, not the substring).
+      expect(people.some((p) => 'email' in p)).toBe(false);
+    }
+  });
+
+  it('never-entitled is the module’s uniform 404; a LAPSED licence still reads (it is a read)', async () => {
+    await db.adminQuery(`DELETE FROM tenant_module_entitlement WHERE module_key = 'comms'`);
+    expect((await directory(tokens.ops)).statusCode).toBe(404);
+    await entitle();
+    await db.adminQuery(`UPDATE tenant_module_entitlement SET state = 'lapsed' WHERE module_key = 'comms'`);
+    expect((await directory(tokens.ops)).statusCode).toBe(200);
+  });
+
+  it('ADDRESSABILITY IS REAL: a visitor may open a DM with the owner (all can talk to all)', async () => {
+    const res = await openDm(tokens.visitor, uids.owner);
+    expect(res.statusCode, res.body).toBe(200);
+    const threadId = (res.json() as { thread: { threadId: string } }).thread.threadId;
+    expect((await postTo(tokens.visitor, threadId, 'a question for the GM')).statusCode).toBe(201);
+  });
+
+  it('⚖️ ADDRESSABILITY ≠ VISIBILITY — THE INHERITANCE PIN: an addressable person’s DM with a THIRD party is still the thread’s own 404 for me, even holding the id', async () => {
+    // ops and fin are both addressable to the visitor…
+    const people = (await directory(tokens.visitor)).json() as { people: Array<{ userId: string }> };
+    expect(people.people.map((p) => p.userId)).toContain(uids.ops);
+    expect(people.people.map((p) => p.userId)).toContain(uids.fin);
+    // …and they hold a DM the visitor is not part of.
+    const theirDm = await openDm(tokens.ops, uids.fin);
+    const theirThreadId = (theirDm.json() as { thread: { threadId: string } }).thread.threadId;
+    await postTo(tokens.ops, theirThreadId, 'not for the visitor');
+
+    // The visitor HAS the id (the "acquired link" the owner named) and gets
+    // the thread's own 404 — byte-shaped like a thread that never existed.
+    const denied = await readRoom(tokens.visitor, theirThreadId);
+    const neverExisted = await readRoom(tokens.visitor, 'THR-9999');
+    expect(denied.statusCode).toBe(404);
+    const norm = (b: string, id: string) => b.replaceAll(id, 'THR-X').replace(/"correlationId":"[^"]+"/, '');
+    expect(norm(denied.body, theirThreadId)).toBe(norm(neverExisted.body, 'THR-9999'));
+    // Nor may the visitor write into it, nor does it ride their ledger.
+    expect((await postTo(tokens.visitor, theirThreadId, 'butting in')).statusCode).toBe(404);
+    const ledger = (await app.inject({ method: 'GET', url: '/api/v1/comms/ledger', headers: auth(tokens.visitor) })).json() as {
+      threads: Array<{ thread: { threadId: string } }>;
+    };
+    expect(ledger.threads.some((t) => t.thread.threadId === theirThreadId)).toBe(false);
+  });
+
+  it('inactive members are absent from the address book', async () => {
+    await db.adminQuery(`UPDATE app_user SET is_active = false WHERE id = $1`, [uids.fin]);
+    const people = (await directory(tokens.ops)).json() as { people: Array<{ userId: string }> };
+    expect(people.people.map((p) => p.userId)).not.toContain(uids.fin);
+  });
+});
+
 describe('the lapse posture, inherited unchanged', () => {
   it('lapsed: room reads flow; posts and invites refuse 403 MODULE_READ_ONLY', async () => {
     const created = await createRoom(tokens.ops);

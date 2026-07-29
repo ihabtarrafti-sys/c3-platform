@@ -14928,6 +14928,51 @@
         }
       }
     },
+    "/api/v1/comms/directory": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "people": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "displayName": {
+                            "type": "string"
+                          },
+                          "roleClass": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "displayName",
+                          "roleClass"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "people"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/comms/direct": {
       "post": {
         "requestBody": {

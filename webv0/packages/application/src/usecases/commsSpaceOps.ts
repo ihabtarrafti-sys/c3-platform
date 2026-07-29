@@ -6,8 +6,11 @@
  * Boundaries held by construction:
  *  - The Heads' Table is v1's ONE private class: owner/ops CREATE it; its
  *    ADMIN seats manage membership using the EXISTING owner/ops members
- *    surface — no new directory, no new projection (the directory-PII seam
- *    stays closed pending the owner's width ruling).
+ *    surface (room membership never drew on a new projection).
+ *  - B8 (owner-ruled 2026-07-30): the comms ADDRESSABLE directory is its own
+ *    narrower read — {userId, displayName, roleClass}, email dropped in SQL —
+ *    and it grants ADDRESSABILITY only. Visibility is unchanged: the per-kind
+ *    gate below still denies an acquired link.
  *  - Membership changes append 0090's OWN event vocabulary in the SAME tx
  *    (ParticipantAdded/Removed) — the room log is the room's history.
  *    Audit-CHANNEL rows deliberately do NOT ship here: N-2's comms scope is
@@ -286,6 +289,37 @@ export async function removeFromRoom(p: Persistence, actor: Actor, threadId: str
       });
     }
   });
+}
+
+/**
+ * B8 — THE ADDRESSABLE DIRECTORY (owner-ruled: "all can talk to all").
+ *
+ * The owner's ruling drew the line this read depends on: **ADDRESSABILITY ≠
+ * VISIBILITY.** Being listed here means you can be WRITTEN TO; it says nothing
+ * about what you can SEE. Records scoped to named people stay gated, and an
+ * acquired link is still denied — that is the uniform-404 posture the
+ * disclosure chapter already shipped and Phase B's per-kind gate already
+ * enforces. **This function therefore adds no visibility mechanism whatever;
+ * the accompanying test pins that inheritance rather than trusting it.**
+ *
+ * The gate is the module itself: any comms-entitled member reads it (a
+ * directory the whole tenant may address must be readable by the whole
+ * tenant), and never-entitled is the module's uniform 404. The accepted cost
+ * is stated on the record: this DOES disclose the roster (names + role class)
+ * — a real widening of the owner/ops Members boundary, ruled and accepted.
+ * Only the address book widened; record access did not.
+ */
+export async function listCommsDirectory(
+  p: Persistence,
+  actor: Actor,
+): Promise<Array<{ userId: string; displayName: string; roleClass: string }>> {
+  const reads = p.reads.forActor(actor);
+  const ent = await reads.getModuleEntitlement(COMMS_MODULE_KEY);
+  if (!ent) throw new NotFoundError('Comms', 'directory'); // module state never leaks
+  // Deliberately NO role gate beyond entitlement: "all can talk to all" is the
+  // ruling, and a narrower read here would silently re-fuse the two concepts
+  // the owner separated. A lapsed licence still reads (it is a read).
+  return reads.listCommsAddressable();
 }
 
 export interface AttentionLedgerView {
