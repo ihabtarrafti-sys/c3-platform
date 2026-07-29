@@ -32,6 +32,9 @@ describe('Comms governance laws (the pilot UI)', () => {
     const page = read('pages/MissionCommsPage.tsx');
     expect(page).toContain('Visible to everyone who can see this mission.');
     const thread = read('tablework/Thread.tsx');
+    // The kit's component vocabulary keeps its EXACT value (other specs match
+    // it exactly); the treaty's state rides its own artifact.
+    expect(thread).toContain('data-tablework="VisibilityWarning"');
     expect(thread).toContain('data-treaty=');
     expect(thread).toContain('!audienceTreaty.verified');
     expect(thread).toContain('Send is disabled rather than guessing');

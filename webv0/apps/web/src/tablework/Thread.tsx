@@ -141,11 +141,15 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
-          {/* D1 (owner-ruled) generalized into THE AUDIENCE TREATY (Phase B):
+          {/* D1 (owner-ruled) generalized into THE AUDIENCE TREATY (Phase B).
+              NOTE: `data-tablework` keeps its EXACT value — it is the kit's
+              component vocabulary and specs match it exactly; new state rides
+              its OWN attribute (`data-treaty`) rather than widening a name
+              other surfaces assert against.
               the audience line is a DERIVED truth, and an unverified audience
               disables Send — the failure case is safe at the exact moment a
               disclosure boundary is crossed. */}
-          <p className="boundary-note" data-tablework="VisibilityWarning AudienceTreaty" data-treaty={audienceTreaty.verified ? 'verified' : 'unverified'}>
+          <p className="boundary-note" data-tablework="VisibilityWarning" data-treaty={audienceTreaty.verified ? 'verified' : 'unverified'}>
             {audienceTreaty.verified
               ? audienceTreaty.text
               : 'The audience could not be verified — Send is disabled rather than guessing who would read this.'}
