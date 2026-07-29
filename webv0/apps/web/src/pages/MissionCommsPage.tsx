@@ -30,7 +30,7 @@ import { ApiError, type CommsObligationCreateBody } from '../api';
 import { IS_ENTRA } from '../auth';
 import { EntraSignIn, AccessNotProvisioned } from './EntraSignIn';
 import { LoginGate } from './LoginGate';
-import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, WorkSurface, type ObligationActionInput } from '../tablework';
+import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, TruthPanel, truthStateOf, WorkSurface, type ObligationActionInput } from '../tablework';
 
 export function MissionCommsPage() {
   const { missionId } = useParams<{ missionId: string }>();
@@ -237,6 +237,18 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
 
   const obligationList = obligations.data?.obligations ?? [];
 
+  // Phase A — the six-state contract: BOTH regions derive through the ONE
+  // deriver (the shipped page's hand-rolled empty branch was the instance-21
+  // violation two Battle-#2 seats independently found).
+  const threadTruth = truthStateOf(
+    { data: thread.data, error: thread.error, isLoading: thread.isLoading, dataUpdatedAt: thread.dataUpdatedAt },
+    () => messages.length === 0,
+  );
+  const obligationsTruth = truthStateOf(
+    { data: obligations.data, error: obligations.error, isLoading: obligations.isLoading, dataUpdatedAt: obligations.dataUpdatedAt },
+    (d) => d.obligations.length === 0,
+  );
+
   return (
     <AppFrame
       place="Comms"
@@ -322,6 +334,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
               hasEarlier={thread.hasNextPage}
               loadingEarlier={thread.isFetchingNextPage}
               onLoadEarlier={() => void thread.fetchNextPage()}
+              truth={threadTruth}
             />
             <WorkSurface as="aside" className="comms-surface" aria-label="Mission obligations">
               <header className="surface-heading">
@@ -337,7 +350,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
                 ) : null}
               </header>
               <div className="obligation-stack">
-                {obligationList.length === 0 ? <p className="boundary-note">No obligations recorded for this mission.</p> : null}
+                <TruthPanel state={obligationsTruth} emptyLabel="No obligations recorded for this mission.">
                 {obligationList.map((o) => (
                   <ObligationCard
                     key={o.obligationId}
@@ -351,6 +364,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
                     onDeliverEvidence={(file, note) => onDeliverEvidence(o.obligationId, file, note)}
                   />
                 ))}
+                </TruthPanel>
               </div>
             </WorkSurface>
           </div>

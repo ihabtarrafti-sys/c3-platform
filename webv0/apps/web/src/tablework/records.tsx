@@ -13,6 +13,7 @@
  * spec-free and becomes honest member CHIPS (toggle to mention) — same
  * container testid, no Fluent TagPicker.
  */
+import { TruthPanel, truthStateOf } from './TruthPanel';
 import { useRef, useState, type ReactNode } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CommentSubjectType } from '@c3web/domain';
@@ -269,20 +270,14 @@ export function CommentThread({ subjectType, subjectId }: { subjectType: Comment
       <h2>Discussion</h2>
 
       <div className="comment-list">
-        {isLoading && <span className="record-quiet">Loading discussion…</span>}
-        {/* F14 (instance 21): a failed thread fetch must not read as a
-            started-less thread — "No comments yet" is a claim, and an error
-            is not evidence for it. */}
-        {!isLoading && isError && (
-          <span className="record-quiet record-note" role="alert" data-testid="comments-error">
-            Comments could not be loaded — the thread may not be shown.
-          </span>
-        )}
-        {!isLoading && !isError && comments.length === 0 && (
-          <span className="record-quiet" data-testid="comments-empty">
-            No comments yet. Start the thread.
-          </span>
-        )}
+        {/* F14 (instance 21) — MIGRATED onto the Phase-A six-state contract:
+            the same laws, now through the ONE deriver instead of a local
+            hand-roll. The pinned testids ride the panel per state. */}
+        <TruthPanel
+          state={truthStateOf({ data: data?.comments, error: isError ? new Error('Comments could not be loaded — the thread may not be shown.') : null, isLoading }, (c) => c.length === 0)}
+          emptyLabel="No comments yet. Start the thread."
+          testids={{ empty: 'comments-empty', failed: 'comments-error' }}
+        >
         {comments.map((c) => (
           <div key={c.id} className="comment-item" data-testid={`comment-${c.id}`}>
             <div className="comment-head">
@@ -293,6 +288,7 @@ export function CommentThread({ subjectType, subjectId }: { subjectType: Comment
             {c.mentions.length > 0 && <div className="comment-mentions-line">@ {c.mentions.join(', ')}</div>}
           </div>
         ))}
+        </TruthPanel>
       </div>
 
       <div className="comment-composer">

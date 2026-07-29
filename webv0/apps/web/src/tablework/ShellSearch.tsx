@@ -7,6 +7,7 @@
  * non-modal Float (glass, fallback-first via .search-float in tablework.css).
  * Testids byte-identical — the e2e search spec is the oracle.
  */
+import { truthStateOf } from './TruthPanel';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -134,14 +135,22 @@ export function ShellSearch() {
               ))}
             </div>
           )}
-          {results.length === 0 && actions.length === 0 && (
-            // F14 (instance 21): a FAILED search must never claim proven
-            // emptiness — "No matches you can see" is a statement about the
-            // world, and an error is not evidence for it.
-            <div className="search-empty" role={isError ? 'alert' : undefined}>
-              {isFetching ? 'Searching…' : isError ? 'Search is unavailable right now.' : 'No matches you can see.'}
-            </div>
-          )}
+          {results.length === 0 &&
+            actions.length === 0 &&
+            (() => {
+              // F14 (instance 21) — MIGRATED onto the Phase-A contract: the
+              // float derives through the ONE deriver and stamps the artifact;
+              // the compact render fits the float where the full panel cannot.
+              const t = truthStateOf(
+                { data: enabled ? data?.results : undefined, error: isError ? new Error('Search is unavailable right now.') : null, isLoading: isFetching },
+                (r) => r.length === 0,
+              );
+              return (
+                <div className="search-empty" role={t.kind === 'fetch-failed' ? 'alert' : undefined} data-truth={t.kind}>
+                  {t.kind === 'loading' ? 'Searching…' : t.kind === 'fetch-failed' ? 'Search is unavailable right now.' : 'No matches you can see.'}
+                </div>
+              );
+            })()}
           {actions.length > 0 && (
             <div>
               <div className="search-group">Actions</div>

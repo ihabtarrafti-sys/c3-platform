@@ -154,9 +154,15 @@ describe('the pivot shell laws (Wave 0)', () => {
     expect(records).toContain('No documents attached.');
     // CommentThread: the B4 oracle surface (the mention picker is spec-free
     // and becomes chips — same container testid).
-    for (const t of ['comment-thread', 'comments-empty', 'comment-body', 'comment-mentions', 'comment-submit']) {
+    // SUPERSEDED IN PLACE (Comms chapter Phase A, the six-state contract):
+    // comments-empty/-error now ride the TruthPanel per state — the literal
+    // ids stay in this file via the testids prop, and the DOM contract is
+    // unchanged (comments.spec.ts still finds comments-empty rendered).
+    for (const t of ['comment-thread', 'comment-body', 'comment-mentions', 'comment-submit']) {
       expect(records).toContain(`data-testid="${t}"`);
     }
+    expect(records).toContain("empty: 'comments-empty'");
+    expect(records).toContain("failed: 'comments-error'");
     expect(records).toContain('No comments yet. Start the thread.');
     // The written lane rule rides the source.
     expect(records).toContain('Breadcrumbs do NOT port');

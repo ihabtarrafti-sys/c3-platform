@@ -25,6 +25,7 @@ import { DeparturesPage } from './pages/DeparturesPage';
 import { OnePagerPage } from './pages/OnePagerPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionCommsPage } from './pages/MissionCommsPage';
+import { TruthLabPage } from './pages/TruthLabPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { TeamsPage } from './pages/TeamsPage';
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
   // The Tablework pilot (Comms UI): a standalone frame OUTSIDE the Fluent
   // AppShell — the two grammars never share a route. Same session provider.
   { path: '/missions/:missionId/comms', element: <MissionCommsPage /> },
+  { path: '/truth-lab', element: <TruthLabPage /> },
   // ── The Tablework pivot: converted routes move here WHOLE (coexistence
   // law — grammars never share a route; each converted page carries its own
   // session gate via TableworkPage). Wave 1: the demo spine.

@@ -11,6 +11,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { CommsMessageDto } from '@c3web/api-contracts';
 import type { CommsLinkInput, CommsLinkTargetType } from '@c3web/domain';
 import { Message } from './Message';
+import { TruthPanel, type WitnessState } from './TruthPanel';
 
 /** Auto-detect record references in the body → ObjectLink chips (cap 10). */
 export function detectLinks(body: string): CommsLinkInput[] {
@@ -56,9 +57,12 @@ interface ThreadProps {
   hasEarlier?: boolean;
   loadingEarlier?: boolean;
   onLoadEarlier?: () => void;
+  /** Phase A: the region's witness state — the page DERIVES it (truthStateOf),
+   *  this surface only renders it. Emptiness is earned, failure is failure. */
+  truth: WitnessState;
 }
 
-export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, hasEarlier, loadingEarlier, onLoadEarlier }: ThreadProps) {
+export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, hasEarlier, loadingEarlier, onLoadEarlier, truth }: ThreadProps) {
   const [draft, setDraft] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -106,17 +110,18 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
             {loadingEarlier ? 'Loading earlier messages...' : 'Load earlier messages'}
           </button>
         ) : null}
-        {messages.length === 0 ? <p className="boundary-note">No messages yet. The record starts with the first word.</p> : null}
-        {messages.map((message) => (
-          <div key={message.messageId} style={{ display: 'contents' }}>
-            {firstUnreadSeq !== null && message.seq === firstUnreadSeq ? (
-              <div className="unread-divider" role="separator" aria-label="Unread messages start here">
-                <span>New</span>
-              </div>
-            ) : null}
-            <Message message={message} />
-          </div>
-        ))}
+        <TruthPanel state={truth} emptyLabel="No messages yet. The record starts with the first word.">
+          {messages.map((message) => (
+            <div key={message.messageId} style={{ display: 'contents' }}>
+              {firstUnreadSeq !== null && message.seq === firstUnreadSeq ? (
+                <div className="unread-divider" role="separator" aria-label="Unread messages start here">
+                  <span>New</span>
+                </div>
+              ) : null}
+              <Message message={message} />
+            </div>
+          ))}
+        </TruthPanel>
         {seenLine ? <p className="boundary-note" data-tablework="Receipts">{seenLine}</p> : null}
         <div ref={endRef} aria-hidden="true" />
       </div>
