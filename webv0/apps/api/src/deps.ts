@@ -5,6 +5,7 @@
  */
 import type { Logger } from 'pino';
 import { createPersistence, type PersistenceHandle } from '@c3web/persistence';
+import type { CommsLiveBus } from '@c3web/persistence';
 import type { Env } from './env';
 import type { AuthAdapter } from './auth/types';
 import { createDevAuthAdapter } from './auth/devIdp';
@@ -28,6 +29,13 @@ export interface Deps {
   mailer: Mailer | null;
   /** Tier 0.5 backup tile; always callable, honest when unconfigured. */
   backupStatus: () => Promise<BackupStatusView>;
+  /** Phase B-LIVE: the live fan-out bus. null until attached (or when the
+   *  channel could not be established) — the stream then serves a DEGRADED
+   *  health so the client goes stale instead of trusting silence. */
+  commsLiveBus: CommsLiveBus | null;
+  /** Attach the bus after boot (a dedicated session-scoped LISTEN connection,
+   *  never a pooled client: LISTEN is session state). */
+  attachCommsLiveBus(bus: CommsLiveBus): void;
   logger: Logger;
   /** J′: permanent dead-prefix authority. Construction is inert; server.ts owns scheduling. */
   erasureJanitor: ErasureJanitorService;
@@ -60,6 +68,7 @@ export interface Deps {
 }
 
 export function buildDeps(env: Env, logger: Logger): Deps {
+  let liveBus: CommsLiveBus | null = null;
   const persistence = createPersistence({ appConnectionString: env.databaseUrl });
   const documentStorage = createDocumentStorage(env.documents);
   const fxProvider = createFxProvider(env.fxRatesUrl, logger);
@@ -98,6 +107,12 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     documentStorage,
     fxProvider,
     mailer,
+    get commsLiveBus() {
+      return liveBus;
+    },
+    attachCommsLiveBus(bus: CommsLiveBus) {
+      liveBus = bus;
+    },
     backupStatus,
     logger,
     erasureJanitor,
@@ -115,6 +130,7 @@ export function buildDeps(env: Env, logger: Logger): Deps {
       }
     },
     async close() {
+      await liveBus?.stop().catch(() => {});
       await persistence.close();
       if (directory) await directory.close();
     },

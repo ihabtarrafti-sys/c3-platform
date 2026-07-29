@@ -1333,6 +1333,9 @@ export interface WriteTx {
    * re-reads the existing message; the tx stays healthy).
    */
   insertCommsMessage(row: NewCommsMessageRow): Promise<boolean>;
+  /** Phase B-LIVE: transactional publish (fires on COMMIT, never on rollback).
+   *  Payload is ids only — the per-subscriber gate reads content at push time. */
+  publishCommsLiveEvent(row: { threadId: string; messageId: string; seq: number }): Promise<void>;
   /** Append a revision (revision 1 IS the post's body); returns the revision uuid. */
   insertCommsMessageRevision(row: NewCommsMessageRevisionRow): Promise<string>;
   /** Block 6 (R2-02): the tombstone writer — IDEMPOTENT (the unique

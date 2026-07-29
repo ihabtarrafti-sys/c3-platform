@@ -1892,6 +1892,24 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return res.rows.length > 0;
     },
 
+    /**
+     * Phase B-LIVE: the TRANSACTIONAL publish. pg_notify inside the same tx as
+     * the message insert means the event fires on COMMIT and NEVER on rollback
+     * — a rolled-back post cannot produce a phantom toast. The payload is IDS
+     * ONLY: the per-subscriber gate re-reads content at push time, so nothing
+     * ungated ever travels (Law 1, made structural rather than procedural).
+     */
+    async publishCommsLiveEvent(row): Promise<void> {
+      await db.execute(sql`
+        SELECT pg_notify('c3_comms_live', ${JSON.stringify({
+          tenantId,
+          threadId: row.threadId,
+          messageId: row.messageId,
+          seq: row.seq,
+        })})
+      `);
+    },
+
     async insertCommsMessageRevision(row): Promise<string> {
       const [r] = await db
         .insert(schema.commsMessageRevision)

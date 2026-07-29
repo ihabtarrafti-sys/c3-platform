@@ -8,6 +8,7 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { createServer as createHttpServer } from 'node:http';
 import { z } from 'zod';
+import { registerCommsStream } from './commsStream';
 import Fastify, { type FastifyInstance, type FastifyReply, type FastifyRequest, type FastifyServerOptions } from 'fastify';
 import cors from '@fastify/cors';
 import rateLimit from '@fastify/rate-limit';
@@ -1840,6 +1841,10 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     { schema: { response: { 200: commsLedgerResponseSchema } } },
     async (req) => getAttentionLedger(P, actorOf(req)),
   );
+  // Phase B-LIVE: the SSE surface (its own module — the per-subscriber gate
+  // and the heartbeat live together where they can be read as one contract).
+  registerCommsStream(app, { P, getBus: () => deps.commsLiveBus, actorOf });
+
   r.get(
     '/api/v1/comms/directory',
     { schema: { response: { 200: commsDirectoryResponseSchema } } },

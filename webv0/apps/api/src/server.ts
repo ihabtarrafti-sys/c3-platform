@@ -7,6 +7,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { loadEnv } from './env';
 import { createLogger } from './logger';
+import { COMMS_CHANNEL, startCommsLiveBus } from '@c3web/persistence';
 import { buildDeps } from './deps';
 import { buildApp } from './app';
 import { createErasureJanitorScheduler } from './erasureJanitor';
@@ -50,6 +51,20 @@ async function main(): Promise<void> {
   // its configured budget; an over-budget pass remains observed and continues
   // in the background. The daily-or-faster cadence remains armed until shutdown.
   await janitorScheduler.start();
+  // Phase B-LIVE: attach the live bus on its OWN session-scoped connection
+  // (LISTEN is session state — a pooled client would lose it, and a
+  // transaction-mode pooler would discard it silently, which is exactly why
+  // the bus proves itself with a self-ping and the stream reports health).
+  // A failure here is LOGGED and non-fatal: the product must serve without the
+  // fast path, and the stream then reports DEGRADED rather than pretending.
+  try {
+    const bus = await startCommsLiveBus(env.databaseUrl);
+    deps.attachCommsLiveBus(bus);
+    logger.info({ channel: COMMS_CHANNEL }, 'comms live bus attached');
+  } catch (err) {
+    logger.error({ err }, 'comms live bus FAILED to attach — the stream will report degraded');
+  }
+
   await app.listen({ port: env.port, host: '0.0.0.0' });
   logger.info({ port: env.port, authProvider: env.authProvider }, 'C3 Web V0 API listening');
 }

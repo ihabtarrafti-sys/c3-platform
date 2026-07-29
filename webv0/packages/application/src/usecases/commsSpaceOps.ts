@@ -141,6 +141,8 @@ export async function postThreadMessage(
     for (const link of parsed.links) {
       await tx.insertCommsObjectLink({ revisionId, targetType: link.targetType, targetId: link.targetId });
     }
+    // Phase B-LIVE: publish IN-TX (see commsOps) — rooms and DMs alike.
+    await tx.publishCommsLiveEvent({ threadId, messageId, seq: nextSeq });
   });
 
   const view = await reads.getCommsMessageByMutation(actor.userId, parsed.clientMutationId);

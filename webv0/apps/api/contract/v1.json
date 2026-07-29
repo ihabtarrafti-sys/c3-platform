@@ -9553,6 +9553,10 @@
     },
     {
       "method": "GET",
+      "url": "/api/v1/comms/stream"
+    },
+    {
+      "method": "GET",
       "url": "/api/v1/comms/threads/:threadId",
       "querystring": {
         "t": "object",

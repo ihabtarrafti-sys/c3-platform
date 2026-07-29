@@ -103,11 +103,48 @@ describe('S-03 — the frozen /api/v1 contract', () => {
     expect(d.additive.length).toBe(2);
   });
 
+  /**
+   * The seal's purpose is "no undocumented JSON surface". Some responses are
+   * NOT JSON and a zod response schema cannot describe them honestly, so the
+   * exemption is a NAMED CLASS with its reason — never a quietly extended
+   * substring chain (the 0096 catalog law's shape: exemptions named, reasoned,
+   * and required to exist).
+   */
+  const NON_JSON_RESPONSE_ROUTES: ReadonlyArray<{ match: string; because: string }> = [
+    { match: '/content', because: 'document bytes' },
+    // ('/pdf' was here and matched NOTHING — the invoice PDF ships as
+    //  `/invoices/:id/document`. A stale exemption pre-authorizes a hole for
+    //  any future /pdf route added without a response contract, so it is gone.
+    //  Found by the anti-stale assertion below on its first run.)
+    { match: 'bank-form', because: 'generated form bytes' },
+    { match: '/export', because: 'CSV/JSON export stream' },
+    { match: '/imports', because: 'multipart import' },
+    { match: '/documents', because: 'document byte routes' },
+    { match: '/uploads/', because: 'multipart upload' },
+    { match: 'payroll-export', because: 'CSV export stream' },
+    { match: '/photo', because: 'image bytes' },
+    // Phase B-LIVE: an SSE endpoint's response is `text/event-stream`, an open
+    // frame sequence — there is no single JSON body to declare, and inventing
+    // one would document a shape the route never returns. Its CONTRACT is
+    // asserted where it lives instead: commsLive.test.ts pins the media type,
+    // the no-transform cache posture, and the event vocabulary.
+    { match: '/comms/stream', because: 'text/event-stream (SSE)' },
+  ];
+
   it('every /api/v1 route declares a response contract (no undocumented surface)', () => {
     const generated = buildContract(collected);
     const undocumented = generated.routes.filter(
-      (r) => r.url.startsWith('/api/v1') && !r.url.includes('/content') && !r.url.includes('/pdf') && !r.url.includes('bank-form') && !r.url.includes('/export') && !r.url.includes('/imports') && !r.url.includes('/documents') && !r.url.includes('/uploads/') && !r.url.includes('payroll-export') && !r.url.includes('/photo') && (!r.response || Object.keys(r.response).length === 0),
+      (r) =>
+        r.url.startsWith('/api/v1') &&
+        !NON_JSON_RESPONSE_ROUTES.some((e) => r.url.includes(e.match)) &&
+        (!r.response || Object.keys(r.response).length === 0),
     );
     expect(undocumented.map((r) => `${r.method} ${r.url}`)).toEqual([]);
+  });
+
+  it('every NON-JSON exemption still corresponds to a LIVE route (a stale exemption is a hole)', () => {
+    const generated = buildContract(collected);
+    const unused = NON_JSON_RESPONSE_ROUTES.filter((e) => !generated.routes.some((r) => r.url.includes(e.match)));
+    expect(unused.map((e) => e.match)).toEqual([]);
   });
 });

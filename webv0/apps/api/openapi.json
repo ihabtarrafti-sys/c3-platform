@@ -14928,6 +14928,15 @@
         }
       }
     },
+    "/api/v1/comms/stream": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response"
+          }
+        }
+      }
+    },
     "/api/v1/comms/directory": {
       "get": {
         "responses": {

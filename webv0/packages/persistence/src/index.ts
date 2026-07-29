@@ -17,3 +17,4 @@ export type { ExitManifest, ManifestBlobEntry, ManifestCheckContext } from './ex
 export { exitTenant } from './exitTenant';
 export type { ExitOptions, ExitReport } from './exitTenant';
 export * as schema from './schema';
+export { startCommsLiveBus, COMMS_CHANNEL, LISTENER_APP_NAME, type CommsLiveBus, type CommsLiveEvent } from './commsLive';

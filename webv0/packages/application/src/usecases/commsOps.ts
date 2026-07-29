@@ -266,6 +266,8 @@ export async function postMissionMessage(
     for (const link of parsed.links) {
       await tx.insertCommsObjectLink({ revisionId, targetType: link.targetType, targetId: link.targetId });
     }
+    // Phase B-LIVE: publish IN-TX — fires on COMMIT, never on rollback.
+    await tx.publishCommsLiveEvent({ threadId, messageId, seq: nextSeq });
   }).catch(async (e) => {
     if (e instanceof ConflictError) {
       const winner = await reads.getCommsMessageByMutation(actor.userId, parsed.clientMutationId);
@@ -365,6 +367,7 @@ export async function registerCommsAttachment(
     await tx.insertCommsDocumentAttachment({ messageId, documentId, attachedByUserId: actor.userId });
     // The blob is now referenced by a committed row — resolve the write-ahead intent in-tx.
     await tx.resolveCompensationIntent(upload.storageKey);
+    await tx.publishCommsLiveEvent({ threadId, messageId, seq: nextSeq });
   });
 
   const view = await reads.getCommsMessageByMutation(actor.userId, upload.clientMutationId);
