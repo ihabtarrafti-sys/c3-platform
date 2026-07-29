@@ -13888,6 +13888,1988 @@
         }
       }
     },
+    "/api/v1/comms/ledger": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "awaitingMyAcceptance": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "obligation": {
+                            "type": "object",
+                            "properties": {
+                              "obligationId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "Open",
+                                  "Delivered",
+                                  "Accepted",
+                                  "Done",
+                                  "Cancelled"
+                                ]
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "accountableUserId": {
+                                "type": "string"
+                              },
+                              "requesterUserId": {
+                                "type": "string"
+                              },
+                              "beneficiaryKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "beneficiaryUserId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "beneficiaryLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "acceptanceKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "acceptanceUserId": {
+                                "type": "string"
+                              },
+                              "acceptanceLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "dueAt": {
+                                "type": "string"
+                              },
+                              "evidenceRequirement": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "eventType": {
+                                      "type": "string"
+                                    },
+                                    "fromState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ],
+                                      "nullable": true
+                                    },
+                                    "toState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "type": "string"
+                                    },
+                                    "actorLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "attestation": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "at": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eventType",
+                                    "fromState",
+                                    "toState",
+                                    "actorUserId",
+                                    "actorLabel",
+                                    "reason",
+                                    "attestation",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "evidence": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "documentId": {
+                                      "type": "string"
+                                    },
+                                    "fileName": {
+                                      "type": "string"
+                                    },
+                                    "contentType": {
+                                      "type": "string"
+                                    },
+                                    "sizeBytes": {
+                                      "type": "integer"
+                                    },
+                                    "deliveredByUserId": {
+                                      "type": "string"
+                                    },
+                                    "delivererLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "note": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "deliveredAt": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "documentId",
+                                    "fileName",
+                                    "contentType",
+                                    "sizeBytes",
+                                    "deliveredByUserId",
+                                    "delivererLabel",
+                                    "note",
+                                    "deliveredAt"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "obligationId",
+                              "threadId",
+                              "state",
+                              "description",
+                              "accountableUserId",
+                              "requesterUserId",
+                              "beneficiaryKind",
+                              "beneficiaryUserId",
+                              "beneficiaryLabel",
+                              "acceptanceKind",
+                              "acceptanceUserId",
+                              "acceptanceLabel",
+                              "dueAt",
+                              "evidenceRequirement",
+                              "version",
+                              "createdAt",
+                              "events",
+                              "evidence"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "threadKind": {
+                            "type": "string",
+                            "enum": [
+                              "anchored",
+                              "standing",
+                              "direct"
+                            ]
+                          },
+                          "anchorType": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "anchorId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "threadTitle": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "obligation",
+                          "threadKind",
+                          "anchorType",
+                          "anchorId",
+                          "threadTitle"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "awaitingMyDelivery": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "obligation": {
+                            "type": "object",
+                            "properties": {
+                              "obligationId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "Open",
+                                  "Delivered",
+                                  "Accepted",
+                                  "Done",
+                                  "Cancelled"
+                                ]
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "accountableUserId": {
+                                "type": "string"
+                              },
+                              "requesterUserId": {
+                                "type": "string"
+                              },
+                              "beneficiaryKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "beneficiaryUserId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "beneficiaryLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "acceptanceKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "acceptanceUserId": {
+                                "type": "string"
+                              },
+                              "acceptanceLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "dueAt": {
+                                "type": "string"
+                              },
+                              "evidenceRequirement": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "eventType": {
+                                      "type": "string"
+                                    },
+                                    "fromState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ],
+                                      "nullable": true
+                                    },
+                                    "toState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "type": "string"
+                                    },
+                                    "actorLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "attestation": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "at": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eventType",
+                                    "fromState",
+                                    "toState",
+                                    "actorUserId",
+                                    "actorLabel",
+                                    "reason",
+                                    "attestation",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "evidence": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "documentId": {
+                                      "type": "string"
+                                    },
+                                    "fileName": {
+                                      "type": "string"
+                                    },
+                                    "contentType": {
+                                      "type": "string"
+                                    },
+                                    "sizeBytes": {
+                                      "type": "integer"
+                                    },
+                                    "deliveredByUserId": {
+                                      "type": "string"
+                                    },
+                                    "delivererLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "note": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "deliveredAt": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "documentId",
+                                    "fileName",
+                                    "contentType",
+                                    "sizeBytes",
+                                    "deliveredByUserId",
+                                    "delivererLabel",
+                                    "note",
+                                    "deliveredAt"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "obligationId",
+                              "threadId",
+                              "state",
+                              "description",
+                              "accountableUserId",
+                              "requesterUserId",
+                              "beneficiaryKind",
+                              "beneficiaryUserId",
+                              "beneficiaryLabel",
+                              "acceptanceKind",
+                              "acceptanceUserId",
+                              "acceptanceLabel",
+                              "dueAt",
+                              "evidenceRequirement",
+                              "version",
+                              "createdAt",
+                              "events",
+                              "evidence"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "threadKind": {
+                            "type": "string",
+                            "enum": [
+                              "anchored",
+                              "standing",
+                              "direct"
+                            ]
+                          },
+                          "anchorType": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "anchorId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "threadTitle": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "obligation",
+                          "threadKind",
+                          "anchorType",
+                          "anchorId",
+                          "threadTitle"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "awaitingMySettle": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "obligation": {
+                            "type": "object",
+                            "properties": {
+                              "obligationId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "Open",
+                                  "Delivered",
+                                  "Accepted",
+                                  "Done",
+                                  "Cancelled"
+                                ]
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "accountableUserId": {
+                                "type": "string"
+                              },
+                              "requesterUserId": {
+                                "type": "string"
+                              },
+                              "beneficiaryKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "beneficiaryUserId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "beneficiaryLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "acceptanceKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "acceptanceUserId": {
+                                "type": "string"
+                              },
+                              "acceptanceLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "dueAt": {
+                                "type": "string"
+                              },
+                              "evidenceRequirement": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "eventType": {
+                                      "type": "string"
+                                    },
+                                    "fromState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ],
+                                      "nullable": true
+                                    },
+                                    "toState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "type": "string"
+                                    },
+                                    "actorLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "attestation": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "at": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eventType",
+                                    "fromState",
+                                    "toState",
+                                    "actorUserId",
+                                    "actorLabel",
+                                    "reason",
+                                    "attestation",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "evidence": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "documentId": {
+                                      "type": "string"
+                                    },
+                                    "fileName": {
+                                      "type": "string"
+                                    },
+                                    "contentType": {
+                                      "type": "string"
+                                    },
+                                    "sizeBytes": {
+                                      "type": "integer"
+                                    },
+                                    "deliveredByUserId": {
+                                      "type": "string"
+                                    },
+                                    "delivererLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "note": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "deliveredAt": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "documentId",
+                                    "fileName",
+                                    "contentType",
+                                    "sizeBytes",
+                                    "deliveredByUserId",
+                                    "delivererLabel",
+                                    "note",
+                                    "deliveredAt"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "obligationId",
+                              "threadId",
+                              "state",
+                              "description",
+                              "accountableUserId",
+                              "requesterUserId",
+                              "beneficiaryKind",
+                              "beneficiaryUserId",
+                              "beneficiaryLabel",
+                              "acceptanceKind",
+                              "acceptanceUserId",
+                              "acceptanceLabel",
+                              "dueAt",
+                              "evidenceRequirement",
+                              "version",
+                              "createdAt",
+                              "events",
+                              "evidence"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "threadKind": {
+                            "type": "string",
+                            "enum": [
+                              "anchored",
+                              "standing",
+                              "direct"
+                            ]
+                          },
+                          "anchorType": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "anchorId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "threadTitle": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "obligation",
+                          "threadKind",
+                          "anchorType",
+                          "anchorId",
+                          "threadTitle"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "watching": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "obligation": {
+                            "type": "object",
+                            "properties": {
+                              "obligationId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "state": {
+                                "type": "string",
+                                "enum": [
+                                  "Open",
+                                  "Delivered",
+                                  "Accepted",
+                                  "Done",
+                                  "Cancelled"
+                                ]
+                              },
+                              "description": {
+                                "type": "string"
+                              },
+                              "accountableUserId": {
+                                "type": "string"
+                              },
+                              "requesterUserId": {
+                                "type": "string"
+                              },
+                              "beneficiaryKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "beneficiaryUserId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "beneficiaryLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "acceptanceKind": {
+                                "type": "string",
+                                "enum": [
+                                  "account",
+                                  "external"
+                                ]
+                              },
+                              "acceptanceUserId": {
+                                "type": "string"
+                              },
+                              "acceptanceLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "dueAt": {
+                                "type": "string"
+                              },
+                              "evidenceRequirement": {
+                                "type": "string"
+                              },
+                              "version": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "events": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "eventType": {
+                                      "type": "string"
+                                    },
+                                    "fromState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ],
+                                      "nullable": true
+                                    },
+                                    "toState": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Open",
+                                        "Delivered",
+                                        "Accepted",
+                                        "Done",
+                                        "Cancelled"
+                                      ]
+                                    },
+                                    "actorUserId": {
+                                      "type": "string"
+                                    },
+                                    "actorLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "reason": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "attestation": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "at": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "eventType",
+                                    "fromState",
+                                    "toState",
+                                    "actorUserId",
+                                    "actorLabel",
+                                    "reason",
+                                    "attestation",
+                                    "at"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "evidence": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "documentId": {
+                                      "type": "string"
+                                    },
+                                    "fileName": {
+                                      "type": "string"
+                                    },
+                                    "contentType": {
+                                      "type": "string"
+                                    },
+                                    "sizeBytes": {
+                                      "type": "integer"
+                                    },
+                                    "deliveredByUserId": {
+                                      "type": "string"
+                                    },
+                                    "delivererLabel": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "note": {
+                                      "type": "string",
+                                      "nullable": true
+                                    },
+                                    "deliveredAt": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "documentId",
+                                    "fileName",
+                                    "contentType",
+                                    "sizeBytes",
+                                    "deliveredByUserId",
+                                    "delivererLabel",
+                                    "note",
+                                    "deliveredAt"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "obligationId",
+                              "threadId",
+                              "state",
+                              "description",
+                              "accountableUserId",
+                              "requesterUserId",
+                              "beneficiaryKind",
+                              "beneficiaryUserId",
+                              "beneficiaryLabel",
+                              "acceptanceKind",
+                              "acceptanceUserId",
+                              "acceptanceLabel",
+                              "dueAt",
+                              "evidenceRequirement",
+                              "version",
+                              "createdAt",
+                              "events",
+                              "evidence"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "threadKind": {
+                            "type": "string",
+                            "enum": [
+                              "anchored",
+                              "standing",
+                              "direct"
+                            ]
+                          },
+                          "anchorType": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "anchorId": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "threadTitle": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "obligation",
+                          "threadKind",
+                          "anchorType",
+                          "anchorId",
+                          "threadTitle"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "threads": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "thread": {
+                            "type": "object",
+                            "properties": {
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "kind": {
+                                "type": "string",
+                                "enum": [
+                                  "anchored",
+                                  "standing",
+                                  "direct"
+                                ]
+                              },
+                              "anchorType": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "anchorId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "title": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "status": {
+                                "type": "string",
+                                "enum": [
+                                  "active",
+                                  "archived"
+                                ]
+                              },
+                              "lastSeq": {
+                                "type": "integer"
+                              },
+                              "lastMessageAt": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "threadId",
+                              "kind",
+                              "anchorType",
+                              "anchorId",
+                              "title",
+                              "status",
+                              "lastSeq",
+                              "lastMessageAt",
+                              "createdAt"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "myLastReadSeq": {
+                            "type": "integer",
+                            "nullable": true
+                          },
+                          "unread": {
+                            "type": "integer"
+                          }
+                        },
+                        "required": [
+                          "thread",
+                          "myLastReadSeq",
+                          "unread"
+                        ],
+                        "additionalProperties": false
+                      }
+                    }
+                  },
+                  "required": [
+                    "awaitingMyAcceptance",
+                    "awaitingMyDelivery",
+                    "awaitingMySettle",
+                    "watching",
+                    "threads"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comms/direct": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "otherUserId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "otherUserId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "thread": {
+                      "type": "object",
+                      "properties": {
+                        "threadId": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "anchored",
+                            "standing",
+                            "direct"
+                          ]
+                        },
+                        "anchorType": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "anchorId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "title": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "archived"
+                          ]
+                        },
+                        "lastSeq": {
+                          "type": "integer"
+                        },
+                        "lastMessageAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "threadId",
+                        "kind",
+                        "anchorType",
+                        "anchorId",
+                        "title",
+                        "status",
+                        "lastSeq",
+                        "lastMessageAt",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "thread"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comms/threads/{threadId}": {
+      "get": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "in": "query",
+            "name": "limit",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "in": "query",
+            "name": "beforeSeq",
+            "required": false
+          },
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^THR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "threadId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "thread": {
+                      "type": "object",
+                      "properties": {
+                        "threadId": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "anchored",
+                            "standing",
+                            "direct"
+                          ]
+                        },
+                        "anchorType": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "anchorId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "title": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "archived"
+                          ]
+                        },
+                        "lastSeq": {
+                          "type": "integer"
+                        },
+                        "lastMessageAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "threadId",
+                        "kind",
+                        "anchorType",
+                        "anchorId",
+                        "title",
+                        "status",
+                        "lastSeq",
+                        "lastMessageAt",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "messages": {
+                      "type": "array",
+                      "items": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "recalled": {
+                                "type": "boolean",
+                                "enum": [
+                                  false
+                                ]
+                              },
+                              "messageId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "seq": {
+                                "type": "integer"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "authorLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "revisionNo": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "body": {
+                                "type": "string"
+                              },
+                              "links": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "targetType": {
+                                      "type": "string",
+                                      "enum": [
+                                        "Approval",
+                                        "Mission",
+                                        "Journey",
+                                        "Person",
+                                        "Credential",
+                                        "Document",
+                                        "Message",
+                                        "Obligation"
+                                      ]
+                                    },
+                                    "targetId": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "targetType",
+                                    "targetId"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              },
+                              "attachments": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "documentId": {
+                                      "type": "string"
+                                    },
+                                    "fileName": {
+                                      "type": "string"
+                                    },
+                                    "contentType": {
+                                      "type": "string"
+                                    },
+                                    "sizeBytes": {
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "documentId",
+                                    "fileName",
+                                    "contentType",
+                                    "sizeBytes"
+                                  ],
+                                  "additionalProperties": false
+                                }
+                              }
+                            },
+                            "required": [
+                              "recalled",
+                              "messageId",
+                              "threadId",
+                              "seq",
+                              "authorUserId",
+                              "authorLabel",
+                              "revisionNo",
+                              "createdAt",
+                              "body",
+                              "links",
+                              "attachments"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "recalled": {
+                                "type": "boolean",
+                                "enum": [
+                                  true
+                                ]
+                              },
+                              "messageId": {
+                                "type": "string"
+                              },
+                              "threadId": {
+                                "type": "string"
+                              },
+                              "seq": {
+                                "type": "integer"
+                              },
+                              "authorUserId": {
+                                "type": "string"
+                              },
+                              "authorLabel": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "revisionNo": {
+                                "type": "integer"
+                              },
+                              "createdAt": {
+                                "type": "string"
+                              },
+                              "recall": {
+                                "type": "object",
+                                "properties": {
+                                  "reasonCode": {
+                                    "type": "string",
+                                    "enum": [
+                                      "AuthorRecall",
+                                      "ModeratorRemoval"
+                                    ]
+                                  },
+                                  "actorLabel": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "at": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "reasonCode",
+                                  "actorLabel",
+                                  "at"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "required": [
+                              "recalled",
+                              "messageId",
+                              "threadId",
+                              "seq",
+                              "authorUserId",
+                              "authorLabel",
+                              "revisionNo",
+                              "createdAt",
+                              "recall"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "myLastReadSeq": {
+                      "type": "integer",
+                      "nullable": true
+                    },
+                    "participants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "userId": {
+                            "type": "string"
+                          },
+                          "role": {
+                            "type": "string",
+                            "enum": [
+                              "member",
+                              "admin"
+                            ]
+                          },
+                          "displayName": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "userId",
+                          "role",
+                          "displayName"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "events": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "eventType": {
+                            "type": "string"
+                          },
+                          "actorLabel": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "at": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "eventType",
+                          "actorLabel",
+                          "at"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "retentionDays": {
+                      "type": "integer",
+                      "nullable": true
+                    }
+                  },
+                  "required": [
+                    "thread",
+                    "messages",
+                    "myLastReadSeq",
+                    "participants",
+                    "events",
+                    "retentionDays"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comms/threads/{threadId}/messages": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "body": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 8000
+                  },
+                  "links": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "targetType": {
+                          "type": "string",
+                          "enum": [
+                            "Approval",
+                            "Mission",
+                            "Journey",
+                            "Person",
+                            "Credential",
+                            "Document",
+                            "Message",
+                            "Obligation"
+                          ]
+                        },
+                        "targetId": {
+                          "type": "string",
+                          "pattern": "^[A-Z]{3,4}-\\d{4,}$"
+                        }
+                      },
+                      "required": [
+                        "targetType",
+                        "targetId"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "maxItems": 10,
+                    "default": []
+                  },
+                  "clientMutationId": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                },
+                "required": [
+                  "body",
+                  "clientMutationId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^THR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "threadId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "message": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "recalled": {
+                              "type": "boolean",
+                              "enum": [
+                                false
+                              ]
+                            },
+                            "messageId": {
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "type": "string"
+                            },
+                            "seq": {
+                              "type": "integer"
+                            },
+                            "authorUserId": {
+                              "type": "string"
+                            },
+                            "authorLabel": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "body": {
+                              "type": "string"
+                            },
+                            "links": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "targetType": {
+                                    "type": "string",
+                                    "enum": [
+                                      "Approval",
+                                      "Mission",
+                                      "Journey",
+                                      "Person",
+                                      "Credential",
+                                      "Document",
+                                      "Message",
+                                      "Obligation"
+                                    ]
+                                  },
+                                  "targetId": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "targetType",
+                                  "targetId"
+                                ],
+                                "additionalProperties": false
+                              }
+                            },
+                            "attachments": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "documentId": {
+                                    "type": "string"
+                                  },
+                                  "fileName": {
+                                    "type": "string"
+                                  },
+                                  "contentType": {
+                                    "type": "string"
+                                  },
+                                  "sizeBytes": {
+                                    "type": "integer"
+                                  }
+                                },
+                                "required": [
+                                  "documentId",
+                                  "fileName",
+                                  "contentType",
+                                  "sizeBytes"
+                                ],
+                                "additionalProperties": false
+                              }
+                            }
+                          },
+                          "required": [
+                            "recalled",
+                            "messageId",
+                            "threadId",
+                            "seq",
+                            "authorUserId",
+                            "authorLabel",
+                            "revisionNo",
+                            "createdAt",
+                            "body",
+                            "links",
+                            "attachments"
+                          ],
+                          "additionalProperties": false
+                        },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "recalled": {
+                              "type": "boolean",
+                              "enum": [
+                                true
+                              ]
+                            },
+                            "messageId": {
+                              "type": "string"
+                            },
+                            "threadId": {
+                              "type": "string"
+                            },
+                            "seq": {
+                              "type": "integer"
+                            },
+                            "authorUserId": {
+                              "type": "string"
+                            },
+                            "authorLabel": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "revisionNo": {
+                              "type": "integer"
+                            },
+                            "createdAt": {
+                              "type": "string"
+                            },
+                            "recall": {
+                              "type": "object",
+                              "properties": {
+                                "reasonCode": {
+                                  "type": "string",
+                                  "enum": [
+                                    "AuthorRecall",
+                                    "ModeratorRemoval"
+                                  ]
+                                },
+                                "actorLabel": {
+                                  "type": "string",
+                                  "nullable": true
+                                },
+                                "at": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "reasonCode",
+                                "actorLabel",
+                                "at"
+                              ],
+                              "additionalProperties": false
+                            }
+                          },
+                          "required": [
+                            "recalled",
+                            "messageId",
+                            "threadId",
+                            "seq",
+                            "authorUserId",
+                            "authorLabel",
+                            "revisionNo",
+                            "createdAt",
+                            "recall"
+                          ],
+                          "additionalProperties": false
+                        }
+                      ]
+                    }
+                  },
+                  "required": [
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comms/rooms": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "title": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 120
+                  }
+                },
+                "required": [
+                  "title"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "thread": {
+                      "type": "object",
+                      "properties": {
+                        "threadId": {
+                          "type": "string"
+                        },
+                        "kind": {
+                          "type": "string",
+                          "enum": [
+                            "anchored",
+                            "standing",
+                            "direct"
+                          ]
+                        },
+                        "anchorType": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "anchorId": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "title": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "status": {
+                          "type": "string",
+                          "enum": [
+                            "active",
+                            "archived"
+                          ]
+                        },
+                        "lastSeq": {
+                          "type": "integer"
+                        },
+                        "lastMessageAt": {
+                          "type": "string",
+                          "nullable": true
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "threadId",
+                        "kind",
+                        "anchorType",
+                        "anchorId",
+                        "title",
+                        "status",
+                        "lastSeq",
+                        "lastMessageAt",
+                        "createdAt"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "required": [
+                    "thread"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comms/threads/{threadId}/participants": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "userId": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "role": {
+                    "type": "string",
+                    "enum": [
+                      "member",
+                      "admin"
+                    ],
+                    "default": "member"
+                  }
+                },
+                "required": [
+                  "userId"
+                ],
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^THR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "threadId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/comms/threads/{threadId}/participants/{userId}/remove": {
+      "post": {
+        "parameters": [
+          {
+            "schema": {
+              "type": "string",
+              "pattern": "^THR-\\d{4,}$"
+            },
+            "in": "path",
+            "name": "threadId",
+            "required": true
+          },
+          {
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "in": "path",
+            "name": "userId",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Default Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "ok": {
+                      "type": "boolean",
+                      "enum": [
+                        true
+                      ]
+                    }
+                  },
+                  "required": [
+                    "ok"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/comms/missions/{missionId}/read": {
       "post": {
         "requestBody": {

@@ -52,18 +52,33 @@ export function isEntitlementWritable(e: ModuleEntitlement, now = new Date()): b
 }
 
 /**
- * The slice's thread gate: anchored-Mission only. Every other kind/anchor arm
- * fails CLOSED until the full module opens it (each future anchor maps to its
- * OWNING record's native gate — never a blanket people-read).
+ * THE PER-KIND THREAD GATE (Phase B generalization — the activation's design
+ * statement): readership composes from each kind's NATIVE authority, never a
+ * blanket rule.
+ *   anchored → the anchor's OWN gate (Mission today; each future anchor maps
+ *              to its owning record's native gate — never a blanket read);
+ *   direct   → the seated participants, nothing else — not even owners;
+ *   standing → explicit audience = the seated participants (the invite-only
+ *              room; v1's ONE private class).
+ * Every failure arm is the thread's own 404 — a non-member learns nothing,
+ * not even that the room exists (NEO-DOC-01 composed, not re-decided).
+ * Standing is DERIVED per read from the live participant rows (removed_at
+ * governs) — never a snapshot.
  */
-async function assertViewCommsThread(reads: ReadStore, actor: Actor, thread: CommsThread): Promise<void> {
+export async function assertViewCommsThread(reads: ReadStore, actor: Actor, thread: CommsThread): Promise<void> {
+  const conceal = new NotFoundError('Thread', thread.threadId);
   if (thread.kind === 'anchored' && thread.anchorType === 'Mission' && thread.anchorId) {
     assertReadPeople(actor);
     const mission = await reads.getMissionById(thread.anchorId);
     if (!mission) throw new NotFoundError('Mission', thread.anchorId);
     return;
   }
-  throw new NotFoundError('Thread', thread.threadId);
+  if (thread.kind === 'direct' || thread.kind === 'standing') {
+    const seated = await reads.listCommsThreadParticipants(thread.threadId);
+    if (seated.some((m) => m.userId === actor.userId)) return;
+    throw conceal;
+  }
+  throw conceal;
 }
 
 /**
@@ -74,9 +89,16 @@ async function assertViewCommsThread(reads: ReadStore, actor: Actor, thread: Com
  * not authorize).
  */
 async function canModerateCommsThread(reads: ReadStore, actor: Actor, thread: CommsThread): Promise<boolean> {
-  if (!canManageMissions(actor.role)) return false;
   if (thread.kind === 'anchored' && thread.anchorType === 'Mission' && thread.anchorId) {
+    if (!canManageMissions(actor.role)) return false;
     return (await reads.getMissionById(thread.anchorId)) !== null;
+  }
+  // Phase B: a standing room's moderator is its ADMIN seat — room authority,
+  // not org role. A direct thread has NO moderator (two members, no chair):
+  // the author-recall window is the only removal path there.
+  if (thread.kind === 'standing') {
+    const seated = await reads.listCommsThreadParticipants(thread.threadId);
+    return seated.some((m) => m.userId === actor.userId && m.role === 'admin');
   }
   return false;
 }

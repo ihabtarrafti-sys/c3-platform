@@ -93,14 +93,15 @@ export const PLACES: ReadonlyArray<Place> = [
     claims: [],
   },
   {
-    // Comms has no standalone home yet (the pilot is mission-anchored): the
-    // place renders ONLY as the active place on a comms route — truthful
-    // absence elsewhere (a dead tab and a fabricated destination both lie).
-    // The Comms-module chapter gives it a real destination.
+    // Phase B: the chapter kept the promise this comment used to make — the
+    // Comms front door is THE ATTENTION LEDGER (what awaits my act), not a
+    // channel list. All comms routes claim the place.
     label: 'Comms',
     glyph: '✦',
     sections: [],
-    claims: ['/missions/:missionId/comms'],
+    to: '/comms',
+    testId: 'nav-comms',
+    claims: ['/missions/:missionId/comms', '/comms', '/comms/threads/:threadId'],
   },
   {
     label: 'Approvals',

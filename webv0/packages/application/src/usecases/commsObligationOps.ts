@@ -66,6 +66,13 @@ export async function createMissionObligation(
   // The mission's canonical thread (auto-creates under the writable license).
   const { thread } = await getMissionThread(p, actor, missionId, { limit: 1 });
   if (!thread) throw new NotFoundError('Mission', missionId);
+  // Phase B belt (the unanimous Battle-#2 floor, battleground 4): evidence
+  // derives disclosure from the ANCHOR, so evidence-bearing obligations exist
+  // ONLY on anchored threads. Vacuously true on this mission-scoped path —
+  // asserted anyway so a future thread-addressed mint cannot drift past it.
+  if (thread.kind !== 'anchored') {
+    throw new ValidationError('Evidence-bearing obligations live on anchored threads only — promote the work to an anchor first.');
+  }
 
   await p.writes.transaction(actor, async (tx) => {
     const obligationId = formatObligationId(await tx.allocateSequence('obligation'));

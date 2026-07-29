@@ -149,3 +149,8 @@ export const useMissionReceipts = (missionId: string, enabled = true) =>
   useQuery({ queryKey: ['commsReceipts', missionId], queryFn: () => api.getMissionReceipts(missionId), enabled });
 export const useCommsPrefs = (enabled = true) =>
   useQuery({ queryKey: ['commsPrefs'], queryFn: () => api.getCommsPrefs(), enabled });
+// Phase B (activation).
+export const useCommsLedger = (enabled = true) =>
+  useQuery({ queryKey: ['commsLedger'], queryFn: () => api.getCommsLedger(), enabled });
+export const useThreadRoom = (threadId: string, enabled = true) =>
+  useQuery({ queryKey: ['commsRoom', threadId], queryFn: () => api.getThreadRoom(threadId), enabled });

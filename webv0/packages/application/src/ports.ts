@@ -278,6 +278,12 @@ export interface ReadStore {
   getCommsObligationByMutation(createdByUserId: string, clientMutationId: string): Promise<CommsObligationView | null>;
   /** The caller's OWN cursor on a thread (never watermark-filtered). */
   getCommsInboxCursor(threadId: string, userId: string): Promise<CommsCursor | null>;
+  /** Phase B (activation) reads. */
+  getCommsThreadByDirectHash(hash: string): Promise<CommsThread | null>;
+  listCommsThreadParticipants(threadId: string): Promise<CommsThreadParticipantView[]>;
+  listCommsThreadEvents(threadId: string): Promise<CommsThreadEventView[]>;
+  listMyCommsThreads(userId: string): Promise<MyCommsThreadRow[]>;
+  listMyObligationParties(userId: string): Promise<MyObligationPartyRow[]>;
   /**
    * The DISCLOSED receipts of a thread: cursor rows joined with each owner's
    * prefs, filtered by the privacy contract IN ONE PLACE — receipts enabled AND
@@ -758,6 +764,42 @@ export interface NewCommsMessageRow {
   readonly authorUserId: string;
   readonly authorLabel: string | null;
   readonly clientMutationId: string;
+  /** Phase B: direct threads stamp retention ON the insert (the spine is INSERT-only). */
+  readonly retentionDays?: number | null;
+}
+
+/** Phase B (activation): the dormant-kind writer + participant rows/views. */
+export interface NewCommsDormantThreadRow {
+  readonly threadId: string;
+  readonly kind: 'direct' | 'standing';
+  readonly title?: string | null;
+  readonly directSetHash?: string | null;
+  readonly directRetentionDays?: number | null;
+  readonly audienceMode?: 'all_members' | 'explicit' | null;
+  readonly createdByUserId: string;
+  readonly createdByLabel: string | null;
+}
+export interface CommsThreadParticipantView {
+  readonly userId: string;
+  readonly role: 'member' | 'admin';
+  readonly displayName: string | null;
+}
+export interface CommsThreadEventView {
+  readonly eventType: string;
+  readonly actorLabel: string | null;
+  readonly at: string;
+}
+export interface MyCommsThreadRow {
+  readonly thread: CommsThread;
+  readonly myLastReadSeq: number | null;
+  readonly unread: number;
+}
+export interface MyObligationPartyRow {
+  readonly obligation: CommsObligationView;
+  readonly threadKind: 'anchored' | 'standing' | 'direct';
+  readonly anchorType: string | null;
+  readonly anchorId: string | null;
+  readonly threadTitle: string | null;
 }
 export interface NewCommsMessageRevisionRow {
   readonly messageId: string;
@@ -1276,6 +1318,11 @@ export interface WriteTx {
    * Returns the inserted thread, or null when a concurrent creator won.
    */
   insertCommsThread(row: NewCommsThreadRow): Promise<CommsThread | null>;
+  /** Phase B: 0090's dormant kinds — direct one-per-set via the hash partial unique. */
+  insertCommsThreadDormantKind(row: NewCommsDormantThreadRow): Promise<CommsThread | null>;
+  /** Phase B: participant writer (re-add clears removed_at); soft removal below. */
+  upsertCommsThreadParticipant(row: { threadId: string; userId: string; role: 'member' | 'admin' }): Promise<void>;
+  removeCommsThreadParticipant(threadId: string, userId: string): Promise<boolean>;
   /** Row-lock bump of the thread's seq + last_message_at; null when the thread is missing. */
   bumpCommsThreadSeq(threadId: string): Promise<number | null>;
   /**

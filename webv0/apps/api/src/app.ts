@@ -214,6 +214,14 @@ import {
   commsMissionParamSchema,
   commsPageQuerySchema,
   commsRecallRequestSchema,
+  commsLedgerResponseSchema,
+  commsOpenDirectRequestSchema,
+  commsThreadResponseSchema,
+  commsThreadParamSchema,
+  commsThreadRoomResponseSchema,
+  commsRoomCreateRequestSchema,
+  commsRoomInviteRequestSchema,
+  commsRoomMemberParamSchema,
   commsRecallResponseSchema,
   commsMessageParamSchema,
   missionThreadResponseSchema,
@@ -398,6 +406,13 @@ import {
   drainApprovalRevisions,
   getMissionThread,
   recallMissionMessage,
+  getAttentionLedger,
+  getThreadRoom,
+  openDirectThread,
+  postThreadMessage,
+  createStandingRoom,
+  inviteToRoom,
+  removeFromRoom,
   postMissionMessage,
   registerCommsAttachment,
   createMissionObligation,
@@ -1814,6 +1829,66 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       const { messageId } = req.params as { messageId: string };
       const body = req.body as { reasonCode: 'AuthorRecall' | 'ModeratorRemoval'; moderationNote?: string };
       return recallMissionMessage(P, actorOf(req), messageId, { reasonCode: body.reasonCode, moderationNote: body.moderationNote ?? null });
+    },
+  );
+
+  // ── Phase B (activation): rooms, DMs, the attention ledger — ADDITIVE v1 ───
+  r.get(
+    '/api/v1/comms/ledger',
+    { schema: { response: { 200: commsLedgerResponseSchema } } },
+    async (req) => getAttentionLedger(P, actorOf(req)),
+  );
+  r.post(
+    '/api/v1/comms/direct',
+    { schema: { body: commsOpenDirectRequestSchema, response: { 200: commsThreadResponseSchema } } },
+    async (req) => ({ thread: await openDirectThread(P, actorOf(req), (req.body as { otherUserId: string }).otherUserId) }),
+  );
+  r.get(
+    '/api/v1/comms/threads/:threadId',
+    { schema: { params: commsThreadParamSchema, querystring: commsPageQuerySchema, response: { 200: commsThreadRoomResponseSchema } } },
+    async (req) => {
+      const { threadId } = req.params as { threadId: string };
+      const q = req.query as { limit?: number; beforeSeq?: number };
+      const room = await getThreadRoom(P, actorOf(req), threadId, { limit: q.limit, beforeSeq: q.beforeSeq ?? null });
+      return { ...room, messages: room.messages.map(toCommsMessageDto) };
+    },
+  );
+  r.post(
+    '/api/v1/comms/threads/:threadId/messages',
+    { schema: { params: commsThreadParamSchema, body: postCommsMessageInputSchema, response: { 201: commsMessageResponseSchema } } },
+    async (req, reply) => {
+      const { threadId } = req.params as { threadId: string };
+      const message = await postThreadMessage(P, actorOf(req), threadId, req.body as PostCommsMessageInput);
+      reply.code(201);
+      return { message: toCommsMessageDto(message) };
+    },
+  );
+  r.post(
+    '/api/v1/comms/rooms',
+    { schema: { body: commsRoomCreateRequestSchema, response: { 201: commsThreadResponseSchema } } },
+    async (req, reply) => {
+      const thread = await createStandingRoom(P, actorOf(req), (req.body as { title: string }).title);
+      reply.code(201);
+      return { thread };
+    },
+  );
+  r.post(
+    '/api/v1/comms/threads/:threadId/participants',
+    { schema: { params: commsThreadParamSchema, body: commsRoomInviteRequestSchema, response: { 200: z.object({ ok: z.literal(true) }) } } },
+    async (req) => {
+      const { threadId } = req.params as { threadId: string };
+      const body = req.body as { userId: string; role: 'member' | 'admin' };
+      await inviteToRoom(P, actorOf(req), threadId, body.userId, body.role);
+      return { ok: true as const };
+    },
+  );
+  r.post(
+    '/api/v1/comms/threads/:threadId/participants/:userId/remove',
+    { schema: { params: commsRoomMemberParamSchema, response: { 200: z.object({ ok: z.literal(true) }) } } },
+    async (req) => {
+      const { threadId, userId } = req.params as { threadId: string; userId: string };
+      await removeFromRoom(P, actorOf(req), threadId, userId);
+      return { ok: true as const };
     },
   );
 

@@ -805,6 +805,98 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
             return hydrateCommsObligationViews(db, rows);
           }),
 
+        // ── Phase B (activation): the dormant spine's first lawful reads ─────
+
+        getCommsThreadByDirectHash: (hash: string) =>
+          exec(async (db) => {
+            const res = await db.execute(sql`SELECT * FROM comms_thread WHERE kind = 'direct' AND direct_set_hash = ${hash} LIMIT 1`);
+            const r = res.rows[0];
+            return r ? mapCommsThread(r as Record<string, unknown>) : null;
+          }),
+
+        listCommsThreadParticipants: (threadId: string) =>
+          exec(async (db) => {
+            // The identity plane is deliberately unreadable to c3_app — labels
+            // come through the SAME definer gateway the members directory uses
+            // (member_get), never a raw app_user join (the Block-5 armor,
+            // observed working from the inside during the battle).
+            const res = await db.execute(sql`
+              SELECT p.user_id, p.role, m.display_name
+                FROM comms_thread_participant p
+                LEFT JOIN LATERAL (SELECT display_name FROM member_get(p.user_id)) m ON true
+               WHERE p.thread_id = ${threadId} AND p.removed_at IS NULL
+               ORDER BY p.role DESC, m.display_name ASC`);
+            return res.rows.map((r: Record<string, unknown>) => ({
+              userId: String(r.user_id),
+              role: String(r.role) as 'member' | 'admin',
+              displayName: (r.display_name as string | null) ?? null,
+            }));
+          }),
+
+        listCommsThreadEvents: (threadId: string) =>
+          exec(async (db) => {
+            const res = await db.execute(sql`
+              SELECT event_type, actor_label, at FROM comms_thread_event
+               WHERE thread_id = ${threadId} ORDER BY at ASC LIMIT 100`);
+            return res.rows.map((r: Record<string, unknown>) => ({
+              eventType: String(r.event_type),
+              actorLabel: (r.actor_label as string | null) ?? null,
+              at: isoStr(r.at),
+            }));
+          }),
+
+        /** The ledger's thread half: every thread THIS viewer can hold —
+         *  mission-anchored (the slice's owner-accepted posture) plus rooms/DMs
+         *  the viewer is seated at — with TRUE unread re-derived per read from
+         *  lastSeq − cursor (instance 8: never capped, never carried). */
+        listMyCommsThreads: (userId: string) =>
+          exec(async (db) => {
+            const res = await db.execute(sql`
+              SELECT th.*, c.last_read_seq,
+                     GREATEST(th.last_seq - COALESCE(c.last_read_seq, 0), 0) AS unread
+                FROM comms_thread th
+                LEFT JOIN comms_inbox_cursor c
+                  ON c.tenant_id = th.tenant_id AND c.thread_id = th.thread_id AND c.user_id = ${userId}
+               WHERE th.status = 'active'
+                 AND (th.kind = 'anchored'
+                      OR EXISTS (SELECT 1 FROM comms_thread_participant p
+                                  WHERE p.tenant_id = th.tenant_id AND p.thread_id = th.thread_id
+                                    AND p.user_id = ${userId} AND p.removed_at IS NULL))
+               ORDER BY th.last_message_at DESC NULLS LAST
+               LIMIT 100`);
+            return res.rows.map((r: Record<string, unknown>) => ({
+              thread: mapCommsThread(r),
+              myLastReadSeq: r.last_read_seq === null || r.last_read_seq === undefined ? null : Number(r.last_read_seq),
+              unread: Number(r.unread ?? 0),
+            }));
+          }),
+
+        /** The ledger's obligation half: ONLY rows where THIS viewer is a named
+         *  party. Guardrail Zero at the read layer: the predicate is `me` and
+         *  no org-wide variant of this read exists. */
+        listMyObligationParties: (userId: string) =>
+          exec(async (db) => {
+            const rows = await db.execute(sql`
+              SELECT o.*, th.kind AS thread_kind, th.anchor_type, th.anchor_id, th.title AS thread_title
+                FROM comms_obligation o
+                JOIN comms_thread th ON th.tenant_id = o.tenant_id AND th.thread_id = o.thread_id
+               WHERE o.state IN ('Open', 'Delivered', 'Accepted', 'Done')
+                 AND (o.accountable_user_id = ${userId} OR o.requester_user_id = ${userId} OR o.acceptance_user_id = ${userId})
+               ORDER BY o.due_at ASC NULLS LAST, o.obligation_id ASC
+               LIMIT 200`);
+            const views = await hydrateCommsObligationViews(db, rows.rows as never[]);
+            return views.map((v, i) => {
+              const raw = rows.rows[i] as Record<string, unknown>;
+              return {
+                obligation: v,
+                threadKind: String(raw.thread_kind) as 'anchored' | 'standing' | 'direct',
+                anchorType: (raw.anchor_type as string | null) ?? null,
+                anchorId: (raw.anchor_id as string | null) ?? null,
+                threadTitle: (raw.thread_title as string | null) ?? null,
+              };
+            });
+          }),
+
         getCommsInboxCursor: (threadId: string, userId: string) =>
           exec(async (db) => {
             const rows = await db

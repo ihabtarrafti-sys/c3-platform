@@ -25,9 +25,16 @@ const srcDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const read = (rel: string): string => readFileSync(join(srcDir, rel), 'utf8');
 
 describe('Comms governance laws (the pilot UI)', () => {
-  it('D1: the composer carries the cross-tier visibility warning (owner-ruled, not optional)', () => {
+  it('D1 → THE AUDIENCE TREATY (Phase B, superseded in place): the composer derives its audience as a TRUTH, and an unverified audience disables Send', () => {
+    // The D1 text now rides the mission page as the treaty's verified line;
+    // Thread carries the MECHANISM (the data-treaty artifact + the disabled
+    // Send) — Intel's contract, adopted at the exact disclosure boundary.
+    const page = read('pages/MissionCommsPage.tsx');
+    expect(page).toContain('Visible to everyone who can see this mission.');
     const thread = read('tablework/Thread.tsx');
-    expect(thread).toContain('Visible to everyone who can see this mission.');
+    expect(thread).toContain('data-treaty=');
+    expect(thread).toContain('!audienceTreaty.verified');
+    expect(thread).toContain('Send is disabled rather than guessing');
     // And Dawn's navigate-never-execute boundary note rides the same surface.
     expect(thread).toContain('Conversation cannot approve, reject, execute, accept evidence, or record Done.');
   });

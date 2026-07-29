@@ -26,6 +26,8 @@ import { OnePagerPage } from './pages/OnePagerPage';
 import { MissionDetailPage } from './pages/MissionDetailPage';
 import { MissionCommsPage } from './pages/MissionCommsPage';
 import { TruthLabPage } from './pages/TruthLabPage';
+import { AttentionLedgerPage } from './pages/AttentionLedgerPage';
+import { ThreadRoomPage } from './pages/ThreadRoomPage';
 import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { TeamsPage } from './pages/TeamsPage';
@@ -65,6 +67,8 @@ export const router = createBrowserRouter([
   // AppShell — the two grammars never share a route. Same session provider.
   { path: '/missions/:missionId/comms', element: <MissionCommsPage /> },
   { path: '/truth-lab', element: <TruthLabPage /> },
+  { path: '/comms', element: <AttentionLedgerPage /> },
+  { path: '/comms/threads/:threadId', element: <ThreadRoomPage /> },
   // ── The Tablework pivot: converted routes move here WHOLE (coexistence
   // law — grammars never share a route; each converted page carries its own
   // session gate via TableworkPage). Wave 1: the demo spine.

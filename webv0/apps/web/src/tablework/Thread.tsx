@@ -60,9 +60,13 @@ interface ThreadProps {
   /** Phase A: the region's witness state — the page DERIVES it (truthStateOf),
    *  this surface only renders it. Emptiness is earned, failure is failure. */
   truth: WitnessState;
+  /** Phase B — THE AUDIENCE TREATY (Intel's contract, adopted): the composer
+   *  names the governing audience BEFORE words leave the box, and when the
+   *  audience could not be verified, Send is DISABLED rather than guessing. */
+  audienceTreaty: { text: string; verified: boolean };
 }
 
-export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, hasEarlier, loadingEarlier, onLoadEarlier, truth }: ThreadProps) {
+export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, hasEarlier, loadingEarlier, onLoadEarlier, truth, audienceTreaty }: ThreadProps) {
   const [draft, setDraft] = useState('');
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
@@ -137,9 +141,14 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
-          {/* D1 (owner-ruled): the cross-tier visibility warning is not optional. */}
-          <p className="boundary-note" data-tablework="VisibilityWarning">
-            Visible to everyone who can see this mission.
+          {/* D1 (owner-ruled) generalized into THE AUDIENCE TREATY (Phase B):
+              the audience line is a DERIVED truth, and an unverified audience
+              disables Send — the failure case is safe at the exact moment a
+              disclosure boundary is crossed. */}
+          <p className="boundary-note" data-tablework="VisibilityWarning AudienceTreaty" data-treaty={audienceTreaty.verified ? 'verified' : 'unverified'}>
+            {audienceTreaty.verified
+              ? audienceTreaty.text
+              : 'The audience could not be verified — Send is disabled rather than guessing who would read this.'}
           </p>
           <div className="compose-foot">
             <div className="message-actions">
@@ -159,7 +168,7 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
                 Attach to conversation
               </button>
             </div>
-            <button className="primary-action" type="submit" disabled={posting || draft.trim().length === 0}>
+            <button className="primary-action" type="submit" disabled={posting || draft.trim().length === 0 || !audienceTreaty.verified}>
               Send
             </button>
           </div>

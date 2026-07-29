@@ -335,6 +335,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
               loadingEarlier={thread.isFetchingNextPage}
               onLoadEarlier={() => void thread.fetchNextPage()}
               truth={threadTruth}
+              audienceTreaty={{ text: 'Visible to everyone who can see this mission.', verified: mission.data !== undefined && !mission.error }}
             />
             <WorkSurface as="aside" className="comms-surface" aria-label="Mission obligations">
               <header className="surface-heading">

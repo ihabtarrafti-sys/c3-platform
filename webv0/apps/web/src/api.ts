@@ -71,6 +71,9 @@ import type {
   SubmitRenewAgreementRequest,
   SubmitTerminateAgreementRequest,
   CommsMessageDto,
+  CommsLedgerResponse,
+  ThreadRoomResponse,
+  CommsThreadDto,
   CommsObligationDto,
   CommsPrefsResponse,
   CommsReceiptsResponse,
@@ -635,6 +638,24 @@ export function createApiClient(deps: ApiClientDeps) {
       request<CommsCursorResponse>('POST', `/api/v1/comms/missions/${missionId}/read`, { seq }),
     getMissionReceipts: (missionId: string) =>
       request<CommsReceiptsResponse>('GET', `/api/v1/comms/missions/${missionId}/receipts`),
+    // ── Phase B (activation): rooms, DMs, the attention ledger ───────────────
+    getCommsLedger: () => request<CommsLedgerResponse>('GET', '/api/v1/comms/ledger'),
+    getThreadRoom: (threadId: string, page?: { limit?: number; beforeSeq?: number }) => {
+      const params = new URLSearchParams();
+      if (page?.limit) params.set('limit', String(page.limit));
+      if (page?.beforeSeq) params.set('beforeSeq', String(page.beforeSeq));
+      const qs = params.toString();
+      return request<ThreadRoomResponse>('GET', `/api/v1/comms/threads/${threadId}${qs ? `?${qs}` : ''}`);
+    },
+    postThreadMessage: (threadId: string, body: { body: string; links?: CommsLinkInput[]; clientMutationId: string }) =>
+      request<{ message: CommsMessageDto }>('POST', `/api/v1/comms/threads/${threadId}/messages`, body),
+    openDirectThread: (otherUserId: string) =>
+      request<{ thread: CommsThreadDto }>('POST', '/api/v1/comms/direct', { otherUserId }),
+    createCommsRoom: (title: string) => request<{ thread: CommsThreadDto }>('POST', '/api/v1/comms/rooms', { title }),
+    inviteToCommsRoom: (threadId: string, userId: string, role: 'member' | 'admin' = 'member') =>
+      request<{ ok: true }>('POST', `/api/v1/comms/threads/${threadId}/participants`, { userId, role }),
+    removeFromCommsRoom: (threadId: string, userId: string) =>
+      request<{ ok: true }>('POST', `/api/v1/comms/threads/${threadId}/participants/${userId}/remove`),
     getCommsPrefs: () => request<CommsPrefsResponse>('GET', '/api/v1/comms/prefs'),
     setCommsPrefs: (body: { receiptsEnabled: boolean; presenceEnabled: boolean; expectedVersion: number | null }) =>
       request<CommsPrefsResponse>('POST', '/api/v1/comms/prefs', body),

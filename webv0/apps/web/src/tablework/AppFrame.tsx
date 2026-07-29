@@ -107,7 +107,10 @@ function BrowseFloat({ open, onClose }: { open: boolean; onClose: () => void }) 
       </div>
       <div className="float-body">
         <div className="browse-map">
-          {PLACES.filter((p) => placeVisible(p, caps) && p.label !== 'Comms' && p.label !== 'Planner').map((place) => {
+          {/* Phase B: Comms has a real destination (the Attention Ledger) —
+              the exclusion that kept a dead tab honest would now HIDE a live
+              one, which is the same lie reversed. Planner still waits. */}
+          {PLACES.filter((p) => placeVisible(p, caps) && p.label !== 'Planner').map((place) => {
             const sections = visibleSections(place, caps);
             return (
               <section key={place.label}>
@@ -213,9 +216,9 @@ export function AppFrame({ place, actor, header, wide, children }: AppFrameProps
             </a>
             <nav className="place-map" aria-label="Product map">
               {PLACES.map((p) => {
-                // Comms: only as the ACTIVE place — no standalone home exists
-                // yet; a dead tab (or a fabricated destination) would lie.
-                if (p.label === 'Comms' && activePlace?.label !== 'Comms') return null;
+                // Phase B: Comms carries a real destination now — it renders
+                // like every place (the old only-when-active guard is gone
+                // with the reason it existed).
                 if (!placeVisible(p, caps)) return null;
                 return <PlaceRow key={p.label} place={p} active={activePlace?.label === p.label} />;
               })}

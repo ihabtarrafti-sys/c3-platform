@@ -1833,6 +1833,40 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return r ? mapCommsThread(r as Record<string, unknown>) : null;
     },
 
+    /** Phase B (activation): the dormant thread kinds get their first lawful
+     *  writer — 0090's kind-legal CHECKs are honored, the direct one-per-set
+     *  partial unique resolves concurrent creators (null = the loser re-reads). */
+    async insertCommsThreadDormantKind(row) {
+      const res = await db.execute(sql`
+        INSERT INTO comms_thread (tenant_id, thread_id, kind, title, direct_set_hash, direct_retention_days, audience_mode, created_by_user_id, created_by_label)
+        VALUES (${tenantId}, ${row.threadId}, ${row.kind}, ${row.title ?? null}, ${row.directSetHash ?? null}, ${row.directRetentionDays ?? null}, ${row.audienceMode ?? null}, ${row.createdByUserId}, ${row.createdByLabel})
+        ON CONFLICT (tenant_id, direct_set_hash) WHERE kind = 'direct' DO NOTHING
+        RETURNING *
+      `);
+      const r = res.rows[0];
+      return r ? mapCommsThread(r as Record<string, unknown>) : null;
+    },
+
+    /** Phase B: 0090's participant table gets its writer. Re-adding a removed
+     *  member clears removed_at (soft-membership; standing derives per read). */
+    async upsertCommsThreadParticipant(row) {
+      await db.execute(sql`
+        INSERT INTO comms_thread_participant (tenant_id, thread_id, user_id, role)
+        VALUES (${tenantId}, ${row.threadId}, ${row.userId}, ${row.role})
+        ON CONFLICT (tenant_id, thread_id, user_id) DO UPDATE SET removed_at = NULL, role = ${row.role}
+      `);
+    },
+
+    /** Soft removal — the row stays (history), standing dies at the next read. */
+    async removeCommsThreadParticipant(threadId: string, userId: string): Promise<boolean> {
+      const res = await db.execute(sql`
+        UPDATE comms_thread_participant SET removed_at = now()
+         WHERE thread_id = ${threadId} AND user_id = ${userId} AND removed_at IS NULL
+         RETURNING user_id
+      `);
+      return res.rows.length > 0;
+    },
+
     async bumpCommsThreadSeq(threadId: string): Promise<number | null> {
       // The row lock serialises concurrent senders per thread (the business-id
       // counter argument: never MAX+1). Held to COMMIT of the enclosing tx.
@@ -1849,8 +1883,9 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       // ON CONFLICT on the send-idempotency unique DO NOTHING: false = duplicate
       // send; the caller re-reads the existing message (tx stays healthy).
       const res = await db.execute(sql`
-        INSERT INTO comms_message (tenant_id, message_id, thread_id, seq, author_user_id, author_label, client_mutation_id)
-        VALUES (${tenantId}, ${row.messageId}, ${row.threadId}, ${row.seq}, ${row.authorUserId}, ${row.authorLabel}, ${row.clientMutationId})
+        INSERT INTO comms_message (tenant_id, message_id, thread_id, seq, author_user_id, author_label, client_mutation_id, retention_due_at)
+        VALUES (${tenantId}, ${row.messageId}, ${row.threadId}, ${row.seq}, ${row.authorUserId}, ${row.authorLabel}, ${row.clientMutationId},
+                CASE WHEN ${row.retentionDays ?? null}::int IS NULL THEN NULL ELSE now() + make_interval(days => ${row.retentionDays ?? null}::int) END)
         ON CONFLICT (tenant_id, author_user_id, client_mutation_id) DO NOTHING
         RETURNING id
       `);

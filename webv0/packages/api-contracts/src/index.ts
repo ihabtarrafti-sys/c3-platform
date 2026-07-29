@@ -721,6 +721,52 @@ export const commsRecallRequestSchema = z.object({
   reasonCode: z.enum(['AuthorRecall', 'ModeratorRemoval']),
   moderationNote: z.string().trim().min(1).max(2000).optional(),
 });
+// ── Phase B (activation) wire shapes — ADDITIVE to the v1 surface ────────────
+export const commsThreadParticipantSchema = z.object({
+  userId: z.string(),
+  role: z.enum(['member', 'admin']),
+  displayName: z.string().nullable(),
+});
+export const commsThreadEventViewSchema = z.object({
+  eventType: z.string(),
+  actorLabel: z.string().nullable(),
+  at: z.string(),
+});
+export const commsThreadRoomResponseSchema = z.object({
+  thread: commsThreadSchema,
+  messages: z.array(commsMessageSchema),
+  myLastReadSeq: z.number().int().nullable(),
+  participants: z.array(commsThreadParticipantSchema),
+  events: z.array(commsThreadEventViewSchema),
+  retentionDays: z.number().int().nullable(),
+});
+export const commsOpenDirectRequestSchema = z.object({ otherUserId: z.string().uuid() });
+export const commsThreadResponseSchema = z.object({ thread: commsThreadSchema });
+export const commsThreadParamSchema = z.object({ threadId: z.string().regex(/^THR-\d{4,}$/) });
+export const commsRoomCreateRequestSchema = z.object({ title: z.string().trim().min(1).max(120) });
+export const commsRoomInviteRequestSchema = z.object({
+  userId: z.string().uuid(),
+  role: z.enum(['member', 'admin']).default('member'),
+});
+export const commsRoomMemberParamSchema = z.object({
+  threadId: z.string().regex(/^THR-\d{4,}$/),
+  userId: z.string().uuid(),
+});
+export const commsLedgerObligationRowSchema = z.object({
+  obligation: z.lazy(() => commsObligationSchema),
+  threadKind: z.enum(['anchored', 'standing', 'direct']),
+  anchorType: z.string().nullable(),
+  anchorId: z.string().nullable(),
+  threadTitle: z.string().nullable(),
+});
+export const commsLedgerResponseSchema = z.object({
+  awaitingMyAcceptance: z.array(commsLedgerObligationRowSchema),
+  awaitingMyDelivery: z.array(commsLedgerObligationRowSchema),
+  awaitingMySettle: z.array(commsLedgerObligationRowSchema),
+  watching: z.array(commsLedgerObligationRowSchema),
+  threads: z.array(z.object({ thread: commsThreadSchema, myLastReadSeq: z.number().int().nullable(), unread: z.number().int() })),
+});
+
 export const commsPageQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).optional(),
   beforeSeq: z.coerce.number().int().min(1).optional(),
@@ -799,6 +845,10 @@ export type CommsObligationDto = z.infer<typeof commsObligationSchema>;
 export type CommsReceiptsResponse = z.infer<typeof commsReceiptsResponseSchema>;
 export type CommsPrefsResponse = z.infer<typeof commsPrefsResponseSchema>;
 export type CommsCursorResponse = z.infer<typeof commsCursorResponseSchema>;
+// Phase B DTO types.
+export type CommsLedgerResponse = z.infer<typeof commsLedgerResponseSchema>;
+export type ThreadRoomResponse = z.infer<typeof commsThreadRoomResponseSchema>;
+export type CommsThreadParticipantDto = z.infer<typeof commsThreadParticipantSchema>;
 
 // ── global search (S3 → S3.1): role-aware, identity fields only ──────────────
 export const SEARCH_RESULT_KINDS = [
