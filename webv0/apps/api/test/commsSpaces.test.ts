@@ -175,8 +175,8 @@ describe('direct threads', () => {
     const idA = (a.json() as { thread: { threadId: string } }).thread.threadId;
     const idB = (b.json() as { thread: { threadId: string } }).thread.threadId;
     expect(idA).toBe(idB);
-    const [{ n }] = await db.adminQuery<{ n: string }>(`SELECT count(*)::text AS n FROM comms_thread WHERE kind = 'direct'`);
-    expect(Number(n)).toBe(1);
+    const rows = await db.adminQuery<{ n: string }>(`SELECT count(*)::text AS n FROM comms_thread WHERE kind = 'direct'`);
+    expect(Number(rows[0]?.n)).toBe(1);
   });
 
   it('RETENTION RIDES THE INSERT: DM messages carry retention_due_at ≈ now + 90d; anchored/room messages carry NULL', async () => {
