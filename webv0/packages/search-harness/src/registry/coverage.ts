@@ -360,11 +360,31 @@ export interface SunsetCoverageLabel {
   readonly factName: RedactedFactName;
 }
 
+/**
+ * The RUNTIME belt to the compiler's braces.
+ *
+ * ⚠️ A BRAND IS ERASED AT RUNTIME. `RedactedFactName` proves INTENT at every
+ * call site the compiler can see, but a value arriving through `any`, a JSON
+ * round-trip, or a deserialized manifest carries no type at all — and it would
+ * travel with its value attached. No current call path does that; this exists so
+ * that a future one cannot.
+ *
+ * Fails CLOSED, deliberately, and does not throw: a verdict path must still
+ * produce a verdict. An unrecognised shape says nothing rather than saying too
+ * much — the same choice as the no-`=` fallback in `redactFactKey`.
+ */
+function containedFactName(factName: string): string {
+  if (factName === '' || factName.endsWith('=<redacted>')) return factName;
+  return '';
+}
+
 export function sunsetCoverageSummary(
   labels: readonly SunsetCoverageLabel[],
 ): string {
   return `Search coverage plan is incomplete:\n${labels
-    .map((label) => `${label.code} ${label.surface} ${label.factName}`.trimEnd())
+    .map((label) =>
+      `${label.code} ${label.surface} ${containedFactName(label.factName)}`.trimEnd(),
+    )
     .join('\n')}`;
 }
 

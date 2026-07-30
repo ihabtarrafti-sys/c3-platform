@@ -29,7 +29,9 @@ import {
 import {
   SunsetCoverageError,
   redactFactKey,
+  sunsetCoverageSummary,
   type RedactedFactName,
+  type SunsetCoverageLabel,
 } from '../../src/registry/coverage';
 import {
   buildLiveSunsetRegistrySnapshot,
@@ -137,6 +139,21 @@ describe('GUARD 3b — the containment is held by the COMPILER, not by disciplin
     // unused @ts-expect-error. That is the mechanism guarding the mechanism.
     const smuggled: RedactedFactName = `criticalSourceFingerprintsSha256=${SENTINEL}`;
     expect(typeof smuggled).toBe('string');
+  });
+
+  it('AND a runtime belt: a brand is erased at runtime, so the string is checked too', () => {
+    // The hole a compile-time brand cannot close: a value arriving through
+    // `any`, a JSON round-trip, or a deserialized manifest carries no type. No
+    // current call path does this — the test exists so a future one cannot.
+    const smuggled = {
+      code: 'SUNSET_COVERAGE_FACT_MISSING',
+      surface: 'qrels',
+      factName: `criticalSourceFingerprintsSha256=${SENTINEL}`,
+    } as unknown as SunsetCoverageLabel;
+
+    const summary = sunsetCoverageSummary([smuggled]);
+    expect(summary).not.toContain(SENTINEL); // fails CLOSED
+    expect(summary).toContain('SUNSET_COVERAGE_FACT_MISSING qrels');
   });
 
   it('a registry failure LABEL has no value fields to interpolate in the first place', () => {
