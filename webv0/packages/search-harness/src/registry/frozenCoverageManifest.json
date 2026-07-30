@@ -218,7 +218,7 @@
           "plannedRecordId": "hearth-search:visibility-matrix:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8585f80a69068edb7bff08eb28a46b218a8a15e2a82fe0a4735641e7949a5a1d",
+          "factKey": "criticalSourceFingerprintsSha256=9c5ee77ce8f2419585a0cd55155fea0e73cb5f6cb507edf9468d869401396ed5",
           "plannedRecordId": "hearth-search:visibility-matrix:054"
         },
         {
@@ -883,7 +883,7 @@
           "plannedRecordId": "hearth-search:qrels:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8585f80a69068edb7bff08eb28a46b218a8a15e2a82fe0a4735641e7949a5a1d",
+          "factKey": "criticalSourceFingerprintsSha256=9c5ee77ce8f2419585a0cd55155fea0e73cb5f6cb507edf9468d869401396ed5",
           "plannedRecordId": "hearth-search:qrels:054"
         },
         {
@@ -1548,7 +1548,7 @@
           "plannedRecordId": "hearth-search:provenance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8585f80a69068edb7bff08eb28a46b218a8a15e2a82fe0a4735641e7949a5a1d",
+          "factKey": "criticalSourceFingerprintsSha256=9c5ee77ce8f2419585a0cd55155fea0e73cb5f6cb507edf9468d869401396ed5",
           "plannedRecordId": "hearth-search:provenance:054"
         },
         {
@@ -2213,7 +2213,7 @@
           "plannedRecordId": "hearth-search:positive-conformance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8585f80a69068edb7bff08eb28a46b218a8a15e2a82fe0a4735641e7949a5a1d",
+          "factKey": "criticalSourceFingerprintsSha256=9c5ee77ce8f2419585a0cd55155fea0e73cb5f6cb507edf9468d869401396ed5",
           "plannedRecordId": "hearth-search:positive-conformance:054"
         },
         {
@@ -2878,7 +2878,7 @@
           "plannedRecordId": "hearth-search:negative-conformance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=8585f80a69068edb7bff08eb28a46b218a8a15e2a82fe0a4735641e7949a5a1d",
+          "factKey": "criticalSourceFingerprintsSha256=9c5ee77ce8f2419585a0cd55155fea0e73cb5f6cb507edf9468d869401396ed5",
           "plannedRecordId": "hearth-search:negative-conformance:054"
         },
         {
