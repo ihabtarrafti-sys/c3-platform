@@ -144,7 +144,16 @@ export const useMissionThread = (missionId: string, enabled = true) =>
     enabled,
   });
 export const useMissionObligations = (missionId: string, enabled = true) =>
-  useQuery({ queryKey: ['commsObligations', missionId], queryFn: () => api.listMissionObligations(missionId), enabled });
+  useQuery({
+    queryKey: ['commsObligations', missionId],
+    queryFn: () => api.listMissionObligations(missionId),
+    enabled,
+    // Obligation transitions do not currently publish on the message stream.
+    // This region therefore owns an explicit polling witness instead of
+    // borrowing a healthy Comms channel and presenting old rows as live.
+    refetchInterval: 10_000,
+    refetchIntervalInBackground: true,
+  });
 export const useMissionReceipts = (missionId: string, enabled = true) =>
   useQuery({ queryKey: ['commsReceipts', missionId], queryFn: () => api.getMissionReceipts(missionId), enabled });
 export const useCommsPrefs = (enabled = true) =>

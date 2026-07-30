@@ -21,7 +21,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
-import type { CommsMessageDto, CommsObligationDto } from '@c3web/api-contracts';
+import type { CommsMessageDto, CommsObligationDto, MissionDto } from '@c3web/api-contracts';
 import type { CommsLinkInput } from '@c3web/domain';
 import { useSession } from '../session';
 import { useCommsPrefs, useMembers, useMission, useMissionObligations, useMissionReceipts, useMissionThread } from '../queries';
@@ -30,7 +30,10 @@ import { ApiError, type CommsObligationCreateBody } from '../api';
 import { IS_ENTRA } from '../auth';
 import { EntraSignIn, AccessNotProvisioned } from './EntraSignIn';
 import { LoginGate } from './LoginGate';
-import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, TruthPanel, truthStateOf, WorkSurface, type ObligationActionInput } from '../tablework';
+import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, TruthPanel, truthStateOf, WorkSurface, type ObligationActionInput, type WitnessState } from '../tablework';
+import { MissionCommandWorkspace } from '../tablework/MissionCommandWorkspace';
+import { isActionableWitness, withModuleChannelTruth, type MissionCommandModuleId } from '../tablework/missionCommandModel';
+import { useCommsLive } from '../useCommsLive';
 
 export function MissionCommsPage() {
   const { missionId } = useParams<{ missionId: string }>();
@@ -50,7 +53,7 @@ export function MissionCommsPage() {
     return <AccessNotProvisioned identity={providerSession?.identity ?? 'This account'} onSignOut={() => void signOut()} />;
   }
 
-  return <MissionCommsScreen missionId={missionId ?? ''} />;
+  return <MissionCommsScreen key={missionId} missionId={missionId ?? ''} />;
 }
 
 function MissionCommsScreen({ missionId }: { missionId: string }) {
@@ -61,6 +64,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
   const obligations = useMissionObligations(missionId);
   const receipts = useMissionReceipts(missionId);
   const prefs = useCommsPrefs();
+  const live = useCommsLive(true);
   const canManage = me?.capabilities.canManageMissions ?? false;
   // D2's mint population: the owner/ops member directory (the API gates it).
   const members = useMembers(canManage);
@@ -75,11 +79,10 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
     () => Promise.all([qc.invalidateQueries({ queryKey: ['commsThread', missionId] }), qc.invalidateQueries({ queryKey: ['commsObligations', missionId] })]),
     [qc, missionId],
   );
-
-  // Lapse removes every write surface — the open mint float included.
-  useEffect(() => {
-    if (lapsed) setMintOpen(false);
-  }, [lapsed]);
+  const focusObligationsWindow = useCallback(
+    () => document.querySelector<HTMLElement>('[data-module="mission-obligations"]'),
+    [],
+  );
 
   /** Run a write; MODULE_READ_ONLY flips the lapsed posture, errors surface inline. */
   const write = useCallback(
@@ -256,18 +259,35 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
   // Phase A — the six-state contract: BOTH regions derive through the ONE
   // deriver (the shipped page's hand-rolled empty branch was the instance-21
   // violation two Battle-#2 seats independently found).
-  const threadTruth = truthStateOf(
-    { data: thread.data, error: thread.error, isLoading: thread.isLoading, dataUpdatedAt: thread.dataUpdatedAt },
-    () => messages.length === 0,
+  const missionTruth = truthStateOf(
+    { data: mission.data, error: mission.error, isLoading: mission.isLoading, dataUpdatedAt: mission.dataUpdatedAt },
+    () => false,
+  );
+  const threadTruth = withModuleChannelTruth(
+    truthStateOf(
+      { data: thread.data, error: thread.error, isLoading: thread.isLoading, dataUpdatedAt: thread.dataUpdatedAt },
+      () => messages.length === 0,
+    ),
+    live.state,
   );
   const obligationsTruth = truthStateOf(
     { data: obligations.data, error: obligations.error, isLoading: obligations.isLoading, dataUpdatedAt: obligations.dataUpdatedAt },
     (d) => d.obligations.length === 0,
   );
+  const missionActionsAvailable = isActionableWitness(missionTruth);
+  const obligationActionsAvailable = missionActionsAvailable && isActionableWitness(obligationsTruth);
+
+  // Lapse or an untrusted witness removes every governed write surface — the
+  // open mint float included. Stale data stays readable, never actionable.
+  useEffect(() => {
+    if (lapsed) setMintOpen(false);
+    else if (!obligationActionsAvailable) setMintOpen(false);
+  }, [lapsed, obligationActionsAvailable]);
 
   return (
     <AppFrame
       place="Comms"
+      wide
       actor={{ displayName: me?.displayName ?? 'Member', role: me?.role ?? '', tenantName: me?.tenantSlug ?? '' }}
       header={
         <ContextHeader
@@ -307,93 +327,117 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
               {actionError}
             </div>
           ) : null}
-          <div className="comms-layout">
-            <WorkSurface as="nav" tablework="SectionRail" className="comms-surface" aria-label="Comms places">
-              <header className="surface-heading">
-                <div>
-                  <h2>Comms</h2>
-                  <p>{me?.tenantSlug}</p>
-                </div>
-              </header>
-              <div className="thread-list">
-                <span className="thread-item active" aria-current="page">
-                  <strong>{record}</strong>
-                  <small>Mission Thread</small>
-                </span>
-              </div>
-              <p className="boundary-note">
-                This Thread is readable only by Members who may read {record}. Hidden Threads are absent without count or confirmation.
-              </p>
-              {prefs.data ? (
-                <div className="panel-actions" data-tablework="PrefsToggle" style={{ justifyContent: 'flex-start' }}>
-                  <button className="quiet-action" type="button" onClick={() => onTogglePrefs({ receiptsEnabled: !prefs.data!.receiptsEnabled })}>
-                    My read receipts: {prefs.data.receiptsEnabled ? 'shared' : 'private'}
-                  </button>
-                  {/* THE PRESENCE CONTROL WAS REMOVED (owner ruling, 2026-07-30).
-                      It saved successfully and governed NOTHING — no consumer
-                      branches on the flag — so it was a switch that promised a
-                      boundary it could not keep. The FIELD stays on the wire and
-                      the stored value is passed through untouched (see
-                      onTogglePrefs); the control returns with the presence
-                      surface, under a new ruling and default OFF. */}
-                </div>
-              ) : null}
-            </WorkSurface>
-            <Thread
-              missionName={record}
-              threadTitle={firstPage?.thread?.title ?? record}
-              participantsLine="Part of the operational record · readable only within the mission boundary"
-              messages={messages}
-              myLastReadSeq={firstPage?.myLastReadSeq ?? null}
-              lapsed={lapsed}
-              seenLine={seenLine}
-              posting={busy}
-              onPost={onPost}
-              onAttach={onAttach}
-              onReachedEnd={onReachedEnd}
-              hasEarlier={thread.hasNextPage}
-              loadingEarlier={thread.isFetchingNextPage}
-              onLoadEarlier={() => void thread.fetchNextPage()}
-              truth={threadTruth}
-              audienceTreaty={{ text: 'Visible to everyone who can see this mission.', verified: mission.data !== undefined && !mission.error }}
-              onPostKinded={onPostKinded}
-            />
-            <WorkSurface as="aside" className="comms-surface" aria-label="Mission obligations">
-              <header className="surface-heading">
-                <div>
-                  <h2>Obligations</h2>
-                  <p>Durable asks, not pressure scores</p>
-                </div>
-                {/* D2: minting renders ONLY for operational roles. */}
-                {canManage && !lapsed ? (
-                  <button className="secondary-action" type="button" onClick={() => setMintOpen(true)}>
-                    Create obligation
-                  </button>
-                ) : null}
-              </header>
-              <div className="obligation-stack">
-                <TruthPanel state={obligationsTruth} emptyLabel="No obligations recorded for this mission.">
-                {obligationList.map((o) => (
-                  <ObligationCard
-                    key={o.obligationId}
-                    obligation={o}
-                    myUserId={me?.userId ?? ''}
-                    operational={canManage}
-                    lapsed={lapsed}
-                    busy={busy}
-                    nameOf={nameOf}
-                    onTransition={(input) => onTransition(o.obligationId, input)}
-                    onDeliverEvidence={(file, note) => onDeliverEvidence(o.obligationId, file, note)}
+          <MissionCommandWorkspace
+            missionId={missionId}
+            missionName={record}
+            modules={[
+              {
+                id: 'mission-field' satisfies MissionCommandModuleId,
+                eyebrow: 'Constellation · Mission',
+                title: 'Mission Field',
+                detail: 'The durable frame: scope, place, horizon, and the record that everything else orbits.',
+                truth: missionTruth,
+                children: (
+                  <MissionField
+                    mission={mission.data?.mission}
+                    truth={missionTruth}
+                    tenant={me?.tenantSlug ?? ''}
+                    receiptsEnabled={prefs.data?.receiptsEnabled}
+                    onToggleReceipts={
+                      prefs.data
+                        ? () => onTogglePrefs({ receiptsEnabled: !prefs.data!.receiptsEnabled })
+                        : undefined
+                    }
                   />
-                ))}
-                </TruthPanel>
-              </div>
-            </WorkSurface>
-          </div>
+                ),
+              },
+              {
+                id: 'mission-current' satisfies MissionCommandModuleId,
+                eyebrow: 'Relay · Decision log',
+                title: 'Mission Current',
+                detail: 'The live operational record. Conversation carries context; governed acts stay with their records.',
+                truth: threadTruth,
+                children: (
+                  <Thread
+                    missionName={record}
+                    threadTitle={firstPage?.thread?.title ?? record}
+                    participantsLine="Part of the operational record · readable only within the mission boundary"
+                    messages={messages}
+                    myLastReadSeq={firstPage?.myLastReadSeq ?? null}
+                    lapsed={lapsed}
+                    seenLine={seenLine}
+                    posting={busy}
+                    onPost={onPost}
+                    onAttach={onAttach}
+                    onReachedEnd={onReachedEnd}
+                    hasEarlier={thread.hasNextPage}
+                    loadingEarlier={thread.isFetchingNextPage}
+                    onLoadEarlier={() => void thread.fetchNextPage()}
+                    truth={threadTruth}
+                    audienceTreaty={{ text: 'Visible to everyone who can see this mission.', verified: mission.data !== undefined && !mission.error }}
+                    onPostKinded={onPostKinded}
+                  />
+                ),
+              },
+              {
+                id: 'mission-obligations' satisfies MissionCommandModuleId,
+                eyebrow: 'Forecast · Governed work',
+                title: 'Obligations',
+                detail: 'Durable asks and their three independent truths. No pressure scores; no person ranking.',
+                truth: obligationsTruth,
+                actionable: obligationActionsAvailable && !lapsed,
+                children: (
+                  <WorkSurface as="aside" className="comms-surface" aria-label="Mission obligations">
+                    <header className="surface-heading">
+                      <div>
+                        <h2>Obligations</h2>
+                        <p>Durable asks, not pressure scores</p>
+                      </div>
+                      {/* D2: minting renders ONLY for operational roles. */}
+                      {canManage && !lapsed ? (
+                        <button
+                          className="secondary-action"
+                          type="button"
+                          data-governed-control
+                          hidden={!obligationActionsAvailable}
+                          disabled={!obligationActionsAvailable}
+                          onClick={() => {
+                            if (obligationActionsAvailable) setMintOpen(true);
+                          }}
+                        >
+                          Create obligation
+                        </button>
+                      ) : null}
+                    </header>
+                    <div className="obligation-stack">
+                      <TruthPanel state={obligationsTruth} emptyLabel="No obligations recorded for this mission.">
+                        {obligationList.map((o) => (
+                          <ObligationCard
+                            key={o.obligationId}
+                            obligation={o}
+                            myUserId={me?.userId ?? ''}
+                            operational={canManage}
+                            lapsed={lapsed}
+                            readOnly={!obligationActionsAvailable}
+                            busy={busy}
+                            nameOf={nameOf}
+                            onTransition={(input) => onTransition(o.obligationId, input)}
+                            onDeliverEvidence={(file, note) => onDeliverEvidence(o.obligationId, file, note)}
+                          />
+                        ))}
+                      </TruthPanel>
+                    </div>
+                  </WorkSurface>
+                ),
+              },
+            ]}
+          />
           {canManage && !lapsed ? (
             <MintObligationFloat
-              open={mintOpen}
+              key={missionId}
+              open={mintOpen && obligationActionsAvailable}
               onClose={() => setMintOpen(false)}
+              focusFallback={focusObligationsWindow}
               members={(members.data?.members ?? []).filter((m) => m.isActive)}
               existing={obligationList}
               serverError={actionError}
@@ -413,6 +457,83 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
   );
 }
 
+function MissionField({
+  mission,
+  truth,
+  tenant,
+  receiptsEnabled,
+  onToggleReceipts,
+}: {
+  mission: MissionDto | undefined;
+  truth: WitnessState;
+  tenant: string;
+  receiptsEnabled: boolean | undefined;
+  onToggleReceipts: (() => void) | undefined;
+}) {
+  return (
+    <div className="mission-field-card" data-tablework="MissionField">
+      <TruthPanel state={truth} emptyLabel="This mission has no recorded field yet.">
+        {mission ? (
+          <>
+            <section className="mission-field-hero">
+              <span className={`mission-field-state${mission.isActive ? '' : ' is-inactive'}`}>
+                {mission.isActive ? 'Active mission' : 'Inactive mission'}
+              </span>
+              <h2>{mission.name}</h2>
+              <p>
+                {mission.gameTitle ?? 'Game not recorded'}
+                {mission.city ? ` · ${mission.city}` : ''}
+              </p>
+            </section>
+            <dl className="mission-field-facts">
+              <div>
+                <dt>Mission</dt>
+                <dd className="mono">{mission.missionId}</dd>
+              </div>
+              <div>
+                <dt>Tournament code</dt>
+                <dd className="mono">{mission.code ?? 'Not recorded'}</dd>
+              </div>
+              <div>
+                <dt>Organizer</dt>
+                <dd>{mission.organizer ?? 'Not recorded'}</dd>
+              </div>
+              <div>
+                <dt>Horizon</dt>
+                <dd>
+                  {mission.startsOn}
+                  {mission.endsOn ? ` → ${mission.endsOn}` : ' → open'}
+                </dd>
+              </div>
+              <div>
+                <dt>Finance stage</dt>
+                <dd>{mission.financeStage}</dd>
+              </div>
+            </dl>
+          </>
+        ) : null}
+      </TruthPanel>
+      <p className="boundary-note">
+        This Thread is readable only by Members who may read {mission?.name ?? 'this mission'}. Hidden Threads are absent without count or confirmation.
+      </p>
+      {receiptsEnabled !== undefined && onToggleReceipts ? (
+        <div className="panel-actions" data-tablework="PrefsToggle" style={{ justifyContent: 'flex-start' }}>
+          <button className="quiet-action" type="button" onClick={onToggleReceipts}>
+            My read receipts: {receiptsEnabled ? 'shared' : 'private'}
+          </button>
+          {/* Presence remains internal-only, entitled, and default OFF. There
+              is deliberately no presence surface in Mission Command. */}
+        </div>
+      ) : null}
+      <div className="mission-field-route" aria-label="Mission record continuity">
+        <span>{tenant || 'Tenant'}</span>
+        <i aria-hidden="true" />
+        <span>Current</span>
+      </div>
+    </div>
+  );
+}
+
 interface MintMembers {
   userId: string;
   displayName: string;
@@ -424,6 +545,7 @@ interface MintMembers {
 function MintObligationFloat({
   open,
   onClose,
+  focusFallback,
   members,
   existing,
   serverError,
@@ -431,6 +553,7 @@ function MintObligationFloat({
 }: {
   open: boolean;
   onClose: () => void;
+  focusFallback: () => HTMLElement | null;
   members: MintMembers[];
   existing: CommsObligationDto[];
   /** The page-level write error, surfaced INSIDE the modal (the page banner
@@ -506,7 +629,12 @@ function MintObligationFloat({
   ));
 
   return (
-    <FloatSurface open={open} onClose={onClose} labelledBy="mint-obligation-title">
+    <FloatSurface
+      open={open}
+      onClose={onClose}
+      labelledBy="mint-obligation-title"
+      focusFallback={focusFallback}
+    >
       <div className="float-header">
         <div>
           <p className="eyebrow">Obligation · durable ask</p>

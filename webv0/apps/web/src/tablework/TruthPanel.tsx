@@ -81,8 +81,11 @@ export function truthStateOf<T>(q: TruthQueryFacts<T>, isEmpty: (data: T) => boo
     return { kind: 'fetch-failed', message };
   }
   if (q.data === undefined) return { kind: 'loading' };
-  if (isEmpty(q.data)) return { kind: 'proven-empty', at: new Date() };
-  return { kind: 'verified', at: new Date() };
+  // Successful truth carries the witness's timestamp, not render time. A
+  // rerender without a refetch must not make old data look freshly checked.
+  const witnessedAt = new Date(q.dataUpdatedAt || Date.now());
+  if (isEmpty(q.data)) return { kind: 'proven-empty', at: witnessedAt };
+  return { kind: 'verified', at: witnessedAt };
 }
 
 const hhmm = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;

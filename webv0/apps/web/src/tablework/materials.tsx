@@ -51,6 +51,8 @@ interface FloatSurfaceProps {
   open: boolean;
   onClose: () => void;
   labelledBy: string;
+  /** Stable focus target when the opener becomes unavailable while open. */
+  focusFallback?: () => HTMLElement | null;
   children: ReactNode;
 }
 
@@ -64,7 +66,7 @@ interface FloatSurfaceProps {
  * focus-return still happens; the Escape path restores focus natively before
  * onCancel unmounts it). Glass + reduced-effects live in tablework.css.
  */
-export function FloatSurface({ open, onClose, labelledBy, children }: FloatSurfaceProps) {
+export function FloatSurface({ open, onClose, labelledBy, focusFallback, children }: FloatSurfaceProps) {
   const ref = useRef<HTMLDialogElement>(null);
 
   useEffect(() => {
@@ -77,9 +79,13 @@ export function FloatSurface({ open, onClose, labelledBy, children }: FloatSurfa
     if (!dialog.open) dialog.showModal();
     return () => {
       if (dialog.open) dialog.close();
-      opener?.focus();
+      const openerAvailable =
+        opener?.isConnected === true &&
+        opener.getClientRects().length > 0 &&
+        !opener.matches(':disabled, [aria-disabled="true"]');
+      (openerAvailable ? opener : focusFallback?.())?.focus();
     };
-  }, [open]);
+  }, [open, focusFallback]);
 
   if (!open) return null;
   return (

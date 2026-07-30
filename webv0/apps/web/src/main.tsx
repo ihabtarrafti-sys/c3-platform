@@ -17,6 +17,10 @@ import './theme/brand/c3.tokens.css';
 // aliases, vendored sha-pinned (identityTokens.test). Import AFTER the core
 // (the contract's fixed order); the aliases inherit both themes.
 import './theme/brand/tablework.tokens.css';
+// Iris is the new app-owned face. It overlays the still-vendored Afterglow
+// tokens only when data-c3-skin="iris"; Afterglow remains selectable without
+// duplicating or editing its byte-pinned source.
+import './theme/brand/iris.tokens.css';
 import './theme/c3-app.css';
 
 // Build marker (real runtime statement so it survives minification and changes

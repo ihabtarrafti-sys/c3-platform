@@ -28,6 +28,9 @@ interface ObligationCardProps {
   /** owner/operations — mirrors the domain's ops-on-behalf delivery gate. */
   operational: boolean;
   lapsed: boolean;
+  /** Current obligation truth is unavailable or stale. The retained record
+   * remains readable, while all dependent transitions are absent. */
+  readOnly?: boolean;
   busy: boolean;
   /** userId → display label, resolved from what the caller may already see. */
   nameOf: (userId: string) => string;
@@ -36,7 +39,7 @@ interface ObligationCardProps {
   onDeliverEvidence: (file: File, note: string | null) => Promise<void>;
 }
 
-export function ObligationCard({ obligation: o, myUserId, operational, lapsed, busy, nameOf, onTransition, onDeliverEvidence }: ObligationCardProps) {
+export function ObligationCard({ obligation: o, myUserId, operational, lapsed, readOnly = false, busy, nameOf, onTransition, onDeliverEvidence }: ObligationCardProps) {
   const [note, setNote] = useState('');
   const evidenceRef = useRef<HTMLInputElement>(null);
 
@@ -174,15 +177,15 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, b
           ))}
         </div>
       ) : null}
-      {lapsed || cancelled ? null : (
+      {lapsed || readOnly || cancelled ? null : (
         <>
           {needsNote ? (
-            <label className="tw-field">
+            <label className="tw-field" data-governed-control>
               <span>{externalAcceptance && (may.accept || may.reject) ? 'Attestation (required — the external authority’s word)' : 'Reason'}</span>
               <input type="text" value={note} onChange={(e) => setNote(e.target.value)} />
             </label>
           ) : null}
-          <div className="panel-actions" data-tablework="ObligationActions">
+          <div className="panel-actions" data-tablework="ObligationActions" data-governed-control>
             {canDeliver ? (
               <>
                 <input

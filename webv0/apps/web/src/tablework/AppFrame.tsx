@@ -137,7 +137,7 @@ function BrowseFloat({ open, onClose }: { open: boolean; onClose: () => void }) 
 /** Appearance + identity + sign-out for the narrow shell (the rail is hidden). */
 function MoreFloat({ open, onClose, actor }: { open: boolean; onClose: () => void; actor: TableworkActor }) {
   const { signOut } = useSession();
-  const { mode, toggleMode, effectsReduced, toggleEffects } = useThemeMode();
+  const { mode, toggleMode, skin, toggleSkin, effectsReduced, toggleEffects } = useThemeMode();
   return (
     <FloatSurface open={open} onClose={onClose} labelledBy="more-title">
       <div className="float-header">
@@ -162,6 +162,16 @@ function MoreFloat({ open, onClose, actor }: { open: boolean; onClose: () => voi
           <button className="quiet-action" type="button" onClick={toggleEffects}>
             {effectsReduced ? 'Calm effects' : 'Full effects'}
           </button>
+          <button
+            className="quiet-action"
+            type="button"
+            onClick={toggleSkin}
+            aria-pressed={skin === 'iris'}
+            aria-label={skin === 'iris' ? 'Switch to Afterglow face' : 'Switch to Iris face'}
+            title={skin === 'iris' ? 'Switch to Afterglow face' : 'Switch to Iris face'}
+          >
+            {skin === 'iris' ? 'Iris' : 'Afterglow'}
+          </button>
         </div>
         <div className="panel-actions">
           <button className="secondary-action" type="button" onClick={() => void signOut()}>
@@ -185,7 +195,7 @@ interface AppFrameProps {
 }
 
 export function AppFrame({ place, actor, header, wide, children }: AppFrameProps) {
-  const { mode, toggleMode, effectsReduced, toggleEffects } = useThemeMode();
+  const { mode, toggleMode, skin, toggleSkin, effectsReduced, toggleEffects } = useThemeMode();
   const { me, signOut } = useSession();
   const { notices, dismiss } = useNotify();
   const location = useLocation();
@@ -244,6 +254,16 @@ export function AppFrame({ place, actor, header, wide, children }: AppFrameProps
                   title={effectsReduced ? 'Restore glass effects' : 'Reduce effects (solid surfaces, no blur)'}
                 >
                   <span aria-hidden="true">✦</span> {effectsReduced ? 'Calm effects' : 'Full effects'}
+                </button>
+                <button
+                  type="button"
+                  className="mini-action"
+                  onClick={toggleSkin}
+                  data-testid="skin-toggle"
+                  aria-label={skin === 'iris' ? 'Switch to Afterglow face' : 'Switch to Iris face'}
+                  title={skin === 'iris' ? 'Switch to Afterglow face' : 'Switch to Iris face'}
+                >
+                  <span aria-hidden="true">◉</span> {skin === 'iris' ? 'Iris' : 'Afterglow'}
                 </button>
               </div>
               <div className="actor-context" aria-label="Current actor and standing">

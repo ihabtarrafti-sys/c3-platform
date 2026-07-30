@@ -7,11 +7,12 @@
  * optional) and the navigate-never-execute boundary note. On lapse the
  * composer is REMOVED (not disabled-but-present) and reads stay live.
  */
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import type { CommsMessageDto } from '@c3web/api-contracts';
 import type { CommsLinkInput, CommsLinkTargetType } from '@c3web/domain';
 import { Message } from './Message';
 import { TruthPanel, type WitnessState } from './TruthPanel';
+import { isActionableWitness } from './missionCommandModel';
 
 /** Auto-detect record references in the body → ObjectLink chips (cap 10). */
 export function detectLinks(body: string): CommsLinkInput[] {
@@ -73,6 +74,8 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
   const [draft, setDraft] = useState('');
   const [asDecision, setAsDecision] = useState(false);
   const [supersedes, setSupersedes] = useState('');
+  const actionsFresh = isActionableWitness(truth) && audienceTreaty.verified;
+  const composerAvailable = !lapsed && actionsFresh;
   // The chain is DERIVED from the wire, never client state: a later decision
   // that names an earlier message marks it superseded.
   const supersededBy = useMemo(() => {
@@ -85,16 +88,45 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
     [messages],
   );
   const fileRef = useRef<HTMLInputElement>(null);
+  const threadRef = useRef<HTMLElement>(null);
+  const composerHadFocus = useRef(false);
+  const conversationRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const reachedEnd = useRef(onReachedEnd);
+  const previousLastSeq = useRef<number | null>(null);
   reachedEnd.current = onReachedEnd;
+
+  useLayoutEffect(() => {
+    if (!composerAvailable && composerHadFocus.current) {
+      composerHadFocus.current = false;
+      threadRef.current?.focus();
+    }
+  }, [composerAvailable]);
+
+  // A thread opens on its Current, like a living conversation rather than a
+  // document starting at page one. This scrolls ONLY the conversation pane
+  // (never the enclosing Room). The receipt still advances through the
+  // IntersectionObserver below: the end has to become visibly present.
+  useEffect(() => {
+    const scroller = conversationRef.current;
+    const latest = messages.at(-1)?.seq ?? 0;
+    const previous = previousLastSeq.current;
+    const wasNearEnd = scroller ? scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight < 160 : false;
+    previousLastSeq.current = latest;
+    if (!scroller || !(previous === null || previous === 0 || (latest > previous && wasNearEnd))) return;
+    const frame = window.requestAnimationFrame(() => {
+      scroller.scrollTop = scroller.scrollHeight;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [messages]);
 
   useEffect(() => {
     const el = endRef.current;
-    if (!el) return;
+    const scroller = conversationRef.current;
+    if (!el || !scroller) return;
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((e) => e.isIntersecting)) reachedEnd.current?.();
-    });
+    }, { root: scroller });
     observer.observe(el);
     return () => observer.disconnect();
   }, [messages.length]);
@@ -109,6 +141,7 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
+    if (!actionsFresh) return;
     const body = draft.trim();
     if (!body || posting) return;
     const posted = onPostKinded
@@ -122,7 +155,14 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
   };
 
   return (
-    <section className="comms-surface work-surface raised" data-tablework="Thread ConversationHeader WorkSurface" data-material="work" aria-labelledby="thread-heading">
+    <section
+      className="comms-surface work-surface raised"
+      data-tablework="Thread ConversationHeader WorkSurface"
+      data-material="work"
+      aria-labelledby="thread-heading"
+      ref={threadRef}
+      tabIndex={-1}
+    >
       <header className="conversation-header" data-tablework="ConversationHeader">
         <div>
           <p className="eyebrow">{missionName} · Mission Thread</p>
@@ -131,7 +171,7 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
         </div>
         <span className={`state-label ${lapsed ? 'warning' : 'info'}`}>{lapsed ? 'Read-only history' : 'Anchored'}</span>
       </header>
-      <div className="conversation">
+      <div className="conversation" ref={conversationRef}>
         {hasEarlier ? (
           <button className="quiet-action" type="button" disabled={loadingEarlier} onClick={onLoadEarlier}>
             {loadingEarlier ? 'Loading earlier messages...' : 'Load earlier messages'}
@@ -153,7 +193,18 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
         <div ref={endRef} aria-hidden="true" />
       </div>
       {lapsed ? null : (
-        <form className="compose" data-tablework="Composer" onSubmit={(e) => void submit(e)}>
+        <form className="compose"
+          data-tablework="Composer"
+          data-governed-control
+          aria-disabled={!actionsFresh}
+          onSubmit={(e) => void submit(e)}
+          onFocusCapture={() => {
+            composerHadFocus.current = true;
+          }}
+          onBlurCapture={(event) => {
+            if (!event.currentTarget.contains(event.relatedTarget as Node | null)) composerHadFocus.current = false;
+          }}
+        >
           <label className="sr-only" htmlFor="thread-message">
             Message {missionName}
           </label>
@@ -162,16 +213,29 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
             name="message"
             placeholder={`Write in the ${missionName} Mission Thread`}
             value={draft}
+            disabled={!actionsFresh}
             onChange={(e) => setDraft(e.target.value)}
           />
           {onPostKinded ? (
             <div className="message-actions" data-tablework="DecisionToggle">
               <label className="cell-note" style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-                <input type="checkbox" checked={asDecision} onChange={(e) => setAsDecision(e.target.checked)} data-testid="as-decision" />
+                <input
+                  type="checkbox"
+                  checked={asDecision}
+                  data-testid="as-decision"
+                  disabled={!actionsFresh}
+                  onChange={(e) => setAsDecision(e.target.checked)}
+                />
                 Record as a DECISION (a ruling, captured where it was made)
               </label>
               {asDecision && priorDecisions.length > 0 ? (
-                <select aria-label="Decision this ruling supersedes" value={supersedes} onChange={(e) => setSupersedes(e.target.value)} data-testid="supersedes-picker">
+                <select
+                  aria-label="Decision this ruling supersedes"
+                  value={supersedes}
+                  data-testid="supersedes-picker"
+                  disabled={!actionsFresh}
+                  onChange={(e) => setSupersedes(e.target.value)}
+                >
                   <option value="">Supersedes nothing</option>
                   {priorDecisions.map((d) => (
                     <option key={d.messageId} value={d.messageId}>
@@ -203,17 +267,22 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
                 type="file"
                 tabIndex={-1}
                 aria-label="Attach a file to the conversation"
+                disabled={posting || !actionsFresh}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
-                  if (file && !posting) void onAttach(file);
+                  if (file && !posting && actionsFresh) void onAttach(file);
                   e.target.value = '';
                 }}
               />
-              <button className="mini-action" type="button" disabled={posting} onClick={() => fileRef.current?.click()}>
+              <button className="mini-action" type="button" disabled={posting || !actionsFresh} onClick={() => fileRef.current?.click()}>
                 Attach to conversation
               </button>
             </div>
-            <button className="primary-action" type="submit" disabled={posting || draft.trim().length === 0 || !audienceTreaty.verified}>
+            <button
+              className="primary-action"
+              type="submit"
+              disabled={posting || draft.trim().length === 0 || !actionsFresh || !audienceTreaty.verified}
+            >
               Send
             </button>
           </div>
