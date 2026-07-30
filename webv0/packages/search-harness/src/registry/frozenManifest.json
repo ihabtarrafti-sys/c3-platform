@@ -844,12 +844,12 @@
     "packages/search-harness/test/registry/sunsetRegistry.test.ts#wiring": "46a3066cc647f10c974d7ebbe9ae85303cb4e5a5d440d409855ff6aee2355e18",
     "packages/search-harness/test/verifyWorkflow.test.ts#wiring": "5481bddecf6863d22ef9d7a4493c469b81f27e0b1840c3070f8d895ed95f12bc",
     "packages/search-harness/vitest.config.ts#wiring": "e414c0fab4bf829152f6b6c4e4504d8b6c7088731b7e3af0a0005191ddc64650",
-    "scripts/gate.mts#wiring": "62bd22801a43edcb54c4ed17903880850ec3c55d4db87f5ebf40416be83e5ad6",
+    "scripts/gate.mts#wiring": "d59985a84dbd9460ab14de6ea7e398059612b0c1f7e7128c501c858d8c56eeff",
     "scripts/test.mts#wiring": "ae9f187d929cbeac8784421b0a7db8c4d5256ac4bac67139b6d5b589f9d56352",
     "scripts/typecheck.mts#wiring": "1278927c38da27be44ed2b723e333a787c899438d91b27d48f58b3499322f58b",
-    "scripts/vitestProjects.ts#wiring": "329a2d552ef215e6b6e6a58e4fbbca87610276d1ce647b5a351e88b32662a4af",
+    "scripts/vitestProjects.ts#wiring": "6ca36bd7abddeaef2484b6250d6d6a13cdda5aac325ebce4fc5078584e21234e",
     "tsconfig.base.json#wiring": "d010ee0f454ee789577a42a5ef41eec573d1c303a522313d62c254e2d87de056",
     "vitest.config.ts#wiring": "c31d89f8dcfc6d2d4f757bf05445321c7703822fa7782a44a2c6ad72fef6efb2",
-    "vitest.workspace.ts#wiring": "20c7d15093e131c2f8252500392f7eb3d28a6964bd85fd2245c30ad9b6a04e98"
+    "vitest.workspace.ts#wiring": "c2c4438e8aa004a1f45ef1f769694a6c21945b2e9533a504cefdd16151d30ccc"
   }
 }
