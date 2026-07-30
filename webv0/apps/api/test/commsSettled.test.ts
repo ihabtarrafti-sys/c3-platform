@@ -84,6 +84,17 @@ describe('C5 — the absences the ruling requires (break these deliberately, nev
     expect([...COMMS_OBLIGATION_STATES]).toEqual(['Open', 'Delivered', 'Accepted', 'Done', 'Cancelled']);
   });
 
+  it('the derived station does NOT wear the three-facts vocabulary (it is not a fourth fact)', () => {
+    // The battery caught this: `data-truth-state` counts the THREE INDEPENDENT
+    // FACTS, and a spec asserts exactly three. Settled is a DERIVATION of them,
+    // so it carries its own artifact — using theirs would make a derivation
+    // look like a peer.
+    const card = read('apps/web/src/tablework/ObligationCard.tsx');
+    const block = card.slice(card.indexOf('data-tablework="SettledView"'), card.indexOf('data-tablework="SettledView"') + 400);
+    expect(block).toContain('data-settled=');
+    expect(block).not.toContain('data-truth-state');
+  });
+
   it('the UI offers NO settle affordance beside the derived station', () => {
     const card = read('apps/web/src/tablework/ObligationCard.tsx');
     const settledBlock = card.slice(card.indexOf('data-tablework="SettledView"'), card.indexOf('data-tablework="SettledView"') + 600);

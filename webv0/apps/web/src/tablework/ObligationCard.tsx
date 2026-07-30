@@ -143,10 +143,14 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, b
           facts above, re-read. There is no button here and no stored flag
           anywhere, deliberately: a settlement that can be asserted
           independently of its facts is a settlement that can lie. */}
+      {/* NOTE the artifact choice, caught by the battery: this does NOT carry
+          `data-truth-state`. That vocabulary belongs to the THREE INDEPENDENT
+          FACTS, and a spec counts exactly three of them — Settled is not a
+          fourth fact, it is a DERIVATION OF the three, so wearing their
+          vocabulary would misrepresent it as a peer. It has its own artifact. */}
       <p
         className="cell-note"
         data-tablework="SettledView"
-        data-truth-state={settled ? 'known' : 'unknown'}
         data-settled={settled ? 'derived-true' : 'derived-false'}
       >
         {settled
