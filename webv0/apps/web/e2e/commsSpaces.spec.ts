@@ -95,13 +95,20 @@ test('B8: the address book opens a direct thread, and the DM states its retentio
   await expect(page.locator('[data-treaty="verified"]')).toBeVisible();
 });
 
-test('B-LIVE: a message ARRIVES without a refresh, and the toast carries only what the reader could already see', async ({ page, context }) => {
+test('B-LIVE: a message ARRIVES without a refresh (a second real session posts)', async ({ page, context }) => {
   await login(page, 'lead@alpha.com', 'operations');
   await login(page, 'ops@alpha.com', 'operations');
 
   // Ops opens a DM with lead and sits on the ledger (the other party's view).
   await page.getByTestId('nav-comms').click();
-  await page.getByTestId('comms-directory').locator('select').selectOption({ index: 1 });
+  // Select the person BY IDENTITY, never by position: in the full battery the
+  // tenant holds every member each spec has signed in as, so `index: 1` picks
+  // someone else and the DM is opened with the wrong party. The first version
+  // of this test assumed a near-empty world and passed only in isolation.
+  const picker = page.getByTestId('comms-directory').locator('select');
+  const leadValue = await picker.locator('option', { hasText: 'lead@alpha.com' }).first().getAttribute('value');
+  expect(leadValue, 'lead must be addressable in the directory').toBeTruthy();
+  await picker.selectOption(leadValue!);
   await expect(page).toHaveURL(/\/comms\/threads\/THR-\d+/);
   const threadUrl = page.url();
   const threadId = threadUrl.split('/').pop()!;
