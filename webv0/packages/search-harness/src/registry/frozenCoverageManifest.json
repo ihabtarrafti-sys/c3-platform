@@ -218,11 +218,11 @@
           "plannedRecordId": "hearth-search:visibility-matrix:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=2b770e2545407fc6b82ef6bedb1ff7ccc2e245a46c49a7a7fbf269697d9af6dc",
+          "factKey": "criticalSourceFingerprintsSha256=8e152e118f47724f3f3a8a75fbbc31bb1880d9c32b0a4521af5e4457993198d5",
           "plannedRecordId": "hearth-search:visibility-matrix:054"
         },
         {
-          "factKey": "criticalSourcesSha256=1b0957eb09544a9a5c8f2750e5df0fba620b17f4c0ed20b91a8c12773c8ef531",
+          "factKey": "criticalSourcesSha256=5115673fff8b15c9cb790704158c27a200089a3b4c8a5b037ebdc9da97ec43eb",
           "plannedRecordId": "hearth-search:visibility-matrix:055"
         },
         {
@@ -883,11 +883,11 @@
           "plannedRecordId": "hearth-search:qrels:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=2b770e2545407fc6b82ef6bedb1ff7ccc2e245a46c49a7a7fbf269697d9af6dc",
+          "factKey": "criticalSourceFingerprintsSha256=8e152e118f47724f3f3a8a75fbbc31bb1880d9c32b0a4521af5e4457993198d5",
           "plannedRecordId": "hearth-search:qrels:054"
         },
         {
-          "factKey": "criticalSourcesSha256=1b0957eb09544a9a5c8f2750e5df0fba620b17f4c0ed20b91a8c12773c8ef531",
+          "factKey": "criticalSourcesSha256=5115673fff8b15c9cb790704158c27a200089a3b4c8a5b037ebdc9da97ec43eb",
           "plannedRecordId": "hearth-search:qrels:055"
         },
         {
@@ -1548,11 +1548,11 @@
           "plannedRecordId": "hearth-search:provenance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=2b770e2545407fc6b82ef6bedb1ff7ccc2e245a46c49a7a7fbf269697d9af6dc",
+          "factKey": "criticalSourceFingerprintsSha256=8e152e118f47724f3f3a8a75fbbc31bb1880d9c32b0a4521af5e4457993198d5",
           "plannedRecordId": "hearth-search:provenance:054"
         },
         {
-          "factKey": "criticalSourcesSha256=1b0957eb09544a9a5c8f2750e5df0fba620b17f4c0ed20b91a8c12773c8ef531",
+          "factKey": "criticalSourcesSha256=5115673fff8b15c9cb790704158c27a200089a3b4c8a5b037ebdc9da97ec43eb",
           "plannedRecordId": "hearth-search:provenance:055"
         },
         {
@@ -2213,11 +2213,11 @@
           "plannedRecordId": "hearth-search:positive-conformance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=2b770e2545407fc6b82ef6bedb1ff7ccc2e245a46c49a7a7fbf269697d9af6dc",
+          "factKey": "criticalSourceFingerprintsSha256=8e152e118f47724f3f3a8a75fbbc31bb1880d9c32b0a4521af5e4457993198d5",
           "plannedRecordId": "hearth-search:positive-conformance:054"
         },
         {
-          "factKey": "criticalSourcesSha256=1b0957eb09544a9a5c8f2750e5df0fba620b17f4c0ed20b91a8c12773c8ef531",
+          "factKey": "criticalSourcesSha256=5115673fff8b15c9cb790704158c27a200089a3b4c8a5b037ebdc9da97ec43eb",
           "plannedRecordId": "hearth-search:positive-conformance:055"
         },
         {
@@ -2878,11 +2878,11 @@
           "plannedRecordId": "hearth-search:negative-conformance:053"
         },
         {
-          "factKey": "criticalSourceFingerprintsSha256=2b770e2545407fc6b82ef6bedb1ff7ccc2e245a46c49a7a7fbf269697d9af6dc",
+          "factKey": "criticalSourceFingerprintsSha256=8e152e118f47724f3f3a8a75fbbc31bb1880d9c32b0a4521af5e4457993198d5",
           "plannedRecordId": "hearth-search:negative-conformance:054"
         },
         {
-          "factKey": "criticalSourcesSha256=1b0957eb09544a9a5c8f2750e5df0fba620b17f4c0ed20b91a8c12773c8ef531",
+          "factKey": "criticalSourcesSha256=5115673fff8b15c9cb790704158c27a200089a3b4c8a5b037ebdc9da97ec43eb",
           "plannedRecordId": "hearth-search:negative-conformance:055"
         },
         {
