@@ -1,0 +1,47 @@
+-- 0102 — PRESENCE DEFAULTS TO OFF (owner ruling, 2026-07-30).
+--
+-- WHY THE DEFAULT MOVES. 0094 created this column as:
+--
+--     presence_enabled boolean NOT NULL DEFAULT true
+--
+-- carrying its own stated cause: "the lock-time ruling: ON by default, per-user
+-- disable." **That ruling was correct for RECEIPTS and was carried onto
+-- PRESENCE, where it is exactly backwards.** Receipts are a mutual social
+-- contract — you disclose your read position to people who disclose theirs.
+-- Presence is telemetry about where a person is and when they are at their
+-- desk, which is the precise class the standing monitoring boundary exists
+-- for, and that boundary requires `presence_enabled DEFAULT false` BEFORE any
+-- presence use.
+--
+-- Today the flag controls nothing (no consumer branches on it) and every row
+-- reads *shared* — a value nobody chose. The day a presence surface ships it
+-- would broadcast on a default no one consented to.
+--
+-- WHY THE UPDATE IS CORRECT AND COSTS NOTHING: no consumer reads the flag, so
+-- resetting removes no behaviour — and **a defaulted value is not a consent.**
+-- Anyone who explicitly chose *shared* chose it for a capability that does not
+-- exist; they will be asked again, properly, when the surface ships.
+--
+-- ⚠️ THIS MIGRATION IS ONE HALF OF A PAIR. `commsReceiptOps.ts` declares an
+-- invariant about itself — the absent-row defaults mirror these column
+-- defaults EXACTLY — and the absent-row default is the one that actually
+-- reaches users (the insert passes explicit values, so this column default is
+-- never exercised on the app path). Both halves move in the same commit;
+-- flipping either alone silently breaks a stated law.
+--
+-- ⛔ SCOPE — this migration touches `presence_enabled` and NOTHING else:
+--    · receipts_enabled / receipts_enabled_since are UNTOUCHED (that toggle
+--      governs a real SQL-enforced contract with an anti-retroactive
+--      watermark; its ON-by-default is correct);
+--    · the 0099 sound prefs are UNTOUCHED;
+--    · `comms_presence` is NOT dropped. Instance 51's precedent does not
+--      extend here: there, an index made a FORBIDDEN query optimal. Presence
+--      is permitted-but-boundaried, and the table is already fenced (no
+--      writers, RLS enabled, no-DELETE grant). Leave it.
+--
+-- When presence eventually ships it re-enters as a NEW ruling: internal tenant
+-- only, behind module entitlement, default OFF, and it never ranks a person.
+--
+-- The staging APPLY is the OWNER's, at the next deploy window.
+ALTER TABLE comms_user_preference ALTER COLUMN presence_enabled SET DEFAULT false;
+UPDATE comms_user_preference SET presence_enabled = false;

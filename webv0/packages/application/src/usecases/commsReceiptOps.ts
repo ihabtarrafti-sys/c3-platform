@@ -74,10 +74,19 @@ export async function getCommsPrefs(p: Persistence, actor: Actor): Promise<Comms
   const ent = await reads.getModuleEntitlement(COMMS_MODULE_KEY);
   if (!ent) throw new NotFoundError('Comms', 'preferences');
   const row = await reads.getCommsUserPreference(actor.userId);
-  // The absent-row defaults mirror 0099's column defaults EXACTLY — one truth
-  // about "sound on for what is aimed at me, off for broad traffic", stated in
-  // both places rather than drifting between them.
-  if (!row) return { receiptsEnabled: true, presenceEnabled: true, soundDirectEnabled: true, soundThreadEnabled: false, version: null };
+  // THE MIRROR INVARIANT: these absent-row defaults mirror the COLUMN defaults
+  // (0094 · 0099 · 0102) EXACTLY — one truth stated in both places rather than
+  // drifting between them. **This line is the default that actually reaches
+  // users**: the insert below passes explicit values, so the column defaults
+  // are never exercised on the app path.
+  //   receipts   ON  (0094) — a mutual social contract, SQL-enforced with an
+  //                   anti-retroactive watermark; correct as it stands.
+  //   presence   OFF (0102) — telemetry about where a person is and when they
+  //                   are at their desk. The standing monitoring boundary
+  //                   requires OFF before any presence use; 0094's ON was the
+  //                   lock-time receipts ruling over-extended onto presence.
+  //   sound      ON for what is aimed AT you, OFF for broad traffic (0099).
+  if (!row) return { receiptsEnabled: true, presenceEnabled: false, soundDirectEnabled: true, soundThreadEnabled: false, version: null };
   return {
     receiptsEnabled: row.receiptsEnabled,
     presenceEnabled: row.presenceEnabled,

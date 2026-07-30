@@ -144,9 +144,16 @@ describe('receipts — the cursor + watermark derive (Battle #1)', () => {
     // also carry the sound preference — ON for traffic aimed AT you, OFF for
     // broad thread traffic. The assertion stays EXACT (toEqual, not
     // objectContaining) so a future silent widening of this shape fails here.
+    //
+    // SUPERSEDED AGAIN (0102, owner-ruled 2026-07-30): presence defaults OFF.
+    // ⚖️ THIS PIN IS THE THIRD MIRROR of the defaults invariant — the column
+    // default, commsReceiptOps' absent-row return, and this line — and it is
+    // the ONLY one that can FAIL, which is what makes the invariant enforceable
+    // rather than merely stated. It refused this change until the ruling
+    // authorized it by name, which is exactly its job.
     expect(prefs.json()).toEqual({
       receiptsEnabled: true,
-      presenceEnabled: true,
+      presenceEnabled: false,
       soundDirectEnabled: true,
       soundThreadEnabled: false,
       version: null,

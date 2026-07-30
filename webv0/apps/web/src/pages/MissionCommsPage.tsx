@@ -329,9 +329,13 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
                   <button className="quiet-action" type="button" onClick={() => onTogglePrefs({ receiptsEnabled: !prefs.data!.receiptsEnabled })}>
                     My read receipts: {prefs.data.receiptsEnabled ? 'shared' : 'private'}
                   </button>
-                  <button className="quiet-action" type="button" onClick={() => onTogglePrefs({ presenceEnabled: !prefs.data!.presenceEnabled })}>
-                    Presence: {prefs.data.presenceEnabled ? 'shared' : 'private'}
-                  </button>
+                  {/* THE PRESENCE CONTROL WAS REMOVED (owner ruling, 2026-07-30).
+                      It saved successfully and governed NOTHING — no consumer
+                      branches on the flag — so it was a switch that promised a
+                      boundary it could not keep. The FIELD stays on the wire and
+                      the stored value is passed through untouched (see
+                      onTogglePrefs); the control returns with the presence
+                      surface, under a new ruling and default OFF. */}
                 </div>
               ) : null}
             </WorkSurface>
