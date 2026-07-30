@@ -195,8 +195,8 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
       {lapsed ? null : (
         <form className="compose"
           data-tablework="Composer"
-          hidden={!actionsFresh}
-          aria-hidden={!actionsFresh}
+          data-governed-control
+          aria-disabled={!actionsFresh}
           onSubmit={(e) => void submit(e)}
           onFocusCapture={() => {
             composerHadFocus.current = true;
@@ -213,16 +213,29 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
             name="message"
             placeholder={`Write in the ${missionName} Mission Thread`}
             value={draft}
+            disabled={!actionsFresh}
             onChange={(e) => setDraft(e.target.value)}
           />
           {onPostKinded ? (
             <div className="message-actions" data-tablework="DecisionToggle">
               <label className="cell-note" style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
-                <input type="checkbox" checked={asDecision} onChange={(e) => setAsDecision(e.target.checked)} data-testid="as-decision" />
+                <input
+                  type="checkbox"
+                  checked={asDecision}
+                  data-testid="as-decision"
+                  disabled={!actionsFresh}
+                  onChange={(e) => setAsDecision(e.target.checked)}
+                />
                 Record as a DECISION (a ruling, captured where it was made)
               </label>
               {asDecision && priorDecisions.length > 0 ? (
-                <select aria-label="Decision this ruling supersedes" value={supersedes} onChange={(e) => setSupersedes(e.target.value)} data-testid="supersedes-picker">
+                <select
+                  aria-label="Decision this ruling supersedes"
+                  value={supersedes}
+                  data-testid="supersedes-picker"
+                  disabled={!actionsFresh}
+                  onChange={(e) => setSupersedes(e.target.value)}
+                >
                   <option value="">Supersedes nothing</option>
                   {priorDecisions.map((d) => (
                     <option key={d.messageId} value={d.messageId}>
@@ -254,6 +267,7 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
                 type="file"
                 tabIndex={-1}
                 aria-label="Attach a file to the conversation"
+                disabled={posting || !actionsFresh}
                 onChange={(e) => {
                   const file = e.target.files?.[0];
                   if (file && !posting && actionsFresh) void onAttach(file);

@@ -38,6 +38,18 @@ describe('Comms governance laws (the pilot UI)', () => {
     expect(thread).toContain('data-treaty=');
     expect(thread).toContain('!audienceTreaty.verified');
     expect(thread).toContain('Send is disabled rather than guessing');
+    // Fail-closed does not hide the reason: an unverified audience keeps the
+    // treaty and disabled Send visible while every composer input is inert.
+    expect(thread).not.toContain('hidden={!actionsFresh}');
+    expect(thread).toContain('aria-disabled={!actionsFresh}');
+    expect(thread).toContain('if (!actionsFresh) return;');
+    const composer = thread.slice(thread.indexOf('{lapsed ? null : ('), thread.indexOf('</form>') + '</form>'.length);
+    expect(composer).toMatch(/<textarea[^>]*disabled=\{!actionsFresh\}/);
+    expect(composer).toMatch(/type="checkbox"[^>]*disabled=\{!actionsFresh\}/);
+    expect(composer).toMatch(/<select[^>]*disabled=\{!actionsFresh\}/);
+    expect(composer).toMatch(/type="file"[^>]*disabled=\{posting \|\| !actionsFresh\}/);
+    expect(composer).toMatch(/className="mini-action"[^>]*disabled=\{posting \|\| !actionsFresh\}/);
+    expect(composer).toMatch(/className="primary-action"[^>]*!actionsFresh[^>]*!audienceTreaty\.verified/);
     // And Dawn's navigate-never-execute boundary note rides the same surface.
     expect(thread).toContain('Conversation cannot approve, reject, execute, accept evidence, or record Done.');
   });
