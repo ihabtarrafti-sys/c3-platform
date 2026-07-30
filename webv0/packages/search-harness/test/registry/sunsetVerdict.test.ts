@@ -24,8 +24,13 @@ import {
   SunsetRegistryError,
   compareSunsetRegistry,
   sunsetFailureSummary,
+  type SunsetFailureLabel,
 } from '../../src/registry/compare';
-import { SunsetCoverageError } from '../../src/registry/coverage';
+import {
+  SunsetCoverageError,
+  redactFactKey,
+  type RedactedFactName,
+} from '../../src/registry/coverage';
 import {
   buildLiveSunsetRegistrySnapshot,
   fingerprintSunsetTypeScriptDeclarations,
@@ -79,18 +84,69 @@ describe('GUARD 2 — CODES AND PATHS ONLY: no value may ride the message out', 
   });
 });
 
-describe('GUARD 3 — coverage keeps its message SUPPRESSED, because a factKey is a VALUE', () => {
-  it('gets a named code but is deliberately NOT a HearthHarnessError', () => {
-    // `criticalSourceFingerprintsSha256=ecae78ce…` and `contractResultKinds[9]="team"`
-    // are real factKeys. They carry values, so this message may not pass through.
+describe('GUARD 3 — coverage travels by NAME, never by VALUE', () => {
+  it('emits the fact NAME and redacts the value', () => {
+    // Real factKeys: `criticalSourceFingerprintsSha256=ecae78ce…`,
+    // `contractResultKinds[9]="team"`. The left side is a field name or a
+    // positional index and carries no data; the right side is the value.
     const error = new SunsetCoverageError([
-      { code: 'SUNSET_COVERAGE_FACT_MISSING', surface: 'visibility-matrix', factKey: `x=${SENTINEL}` },
+      {
+        code: 'SUNSET_COVERAGE_FACT_MISSING',
+        surface: 'visibility-matrix',
+        factKey: `criticalSourceFingerprintsSha256=${SENTINEL}`,
+      },
     ]);
-    expect(error).not.toBeInstanceOf(HearthHarnessError);
     const safe = safeHarnessCommandError(error);
-    expect(safe.code).toBe('SUNSET_COVERAGE_INCOMPLETE'); // named…
-    expect(safe.message).not.toContain(SENTINEL); // …but contained
-    expect(safe.code).not.toBe('HARNESS_COMMAND_FAILED');
+    expect(safe.code).toBe('SUNSET_COVERAGE_INCOMPLETE');
+    expect(safe.message).toContain('criticalSourceFingerprintsSha256=<redacted>');
+    expect(safe.message).toContain('visibility-matrix');
+    // ⛔ The whole point: the operator learns WHICH contract drifted, never the value.
+    expect(safe.message).not.toContain(SENTINEL);
+    expect(JSON.stringify(safe)).not.toContain(SENTINEL);
+  });
+
+  it('splits on the FIRST "=", so a value containing one cannot smuggle itself out', () => {
+    expect(redactFactKey(`name=a=${SENTINEL}`)).toBe('name=<redacted>');
+    expect(redactFactKey(`name=a=${SENTINEL}`)).not.toContain(SENTINEL);
+  });
+
+  it('a factKey with NO "=" yields NOTHING — an unrecognised shape says only its code', () => {
+    // The fallback that stops this from rotting: never emit an unsplit key on
+    // the assumption the shape holds.
+    expect(redactFactKey(SENTINEL)).toBe('');
+    const error = new SunsetCoverageError([
+      { code: 'SUNSET_COVERAGE_FACT_UNKNOWN', surface: 'qrels', factKey: SENTINEL },
+    ]);
+    expect(safeHarnessCommandError(error).message).not.toContain(SENTINEL);
+  });
+
+  it('and an absent factKey degrades cleanly rather than printing "undefined"', () => {
+    const error = new SunsetCoverageError([
+      { code: 'SUNSET_COVERAGE_ENTRY_ORDER_CHANGED', surface: 'provenance' },
+    ]);
+    const message = safeHarnessCommandError(error).message;
+    expect(message).toContain('SUNSET_COVERAGE_ENTRY_ORDER_CHANGED provenance');
+    expect(message).not.toContain('undefined');
+  });
+});
+
+describe('GUARD 3b — the containment is held by the COMPILER, not by discipline', () => {
+  it('a raw factKey cannot be passed where a redacted name is required', () => {
+    // @ts-expect-error — only redactFactKey can mint a RedactedFactName. If this
+    // ever STOPS erroring, the brand has been weakened and tsc fails on the now
+    // unused @ts-expect-error. That is the mechanism guarding the mechanism.
+    const smuggled: RedactedFactName = `criticalSourceFingerprintsSha256=${SENTINEL}`;
+    expect(typeof smuggled).toBe('string');
+  });
+
+  it('a registry failure LABEL has no value fields to interpolate in the first place', () => {
+    const label: SunsetFailureLabel = {
+      code: 'SUNSET_CRITICAL_SOURCE_CHANGED',
+      path: 'criticalSourceFingerprints.x',
+    };
+    // @ts-expect-error — `expected` is deliberately absent from SunsetFailureLabel,
+    // so `sunsetFailureSummary` physically cannot reach a value.
+    expect(label.expected).toBeUndefined();
   });
 });
 

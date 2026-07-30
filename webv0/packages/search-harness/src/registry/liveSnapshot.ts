@@ -164,6 +164,15 @@ const CRITICAL_DECLARATIONS: Readonly<Record<string, readonly string[]>> = {
   'packages/persistence/src/searchSql.ts': ['DOMAIN_SPECS', 'domainBlock'],
   'packages/api-contracts/src/index.ts': ['searchResultsSchema'],
   /*
+   * ⚠️ READ THIS BEFORE "FIXING" THE PATH LIST. `identityTokens.test.ts` appears
+   * in `criticalSources`; `TruthPanel.tsx` does NOT, and that asymmetry is
+   * CORRECT rather than an omission. **Whole-file seals enter the path list;
+   * symbol seals do not, because the file is not the protected thing** — only
+   * two of its declarations are. Listing it there would advertise that the whole
+   * file is frozen, which is both false and the rubber-stamp shape this design
+   * exists to avoid. (Instance 33 is the story of someone trusting a path list
+   * because it reads like an inventory.)
+   *
    * ⚖️ THE FIRST `apps/web` SEALS — SYMBOL-LEVEL ON PURPOSE (owner-approved,
    * Neural-ruled, 2026-07-31). The web layer is under active redesign, so there
    * is deliberately NO `apps/web/src#tree` fingerprint: a seal that must be

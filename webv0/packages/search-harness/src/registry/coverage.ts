@@ -1,4 +1,5 @@
 import { canonicalJson, canonicalSha256 } from '../canonical.js';
+import { HearthHarnessError } from '../errors.js';
 import type { SunsetRegistrySnapshot } from './types.js';
 
 export const SUNSET_COVERAGE_MANIFEST_VERSION = 'search-sunset/v1' as const;
@@ -318,32 +319,81 @@ export function compareSunsetCoverage(
   return failures;
 }
 
+declare const RedactedFactBrand: unique symbol;
+
 /**
- * ⛔ DELIBERATELY NOT A `HearthHarnessError`, unlike `SunsetRegistryError`.
- *
- * The CLI preserves the MESSAGE of a HearthHarnessError and suppresses everyone
- * else's. This message embeds `factKey`, and **a factKey carries a VALUE** —
- * `criticalSourceFingerprintsSha256=ecae78ce…`, `contractResultKinds[9]="team"`.
- * Passing it through would break the containment the suppression exists for.
- *
- * So it takes the half that is safe: a NAMED CODE, which `safeHarnessCommandError`
- * preserves for any error whose `code` is SCREAMING_CASE, while the message stays
- * suppressed. The verdict says which contract failed without saying what the
- * values were — `{"code":"SUNSET_COVERAGE_INCOMPLETE","message":"…suppressed"}`
- * instead of the generic `HARNESS_COMMAND_FAILED` that told you nothing.
+ * A fact NAME with its value stripped. Only `redactFactKey` can produce one —
+ * the brand is unforgeable without a cast — so `sunsetCoverageSummary` cannot be
+ * handed a raw factKey even by accident. Same mechanism as
+ * `SunsetFailureLabel` in compare.ts: the containment is held by the compiler,
+ * not by whoever reads this file next.
  */
-export class SunsetCoverageError extends Error {
-  readonly code = 'SUNSET_COVERAGE_INCOMPLETE';
+export type RedactedFactName = string & {
+  readonly [RedactedFactBrand]: true;
+};
+
+/**
+ * A factKey is `name=value` — `criticalSourceFingerprintsSha256=ecae78ce…`,
+ * `contractResultKinds[9]="team"`. **The left side is a field name or a
+ * positional index and carries no data; the right side is the value and may
+ * never travel.** Split on the FIRST `=`, which stays correct even when a value
+ * contains one.
+ *
+ * ⛔ SAFETY FALLBACK, deliberate and not an oversight: a factKey with NO `=` is
+ * a shape we do not recognise, so it yields the EMPTY string and the caller
+ * emits the bare code. Never emit an unsplit key on the assumption the shape
+ * holds — that assumption is exactly the class of thing that quietly stops being
+ * true a year later.
+ */
+export function redactFactKey(
+  factKey: string | null | undefined,
+): RedactedFactName {
+  if (!factKey) return '' as RedactedFactName;
+  const separator = factKey.indexOf('=');
+  if (separator === -1) return '' as RedactedFactName;
+  return `${factKey.slice(0, separator)}=<redacted>` as RedactedFactName;
+}
+
+export interface SunsetCoverageLabel {
+  readonly code: SunsetCoverageFailureCode;
+  readonly surface: string;
+  readonly factName: RedactedFactName;
+}
+
+export function sunsetCoverageSummary(
+  labels: readonly SunsetCoverageLabel[],
+): string {
+  return `Search coverage plan is incomplete:\n${labels
+    .map((label) => `${label.code} ${label.surface} ${label.factName}`.trimEnd())
+    .join('\n')}`;
+}
+
+/**
+ * ⚖️ WHY THIS IS REDACTED WHERE `SunsetRegistryError` IS NOT.
+ *
+ * The registry message is codes and paths — no data — so it passes through the
+ * CLI's suppression allowlist whole. This one embeds `factKey`, and **a factKey
+ * carries a VALUE**, which is precisely what that allowlist exists to keep in.
+ *
+ * The resolution is not to choose between a useful message and a safe one:
+ * **emit the fact NAME and redact the value.** The operator learns WHICH
+ * contract drifted rather than merely THAT one did, and still learns nothing
+ * about the values. Codes, paths and field names may travel; values never do.
+ */
+export class SunsetCoverageError extends HearthHarnessError<'SUNSET_COVERAGE_INCOMPLETE'> {
   readonly failures: readonly SunsetCoverageFailure[];
 
   constructor(failures: readonly SunsetCoverageFailure[]) {
     super(
-      `Search coverage plan is incomplete:\n${failures
-        .map(
-          (failure) =>
-            `${failure.code} ${failure.surface} ${failure.factKey ?? ''}`,
-        )
-        .join('\n')}`,
+      'SUNSET_COVERAGE_INCOMPLETE',
+      sunsetCoverageSummary(
+        failures.map((failure) => ({
+          code: failure.code,
+          surface: failure.surface,
+          factName: redactFactKey(failure.factKey),
+        })),
+      ),
+      { failureCount: failures.length },
     );
     this.name = 'SunsetCoverageError';
     this.failures = failures;
