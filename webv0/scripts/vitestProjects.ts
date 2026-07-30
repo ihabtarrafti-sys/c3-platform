@@ -5,6 +5,7 @@ const PRODUCT_PROJECTS = [
   'authz',
   'api-contracts',
   'application',
+  'test-support',
   'web',
   'backup',
   'persistence',
@@ -48,6 +49,7 @@ export const TEST_PROJECT_PLANS = {
       'authz',
       'application',
       'api-contracts',
+      'test-support',
       'web',
     ],
     dedicatedProjects: [HARNESS_VERIFY_EXECUTION],
@@ -87,6 +89,10 @@ export const TEST_PROJECT_PLANS = {
         reason: 'db mode is intentionally scoped to persistence integration',
       },
       {
+        name: 'test-support',
+        reason: 'db mode is intentionally scoped to persistence integration',
+      },
+      {
         name: 'web',
         reason: 'db mode is intentionally scoped to persistence integration',
       },
@@ -122,6 +128,10 @@ export const TEST_PROJECT_PLANS = {
       },
       {
         name: 'application',
+        reason: 'api mode is intentionally scoped to API integration',
+      },
+      {
+        name: 'test-support',
         reason: 'api mode is intentionally scoped to API integration',
       },
       {

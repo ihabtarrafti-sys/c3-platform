@@ -42,6 +42,17 @@ export default defineWorkspace([
   },
   {
     test: {
+      // The test harness's own decision logic (the embedded-PostgreSQL janitor
+      // plan). Pure functions, no database — it must NOT inherit the heavy
+      // single-fork profile of the projects that provision one.
+      name: 'test-support',
+      root: './packages/test-support',
+      environment: 'node',
+      include: ['test/**/*.test.ts'],
+    },
+  },
+  {
+    test: {
       name: 'web',
       root: './apps/web',
       environment: 'node',

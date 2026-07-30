@@ -54,9 +54,19 @@ assertVitestProjectReconciliation({
 step('search harness sunset preflight', [tsx, join(webv0Root, 'packages', 'search-harness', 'src', 'cli', 'sunsetPreflight.ts')]);
 
 // Windows embedded-PG teardown occasionally leaks processes/data dirs; piled
-// up across runs they degrade the machine until tests flake on timeouts. The
-// sweep is age-gated (≥60min), kills only postgres.exe whose cmdline names a
-// c3web-pg-* dir, and logs everything it touches (see test-support).
+// up across runs they degrade the machine until tests flake on timeouts.
+//
+// ⚠️ THIS COMMENT USED TO DESCRIBE A DIFFERENT FUNCTION, and the description
+// was the problem: it said the sweep was "age-gated (≥60min)" and killed "only
+// postgres.exe whose cmdline names a c3web-pg-* dir". Both were true of the
+// code and both were WRONG about the world — only a postmaster carries that
+// token, so the orphaned children that actually exhaust the machine were
+// invisible to it, and a data dir's mtime never advances, so "age" meant
+// created-long-ago rather than idle. A confident comment is why that stood for
+// days. It now decides by PARENT LIVENESS: orphans are swept whatever their
+// age, anything with a live parent is spared at any age (so a neighbouring
+// lane's long-running cluster is safe), and a real PostgreSQL stays unkillable.
+// The full reasoning lives in packages/test-support/src/pgSweep.ts.
 await sweepStaleEmbeddedPg();
 
 step('nul/truncation audit', [tsx, join(webv0Root, 'scripts', 'nul-audit.mts')]);

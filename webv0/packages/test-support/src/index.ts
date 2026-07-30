@@ -19,6 +19,27 @@ import { Client } from 'pg';
 import { runMigrations } from '@c3web/persistence';
 
 export { instrumentPool, type QueryRecorder, type QueryStats } from './queryStats';
+import {
+  BLIND_SWEEP_AGE_MS,
+  DATA_DIR_PREFIX,
+  STARTUP_RACE_GRACE_MS,
+  planPgDirSweep,
+  planPgProcessSweep,
+  type ObservedDir,
+  type ObservedProcess,
+} from './pgSweep';
+export {
+  BLIND_SWEEP_AGE_MS,
+  DATA_DIR_PREFIX,
+  EMBEDDED_PG_MARKER,
+  STARTUP_RACE_GRACE_MS,
+  isParentAlive,
+  planPgDirSweep,
+  planPgProcessSweep,
+  type ObservedDir,
+  type ObservedProcess,
+  type PgProcessSweepPlan,
+} from './pgSweep';
 
 const APP_ROLE = 'c3_app';
 const APP_PW = 'c3_app_test_pw';
@@ -119,6 +140,35 @@ async function removeDirWithRetry(dir: string): Promise<void> {
   }
 }
 
+/** Reads a Win32_Process projection as JSON; `null` means the listing failed. */
+function readProcessTable<T>(
+  execSync: typeof import('node:child_process').execSync,
+  selection: string,
+  filter = '',
+): T[] | null {
+  try {
+    const out = execSync(
+      `powershell -NoProfile -Command "Get-CimInstance Win32_Process${filter} | Select-Object ${selection} | ConvertTo-Json -Compress"`,
+      { encoding: 'utf8', timeout: 30_000, maxBuffer: 32 * 1024 * 1024 },
+    ).trim();
+    if (!out) return [];
+    const parsed = JSON.parse(out) as unknown;
+    return (Array.isArray(parsed) ? parsed : [parsed]) as T[];
+  } catch {
+    return null; // caller must fall back conservatively — see BLIND_SWEEP_AGE_MS
+  }
+}
+
+/**
+ * A calculated property, kept in one place because it is easy to get subtly
+ * wrong: some system processes have a null CreationDate, and letting that throw
+ * inside the projection loses the whole listing. `0` is the safe substitute —
+ * it reads as "started at the epoch", which makes a parent look ALIVE, and
+ * protecting something we cannot date is the correct direction to fail.
+ */
+const START_MS_PROJECTION =
+  "@{n='StartMs';e={if ($_.CreationDate) {[int64](($_.CreationDate.ToUniversalTime()-[datetime]'1970-01-01').TotalMilliseconds)} else {0}}}";
+
 /**
  * Best-effort janitor for Windows embedded-PG leakage (QA-sweep hardening).
  * On Windows, stop()/rmSync can fail with EBUSY, deliberately leaving temp
@@ -126,76 +176,138 @@ async function removeDirWithRetry(dir: string): Promise<void> {
  * itself. Across many gate runs these pile up (observed: 38 live postgres.exe
  * + 256 c3web-pg-* dirs) until unrelated tests flake on timeouts.
  *
- * Conservative by construction (Neural conditions):
- *  - a process is killed ONLY when BOTH the exe name is postgres.exe AND its
- *    command line references a c3web-pg-* dir — a real PostgreSQL on this
- *    machine is unkillable by this sweep;
- *  - dirs/processes younger than AGE_MS are NEVER touched (a currently
- *    running test's instance is minutes old);
- *  - every swept dir/process is LOGGED — no silent cleanup;
- *  - never throws: a janitor must not fail a run.
+ * ⚖️ REWRITTEN 2026-07-30 (Neural's ruling) — liveness is decided by PARENT
+ * LIVENESS, never by a directory's age. The reasoning, the PID-recycling guard
+ * and the two measured defects this replaces are documented in `pgSweep.ts`;
+ * this function is only the effects. In short:
+ *   - it now sweeps orphaned `--forkchild` CHILDREN, which carry no data-dir
+ *     token and therefore survived every previous sweep — they are what blocks
+ *     `npm ci` with `EPERM: unlink … postgres.exe`;
+ *   - it NEVER touches a process whose parent is alive, at any age, so a
+ *     neighbouring lane's long-running preview cluster is safe;
+ *   - a real PostgreSQL on this machine is still unkillable by it, now via the
+ *     `@embedded-postgres` binary marker instead of the data-dir token.
+ *
+ * Unchanged guarantees: every swept dir/process is LOGGED — no silent cleanup;
+ * and it never throws, because a janitor must not fail a run.
  *
  * Called once per gate run (scripts/gate.mts); also exported for manual use.
  */
 export async function sweepStaleEmbeddedPg(): Promise<void> {
-  const AGE_MS = 60 * 60 * 1000;
   const now = Date.now();
   const log = (line: string) => console.log(`[pg-sweep] ${line}`);
   try {
     const { execSync } = await import('node:child_process');
     const { readdirSync, statSync } = await import('node:fs');
 
-    // 1. Orphaned postgres processes (Windows-only leak). Protect young ones.
-    const protectedDirs = new Set<string>();
+    // 1. Orphaned embedded-postgres processes (Windows-only leak).
+    const activeTokens = new Set<string>();
+    let processTableRead = false;
     if (process.platform === 'win32') {
-      let rows: Array<{ ProcessId?: number; CommandLine?: string | null }> = [];
-      try {
-        const out = execSync(
-          `powershell -NoProfile -Command "Get-CimInstance Win32_Process -Filter \\"Name='postgres.exe'\\" | Select-Object ProcessId,CommandLine | ConvertTo-Json -Compress"`,
-          { encoding: 'utf8', timeout: 30_000 },
-        ).trim();
-        if (out) {
-          const parsed = JSON.parse(out) as unknown;
-          rows = Array.isArray(parsed) ? parsed : [parsed as { ProcessId?: number; CommandLine?: string | null }];
+      const pgRows = readProcessTable<{
+        ProcessId?: number;
+        ParentProcessId?: number;
+        CommandLine?: string | null;
+        StartMs?: number;
+      }>(
+        execSync,
+        `ProcessId,ParentProcessId,CommandLine,${START_MS_PROJECTION}`,
+        ` -Filter \\"Name='postgres.exe'\\"`,
+      );
+      const allRows = readProcessTable<{ ProcessId?: number; StartMs?: number }>(
+        execSync,
+        `ProcessId,${START_MS_PROJECTION}`,
+      );
+
+      if (pgRows && allRows) {
+        processTableRead = true;
+        const startedMsByPid = new Map<number, number>();
+        for (const row of allRows) {
+          if (typeof row.ProcessId === 'number' && typeof row.StartMs === 'number') {
+            startedMsByPid.set(row.ProcessId, row.StartMs);
+          }
         }
-      } catch {
-        /* listing failed — fall through to the dir sweep only */
-      }
-      for (const row of rows) {
-        const token = (row.CommandLine ?? '').match(/c3web-pg-[A-Za-z0-9]+/)?.[0];
-        if (!token || !row.ProcessId) continue; // NOT ours — never touch
-        const dir = join(tmpdir(), token);
-        let dirAge = Infinity; // dir already gone → definitely orphaned
-        try {
-          dirAge = now - statSync(dir).mtimeMs;
-        } catch {
-          /* missing dir — orphaned */
+        // A row we cannot date is DROPPED, never killed: without a start time
+        // the PID-recycling guard cannot run, and an undatable process would
+        // otherwise look parentless and be swept.
+        const undatable = pgRows.filter(
+          (row) => typeof row.ProcessId === 'number' && !(typeof row.StartMs === 'number' && row.StartMs > 0),
+        ).length;
+        if (undatable > 0) log(`skipped ${undatable} postgres.exe with no readable start time`);
+
+        const processes: ObservedProcess[] = pgRows
+          .filter(
+            (row): row is { ProcessId: number; ParentProcessId?: number; CommandLine?: string | null; StartMs: number } =>
+              typeof row.ProcessId === 'number' && typeof row.StartMs === 'number' && row.StartMs > 0,
+          )
+          .map((row) => ({
+            pid: row.ProcessId,
+            parentPid: typeof row.ParentProcessId === 'number' ? row.ParentProcessId : -1,
+            startedMs: row.StartMs,
+            commandLine: row.CommandLine ?? '',
+          }));
+
+        const tokenByPid = new Map<number, string>();
+        for (const proc of processes) {
+          const token = /c3web-pg-[A-Za-z0-9]+/.exec(proc.commandLine)?.[0];
+          if (token) tokenByPid.set(proc.pid, token);
         }
-        if (dirAge < AGE_MS) {
-          protectedDirs.add(token); // a live test's instance — leave it alone
-          continue;
+
+        const plan = planPgProcessSweep(processes, startedMsByPid);
+        for (const token of plan.activeTokens) activeTokens.add(token);
+        if (plan.foreign.length > 0) log(`left ${plan.foreign.length} non-embedded postgres.exe untouched`);
+        if (plan.activeTokens.length > 0) log(`protected in-use cluster(s): ${plan.activeTokens.join(', ')}`);
+
+        // Announce the whole plan BEFORE acting. `taskkill /T` reaps a tree, so
+        // the per-pid lines below under-report: killing an orphaned postmaster
+        // takes its children with it and their own taskkill then finds nothing
+        // to do. Without this line the log reads "killed 1" when nine died,
+        // which quietly breaks this janitor's no-silent-cleanup promise.
+        if (plan.kill.length > 0) log(`sweeping ${plan.kill.length} orphaned process(es): ${plan.kill.join(', ')}`);
+
+        for (const pid of plan.kill) {
+          const token = tokenByPid.get(pid);
+          try {
+            // /T takes the process tree: belt-and-braces with the plan's own
+            // propagation, so a postmaster never dies leaving children behind.
+            execSync(`taskkill /PID ${pid} /F /T`, { timeout: 15_000, stdio: 'ignore' });
+            log(`killed orphaned postgres.exe pid=${pid}${token ? ` (${token})` : ' (forkchild)'}`);
+          } catch {
+            // Already gone with its parent's tree, or unkillable. If it owned a
+            // data dir, protect that dir rather than delete it out from under a
+            // process that is somehow still running.
+            if (token) {
+              activeTokens.add(token);
+              log(`could not kill pid=${pid} (${token}) — keeping its dir`);
+            }
+          }
         }
-        try {
-          execSync(`taskkill /PID ${row.ProcessId} /F`, { timeout: 15_000 });
-          log(`killed orphaned postgres.exe pid=${row.ProcessId} (${token}, age ${Math.round(dirAge / 60000)}min)`);
-        } catch {
-          log(`could not kill pid=${row.ProcessId} (${token}) — skipping its dir`);
-          protectedDirs.add(token);
-        }
+      } else {
+        log('process listing unavailable — falling back to the conservative age sweep');
       }
     }
 
-    // 2. Leaked data dirs, age-gated and never a protected (live) one.
+    // 2. Leaked data dirs. Age is ONLY the startup-race guard; a live cluster's
+    //    dir is protected by its token above, at any age. Without a readable
+    //    process table there are no tokens, so the old conservative hour is the
+    //    only safe gate — see BLIND_SWEEP_AGE_MS.
+    const minAgeMs = processTableRead ? STARTUP_RACE_GRACE_MS : BLIND_SWEEP_AGE_MS;
+    const dirs: ObservedDir[] = [];
     for (const name of readdirSync(tmpdir())) {
-      if (!name.startsWith('c3web-pg-') || protectedDirs.has(name)) continue;
-      const dir = join(tmpdir(), name);
+      if (!name.startsWith(DATA_DIR_PREFIX)) continue;
       try {
-        const age = now - statSync(dir).mtimeMs;
-        if (age < AGE_MS) continue;
-        await removeDirWithRetry(dir);
-        log(`removed leaked data dir ${name} (age ${Math.round(age / 60000)}min)`);
+        dirs.push({ name, ageMs: now - statSync(join(tmpdir(), name)).mtimeMs });
       } catch {
-        /* stat/remove raced or failed — leave it for the next sweep */
+        /* stat raced with another sweep — skip it */
+      }
+    }
+    for (const name of planPgDirSweep(dirs, activeTokens, minAgeMs)) {
+      const ageMs = dirs.find((dir) => dir.name === name)?.ageMs ?? 0;
+      try {
+        await removeDirWithRetry(join(tmpdir(), name));
+        log(`removed unreferenced data dir ${name} (age ${Math.round(ageMs / 60000)}min)`);
+      } catch {
+        /* remove raced or failed — leave it for the next sweep */
       }
     }
   } catch {
