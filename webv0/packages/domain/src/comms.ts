@@ -273,6 +273,11 @@ export type AdvanceCommsCursorInput = z.infer<typeof advanceCommsCursorInputSche
 export interface CommsPrefs {
   readonly receiptsEnabled: boolean;
   readonly presenceEnabled: boolean;
+  /** B-LIVE (Law 4): sound is per-user and narrow by default — ON for traffic
+   *  aimed AT you, OFF for broad thread traffic. A tool that pings for
+   *  everything gets muted, and a muted notifier is a lying notifier. */
+  readonly soundDirectEnabled: boolean;
+  readonly soundThreadEnabled: boolean;
   /** null = no row yet (the code-side defaults) — the 0037 absent-row pattern. */
   readonly version: number | null;
 }
@@ -282,6 +287,8 @@ export const setCommsPrefsInputSchema = z
   .object({
     receiptsEnabled: z.boolean(),
     presenceEnabled: z.boolean(),
+    soundDirectEnabled: z.boolean().default(true),
+    soundThreadEnabled: z.boolean().default(false),
     expectedVersion: z.number().int().min(0).nullable(),
   })
   .strict();

@@ -207,6 +207,34 @@ describe('the SSE surface — Law 1 asserted at the SERVER, and Law 5 at the sch
     res.stream().destroy();
   });
 
+  it('DELIVERY, end to end: a subscriber on the stream RECEIVES the gated projection of a message posted after they connected', async () => {
+    expect(await until(() => bus.health().alive, 15_000)).toBe(true);
+    const mission = await app.inject({ method: 'POST', url: '/api/v1/missions', headers: auth(tokens.ops), payload: { name: 'Delivery Cup', startsOn: '2026-08-01' } });
+    const missionId = (mission.json() as { mission: { missionId: string } }).mission.missionId;
+    await app.inject({ method: 'GET', url: `/api/v1/comms/missions/${missionId}/thread`, headers: auth(tokens.ops) });
+
+    const res = await app.inject({ method: 'GET', url: '/api/v1/comms/stream', headers: auth(tokens.fin), payloadAsStream: true });
+    expect(res.statusCode).toBe(200);
+    const frames: string[] = [];
+    res.stream().on('data', (d: Buffer) => frames.push(d.toString('utf8')));
+
+    await app.inject({
+      method: 'POST',
+      url: `/api/v1/comms/missions/${missionId}/messages`,
+      headers: auth(tokens.ops),
+      payload: { body: 'delivered over the wire', links: [], clientMutationId: randomUUID() },
+    });
+
+    const got = await until(() => frames.join('').includes('event: message'), 10_000);
+    const all = frames.join('');
+    res.stream().destroy();
+    expect(got, `frames seen: ${all}`).toBe(true);
+    // The push carries the gated PROJECTION — the preview the reader could
+    // already see by opening the thread, never more.
+    expect(all).toContain('delivered over the wire');
+    expect(all).toContain('"recalled":false');
+  });
+
   it('🔒 LAW 1 AT THE SERVER: an UNENTITLED subscriber’s projection yields NOTHING — nothing is written to their stream at all', async () => {
     // ops holds a private room; the visitor is not seated.
     const room = await app.inject({ method: 'POST', url: '/api/v1/comms/rooms', headers: auth(tokens.ops), payload: { title: 'The Heads’ Table' } });

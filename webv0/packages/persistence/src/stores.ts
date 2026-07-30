@@ -936,7 +936,15 @@ export function createPersistence(config: PersistenceConfig): PersistenceHandle 
           exec(async (db) => {
             const rows = await db.select().from(schema.commsUserPreference).where(eq(schema.commsUserPreference.userId, userId)).limit(1);
             const r = rows[0];
-            return r ? { receiptsEnabled: r.receiptsEnabled, presenceEnabled: r.presenceEnabled, version: r.version } : null;
+            return r
+              ? {
+                  receiptsEnabled: r.receiptsEnabled,
+                  presenceEnabled: r.presenceEnabled,
+                  soundDirectEnabled: r.soundDirectEnabled,
+                  soundThreadEnabled: r.soundThreadEnabled,
+                  version: r.version,
+                }
+              : null;
           }),
 
         getCommsObligationByMutation: (createdByUserId: string, clientMutationId: string) =>

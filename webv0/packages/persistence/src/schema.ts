@@ -800,6 +800,9 @@ export const commsUserPreference = pgTable(
     receiptsEnabled: boolean('receipts_enabled').notNull().default(true),
     receiptsEnabledSince: timestamp('receipts_enabled_since', { withTimezone: true }),
     presenceEnabled: boolean('presence_enabled').notNull().default(true),
+    // B-LIVE (0099): per-user sound, narrow by default.
+    soundDirectEnabled: boolean('sound_direct_enabled').notNull().default(true),
+    soundThreadEnabled: boolean('sound_thread_enabled').notNull().default(false),
     version: integer('version').notNull().default(0),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

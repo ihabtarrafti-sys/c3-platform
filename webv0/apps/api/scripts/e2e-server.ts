@@ -6,6 +6,7 @@
 import { startTestDatabase } from '@c3web/test-support';
 import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
+import { startCommsLiveBus } from '@c3web/persistence';
 import { buildDeps } from '../src/deps';
 import { buildApp } from '../src/app';
 
@@ -76,6 +77,18 @@ const shutdown = async () => {
 };
 process.on('SIGTERM', () => void shutdown());
 process.on('SIGINT', () => void shutdown());
+
+// Phase B-LIVE: the e2e harness must exercise the SAME wiring production uses
+// — otherwise the live path is untested exactly where the battery would prove
+// it. A failure here is logged and non-fatal (the stream then reports
+// DEGRADED, which is itself a covered case).
+try {
+  const bus = await startCommsLiveBus(env.databaseUrl);
+  deps.attachCommsLiveBus(bus);
+  console.log('[e2e-server] comms live bus attached');
+} catch (err) {
+  console.error('[e2e-server] comms live bus FAILED to attach', err);
+}
 
 await app.listen({ port: env.port, host: '127.0.0.1' });
 // eslint-disable-next-line no-console

@@ -17,7 +17,7 @@
  * BOOK — owner-ruled "all can talk to all". Addressability only: nothing here
  * widened what anyone can SEE.
  */
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CommsLinkInput } from '@c3web/domain';
@@ -28,7 +28,9 @@ import { ApiError } from '../api';
 import { IS_ENTRA } from '../auth';
 import { EntraSignIn, AccessNotProvisioned } from './EntraSignIn';
 import { LoginGate } from './LoginGate';
-import { AppFrame, ContextHeader, Thread, truthStateOf, WorkSurface } from '../tablework';
+import { AppFrame, ContextHeader, Thread, ToastStack, truthStateOf, WorkSurface } from '../tablework';
+import { useCommsLive, playArrivalSound } from '../useCommsLive';
+import { useCommsPrefs } from '../queries';
 
 export function ThreadRoomPage() {
   const { threadId } = useParams<{ threadId: string }>();
@@ -56,10 +58,19 @@ function RoomScreen({ threadId }: { threadId: string }) {
   const notFound = room.error instanceof ApiError && room.error.status === 404;
   const data = room.data;
   const messages = useMemo(() => [...(data?.messages ?? [])].sort((a, b) => a.seq - b.seq), [data]);
-  const truth = truthStateOf(
+  // Phase B-LIVE: the connection's health is part of this region's witness.
+  const live = useCommsLive(!notFound);
+  const prefs = useCommsPrefs(!notFound);
+  const baseTruth = truthStateOf(
     { data: room.data, error: notFound ? null : room.error, isLoading: room.isLoading, dataUpdatedAt: room.dataUpdatedAt },
     (d) => d.messages.length === 0,
   );
+  // A dropped stream with rows on screen is STALE, not verified: the content
+  // may already be behind, and saying so is the whole contract.
+  const truth =
+    !live.state.healthy && baseTruth.kind === 'verified' && room.dataUpdatedAt
+      ? ({ kind: 'stale', verifiedAt: new Date(room.dataUpdatedAt), message: 'The live channel is not confirmed.' } as const)
+      : baseTruth;
 
   const iAmAdmin = data?.participants.some((p) => p.userId === me?.userId && p.role === 'admin') ?? false;
   // B8: the invite picker now draws on the COMMS ADDRESS BOOK (owner-ruled),
@@ -98,6 +109,17 @@ function RoomScreen({ threadId }: { threadId: string }) {
     },
     [invalidate],
   );
+
+  // Sound follows the ruled default: ON for what is aimed AT you (a direct
+  // thread), OFF for broad traffic — and a blocked play is reported, never
+  // swallowed (a pref that claims to be on while nothing sounds is a lie).
+  const soundOn = data?.thread.kind === 'direct' ? (prefs.data?.soundDirectEnabled ?? true) : (prefs.data?.soundThreadEnabled ?? false);
+  const [soundBlocked, setSoundBlocked] = useState(false);
+  const arrivalsForThisThread = live.arrivals.filter((a) => a.threadId === threadId);
+  useEffect(() => {
+    if (!soundOn || arrivalsForThisThread.length === 0) return;
+    void playArrivalSound().then((played) => setSoundBlocked(!played));
+  }, [soundOn, arrivalsForThisThread.length]);
 
   const kindLabel = data?.thread.kind === 'direct' ? 'Direct thread' : 'Room';
   const record = notFound ? threadId : (data?.thread.title ?? kindLabel);
@@ -146,6 +168,22 @@ function RoomScreen({ threadId }: { threadId: string }) {
               {actionError}
             </div>
           ) : null}
+          {soundBlocked ? (
+            <p className="cell-note" data-testid="sound-blocked">
+              Sound is on for this thread, but this browser has not allowed audio yet — one interaction enables it.
+            </p>
+          ) : null}
+          <ToastStack
+            items={live.arrivals
+              .filter((a) => a.threadId !== threadId)
+              .map((a) => ({
+                id: a.key,
+                title: a.recalled ? 'A message was recalled' : `New message from ${a.authorLabel ?? 'a member'}`,
+                detail: a.recalled ? null : (a.preview ?? null),
+                href: `/comms/threads/${a.threadId}`,
+              }))}
+            onDismiss={live.dismiss}
+          />
           <div className="comms-layout">
             <WorkSurface as="nav" tablework="SectionRail" className="comms-surface" aria-label="Room facts">
               <header className="surface-heading">

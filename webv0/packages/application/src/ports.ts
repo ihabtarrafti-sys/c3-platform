@@ -294,7 +294,7 @@ export interface ReadStore {
    */
   listDisclosedCommsReceipts(threadId: string): Promise<CommsReceipt[]>;
   /** The user's prefs row, or null (= the code-side defaults, both enabled). */
-  getCommsUserPreference(userId: string): Promise<{ receiptsEnabled: boolean; presenceEnabled: boolean; version: number } | null>;
+  getCommsUserPreference(userId: string): Promise<{ receiptsEnabled: boolean; presenceEnabled: boolean; soundDirectEnabled: boolean; soundThreadEnabled: boolean; version: number } | null>;
   /** An idempotent replay: this author's message for a clientMutationId, if any. */
   getCommsMessageByMutation(authorUserId: string, clientMutationId: string): Promise<CommsMessageView | null>;
   /** Keyset page (seq DESC): spine + LATEST revision body + links + attachments. */
@@ -1368,12 +1368,12 @@ export interface WriteTx {
    */
   upsertCommsInboxCursor(threadId: string, userId: string, seq: number): Promise<{ lastReadSeq: number; readAt: string }>;
   /** SELF-scoped prefs insert; null when a concurrent creator won (23505). */
-  insertCommsUserPreference(row: { userId: string; receiptsEnabled: boolean; presenceEnabled: boolean; receiptsEnabledSince: string | null }): Promise<{ version: number } | null>;
+  insertCommsUserPreference(row: { userId: string; receiptsEnabled: boolean; presenceEnabled: boolean; soundDirectEnabled: boolean; soundThreadEnabled: boolean; receiptsEnabledSince: string | null }): Promise<{ version: number } | null>;
   /** SELF-scoped version-guarded prefs update; null = stale/missing. */
   updateCommsUserPreference(
     userId: string,
     expectedVersion: number,
-    patch: { receiptsEnabled: boolean; presenceEnabled: boolean; stampReceiptsSince: boolean },
+    patch: { receiptsEnabled: boolean; presenceEnabled: boolean; soundDirectEnabled: boolean; soundThreadEnabled: boolean; stampReceiptsSince: boolean },
   ): Promise<{ version: number } | null>;
 }
 

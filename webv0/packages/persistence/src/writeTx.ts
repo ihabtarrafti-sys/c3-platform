@@ -2078,6 +2078,8 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
             userId: row.userId,
             receiptsEnabled: row.receiptsEnabled,
             presenceEnabled: row.presenceEnabled,
+            soundDirectEnabled: row.soundDirectEnabled,
+            soundThreadEnabled: row.soundThreadEnabled,
             receiptsEnabledSince: row.receiptsEnabledSince === null ? null : new Date(row.receiptsEnabledSince),
           })
           .returning();
@@ -2094,6 +2096,8 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
         .set({
           receiptsEnabled: patch.receiptsEnabled,
           presenceEnabled: patch.presenceEnabled,
+          soundDirectEnabled: patch.soundDirectEnabled,
+          soundThreadEnabled: patch.soundThreadEnabled,
           version: sql`${schema.commsUserPreference.version} + 1`,
           // The anti-retroactive-porosity stamp: only on a false→true transition.
           ...(patch.stampReceiptsSince ? { receiptsEnabledSince: sql`now()` } : {}),

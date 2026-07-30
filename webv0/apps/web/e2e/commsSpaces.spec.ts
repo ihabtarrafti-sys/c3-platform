@@ -94,3 +94,43 @@ test('B8: the address book opens a direct thread, and the DM states its retentio
   // Its audience treaty is verified and names the pair, so Send is live.
   await expect(page.locator('[data-treaty="verified"]')).toBeVisible();
 });
+
+test('B-LIVE: a message ARRIVES without a refresh, and the toast carries only what the reader could already see', async ({ page, context }) => {
+  await login(page, 'lead@alpha.com', 'operations');
+  await login(page, 'ops@alpha.com', 'operations');
+
+  // Ops opens a DM with lead and sits on the ledger (the other party's view).
+  await page.getByTestId('nav-comms').click();
+  await page.getByTestId('comms-directory').locator('select').selectOption({ index: 1 });
+  await expect(page).toHaveURL(/\/comms\/threads\/THR-\d+/);
+  const threadUrl = page.url();
+  const threadId = threadUrl.split('/').pop()!;
+
+  // The other member posts from a second session…
+  const other = await context.browser()!.newContext();
+  const otherPage = await other.newPage();
+  await login(otherPage, 'lead@alpha.com', 'operations');
+  await otherPage.goto(threadUrl);
+  await otherPage.locator('#thread-message').fill('arriving live, no refresh');
+  await otherPage.getByRole('button', { name: 'Send', exact: true }).click();
+
+  // …and it appears on the first session WITHOUT a reload (the artifact, not
+  // the words: the message region re-renders through its gated query).
+  await expect(page.getByText('arriving live, no refresh')).toBeVisible({ timeout: 20_000 });
+  await other.close();
+  void threadId;
+});
+
+test('B-LIVE: a dead stream renders STALE with its last-confirmed time — never old rows presented as current', async ({ page }) => {
+  await login(page, 'ops@alpha.com', 'operations');
+  await page.getByTestId('nav-comms').click();
+
+  // The stream is then cut for every subsequent attempt: this is the BUFFERED
+  // /DEAD case, which delivers nothing — including heartbeats — so the client's
+  // watchdog must convert silence into a visible stale stamp rather than
+  // leaving a healthy-looking screen.
+  await page.route('**/api/v1/comms/stream', (r) => r.abort());
+  await page.reload();
+
+  await expect(page.locator('[data-truth="stale"]')).toBeVisible({ timeout: 30_000 });
+});

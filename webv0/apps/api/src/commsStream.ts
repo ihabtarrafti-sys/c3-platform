@@ -91,7 +91,14 @@ export function registerCommsStream(
     const actor = deps.actorOf(req);
     const bus = deps.getBus();
 
+    // ⚠️ MERGE fastify's computed headers, never replace them. Writing to
+    // `reply.raw` bypasses fastify's header pipeline entirely, so anything a
+    // hook has already set — CORS above all — is LOST unless carried across
+    // deliberately. `app.inject` cannot catch this (it has no origin policy),
+    // so the browser was the only instrument that could: the stream failed
+    // with a bare "Failed to fetch" while every server-side test passed.
     reply.raw.writeHead(200, {
+      ...(reply.getHeaders() as Record<string, string | number | string[]>),
       'content-type': 'text/event-stream',
       'cache-control': 'no-cache, no-transform',
       connection: 'keep-alive',

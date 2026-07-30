@@ -9429,6 +9429,12 @@
             "receiptsEnabled": {
               "t": "boolean"
             },
+            "soundDirectEnabled": {
+              "t": "boolean"
+            },
+            "soundThreadEnabled": {
+              "t": "boolean"
+            },
             "version": {
               "t": "nullable",
               "inner": {
@@ -9456,6 +9462,12 @@
           },
           "receiptsEnabled": {
             "t": "boolean"
+          },
+          "soundDirectEnabled": {
+            "t": "boolean"
+          },
+          "soundThreadEnabled": {
+            "t": "boolean"
           }
         }
       },
@@ -9467,6 +9479,12 @@
               "t": "boolean"
             },
             "receiptsEnabled": {
+              "t": "boolean"
+            },
+            "soundDirectEnabled": {
+              "t": "boolean"
+            },
+            "soundThreadEnabled": {
               "t": "boolean"
             },
             "version": {

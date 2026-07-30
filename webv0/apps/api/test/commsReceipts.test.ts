@@ -140,7 +140,17 @@ describe('receipts — the cursor + watermark derive (Battle #1)', () => {
 
   it('prefs: the three-way CAS (row+null → 409; stale → 409; no row remains the defaults)', async () => {
     const prefs = await app.inject({ method: 'GET', url: '/api/v1/comms/prefs', headers: auth(tokens.visitor) });
-    expect(prefs.json()).toEqual({ receiptsEnabled: true, presenceEnabled: true, version: null });
+    // SUPERSEDED IN PLACE (B-LIVE / migration 0099): the absent-row defaults now
+    // also carry the sound preference — ON for traffic aimed AT you, OFF for
+    // broad thread traffic. The assertion stays EXACT (toEqual, not
+    // objectContaining) so a future silent widening of this shape fails here.
+    expect(prefs.json()).toEqual({
+      receiptsEnabled: true,
+      presenceEnabled: true,
+      soundDirectEnabled: true,
+      soundThreadEnabled: false,
+      version: null,
+    });
     expect((await setPrefs(tokens.visitor, false, null)).statusCode).toBe(200);
     expect((await setPrefs(tokens.visitor, true, null)).statusCode).toBe(409); // row exists, null claimed
     expect((await setPrefs(tokens.visitor, true, 99)).statusCode).toBe(409); // stale version

@@ -74,8 +74,17 @@ export async function getCommsPrefs(p: Persistence, actor: Actor): Promise<Comms
   const ent = await reads.getModuleEntitlement(COMMS_MODULE_KEY);
   if (!ent) throw new NotFoundError('Comms', 'preferences');
   const row = await reads.getCommsUserPreference(actor.userId);
-  if (!row) return { receiptsEnabled: true, presenceEnabled: true, version: null };
-  return { receiptsEnabled: row.receiptsEnabled, presenceEnabled: row.presenceEnabled, version: row.version };
+  // The absent-row defaults mirror 0099's column defaults EXACTLY — one truth
+  // about "sound on for what is aimed at me, off for broad traffic", stated in
+  // both places rather than drifting between them.
+  if (!row) return { receiptsEnabled: true, presenceEnabled: true, soundDirectEnabled: true, soundThreadEnabled: false, version: null };
+  return {
+    receiptsEnabled: row.receiptsEnabled,
+    presenceEnabled: row.presenceEnabled,
+    soundDirectEnabled: row.soundDirectEnabled,
+    soundThreadEnabled: row.soundThreadEnabled,
+    version: row.version,
+  };
 }
 
 /**
@@ -99,6 +108,8 @@ export async function setCommsPrefs(p: Persistence, actor: Actor, input: SetComm
         userId: actor.userId,
         receiptsEnabled: parsed.receiptsEnabled,
         presenceEnabled: parsed.presenceEnabled,
+        soundDirectEnabled: parsed.soundDirectEnabled,
+        soundThreadEnabled: parsed.soundThreadEnabled,
         receiptsEnabledSince: null,
       });
       if (!inserted) throw new ConcurrencyError('CommsPrefs', actor.userId); // a concurrent creator won
@@ -108,6 +119,8 @@ export async function setCommsPrefs(p: Persistence, actor: Actor, input: SetComm
     const updated = await tx.updateCommsUserPreference(actor.userId, parsed.expectedVersion, {
       receiptsEnabled: parsed.receiptsEnabled,
       presenceEnabled: parsed.presenceEnabled,
+      soundDirectEnabled: parsed.soundDirectEnabled,
+      soundThreadEnabled: parsed.soundThreadEnabled,
       // The watermark stamps ONLY on the false→true transition.
       stampReceiptsSince: !current.receiptsEnabled && parsed.receiptsEnabled,
     });
@@ -115,5 +128,11 @@ export async function setCommsPrefs(p: Persistence, actor: Actor, input: SetComm
     return updated;
   });
 
-  return { receiptsEnabled: parsed.receiptsEnabled, presenceEnabled: parsed.presenceEnabled, version: result.version };
+  return {
+    receiptsEnabled: parsed.receiptsEnabled,
+    presenceEnabled: parsed.presenceEnabled,
+    soundDirectEnabled: parsed.soundDirectEnabled,
+    soundThreadEnabled: parsed.soundThreadEnabled,
+    version: result.version,
+  };
 }

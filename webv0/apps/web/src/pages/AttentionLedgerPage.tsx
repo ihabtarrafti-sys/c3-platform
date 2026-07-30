@@ -19,7 +19,8 @@ import { api } from '../apiClient';
 import { IS_ENTRA } from '../auth';
 import { EntraSignIn, AccessNotProvisioned } from './EntraSignIn';
 import { LoginGate } from './LoginGate';
-import { AppFrame, ContextHeader, TruthPanel, truthStateOf, WorkSurface } from '../tablework';
+import { AppFrame, ContextHeader, ToastStack, TruthPanel, truthStateOf, WorkSurface } from '../tablework';
+import { useCommsLive } from '../useCommsLive';
 
 export function AttentionLedgerPage() {
   const { status, providerSession, signOut } = useSession();
@@ -94,7 +95,10 @@ function LedgerScreen() {
   // visibility, the two things the ruling separated.
   const directory = useCommsDirectory();
 
-  const truth = truthStateOf(
+  // Phase B-LIVE: the ledger is a live surface too — its counts must not look
+  // current while the channel that would update them is down.
+  const live = useCommsLive(true);
+  const baseTruth = truthStateOf(
     { data: ledger.data, error: ledger.error, isLoading: ledger.isLoading, dataUpdatedAt: ledger.dataUpdatedAt },
     (d) =>
       d.awaitingMyAcceptance.length === 0 &&
@@ -103,6 +107,10 @@ function LedgerScreen() {
       d.watching.length === 0 &&
       d.threads.length === 0,
   );
+  const truth =
+    !live.state.healthy && baseTruth.kind === 'verified' && ledger.dataUpdatedAt
+      ? ({ kind: 'stale', verifiedAt: new Date(ledger.dataUpdatedAt), message: 'The live channel is not confirmed.' } as const)
+      : baseTruth;
   const data = ledger.data;
 
   const createRoom = () => {
@@ -185,6 +193,19 @@ function LedgerScreen() {
           <span className="cell-note">Anyone here can be written to. What they can SEE is unchanged.</span>
         </div>
       ) : null}
+      <ToastStack
+        items={live.arrivals.map((a) => ({
+          id: a.key,
+          title: a.recalled ? 'A message was recalled' : `New message from ${a.authorLabel ?? 'a member'}`,
+          detail: a.recalled ? null : (a.preview ?? null),
+          href: `/comms/threads/${a.threadId}`,
+        }))}
+        onDismiss={live.dismiss}
+        onOpen={(t) => {
+          live.dismiss(t.id);
+          if (t.href) navigate(t.href);
+        }}
+      />
       <TruthPanel state={truth} emptyLabel="You are caught up — nothing awaits your act.">
         {data ? (
           <div className="comms-layout" style={{ alignItems: 'start' }}>

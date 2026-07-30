@@ -11708,12 +11708,18 @@ paths:
                     type: boolean
                   presenceEnabled:
                     type: boolean
+                  soundDirectEnabled:
+                    type: boolean
+                  soundThreadEnabled:
+                    type: boolean
                   version:
                     type: integer
                     nullable: true
                 required:
                   - receiptsEnabled
                   - presenceEnabled
+                  - soundDirectEnabled
+                  - soundThreadEnabled
                   - version
                 additionalProperties: false
     post:
@@ -11728,6 +11734,12 @@ paths:
                   type: boolean
                 presenceEnabled:
                   type: boolean
+                soundDirectEnabled:
+                  type: boolean
+                  default: true
+                soundThreadEnabled:
+                  type: boolean
+                  default: false
                 expectedVersion:
                   type: integer
                   minimum: 0
@@ -11749,12 +11761,18 @@ paths:
                     type: boolean
                   presenceEnabled:
                     type: boolean
+                  soundDirectEnabled:
+                    type: boolean
+                  soundThreadEnabled:
+                    type: boolean
                   version:
                     type: integer
                     nullable: true
                 required:
                   - receiptsEnabled
                   - presenceEnabled
+                  - soundDirectEnabled
+                  - soundThreadEnabled
                   - version
                 additionalProperties: false
   /api/v1/comms/missions/{missionId}/obligations:

@@ -45,3 +45,4 @@ export { Message, initialsOf } from './Message';
 export { ObligationCard, type ObligationActionInput } from './ObligationCard';
 export { ObligationFact, type TruthState } from './TruthValue';
 export { TruthPanel, truthStateOf, type WitnessState } from './TruthPanel';
+export { ToastStack, type ToastItem } from './Toast';

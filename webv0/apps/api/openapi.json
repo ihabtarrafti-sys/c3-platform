@@ -16056,6 +16056,12 @@
                     "presenceEnabled": {
                       "type": "boolean"
                     },
+                    "soundDirectEnabled": {
+                      "type": "boolean"
+                    },
+                    "soundThreadEnabled": {
+                      "type": "boolean"
+                    },
                     "version": {
                       "type": "integer",
                       "nullable": true
@@ -16064,6 +16070,8 @@
                   "required": [
                     "receiptsEnabled",
                     "presenceEnabled",
+                    "soundDirectEnabled",
+                    "soundThreadEnabled",
                     "version"
                   ],
                   "additionalProperties": false
@@ -16086,6 +16094,14 @@
                   },
                   "presenceEnabled": {
                     "type": "boolean"
+                  },
+                  "soundDirectEnabled": {
+                    "type": "boolean",
+                    "default": true
+                  },
+                  "soundThreadEnabled": {
+                    "type": "boolean",
+                    "default": false
                   },
                   "expectedVersion": {
                     "type": "integer",
@@ -16117,6 +16133,12 @@
                     "presenceEnabled": {
                       "type": "boolean"
                     },
+                    "soundDirectEnabled": {
+                      "type": "boolean"
+                    },
+                    "soundThreadEnabled": {
+                      "type": "boolean"
+                    },
                     "version": {
                       "type": "integer",
                       "nullable": true
@@ -16125,6 +16147,8 @@
                   "required": [
                     "receiptsEnabled",
                     "presenceEnabled",
+                    "soundDirectEnabled",
+                    "soundThreadEnabled",
                     "version"
                   ],
                   "additionalProperties": false

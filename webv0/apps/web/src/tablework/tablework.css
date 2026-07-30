@@ -2849,3 +2849,52 @@
     background: Highlight;
   }
 }
+
+/* ── Phase B-LIVE: the toast stack (tokens only; no bespoke hexes) ──────────
+   Ruled posture: reduced-motion/reduced-effects degrade to no EFFECTS, not to
+   no NOTICE — the notice stays visible, plain and static, because a person who
+   asked for less motion did not ask to stop being told their messages arrived. */
+.tw-root .toast-stack {
+  position: fixed;
+  right: var(--space-6, 1.5rem);
+  bottom: var(--space-6, 1.5rem);
+  z-index: 60;
+  display: grid;
+  gap: var(--space-3, 0.75rem);
+  width: min(24rem, calc(100vw - 2rem));
+}
+.tw-root .toast {
+  display: grid;
+  gap: var(--space-2, 0.5rem);
+  padding: var(--space-4, 1rem);
+  border: 1px solid var(--c3-line, currentColor);
+  border-radius: var(--radius-panel, 12px);
+  background: var(--c3-surface-raised, Canvas);
+  color: var(--c3-ink, CanvasText);
+  box-shadow: var(--shadow-float, 0 8px 24px rgb(0 0 0 / 0.24));
+  animation: toast-arrive var(--motion-quick, 160ms) ease-out;
+}
+.tw-root .toast-copy strong {
+  display: block;
+}
+@keyframes toast-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+/* No motion, no float material — but the notice remains. */
+@media (prefers-reduced-motion: reduce) {
+  .tw-root .toast {
+    animation: none;
+  }
+}
+[data-c3-effects='reduced'] .tw-root .toast {
+  animation: none;
+  box-shadow: none;
+  background: var(--c3-surface, Canvas);
+}

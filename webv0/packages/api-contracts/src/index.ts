@@ -836,6 +836,8 @@ export const commsReceiptsResponseSchema = z.object({
 export const commsPrefsResponseSchema = z.object({
   receiptsEnabled: z.boolean(),
   presenceEnabled: z.boolean(),
+  soundDirectEnabled: z.boolean(),
+  soundThreadEnabled: z.boolean(),
   version: z.number().int().nullable(),
 });
 export { advanceCommsCursorInputSchema, setCommsPrefsInputSchema };
