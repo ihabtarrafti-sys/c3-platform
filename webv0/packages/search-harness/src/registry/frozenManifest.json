@@ -811,7 +811,7 @@
     "packages/persistence/src#tree": "019443508d22de0362008b0ba738d1be540d23399bdbd801a707353a9f5d0b6d",
     "packages/persistence/migrations#tree": "acfb09901aa40fd5e48fd3e56fdad3e728e9e52deb54284be2f7194842e8f2c2",
     "packages/api-contracts/src#tree": "578ccd6b17bdb9bf03a349c30ad20c0119aecc183e52eae0965df7560b22ea4d",
-    "packages/search-harness#enforcement-tree": "b54679e3a9658a1cdf5132097d7ccb561162712015640464b9ff352331c038ef",
+    "packages/search-harness#enforcement-tree": "5a812b83c63a1279a1d78bce1aa0aa9002d5c1368b071951467b6773d3b4177f",
     "../.github/workflows/webv0-ci.yml#wiring": "c907e9e4910ef762b8625b7a90282cdb9451ae6c8b82f247e2a8654ef7a97de4",
     "apps/web/test/identityTokens.test.ts#wiring": "03e37dc9069b6549d6a8c53bdcca7e46afcc4b47b71267c657d6bea233cea341",
     "apps/api/contract/v1.json#wiring": "11d122b80e45cb2a7572c9fbc5f58bba5273ece6b6b9cf67396363fef2417fa8",
