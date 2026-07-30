@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 
 /**
  * Theme mode + effects preference (S47, Direction E). Dark-first: the default
@@ -9,10 +9,13 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
  */
 
 type Mode = 'dark' | 'light';
+type Skin = 'iris' | 'afterglow';
 
 interface ModeContextValue {
   readonly mode: Mode;
   toggleMode(): void;
+  readonly skin: Skin;
+  toggleSkin(): void;
   readonly effectsReduced: boolean;
   toggleEffects(): void;
 }
@@ -30,6 +33,7 @@ function readStored<T extends string>(key: string, allowed: readonly T[], fallba
 
 export function ThemeModeProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<Mode>(() => readStored('c3-mode', ['dark', 'light'] as const, 'dark'));
+  const [skin, setSkin] = useState<Skin>(() => readStored('c3-skin', ['iris', 'afterglow'] as const, 'iris'));
   const [effects, setEffects] = useState<'full' | 'reduced'>(() =>
     readStored('c3-effects', ['full', 'reduced'] as const, 'full'),
   );
@@ -44,6 +48,15 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
       /* storage unavailable — mode still applies for the session */
     }
   }, [mode]);
+
+  useLayoutEffect(() => {
+    document.documentElement.dataset.c3Skin = skin;
+    try {
+      localStorage.setItem('c3-skin', skin);
+    } catch {
+      /* storage unavailable — skin still applies for the session */
+    }
+  }, [skin]);
 
   useEffect(() => {
     if (effects === 'reduced') document.documentElement.dataset.c3Effects = 'reduced';
@@ -60,6 +73,8 @@ export function ThemeModeProvider({ children }: { children: ReactNode }) {
       value={{
         mode,
         toggleMode: () => setMode((m) => (m === 'dark' ? 'light' : 'dark')),
+        skin,
+        toggleSkin: () => setSkin((face) => (face === 'iris' ? 'afterglow' : 'iris')),
         effectsReduced: effects === 'reduced',
         toggleEffects: () => setEffects((e) => (e === 'full' ? 'reduced' : 'full')),
       }}

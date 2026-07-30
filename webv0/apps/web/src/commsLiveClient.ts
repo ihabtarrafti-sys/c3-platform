@@ -15,7 +15,8 @@
  *   · frames arriving, heartbeat fresh → the region reads normally;
  *   · heartbeat missed (2× the server's interval) or the server reports the
  *     bus DEGRADED → `stale`, carrying the LAST CONFIRMED time;
- *   · never connected at all → the region's own fetch state decides (loud).
+ *   · never confirmed at all → the region keeps the fetched view readable but
+ *     stale, and governed actions stay absent until the channel proves itself.
  * A buffered stream delivers nothing INCLUDING heartbeats, so buffering
  * surfaces as staleness rather than as a healthy-looking socket.
  *

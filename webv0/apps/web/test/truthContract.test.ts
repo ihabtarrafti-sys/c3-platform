@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { truthStateOf } from '../src/tablework/TruthPanel';
 
 const srcDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const read = (rel: string): string => readFileSync(join(srcDir, rel), 'utf8');
@@ -40,6 +41,20 @@ describe('The six-state truth contract (the kit)', () => {
 
   it('the kit surface exports the contract for every consumer', () => {
     expect(read('tablework/index.ts')).toContain('TruthPanel');
+  });
+
+  it('successful witness time is stable across rerenders and comes from the query witness', () => {
+    const witnessedAt = Date.parse('2026-07-30T20:00:00.000Z');
+    const first = truthStateOf(
+      { data: { rows: ['record'] }, error: null, isLoading: false, dataUpdatedAt: witnessedAt },
+      (data) => data.rows.length === 0,
+    );
+    const second = truthStateOf(
+      { data: { rows: ['record'] }, error: null, isLoading: false, dataUpdatedAt: witnessedAt },
+      (data) => data.rows.length === 0,
+    );
+    expect(first).toEqual({ kind: 'verified', at: new Date(witnessedAt) });
+    expect(second).toEqual(first);
   });
 });
 
