@@ -1883,8 +1883,8 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       // ON CONFLICT on the send-idempotency unique DO NOTHING: false = duplicate
       // send; the caller re-reads the existing message (tx stays healthy).
       const res = await db.execute(sql`
-        INSERT INTO comms_message (tenant_id, message_id, thread_id, seq, author_user_id, author_label, client_mutation_id, retention_due_at)
-        VALUES (${tenantId}, ${row.messageId}, ${row.threadId}, ${row.seq}, ${row.authorUserId}, ${row.authorLabel}, ${row.clientMutationId},
+        INSERT INTO comms_message (tenant_id, message_id, thread_id, seq, author_user_id, author_label, client_mutation_id, message_kind, supersedes_message_id, retention_due_at)
+        VALUES (${tenantId}, ${row.messageId}, ${row.threadId}, ${row.seq}, ${row.authorUserId}, ${row.authorLabel}, ${row.clientMutationId}, ${row.messageKind ?? 'note'}, ${row.supersedesMessageId ?? null},
                 CASE WHEN ${row.retentionDays ?? null}::int IS NULL THEN NULL ELSE now() + make_interval(days => ${row.retentionDays ?? null}::int) END)
         ON CONFLICT (tenant_id, author_user_id, client_mutation_id) DO NOTHING
         RETURNING id

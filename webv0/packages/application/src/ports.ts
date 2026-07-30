@@ -768,6 +768,9 @@ export interface NewCommsMessageRow {
   readonly clientMutationId: string;
   /** Phase B: direct threads stamp retention ON the insert (the spine is INSERT-only). */
   readonly retentionDays?: number | null;
+  /** Phase C: decision records — the kind is fixed at post time. */
+  readonly messageKind?: 'note' | 'decision';
+  readonly supersedesMessageId?: string | null;
 }
 
 /** Phase B (activation): the dormant-kind writer + participant rows/views. */

@@ -47,7 +47,8 @@ import type {
   MyObligationPartyRow,
   Persistence,
 } from '../ports';
-import { assertViewCommsThread, isEntitlementWritable } from './commsOps';
+import { assertSupersessionIsLawful, assertViewCommsThread, isEntitlementWritable } from './commsOps';
+import { resolveTransclusions } from './commsTransclusion';
 
 /** 0090's CHECK allows 30–365; the ruled v1 default. Owner-tunable later. */
 export const DIRECT_RETENTION_DAYS = 90;
@@ -77,7 +78,8 @@ export async function getThreadRoom(
   await assertViewCommsThread(reads, actor, thread);
 
   const limit = Math.min(Math.max(page?.limit ?? 50, 1), COMMS_MESSAGES_PAGE_MAX);
-  const messages = await reads.listCommsMessages(thread.threadId, limit, page?.beforeSeq ?? null);
+  const raw = await reads.listCommsMessages(thread.threadId, limit, page?.beforeSeq ?? null);
+  const messages = await resolveTransclusions(reads, actor, raw);
   const myCursor = await reads.getCommsInboxCursor(thread.threadId, actor.userId);
   const participants = thread.kind === 'anchored' ? [] : await reads.listCommsThreadParticipants(thread.threadId);
   const events = thread.kind === 'anchored' ? [] : await reads.listCommsThreadEvents(thread.threadId);
@@ -113,6 +115,8 @@ export async function postThreadMessage(
   await assertViewCommsThread(reads, actor, thread); // write ⊇ read (D2)
   if (!isEntitlementWritable(ent)) throw new ModuleReadOnlyError(COMMS_MODULE_KEY);
 
+  await assertSupersessionIsLawful(reads, parsed.supersedesMessageId, threadId);
+
   const replay = await reads.getCommsMessageByMutation(actor.userId, parsed.clientMutationId);
   if (replay) return replay;
 
@@ -128,6 +132,10 @@ export async function postThreadMessage(
       authorLabel: actor.displayName,
       clientMutationId: parsed.clientMutationId,
       retentionDays: thread.kind === 'direct' ? DIRECT_RETENTION_DAYS : null,
+      // Phase C: decision records live in rooms and DMs too — one law for every
+      // thread kind (the kind is fixed at post time; the spine is INSERT-only).
+      messageKind: parsed.messageKind,
+      supersedesMessageId: parsed.supersedesMessageId,
     });
     if (!inserted) return; // duplicate send: the replay read below returns the winner
     const revisionId = await tx.insertCommsMessageRevision({

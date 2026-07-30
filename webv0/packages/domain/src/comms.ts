@@ -52,15 +52,51 @@ const commsLinkSchema = z
   });
 export type CommsLinkInput = z.infer<typeof commsLinkSchema>;
 
+/** Phase C — DECISION RECORDS: a note is conversation; a DECISION is a ruling
+ *  captured where it was made, and it may name the decision it supersedes. */
+export const COMMS_MESSAGE_KINDS = ['note', 'decision'] as const;
+export type CommsMessageKind = (typeof COMMS_MESSAGE_KINDS)[number];
+
 /** Post a message: untrusted plain-text body + optional chips + send idempotency. */
 export const postCommsMessageInputSchema = z
   .object({
     body: z.string().trim().min(1, 'The message is empty.').max(COMMS_MESSAGE_MAX_CHARS),
     links: z.array(commsLinkSchema).max(10).default([]),
     clientMutationId: z.string().uuid(),
+    messageKind: z.enum(COMMS_MESSAGE_KINDS).default('note'),
+    supersedesMessageId: z.string().regex(/^MSG-\d{4,}$/).nullable().default(null),
   })
-  .strict();
+  .strict()
+  .refine((v) => v.supersedesMessageId === null || v.messageKind === 'decision', {
+    message: 'Only a decision may supersede a decision.',
+    path: ['supersedesMessageId'],
+  });
 export type PostCommsMessageInput = z.infer<typeof postCommsMessageInputSchema>;
+
+/**
+ * Phase C — LIVE TRANSCLUSION. A message may carry `{{roster:MSN-xxxx}}` or
+ * `{{perdiem:MSN-xxxx}}`; the block is resolved AT READ TIME for THIS viewer
+ * under THEIR capabilities. A pasted table is both a disclosure hazard (it
+ * outlives the reader's standing) and a staleness lie (it stops being true the
+ * moment the record moves). A transcluded one is neither.
+ *
+ * The vocabulary is CLOSED — `roster` and `perdiem`, each with its own
+ * capability mapping. There is deliberately no generic query language: that
+ * would be a disclosure surface wearing a feature's clothes.
+ */
+export const COMMS_TRANSCLUSION_KINDS = ['roster', 'perdiem'] as const;
+export type CommsTransclusionKind = (typeof COMMS_TRANSCLUSION_KINDS)[number];
+
+export interface TransclusionBlockView {
+  readonly kind: CommsTransclusionKind;
+  readonly anchorId: string;
+  readonly state: 'rendered' | 'denied';
+  readonly title: string;
+  /** rendered: the per-viewer projection. denied: structurally absent. */
+  readonly rows?: Array<{ label: string; value: string }>;
+  /** denied: the honest reason class — never dressed as emptiness. */
+  readonly deniedReason?: string;
+}
 
 /** The module entitlement row as the application reasons about it (0088). */
 export interface ModuleEntitlement {
@@ -140,6 +176,11 @@ export type CommsMessageView =
       readonly links: CommsMessageLink[];
       readonly attachments: CommsMessageAttachment[];
       readonly createdAt: string;
+      /** Phase C: the ruling's kind, and what it replaces (decision records). */
+      readonly messageKind: CommsMessageKind;
+      readonly supersedesMessageId: string | null;
+      /** Phase C: blocks resolved per-viewer at read time (absent when none). */
+      readonly blocks?: TransclusionBlockView[];
     }
   | {
       readonly recalled: CommsRecallView;
@@ -153,6 +194,32 @@ export type CommsMessageView =
     };
 
 // ── The Obligation (the scar-killer): delivered ≠ accepted ≠ done ────────────
+
+/**
+ * SETTLED — THE DERIVED VIEW (owner ruling 4, 2026-07-30). Intel's shape; mine
+ * ("granted by standing") was OVERRULED, and the ruling is right: a STORED
+ * settlement is a claim that can drift from the facts that justify it —
+ * someone sets a flag, evidence is later withdrawn, and the record now asserts
+ * something no longer true. A DERIVED station cannot drift, because it has no
+ * independent existence: it IS the three facts, re-read.
+ *
+ * ⛔ THEREFORE, PERMANENTLY: no `settled` column, no settle route, no settle
+ * button, no `settled_at`, no "unsettle". `commsSettled.test.ts` pins each of
+ * those absences, so a future phase that wants a stored Settled must
+ * consciously break a named test — a decision, never a drift.
+ *
+ * The derivation, in one place, used by every surface:
+ *   settled ⇔ evidence delivered ∧ acceptance recorded ∧ the Done act
+ */
+export function isObligationSettled(o: {
+  readonly state: CommsObligationState;
+  readonly evidence: ReadonlyArray<unknown>;
+}): boolean {
+  const deliveryKnown = o.evidence.length > 0;
+  const acceptanceKnown = o.state === 'Accepted' || o.state === 'Done';
+  const doneKnown = o.state === 'Done';
+  return deliveryKnown && acceptanceKnown && doneKnown;
+}
 
 export const COMMS_OBLIGATION_STATES = ['Open', 'Delivered', 'Accepted', 'Done', 'Cancelled'] as const;
 export type CommsObligationState = (typeof COMMS_OBLIGATION_STATES)[number];
@@ -178,6 +245,10 @@ export const createCommsObligationInputSchema = z
     dueAt: z.string().datetime({ offset: true }),
     evidenceRequirement: z.string().trim().min(1).max(1000),
     clientMutationId: z.string().uuid(),
+    /** Phase C: mint-from-message provenance (0092's column, activated).
+     *  Escalation is a TIER CHANGE — a message becomes tracked work — never an
+     *  aggregation over people. */
+    sourceMessageId: z.string().regex(/^MSG-\d{4,}$/).nullable().default(null),
   })
   .strict()
   // Separation of duties — the "delivered ≠ accepted" independence is
@@ -226,6 +297,8 @@ export interface CommsEvidenceView {
 export interface CommsObligationView {
   readonly obligationId: string;
   readonly threadId: string;
+  /** Phase C: the message this obligation was minted FROM, if any. */
+  readonly sourceMessageId: string | null;
   readonly state: CommsObligationState;
   readonly description: string;
   readonly accountableUserId: string;

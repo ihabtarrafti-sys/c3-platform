@@ -41,6 +41,7 @@ import {
   postCommsMessageInputSchema,
 } from '@c3web/domain';
 import { assertReadPeople, canManageMissions } from '@c3web/authz';
+import { resolveTransclusions } from './commsTransclusion';
 import type { Persistence, ReadStore } from '../ports';
 
 /** active AND inside the effective window — the write-side license test. */
@@ -176,7 +177,10 @@ export async function getMissionThread(
   if (!thread) return { thread: null, messages: [], myLastReadSeq: null };
 
   const limit = Math.min(Math.max(page?.limit ?? 50, 1), COMMS_MESSAGES_PAGE_MAX);
-  const messages = await reads.listCommsMessages(thread.threadId, limit, page?.beforeSeq ?? null);
+  const raw = await reads.listCommsMessages(thread.threadId, limit, page?.beforeSeq ?? null);
+  // Phase C: transclusion resolves at the READ BOUNDARY, so every consumer of
+  // a thread gets it — never one route while another silently doesn't.
+  const messages = await resolveTransclusions(reads, actor, raw);
   const myCursor = await reads.getCommsInboxCursor(thread.threadId, actor.userId);
   return { thread, messages, myLastReadSeq: myCursor?.lastReadSeq ?? null };
 }
@@ -236,6 +240,7 @@ export async function postMissionMessage(
 
   let thread = await reads.getCommsThreadByAnchor('Mission', missionId);
   if (!thread) thread = await createMissionThread(p, actor, missionId);
+  await assertSupersessionIsLawful(reads, parsed.supersedesMessageId, thread.threadId);
   const threadId = thread.threadId;
 
   await p.writes.transaction(actor, async (tx) => {
@@ -249,6 +254,12 @@ export async function postMissionMessage(
       authorUserId: actor.userId,
       authorLabel: actor.displayName,
       clientMutationId: parsed.clientMutationId,
+      // ⚠️ THE BATTLE'S FAIL WAS EXACTLY HERE: the schema accepted the kind and
+      // the persist dropped it silently — a defect living BETWEEN two layers
+      // that each looked correct alone. The RED for this reads the kind back
+      // from the SPINE, never from the response echo.
+      messageKind: parsed.messageKind,
+      supersedesMessageId: parsed.supersedesMessageId,
     });
     if (!inserted) {
       // A concurrent duplicate send won the idempotency unique — roll this tx
@@ -467,6 +478,24 @@ export async function recallMissionMessage(
   const recall = await reads.getCommsMessageRecall(messageId);
   if (!recall) throw new Error('tombstone written but not readable');
   return { recall, downstreamFactsRemain: await hasDownstreamFacts(reads, messageId) };
+}
+
+/**
+ * Phase C: a supersession must point at a LIVE decision in the SAME thread.
+ * Two refusals, both because a ruling may not stand on an absence:
+ *  · a message in another thread is not this conversation's history;
+ *  · a RECALLED decision cannot be superseded — superseding it would dress its
+ *    absence as history, which is the recall lane's lie in the other direction.
+ */
+export async function assertSupersessionIsLawful(reads: ReadStore, supersedesMessageId: string | null, threadId: string): Promise<void> {
+  if (supersedesMessageId === null) return;
+  const target = await reads.getCommsMessageByMessageId(supersedesMessageId);
+  if (!target || target.threadId !== threadId) {
+    throw new ValidationError('A decision may only supersede a message in the same thread.');
+  }
+  if ((await reads.getCommsMessageRecall(supersedesMessageId)) !== null) {
+    throw new ValidationError('That decision was recalled — superseding it would dress an absence as history.');
+  }
 }
 
 /** Item 6: recall never cascades — this reports, it does not remove. */

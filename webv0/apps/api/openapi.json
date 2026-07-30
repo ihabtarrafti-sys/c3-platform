@@ -13419,6 +13419,74 @@
                                   ],
                                   "additionalProperties": false
                                 }
+                              },
+                              "messageKind": {
+                                "type": "string",
+                                "enum": [
+                                  "note",
+                                  "decision"
+                                ]
+                              },
+                              "supersedesMessageId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "blocks": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "roster",
+                                        "perdiem"
+                                      ]
+                                    },
+                                    "anchorId": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string",
+                                      "enum": [
+                                        "rendered",
+                                        "denied"
+                                      ]
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "rows": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "value": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "label",
+                                          "value"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "deniedReason": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "anchorId",
+                                    "state",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               }
                             },
                             "required": [
@@ -13432,7 +13500,9 @@
                               "createdAt",
                               "body",
                               "links",
-                              "attachments"
+                              "attachments",
+                              "messageKind",
+                              "supersedesMessageId"
                             ],
                             "additionalProperties": false
                           },
@@ -13576,6 +13646,20 @@
                   "clientMutationId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "messageKind": {
+                    "type": "string",
+                    "enum": [
+                      "note",
+                      "decision"
+                    ],
+                    "default": "note"
+                  },
+                  "supersedesMessageId": {
+                    "type": "string",
+                    "pattern": "^MSG-\\d{4,}$",
+                    "nullable": true,
+                    "default": null
                   }
                 },
                 "required": [
@@ -13697,6 +13781,74 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "messageKind": {
+                              "type": "string",
+                              "enum": [
+                                "note",
+                                "decision"
+                              ]
+                            },
+                            "supersedesMessageId": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "blocks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "roster",
+                                      "perdiem"
+                                    ]
+                                  },
+                                  "anchorId": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "rendered",
+                                      "denied"
+                                    ]
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "rows": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "value": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "label",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "deniedReason": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "anchorId",
+                                  "state",
+                                  "title"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -13710,7 +13862,9 @@
                             "createdAt",
                             "body",
                             "links",
-                            "attachments"
+                            "attachments",
+                            "messageKind",
+                            "supersedesMessageId"
                           ],
                           "additionalProperties": false
                         },
@@ -13912,6 +14066,10 @@
                               "threadId": {
                                 "type": "string"
                               },
+                              "sourceMessageId": {
+                                "type": "string",
+                                "nullable": true
+                              },
                               "state": {
                                 "type": "string",
                                 "enum": [
@@ -14082,6 +14240,7 @@
                             "required": [
                               "obligationId",
                               "threadId",
+                              "sourceMessageId",
                               "state",
                               "description",
                               "accountableUserId",
@@ -14146,6 +14305,10 @@
                               "threadId": {
                                 "type": "string"
                               },
+                              "sourceMessageId": {
+                                "type": "string",
+                                "nullable": true
+                              },
                               "state": {
                                 "type": "string",
                                 "enum": [
@@ -14316,6 +14479,7 @@
                             "required": [
                               "obligationId",
                               "threadId",
+                              "sourceMessageId",
                               "state",
                               "description",
                               "accountableUserId",
@@ -14380,6 +14544,10 @@
                               "threadId": {
                                 "type": "string"
                               },
+                              "sourceMessageId": {
+                                "type": "string",
+                                "nullable": true
+                              },
                               "state": {
                                 "type": "string",
                                 "enum": [
@@ -14550,6 +14718,7 @@
                             "required": [
                               "obligationId",
                               "threadId",
+                              "sourceMessageId",
                               "state",
                               "description",
                               "accountableUserId",
@@ -14614,6 +14783,10 @@
                               "threadId": {
                                 "type": "string"
                               },
+                              "sourceMessageId": {
+                                "type": "string",
+                                "nullable": true
+                              },
                               "state": {
                                 "type": "string",
                                 "enum": [
@@ -14784,6 +14957,7 @@
                             "required": [
                               "obligationId",
                               "threadId",
+                              "sourceMessageId",
                               "state",
                               "description",
                               "accountableUserId",
@@ -15271,6 +15445,74 @@
                                   ],
                                   "additionalProperties": false
                                 }
+                              },
+                              "messageKind": {
+                                "type": "string",
+                                "enum": [
+                                  "note",
+                                  "decision"
+                                ]
+                              },
+                              "supersedesMessageId": {
+                                "type": "string",
+                                "nullable": true
+                              },
+                              "blocks": {
+                                "type": "array",
+                                "items": {
+                                  "type": "object",
+                                  "properties": {
+                                    "kind": {
+                                      "type": "string",
+                                      "enum": [
+                                        "roster",
+                                        "perdiem"
+                                      ]
+                                    },
+                                    "anchorId": {
+                                      "type": "string"
+                                    },
+                                    "state": {
+                                      "type": "string",
+                                      "enum": [
+                                        "rendered",
+                                        "denied"
+                                      ]
+                                    },
+                                    "title": {
+                                      "type": "string"
+                                    },
+                                    "rows": {
+                                      "type": "array",
+                                      "items": {
+                                        "type": "object",
+                                        "properties": {
+                                          "label": {
+                                            "type": "string"
+                                          },
+                                          "value": {
+                                            "type": "string"
+                                          }
+                                        },
+                                        "required": [
+                                          "label",
+                                          "value"
+                                        ],
+                                        "additionalProperties": false
+                                      }
+                                    },
+                                    "deniedReason": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "required": [
+                                    "kind",
+                                    "anchorId",
+                                    "state",
+                                    "title"
+                                  ],
+                                  "additionalProperties": false
+                                }
                               }
                             },
                             "required": [
@@ -15284,7 +15526,9 @@
                               "createdAt",
                               "body",
                               "links",
-                              "attachments"
+                              "attachments",
+                              "messageKind",
+                              "supersedesMessageId"
                             ],
                             "additionalProperties": false
                           },
@@ -15487,6 +15731,20 @@
                   "clientMutationId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "messageKind": {
+                    "type": "string",
+                    "enum": [
+                      "note",
+                      "decision"
+                    ],
+                    "default": "note"
+                  },
+                  "supersedesMessageId": {
+                    "type": "string",
+                    "pattern": "^MSG-\\d{4,}$",
+                    "nullable": true,
+                    "default": null
                   }
                 },
                 "required": [
@@ -15608,6 +15866,74 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "messageKind": {
+                              "type": "string",
+                              "enum": [
+                                "note",
+                                "decision"
+                              ]
+                            },
+                            "supersedesMessageId": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "blocks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "roster",
+                                      "perdiem"
+                                    ]
+                                  },
+                                  "anchorId": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "rendered",
+                                      "denied"
+                                    ]
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "rows": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "value": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "label",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "deniedReason": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "anchorId",
+                                  "state",
+                                  "title"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -15621,7 +15947,9 @@
                             "createdAt",
                             "body",
                             "links",
-                            "attachments"
+                            "attachments",
+                            "messageKind",
+                            "supersedesMessageId"
                           ],
                           "additionalProperties": false
                         },
@@ -16191,6 +16519,10 @@
                           "threadId": {
                             "type": "string"
                           },
+                          "sourceMessageId": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "state": {
                             "type": "string",
                             "enum": [
@@ -16361,6 +16693,7 @@
                         "required": [
                           "obligationId",
                           "threadId",
+                          "sourceMessageId",
                           "state",
                           "description",
                           "accountableUserId",
@@ -16516,6 +16849,12 @@
                   "clientMutationId": {
                     "type": "string",
                     "format": "uuid"
+                  },
+                  "sourceMessageId": {
+                    "type": "string",
+                    "pattern": "^MSG-\\d{4,}$",
+                    "nullable": true,
+                    "default": null
                   }
                 },
                 "required": [
@@ -16559,6 +16898,10 @@
                         },
                         "threadId": {
                           "type": "string"
+                        },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
                         },
                         "state": {
                           "type": "string",
@@ -16730,6 +17073,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -16791,6 +17135,10 @@
                         "threadId": {
                           "type": "string"
                         },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "state": {
                           "type": "string",
                           "enum": [
@@ -16961,6 +17309,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -17052,6 +17401,10 @@
                         "threadId": {
                           "type": "string"
                         },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "state": {
                           "type": "string",
                           "enum": [
@@ -17222,6 +17575,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -17313,6 +17667,10 @@
                         "threadId": {
                           "type": "string"
                         },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "state": {
                           "type": "string",
                           "enum": [
@@ -17483,6 +17841,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -17574,6 +17933,10 @@
                         "threadId": {
                           "type": "string"
                         },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "state": {
                           "type": "string",
                           "enum": [
@@ -17744,6 +18107,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -17835,6 +18199,10 @@
                         "threadId": {
                           "type": "string"
                         },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "state": {
                           "type": "string",
                           "enum": [
@@ -18005,6 +18373,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -18096,6 +18465,10 @@
                         "threadId": {
                           "type": "string"
                         },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "state": {
                           "type": "string",
                           "enum": [
@@ -18266,6 +18639,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -18327,6 +18701,10 @@
                         "threadId": {
                           "type": "string"
                         },
+                        "sourceMessageId": {
+                          "type": "string",
+                          "nullable": true
+                        },
                         "state": {
                           "type": "string",
                           "enum": [
@@ -18497,6 +18875,7 @@
                       "required": [
                         "obligationId",
                         "threadId",
+                        "sourceMessageId",
                         "state",
                         "description",
                         "accountableUserId",
@@ -18640,6 +19019,74 @@
                                 ],
                                 "additionalProperties": false
                               }
+                            },
+                            "messageKind": {
+                              "type": "string",
+                              "enum": [
+                                "note",
+                                "decision"
+                              ]
+                            },
+                            "supersedesMessageId": {
+                              "type": "string",
+                              "nullable": true
+                            },
+                            "blocks": {
+                              "type": "array",
+                              "items": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "roster",
+                                      "perdiem"
+                                    ]
+                                  },
+                                  "anchorId": {
+                                    "type": "string"
+                                  },
+                                  "state": {
+                                    "type": "string",
+                                    "enum": [
+                                      "rendered",
+                                      "denied"
+                                    ]
+                                  },
+                                  "title": {
+                                    "type": "string"
+                                  },
+                                  "rows": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "object",
+                                      "properties": {
+                                        "label": {
+                                          "type": "string"
+                                        },
+                                        "value": {
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "label",
+                                        "value"
+                                      ],
+                                      "additionalProperties": false
+                                    }
+                                  },
+                                  "deniedReason": {
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "anchorId",
+                                  "state",
+                                  "title"
+                                ],
+                                "additionalProperties": false
+                              }
                             }
                           },
                           "required": [
@@ -18653,7 +19100,9 @@
                             "createdAt",
                             "body",
                             "links",
-                            "attachments"
+                            "attachments",
+                            "messageKind",
+                            "supersedesMessageId"
                           ],
                           "additionalProperties": false
                         },

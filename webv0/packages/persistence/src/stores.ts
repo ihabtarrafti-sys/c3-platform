@@ -28,6 +28,8 @@ interface CommsSpineRow {
   revision_id: string;
   revision_no: number;
   body: string;
+  message_kind: 'note' | 'decision';
+  supersedes_message_id: string | null;
   recall_reason: CommsRecallReason | null;
   recall_actor_label: string | null;
   recall_at: Date | string | null;
@@ -42,6 +44,7 @@ interface CommsSpineRow {
  */
 const commsMessageViewSql = (where: ReturnType<typeof sql>, limit: number) => sql`
   SELECT m.message_id, m.thread_id, m.seq, m.author_user_id, m.author_label, m.created_at,
+         m.message_kind, m.supersedes_message_id,
          r.id AS revision_id, r.revision_no, r.body,
          t.reason_code AS recall_reason, t.actor_label AS recall_actor_label, t.created_at AS recall_at
     FROM comms_message m
@@ -123,6 +126,8 @@ async function hydrateCommsMessageViews(db: Db, rows: CommsSpineRow[]): Promise<
       body: r.body,
       links: linksByRevision.get(r.revision_id) ?? [],
       attachments: attByMessage.get(r.message_id) ?? [],
+      messageKind: r.message_kind ?? 'note',
+      supersedesMessageId: r.supersedes_message_id ?? null,
     };
   });
 }
@@ -182,6 +187,7 @@ async function hydrateCommsObligationViews(db: Db, rows: any[]): Promise<CommsOb
     return {
       obligationId,
       threadId: r.threadId ?? r.thread_id,
+      sourceMessageId: r.sourceMessageId ?? r.source_message_id ?? null,
       state: r.state,
       description: r.description,
       accountableUserId: r.accountableUserId ?? r.accountable_user_id,

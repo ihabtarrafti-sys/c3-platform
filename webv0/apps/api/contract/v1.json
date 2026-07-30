@@ -6084,6 +6084,12 @@
                       "requesterUserId": {
                         "t": "string"
                       },
+                      "sourceMessageId": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
                       "state": {
                         "t": "enum",
                         "values": [
@@ -6291,6 +6297,12 @@
                       "requesterUserId": {
                         "t": "string"
                       },
+                      "sourceMessageId": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
                       "state": {
                         "t": "enum",
                         "values": [
@@ -6497,6 +6509,12 @@
                       },
                       "requesterUserId": {
                         "t": "string"
+                      },
+                      "sourceMessageId": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
                       },
                       "state": {
                         "t": "enum",
@@ -6775,6 +6793,12 @@
                       "requesterUserId": {
                         "t": "string"
                       },
+                      "sourceMessageId": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
+                      },
                       "state": {
                         "t": "enum",
                         "values": [
@@ -6923,6 +6947,54 @@
                     "authorUserId": {
                       "t": "string"
                     },
+                    "blocks": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "anchorId": {
+                            "t": "string"
+                          },
+                          "deniedReason": {
+                            "t": "string",
+                            "optional": true
+                          },
+                          "kind": {
+                            "t": "enum",
+                            "values": [
+                              "perdiem",
+                              "roster"
+                            ]
+                          },
+                          "rows": {
+                            "t": "array",
+                            "item": {
+                              "t": "object",
+                              "keys": {
+                                "label": {
+                                  "t": "string"
+                                },
+                                "value": {
+                                  "t": "string"
+                                }
+                              }
+                            },
+                            "optional": true
+                          },
+                          "state": {
+                            "t": "enum",
+                            "values": [
+                              "denied",
+                              "rendered"
+                            ]
+                          },
+                          "title": {
+                            "t": "string"
+                          }
+                        }
+                      },
+                      "optional": true
+                    },
                     "body": {
                       "t": "string"
                     },
@@ -6956,6 +7028,13 @@
                     "messageId": {
                       "t": "string"
                     },
+                    "messageKind": {
+                      "t": "enum",
+                      "values": [
+                        "decision",
+                        "note"
+                      ]
+                    },
                     "recalled": {
                       "t": "literal",
                       "value": false
@@ -6965,6 +7044,12 @@
                     },
                     "seq": {
                       "t": "number"
+                    },
+                    "supersedesMessageId": {
+                      "t": "nullable",
+                      "inner": {
+                        "t": "string"
+                      }
                     },
                     "threadId": {
                       "t": "string"
@@ -7066,6 +7151,19 @@
                 }
               }
             }
+          },
+          "messageKind": {
+            "t": "enum",
+            "values": [
+              "decision",
+              "note"
+            ]
+          },
+          "supersedesMessageId": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            }
           }
         }
       },
@@ -7116,6 +7214,54 @@
                     "authorUserId": {
                       "t": "string"
                     },
+                    "blocks": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "anchorId": {
+                            "t": "string"
+                          },
+                          "deniedReason": {
+                            "t": "string",
+                            "optional": true
+                          },
+                          "kind": {
+                            "t": "enum",
+                            "values": [
+                              "perdiem",
+                              "roster"
+                            ]
+                          },
+                          "rows": {
+                            "t": "array",
+                            "item": {
+                              "t": "object",
+                              "keys": {
+                                "label": {
+                                  "t": "string"
+                                },
+                                "value": {
+                                  "t": "string"
+                                }
+                              }
+                            },
+                            "optional": true
+                          },
+                          "state": {
+                            "t": "enum",
+                            "values": [
+                              "denied",
+                              "rendered"
+                            ]
+                          },
+                          "title": {
+                            "t": "string"
+                          }
+                        }
+                      },
+                      "optional": true
+                    },
                     "body": {
                       "t": "string"
                     },
@@ -7149,6 +7295,13 @@
                     "messageId": {
                       "t": "string"
                     },
+                    "messageKind": {
+                      "t": "enum",
+                      "values": [
+                        "decision",
+                        "note"
+                      ]
+                    },
                     "recalled": {
                       "t": "literal",
                       "value": false
@@ -7158,6 +7311,12 @@
                     },
                     "seq": {
                       "t": "number"
+                    },
+                    "supersedesMessageId": {
+                      "t": "nullable",
+                      "inner": {
+                        "t": "string"
+                      }
                     },
                     "threadId": {
                       "t": "string"
@@ -7396,6 +7555,12 @@
                   "requesterUserId": {
                     "t": "string"
                   },
+                  "sourceMessageId": {
+                    "t": "nullable",
+                    "inner": {
+                      "t": "string"
+                    }
+                  },
                   "state": {
                     "t": "enum",
                     "values": [
@@ -7500,6 +7665,12 @@
           },
           "evidenceRequirement": {
             "t": "string"
+          },
+          "sourceMessageId": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            }
           }
         }
       },
@@ -7670,6 +7841,12 @@
                 "requesterUserId": {
                   "t": "string"
                 },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "state": {
                   "t": "enum",
                   "values": [
@@ -7826,6 +8003,54 @@
                       "authorUserId": {
                         "t": "string"
                       },
+                      "blocks": {
+                        "t": "array",
+                        "item": {
+                          "t": "object",
+                          "keys": {
+                            "anchorId": {
+                              "t": "string"
+                            },
+                            "deniedReason": {
+                              "t": "string",
+                              "optional": true
+                            },
+                            "kind": {
+                              "t": "enum",
+                              "values": [
+                                "perdiem",
+                                "roster"
+                              ]
+                            },
+                            "rows": {
+                              "t": "array",
+                              "item": {
+                                "t": "object",
+                                "keys": {
+                                  "label": {
+                                    "t": "string"
+                                  },
+                                  "value": {
+                                    "t": "string"
+                                  }
+                                }
+                              },
+                              "optional": true
+                            },
+                            "state": {
+                              "t": "enum",
+                              "values": [
+                                "denied",
+                                "rendered"
+                              ]
+                            },
+                            "title": {
+                              "t": "string"
+                            }
+                          }
+                        },
+                        "optional": true
+                      },
                       "body": {
                         "t": "string"
                       },
@@ -7859,6 +8084,13 @@
                       "messageId": {
                         "t": "string"
                       },
+                      "messageKind": {
+                        "t": "enum",
+                        "values": [
+                          "decision",
+                          "note"
+                        ]
+                      },
                       "recalled": {
                         "t": "literal",
                         "value": false
@@ -7868,6 +8100,12 @@
                       },
                       "seq": {
                         "t": "number"
+                      },
+                      "supersedesMessageId": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
                       },
                       "threadId": {
                         "t": "string"
@@ -8167,6 +8405,12 @@
                 "requesterUserId": {
                   "t": "string"
                 },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "state": {
                   "t": "enum",
                   "values": [
@@ -8373,6 +8617,12 @@
                 },
                 "requesterUserId": {
                   "t": "string"
+                },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "state": {
                   "t": "enum",
@@ -8581,6 +8831,12 @@
                 "requesterUserId": {
                   "t": "string"
                 },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "state": {
                   "t": "enum",
                   "values": [
@@ -8788,6 +9044,12 @@
                 "requesterUserId": {
                   "t": "string"
                 },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "state": {
                   "t": "enum",
                   "values": [
@@ -8979,6 +9241,12 @@
                 },
                 "requesterUserId": {
                   "t": "string"
+                },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "state": {
                   "t": "enum",
@@ -9187,6 +9455,12 @@
                 "requesterUserId": {
                   "t": "string"
                 },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
+                },
                 "state": {
                   "t": "enum",
                   "values": [
@@ -9393,6 +9667,12 @@
                 },
                 "requesterUserId": {
                   "t": "string"
+                },
+                "sourceMessageId": {
+                  "t": "nullable",
+                  "inner": {
+                    "t": "string"
+                  }
                 },
                 "state": {
                   "t": "enum",
@@ -9658,6 +9938,54 @@
                       "authorUserId": {
                         "t": "string"
                       },
+                      "blocks": {
+                        "t": "array",
+                        "item": {
+                          "t": "object",
+                          "keys": {
+                            "anchorId": {
+                              "t": "string"
+                            },
+                            "deniedReason": {
+                              "t": "string",
+                              "optional": true
+                            },
+                            "kind": {
+                              "t": "enum",
+                              "values": [
+                                "perdiem",
+                                "roster"
+                              ]
+                            },
+                            "rows": {
+                              "t": "array",
+                              "item": {
+                                "t": "object",
+                                "keys": {
+                                  "label": {
+                                    "t": "string"
+                                  },
+                                  "value": {
+                                    "t": "string"
+                                  }
+                                }
+                              },
+                              "optional": true
+                            },
+                            "state": {
+                              "t": "enum",
+                              "values": [
+                                "denied",
+                                "rendered"
+                              ]
+                            },
+                            "title": {
+                              "t": "string"
+                            }
+                          }
+                        },
+                        "optional": true
+                      },
                       "body": {
                         "t": "string"
                       },
@@ -9691,6 +10019,13 @@
                       "messageId": {
                         "t": "string"
                       },
+                      "messageKind": {
+                        "t": "enum",
+                        "values": [
+                          "decision",
+                          "note"
+                        ]
+                      },
                       "recalled": {
                         "t": "literal",
                         "value": false
@@ -9700,6 +10035,12 @@
                       },
                       "seq": {
                         "t": "number"
+                      },
+                      "supersedesMessageId": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "string"
+                        }
                       },
                       "threadId": {
                         "t": "string"
@@ -9891,6 +10232,19 @@
                 }
               }
             }
+          },
+          "messageKind": {
+            "t": "enum",
+            "values": [
+              "decision",
+              "note"
+            ]
+          },
+          "supersedesMessageId": {
+            "t": "nullable",
+            "inner": {
+              "t": "string"
+            }
           }
         }
       },
@@ -9941,6 +10295,54 @@
                     "authorUserId": {
                       "t": "string"
                     },
+                    "blocks": {
+                      "t": "array",
+                      "item": {
+                        "t": "object",
+                        "keys": {
+                          "anchorId": {
+                            "t": "string"
+                          },
+                          "deniedReason": {
+                            "t": "string",
+                            "optional": true
+                          },
+                          "kind": {
+                            "t": "enum",
+                            "values": [
+                              "perdiem",
+                              "roster"
+                            ]
+                          },
+                          "rows": {
+                            "t": "array",
+                            "item": {
+                              "t": "object",
+                              "keys": {
+                                "label": {
+                                  "t": "string"
+                                },
+                                "value": {
+                                  "t": "string"
+                                }
+                              }
+                            },
+                            "optional": true
+                          },
+                          "state": {
+                            "t": "enum",
+                            "values": [
+                              "denied",
+                              "rendered"
+                            ]
+                          },
+                          "title": {
+                            "t": "string"
+                          }
+                        }
+                      },
+                      "optional": true
+                    },
                     "body": {
                       "t": "string"
                     },
@@ -9974,6 +10376,13 @@
                     "messageId": {
                       "t": "string"
                     },
+                    "messageKind": {
+                      "t": "enum",
+                      "values": [
+                        "decision",
+                        "note"
+                      ]
+                    },
                     "recalled": {
                       "t": "literal",
                       "value": false
@@ -9983,6 +10392,12 @@
                     },
                     "seq": {
                       "t": "number"
+                    },
+                    "supersedesMessageId": {
+                      "t": "nullable",
+                      "inner": {
+                        "t": "string"
+                      }
                     },
                     "threadId": {
                       "t": "string"

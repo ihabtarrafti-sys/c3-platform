@@ -118,11 +118,46 @@ function AttachmentRow({ attachment }: { attachment: CommsMessageAttachmentDto }
   );
 }
 
-export function Message({ message }: { message: CommsMessageDto }) {
+/** Phase C: a transclusion block — the message stored a REFERENCE; this is the
+ *  per-viewer resolution the server produced for THIS render. A denial renders
+ *  AS a denial (the six-state contract's shape), never an empty table. */
+function TransclusionBlock({ block }: { block: NonNullable<Extract<CommsMessageDto, { recalled: false }>['blocks']>[number] }) {
+  return (
+    <div className="group-box" data-tablework="Transclusion" data-truth={block.state === 'rendered' ? 'verified' : 'denied'}>
+      <header>
+        <strong>{block.title}</strong>
+        <small>{block.state === 'rendered' ? 'Live — resolved for your role at view time, never pasted' : 'Denied'}</small>
+      </header>
+      {block.state === 'rendered' ? (
+        <dl className="field-stack">
+          {(block.rows ?? []).map((r) => (
+            <div className="field-pair" key={r.label}>
+              <dt>{r.label}</dt>
+              <dd>{r.value}</dd>
+            </div>
+          ))}
+          {(block.rows ?? []).length === 0 ? <p className="cell-note">No rows — verified empty for your view, not an error.</p> : null}
+        </dl>
+      ) : (
+        <p className="field-error-block" role="note">
+          {block.deniedReason}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function Message({ message, supersededBy }: { message: CommsMessageDto; supersededBy?: string | null }) {
   const time = new Date(message.createdAt);
   const hhmm = `${String(time.getHours()).padStart(2, '0')}:${String(time.getMinutes()).padStart(2, '0')}`;
+  const isDecision = !message.recalled && message.messageKind === 'decision';
   return (
-    <article className="message-group" data-tablework="Message" id={`msg-${message.messageId}`}>
+    <article
+      className={`message-group${isDecision ? ' decision-record' : ''}`}
+      data-tablework="Message"
+      data-message-kind={message.recalled ? 'recalled' : message.messageKind}
+      id={`msg-${message.messageId}`}
+    >
       <span className="avatar-dot actor-avatar" aria-hidden="true">
         {initialsOf(message.authorLabel)}
       </span>
@@ -130,6 +165,8 @@ export function Message({ message }: { message: CommsMessageDto }) {
         <header>
           <strong>{message.authorLabel ?? 'Member'}</strong>
           <time dateTime={message.createdAt}>{hhmm}</time>
+          {isDecision ? <span className="state-label info">Decision · {message.messageId}</span> : null}
+          {supersededBy ? <span className="state-label warning" data-superseded-by={supersededBy}>Superseded by {supersededBy}</span> : null}
         </header>
         {message.recalled ? (
           /* Block 6 (R2-02 item 5): the PLACEHOLDER. The wire's recalled arm
@@ -144,7 +181,16 @@ export function Message({ message }: { message: CommsMessageDto }) {
           </p>
         ) : (
           <>
-            <p>{message.body}</p>
+            {!message.recalled && message.supersedesMessageId ? (
+              <p className="cell-note" data-supersedes={message.supersedesMessageId}>
+                Supersedes <a href={`#msg-${message.supersedesMessageId}`}>{message.supersedesMessageId}</a> — the replaced ruling
+                stays legible above; a decision names what it replaces.
+              </p>
+            ) : null}
+            <p className={supersededBy ? 'record-quiet' : undefined}>{message.body}</p>
+            {(message.blocks ?? []).map((block, i) => (
+              <TransclusionBlock key={`${block.kind}:${block.anchorId}:${i}`} block={block} />
+            ))}
             {message.attachments.map((attachment) => (
               <AttachmentRow key={attachment.documentId} attachment={attachment} />
             ))}

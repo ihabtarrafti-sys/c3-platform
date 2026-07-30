@@ -88,6 +88,8 @@ import type { AgreementTermKind, CommsLinkInput, EquipmentTransition, MissionFin
 // the INTERNAL proxy who records the outside authority's word.
 export type CommsObligationAction = 'accept' | 'reject' | 'complete' | 'cancel' | 'reopen';
 export interface CommsObligationCreateBody {
+  /** Phase C: mint-from-message provenance. */
+  sourceMessageId?: string | null;
   description: string;
   accountableUserId: string;
   beneficiary: { kind: 'account'; userId: string } | { kind: 'external'; label: string };
@@ -611,7 +613,7 @@ export function createApiClient(deps: ApiClientDeps) {
       const qs = params.toString();
       return request<MissionThreadResponse>('GET', `/api/v1/comms/missions/${missionId}/thread${qs ? `?${qs}` : ''}`);
     },
-    postMissionMessage: (missionId: string, body: { body: string; links?: CommsLinkInput[]; clientMutationId: string }) =>
+    postMissionMessage: (missionId: string, body: { body: string; links?: CommsLinkInput[]; clientMutationId: string; messageKind?: 'note' | 'decision'; supersedesMessageId?: string | null }) =>
       request<{ message: CommsMessageDto }>('POST', `/api/v1/comms/missions/${missionId}/messages`, body),
     uploadMissionAttachment: (missionId: string, file: File, clientMutationId: string, caption?: string) => {
       const form = new FormData();
@@ -650,7 +652,7 @@ export function createApiClient(deps: ApiClientDeps) {
       const qs = params.toString();
       return request<ThreadRoomResponse>('GET', `/api/v1/comms/threads/${threadId}${qs ? `?${qs}` : ''}`);
     },
-    postThreadMessage: (threadId: string, body: { body: string; links?: CommsLinkInput[]; clientMutationId: string }) =>
+    postThreadMessage: (threadId: string, body: { body: string; links?: CommsLinkInput[]; clientMutationId: string; messageKind?: 'note' | 'decision'; supersedesMessageId?: string | null }) =>
       request<{ message: CommsMessageDto }>('POST', `/api/v1/comms/threads/${threadId}/messages`, body),
     openDirectThread: (otherUserId: string) =>
       request<{ thread: CommsThreadDto }>('POST', '/api/v1/comms/direct', { otherUserId }),

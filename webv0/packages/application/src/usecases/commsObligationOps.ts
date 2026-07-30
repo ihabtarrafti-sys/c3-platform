@@ -74,12 +74,27 @@ export async function createMissionObligation(
     throw new ValidationError('Evidence-bearing obligations live on anchored threads only — promote the work to an anchor first.');
   }
 
+  // Phase C — MINT-FROM-MESSAGE: the provenance must point at something that
+  // EXISTS in this thread. A recalled source is refused: an obligation may not
+  // stand on an absence (the same law supersession obeys).
+  let sourceMessageId: string | null = null;
+  if (parsed.sourceMessageId) {
+    const src = await reads.getCommsMessageByMessageId(parsed.sourceMessageId);
+    if (!src || src.threadId !== thread.threadId) {
+      throw new ValidationError('The source message must belong to this mission thread.');
+    }
+    if ((await reads.getCommsMessageRecall(parsed.sourceMessageId)) !== null) {
+      throw new ValidationError('That message was recalled — an obligation cannot stand on an absence.');
+    }
+    sourceMessageId = parsed.sourceMessageId;
+  }
+
   await p.writes.transaction(actor, async (tx) => {
     const obligationId = formatObligationId(await tx.allocateSequence('obligation'));
     await tx.insertCommsObligation({
       obligationId,
       threadId: thread.threadId,
-      sourceMessageId: null,
+      sourceMessageId,
       description: parsed.description,
       accountableUserId: parsed.accountableUserId,
       requesterUserId: actor.userId,

@@ -100,6 +100,30 @@ function RoomScreen({ threadId }: { threadId: string }) {
     [threadId, invalidate],
   );
 
+  const postKinded = useCallback(
+    async (body: string, links: CommsLinkInput[], kind: 'note' | 'decision', supersedes: string | null): Promise<boolean> => {
+      setBusy(true);
+      setActionError(null);
+      try {
+        await api.postThreadMessage(threadId, {
+          body,
+          links,
+          clientMutationId: crypto.randomUUID(),
+          messageKind: kind,
+          supersedesMessageId: supersedes,
+        });
+        await invalidate();
+        return true;
+      } catch (err) {
+        setActionError(err instanceof Error ? err.message : 'The message did not send.');
+        return false;
+      } finally {
+        setBusy(false);
+      }
+    },
+    [threadId, invalidate],
+  );
+
   const seatAction = useCallback(
     (work: () => Promise<unknown>) => {
       setActionError(null);
@@ -278,6 +302,7 @@ function RoomScreen({ threadId }: { threadId: string }) {
               seenLine={null}
               posting={busy}
               onPost={post}
+              onPostKinded={(body, links, kind, supersedes) => postKinded(body, links, kind, supersedes)}
               onAttach={async () => {
                 setActionError('Attachments live on anchored threads — rooms and DMs carry words; work carries evidence.');
               }}

@@ -175,6 +175,22 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
     [write, missionId, invalidateThread],
   );
 
+  // Phase C: post as a decision, optionally naming what it supersedes.
+  const onPostKinded = useCallback(
+    (body: string, links: CommsLinkInput[], kind: 'note' | 'decision', supersedes: string | null) =>
+      write(async () => {
+        await api.postMissionMessage(missionId, {
+          body,
+          links,
+          clientMutationId: crypto.randomUUID(),
+          messageKind: kind,
+          supersedesMessageId: supersedes,
+        });
+        await invalidateThread();
+      }),
+    [write, missionId, invalidateThread],
+  );
+
   const onAttach = useCallback(
     async (file: File) => {
       await write(async () => {
@@ -336,6 +352,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
               onLoadEarlier={() => void thread.fetchNextPage()}
               truth={threadTruth}
               audienceTreaty={{ text: 'Visible to everyone who can see this mission.', verified: mission.data !== undefined && !mission.error }}
+              onPostKinded={onPostKinded}
             />
             <WorkSurface as="aside" className="comms-surface" aria-label="Mission obligations">
               <header className="surface-heading">

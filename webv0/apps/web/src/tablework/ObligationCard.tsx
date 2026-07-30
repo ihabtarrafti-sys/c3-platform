@@ -13,6 +13,7 @@
 import { useRef, useState } from 'react';
 import type { CommsObligationDto } from '@c3web/api-contracts';
 import type { CommsObligationAction } from '../api';
+import { isObligationSettled } from '@c3web/domain';
 import { ObligationFact } from './TruthValue';
 
 export interface ObligationActionInput {
@@ -44,6 +45,8 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, b
   const acceptanceKnown = o.state === 'Accepted' || o.state === 'Done';
   const doneKnown = o.state === 'Done';
   const cancelled = o.state === 'Cancelled';
+  // The DERIVED third station — one definition site, in the domain.
+  const settled = isObligationSettled(o);
 
   const externalAcceptance = o.acceptanceKind === 'external';
   const noteRequiredFor = (action: CommsObligationAction): boolean =>
@@ -136,6 +139,20 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, b
           detail={doneKnown ? 'Recorded · the final mechanism claimed' : 'Not recorded · final mechanism unclaimed'}
         />
       </div>
+      {/* SETTLED — a DERIVED station (owner ruling 4): it is exactly the three
+          facts above, re-read. There is no button here and no stored flag
+          anywhere, deliberately: a settlement that can be asserted
+          independently of its facts is a settlement that can lie. */}
+      <p
+        className="cell-note"
+        data-tablework="SettledView"
+        data-truth-state={settled ? 'known' : 'unknown'}
+        data-settled={settled ? 'derived-true' : 'derived-false'}
+      >
+        {settled
+          ? 'Settled — derived from the three facts above, not stored and not asserted.'
+          : 'Not settled — the three facts above are not all recorded yet.'}
+      </p>
       {o.evidence.length > 0 ? (
         <div className="obligation-stack" data-tablework="EvidenceRequestSlot">
           {o.evidence.map((ev) => (

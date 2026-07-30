@@ -829,5 +829,14 @@ export function toCommsMessageDto(m: CommsMessageView) {
     createdAt: m.createdAt,
   };
   if (m.recalled) return { recalled: true as const, ...spine, recall: m.recalled };
-  return { recalled: false as const, ...spine, body: m.body, links: m.links, attachments: m.attachments };
+  return {
+    recalled: false as const,
+    ...spine,
+    body: m.body,
+    links: m.links,
+    attachments: m.attachments,
+    messageKind: m.messageKind,
+    supersedesMessageId: m.supersedesMessageId,
+    ...(m.blocks !== undefined ? { blocks: m.blocks } : {}),
+  };
 }

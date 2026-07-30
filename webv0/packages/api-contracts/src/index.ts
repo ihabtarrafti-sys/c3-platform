@@ -699,6 +699,21 @@ export const commsMessageSchema = z.discriminatedUnion('recalled', [
     body: z.string(),
     links: z.array(commsMessageLinkSchema),
     attachments: z.array(commsMessageAttachmentSchema),
+    /** Phase C: decision records — the kind and what it supersedes. */
+    messageKind: z.enum(['note', 'decision']),
+    supersedesMessageId: z.string().nullable(),
+    blocks: z
+      .array(
+        z.object({
+          kind: z.enum(['roster', 'perdiem']),
+          anchorId: z.string(),
+          state: z.enum(['rendered', 'denied']),
+          title: z.string(),
+          rows: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+          deniedReason: z.string().optional(),
+        }),
+      )
+      .optional(),
   }).strict(),
   z.object({
     recalled: z.literal(true),
@@ -806,6 +821,7 @@ export const commsEvidenceSchema = z.object({
 export const commsObligationSchema = z.object({
   obligationId: z.string(),
   threadId: z.string(),
+  sourceMessageId: z.string().nullable(),
   state: z.enum(COMMS_OBLIGATION_STATES),
   description: z.string(),
   accountableUserId: z.string(),

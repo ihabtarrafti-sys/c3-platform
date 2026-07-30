@@ -64,10 +64,26 @@ interface ThreadProps {
    *  names the governing audience BEFORE words leave the box, and when the
    *  audience could not be verified, Send is DISABLED rather than guessing. */
   audienceTreaty: { text: string; verified: boolean };
+  /** Phase C: post with a kind (decision records). When provided, the composer
+   *  offers the toggle and the supersedes picker. */
+  onPostKinded?: (body: string, links: CommsLinkInput[], kind: 'note' | 'decision', supersedes: string | null) => Promise<boolean>;
 }
 
-export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, hasEarlier, loadingEarlier, onLoadEarlier, truth, audienceTreaty }: ThreadProps) {
+export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, hasEarlier, loadingEarlier, onLoadEarlier, truth, audienceTreaty, onPostKinded }: ThreadProps) {
   const [draft, setDraft] = useState('');
+  const [asDecision, setAsDecision] = useState(false);
+  const [supersedes, setSupersedes] = useState('');
+  // The chain is DERIVED from the wire, never client state: a later decision
+  // that names an earlier message marks it superseded.
+  const supersededBy = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const m of messages) if (!m.recalled && m.supersedesMessageId) map.set(m.supersedesMessageId, m.messageId);
+    return map;
+  }, [messages]);
+  const priorDecisions = useMemo(
+    () => messages.filter((m): m is Extract<CommsMessageDto, { recalled: false }> => !m.recalled && m.messageKind === 'decision'),
+    [messages],
+  );
   const fileRef = useRef<HTMLInputElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const reachedEnd = useRef(onReachedEnd);
@@ -95,7 +111,14 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
     e.preventDefault();
     const body = draft.trim();
     if (!body || posting) return;
-    if (await onPost(body, detectLinks(body))) setDraft('');
+    const posted = onPostKinded
+      ? await onPostKinded(body, detectLinks(body), asDecision ? 'decision' : 'note', asDecision && supersedes ? supersedes : null)
+      : await onPost(body, detectLinks(body));
+    if (posted) {
+      setDraft('');
+      setAsDecision(false);
+      setSupersedes('');
+    }
   };
 
   return (
@@ -122,7 +145,7 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
                   <span>New</span>
                 </div>
               ) : null}
-              <Message message={message} />
+              <Message message={message} supersededBy={supersededBy.get(message.messageId) ?? null} />
             </div>
           ))}
         </TruthPanel>
@@ -141,6 +164,24 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
           />
+          {onPostKinded ? (
+            <div className="message-actions" data-tablework="DecisionToggle">
+              <label className="cell-note" style={{ display: 'inline-flex', gap: '0.4rem', alignItems: 'center' }}>
+                <input type="checkbox" checked={asDecision} onChange={(e) => setAsDecision(e.target.checked)} data-testid="as-decision" />
+                Record as a DECISION (a ruling, captured where it was made)
+              </label>
+              {asDecision && priorDecisions.length > 0 ? (
+                <select aria-label="Decision this ruling supersedes" value={supersedes} onChange={(e) => setSupersedes(e.target.value)} data-testid="supersedes-picker">
+                  <option value="">Supersedes nothing</option>
+                  {priorDecisions.map((d) => (
+                    <option key={d.messageId} value={d.messageId}>
+                      Supersedes {d.messageId}: {d.body.slice(0, 40)}
+                    </option>
+                  ))}
+                </select>
+              ) : null}
+            </div>
+          ) : null}
           {/* D1 (owner-ruled) generalized into THE AUDIENCE TREATY (Phase B).
               NOTE: `data-tablework` keeps its EXACT value — it is the kit's
               component vocabulary and specs match it exactly; new state rides
