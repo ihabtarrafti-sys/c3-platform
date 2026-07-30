@@ -2898,3 +2898,77 @@
   box-shadow: none;
   background: var(--c3-surface, Canvas);
 }
+
+/* ══ Phase D — THE TRUTH PALETTE, BOUND (Proofline re-expressed; Dusk's craft) ══
+   The six-state contract's artifacts carry the adopted colour. Tokens only —
+   a literal hex here would re-create the very thing that made Proofline
+   incapable of dark mode. */
+.tw-root [data-truth='verified'] {
+  --truth-tone: var(--c3-truth-verified);
+}
+.tw-root [data-truth='proven-empty'] {
+  --truth-tone: var(--c3-truth-quiet);
+}
+.tw-root [data-truth='denied'] {
+  --truth-tone: var(--c3-truth-denied);
+}
+.tw-root [data-truth='fetch-failed'] {
+  --truth-tone: var(--c3-truth-failed);
+}
+.tw-root [data-truth='stale'] {
+  --truth-tone: var(--c3-truth-stale);
+}
+.tw-root [data-truth='loading'] {
+  --truth-tone: var(--c3-truth-quiet);
+}
+/* The tone reaches the eye through the region's own left rule — a state that
+   is legible without reading a word. */
+.tw-root [data-truth]:not([data-truth='verified']) {
+  border-left: 3px solid var(--truth-tone, var(--c3-border-strong));
+  padding-left: var(--space-3, 0.75rem);
+}
+
+/* THE LAW SPEAKS SERIF (Dusk): every governance sentence in one voice —
+   boundary notes, denials, the audience treaty, retention posture. Distinct
+   from the sans of ordinary content, so the reader can hear which is which. */
+.tw-root .boundary-note,
+.tw-root .field-error-block,
+.tw-root [data-tablework='RetentionNotice'],
+.tw-root [data-tablework='VisibilityWarning'],
+.tw-root [data-tablework='SettledView'] {
+  font-family: var(--c3-font-serif, var(--c3-font-human, Georgia, 'Times New Roman', serif));
+  font-style: normal;
+}
+
+/* THE EARNED GRADIENT (Dusk): it appears ONLY where a truth was RECORDED —
+   a verified region, a settled obligation, a decision that stands. Never on
+   chrome, never as decoration. Colour means something happened. */
+.tw-root [data-truth='verified']::before,
+.tw-root [data-settled='derived-true']::before,
+.tw-root .decision-record::before {
+  content: '';
+  display: block;
+  height: 2px;
+  margin-bottom: var(--space-2, 0.5rem);
+  border-radius: 2px;
+  background: var(--c3-earned-gradient);
+}
+/* A superseded decision keeps its record but loses its earned mark — the
+   ruling stands in history, not in force. */
+.tw-root .decision-record:has([data-superseded-by])::before {
+  background: var(--c3-border-strong);
+}
+
+/* COOLING LAPSE (Dusk): a lapsed surface COOLS toward the line colour rather
+   than dimming. Affordances are already REMOVED, not greyed (the shipped
+   posture) — this gives that truth a material logic. */
+.tw-root .lapsed-banner {
+  border-left: 3px solid var(--c3-truth-stale);
+  filter: saturate(0.55);
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-root [data-truth]::before,
+  .tw-root [data-settled='derived-true']::before {
+    transition: none;
+  }
+}
