@@ -281,9 +281,12 @@ describe('the SSE surface — Law 1 asserted at the SERVER, and Law 5 at the sch
               (SELECT count(*)::text FROM comms_inbox_cursor) AS c`,
     );
     expect(after[0]).toEqual(before[0]);
-    // And the LATENCY SHAPE stays unwritten: nothing sets attention.read_at,
-    // so no per-person delivery→read interval exists to be ranked later.
-    const latency = await db.adminQuery<{ n: string }>(`SELECT count(*)::text AS n FROM comms_attention WHERE read_at IS NOT NULL`);
-    expect(Number(latency[0]?.n)).toBe(0);
+    // The latency shape is no longer merely UNWRITTEN — migration 0101 DELETED
+    // the operand, so the query this line used to run ("… WHERE read_at IS NOT
+    // NULL") cannot be written at all. That stronger claim is proven in
+    // commsLatencyDisarm.test.ts; here we assert the read FACT's new shape,
+    // which is what survived: a boolean, never a time.
+    const attention = await db.adminQuery<{ n: string }>(`SELECT count(*)::text AS n FROM comms_attention WHERE read`);
+    expect(Number(attention[0]?.n)).toBe(0);
   });
 });
