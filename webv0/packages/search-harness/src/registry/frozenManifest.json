@@ -802,7 +802,7 @@
     "packages/persistence/src/searchSql.ts#DOMAIN_SPECS": "c1945ac8daa00610ad0e9925c3a3721234a7b50a08cd9c250898a8473c56fe30",
     "packages/persistence/src/searchSql.ts#domainBlock": "78f109be960e9c027505364f20633bedcd7b4957a8018093be26c366d3b4069b",
     "packages/api-contracts/src/index.ts#searchResultsSchema": "4aff386126c762bbf7544cb981339a1158dbb0b659b62d8f9b595dec139fe415",
-    "apps/web/src/tablework/TruthPanel.tsx#truthStateOf": "3c4c3c9c1def8b30a9577e4e58bad478a26a74552a4b1ed14b5241c0851a69b8",
+    "apps/web/src/tablework/TruthPanel.tsx#truthStateOf": "6ccafaa22da5281fa85c5f05c19d22d9f9bc13250c723f793689d380edf3f8eb",
     "apps/web/src/tablework/TruthPanel.tsx#deniedReasonOf": "0ac05a60439ad06c2f70038d31a7f77c22e9050d8ea706a5efd33e6155396eda",
     "apps/api/src#tree": "97b6deea136cba9a78d31867884e69ceb575619e1386d789dbdb16c2429b9b1e",
     "packages/authz/src#tree": "0b877a9c803c4fa41db0190cbd28304ca5e258076ebaad771c8bda14eae39e52",
