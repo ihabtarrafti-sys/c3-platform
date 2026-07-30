@@ -45,6 +45,15 @@ export const SUNSET_POLICY_ROOTS = [
 
 export const SUNSET_WIRING_FILES = [
   '../.github/workflows/webv0-ci.yml',
+  /*
+   * ⛔ THE FLUENT SUNSET GUARD — sealed because it must not be DELETED.
+   * `@fluentui/react-icons` is still resolvable through the legacy SharePoint
+   * `node_modules` that Node walks up into, so this test is load-bearing even
+   * though Fluent "looks gone" from the tree. That appearance is exactly what
+   * would make someone remove it as dead weight. Whole-file: its job is to exist
+   * and keep asserting, so any edit to it should be deliberate.
+   */
+  'apps/web/test/identityTokens.test.ts',
   'apps/api/contract/v1.json',
   'apps/api/package.json',
   'apps/api/src/logger.ts',
@@ -154,6 +163,24 @@ const CRITICAL_DECLARATIONS: Readonly<Record<string, readonly string[]>> = {
   ],
   'packages/persistence/src/searchSql.ts': ['DOMAIN_SPECS', 'domainBlock'],
   'packages/api-contracts/src/index.ts': ['searchResultsSchema'],
+  /*
+   * ⚖️ THE FIRST `apps/web` SEALS — SYMBOL-LEVEL ON PURPOSE (owner-approved,
+   * Neural-ruled, 2026-07-31). The web layer is under active redesign, so there
+   * is deliberately NO `apps/web/src#tree` fingerprint: a seal that must be
+   * re-stamped on every commit stops being a guard and becomes a rubber stamp.
+   * At symbol granularity the design lane can restyle, re-lay-out and rewrite
+   * this panel completely at full speed, and still trips the seal the moment the
+   * DERIVATION changes. The face is theirs; the contract is not.
+   *
+   *  · `truthStateOf`   — the six-state deriver. Its correctness is one of ORDER:
+   *    error branches are evaluated BEFORE the emptiness check, which is what
+   *    makes `proven-empty` structurally unreachable from a failed query.
+   *  · `deniedReasonOf` — the denial-vs-failure classification underneath it.
+   *    Sealed because the ordering guarantee is worthless if the classification
+   *    is wrong: a "simplified" error path turns every denial into a
+   *    fetch-failure and every truth state STILL looks structurally correct.
+   */
+  'apps/web/src/tablework/TruthPanel.tsx': ['truthStateOf', 'deniedReasonOf'],
 };
 
 function repoPath(relativePath: string): string {
@@ -163,6 +190,40 @@ function repoPath(relativePath: string): string {
 function readRepoFile(relativePath: string): string {
   const absolutePath = repoPath(relativePath);
   if (!lstatSync(absolutePath).isFile()) {
+    throw new Error(
+      `Sunset registry refuses a non-regular or symbolic wiring file: ${relativePath}`,
+    );
+  }
+  return readFileSync(absolutePath, 'utf8');
+}
+
+/**
+ * Like `readRepoFile`, but a MISSING file returns null instead of throwing.
+ *
+ * ⚖️ WHY THE DISTINCTION IS EXACTLY ENOENT AND NOTHING ELSE. Deleting a sealed
+ * file is a CONTRACT event: the registry already has a typed vocabulary for it
+ * (`SUNSET_CRITICAL_SOURCE_REMOVED`, emitted by `compareRecordValues`), and the
+ * caller reaches that path by simply OMITTING the key. Throwing instead skipped
+ * the whole comparison and surfaced a raw `ENOENT` — which reads as an
+ * infrastructure fault, and **a fault is the thing people retry rather than
+ * investigate.** For the one seal whose entire purpose is to notice a deletion,
+ * that was the worst available signal.
+ *
+ * ⛔ A NON-REGULAR OR SYMLINKED FILE STILL THROWS, LOUDLY. That is an ATTACK —
+ * someone substituting a link for a sealed file — not a deletion, and the two
+ * must never be collapsed into one verdict. Same error as collapsing a denial
+ * into an emptiness.
+ */
+function readRepoFileIfPresent(relativePath: string): string | null {
+  const absolutePath = repoPath(relativePath);
+  let stats;
+  try {
+    stats = lstatSync(absolutePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+    throw error;
+  }
+  if (!stats.isFile()) {
     throw new Error(
       `Sunset registry refuses a non-regular or symbolic wiring file: ${relativePath}`,
     );
@@ -297,16 +358,25 @@ function tokenFingerprint(node: ts.Node, source: ts.SourceFile): string {
   return createHash('sha256').update(tokenSignature(node, source)).digest('hex');
 }
 
+/**
+ * `onMissing` defaults to `'throw'`, so every existing caller and its tests keep
+ * today's behaviour; only the one call site that needs the typed removed-key
+ * path opts into `'omit'`. Deleting or renaming a sealed SYMBOL is the same
+ * class of event as deleting the file that holds it — a contract change that
+ * should be NAMED by the comparison, not raised as an extraction crash.
+ */
 export function fingerprintSunsetTypeScriptDeclarations(
   relativePath: string,
   sourceText: string,
   declarationNames: readonly string[],
+  onMissing: 'throw' | 'omit' = 'throw',
 ): Readonly<Record<string, string>> {
   const source = parseTypeScriptText(relativePath, sourceText);
   const result: Record<string, string> = {};
   for (const name of declarationNames) {
     const node = findFunction(source, name) ?? findVariable(source, name);
     if (!node) {
+      if (onMissing === 'omit') continue;
       throw new Error(
         `Sunset registry extraction failed: critical declaration ${name} was not found in ${relativePath}.`,
       );
@@ -831,10 +901,17 @@ function discoverCriticalSources(): string[] {
 function criticalSourceFingerprints(): Record<string, string> {
   const result: Record<string, string> = {};
   for (const [relativePath, names] of Object.entries(CRITICAL_DECLARATIONS)) {
+    // A deleted file or a deleted symbol OMITS its key, so the frozen manifest
+    // still has it and `compareRecordValues` reports the typed
+    // SUNSET_CRITICAL_SOURCE_REMOVED. Deletion becomes a named verdict instead
+    // of an ENOENT crash — see readRepoFileIfPresent.
+    const sourceText = readRepoFileIfPresent(relativePath);
+    if (sourceText === null) continue;
     const fingerprints = fingerprintSunsetTypeScriptDeclarations(
       relativePath,
-      readRepoFile(relativePath),
+      sourceText,
       names,
+      'omit',
     );
     for (const [name, fingerprint] of Object.entries(fingerprints)) {
       result[`${relativePath}#${name}`] = fingerprint;
@@ -859,8 +936,10 @@ function criticalSourceFingerprints(): Record<string, string> {
     listSunsetEnforcementTreeFiles(),
   );
   for (const relativePath of SUNSET_WIRING_FILES) {
+    const text = readRepoFileIfPresent(relativePath);
+    if (text === null) continue; // deleted → typed removed-key verdict, not ENOENT
     result[`${relativePath}#wiring`] = createHash('sha256')
-      .update(canonicalizeSunsetFingerprintText(readRepoFile(relativePath)))
+      .update(canonicalizeSunsetFingerprintText(text))
       .digest('hex');
   }
   return result;

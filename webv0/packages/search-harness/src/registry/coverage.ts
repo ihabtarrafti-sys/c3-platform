@@ -318,7 +318,22 @@ export function compareSunsetCoverage(
   return failures;
 }
 
+/**
+ * ⛔ DELIBERATELY NOT A `HearthHarnessError`, unlike `SunsetRegistryError`.
+ *
+ * The CLI preserves the MESSAGE of a HearthHarnessError and suppresses everyone
+ * else's. This message embeds `factKey`, and **a factKey carries a VALUE** —
+ * `criticalSourceFingerprintsSha256=ecae78ce…`, `contractResultKinds[9]="team"`.
+ * Passing it through would break the containment the suppression exists for.
+ *
+ * So it takes the half that is safe: a NAMED CODE, which `safeHarnessCommandError`
+ * preserves for any error whose `code` is SCREAMING_CASE, while the message stays
+ * suppressed. The verdict says which contract failed without saying what the
+ * values were — `{"code":"SUNSET_COVERAGE_INCOMPLETE","message":"…suppressed"}`
+ * instead of the generic `HARNESS_COMMAND_FAILED` that told you nothing.
+ */
 export class SunsetCoverageError extends Error {
+  readonly code = 'SUNSET_COVERAGE_INCOMPLETE';
   readonly failures: readonly SunsetCoverageFailure[];
 
   constructor(failures: readonly SunsetCoverageFailure[]) {

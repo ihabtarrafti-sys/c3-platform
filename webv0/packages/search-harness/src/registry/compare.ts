@@ -1,3 +1,4 @@
+import { HearthHarnessError } from '../errors';
 import type {
   SunsetReasonCode,
   SunsetRegistryFailure,
@@ -273,15 +274,58 @@ export function compareSunsetRegistry(
   ];
 }
 
-export class SunsetRegistryError extends Error {
+/**
+ * ⛔ THE ONLY SHAPE A SUNSET FAILURE MESSAGE MAY BE BUILT FROM.
+ *
+ * This narrow type is the ENFORCEMENT MECHANISM for the containment condition,
+ * not a convenience: `sunsetFailureSummary` cannot reach `expected` or `actual`
+ * because its parameter type does not have them, so a future edit that tries to
+ * interpolate a value fails to COMPILE rather than leaking one at runtime.
+ * *A rule without a mechanism is a wish.*
+ */
+export interface SunsetFailureLabel {
+  readonly code: SunsetReasonCode;
+  readonly path: string;
+}
+
+/**
+ * Codes from a fixed enum plus repo-relative paths — no file content, no diffs,
+ * no fingerprint values, no sentinels. That is what makes this message safe to
+ * pass through the CLI's suppression allowlist (see `cli/common.ts`), and the
+ * condition is binding: **the moment this carries a VALUE, the containment
+ * breaks.** `registryFailureMessageCarriesNoValues` in the test suite is the
+ * second mechanism, in case someone widens the type above.
+ */
+export function sunsetFailureSummary(
+  failures: readonly SunsetFailureLabel[],
+): string {
+  return `Search sunset registry drifted:\n${failures
+    .map((failure) => `${failure.code} ${failure.path}`)
+    .join('\n')}`;
+}
+
+/**
+ * ⚖️ WHY THIS IS A `HearthHarnessError` AND `SunsetCoverageError` IS NOT.
+ *
+ * The CLI suppresses the message of any error that is not a HearthHarnessError,
+ * deliberately — raw runtime text can carry planted sentinels or query text. The
+ * cost was that EVERY sunset drift surfaced as
+ * `{"code":"HARNESS_COMMAND_FAILED","message":"…suppressed"}`, so a genuine
+ * contract violation was indistinguishable from an infrastructure fault — and a
+ * fault is the thing people RETRY rather than investigate.
+ *
+ * This message is structured (codes + paths), so it is safe to name out loud.
+ * `SunsetCoverageError`'s is NOT: it embeds `factKey`, and a factKey carries a
+ * VALUE (`criticalSourceFingerprintsSha256=ecae78ce…`). It therefore gets a
+ * named CODE and keeps its message suppressed — see coverage.ts.
+ */
+export class SunsetRegistryError extends HearthHarnessError<'SUNSET_REGISTRY_DRIFTED'> {
   readonly failures: readonly SunsetRegistryFailure[];
 
   constructor(failures: readonly SunsetRegistryFailure[]) {
-    super(
-      `Search sunset registry drifted:\n${failures
-        .map((failure) => `${failure.code} ${failure.path}`)
-        .join('\n')}`,
-    );
+    super('SUNSET_REGISTRY_DRIFTED', sunsetFailureSummary(failures), {
+      failureCount: failures.length,
+    });
     this.name = 'SunsetRegistryError';
     this.failures = failures;
   }
