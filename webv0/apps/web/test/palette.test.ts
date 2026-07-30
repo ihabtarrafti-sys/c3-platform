@@ -32,15 +32,25 @@ const TRUTH_TOKENS = [
 describe('Phase D — Proofline RE-EXPRESSED, never imported', () => {
   it('no proofline-* class exists anywhere in our source', () => {
     const tw = read('tablework/tablework.css');
-    const tokens = read('theme/brand/c3.tokens.css');
     expect(tw).not.toMatch(/proofline-/);
-    expect(tokens).not.toMatch(/proofline-/);
+    expect(read('theme/c3-app.css')).not.toMatch(/proofline-/);
+    expect(read('theme/brand/c3.tokens.css')).not.toMatch(/proofline-/);
+  });
+
+  it('the truth tokens live in the APP layer, never in the VENDORED brand file', () => {
+    // The identity-lock test caught the first version of this change editing
+    // theme/brand/c3.tokens.css, which is byte-pinned to the locked c3-brand
+    // v1.2.0. A brand bump is a deliberate, Neural-sequenced act; app-layer
+    // roles belong to the app layer. This pin keeps that boundary.
+    expect(read('theme/brand/c3.tokens.css')).not.toContain('--c3-truth-');
+    expect(read('theme/c3-app.css')).toContain('--c3-truth-verified:');
   });
 
   it('every truth token is defined in BOTH themes — the guarantee Proofline could not make', () => {
-    const tokens = read('theme/brand/c3.tokens.css');
-    const dark = tokens.slice(tokens.indexOf('[data-c3-theme="cozy-dark"]'), tokens.indexOf('[data-c3-theme="fresh-light"]'));
-    const light = tokens.slice(tokens.indexOf('[data-c3-theme="fresh-light"]'));
+    const tokens = read('theme/c3-app.css');
+    const phaseD = tokens.slice(tokens.indexOf('Phase D — THE TRUTH PALETTE'));
+    const dark = phaseD.slice(0, phaseD.indexOf("[data-c3-theme='fresh-light']"));
+    const light = phaseD.slice(phaseD.indexOf("[data-c3-theme='fresh-light']"));
     for (const token of TRUTH_TOKENS) {
       expect(dark, `${token} missing from cozy-dark`).toContain(`${token}:`);
       expect(light, `${token} missing from fresh-light`).toContain(`${token}:`);

@@ -170,3 +170,55 @@ body {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* ══ Phase D — THE TRUTH PALETTE (Proofline, re-expressed) ═══════════════════
+   ⚠️ THESE LIVE HERE, NOT IN theme/brand/c3.tokens.css. That file is VENDORED
+   and byte-pinned to the LOCKED c3-brand v1.2.0 — the identity-lock test
+   caught the first version of this change editing it, which is exactly the
+   "silent refresh" the pin exists to forbid. A brand bump is a deliberate,
+   Neural-sequenced act; APP-layer roles belong to the app layer.
+
+   The re-expression is a BINDING, not a new palette: Proofline's language is
+   already a TRUTH palette (mint = proven, coral = failed, amber = caution) and
+   the locked brand accents already carry those roles. So the six-state
+   contract takes its colour FROM the adopted direction, in BOTH themes, and
+   the brand file is never touched.
+      mint  #0c715e → aqua   (verified / proven)
+      coral #d45f4e → coral  (fetch-failed / denial)
+      amber #a96710 → amber  (stale / caution) */
+:root,
+[data-c3-theme='cozy-dark'] {
+  --c3-truth-verified: var(--c3-accent-aqua);
+  --c3-truth-verified-wash: var(--c3-accent-aqua-wash);
+  --c3-truth-failed: var(--c3-accent-coral);
+  --c3-truth-failed-wash: var(--c3-accent-coral-wash);
+  --c3-truth-stale: var(--c3-accent-amber);
+  --c3-truth-denied: var(--c3-accent-periwinkle);
+  --c3-truth-quiet: var(--c3-ink-quiet);
+  /* Dusk's EARNED GRADIENT — it may appear ONLY where a truth was recorded.
+     Colour means something happened; it is never chrome. */
+  --c3-earned-gradient: linear-gradient(
+    92deg,
+    var(--c3-accent-coral) 0%,
+    var(--c3-accent-blue) 52%,
+    var(--c3-accent-aqua) 100%
+  );
+}
+/* The same ROLES on the light side — one grammar, two palettes. Because these
+   resolve through the brand's own accents, the light values follow the locked
+   identity automatically rather than being a second set of literals. */
+[data-c3-theme='fresh-light'] {
+  --c3-truth-verified: var(--c3-accent-aqua);
+  --c3-truth-verified-wash: var(--c3-accent-aqua-wash);
+  --c3-truth-failed: var(--c3-accent-coral);
+  --c3-truth-failed-wash: var(--c3-accent-coral-wash);
+  --c3-truth-stale: var(--c3-accent-amber);
+  --c3-truth-denied: var(--c3-accent-periwinkle);
+  --c3-truth-quiet: var(--c3-ink-quiet);
+  --c3-earned-gradient: linear-gradient(
+    92deg,
+    var(--c3-accent-coral) 0%,
+    var(--c3-accent-blue) 52%,
+    var(--c3-accent-aqua) 100%
+  );
+}

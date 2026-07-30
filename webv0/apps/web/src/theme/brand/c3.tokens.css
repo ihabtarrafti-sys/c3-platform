@@ -120,34 +120,6 @@
   --c3-motion-ease-signature: cubic-bezier(0.22, 1, 0.36, 1);
   --c3-motion-ease-gentle: ease-in-out;
   --c3-motion-ease-linear: linear;
-
-  /* ── Phase D: THE TRUTH PALETTE (Proofline, re-expressed) ────────────────
-     Intel's Proofline direction is adopted BY RE-EXPRESSION — its language,
-     never its CSS (411 selector lines bound to light literals, which is why it
-     structurally cannot have a dark mode). The re-expression turned out to be
-     nearly a pure BINDING: Proofline's palette is already a TRUTH palette —
-     mint = proven, coral = failed, amber = caution — and C3's locked accents
-     already carry those roles. So the six-state contract gets its colour from
-     the adopted direction rather than the palette being laid over it.
-        mint  #0c715e → aqua   (verified / proven)
-        coral #d45f4e → coral  (fetch-failed / denial)
-        amber #a96710 → amber  (stale / caution) */
-  --c3-truth-verified: var(--c3-accent-aqua);
-  --c3-truth-verified-wash: var(--c3-accent-aqua-wash);
-  --c3-truth-failed: var(--c3-accent-coral);
-  --c3-truth-failed-wash: var(--c3-accent-coral-wash);
-  --c3-truth-stale: var(--c3-accent-amber);
-  --c3-truth-denied: var(--c3-accent-periwinkle);
-  --c3-truth-quiet: var(--c3-ink-quiet);
-  /* Dusk's EARNED GRADIENT — coral→blue→aqua, and it may appear ONLY where a
-     truth was recorded. Colour means something happened; it is never chrome. */
-  --c3-earned-gradient: linear-gradient(
-    92deg,
-    var(--c3-accent-coral) 0%,
-    var(--c3-accent-blue) 52%,
-    var(--c3-accent-aqua) 100%
-  );
-
 }
 
 [data-c3-theme="fresh-light"] {
@@ -204,34 +176,6 @@
   --c3-glass-shadow: 0 18px 48px rgba(39, 93, 142, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.82), inset 0 -1px 0 rgba(40, 111, 206, 0.08);
   --c3-glass-blur: 22px;
   --c3-glass-saturate: 140%;
-
-  /* ── Phase D: the same truth roles, light side (one grammar, two palettes) ────────────────
-     Intel's Proofline direction is adopted BY RE-EXPRESSION — its language,
-     never its CSS (411 selector lines bound to light literals, which is why it
-     structurally cannot have a dark mode). The re-expression turned out to be
-     nearly a pure BINDING: Proofline's palette is already a TRUTH palette —
-     mint = proven, coral = failed, amber = caution — and C3's locked accents
-     already carry those roles. So the six-state contract gets its colour from
-     the adopted direction rather than the palette being laid over it.
-        mint  #0c715e → aqua   (verified / proven)
-        coral #d45f4e → coral  (fetch-failed / denial)
-        amber #a96710 → amber  (stale / caution) */
-  --c3-truth-verified: var(--c3-accent-aqua);
-  --c3-truth-verified-wash: var(--c3-accent-aqua-wash);
-  --c3-truth-failed: var(--c3-accent-coral);
-  --c3-truth-failed-wash: var(--c3-accent-coral-wash);
-  --c3-truth-stale: var(--c3-accent-amber);
-  --c3-truth-denied: var(--c3-accent-periwinkle);
-  --c3-truth-quiet: var(--c3-ink-quiet);
-  /* Dusk's EARNED GRADIENT — coral→blue→aqua, and it may appear ONLY where a
-     truth was recorded. Colour means something happened; it is never chrome. */
-  --c3-earned-gradient: linear-gradient(
-    92deg,
-    var(--c3-accent-coral) 0%,
-    var(--c3-accent-blue) 52%,
-    var(--c3-accent-aqua) 100%
-  );
-
 }
 
 @media (prefers-reduced-motion: reduce) {
