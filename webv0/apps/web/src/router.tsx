@@ -12,7 +12,6 @@ import { CredentialsPage } from './pages/CredentialsPage';
 import { JourneysPage } from './pages/JourneysPage';
 import { KitPage } from './pages/KitPage';
 import { ApparelPage } from './pages/ApparelPage';
-import { MissionsPage } from './pages/MissionsPage';
 import { EntitiesPage } from './pages/EntitiesPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { RecycleBinPage } from './pages/RecycleBinPage';
@@ -23,12 +22,9 @@ import { CalendarPage } from './pages/CalendarPage';
 import { SubscriptionsPage } from './pages/SubscriptionsPage';
 import { DeparturesPage } from './pages/DeparturesPage';
 import { OnePagerPage } from './pages/OnePagerPage';
-import { MissionDetailPage } from './pages/MissionDetailPage';
-import { MissionCommsPage } from './pages/MissionCommsPage';
 import { TruthLabPage } from './pages/TruthLabPage';
 import { AttentionLedgerPage } from './pages/AttentionLedgerPage';
 import { ThreadRoomPage } from './pages/ThreadRoomPage';
-import { MissionFinancePage } from './pages/MissionFinancePage';
 import { InvoicesPage } from './pages/InvoicesPage';
 import { TeamsPage } from './pages/TeamsPage';
 import { TeamDetailPage } from './pages/TeamDetailPage';
@@ -36,6 +32,8 @@ import { ClaimsPage } from './pages/ClaimsPage';
 import { ClaimDetailPage } from './pages/ClaimDetailPage';
 import { AgreementsPage } from './pages/AgreementsPage';
 import { AgreementDetailPage } from './pages/AgreementDetailPage';
+import { missionRoutes } from './pages/MissionWorkspaceRoute';
+import { PrincipalRouteBoundary } from './principalDataScope';
 
 /**
  * A real URL router. Deep links and browser refresh resolve to the correct
@@ -63,60 +61,61 @@ export const router = createBrowserRouter([
   // Track B6: the PUBLIC guest form — OUTSIDE the shell + session (a guest has
   // no account). The tenant is resolved server-side from the token.
   { path: '/intake/:token', element: <GuestIntakePage /> },
-  // The Tablework pilot (Comms UI): a standalone frame OUTSIDE the Fluent
-  // AppShell — the two grammars never share a route. Same session provider.
-  { path: '/missions/:missionId/comms', element: <MissionCommsPage /> },
-  { path: '/truth-lab', element: <TruthLabPage /> },
-  { path: '/comms', element: <AttentionLedgerPage /> },
-  { path: '/comms/threads/:threadId', element: <ThreadRoomPage /> },
-  // ── The Tablework pivot: converted routes move here WHOLE (coexistence
-  // law — grammars never share a route; each converted page carries its own
-  // session gate via TableworkPage). Wave 1: the demo spine.
-  { path: '/people', element: <PeoplePage /> },
-  { path: '/people/:personId', element: <PersonProfilePage /> },
-  { path: '/approvals', element: <ApprovalsPage /> },
-  { path: '/approvals/:approvalId', element: <ApprovalDetailPage /> },
-  { path: '/missions', element: <MissionsPage /> },
-  { path: '/missions/:missionId', element: <MissionDetailPage /> },
-  { path: '/situation', element: <HomePage /> },
-  // Wave 2 · Lane A — Agreements & Organization. Each page carries its own
-  // record/section/wide on TableworkPage, so the route entry is a pure move
-  // out of the AppShell children (the coexistence law: whole routes only).
-  { path: '/agreements', element: <AgreementsPage /> },
-  { path: '/agreements/:agreementId', element: <AgreementDetailPage /> },
-  { path: '/entities', element: <EntitiesPage /> },
-  { path: '/invoices', element: <InvoicesPage /> },
-  // Wave 2 · Lane C — people registers + the finance overview. Same pure
-  // relocation: each page carries its own record/section/wide.
-  { path: '/credentials', element: <CredentialsPage /> },
-  { path: '/journeys', element: <JourneysPage /> },
-  { path: '/members', element: <MembersPage /> },
-  { path: '/missions/finance', element: <MissionFinancePage /> },
-  // Wave 2 · Lane B — Teams & Claims. Same pure relocation.
-  { path: '/teams', element: <TeamsPage /> },
-  { path: '/teams/:teamId', element: <TeamDetailPage /> },
-  { path: '/claims', element: <ClaimsPage /> },
-  { path: '/claims/:claimId', element: <ClaimDetailPage /> },
-  // Wave 2 · Lane D — operations. The UNCOVERED lane: no e2e and no unit
-  // tests reach these four screens, so the gate proves only that they broke
-  // nothing else. Their own assurance is Lane D's manual-QA artifact plus the
-  // RED-proven erasure spec that guards IntakePage's irreversible path.
-  { path: '/subscriptions', element: <SubscriptionsPage /> },
-  { path: '/calendar', element: <CalendarPage /> },
-  { path: '/departures', element: <DeparturesPage /> },
-  { path: '/intake', element: <IntakePage /> },
-  { path: '/people/:personId/one-pager', element: <OnePagerPage /> },
-  { path: '/kit', element: <KitPage /> },
-  { path: '/apparel', element: <ApparelPage /> },
-  { path: '/activity', element: <ActivityPage /> },
-  { path: '/recycle-bin', element: <RecycleBinPage /> },
-  { path: '/settings', element: <SettingsPage /> },
-  // Wave 4 Phase 1b: `AppShell` wrapped only these two REDIRECTS, and carried a
-  // session gate for the unauthenticated `/` entry. `TableworkGate` is that gate
-  // — line-for-line identical on `anonymous` (same `intended` deep link, same
-  // IS_ENTRA branch) and byte-identical on `unprovisioned`. Neither child
-  // renders anything visible, so the only delta was a Fluent spinner during
-  // `loading` on a route that immediately leaves.
-  { path: '/', element: <TableworkGate><HomeRedirect /></TableworkGate> },
-  { path: '*', element: <TableworkGate><Navigate to="/people" replace /></TableworkGate> },
+  {
+    id: 'principal-data',
+    element: <PrincipalRouteBoundary />,
+    children: [
+      { path: '/truth-lab', element: <TruthLabPage /> },
+      { path: '/comms', element: <AttentionLedgerPage /> },
+      { path: '/comms/threads/:threadId', element: <ThreadRoomPage /> },
+      // ── The Tablework pivot: converted routes move here WHOLE (coexistence
+      // law — grammars never share a route; each converted page carries its own
+      // session gate via TableworkPage). Wave 1: the demo spine.
+      { path: '/people', element: <PeoplePage /> },
+      { path: '/people/:personId', element: <PersonProfilePage /> },
+      { path: '/approvals', element: <ApprovalsPage /> },
+      { path: '/approvals/:approvalId', element: <ApprovalDetailPage /> },
+      missionRoutes,
+      { path: '/situation', element: <HomePage /> },
+      // Wave 2 · Lane A — Agreements & Organization. Each page carries its own
+      // record/section/wide on TableworkPage, so the route entry is a pure move
+      // out of the AppShell children (the coexistence law: whole routes only).
+      { path: '/agreements', element: <AgreementsPage /> },
+      { path: '/agreements/:agreementId', element: <AgreementDetailPage /> },
+      { path: '/entities', element: <EntitiesPage /> },
+      { path: '/invoices', element: <InvoicesPage /> },
+      // Wave 2 · Lane C — people registers + the finance overview. Same pure
+      // relocation: each page carries its own record/section/wide.
+      { path: '/credentials', element: <CredentialsPage /> },
+      { path: '/journeys', element: <JourneysPage /> },
+      { path: '/members', element: <MembersPage /> },
+      // Wave 2 · Lane B — Teams & Claims. Same pure relocation.
+      { path: '/teams', element: <TeamsPage /> },
+      { path: '/teams/:teamId', element: <TeamDetailPage /> },
+      { path: '/claims', element: <ClaimsPage /> },
+      { path: '/claims/:claimId', element: <ClaimDetailPage /> },
+      // Wave 2 · Lane D — operations. The UNCOVERED lane: no e2e and no unit
+      // tests reach these four screens, so the gate proves only that they broke
+      // nothing else. Their own assurance is Lane D's manual-QA artifact plus the
+      // RED-proven erasure spec that guards IntakePage's irreversible path.
+      { path: '/subscriptions', element: <SubscriptionsPage /> },
+      { path: '/calendar', element: <CalendarPage /> },
+      { path: '/departures', element: <DeparturesPage /> },
+      { path: '/intake', element: <IntakePage /> },
+      { path: '/people/:personId/one-pager', element: <OnePagerPage /> },
+      { path: '/kit', element: <KitPage /> },
+      { path: '/apparel', element: <ApparelPage /> },
+      { path: '/activity', element: <ActivityPage /> },
+      { path: '/recycle-bin', element: <RecycleBinPage /> },
+      { path: '/settings', element: <SettingsPage /> },
+      // Wave 4 Phase 1b: `AppShell` wrapped only these two REDIRECTS, and carried a
+      // session gate for the unauthenticated `/` entry. `TableworkGate` is that gate
+      // — line-for-line identical on `anonymous` (same `intended` deep link, same
+      // IS_ENTRA branch) and byte-identical on `unprovisioned`. Neither child
+      // renders anything visible, so the only delta was a Fluent spinner during
+      // `loading` on a route that immediately leaves.
+      { path: '/', element: <TableworkGate><HomeRedirect /></TableworkGate> },
+      { path: '*', element: <TableworkGate><Navigate to="/people" replace /></TableworkGate> },
+    ],
+  },
 ]);

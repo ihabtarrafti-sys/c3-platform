@@ -29,6 +29,8 @@ export interface MissionCommandModule {
   readonly truth: WitnessState;
   /** Whether governed controls in this module may currently act. */
   readonly actionable?: boolean;
+  /** Desktop modules may release their live tree when explicitly closed. */
+  readonly unmountWhenClosed?: boolean;
   readonly children: ReactNode;
 }
 
@@ -36,12 +38,21 @@ interface MissionCommandWorkspaceProps {
   readonly missionId: string;
   readonly missionName: string;
   readonly modules: readonly MissionCommandModule[];
+  /** The module named by the current route. It may arrive before its live tree. */
+  readonly requestedModule?: MissionCommandModuleId;
+  /** A navigation-instance key lets the same route request raise/reopen again. */
+  readonly requestKey?: string | number;
+  /** Reports the topmost open module that actually exists in this workspace. */
+  readonly onForegroundModuleChange?: (id: MissionCommandModuleId | null) => void;
+  /** Runs only after a user close has committed; minimize never calls it. */
+  readonly onCloseModule?: (id: MissionCommandModuleId) => void;
 }
 
 const LAYOUT_LABELS: ReadonlyArray<{ id: MissionCommandPreset; label: string }> = [
   { id: 'commander', label: 'Commander' },
   { id: 'review', label: 'Review' },
   { id: 'brief', label: 'Brief' },
+  { id: 'finance', label: 'Finance' },
 ];
 
 const COMPACT_QUERY = '(max-width: 71.999rem)';
@@ -62,6 +73,7 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'mission-field': '◇',
   'mission-current': '↯',
   'mission-obligations': '✓',
+  'mission-finance': '¤',
 };
 
 function storageKey(missionId: string): string {
@@ -95,11 +107,24 @@ function styleFor(rect: MissionCommandRect, z: number): CSSProperties {
   } as CSSProperties;
 }
 
-export function MissionCommandWorkspace({ missionId, missionName, modules }: MissionCommandWorkspaceProps) {
+export function MissionCommandWorkspace({
+  missionId,
+  missionName,
+  modules,
+  requestedModule,
+  requestKey,
+  onForegroundModuleChange,
+  onCloseModule,
+}: MissionCommandWorkspaceProps) {
   const rootRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
   const governedControlWindow = useRef<MissionCommandModuleId | null>(null);
   const previousActionability = useRef(new Map<MissionCommandModuleId, boolean>());
+  const initialRouteRequestHandled = useRef(false);
+  const lastRouteRequest = useRef<{ id: MissionCommandModuleId; key: string | number | undefined } | null>(null);
+  const pendingRouteForeground = useRef<MissionCommandModuleId | null>(null);
+  const lastReportedForeground = useRef<MissionCommandModuleId | null | undefined>(undefined);
+  const pendingCloseNotifications = useRef<MissionCommandModuleId[]>([]);
   const compact = useCompactWorkspace();
   const [state, dispatch] = useReducer(
     missionCommandReducer,
@@ -122,10 +147,23 @@ export function MissionCommandWorkspace({ missionId, missionName, modules }: Mis
   }, [missionId, state]);
 
   const moduleById = useMemo(() => new Map(modules.map((module) => [module.id, module])), [modules]);
+  const requestedModuleAvailable = requestedModule !== undefined && moduleById.has(requestedModule);
+  const foregroundModule = useMemo(() => {
+    let front: { id: MissionCommandModuleId; z: number } | null = null;
+    for (const window of state.windows) {
+      if (window.visibility !== 'open' || !moduleById.has(window.id)) continue;
+      // Equal z values are legal in restored state; the later DOM sibling is
+      // visually above, so it is also the truthful foreground report.
+      if (front === null || window.z >= front.z) front = { id: window.id, z: window.z };
+    }
+    return front?.id ?? null;
+  }, [moduleById, state.windows]);
 
   const focusDockButton = (id: MissionCommandModuleId) => {
     window.requestAnimationFrame(() => {
-      rootRef.current?.querySelector<HTMLButtonElement>(`[data-window-launcher="${id}"]`)?.focus();
+      const root = rootRef.current;
+      const launcher = root?.querySelector<HTMLButtonElement>(`[data-window-launcher="${id}"]`);
+      (launcher ?? root?.querySelector<HTMLButtonElement>('[data-window-launcher]'))?.focus();
     });
   };
 
@@ -134,6 +172,50 @@ export function MissionCommandWorkspace({ missionId, missionName, modules }: Mis
       rootRef.current?.querySelector<HTMLElement>(`[data-module="${id}"]`)?.focus();
     });
   };
+
+  useLayoutEffect(() => {
+    if (!requestedModule || !requestedModuleAvailable) return;
+    const previous = lastRouteRequest.current;
+    if (previous?.id === requestedModule && Object.is(previous.key, requestKey)) return;
+    lastRouteRequest.current = { id: requestedModule, key: requestKey };
+    pendingRouteForeground.current = requestedModule;
+    const shouldFocus = initialRouteRequestHandled.current;
+    initialRouteRequestHandled.current = true;
+    dispatch({ type: 'activate-route', id: requestedModule });
+    // The initial deep link leaves focus on the skip-link/browser target. A
+    // later route request is an explicit workspace transition and may focus.
+    if (shouldFocus) focusWindow(requestedModule);
+  }, [requestKey, requestedModule, requestedModuleAvailable]);
+
+  useLayoutEffect(() => {
+    const pending = pendingRouteForeground.current;
+    if (pending !== null) {
+      // A layout-effect activation dispatches before paint. Do not briefly
+      // report the old front window while that committed request is pending.
+      if (foregroundModule !== pending) return;
+      pendingRouteForeground.current = null;
+    }
+    if (!onForegroundModuleChange) {
+      lastReportedForeground.current = undefined;
+      return;
+    }
+    if (lastReportedForeground.current === foregroundModule) return;
+    lastReportedForeground.current = foregroundModule;
+    onForegroundModuleChange(foregroundModule);
+  }, [foregroundModule, onForegroundModuleChange]);
+
+  useLayoutEffect(() => {
+    if (pendingCloseNotifications.current.length === 0) return;
+    const confirmed: MissionCommandModuleId[] = [];
+    const stillPending: MissionCommandModuleId[] = [];
+    for (const id of pendingCloseNotifications.current) {
+      const visibility = state.windows.find((window) => window.id === id)?.visibility;
+      if (visibility === 'closed') confirmed.push(id);
+      else stillPending.push(id);
+    }
+    pendingCloseNotifications.current = stillPending;
+    for (const id of confirmed) onCloseModule?.(id);
+  }, [onCloseModule, state.windows]);
 
   useLayoutEffect(() => {
     const next = new Map(modules.map((module) => [module.id, module.actionable ?? true] as const));
@@ -150,8 +232,23 @@ export function MissionCommandWorkspace({ missionId, missionName, modules }: Mis
   }, [modules]);
 
   const parkWindow = (id: MissionCommandModuleId, visibility: 'minimized' | 'closed') => {
+    if (visibility === 'closed') pendingCloseNotifications.current.push(id);
     dispatch({ type: 'set-visibility', id, visibility });
     focusDockButton(id);
+  };
+
+  const applyLayout = (layout: MissionCommandPreset) => {
+    const finance = state.windows.find((window) => window.id === 'mission-finance');
+    if (layout !== 'finance' && finance?.visibility !== 'closed') {
+      pendingCloseNotifications.current.push('mission-finance');
+    }
+    dispatch({ type: 'apply-layout', layout });
+  };
+
+  const resetLayout = () => {
+    const finance = state.windows.find((window) => window.id === 'mission-finance');
+    if (finance?.visibility !== 'closed') pendingCloseNotifications.current.push('mission-finance');
+    dispatch({ type: 'reset' });
   };
 
   const adjustWithKeyboard = (
@@ -254,12 +351,12 @@ export function MissionCommandWorkspace({ missionId, missionName, modules }: Mis
               key={layout.id}
               className={state.layout === layout.id ? 'is-active' : undefined}
               aria-pressed={state.layout === layout.id}
-              onClick={() => dispatch({ type: 'apply-layout', layout: layout.id })}
+              onClick={() => applyLayout(layout.id)}
             >
               {layout.label}
             </button>
           ))}
-          <button type="button" onClick={() => dispatch({ type: 'reset' })}>
+          <button type="button" onClick={resetLayout}>
             Reset
           </button>
         </div>
@@ -269,7 +366,7 @@ export function MissionCommandWorkspace({ missionId, missionName, modules }: Mis
         <div className="mission-command-contours" aria-hidden="true" />
         {state.windows.map((windowState) => {
           const module = moduleById.get(windowState.id);
-          if (!module) return null;
+          if (!module || (module.unmountWhenClosed && windowState.visibility === 'closed')) return null;
           return (
             <article
               key={module.id}
@@ -350,7 +447,7 @@ export function MissionCommandWorkspace({ missionId, missionName, modules }: Mis
         <span className="mission-command-docklabel">Open windows</span>
         {state.windows.map((windowState) => {
           const module = moduleById.get(windowState.id);
-          if (!module) return null;
+          if (!module || (module.unmountWhenClosed && windowState.visibility === 'closed')) return null;
           return (
             <button
               type="button"

@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import ReactDOM from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { RouterProvider } from 'react-router-dom';
 import { router } from './router';
-import { NotificationProvider, SessionProvider } from './session';
+import { NotificationProvider, SessionProvider, useSession } from './session';
+import { principalDataScopeOf } from './principalDataScope';
 import { ThemeModeProvider } from './theme/mode';
 import './theme/fonts.css';
 // Strategy-B (re-skin chapter closed): the LOCKED identity tokens (Afterglow +
@@ -28,10 +29,6 @@ import './theme/c3-app.css';
 // the bundle untransformed under the `no-transform` header — a prior
 // immutable-cached copy had been re-minified at the edge and failed to execute.
 (window as unknown as { __C3_BUILD?: string }).__C3_BUILD = '2026-07-06-b3c';
-
-const queryClient = new QueryClient({
-  defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
-});
 
 /**
  * Wave 4 Phase 3 — the Tablework pivot's last Fluent removal.
@@ -61,15 +58,32 @@ const queryClient = new QueryClient({
  */
 function Root() {
   return (
+    // Session ownership sits above the principal data root. A principal,
+    // tenant, role, or capability change replaces the QueryClient value
+    // synchronously, while RouterProvider deliberately stays mounted: an auth
+    // callback must not replay completeRedirect between refresh and navigate.
+    <SessionProvider>
+      <PrincipalDataRoot />
+    </SessionProvider>
+  );
+}
+
+function PrincipalDataRoot() {
+  const { status, me } = useSession();
+  const scope = principalDataScopeOf(status, me);
+  const queryClient = useMemo(
+    () =>
+      new QueryClient({
+        defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },
+      }),
+    [scope],
+  );
+
+  return (
     <QueryClientProvider client={queryClient}>
-      {/* SessionProvider OUTSIDE so notices can clear on actor/tenant change
-          (UX11) — a notice minted under one identity must never survive into
-          another. SessionProvider does not consume notices. */}
-      <SessionProvider>
-        <NotificationProvider>
-          <RouterProvider router={router} />
-        </NotificationProvider>
-      </SessionProvider>
+      <NotificationProvider>
+        <RouterProvider router={router} />
+      </NotificationProvider>
     </QueryClientProvider>
   );
 }
