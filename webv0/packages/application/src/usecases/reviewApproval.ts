@@ -70,7 +70,7 @@ async function transition(
       const check = checkSelfReview(actor.identity, approval.submittedBy);
       if (check.blocked) throw new SelfReviewError(check.reason);
     }
-    assertTenantMatch(actor.tenantId, approval.tenantId);
+    assertTenantMatch(actor, approval.tenantId);
 
     const lifecycleAction = LIFECYCLE_FOR[action];
     if (!canApply(lifecycleAction, approval.status)) {
@@ -148,7 +148,7 @@ export async function withdrawApproval(
   return p.writes.transaction(actor, async (tx: WriteTx) => {
     const approval = await tx.lockApproval(approvalId);
     if (!approval) throw new NotFoundError('Approval', approvalId);
-    assertTenantMatch(actor.tenantId, approval.tenantId);
+    assertTenantMatch(actor, approval.tenantId);
 
     const submitter = approval.submittedBy?.trim().toLowerCase();
     const requester = actor.identity?.trim().toLowerCase();

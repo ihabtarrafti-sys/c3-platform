@@ -178,7 +178,7 @@ export async function executeApproval(
         const check = checkSelfReview(actor.identity, approval.submittedBy);
         if (check.blocked) throw new SelfReviewError(check.reason);
       }
-      assertTenantMatch(actor.tenantId, approval.tenantId);
+      assertTenantMatch(actor, approval.tenantId);
 
       // Idempotent: already executed -> return what it created. Participant
       // ops have no created_by column (a pair outlives many approvals); the

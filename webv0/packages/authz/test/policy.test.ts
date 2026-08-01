@@ -82,13 +82,33 @@ describe('execute (owner only + separation of duties)', () => {
 
 describe('tenant match fails closed', () => {
   it('same tenant allowed', () => {
-    expect(() => assertTenantMatch('tenant-a', 'tenant-a')).not.toThrow();
+    expect(() => assertTenantMatch(actor({ tenantId: 'tenant-a' }), 'tenant-a')).not.toThrow();
   });
   it('cross tenant blocked', () => {
-    expect(() => assertTenantMatch('tenant-a', 'tenant-b')).toThrow(ForbiddenError);
+    expect(() => assertTenantMatch(actor({ tenantId: 'tenant-a' }), 'tenant-b')).toThrow(ForbiddenError);
   });
   it('empty actor tenant blocked', () => {
-    expect(() => assertTenantMatch('', '')).toThrow(ForbiddenError);
+    expect(() => assertTenantMatch(actor({ tenantId: '' }), '')).toThrow(ForbiddenError);
+  });
+
+  it('⛔ TRANSPOSITION IS UNREPRESENTABLE — the old shape could be disarmed by argument order', () => {
+    // The signature used to be (actorTenantId: string, recordTenantId: string):
+    // two positional arguments of the SAME TYPE, so swapping them — or passing
+    // the same value twice — type-checked perfectly and defeated the guard in
+    // silence. Taking the Actor makes that error impossible to write.
+    // @ts-expect-error — a bare tenant id is no longer accepted where an actor is required.
+    expect(() => assertTenantMatch('tenant-a', 'tenant-a')).toThrow();
+  });
+
+  it('⛔ the other tenant’s id never travels in the error', () => {
+    // You may learn about yourself; you may not learn another organisation's
+    // identifiers from an error you triggered.
+    try {
+      assertTenantMatch(actor({ tenantId: 'tenant-a' }), 'tenant-SECRET');
+      throw new Error('expected a refusal');
+    } catch (err) {
+      expect(JSON.stringify(err instanceof ForbiddenError ? err.details : {})).not.toContain('tenant-SECRET');
+    }
   });
 });
 

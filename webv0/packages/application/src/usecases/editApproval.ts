@@ -104,7 +104,7 @@ export async function editApprovalPayload(p: Persistence, actor: Actor, inputRaw
   return p.writes.transaction(actor, async (tx) => {
     const current = await tx.lockApproval(approvalId);
     if (!current) throw new NotFoundError('Approval', approvalId);
-    assertTenantMatch(actor.tenantId, current.tenantId);
+    assertTenantMatch(actor, current.tenantId);
     assertOwnRequest(actor, current);
     assertCorrectionsAllowed(current.operationType);
     if (current.status !== 'Submitted') {
@@ -316,7 +316,7 @@ export async function reviseApproval(p: Persistence, actor: Actor, inputRaw: Rev
   const reads = p.reads.forActor(actor);
   const current = await reads.getApprovalById(approvalId);
   if (!current) throw new NotFoundError('Approval', approvalId);
-  assertTenantMatch(actor.tenantId, current.tenantId);
+  assertTenantMatch(actor, current.tenantId);
   assertOwnRequest(actor, current);
   assertCorrectionsAllowed(current.operationType);
 

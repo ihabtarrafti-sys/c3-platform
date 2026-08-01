@@ -98,10 +98,27 @@ export function assertViewApprovals(actor: Actor): void {
   }
 }
 
-/** Fail-closed tenant match. Callers surface a mismatch as not-found. */
-export function assertTenantMatch(actorTenantId: string, recordTenantId: string): void {
-  if (actorTenantId !== recordTenantId || !actorTenantId) {
-    throw new ForbiddenError('Cross-tenant access is not permitted.', { actorTenantId, recordTenantId });
+/**
+ * Fail-closed tenant match. Callers surface a mismatch as not-found.
+ *
+ * ⚖️ IT TAKES THE ACTOR, NOT A BARE STRING, AND THAT IS THE POINT (D-008
+ * class-B). This used to be `(actorTenantId: string, recordTenantId: string)` —
+ * **two positional arguments of the same type, so transposing them, or passing
+ * the same value twice, type-checks perfectly and defeats the guard silently.**
+ * A tenant guard that can be disarmed by argument order is the wrong shape for
+ * the one check standing between two organisations' data.
+ *
+ * Taking the `Actor` makes that error unrepresentable: the compiler refuses a
+ * string where an actor is required, so the caller's own tenant can only come
+ * from the resolved principal. It also matches every other guard in this file.
+ *
+ * ⛔ The other tenant's id is deliberately NOT in the error details. You may
+ * learn about yourself; you may not learn another organisation's identifiers
+ * from an error you triggered.
+ */
+export function assertTenantMatch(actor: Actor, recordTenantId: string): void {
+  if (!actor.tenantId || actor.tenantId !== recordTenantId) {
+    throw new ForbiddenError('Cross-tenant access is not permitted.', { role: actor.role });
   }
 }
 

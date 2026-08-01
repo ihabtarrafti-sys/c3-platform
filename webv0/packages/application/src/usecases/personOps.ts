@@ -34,7 +34,7 @@ export async function updatePersonOperational(
   return p.writes.transaction(actor, async (tx: WriteTx) => {
     const current = await tx.lockPerson(personId);
     if (!current) throw new NotFoundError('Person', personId);
-    assertTenantMatch(actor.tenantId, current.tenantId);
+    assertTenantMatch(actor, current.tenantId);
     if (current.version !== parsed.expectedVersion) throw new ConcurrencyError('Person', personId);
 
     const patch: PersonFieldsPatch = parsed.patch;
@@ -77,7 +77,7 @@ export async function updateCredentialDetails(
   return p.writes.transaction(actor, async (tx: WriteTx) => {
     const current = await tx.lockCredential(credentialId);
     if (!current) throw new NotFoundError('Credential', credentialId);
-    assertTenantMatch(actor.tenantId, current.tenantId);
+    assertTenantMatch(actor, current.tenantId);
     if (current.version !== parsed.expectedVersion) throw new ConcurrencyError('Credential', credentialId);
 
     const before: Record<string, unknown> = {};
