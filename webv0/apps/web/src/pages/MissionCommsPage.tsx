@@ -19,7 +19,7 @@
  *  - Capabilities render-gate AFFORDANCES only — the API is the authority.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import type { CommsMessageDto, CommsObligationDto, MissionDto } from '@c3web/api-contracts';
 import type { CommsLinkInput } from '@c3web/domain';
@@ -31,12 +31,22 @@ import { IS_ENTRA } from '../auth';
 import { EntraSignIn, AccessNotProvisioned } from './EntraSignIn';
 import { LoginGate } from './LoginGate';
 import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, TruthPanel, truthStateOf, WorkSurface, type ObligationActionInput, type WitnessState } from '../tablework';
-import { MissionCommandWorkspace } from '../tablework/MissionCommandWorkspace';
+import { MissionCommandWorkspace, type MissionCommandModule } from '../tablework/MissionCommandWorkspace';
 import { isActionableWitness, withModuleChannelTruth, type MissionCommandModuleId } from '../tablework/missionCommandModel';
+import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
+import { MissionFinanceOverview } from './MissionFinancePage';
 
-export function MissionCommsPage() {
-  const { missionId } = useParams<{ missionId: string }>();
+interface MissionCommsPageProps {
+  readonly missionIdOverride?: string;
+  readonly requestedModule?: MissionCommandModuleId;
+  readonly workspaceRequestKey?: string;
+}
+
+export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission-current', workspaceRequestKey = 'direct' }: MissionCommsPageProps = {}) {
+  const { missionId: routeMissionId } = useParams<{ missionId: string }>();
+  const location = useLocation();
+  const missionId = missionIdOverride ?? routeMissionId;
   const { status, providerSession, signOut } = useSession();
 
   // The AppShell's exact session gate, replicated for the standalone mount.
@@ -46,19 +56,34 @@ export function MissionCommsPage() {
     return <div style={{ display: 'grid', placeItems: 'center', minHeight: '100dvh' }}>Loading session...</div>;
   }
   if (status === 'anonymous') {
-    const intended = `/missions/${missionId}/comms`;
+    const intended = `${location.pathname}${location.search}`;
     return IS_ENTRA ? <EntraSignIn intendedPath={intended} /> : <LoginGate intendedPath={intended} />;
   }
   if (status === 'unprovisioned') {
     return <AccessNotProvisioned identity={providerSession?.identity ?? 'This account'} onSignOut={() => void signOut()} />;
   }
 
-  return <MissionCommsScreen key={missionId} missionId={missionId ?? ''} />;
+  return (
+    <MissionCommsScreen key={missionId}
+      missionId={missionId ?? ''}
+      requestedModule={requestedModule}
+      workspaceRequestKey={workspaceRequestKey}
+    />
+  );
 }
 
-function MissionCommsScreen({ missionId }: { missionId: string }) {
+function MissionCommsScreen({
+  missionId,
+  requestedModule,
+  workspaceRequestKey,
+}: {
+  missionId: string;
+  requestedModule: MissionCommandModuleId;
+  workspaceRequestKey: string;
+}) {
   const { me } = useSession();
   const qc = useQueryClient();
+  const navigate = useNavigate();
   const mission = useMission(missionId);
   const thread = useMissionThread(missionId);
   const obligations = useMissionObligations(missionId);
@@ -74,6 +99,34 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [mintOpen, setMintOpen] = useState(false);
+  const [financeTruth, setFinanceTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [foregroundModule, setForegroundModule] = useState<MissionCommandModuleId | null>('mission-current');
+  const attention = useDocumentAttention();
+  const mayRecordRead = mayRecordWorkspaceRead(
+    foregroundModule,
+    attention.visibilityState,
+    attention.hasFocus,
+    attention.dialogOpen,
+  );
+  const mayRecordReadRef = useRef(mayRecordRead);
+  mayRecordReadRef.current = mayRecordRead;
+
+  // Route remount used to earn a fresh witness. Persistence keeps drafts and
+  // window state, so each real route activation explicitly re-witnesses the
+  // mission-owned regions instead of letting an old success look perpetual.
+  const previousWorkspaceRequest = useRef(workspaceRequestKey);
+  useEffect(() => {
+    if (previousWorkspaceRequest.current === workspaceRequestKey) return;
+    previousWorkspaceRequest.current = workspaceRequestKey;
+    void Promise.all([
+      mission.refetch(),
+      thread.refetch(),
+      obligations.refetch(),
+      receipts.refetch(),
+      prefs.refetch(),
+      ...(canManage ? [members.refetch()] : []),
+    ]);
+  }, [workspaceRequestKey, mission, thread, obligations, receipts, prefs, members, canManage]);
 
   const invalidateThread = useCallback(
     () => Promise.all([qc.invalidateQueries({ queryKey: ['commsThread', missionId] }), qc.invalidateQueries({ queryKey: ['commsObligations', missionId] })]),
@@ -124,7 +177,11 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
   const lastAdvancedRef = useRef(0);
   const debounceRef = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(debounceRef.current), []);
+  useEffect(() => {
+    if (!mayRecordRead) window.clearTimeout(debounceRef.current);
+  }, [mayRecordRead]);
   const onReachedEnd = useCallback(() => {
+    if (!mayRecordReadRef.current || documentHasOpenDialog()) return;
     const t = firstPage;
     if (!t?.thread) return;
     const target = t.thread.lastSeq;
@@ -132,6 +189,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
     if (target <= mine || target <= lastAdvancedRef.current) return;
     window.clearTimeout(debounceRef.current);
     debounceRef.current = window.setTimeout(() => {
+      if (!mayRecordReadRef.current || documentHasOpenDialog()) return;
       lastAdvancedRef.current = target;
       // Advancing one's OWN cursor stays legal through lapse (reading your record).
       api
@@ -286,19 +344,31 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
 
   return (
     <AppFrame
-      place="Comms"
+      place={requestedModule === 'mission-finance' ? 'Finance' : 'Comms'}
       wide
+      workspaceMissionId={missionId}
       actor={{ displayName: me?.displayName ?? 'Member', role: me?.role ?? '', tenantName: me?.tenantSlug ?? '' }}
       header={
         <ContextHeader
-          place="Comms"
-          origin="Mission"
+          place={requestedModule === 'mission-finance' ? 'Finance' : 'Comms'}
+          origin={requestedModule === 'mission-finance' ? 'Mission Command' : 'Mission'}
           record={record}
-          section="Mission Thread"
+          section={requestedModule === 'mission-finance' ? 'Finance beside Mission' : 'Mission Thread'}
           actions={
-            <Link className="intent-button" to={`/missions/${missionId}`}>
-              Open mission workspace
-            </Link>
+            <>
+              <Link className="intent-button" to={`/missions/${missionId}`}>
+                Open mission workspace
+              </Link>
+              {requestedModule === 'mission-finance' ? (
+                <Link className="intent-button" to={`/missions/${missionId}/comms`}>
+                  Return to Mission Current
+                </Link>
+              ) : (
+                <Link className="intent-button" to={`/missions/finance?workspace=${missionId}`}>
+                  Open finance beside mission
+                </Link>
+              )}
+            </>
           }
         />
       }
@@ -330,6 +400,16 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
           <MissionCommandWorkspace
             missionId={missionId}
             missionName={record}
+            requestedModule={requestedModule}
+            requestKey={workspaceRequestKey}
+            onForegroundModuleChange={setForegroundModule}
+            onCloseModule={(moduleId) => {
+              if (moduleId !== 'mission-finance') return;
+              setFinanceTruth({ kind: 'loading' });
+              if (requestedModule === 'mission-finance') {
+                navigate(`/missions/${missionId}/comms`, { replace: true });
+              }
+            }}
             modules={[
               {
                 id: 'mission-field' satisfies MissionCommandModuleId,
@@ -370,6 +450,7 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
                     onPost={onPost}
                     onAttach={onAttach}
                     onReachedEnd={onReachedEnd}
+                    receiptEligible={mayRecordRead}
                     hasEarlier={thread.hasNextPage}
                     loadingEarlier={thread.isFetchingNextPage}
                     onLoadEarlier={() => void thread.fetchNextPage()}
@@ -430,6 +511,22 @@ function MissionCommsScreen({ missionId }: { missionId: string }) {
                   </WorkSurface>
                 ),
               },
+              {
+                id: 'mission-finance' satisfies MissionCommandModuleId,
+                eyebrow: 'Continuity · Finance',
+                title: 'Finance Overview',
+                detail: 'An independently witnessed register beside the mission — never borrowed from Comms live health.',
+                truth: financeTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <MissionFinanceOverview
+                    enabled
+                    foreground={foregroundModule === 'mission-finance'}
+                    onTruthChange={setFinanceTruth}
+                    linkToMission={(nextMissionId) => `/missions/${nextMissionId}/comms?open=finance`}
+                  />
+                ),
+              } satisfies MissionCommandModule,
             ]}
           />
           {canManage && !lapsed ? (

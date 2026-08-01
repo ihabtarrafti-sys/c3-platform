@@ -13,9 +13,11 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { api } from '../apiClient';
 import { KIND_LABEL, NAV_ACTIONS, routeFor } from '../shellModel';
+import { useWorkspaceNavigation } from './workspaceNavigation';
 
 export function ShellSearch() {
   const navigate = useNavigate();
+  const { hrefFor } = useWorkspaceNavigation();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
   const [kindFilter, setKindFilter] = useState<string | null>(null);
@@ -72,14 +74,14 @@ export function ShellSearch() {
     setOpen(false);
     setQ('');
     setKindFilter(null);
-    navigate(routeFor(kind, id, parentId));
+    navigate(hrefFor(routeFor(kind, id, parentId)));
   }
 
   function goRoute(route: string) {
     setOpen(false);
     setQ('');
     setKindFilter(null);
-    navigate(route);
+    navigate(hrefFor(route));
   }
 
   // Stable group order regardless of arrival order.

@@ -13,6 +13,7 @@ import type { CommsLinkInput, CommsLinkTargetType } from '@c3web/domain';
 import { Message } from './Message';
 import { TruthPanel, type WitnessState } from './TruthPanel';
 import { isActionableWitness } from './missionCommandModel';
+import { documentHasOpenDialog } from './workspaceAttention';
 
 /** Auto-detect record references in the body → ObjectLink chips (cap 10). */
 export function detectLinks(body: string): CommsLinkInput[] {
@@ -54,6 +55,9 @@ interface ThreadProps {
   /** Fires when the conversation's end becomes visible — the receipt cursor
    *  advances on SEEING the end, never on mere mount (the page debounces). */
   onReachedEnd?: () => void;
+  /** The owning workspace, not geometry alone, decides whether this thread is
+   *  actually foreground. Covered/minimized modules must never mint a read. */
+  receiptEligible?: boolean;
   /** Older messages exist beyond the loaded window (keyset paging). */
   hasEarlier?: boolean;
   loadingEarlier?: boolean;
@@ -70,7 +74,7 @@ interface ThreadProps {
   onPostKinded?: (body: string, links: CommsLinkInput[], kind: 'note' | 'decision', supersedes: string | null) => Promise<boolean>;
 }
 
-export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, hasEarlier, loadingEarlier, onLoadEarlier, truth, audienceTreaty, onPostKinded }: ThreadProps) {
+export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, receiptEligible = true, hasEarlier, loadingEarlier, onLoadEarlier, truth, audienceTreaty, onPostKinded }: ThreadProps) {
   const [draft, setDraft] = useState('');
   const [asDecision, setAsDecision] = useState(false);
   const [supersedes, setSupersedes] = useState('');
@@ -93,8 +97,10 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
   const conversationRef = useRef<HTMLDivElement>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const reachedEnd = useRef(onReachedEnd);
+  const mayRecordRead = useRef(receiptEligible);
   const previousLastSeq = useRef<number | null>(null);
   reachedEnd.current = onReachedEnd;
+  mayRecordRead.current = receiptEligible;
 
   useLayoutEffect(() => {
     if (!composerAvailable && composerHadFocus.current) {
@@ -125,11 +131,19 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
     const scroller = conversationRef.current;
     if (!el || !scroller) return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((e) => e.isIntersecting)) reachedEnd.current?.();
+      if (
+        entries.some((e) => e.isIntersecting) &&
+        mayRecordRead.current &&
+        document.visibilityState === 'visible' &&
+        document.hasFocus() &&
+        !documentHasOpenDialog()
+      ) {
+        reachedEnd.current?.();
+      }
     }, { root: scroller });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [messages.length]);
+  }, [messages.length, receiptEligible]);
 
   // The unread divider sits before the first message past my cursor — derived
   // from myLastReadSeq, never a stored flag.

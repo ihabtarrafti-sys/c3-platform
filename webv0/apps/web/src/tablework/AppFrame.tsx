@@ -25,6 +25,7 @@ import { PLACES, activePlaceFor, placeVisible, visibleSections, type Place } fro
 import { InboxContext } from './shellInbox';
 import { ShellBellButton, ShellBellDrawer } from './ShellBell';
 import { ShellSearch } from './ShellSearch';
+import { WorkspaceNavigationProvider, useWorkspaceNavigation } from './workspaceNavigation';
 import './tablework.css';
 
 export interface TableworkActor {
@@ -44,6 +45,7 @@ function initialsOf(name: string): string {
 
 function PlaceRow({ place, active }: { place: Place; active: boolean }) {
   const { me } = useSession();
+  const { hrefFor } = useWorkspaceNavigation();
   const caps = me?.capabilities;
   const sections = visibleSections(place, caps);
 
@@ -61,7 +63,7 @@ function PlaceRow({ place, active }: { place: Place; active: boolean }) {
     return (
       <NavLink
         className={({ isActive }) => (isActive || active ? 'place-link active' : 'place-link')}
-        to={place.to}
+        to={hrefFor(place.to)}
         data-testid={place.testId}
       >
         <span aria-hidden="true">{place.glyph}</span>
@@ -73,14 +75,14 @@ function PlaceRow({ place, active }: { place: Place; active: boolean }) {
   const primary = sections[0]!;
   return (
     <div className={active ? 'place-group active' : 'place-group'}>
-      <Link className={active ? 'place-link active' : 'place-link'} to={primary.to} aria-current={active ? 'page' : undefined}>
+      <Link className={active ? 'place-link active' : 'place-link'} to={hrefFor(primary.to)} aria-current={active ? 'page' : undefined}>
         <span aria-hidden="true">{place.glyph}</span>
         <b>{place.label}</b>
       </Link>
       <ul className="place-sections">
         {sections.map((s) => (
           <li key={s.to}>
-            <NavLink className={({ isActive }) => (isActive ? 'section-link is-current' : 'section-link')} to={s.to} data-testid={s.testId}>
+            <NavLink className={({ isActive }) => (isActive ? 'section-link is-current' : 'section-link')} to={hrefFor(s.to)} data-testid={s.testId}>
               {s.label}
             </NavLink>
           </li>
@@ -93,6 +95,7 @@ function PlaceRow({ place, active }: { place: Place; active: boolean }) {
 /** The grouped product map on a Float — the narrow shell's Browse. */
 function BrowseFloat({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { me } = useSession();
+  const { hrefFor } = useWorkspaceNavigation();
   const caps = me?.capabilities;
   return (
     <FloatSurface open={open} onClose={onClose} labelledBy="browse-title">
@@ -117,7 +120,7 @@ function BrowseFloat({ open, onClose }: { open: boolean; onClose: () => void }) 
                 <p className="search-group">{place.label}</p>
                 <div className="float-menu">
                   {(place.to ? [{ label: place.label, to: place.to }] : sections).map((s) => (
-                    <Link key={s.to} to={s.to} onClick={onClose}>
+                    <Link key={s.to} to={hrefFor(s.to)} onClick={onClose}>
                       <span>
                         <strong>{s.label}</strong>
                       </span>
@@ -191,10 +194,12 @@ interface AppFrameProps {
   header: ReactNode;
   /** Registers get command width; reading surfaces keep the calm measure. */
   wide?: boolean;
+  /** A validated mission may keep Finance inside the persistent workspace. */
+  workspaceMissionId?: string | null;
   children: ReactNode;
 }
 
-export function AppFrame({ place, actor, header, wide, children }: AppFrameProps) {
+export function AppFrame({ place, actor, header, wide, workspaceMissionId = null, children }: AppFrameProps) {
   const { mode, toggleMode, skin, toggleSkin, effectsReduced, toggleEffects } = useThemeMode();
   const { me, signOut } = useSession();
   const { notices, dismiss } = useNotify();
@@ -208,7 +213,8 @@ export function AppFrame({ place, actor, header, wide, children }: AppFrameProps
   const caps = me?.capabilities;
 
   return (
-    <InboxContext.Provider value={{ open: inboxOpen, setOpen: setInboxOpen }}>
+    <WorkspaceNavigationProvider missionId={workspaceMissionId}>
+      <InboxContext.Provider value={{ open: inboxOpen, setOpen: setInboxOpen }}>
       <div className="tw-root">
         <a className="skip-link" href="#tw-room">
           Skip to {activeLabel}
@@ -334,7 +340,8 @@ export function AppFrame({ place, actor, header, wide, children }: AppFrameProps
           <MoreFloat open={moreOpen} onClose={() => setMoreOpen(false)} actor={actor} />
         </section>
       </div>
-    </InboxContext.Provider>
+      </InboxContext.Provider>
+    </WorkspaceNavigationProvider>
   );
 }
 

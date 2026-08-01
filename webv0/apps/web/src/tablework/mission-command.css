@@ -246,6 +246,10 @@
   --module-line: var(--c3-iris-route-a);
 }
 
+.tw-root .mission-command-window.module-mission-finance {
+  --module-line: var(--c3-accent-amber);
+}
+
 .tw-root .module-mission-field .mission-command-truth,
 .tw-root .module-mission-obligations .mission-command-truth {
   display: none;
@@ -472,6 +476,32 @@
 
 .tw-root .module-mission-obligations .obligation-stack {
   gap: var(--c3-space-3);
+}
+
+/* Finance keeps its own collection grammar and horizontal table witness, but
+   the persistent window owns the outer surface and the independent scroll. */
+.tw-root .module-mission-finance .mission-command-windowbody {
+  overflow: auto;
+}
+
+.tw-root .module-mission-finance .collection-frame {
+  min-width: 0;
+  min-height: 100%;
+  padding: var(--c3-space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tw-root .module-mission-finance .collection-title {
+  font-size: clamp(1.5rem, 2vw, 2.25rem);
+}
+
+.tw-root .module-mission-finance .comparison-scroll {
+  min-width: 0;
+  max-width: 100%;
+  overflow: auto;
 }
 
 .tw-root .mission-command-resize {
@@ -710,6 +740,10 @@
 
   .tw-root .mission-command-window.module-mission-current {
     min-height: 42rem;
+  }
+
+  .tw-root .mission-command-window.module-mission-finance {
+    min-height: 32rem;
   }
 
   .tw-root .mission-command-resize {
