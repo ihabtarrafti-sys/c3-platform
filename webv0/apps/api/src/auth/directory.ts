@@ -13,6 +13,7 @@
  * role. Entra sign-in NEVER auto-creates a membership.
  */
 import { Pool } from 'pg';
+import { AmbiguousMembershipError } from './types';
 
 export interface ExternalIdentityKey {
   readonly provider: 'entra' | 'dev';
@@ -55,6 +56,15 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
     },
 
     async resolveMembership(key: ExternalIdentityKey): Promise<ResolvedMembership | null> {
+      // ⛔ NO `LIMIT 1`, and the absence is the point (D-008 class-B). This query
+      // used to end `ORDER BY t.created_at ASC LIMIT 1`, which silently resolved
+      // a multi-org identity into the OLDEST tenant — and into that tenant's
+      // ROLE, so the silent choice picked an authority level too. Under one
+      // tenant the clause was unreachable, so the defect had no behaviour; it is
+      // the first instance of the class the identity-plane RLS exemption
+      // creates, because nothing underneath these tables catches a missing
+      // scope. Every row is fetched so ambiguity can be SEEN rather than
+      // ordered away. See AmbiguousMembershipError.
       const r = await pool.query(
         `SELECT u.id AS user_id, t.id AS tenant_id, t.slug AS tenant_slug, ra.role AS role,
                 u.email AS email, u.display_name AS display_name
@@ -64,12 +74,16 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
            JOIN role_assignment ra   ON ra.user_id = u.id AND ra.tenant_id = tm.tenant_id
            JOIN tenant t          ON t.id = tm.tenant_id
           WHERE ei.provider = $1 AND ei.issuer_tenant_id = $2 AND ei.subject = $3
-          ORDER BY t.created_at ASC
-          LIMIT 1`,
+          ORDER BY t.id ASC, ra.role ASC`,
         [key.provider, key.issuerTenantId, key.subject],
       );
       const row = r.rows[0];
       if (!row) return null;
+      // Ambiguity is counted over DISTINCT TENANTS, not rows: two roles within
+      // one tenant is a different condition and must not be reported as a
+      // multi-org identity.
+      const tenants = new Set(r.rows.map((candidate) => candidate.tenant_id as string));
+      if (tenants.size > 1) throw new AmbiguousMembershipError(tenants.size, key);
       return {
         userId: row.user_id,
         tenantId: row.tenant_id,

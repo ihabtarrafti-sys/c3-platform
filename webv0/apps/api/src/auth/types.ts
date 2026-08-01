@@ -35,6 +35,42 @@ export class AuthError extends Error {
  * never as a generic authentication failure. Entra sign-in NEVER auto-creates
  * a membership.
  */
+/**
+ * The token is VALID and the identity has MORE THAN ONE tenant membership.
+ *
+ * ⚖️ WHY THIS REFUSES INSTEAD OF CHOOSING. `resolveMembership` used to end
+ * `ORDER BY created_at ASC LIMIT 1`, so a multi-org person was resolved into
+ * whichever C3 tenant was created first — silently, and with that tenant's ROLE,
+ * so the silent choice also picked an authority level. Under one tenant the
+ * clause was unreachable and the bug had no behaviour.
+ *
+ * Choosing properly needs a tenant selector, an "active tenant" on the session,
+ * and an owner decision — a slice of its own. **What must not survive in the
+ * meantime is the SILENT choice**, so this refuses by name.
+ *
+ * ⚠️ REOPENING CONDITION, stated rather than assumed: this refuses a legitimate
+ * multi-org user the day one exists. That is the correct trade while zero exist
+ * — a refusal is recoverable, a wrong tenant is not — and the day it starts
+ * costing someone access is the day tenant selection gets designed.
+ *
+ * Distinct from AccessNotProvisionedError on purpose: "we do not know you" and
+ * "we know you twice" call for different operator actions, so they must never
+ * collapse into one error.
+ */
+export class AmbiguousMembershipError extends AuthError {
+  override readonly name = 'AmbiguousMembershipError';
+  readonly identityKey?: { provider: 'entra' | 'dev'; issuerTenantId: string; subject: string };
+  readonly tenantCount: number;
+  constructor(tenantCount: number, identityKey?: { provider: 'entra' | 'dev'; issuerTenantId: string; subject: string }) {
+    super(
+      'Your identity belongs to more than one organisation in C3, and C3 cannot yet ask which one you mean. ' +
+        'Contact the platform owner — this is a refusal, not a denial.',
+    );
+    this.identityKey = identityKey;
+    this.tenantCount = tenantCount;
+  }
+}
+
 export class AccessNotProvisionedError extends AuthError {
   override readonly name = 'AccessNotProvisionedError';
   /** The immutable identity key of the denied (but token-valid) identity, when

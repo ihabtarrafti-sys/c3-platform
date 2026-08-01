@@ -434,7 +434,7 @@ import { R2_HTTP_HANDLER_OPTIONS } from './storage';
 import { buildBankRegistrationForm } from './bankForm';
 import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
-import { AccessNotProvisionedError, AuthError } from './auth/types';
+import { AccessNotProvisionedError, AmbiguousMembershipError, AuthError } from './auth/types';
 import { signDevToken } from './auth/devIdp';
 import { toCommsMessageDto, toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toSavedViewDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toMissionPnlV2Dto, toPersonDto } from './dto';
 
@@ -664,6 +664,14 @@ export function buildApp(deps: Deps): FastifyInstance {
           }
         }
         return sendError(req, reply, 403, 'ACCESS_NOT_PROVISIONED', err.message);
+      }
+      // Authenticated, and known TWICE. Also a 403 — the identity is valid and
+      // the refusal is about C3's inability to ask which organisation is meant,
+      // never about the token. Kept distinct from ACCESS_NOT_PROVISIONED because
+      // "we do not know you" and "we know you twice" need different operator
+      // actions.
+      if (err instanceof AmbiguousMembershipError) {
+        return sendError(req, reply, 403, 'MEMBERSHIP_AMBIGUOUS', err.message);
       }
       return sendError(req, reply, 401, 'UNAUTHENTICATED', err instanceof AuthError ? err.message : 'Authentication failed.');
     }
