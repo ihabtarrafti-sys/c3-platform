@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
+import { E2E_API_ORIGIN } from './support/ports';
 
 /**
  * End-to-end evidence for the Tablework pilot (Comms UI-3): the Mission Comms
@@ -23,7 +24,10 @@ import { mkdirSync } from 'node:fs';
  */
 
 const SHOTS = 'test-results/comms-shots';
-const API = 'http://127.0.0.1:4100';
+// Read from the harness's single source of truth rather than hardcoded: a spec
+// that pins the port itself can outlive a config change and talk to a server
+// this run never started (instance 57).
+const API = E2E_API_ORIGIN;
 
 // A real 1x1 PNG — the API verifies magic bytes, not just the declared type.
 const PNG = Buffer.from(
