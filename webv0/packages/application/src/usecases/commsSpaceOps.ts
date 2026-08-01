@@ -169,6 +169,10 @@ export async function openDirectThread(p: Persistence, actor: Actor, otherUserId
   const ent = await reads.getModuleEntitlement(COMMS_MODULE_KEY);
   if (!ent) throw conceal;
   if (otherUserId === actor.userId) throw new ValidationError('A direct thread needs a second member.');
+  // Class-B guard: the target must be someone this tenant may address. Checked
+  // BEFORE the direct_set_hash is computed, so a foreign id cannot even mint the
+  // identity of a thread. See assertAddressableInTenant.
+  await assertAddressableInTenant(p, actor, otherUserId);
   const pair = [actor.userId, otherUserId].sort();
   const hash = createHash('sha256').update(pair.join('|')).digest('hex');
 
@@ -262,6 +266,31 @@ async function requireRoomAdmin(p: Persistence, actor: Actor, threadId: string):
   return thread;
 }
 
+/**
+ * ⛔ A SEAT MAY ONLY BE GIVEN TO SOMEONE THIS TENANT MAY ADDRESS (D-008 class-B).
+ *
+ * Both seating paths take a userId straight from the caller. Under a single
+ * tenant that was safe **by accident** — every userId in existence was a
+ * co-tenant, so "any user" and "a user of mine" were the same set. With a second
+ * tenant they are different sets, and nothing else in the call notices: RLS
+ * writes the participant row into the CALLER's tenant, so the row looks
+ * perfectly legitimate while referencing a person from somewhere else.
+ *
+ * The guard is B8's addressable directory rather than a new notion of
+ * membership: **a user you may seat is a user you may address**, tenant-scoped
+ * and active-only by construction. Reusing it means the two answers cannot drift.
+ *
+ * It raises NotFound, not Forbidden — the same concealment the rest of comms
+ * uses. *Whether a given userId exists in another tenant is not something this
+ * tenant is entitled to learn from an error code.*
+ */
+async function assertAddressableInTenant(p: Persistence, actor: Actor, userId: string): Promise<void> {
+  const addressable = await p.reads.forActor(actor).listCommsAddressable();
+  if (!addressable.some((person) => person.userId === userId)) {
+    throw new NotFoundError('Person', userId);
+  }
+}
+
 export async function inviteToRoom(
   p: Persistence,
   actor: Actor,
@@ -270,6 +299,7 @@ export async function inviteToRoom(
   role: 'member' | 'admin' = 'member',
 ): Promise<void> {
   await requireRoomAdmin(p, actor, threadId);
+  await assertAddressableInTenant(p, actor, userId);
   await p.writes.transaction(actor, async (tx) => {
     await tx.upsertCommsThreadParticipant({ threadId, userId, role });
     await tx.insertCommsThreadEvent({
