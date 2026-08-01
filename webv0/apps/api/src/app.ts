@@ -2547,12 +2547,42 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     },
   );
 
+  /*
+   * ⛔ ARMED BY THE SECOND TENANT — read before creating one (D-008, ruled 2026-08-02).
+   *
+   * This route and `erasure-janitor/run` below gate on ROLE ONLY and act
+   * PLATFORM-WIDE. Under a single tenant "owner" and "platform operator" are the
+   * same person, so both are correct BY ACCIDENT — the same shape as the comms
+   * seating paths. **The moment a second tenant exists, tenant A's owner can read
+   * tenant B's backup status and trigger an erasure sweep across tenant B's
+   * data.**
+   *
+   * ⚠️ THE REMEDY IS AN OPEN PRODUCT DECISION, DELIBERATELY NOT TAKEN HERE. It is
+   * NOT obviously "add a tenant filter": both routes are platform-wide by
+   * PURPOSE, and a backup status scoped to your own org is plausibly useless to
+   * whoever runs backups. The likelier defect is that they are reachable by a
+   * TENANT OWNER when they are PLATFORM OPERATIONS — **a missing ROLE, not a
+   * missing filter** — and C3's role vocabulary tops out at "owner of a tenant".
+   * Recommended to the owner: a platform-operator role, held by nobody by
+   * default and not grantable through the tenant UI. His call.
+   *
+   * ⛔ STANDING PRECONDITION: no second tenant may be created in production until
+   * that decision is made. Behaviour is deliberately UNCHANGED — closing these
+   * today would remove a capability the owner uses, to prevent a risk that
+   * cannot yet occur.
+   */
   // ── backup status (Tier 0.5): the Settings tile's one honest question ──────
   r.get('/api/v1/settings/backup-status', { schema: { response: { 200: backupStatusSchema } } }, async (req) => {
     assertManageDelegations(actorOf(req)); // owner-only, same standing as delegations
     return deps.backupStatus();
   });
 
+  // ⛔ ALSO ARMED BY THE SECOND TENANT — see the block above `backup-status`.
+  // This sweep runs PLATFORM-WIDE (`run('owner')`), so once a second tenant
+  // exists a tenant owner can trigger it across another org's data. Open product
+  // decision; behaviour deliberately unchanged; no second production tenant
+  // until it is ruled.
+  //
   // HARDEN-3.7 J′: owner drill/manual invocation of the SAME permanent-prefix
   // pass used by API boot and the daily interval. It returns aggregates only;
   // dead tenant identifiers/prefixes never cross the response boundary.
