@@ -18,8 +18,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
+import type { CommsObligationDto } from '@c3web/api-contracts';
 import { detectLinks } from '../src/tablework/Thread';
+import { ObligationCard } from '../src/tablework/ObligationCard';
 
 const srcDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'src');
 const read = (rel: string): string => readFileSync(join(srcDir, rel), 'utf8');
@@ -87,13 +91,99 @@ describe('Comms governance laws (the pilot UI)', () => {
     expect(card).toContain('data-acceptance-shape="self"');
     expect(card).toContain('both delivered evidence and accepted it as the named authority');
     expect(card).toContain("selfAcceptance.actorLabel?.trim() || nameOf(selfAcceptance.actorUserId).trim() || 'Member'");
-    expect(card).toMatch(/selfAcceptance \? \(\s*<span data-tablework="AcceptanceProvenance"/);
     expect(card).toMatch(/label="Acceptance"[\s\S]*announce/);
     expect(truth).toContain("aria-live={announce ? 'polite' : undefined}");
     expect(truth).toContain("aria-atomic={announce ? 'true' : undefined}");
     expect(page).not.toContain('cannot be their own acceptance authority');
     expect(page).not.toContain('sodViolation');
     expect(page).toContain('C3 will record that same-person act plainly');
+  });
+
+  it('D-010: a direct cancellation preserves the immutable same-person acceptance as superseded history', () => {
+    const obligation: CommsObligationDto = {
+      obligationId: 'OBL-0001',
+      threadId: 'THR-0001',
+      sourceMessageId: null,
+      state: 'Cancelled',
+      description: 'Ship the signed pack',
+      accountableUserId: '11111111-1111-4111-8111-111111111111',
+      requesterUserId: '33333333-3333-4333-8333-333333333333',
+      beneficiaryKind: 'external',
+      beneficiaryUserId: null,
+      beneficiaryLabel: 'Publisher',
+      acceptanceKind: 'account',
+      acceptanceUserId: '22222222-2222-4222-8222-222222222222',
+      acceptanceLabel: null,
+      dueAt: '2026-08-03T10:00:00.000Z',
+      evidenceRequirement: 'Signed pack',
+      version: 3,
+      createdAt: '2026-08-02T10:00:00.000Z',
+      events: [
+        {
+          eventType: 'EvidenceDelivered',
+          fromState: 'Open',
+          toState: 'Delivered',
+          actorUserId: '22222222-2222-4222-8222-222222222222',
+          actorLabel: 'Bea',
+          reason: null,
+          attestation: null,
+          deliveryEpisodeVersion: 1,
+          at: '2026-08-02T10:01:00.000Z',
+        },
+        {
+          eventType: 'Accepted',
+          fromState: 'Delivered',
+          toState: 'Accepted',
+          actorUserId: '22222222-2222-4222-8222-222222222222',
+          actorLabel: 'Bea',
+          reason: null,
+          attestation: null,
+          deliveryEpisodeVersion: 1,
+          at: '2026-08-02T10:02:00.000Z',
+        },
+        {
+          eventType: 'Cancelled',
+          fromState: 'Accepted',
+          toState: 'Cancelled',
+          actorUserId: '33333333-3333-4333-8333-333333333333',
+          actorLabel: 'Cy',
+          reason: 'No longer required',
+          attestation: null,
+          deliveryEpisodeVersion: null,
+          at: '2026-08-02T10:03:00.000Z',
+        },
+      ],
+      evidence: [
+        {
+          documentId: 'DOC-0001',
+          fileName: 'signed-pack.pdf',
+          contentType: 'application/pdf',
+          sizeBytes: 100,
+          deliveredByUserId: '22222222-2222-4222-8222-222222222222',
+          delivererLabel: 'Bea',
+          note: null,
+          deliveredAt: '2026-08-02T10:01:00.000Z',
+        },
+      ],
+    };
+
+    const markup = renderToStaticMarkup(
+      createElement(ObligationCard, {
+        obligation,
+        myUserId: obligation.requesterUserId,
+        operational: false,
+        lapsed: false,
+        readOnly: false,
+        busy: false,
+        nameOf: (userId: string) => userId,
+        onTransition: async () => true,
+        onDeliverEvidence: async () => undefined,
+      }),
+    );
+
+    expect(markup).toContain('data-acceptance-lifecycle="cancelled"');
+    expect(markup).toContain('Before cancellation, Bea both delivered evidence and accepted it as the named authority.');
+    expect(markup).not.toContain('Not recorded · awaiting named authority');
   });
 
   it('D2: obligation minting renders only behind canManageMissions (and never through lapse)', () => {

@@ -142,10 +142,16 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, r
           announce
           detail={
             selfAcceptance ? (
-              <span data-tablework="AcceptanceProvenance" data-acceptance-shape="self">
-                <strong>Same-person record</strong>
+              <span
+                data-tablework="AcceptanceProvenance"
+                data-acceptance-shape="self"
+                data-acceptance-lifecycle={cancelled ? 'cancelled' : 'current'}
+              >
+                <strong>{cancelled ? 'Superseded same-person record' : 'Same-person record'}</strong>
                 <br />
-                {selfAcceptanceName} both delivered evidence and accepted it as the named authority.
+                {cancelled
+                  ? `Before cancellation, ${selfAcceptanceName} both delivered evidence and accepted it as the named authority.`
+                  : `${selfAcceptanceName} both delivered evidence and accepted it as the named authority.`}
               </span>
             ) : acceptanceKnown ? (
               'Recorded · by the named authority'

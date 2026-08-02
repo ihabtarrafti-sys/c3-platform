@@ -325,15 +325,26 @@ export interface CommsSelfAcceptance {
   readonly acceptedAt: string;
 }
 
-/** Return the current same-person acceptance, or fail closed to null.
+/** Return the current or directly-cancelled same-person acceptance, or fail closed to null.
  *
  * Rejection and reopening begin a new delivery episode. Within the current
  * episode an acceptance is same-person when its named internal authority also
- * performed at least one recorded evidence delivery. */
+ * performed at least one recorded evidence delivery. Direct cancellation from
+ * Accepted supersedes the fact but does not erase the immutable act. */
 export function deriveCommsSelfAcceptance(
   obligation: Pick<CommsObligationView, 'state' | 'version' | 'acceptanceKind' | 'acceptanceUserId' | 'events'>,
 ): CommsSelfAcceptance | null {
-  if ((obligation.state !== 'Accepted' && obligation.state !== 'Done') || obligation.acceptanceKind !== 'account') {
+  const cancellations = obligation.events.filter(
+    (event) => event.eventType === 'Cancelled' && event.toState === 'Cancelled',
+  );
+  const directlyCancelledAfterAcceptance =
+    obligation.state === 'Cancelled' &&
+    cancellations.length === 1 &&
+    cancellations[0]!.fromState === 'Accepted';
+  if (
+    (obligation.state !== 'Accepted' && obligation.state !== 'Done' && !directlyCancelledAfterAcceptance) ||
+    obligation.acceptanceKind !== 'account'
+  ) {
     return null;
   }
 

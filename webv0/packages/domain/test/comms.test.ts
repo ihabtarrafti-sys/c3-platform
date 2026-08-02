@@ -133,6 +133,37 @@ describe('Comms Obligation self-acceptance', () => {
     expect(retainedAtDone).toMatchObject({ actorUserId: BEA, acceptedAt: '2026-08-02T10:02:00.000Z' });
   });
 
+  it('retains an immutable same-person acceptance after direct cancellation, but never invents one from a Delivered cancellation', () => {
+    const acceptedThenCancelled = deriveCommsSelfAcceptance(
+      obligation(
+        [
+          event('Created', CY, null, 'Open', 0),
+          event('EvidenceDelivered', BEA, 'Open', 'Delivered', 1, 1),
+          event('Accepted', BEA, 'Delivered', 'Accepted', 2, 1),
+          event('Cancelled', CY, 'Accepted', 'Cancelled', 3, null),
+        ],
+        { state: 'Cancelled', version: 3, acceptanceUserId: BEA },
+      ),
+    );
+    expect(acceptedThenCancelled).toMatchObject({
+      actorUserId: BEA,
+      actorLabel: 'Bea',
+      acceptedAt: '2026-08-02T10:02:00.000Z',
+    });
+
+    const cancelledFromDelivered = deriveCommsSelfAcceptance(
+      obligation(
+        [
+          event('Created', CY, null, 'Open', 0),
+          event('EvidenceDelivered', BEA, 'Open', 'Delivered', 1, 1),
+          event('Cancelled', CY, 'Delivered', 'Cancelled', 2, null),
+        ],
+        { state: 'Cancelled', version: 2, acceptanceUserId: BEA },
+      ),
+    );
+    expect(cancelledFromDelivered).toBeNull();
+  });
+
   it('recognises any delivery in the current episode and resets at rejection', () => {
     const multipleDeliverers = deriveCommsSelfAcceptance(
       obligation([
