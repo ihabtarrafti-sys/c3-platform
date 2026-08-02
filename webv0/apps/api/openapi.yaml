@@ -53,6 +53,34 @@ paths:
                 required:
                   - status
                 additionalProperties: false
+  /version:
+    get:
+      responses:
+        "200":
+          description: Default Response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  buildToken:
+                    type: string
+                    nullable: true
+                  environmentName:
+                    type: string
+                    nullable: true
+                  projectId:
+                    type: string
+                    nullable: true
+                  deploymentId:
+                    type: string
+                    nullable: true
+                required:
+                  - buildToken
+                  - environmentName
+                  - projectId
+                  - deploymentId
+                additionalProperties: false
   /api/v1/me:
     get:
       responses:

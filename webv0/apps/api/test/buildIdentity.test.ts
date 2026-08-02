@@ -9,7 +9,7 @@
  * wearing a version number.
  */
 import { describe, expect, it } from 'vitest';
-import { readRuntimeIdentity, tokenForCommit } from '../src/buildIdentity';
+import { readRuntimeIdentity, tokenForCommit, versionPayload } from '../src/buildIdentity';
 
 const COMMIT_A = '07d2d64ab1c2d3e4f5061728394a5b6c7d8e9f00';
 const COMMIT_B = '813e605ab1c2d3e4f5061728394a5b6c7d8e9f00';
@@ -41,6 +41,39 @@ describe('the token is VERIFIABLE, not merely varying', () => {
     for (const bad of ['07d2d64', 'HEAD', 'main', '', 'not-a-sha', COMMIT_A.toUpperCase()]) {
       expect(() => tokenForCommit(bad), `must refuse ${JSON.stringify(bad)}`).toThrow(/non-commit input/);
     }
+  });
+});
+
+describe('⛔ the public payload discloses NO revision — guarded, not merely intended', () => {
+  const stamp = { buildToken: tokenForCommit(COMMIT_A), stampedAt: '2026-08-02T00:00:00.000Z' };
+  const identity = { projectId: 'e6eb2f39', environmentName: 'production', deploymentId: 'dep-1' };
+
+  it('no 40-character hex string appears anywhere in the serialised body', () => {
+    // ⚖️ THE POINT IS THE CLASS, NOT THE FIELD NAME. Until this existed the
+    // constraint was held by care alone: adding `commitSha` for one debugging
+    // session is a one-word diff in a route nobody re-reads, and a response
+    // schema permitting additional properties would not notice. A `revision`,
+    // `sha` or `gitRef` added later fails this same assertion.
+    const body = JSON.stringify(versionPayload(stamp, identity));
+    expect(body).not.toMatch(/[0-9a-f]{40}/i);
+    expect(body).not.toContain(COMMIT_A);
+  });
+
+  it('and it still answers the two questions it exists to answer', () => {
+    // The guard must not be satisfiable by returning nothing.
+    const payload = versionPayload(stamp, identity);
+    expect(payload.buildToken).toBe(tokenForCommit(COMMIT_A));
+    expect(payload.environmentName).toBe('production');
+    expect(payload.projectId).toBe('e6eb2f39');
+  });
+
+  it('degrades to nulls rather than inventing values when unstamped', () => {
+    expect(versionPayload(null, null)).toEqual({
+      buildToken: null,
+      environmentName: null,
+      projectId: null,
+      deploymentId: null,
+    });
   });
 });
 

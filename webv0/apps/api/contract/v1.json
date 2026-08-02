@@ -24200,6 +24200,41 @@
           }
         }
       }
+    },
+    {
+      "method": "GET",
+      "url": "/version",
+      "response": {
+        "200": {
+          "t": "object",
+          "keys": {
+            "buildToken": {
+              "t": "nullable",
+              "inner": {
+                "t": "string"
+              }
+            },
+            "deploymentId": {
+              "t": "nullable",
+              "inner": {
+                "t": "string"
+              }
+            },
+            "environmentName": {
+              "t": "nullable",
+              "inner": {
+                "t": "string"
+              }
+            },
+            "projectId": {
+              "t": "nullable",
+              "inner": {
+                "t": "string"
+              }
+            }
+          }
+        }
+      }
     }
   ]
 }

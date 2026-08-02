@@ -435,6 +435,7 @@ import { buildBankRegistrationForm } from './bankForm';
 import { loggerOptions } from './logger';
 import { mapError } from './httpErrors';
 import { AccessNotProvisionedError, AmbiguousMembershipError, AuthError } from './auth/types';
+import { versionPayload } from './buildIdentity';
 import { signDevToken } from './auth/devIdp';
 import { toCommsMessageDto, toAgreementDto, toAgreementTermDto, toApparelDto, toApprovalDto, toApprovalEventDto, toAuditEventDto, toCredentialDto, toDocumentDto, toInvoiceDto, toIntakeLinkDto, toIntakeSubmissionDto, toSubscriptionDto, toSavedViewDto, toDepartureDto, toTeamDto, toTeamMembershipDto, toDistributionDto, toDistributionShareDto, toClaimDto, toDelegationDto, toBeneficiaryDto, toApprovalSummaryDto, toEntityDto, toFxRateDto, toJourneyDto, toKitDto, toMemberDto, toMissionBudgetDto, toMissionDto, toMissionLineDto, toMissionParticipantDto, toMissionPnlDto, toMissionPnlV2Dto, toPersonDto } from './dto';
 
@@ -790,12 +791,11 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     projectId: z.string().nullable(),
     deploymentId: z.string().nullable(),
   });
-  r.get('/version', { schema: { response: { 200: versionSchema } } }, async () => ({
-    buildToken: deps.buildStamp?.buildToken ?? null,
-    environmentName: deps.runtimeIdentity?.environmentName ?? null,
-    projectId: deps.runtimeIdentity?.projectId ?? null,
-    deploymentId: deps.runtimeIdentity?.deploymentId ?? null,
-  }));
+  // Built by versionPayload so the "no commit SHA in public" constraint is
+  // guarded at one place rather than restated here — see buildIdentity.ts.
+  r.get('/version', { schema: { response: { 200: versionSchema } } }, async () =>
+    versionPayload(deps.buildStamp, deps.runtimeIdentity),
+  );
 
   // ── dev login ───────────────────────────────────────────────────────────────
   // Registered ONLY when the dev IdP is the active provider (never in

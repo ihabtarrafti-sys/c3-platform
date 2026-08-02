@@ -92,6 +92,40 @@ export interface RuntimeIdentity {
  * production: a value a human must remember to set on a build command. A
  * platform-injected value cannot be forgotten, which is the entire failure mode.
  */
+/** The exact public shape of `GET /version`. */
+export interface VersionPayload {
+  readonly buildToken: string | null;
+  readonly environmentName: string | null;
+  readonly projectId: string | null;
+  readonly deploymentId: string | null;
+}
+
+/**
+ * Build the public payload.
+ *
+ * ⛔ THERE IS NO `commitSha` FIELD, AND A GUARD ENFORCES IT (Neural's ruling).
+ * Until that guard existed the constraint was held by care alone: adding
+ * `commitSha` here for one debugging session would be a one-word diff, in a
+ * route nobody re-reads, shipping a **public revision disclosure on a sellable
+ * product** — and a response schema that permits additional properties would
+ * not notice. `buildIdentity.test.ts` asserts the serialised payload contains
+ * **no 40-character hex string**, which guards the CLASS rather than the field
+ * name: a `revision`, `sha`, or `gitRef` added later fails the same assertion.
+ *
+ * ⚖️ *An unguarded constraint is a preference.*
+ */
+export function versionPayload(
+  stamp: BuildStamp | null,
+  identity: RuntimeIdentity | null,
+): VersionPayload {
+  return {
+    buildToken: stamp?.buildToken ?? null,
+    environmentName: identity?.environmentName ?? null,
+    projectId: identity?.projectId ?? null,
+    deploymentId: identity?.deploymentId ?? null,
+  };
+}
+
 export function readRuntimeIdentity(env: NodeJS.ProcessEnv): RuntimeIdentity | null {
   const projectId = nonEmpty(env.RAILWAY_PROJECT_ID);
   if (!projectId) return null;
