@@ -81,13 +81,23 @@ export function buildHeadersFile(apiOrigin: string): string {
 # Track B5 PWA: the service worker must revalidate so a new deploy propagates;
 # the manifest likewise. Icons are content-stable and may be cached.
 #
-# ⚠️ THIS RULE DOES NOT WIN THE FIRST DEPLOY. On the first deploy that
-# introduces /sw.js to a NEW custom domain, the edge can serve the SPA fallback
-# (index.html) for /sw.js during alias propagation and cache it for 4h. It
-# happened on staging (Track B5), and it happened AGAIN on production's first
-# deploy 2026-08-01 — which falsified the reassurance this comment used to
-# carry. What is true: the rule governs STEADY STATE only; a NEW domain's first
-# /sw.js needs a MANUAL EDGE PURGE. Do not restore a claim of prevention here.
+# ⚠️ THIS RULE DOES NOT REACH /sw.js AT ALL, AND A PURGE WILL NOT FIX IT.
+# MEASURED on both environments 2026-08-02:
+#     /sw.js                cf-cache-status: REVALIDATED  max-age=14400
+#     /manifest.webmanifest cf-cache-status: DYNAMIC      no-cache (this rule, applied)
+# The manifest carries the IDENTICAL rule from this same block and works, so
+# _headers is fine. The difference is that Cloudflare edge-caches by FILE
+# EXTENSION: `.js` is cached by default, `.webmanifest` is not. /sw.js is served
+# from a stored edge object whose own 4h TTL was baked in when it was cached, and
+# REVALIDATED hits keep those stored headers — so this rule never governs it.
+# ⇒ A manual purge is TEMPORARY: the next request re-caches it by extension.
+# The fix is a Cloudflare CACHE RULE for /sw.js (bypass cache / respect origin),
+# which is a zone-level action, not a repo change.
+# Two earlier explanations were tested and FALSIFIED: "a new domain's first
+# deploy during alias propagation" (staging shows it too, and staging is neither
+# new nor unpurged) and "a zone-wide Browser Cache TTL override" (/index.html and
+# the manifest keep their declared headers). Do not restore either, and do not
+# restore a claim that this rule prevents anything for /sw.js.
 /sw.js
   Cache-Control: no-cache, no-transform
 /manifest.webmanifest
