@@ -1,10 +1,11 @@
 import { Link, useNavigate } from 'react-router-dom';
 import { SITUATION_CHECK_KINDS } from '@c3web/domain';
 import type { SignalDto } from '@c3web/api-contracts';
-import { useSituation } from '../queries';
+import { useMissions, useSituation } from '../queries';
 import { ApiError } from '../api';
 import { useSession } from '../session';
 import { TableworkPage, EmptyState, ErrorState, LoadingState, usePageTitle } from '../tablework';
+import { FIRST_MISSION_LAUNCH_PATH, missionStartStateOf } from '../firstDay';
 import '../theme/hearth-home.css';
 
 /**
@@ -158,7 +159,15 @@ export function HomePage() {
 function HomeBody() {
   const { me } = useSession();
   const operational = (me?.capabilities.canSubmitApproval || me?.capabilities.canReviewApproval) ?? false;
-  const { data, isLoading, isError, error } = useSituation(operational);
+  const {
+    data,
+    isLoading,
+    isFetching: isSituationFetching,
+    isPaused: isSituationPaused,
+    isError,
+    error,
+  } = useSituation(operational);
+  const missions = useMissions(operational);
   usePageTitle('Home');
 
   if (!operational) {
@@ -172,6 +181,10 @@ function HomeBody() {
   const firstName = me?.displayName?.split(' ')[0] ?? '';
   const live = data?.signals.filter((x) => x.band !== 'inMotion') ?? [];
   const inMotion = data?.signals.filter((x) => x.band === 'inMotion') ?? [];
+  const missionState = missionStartStateOf(missions);
+  const situationCurrent = data !== undefined && !isSituationFetching && !isSituationPaused && !isError;
+  const firstDay = situationCurrent && missionState === 'unstarted' && data.signals.length === 0;
+  const allClear = situationCurrent && missionState === 'started' && data.signals.length === 0;
 
   // The always-on check ledger: each engine check line reports its live state,
   // derived from the SAME signals array — one engine, no second source.
@@ -181,23 +194,42 @@ function HomeBody() {
     const firing = of.filter((x) => x.band === 'immediate' || x.band === 'attention').length;
     const watching = of.filter((x) => x.band === 'watch').length;
     const moving = of.filter((x) => x.band === 'inMotion').length;
-    const tone = firing > 0 ? 'firing' : watching > 0 ? 'watching' : moving > 0 ? 'moving' : 'clear';
+    const observedTone = firing > 0 ? 'firing' : watching > 0 ? 'watching' : moving > 0 ? 'moving' : 'clear';
+    const tone = firstDay && observedTone === 'clear' ? 'unstarted' : observedTone;
     const state =
-      firing > 0 ? `${firing} firing` : watching > 0 ? `${watching} watching` : moving > 0 ? `${moving} in motion` : 'clear';
+      firing > 0
+        ? `${firing} firing`
+        : watching > 0
+          ? `${watching} watching`
+          : moving > 0
+            ? `${moving} in motion`
+            : firstDay
+              ? 'no mission record'
+              : 'clear';
     return { text, tone, state };
   });
 
   const ledgerPanel = data ? (
     <div className="hh-ledger" data-testid="situation-checks">
       <div className="hh-ledger__head">
-        <span className="hh-ledger__title">Checked just now, across the whole organization</span>
-        <span className="hh-ledger__meta">{data.checks.length} checks · engine-derived</span>
+        <span className="hh-ledger__title">
+          {firstDay ? 'Checks are ready; no mission record exists yet' : 'Checked just now, across the whole organization'}
+        </span>
+        <span className="hh-ledger__meta">{firstDay ? 'waiting for a mission' : `${data.checks.length} checks · engine-derived`}</span>
       </div>
       {ledger.map((row, i) => (
         <div key={i} className="hh-ledger__row">
           <span
             className={`hh-ledger__dot ${
-              row.tone === 'firing' ? 'hh-dot--firing' : row.tone === 'watching' ? 'hh-dot--watching' : row.tone === 'moving' ? 'hh-dot--moving' : 'hh-dot--clear'
+              row.tone === 'firing'
+                ? 'hh-dot--firing'
+                : row.tone === 'watching'
+                  ? 'hh-dot--watching'
+                  : row.tone === 'moving'
+                    ? 'hh-dot--moving'
+                    : row.tone === 'unstarted'
+                      ? 'hh-dot--unstarted'
+                      : 'hh-dot--clear'
             }`}
             aria-hidden="true"
           />
@@ -223,11 +255,17 @@ function HomeBody() {
             {greeting()}
             {firstName ? `, ${firstName}` : ''}. <em>Your world is here.</em>
           </h1>
-          {data && (
+          {situationCurrent && (
             <p className="hh-lede">
-              {data.signals.length === 0
-                ? 'The table is quiet — nothing is waiting on you.'
-                : `${live.length} ${live.length === 1 ? 'thing is' : 'things are'} worth gathering today${inMotion.length > 0 ? `, ${inMotion.length} already in motion` : ''}.`}
+              {firstDay
+                ? 'C3 is ready. No mission record is carrying the day yet.'
+                : allClear
+                  ? 'The table is quiet — nothing is waiting on you.'
+                  : data.signals.length === 0
+                    ? missionState === 'unavailable'
+                      ? 'C3 could not verify the mission register, so no all-clear has been issued.'
+                      : 'C3 is checking the mission register before it calls the table quiet.'
+                    : `${live.length} ${live.length === 1 ? 'thing is' : 'things are'} worth gathering today${inMotion.length > 0 ? `, ${inMotion.length} already in motion` : ''}.`}
             </p>
           )}
         </div>
@@ -250,6 +288,45 @@ function HomeBody() {
             </div>
           ))}
         </div>
+      )}
+
+      {firstDay && (
+        <section className="hh-first-day" data-testid="first-day-launch" aria-labelledby="first-day-title">
+          <div className="hh-first-day__copy">
+            <p className="hh-overline">First day · verified no missions</p>
+            <h2 id="first-day-title">The field is ready. The record hasn’t started.</h2>
+            <p>
+              Nothing is marked clear: there is no mission record to inspect yet. Start one and C3 will open its command workspace immediately.
+            </p>
+          </div>
+          <ol className="hh-first-day__relay" aria-label="The first mission path">
+            <li>
+              <span>01</span>
+              <strong>Name the mission</strong>
+              <small>A name and start date are enough.</small>
+            </li>
+            <li>
+              <span>02</span>
+              <strong>Command opens</strong>
+              <small>Your persistent workspace is waiting.</small>
+            </li>
+            <li>
+              <span>03</span>
+              <strong>The first word lands</strong>
+              <small>Work begins inside the record.</small>
+            </li>
+          </ol>
+          <div className="hh-first-day__action">
+            {caps?.canManageMissions ? (
+              <Link className="primary-action" to={FIRST_MISSION_LAUNCH_PATH} data-testid="first-day-start-mission">
+                Start a mission <span aria-hidden="true">→</span>
+              </Link>
+            ) : (
+              <p className="boundary-note">An owner or operations member can start the mission record.</p>
+            )}
+            <small>Immediate and audited · opens Mission Command</small>
+          </div>
+        </section>
       )}
 
       <nav className="hh-domains" aria-label="Everything in C3">
@@ -315,7 +392,18 @@ function HomeBody() {
         )}
       </nav>
 
-      {data && data.signals.length === 0 && (
+      {firstDay ? ledgerPanel : null}
+      {situationCurrent && data.signals.length === 0 && (missionState === 'checking' || missionState === 'unavailable') && (
+        <div className="hh-quiet" data-testid="situation-mission-witness-pending">
+          <h2>{missionState === 'unavailable' ? 'No all-clear issued.' : 'Checking the mission record.'}</h2>
+          <p>
+            {missionState === 'unavailable'
+              ? 'The situation has no active signals, but the mission register could not be verified.'
+              : 'The situation has no active signals. C3 is confirming whether work has begun.'}
+          </p>
+        </div>
+      )}
+      {allClear && (
         <div data-testid="situation-all-clear">
           <div className="hh-quiet">
             <h2>The table is quiet.</h2>

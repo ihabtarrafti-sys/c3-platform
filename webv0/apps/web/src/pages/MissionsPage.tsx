@@ -1,10 +1,16 @@
-import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { useMissions, useTeams } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
 import { useNotify, useSession } from '../session';
+import {
+  firstMissionLaunchRequested,
+  missionCreationDestination,
+  missionStartStateOf,
+  type MissionDrawerOrigin,
+} from '../firstDay';
 import {
   TableworkPage,
   CollectionFrame,
@@ -40,11 +46,17 @@ function MissionsRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
-  const { data, isLoading, isError, error } = useMissions();
+  const { data, isLoading, isFetching, isPaused, isError, error } = useMissions();
   const teams = useTeams();
   const canManage = me?.capabilities.canManageMissions ?? false;
+  const location = useLocation();
+  const navigate = useNavigate();
+  const missionState = missionStartStateOf({ data, isFetching, isPaused, isError });
+  const launchRequested = firstMissionLaunchRequested(location.search);
+  const launchConsumed = useRef(false);
 
-  const [showForm, setShowForm] = useState(false);
+  const [drawerOrigin, setDrawerOrigin] = useState<MissionDrawerOrigin | null>(null);
+  const showForm = drawerOrigin !== null;
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
   const [organizer, setOrganizer] = useState('');
@@ -53,6 +65,24 @@ function MissionsRegister() {
   const [teamId, setTeamId] = useState('');
   const [startsOn, setStartsOn] = useState('');
   const [endsOn, setEndsOn] = useState('');
+
+  // A URL can REQUEST First Day; current server truth and capability decide.
+  // Consume it once so StrictMode, refetches, or a close cannot reopen it.
+  useEffect(() => {
+    if (!launchRequested || launchConsumed.current || missionState === 'checking') return;
+    launchConsumed.current = true;
+    if (missionState === 'unstarted' && canManage) {
+      setDrawerOrigin('first-day');
+      return;
+    }
+    navigate('/missions', { replace: true });
+  }, [canManage, launchRequested, missionState, navigate]);
+
+  const closeDrawer = () => {
+    const wasFirstDay = drawerOrigin === 'first-day';
+    setDrawerOrigin(null);
+    if (wasFirstDay) navigate('/missions', { replace: true });
+  };
 
   async function submitCreate() {
     try {
@@ -67,7 +97,8 @@ function MissionsRegister() {
         endsOn: endsOn || undefined,
       });
       notify('success', `${res.mission.missionId} created and recorded.`);
-      setShowForm(false);
+      const destination = missionCreationDestination(drawerOrigin, res.mission.missionId);
+      setDrawerOrigin(null);
       setName('');
       setCode('');
       setOrganizer('');
@@ -76,6 +107,7 @@ function MissionsRegister() {
       setStartsOn('');
       setEndsOn('');
       void qc.invalidateQueries({ queryKey: ['missions'] });
+      if (destination) navigate(destination, { replace: true });
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'The action failed.');
       throw err instanceof Error ? err : new Error('failed');
@@ -94,7 +126,7 @@ function MissionsRegister() {
         </Link>
       )}
       {canManage && (
-        <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-mission-toggle">
+        <button className="primary-action" type="button" onClick={() => setDrawerOrigin('register')} data-testid="add-mission-toggle">
           Add mission
         </button>
       )}
@@ -122,7 +154,7 @@ function MissionsRegister() {
             message="No missions yet."
             action={
               canManage ? (
-                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="missions-empty-add">
+                <button className="primary-action" type="button" onClick={() => setDrawerOrigin('register')} data-testid="missions-empty-add">
                   Add mission
                 </button>
               ) : undefined
@@ -177,10 +209,14 @@ function MissionsRegister() {
       {canManage && (
         <FormDrawer
           open={showForm}
-          onClose={() => setShowForm(false)}
+          onClose={closeDrawer}
           eyebrow="New mission"
           mode="direct"
-          intro="New missions are created immediately and recorded in the audit history."
+          intro={
+            drawerOrigin === 'first-day'
+              ? 'This starts the mission record and opens Mission Command. Creation is immediate and recorded in the audit history.'
+              : 'New missions are created immediately and recorded in the audit history.'
+          }
           footer={
             <GovernedAction
               triggerLabel="Create mission"
