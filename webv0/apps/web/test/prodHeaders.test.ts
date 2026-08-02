@@ -83,11 +83,22 @@ describe('the CSP is DERIVED from the build’s own API origin', () => {
     const emitted = buildHeadersFile(apiOriginFrom(PRODUCTION_API));
     expect(emitted).toContain(`connect-src 'self' ${PRODUCTION_API} https://login.microsoftonline.com`);
     expect(emitted).toMatch(/GENERATED — do not edit/);
-    // The /sw.js claim that was falsified by production's first deploy must not
-    // come back: the rule governs steady state, it does not win a new domain's
-    // first deploy.
+    // ⚖️ THIS ASSERTION HAS NOW BEEN WRONG TWICE, AND BOTH TIMES IT SAID SO.
+    // First it pinned "prevent recurrence" — falsified when production's first
+    // deploy reproduced the 4h cache. Then it pinned "MANUAL EDGE PURGE" — and
+    // measurement falsified THAT too: staging shows the same header, `.js` is
+    // edge-cached by extension while `.webmanifest` is not, and a purge merely
+    // re-caches on the next request.
+    //
+    // So it no longer pins a REMEDY at all. It pins that the file refuses the
+    // two falsified claims, and that it records the measured mechanism. A guard
+    // on a remedy has to be rewritten every time the diagnosis improves; a guard
+    // on "do not restore what was disproved" does not.
     expect(emitted).not.toMatch(/prevent recurrence/);
-    expect(emitted).toMatch(/MANUAL EDGE PURGE/i);
+    expect(emitted, 'the temporary-purge remedy must not be restored as the fix').toMatch(/purge is TEMPORARY/i);
+    expect(emitted, 'the measured mechanism belongs in the file, not in a commit message').toMatch(
+      /REVALIDATED[\s\S]*DYNAMIC/,
+    );
   });
 });
 

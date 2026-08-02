@@ -87,7 +87,7 @@ export function buildHeadersFile(apiOrigin: string): string {
 #     /manifest.webmanifest cf-cache-status: DYNAMIC      no-cache (this rule, applied)
 # The manifest carries the IDENTICAL rule from this same block and works, so
 # _headers is fine. The difference is that Cloudflare edge-caches by FILE
-# EXTENSION: `.js` is cached by default, `.webmanifest` is not. /sw.js is served
+# EXTENSION: .js is cached by default, .webmanifest is not. /sw.js is served
 # from a stored edge object whose own 4h TTL was baked in when it was cached, and
 # REVALIDATED hits keep those stored headers — so this rule never governs it.
 # ⇒ A manual purge is TEMPORARY: the next request re-caches it by extension.
