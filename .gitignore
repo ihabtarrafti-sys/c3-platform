@@ -73,10 +73,11 @@ webv0/C3-END-OF-PROGRAM-REVIEW.md
 .wrangler/
 webv0/apps/web/lg2.png
 
-# The API build stamp (instance 32) — GENERATED at deploy time, NEVER committed.
-# Committing it is circular: you stamp at commit A, commit the stamp, and now the
-# tree that ships is A' while the stamp names A. `railway up` uploads the working
-# directory, so an untracked-but-present stamp still ships.
-# ⛔ If it turns out NOT to ship, production REFUSES TO START (no stamp under
-# NODE_ENV=production) — loud, immediate, and impossible to mistake for working.
-webv0/apps/api/buildStamp.json
+# ⛔ NO ENTRY FOR THE API BUILD STAMP, DELIBERATELY — the stamp is a platform
+# VARIABLE (C3_BUILD_TOKEN), not a file, so nothing here should mention it.
+# The file version needed this rule (generated, and committing it is circular:
+# stamp at A, commit the stamp, ship A' while the stamp names A) — and the rule
+# then became the hazard, because `railway up` falls back to .gitignore for its
+# upload set. This file answers "what should not be VERSIONED"; an uploader asks
+# "what should SHIP". Borrowing one answer for the other question would have
+# fail-closed production on a boot it could not have shipped.

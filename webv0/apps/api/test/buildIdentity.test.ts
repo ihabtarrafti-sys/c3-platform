@@ -9,7 +9,13 @@
  * wearing a version number.
  */
 import { describe, expect, it } from 'vitest';
-import { readRuntimeIdentity, tokenForCommit, versionPayload } from '../src/buildIdentity';
+import {
+  readBuildStamp,
+  readRuntimeIdentity,
+  tokenForCommit,
+  versionPayload,
+  versionVerdict,
+} from '../src/buildIdentity';
 
 const COMMIT_A = '07d2d64ab1c2d3e4f5061728394a5b6c7d8e9f00';
 const COMMIT_B = '813e605ab1c2d3e4f5061728394a5b6c7d8e9f00';
@@ -45,7 +51,7 @@ describe('the token is VERIFIABLE, not merely varying', () => {
 });
 
 describe('⛔ the public payload discloses NO revision — guarded, not merely intended', () => {
-  const stamp = { buildToken: tokenForCommit(COMMIT_A), stampedAt: '2026-08-02T00:00:00.000Z' };
+  const stamp = { buildToken: tokenForCommit(COMMIT_A) };
   const identity = { projectId: 'e6eb2f39', environmentName: 'production', deploymentId: 'dep-1' };
 
   it('no 40-character hex string appears anywhere in the serialised body', () => {
@@ -82,6 +88,106 @@ describe('⛔ the public payload discloses NO revision — guarded, not merely i
       projectId: null,
       deploymentId: null,
     });
+  });
+});
+
+describe('the stamp crosses no uploader — it is read from the platform', () => {
+  const TOKEN = tokenForCommit(COMMIT_A);
+
+  it('reads a well-formed token', () => {
+    expect(readBuildStamp({ C3_BUILD_TOKEN: TOKEN })).toEqual({ buildToken: TOKEN });
+  });
+
+  it('absent or empty is UNSTAMPED — dev and test stamp nothing', () => {
+    expect(readBuildStamp({})).toBeNull();
+    expect(readBuildStamp({ C3_BUILD_TOKEN: '' })).toBeNull();
+    expect(readBuildStamp({ C3_BUILD_TOKEN: '   ' })).toBeNull();
+  });
+
+  it('⛔ present-but-malformed THROWS — it is not the same state as absent', () => {
+    // Returning null here would report "unstamped" for a stamp that was set and
+    // set wrong, which is the conflation `/health` made: one answer covering two
+    // conditions that need different actions.
+    for (const bad of ['not-a-token', 'ABCDEF012345', '0123456789ab0', '0123456789a']) {
+      expect(() => readBuildStamp({ C3_BUILD_TOKEN: bad }), `must refuse ${bad}`).toThrow(/not a build token/);
+    }
+  });
+
+  it('⛔ and the form guard is also the disclosure guard', () => {
+    // A full sha pasted into the variable by hand would otherwise be served
+    // verbatim from a PUBLIC endpoint on a sellable product.
+    expect(() => readBuildStamp({ C3_BUILD_TOKEN: COMMIT_A })).toThrow(/not a build token/);
+  });
+});
+
+describe('⚖️ the verdict needs BOTH halves — identity and freshness', () => {
+  const EXPECTED = tokenForCommit(COMMIT_A);
+  const served = (over: Partial<Record<'buildToken' | 'deploymentId', string | null>> = {}) => ({
+    buildToken: EXPECTED,
+    environmentName: 'production',
+    projectId: 'p-1',
+    deploymentId: 'dep-NEW',
+    ...over,
+  });
+
+  it('⛔ STALE — the token is CORRECT and the deploy still did not happen', () => {
+    // THE BRANCH THIS WHOLE CHANGE EXISTS FOR. Moving the stamp from a file to a
+    // platform variable opened a real window: setting C3_BUILD_TOKEN can restart
+    // the OLD image carrying the NEW token. An identity-only check PASSES that —
+    // which is instance 52 rebuilt inside the tool meant to end it.
+    const payload = served({ deploymentId: 'dep-OLD' });
+    const verdict = versionVerdict({ expected: EXPECTED, served: payload, beforeDeploymentId: 'dep-OLD' });
+    expect(verdict).toEqual({ kind: 'STALE', deploymentId: 'dep-OLD' });
+
+    // ⛳ AND THE FALSIFICATION, STATED RATHER THAN ASSUMED: the identity check
+    // this verdict replaces is satisfied by the very same payload. Without the
+    // line below the test asserts a value; with it, it asserts a GUARD — remove
+    // the freshness half and this case becomes a pass, which is the failure.
+    expect(payload.buildToken, 'identity alone would have accepted this').toBe(EXPECTED);
+  });
+
+  it('FRESH only when the deployment actually moved', () => {
+    expect(
+      versionVerdict({ expected: EXPECTED, served: served(), beforeDeploymentId: 'dep-OLD' }),
+    ).toEqual({ kind: 'FRESH', from: 'dep-OLD', to: 'dep-NEW' });
+  });
+
+  it('an omitted before-id reports UNKNOWN freshness — never a pass', () => {
+    // ⚖️ A narrower check must not be reported as a wider one. Returning FRESH
+    // here would make the freshness half opt-in AND invisible when skipped.
+    for (const before of [undefined, null, '', '   ']) {
+      expect(versionVerdict({ expected: EXPECTED, served: served(), beforeDeploymentId: before })).toEqual({
+        kind: 'FRESHNESS_UNCHECKED',
+      });
+    }
+  });
+
+  it('a missing served deploymentId is a FAILURE, not a skip, once a before-id is given', () => {
+    expect(
+      versionVerdict({
+        expected: EXPECTED,
+        served: served({ deploymentId: null }),
+        beforeDeploymentId: 'dep-OLD',
+      }),
+    ).toEqual({ kind: 'NO_DEPLOYMENT_ID' });
+  });
+
+  it('identity is judged FIRST — a mismatch is never reported as staleness', () => {
+    // Both are wrong here; the diagnosis must name the wrong BUILD, because
+    // "stale deploy" would send someone to redeploy the same wrong commit.
+    expect(
+      versionVerdict({
+        expected: EXPECTED,
+        served: served({ buildToken: tokenForCommit(COMMIT_B), deploymentId: 'dep-OLD' }),
+        beforeDeploymentId: 'dep-OLD',
+      }),
+    ).toEqual({ kind: 'MISMATCH', served: tokenForCommit(COMMIT_B) });
+  });
+
+  it('an unstamped service is UNSTAMPED, not a mismatch', () => {
+    expect(
+      versionVerdict({ expected: EXPECTED, served: served({ buildToken: null }), beforeDeploymentId: 'dep-OLD' }),
+    ).toEqual({ kind: 'UNSTAMPED' });
   });
 });
 

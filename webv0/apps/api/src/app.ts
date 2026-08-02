@@ -782,8 +782,12 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
    * public learns no revision — which matters now C3 is a sellable product
    * (`D-001`) rather than an internal tool.
    *
-   * ⛔ `deploymentId` is reported but is NOT evidence: it cannot be derived from
-   * a commit, so it correlates a dashboard row and nothing more.
+   * ⛔ `deploymentId` is NOT an identity: it cannot be derived from a commit, so
+   * it must never enter the identity check. It is reported because it answers a
+   * SECOND question the token cannot — *did a deploy actually happen* — which
+   * came apart from identity once the stamp became a service variable: setting
+   * it can restart the OLD image carrying the NEW token. `verifyVersion.mts`
+   * requires it to have MOVED when given a before-value.
    */
   const versionSchema = z.object({
     buildToken: z.string().nullable(),

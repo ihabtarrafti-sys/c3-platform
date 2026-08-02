@@ -42,15 +42,15 @@ export function tokenForCommit(commitSha: string): string {
 }
 
 /**
- * What the API knows about its own build, read from the stamp written at deploy
- * time. There is deliberately no `commitSha` field: the clear revision must not
- * be reachable from a public endpoint.
+ * What the API knows about its own build. There is deliberately no `commitSha`
+ * field: the clear revision must not be reachable from a public endpoint.
  */
 export interface BuildStamp {
   readonly buildToken: string;
-  /** ISO instant the stamp was cut. Human context only — never an identity. */
-  readonly stampedAt: string;
 }
+
+/** The shape `tokenForCommit` produces. A stamp of any other shape is refused. */
+const BUILD_TOKEN_RE = /^[0-9a-f]{12}$/;
 
 /**
  * ⛔ TRUTHINESS, NOT PRESENCE (LAW 17). Three tools disagreed about "not
@@ -124,6 +124,87 @@ export function versionPayload(
     projectId: identity?.projectId ?? null,
     deploymentId: identity?.deploymentId ?? null,
   };
+}
+
+/**
+ * Read the build stamp the deploy set on the platform.
+ *
+ * ⛔ WHY A VARIABLE AND NOT A FILE (Neural's catch, instance 32 follow-up). The
+ * first cut wrote `apps/api/buildStamp.json` and read it back from the container.
+ * That made the tell depend on the file surviving **three** gates nobody had
+ * tested: `railway up`'s upload set, the docker build context, and a Dockerfile
+ * COPY. And the first of those falls back to **`.gitignore`** when no
+ * `.railwayignore` exists — where the stamp was listed by name, because a
+ * generated file must not be versioned.
+ *
+ * ⚖️ THE TWO FILES ANSWER DIFFERENT QUESTIONS. `.gitignore` answers *what should
+ * not be VERSIONED*; the uploader asks *what should SHIP*. Borrowing one
+ * mechanism's answer for the other question is the day's recurring defect, and
+ * here it would have produced a production API that refuses to boot — discovered
+ * during a deploy, which is the worst place to learn it.
+ *
+ * ⛳ `.railwayignore` was the obvious fix and is REFUSED: it *replaces*
+ * `.gitignore`, so adopting it means hand-writing the complete list of what must
+ * never upload. An omission there ships `node_modules`, `.pgdata`, or a stray
+ * `.env` — trading a boot failure for a secret disclosure. A variable crosses no
+ * uploader at all, so the question stops existing rather than being answered.
+ */
+/**
+ * The verdict on a served `/version`, as a value rather than control flow inside
+ * a script.
+ *
+ * ⚖️ IT LIVES HERE SO IT CAN BE TESTED. The branch that matters most —
+ * `STALE`: token correct, deployment not moved — is precisely the case a human
+ * running the tool would never think to stage, and an untested branch guarding a
+ * subtle failure is a preference, not a guard.
+ */
+export type VersionVerdict =
+  /** The service served no token: deployed without a stamp. */
+  | { readonly kind: 'UNSTAMPED' }
+  /** A token, but not this commit's. Cause is ambiguous — the tool must not choose. */
+  | { readonly kind: 'MISMATCH'; readonly served: string }
+  /** Identity holds; no before-id was supplied, so freshness is UNKNOWN — not passed. */
+  | { readonly kind: 'FRESHNESS_UNCHECKED' }
+  /** A before-id was supplied but the service reports none. Absence is not a pass. */
+  | { readonly kind: 'NO_DEPLOYMENT_ID' }
+  /** ⛔ Token correct, deployment id unmoved: the old image restarted with the new token. */
+  | { readonly kind: 'STALE'; readonly deploymentId: string }
+  /** Both halves: this commit, and a deploy genuinely happened. */
+  | { readonly kind: 'FRESH'; readonly from: string; readonly to: string };
+
+export function versionVerdict(args: {
+  readonly expected: string;
+  readonly served: VersionPayload;
+  readonly beforeDeploymentId?: string | null;
+}): VersionVerdict {
+  const { expected, served } = args;
+  if (!served.buildToken) return { kind: 'UNSTAMPED' };
+  if (served.buildToken !== expected) return { kind: 'MISMATCH', served: served.buildToken };
+
+  // ⛔ FRESHNESS IS EVALUATED ONLY AFTER IDENTITY HOLDS. "The token matches but
+  // nothing deployed" is a different and more misleading finding than a plain
+  // mismatch, and collapsing them would hide the one that looks like success.
+  const before = args.beforeDeploymentId?.trim();
+  if (!before) return { kind: 'FRESHNESS_UNCHECKED' };
+  if (!served.deploymentId) return { kind: 'NO_DEPLOYMENT_ID' };
+  if (served.deploymentId === before) return { kind: 'STALE', deploymentId: served.deploymentId };
+  return { kind: 'FRESH', from: before, to: served.deploymentId };
+}
+
+export function readBuildStamp(env: NodeJS.ProcessEnv): BuildStamp | null {
+  const token = nonEmpty(env.C3_BUILD_TOKEN);
+  if (!token) return null;
+  // ⛔ PRESENT-BUT-MALFORMED IS NOT ABSENT. Returning null here would report
+  // "unstamped" for a stamp that was set and set wrong — the same conflation
+  // `/health` made. It also guards the disclosure: a full sha pasted into this
+  // variable would otherwise be served verbatim from a public endpoint.
+  if (!BUILD_TOKEN_RE.test(token)) {
+    throw new Error(
+      `C3_BUILD_TOKEN is set but is not a build token (expected 12 lowercase hex): ${JSON.stringify(token)}. ` +
+        'It is produced by apps/api/scripts/stampBuild.mts — never typed by hand.',
+    );
+  }
+  return { buildToken: token };
 }
 
 export function readRuntimeIdentity(env: NodeJS.ProcessEnv): RuntimeIdentity | null {

@@ -3,9 +3,6 @@
  * least-privileged app persistence, the auth adapter (dev or entra), and the
  * privileged directory (dev login + entra membership resolution).
  */
-import { readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import type { Logger } from 'pino';
 import { createPersistence, type PersistenceHandle } from '@c3web/persistence';
 import type { CommsLiveBus } from '@c3web/persistence';
@@ -19,7 +16,7 @@ import { createMailer, type Mailer } from './mailer';
 import { createBackupStatusReader, type BackupStatusView } from './backupStatus';
 import { createFxProvider, type FxProvider } from './fxProvider';
 import { createErasureJanitorService, type ErasureJanitorService } from './erasureJanitor';
-import { readRuntimeIdentity, type BuildStamp, type RuntimeIdentity } from './buildIdentity';
+import { readBuildStamp, readRuntimeIdentity, type BuildStamp, type RuntimeIdentity } from './buildIdentity';
 
 export interface Deps {
   env: Env;
@@ -76,8 +73,8 @@ export interface Deps {
 }
 
 /**
- * The build stamp is written by `scripts/stampBuild.mts` immediately before
- * `railway up`, and is absent in dev/test (nobody stamps a local run).
+ * The build stamp is set on the platform by `scripts/stampBuild.mts` immediately
+ * before `railway up`, and is absent in dev/test (nobody stamps a local run).
  *
  * ⛔ FAIL-CLOSED IN PRODUCTION, and this is the half that makes the tell
  * trustworthy: a production process that cannot say WHICH build it is refuses to
@@ -88,24 +85,12 @@ export interface Deps {
  */
 function loadBuildIdentity(env: Env): { buildStamp: BuildStamp | null; runtimeIdentity: RuntimeIdentity | null } {
   const runtimeIdentity = readRuntimeIdentity(process.env);
-  let buildStamp: BuildStamp | null = null;
-  try {
-    // apps/api/buildStamp.json — one level ABOVE src/, which is a frozen policy
-    // root whose tree hash is a sunset fingerprint. A generated file inside it
-    // would move a seal on every deploy.
-    const raw = readFileSync(join(dirname(dirname(fileURLToPath(import.meta.url))), 'buildStamp.json'), 'utf8');
-    const parsed = JSON.parse(raw) as Partial<BuildStamp>;
-    if (parsed.buildToken && parsed.stampedAt) {
-      buildStamp = { buildToken: parsed.buildToken, stampedAt: parsed.stampedAt };
-    }
-  } catch {
-    /* absent in dev/test — refused below when it matters */
-  }
+  const buildStamp = readBuildStamp(process.env);
 
   if (env.nodeEnv === 'production') {
     if (!buildStamp) {
       throw new Error(
-        'Refusing to start: NODE_ENV=production with no build stamp. Run apps/api/scripts/stampBuild.mts ' +
+        'Refusing to start: NODE_ENV=production with no C3_BUILD_TOKEN. Run apps/api/scripts/stampBuild.mts ' +
           'before `railway up` — an unstamped production process cannot say which build it is.',
       );
     }
