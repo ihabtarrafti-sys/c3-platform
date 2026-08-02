@@ -8,8 +8,8 @@ import { E2E_API_ORIGIN } from './support/ports';
  *
  * The arc: ops opens the conversation from the mission workspace → posts (the
  * D1 warning is present; an APR reference renders as a navigate-only card) →
- * attaches → mints an obligation (the SoD seam refuses accountable==acceptance
- * inline) → delivers evidence → the named authority ALONE sees Accept and
+ * attaches → mints an ordinary two-person obligation → delivers evidence →
+ * the named authority ALONE sees Accept and
  * accepts → Done — the three truths flip ONE at a time. Receipts disclose
  * ("Seen by"), the unread divider sits at the cursor, and the privacy toggle
  * hides a suppressed receipt. Then the lapse posture (banner + composer and
@@ -119,7 +119,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     await expect(attachment.getByRole('button', { name: 'Download' })).toBeVisible();
   });
 
-  await test.step('Minting: the SoD seam refuses accountable==acceptance inline, then the record is born all-unknown', async () => {
+  await test.step('Minting: the ordinary two-person record is born all-unknown', async () => {
     await page.getByRole('button', { name: 'Create obligation' }).click();
     const float = page.locator('dialog.float-surface[open]');
     await expect(float).toBeVisible();
@@ -129,9 +129,6 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     await float.getByRole('combobox', { name: 'Beneficiary', exact: true }).selectOption('external');
     await float.getByRole('textbox', { name: 'Beneficiary label' }).fill('The publisher');
 
-    // The SoD probe: the accountable owner cannot be their own acceptance authority.
-    await float.getByRole('combobox', { name: 'Accepting member' }).selectOption({ label: 'ops@alpha.com · operations' });
-    await expect(float.getByRole('alert')).toContainText('cannot be their own acceptance authority');
     await float.getByRole('combobox', { name: 'Accepting member' }).selectOption({ label: 'lead@alpha.com · operations' });
 
     await float.getByRole('textbox', { name: 'Due' }).fill('2026-09-15T16:00');
@@ -178,6 +175,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     await expect(card.locator('[data-truth-state="unknown"]')).toHaveCount(1);
     await expect(card.locator('[data-truth-state="unknown"]')).toContainText('Done');
     await expect(card.getByRole('button', { name: 'Accept' })).toHaveCount(0);
+    await expect(card.locator('[data-tablework="AcceptanceProvenance"]')).toHaveCount(0);
   });
 
   await test.step('Done third; the disclosed receipt reads back', async () => {
@@ -231,6 +229,47 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     await page.reload();
     await page.screenshot({ path: `${SHOTS}/05-dark-desktop.png` });
   });
+});
+
+test('Tablework Comms: same-person delivery and acceptance are allowed and recorded plainly', async ({ page }) => {
+  test.slow();
+  await login(page, 'ops@alpha.com', 'operations');
+  await ensureMission(page, 'Comms Self Acceptance Cup');
+  await page.goto(`/missions/${missionId}/comms`);
+
+  await page.getByRole('button', { name: 'Create obligation' }).click();
+  const float = page.locator('dialog.float-surface[open]');
+  await float.getByRole('textbox', { name: 'Description' }).fill('Solo evidence acceptance');
+  await float.getByRole('combobox', { name: 'Accountable owner' }).selectOption({ label: 'ops@alpha.com · operations' });
+  await float.getByRole('combobox', { name: 'Beneficiary', exact: true }).selectOption('external');
+  await float.getByRole('textbox', { name: 'Beneficiary label' }).fill('The publisher');
+  await float.getByRole('combobox', { name: 'Accepting member' }).selectOption({ label: 'ops@alpha.com · operations' });
+  await expect(float.getByText('C3 will record that same-person act plainly')).toBeVisible();
+  await expect(float.getByRole('alert')).toHaveCount(0);
+  await float.getByRole('textbox', { name: 'Due' }).fill('2026-09-16T16:00');
+  await float.getByRole('textbox', { name: 'Evidence requirement' }).fill('Signed solo evidence pack');
+  await float.getByRole('button', { name: 'Create the record' }).click();
+
+  let card = page.locator('[data-tablework="ObligationCard"]', { hasText: 'Solo evidence acceptance' });
+  await expect(card).toBeVisible();
+  await expect(card.locator('[data-tablework="AcceptanceProvenance"]')).toHaveCount(0);
+  await card
+    .locator('input[aria-label="Deliver requested evidence"]')
+    .setInputFiles({ name: 'solo-pack.png', mimeType: 'image/png', buffer: PNG });
+  await expect(card.getByRole('button', { name: 'Accept' })).toBeVisible();
+  await expect(card.locator('[data-tablework="AcceptanceProvenance"]')).toHaveCount(0);
+  await card.getByRole('button', { name: 'Accept' }).click();
+
+  const provenance = card.locator('[data-tablework="AcceptanceProvenance"][data-acceptance-shape="self"]');
+  await expect(provenance).toContainText('Same-person record');
+  await expect(provenance).toContainText('ops@alpha.com both delivered evidence and accepted it as the named authority.');
+  await expect(card.locator('[data-truth-state]')).toHaveCount(3);
+
+  await page.reload();
+  card = page.locator('[data-tablework="ObligationCard"]', { hasText: 'Solo evidence acceptance' });
+  await expect(card.locator('[data-tablework="AcceptanceProvenance"][data-acceptance-shape="self"]')).toContainText(
+    'ops@alpha.com both delivered evidence and accepted it as the named authority.',
+  );
 });
 
 test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass collapse', async ({ page }) => {

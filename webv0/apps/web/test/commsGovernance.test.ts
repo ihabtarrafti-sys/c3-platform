@@ -77,6 +77,25 @@ describe('Comms governance laws (the pilot UI)', () => {
     expect(card).toMatch(/\(action === 'accept' \|\| action === 'reject'\) && externalAcceptance/);
   });
 
+  it('D-010: same-person acceptance is permitted and stated from recorded actors, never inferred from role overlap', () => {
+    const card = read('tablework/ObligationCard.tsx');
+    const page = read('pages/MissionCommsPage.tsx');
+    const truth = read('tablework/TruthValue.tsx');
+
+    expect(card).toContain('deriveCommsSelfAcceptance');
+    expect(card).toContain('data-tablework="AcceptanceProvenance"');
+    expect(card).toContain('data-acceptance-shape="self"');
+    expect(card).toContain('both delivered evidence and accepted it as the named authority');
+    expect(card).toContain("selfAcceptance.actorLabel?.trim() || nameOf(selfAcceptance.actorUserId).trim() || 'Member'");
+    expect(card).toMatch(/selfAcceptance \? \(\s*<span data-tablework="AcceptanceProvenance"/);
+    expect(card).toMatch(/label="Acceptance"[\s\S]*announce/);
+    expect(truth).toContain("aria-live={announce ? 'polite' : undefined}");
+    expect(truth).toContain("aria-atomic={announce ? 'true' : undefined}");
+    expect(page).not.toContain('cannot be their own acceptance authority');
+    expect(page).not.toContain('sodViolation');
+    expect(page).toContain('C3 will record that same-person act plainly');
+  });
+
   it('D2: obligation minting renders only behind canManageMissions (and never through lapse)', () => {
     const page = read('pages/MissionCommsPage.tsx');
     expect(page).toContain('canManageMissions');

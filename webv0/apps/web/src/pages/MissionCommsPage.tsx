@@ -637,8 +637,9 @@ interface MintMembers {
   role: string;
 }
 
-/** The mint form (D2: ops only). The SoD seam renders as the API enforces it:
- *  an ACCOUNT acceptance must not be the accountable owner. */
+/** The mint form (D2: ops only). One member may hold accountable and internal
+ * acceptance authority; assignment overlap is context, while actual
+ * same-person delivery + acceptance is derived later from recorded acts. */
 function MintObligationFloat({
   open,
   onClose,
@@ -672,7 +673,7 @@ function MintObligationFloat({
   const [problem, setProblem] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
-  const sodViolation = acceptanceKind === 'account' && acceptanceUser !== '' && acceptanceUser === accountable;
+  const samePersonAssignment = acceptanceKind === 'account' && acceptanceUser !== '' && acceptanceUser === accountable;
 
   const submit = async () => {
     setProblem(null);
@@ -686,10 +687,6 @@ function MintObligationFloat({
     }
     if (acceptanceKind === 'account' ? !acceptanceUser : !acceptanceLabel.trim() || !proxyUser) {
       setProblem('Name the acceptance authority (an external authority needs the internal member who records its word).');
-      return;
-    }
-    if (sodViolation) {
-      setProblem('The accountable owner cannot be their own acceptance authority — delivered and accepted stay independent.');
       return;
     }
     const body: CommsObligationCreateBody = {
@@ -808,9 +805,9 @@ function MintObligationFloat({
               </label>
             </>
           )}
-          {sodViolation ? (
-            <p className="boundary-note" role="alert">
-              The accountable owner cannot be their own acceptance authority.
+          {samePersonAssignment ? (
+            <p className="boundary-note">
+              This member may hold both roles. If they deliver and accept, C3 will record that same-person act plainly.
             </p>
           ) : null}
           <label className="tw-field">

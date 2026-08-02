@@ -250,15 +250,7 @@ export const createCommsObligationInputSchema = z
      *  aggregation over people. */
     sourceMessageId: z.string().regex(/^MSG-\d{4,}$/).nullable().default(null),
   })
-  .strict()
-  // Separation of duties — the "delivered ≠ accepted" independence is
-  // STRUCTURAL for internal acceptance: one's own authority may not accept
-  // one's own delivery. The EXTERNAL-proxy overlap stays legal (the proxy only
-  // transcribes an outside authority's word, under a mandatory attestation).
-  .refine((v) => !(v.acceptance.kind === 'account' && v.acceptance.userId === v.accountableUserId), {
-    message: 'An internal acceptance authority must be independent of the accountable owner.',
-    path: ['acceptance'],
-  });
+  .strict();
 export type CreateCommsObligationInput = z.infer<typeof createCommsObligationInputSchema>;
 
 /** A state transition: optimistic version + idempotency + the act's words. */
@@ -280,6 +272,9 @@ export interface CommsObligationEventView {
   readonly actorLabel: string | null;
   readonly reason: string | null;
   readonly attestation: string | null;
+  /** Immutable causal link shared by a Delivered episode and the acceptance
+   * that consumes it. Null for non-delivery acts and legacy rows. */
+  readonly deliveryEpisodeVersion: number | null;
   readonly at: string;
 }
 
@@ -315,6 +310,69 @@ export interface CommsObligationView {
   readonly createdAt: string;
   readonly events: CommsObligationEventView[];
   readonly evidence: CommsEvidenceView[];
+}
+
+/** The explicit actor fact behind an internal same-person acceptance.
+ *
+ * This derivation intentionally uses immutable, version-linked acts — never
+ * assigned-role equality, timestamp order, or the evidence projection, which
+ * can outlive a reopened acceptance episode. External acceptance actors are
+ * internal transcribers, not the outside authority, and therefore can never
+ * produce this record. */
+export interface CommsSelfAcceptance {
+  readonly actorUserId: string;
+  readonly actorLabel: string | null;
+  readonly acceptedAt: string;
+}
+
+/** Return the current same-person acceptance, or fail closed to null.
+ *
+ * Rejection and reopening begin a new delivery episode. Within the current
+ * episode an acceptance is same-person when its named internal authority also
+ * performed at least one recorded evidence delivery. */
+export function deriveCommsSelfAcceptance(
+  obligation: Pick<CommsObligationView, 'state' | 'version' | 'acceptanceKind' | 'acceptanceUserId' | 'events'>,
+): CommsSelfAcceptance | null {
+  if ((obligation.state !== 'Accepted' && obligation.state !== 'Done') || obligation.acceptanceKind !== 'account') {
+    return null;
+  }
+
+  // Obligation version currently advances ONLY through state transitions.
+  // Accepted is one version after its Delivered basis; Done is exactly one
+  // further transition. This causal key survives transaction-start timestamp
+  // reversal and random UUID tie-breaking in the hydrated event order. A
+  // future non-state version bump must update this invariant and its tests.
+  const currentEpisodeVersion = obligation.version - (obligation.state === 'Accepted' ? 1 : 2);
+  if (!Number.isInteger(currentEpisodeVersion) || currentEpisodeVersion < 0) return null;
+
+  const acceptedEvents = obligation.events.filter(
+    (event) =>
+      event.eventType === 'Accepted' &&
+      event.fromState === 'Delivered' &&
+      event.toState === 'Accepted' &&
+      event.actorUserId === obligation.acceptanceUserId &&
+      event.deliveryEpisodeVersion === currentEpisodeVersion,
+  );
+  // State movement and CAS permit one current acceptance. Contradictory
+  // provenance must never be guessed into a same-person claim.
+  if (acceptedEvents.length !== 1) return null;
+  const accepted = acceptedEvents[0]!;
+
+  const deliveredByAcceptor = obligation.events.some(
+    (event) =>
+      event.eventType === 'EvidenceDelivered' &&
+      (event.fromState === 'Open' || event.fromState === 'Delivered') &&
+      event.toState === 'Delivered' &&
+      event.actorUserId === accepted.actorUserId &&
+      event.deliveryEpisodeVersion === currentEpisodeVersion,
+  );
+  if (!deliveredByAcceptor) return null;
+
+  return {
+    actorUserId: accepted.actorUserId,
+    actorLabel: accepted.actorLabel,
+    acceptedAt: accepted.at,
+  };
 }
 
 // ── Receipts: derived from the private cursor + the watermark (Battle #1) ────

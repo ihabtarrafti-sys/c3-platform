@@ -1996,7 +1996,15 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
     },
 
     async getCommsObligationRow(obligationId: string) {
-      const rows = await db.select().from(schema.commsObligation).where(eq(schema.commsObligation.obligationId, obligationId)).limit(1);
+      // Every evidence/transition act serializes on the obligation head. This
+      // closes the Delivered→Accepted race (and prevents a delivery that read
+      // Delivered from committing after acceptance).
+      const rows = await db
+        .select()
+        .from(schema.commsObligation)
+        .where(eq(schema.commsObligation.obligationId, obligationId))
+        .limit(1)
+        .for('update');
       const r = rows[0];
       if (!r) return null;
       return {
@@ -2034,6 +2042,7 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
           actorLabel: row.actorLabel,
           reason: row.reason,
           attestation: row.attestation,
+          afterJson: row.deliveryEpisodeVersion === null ? null : { deliveryEpisodeVersion: row.deliveryEpisodeVersion },
           deliveryId: row.deliveryId,
           clientMutationId: row.clientMutationId,
         })

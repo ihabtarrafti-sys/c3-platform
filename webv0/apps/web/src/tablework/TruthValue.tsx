@@ -24,15 +24,23 @@ interface ObligationFactProps {
   /** Whether this independent truth is recorded. */
   state: Extract<TruthState, 'known' | 'unknown'>;
   /** The honest sentence under the fact name. */
-  detail: string;
+  detail: ReactNode;
   /** The glyph in the ring (✓ when known; the fact's ordinal while unknown). */
   mark: ReactNode;
+  /** Announce a server-derived change to this already-mounted fact. */
+  announce?: boolean;
 }
 
 /** One of the obligation card's three INDEPENDENT truth rows. */
-export function ObligationFact({ label, state, detail, mark }: ObligationFactProps) {
+export function ObligationFact({ label, state, detail, mark, announce = false }: ObligationFactProps) {
   return (
-    <article className={`obligation-fact ${state}`} data-tablework="TruthValue" data-truth-state={state}>
+    <article
+      className={`obligation-fact ${state}`}
+      data-tablework="TruthValue"
+      data-truth-state={state}
+      aria-live={announce ? 'polite' : undefined}
+      aria-atomic={announce ? 'true' : undefined}
+    >
       <i aria-hidden="true">{mark}</i>
       <span>
         <strong>{label}</strong>

@@ -806,6 +806,7 @@ export const commsObligationEventSchema = z.object({
   actorLabel: z.string().nullable(),
   reason: z.string().nullable(),
   attestation: z.string().nullable(),
+  deliveryEpisodeVersion: z.number().int().nonnegative().nullable(),
   at: z.string(),
 });
 export const commsEvidenceSchema = z.object({

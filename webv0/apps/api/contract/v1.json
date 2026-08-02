@@ -6002,6 +6002,12 @@
                                 "t": "string"
                               }
                             },
+                            "deliveryEpisodeVersion": {
+                              "t": "nullable",
+                              "inner": {
+                                "t": "number"
+                              }
+                            },
                             "eventType": {
                               "t": "string"
                             },
@@ -6215,6 +6221,12 @@
                                 "t": "string"
                               }
                             },
+                            "deliveryEpisodeVersion": {
+                              "t": "nullable",
+                              "inner": {
+                                "t": "number"
+                              }
+                            },
                             "eventType": {
                               "t": "string"
                             },
@@ -6426,6 +6438,12 @@
                               "t": "nullable",
                               "inner": {
                                 "t": "string"
+                              }
+                            },
+                            "deliveryEpisodeVersion": {
+                              "t": "nullable",
+                              "inner": {
+                                "t": "number"
                               }
                             },
                             "eventType": {
@@ -6709,6 +6727,12 @@
                               "t": "nullable",
                               "inner": {
                                 "t": "string"
+                              }
+                            },
+                            "deliveryEpisodeVersion": {
+                              "t": "nullable",
+                              "inner": {
+                                "t": "number"
                               }
                             },
                             "eventType": {
@@ -7473,6 +7497,12 @@
                             "t": "string"
                           }
                         },
+                        "deliveryEpisodeVersion": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "number"
+                          }
+                        },
                         "eventType": {
                           "t": "string"
                         },
@@ -7757,6 +7787,12 @@
                         "t": "nullable",
                         "inner": {
                           "t": "string"
+                        }
+                      },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
                         }
                       },
                       "eventType": {
@@ -8323,6 +8359,12 @@
                           "t": "string"
                         }
                       },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
+                        }
+                      },
                       "eventType": {
                         "t": "string"
                       },
@@ -8534,6 +8576,12 @@
                         "t": "nullable",
                         "inner": {
                           "t": "string"
+                        }
+                      },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
                         }
                       },
                       "eventType": {
@@ -8749,6 +8797,12 @@
                           "t": "string"
                         }
                       },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
+                        }
+                      },
                       "eventType": {
                         "t": "string"
                       },
@@ -8962,6 +9016,12 @@
                           "t": "string"
                         }
                       },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
+                        }
+                      },
                       "eventType": {
                         "t": "string"
                       },
@@ -9158,6 +9218,12 @@
                         "t": "nullable",
                         "inner": {
                           "t": "string"
+                        }
+                      },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
                         }
                       },
                       "eventType": {
@@ -9373,6 +9439,12 @@
                           "t": "string"
                         }
                       },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
+                        }
+                      },
                       "eventType": {
                         "t": "string"
                       },
@@ -9584,6 +9656,12 @@
                         "t": "nullable",
                         "inner": {
                           "t": "string"
+                        }
+                      },
+                      "deliveryEpisodeVersion": {
+                        "t": "nullable",
+                        "inner": {
+                          "t": "number"
                         }
                       },
                       "eventType": {

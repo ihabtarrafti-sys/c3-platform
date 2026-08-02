@@ -13,7 +13,7 @@
 import { useRef, useState } from 'react';
 import type { CommsObligationDto } from '@c3web/api-contracts';
 import type { CommsObligationAction } from '../api';
-import { isObligationSettled } from '@c3web/domain';
+import { deriveCommsSelfAcceptance, isObligationSettled } from '@c3web/domain';
 import { ObligationFact } from './TruthValue';
 
 export interface ObligationActionInput {
@@ -50,6 +50,12 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, r
   const cancelled = o.state === 'Cancelled';
   // The DERIVED third station — one definition site, in the domain.
   const settled = isObligationSettled(o);
+  // D-010: assignment overlap is not evidence. This record exists only when
+  // the immutable current-episode delivery and acceptance actors say so.
+  const selfAcceptance = deriveCommsSelfAcceptance(o);
+  const selfAcceptanceName = selfAcceptance
+    ? selfAcceptance.actorLabel?.trim() || nameOf(selfAcceptance.actorUserId).trim() || 'Member'
+    : null;
 
   const externalAcceptance = o.acceptanceKind === 'external';
   const noteRequiredFor = (action: CommsObligationAction): boolean =>
@@ -133,7 +139,20 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, r
           label="Acceptance"
           state={acceptanceKnown ? 'known' : 'unknown'}
           mark={acceptanceKnown ? '✓' : '2'}
-          detail={acceptanceKnown ? 'Recorded · by the named authority' : 'Not recorded · awaiting named authority'}
+          announce
+          detail={
+            selfAcceptance ? (
+              <span data-tablework="AcceptanceProvenance" data-acceptance-shape="self">
+                <strong>Same-person record</strong>
+                <br />
+                {selfAcceptanceName} both delivered evidence and accepted it as the named authority.
+              </span>
+            ) : acceptanceKnown ? (
+              'Recorded · by the named authority'
+            ) : (
+              'Not recorded · awaiting named authority'
+            )
+          }
         />
         <ObligationFact
           label="Done"
