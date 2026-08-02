@@ -90,7 +90,10 @@ function loadBuildIdentity(env: Env): { buildStamp: BuildStamp | null; runtimeId
   const runtimeIdentity = readRuntimeIdentity(process.env);
   let buildStamp: BuildStamp | null = null;
   try {
-    const raw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'buildStamp.json'), 'utf8');
+    // apps/api/buildStamp.json — one level ABOVE src/, which is a frozen policy
+    // root whose tree hash is a sunset fingerprint. A generated file inside it
+    // would move a seal on every deploy.
+    const raw = readFileSync(join(dirname(dirname(fileURLToPath(import.meta.url))), 'buildStamp.json'), 'utf8');
     const parsed = JSON.parse(raw) as Partial<BuildStamp>;
     if (parsed.buildToken && parsed.stampedAt) {
       buildStamp = { buildToken: parsed.buildToken, stampedAt: parsed.stampedAt };

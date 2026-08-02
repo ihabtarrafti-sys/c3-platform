@@ -23,7 +23,15 @@ import { dirname, join } from 'node:path';
 import { tokenForCommit } from '../src/buildIdentity.js';
 
 const apiRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const stampPath = join(apiRoot, 'src', 'buildStamp.json');
+/**
+ * ⛔ NOT inside `src/`. `apps/api/src` is a FROZEN policy root — its tree hash
+ * is a sunset fingerprint — so a generated file living there would move a seal
+ * on EVERY DEPLOY and demand a re-baseline each time. That is the rubber-stamp
+ * failure the registry design exists to avoid, and it would have been
+ * self-inflicted. The sunset refresh caught it
+ * (`SUNSET_REFRESH_UNTRACKED_FINGERPRINT_INPUT`) before it could ship.
+ */
+const stampPath = join(apiRoot, 'buildStamp.json');
 
 function git(...args: string[]): string {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
@@ -45,7 +53,7 @@ try {
   // cause that, because it carries no behaviour.
   dirty = git('status', '--porcelain')
     .split('\n')
-    .filter((line) => line.trim() && !line.includes('apps/api/src/buildStamp.json'))
+    .filter((line) => line.trim() && !line.includes('apps/api/buildStamp.json'))
     .join('\n');
 } catch (err) {
   console.error(`[stamp] REFUSING: cannot read git state — ${(err as Error).message}`);

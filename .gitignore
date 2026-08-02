@@ -79,4 +79,4 @@ webv0/apps/web/lg2.png
 # directory, so an untracked-but-present stamp still ships.
 # ⛔ If it turns out NOT to ship, production REFUSES TO START (no stamp under
 # NODE_ENV=production) — loud, immediate, and impossible to mistake for working.
-webv0/apps/api/src/buildStamp.json
+webv0/apps/api/buildStamp.json
