@@ -57,6 +57,14 @@ describe('⛔ the public payload discloses NO revision — guarded, not merely i
     const body = JSON.stringify(versionPayload(stamp, identity));
     expect(body).not.toMatch(/[0-9a-f]{40}/i);
     expect(body).not.toContain(COMMIT_A);
+
+    // ⛳ AND A SHORT SHA, which the 40-hex rule does NOT catch (Neural's catch).
+    // `git show 6c26ea7` resolves perfectly well, so a 7-char prefix is still a
+    // revision disclosure. Guarding "12 hex" instead would be wrong — the
+    // buildToken IS 12 hex and would false-positive. Guarding THIS commit's
+    // prefix cannot collide with it: the token is a sha256 OF this commit, so
+    // sharing a 7-char prefix with its own input is astronomically unlikely.
+    expect(body, 'a short sha is still a revision').not.toMatch(new RegExp(COMMIT_A.slice(0, 7), 'i'));
   });
 
   it('and it still answers the two questions it exists to answer', () => {
