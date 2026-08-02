@@ -3,6 +3,9 @@
  * least-privileged app persistence, the auth adapter (dev or entra), and the
  * privileged directory (dev login + entra membership resolution).
  */
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Logger } from 'pino';
 import { createPersistence, type PersistenceHandle } from '@c3web/persistence';
 import type { CommsLiveBus } from '@c3web/persistence';
@@ -16,6 +19,7 @@ import { createMailer, type Mailer } from './mailer';
 import { createBackupStatusReader, type BackupStatusView } from './backupStatus';
 import { createFxProvider, type FxProvider } from './fxProvider';
 import { createErasureJanitorService, type ErasureJanitorService } from './erasureJanitor';
+import { readRuntimeIdentity, type BuildStamp, type RuntimeIdentity } from './buildIdentity';
 
 export interface Deps {
   env: Env;
@@ -33,6 +37,10 @@ export interface Deps {
    *  channel could not be established) — the stream then serves a DEGRADED
    *  health so the client goes stale instead of trusting silence. */
   commsLiveBus: CommsLiveBus | null;
+  /** Instance 32: the build actually running, or null when unstamped. */
+  buildStamp: BuildStamp | null;
+  /** Platform-injected environment identity, or null when not on the platform. */
+  runtimeIdentity: RuntimeIdentity | null;
   /** Attach the bus after boot (a dedicated session-scoped LISTEN connection,
    *  never a pooled client: LISTEN is session state). */
   attachCommsLiveBus(bus: CommsLiveBus): void;
@@ -67,7 +75,49 @@ export interface Deps {
   close(): Promise<void>;
 }
 
+/**
+ * The build stamp is written by `scripts/stampBuild.mts` immediately before
+ * `railway up`, and is absent in dev/test (nobody stamps a local run).
+ *
+ * ⛔ FAIL-CLOSED IN PRODUCTION, and this is the half that makes the tell
+ * trustworthy: a production process that cannot say WHICH build it is refuses to
+ * start. Otherwise the endpoint degrades to `buildToken: null` — which looks
+ * like an answer, reads as "no version", and quietly restores exactly the state
+ * instance 32 exists to end. Same reasoning as the CSP emitter: a build that
+ * cannot state its own identity must not claim one.
+ */
+function loadBuildIdentity(env: Env): { buildStamp: BuildStamp | null; runtimeIdentity: RuntimeIdentity | null } {
+  const runtimeIdentity = readRuntimeIdentity(process.env);
+  let buildStamp: BuildStamp | null = null;
+  try {
+    const raw = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'buildStamp.json'), 'utf8');
+    const parsed = JSON.parse(raw) as Partial<BuildStamp>;
+    if (parsed.buildToken && parsed.stampedAt) {
+      buildStamp = { buildToken: parsed.buildToken, stampedAt: parsed.stampedAt };
+    }
+  } catch {
+    /* absent in dev/test — refused below when it matters */
+  }
+
+  if (env.nodeEnv === 'production') {
+    if (!buildStamp) {
+      throw new Error(
+        'Refusing to start: NODE_ENV=production with no build stamp. Run apps/api/scripts/stampBuild.mts ' +
+          'before `railway up` — an unstamped production process cannot say which build it is.',
+      );
+    }
+    if (!runtimeIdentity) {
+      throw new Error(
+        'Refusing to start: NODE_ENV=production with no platform identity (RAILWAY_PROJECT_ID absent or empty). ' +
+          'Absence means this is not running where we think it is, which is exactly the condition worth failing on.',
+      );
+    }
+  }
+  return { buildStamp, runtimeIdentity };
+}
+
 export function buildDeps(env: Env, logger: Logger): Deps {
+  const { buildStamp, runtimeIdentity } = loadBuildIdentity(env);
   let liveBus: CommsLiveBus | null = null;
   const persistence = createPersistence({ appConnectionString: env.databaseUrl });
   const documentStorage = createDocumentStorage(env.documents);
@@ -104,6 +154,8 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     persistence,
     authAdapter,
     directory,
+    buildStamp,
+    runtimeIdentity,
     documentStorage,
     fxProvider,
     mailer,

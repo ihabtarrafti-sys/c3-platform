@@ -767,6 +767,36 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
     return reply.status(ok ? 200 : 503).send({ status: ok ? 'ready' : 'unavailable' });
   });
 
+  /*
+   * ── version tell (public) — instance 32 ────────────────────────────────────
+   *
+   * ⚖️ WHY /health COULD NOT DO THIS: it returns a literal, byte-identical
+   * before and after any deploy. It read green against an image four days stale
+   * while two ceremonies recorded the deploy as shipped. **A deploy witness must
+   * be a value that DIFFERS between builds and can be CHECKED against an
+   * expectation** — anything less is a liveness check wearing a version number.
+   *
+   * `buildToken` is `sha256(commit)` truncated, so an observer holding the repo
+   * can compute the expected value offline (`verifyVersion.mts`) while the
+   * public learns no revision — which matters now C3 is a sellable product
+   * (`D-001`) rather than an internal tool.
+   *
+   * ⛔ `deploymentId` is reported but is NOT evidence: it cannot be derived from
+   * a commit, so it correlates a dashboard row and nothing more.
+   */
+  const versionSchema = z.object({
+    buildToken: z.string().nullable(),
+    environmentName: z.string().nullable(),
+    projectId: z.string().nullable(),
+    deploymentId: z.string().nullable(),
+  });
+  r.get('/version', { schema: { response: { 200: versionSchema } } }, async () => ({
+    buildToken: deps.buildStamp?.buildToken ?? null,
+    environmentName: deps.runtimeIdentity?.environmentName ?? null,
+    projectId: deps.runtimeIdentity?.projectId ?? null,
+    deploymentId: deps.runtimeIdentity?.deploymentId ?? null,
+  }));
+
   // ── dev login ───────────────────────────────────────────────────────────────
   // Registered ONLY when the dev IdP is the active provider (never in
   // production — env validation forbids AUTH_PROVIDER=dev there, so this route
