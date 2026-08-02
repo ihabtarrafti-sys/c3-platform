@@ -84,9 +84,13 @@ console.log(
     '\n  1. Record the deployment that is running NOW (the "before" half of the witness):\n' +
     '       railway status --json\n' +
     '     …and keep its deployment id.\n' +
-    `\n  2. Set the token on the service (it may trigger a redeploy of the OLD image —\n` +
-    '     expected, and step 4 is what catches it):\n' +
-    `       railway variables --set C3_BUILD_TOKEN=${token}\n` +
+    '\n  2. Set the token on the service. ⚠️ CONFIRM THE SYNTAX FIRST — `railway variables --help`.\n' +
+    '     The Railway CLI has shipped BOTH forms and this lane cannot test either (no CLI\n' +
+    '     installed here), so neither is stated as fact:\n' +
+    `       railway variables --set C3_BUILD_TOKEN=${token}     (v4-style)\n` +
+    `       railway variables set C3_BUILD_TOKEN=${token}       (subcommand style)\n` +
+    '     A variable change TRIGGERS A REDEPLOY of the image running now, and Railway\n' +
+    '     documents no flag to suppress it. That is expected; step 4 is what catches it.\n' +
     '\n  3. Ship the working directory — from webv0/, never a subdirectory:\n' +
     '       railway up\n' +
     '\n  4. Verify BOTH halves — identity and freshness:\n' +
