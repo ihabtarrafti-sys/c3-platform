@@ -35,7 +35,18 @@ try {
   head = git('rev-parse', 'HEAD');
   // --porcelain lists tracked modifications AND untracked files. Untracked
   // counts: `railway up` uploads them, so they are part of what ships.
-  dirty = git('status', '--porcelain');
+  //
+  // ⚠️ EXCEPT THE STAMP ITSELF. Writing the stamp dirties the tree, so without
+  // this a second stamp would refuse — the tool would work exactly once. It is
+  // gitignored (so this is belt-and-braces for a checkout where it is not), and
+  // excluding it is safe for a reason worth stating: a STALE stamp produces a
+  // MISMATCH at the verifier, which is loud. The failure LAW 18 guards against
+  // is the opposite — a token that CONFIRMS a lie — and a stamp file cannot
+  // cause that, because it carries no behaviour.
+  dirty = git('status', '--porcelain')
+    .split('\n')
+    .filter((line) => line.trim() && !line.includes('apps/api/src/buildStamp.json'))
+    .join('\n');
 } catch (err) {
   console.error(`[stamp] REFUSING: cannot read git state — ${(err as Error).message}`);
   process.exit(1);
