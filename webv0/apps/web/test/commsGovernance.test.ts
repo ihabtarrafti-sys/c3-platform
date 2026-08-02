@@ -184,6 +184,65 @@ describe('Comms governance laws (the pilot UI)', () => {
     expect(markup).toContain('data-acceptance-lifecycle="cancelled"');
     expect(markup).toContain('Before cancellation, Bea both delivered evidence and accepted it as the named authority.');
     expect(markup).not.toContain('Not recorded · awaiting named authority');
+
+    const ordinaryObligation: CommsObligationDto = {
+      ...obligation,
+      events: obligation.events.map((event) =>
+        event.eventType === 'EvidenceDelivered'
+          ? {
+              ...event,
+              actorUserId: obligation.accountableUserId,
+              actorLabel: 'Ali',
+            }
+          : event,
+      ),
+      evidence: obligation.evidence.map((record) => ({
+        ...record,
+        deliveredByUserId: obligation.accountableUserId,
+        delivererLabel: 'Ali',
+      })),
+    };
+    const ordinaryMarkup = renderToStaticMarkup(
+      createElement(ObligationCard, {
+        obligation: ordinaryObligation,
+        myUserId: ordinaryObligation.requesterUserId,
+        operational: false,
+        lapsed: false,
+        readOnly: false,
+        busy: false,
+        nameOf: (userId: string) => userId,
+        onTransition: async () => true,
+        onDeliverEvidence: async () => undefined,
+      }),
+    );
+
+    expect(ordinaryMarkup).toContain('data-acceptance-shape="ordinary"');
+    expect(ordinaryMarkup).toContain('Before cancellation, Bea accepted it as the named authority.');
+    expect(ordinaryMarkup).not.toContain('Not recorded · awaiting named authority');
+
+    const externalObligation: CommsObligationDto = {
+      ...ordinaryObligation,
+      acceptanceKind: 'external',
+      acceptanceLabel: 'Publisher liaison',
+    };
+    const externalMarkup = renderToStaticMarkup(
+      createElement(ObligationCard, {
+        obligation: externalObligation,
+        myUserId: externalObligation.requesterUserId,
+        operational: false,
+        lapsed: false,
+        readOnly: false,
+        busy: false,
+        nameOf: (userId: string) => userId,
+        onTransition: async () => true,
+        onDeliverEvidence: async () => undefined,
+      }),
+    );
+
+    expect(externalMarkup).toContain('data-acceptance-shape="ordinary"');
+    expect(externalMarkup).toContain('Before cancellation, Publisher liaison');
+    expect(externalMarkup).toContain('acceptance was recorded by Bea.');
+    expect(externalMarkup).not.toContain('data-acceptance-shape="self"');
   });
 
   it('D2: obligation minting renders only behind canManageMissions (and never through lapse)', () => {

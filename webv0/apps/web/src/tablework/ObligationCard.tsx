@@ -13,7 +13,7 @@
 import { useRef, useState } from 'react';
 import type { CommsObligationDto } from '@c3web/api-contracts';
 import type { CommsObligationAction } from '../api';
-import { deriveCommsSelfAcceptance, isObligationSettled } from '@c3web/domain';
+import { deriveCommsAcceptanceProvenance, deriveCommsSelfAcceptance, isObligationSettled } from '@c3web/domain';
 import { ObligationFact } from './TruthValue';
 
 export interface ObligationActionInput {
@@ -51,8 +51,12 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, r
   // The DERIVED third station — one definition site, in the domain.
   const settled = isObligationSettled(o);
   // D-010: assignment overlap is not evidence. This record exists only when
-  // the immutable current-episode delivery and acceptance actors say so.
+  // the immutable causal-episode delivery and acceptance actors say so.
+  const acceptanceProvenance = deriveCommsAcceptanceProvenance(o);
   const selfAcceptance = deriveCommsSelfAcceptance(o);
+  const acceptanceProvenanceName = acceptanceProvenance
+    ? acceptanceProvenance.actorLabel?.trim() || nameOf(acceptanceProvenance.actorUserId).trim() || 'Member'
+    : null;
   const selfAcceptanceName = selfAcceptance
     ? selfAcceptance.actorLabel?.trim() || nameOf(selfAcceptance.actorUserId).trim() || 'Member'
     : null;
@@ -152,6 +156,18 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, r
                 {cancelled
                   ? `Before cancellation, ${selfAcceptanceName} both delivered evidence and accepted it as the named authority.`
                   : `${selfAcceptanceName} both delivered evidence and accepted it as the named authority.`}
+              </span>
+            ) : cancelled && acceptanceProvenance ? (
+              <span
+                data-tablework="AcceptanceProvenance"
+                data-acceptance-shape="ordinary"
+                data-acceptance-lifecycle="cancelled"
+              >
+                <strong>Superseded acceptance record</strong>
+                <br />
+                {externalAcceptance
+                  ? `Before cancellation, ${o.acceptanceLabel ?? 'the external authority'}'s acceptance was recorded by ${acceptanceProvenanceName}.`
+                  : `Before cancellation, ${acceptanceProvenanceName} accepted it as the named authority.`}
               </span>
             ) : acceptanceKnown ? (
               'Recorded · by the named authority'

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   createCommsObligationInputSchema,
+  deriveCommsAcceptanceProvenance,
   deriveCommsSelfAcceptance,
   type CommsObligationEventView,
   type CommsObligationView,
@@ -151,17 +152,36 @@ describe('Comms Obligation self-acceptance', () => {
       acceptedAt: '2026-08-02T10:02:00.000Z',
     });
 
-    const cancelledFromDelivered = deriveCommsSelfAcceptance(
+    const cancelledFromDeliveredObligation = obligation(
+      [
+        event('Created', CY, null, 'Open', 0),
+        event('EvidenceDelivered', BEA, 'Open', 'Delivered', 1, 1),
+        event('Cancelled', CY, 'Delivered', 'Cancelled', 2, null),
+      ],
+      { state: 'Cancelled', version: 2, acceptanceUserId: BEA },
+    );
+    const cancelledFromDelivered = deriveCommsSelfAcceptance(cancelledFromDeliveredObligation);
+    expect(cancelledFromDelivered).toBeNull();
+    expect(deriveCommsAcceptanceProvenance(cancelledFromDeliveredObligation)).toBeNull();
+
+    const ordinaryAcceptedThenCancelled = deriveCommsAcceptanceProvenance(
       obligation(
         [
           event('Created', CY, null, 'Open', 0),
-          event('EvidenceDelivered', BEA, 'Open', 'Delivered', 1, 1),
-          event('Cancelled', CY, 'Delivered', 'Cancelled', 2, null),
+          event('EvidenceDelivered', ALI, 'Open', 'Delivered', 1, 1),
+          event('Accepted', BEA, 'Delivered', 'Accepted', 2, 1),
+          event('Cancelled', CY, 'Accepted', 'Cancelled', 3, null),
         ],
-        { state: 'Cancelled', version: 2, acceptanceUserId: BEA },
+        { state: 'Cancelled', version: 3, acceptanceUserId: BEA },
       ),
     );
-    expect(cancelledFromDelivered).toBeNull();
+    expect(ordinaryAcceptedThenCancelled).toMatchObject({
+      actorUserId: BEA,
+      actorLabel: 'Bea',
+      acceptedAt: '2026-08-02T10:02:00.000Z',
+      deliveryEpisodeVersion: 1,
+      lifecycle: 'cancelled',
+    });
   });
 
   it('recognises any delivery in the current episode and resets at rejection', () => {

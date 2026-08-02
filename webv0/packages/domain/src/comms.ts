@@ -312,28 +312,19 @@ export interface CommsObligationView {
   readonly evidence: CommsEvidenceView[];
 }
 
-/** The explicit actor fact behind an internal same-person acceptance.
- *
- * This derivation intentionally uses immutable, version-linked acts — never
- * assigned-role equality, timestamp order, or the evidence projection, which
- * can outlive a reopened acceptance episode. External acceptance actors are
- * internal transcribers, not the outside authority, and therefore can never
- * produce this record. */
-export interface CommsSelfAcceptance {
+/** The immutable actor fact behind a current or directly-cancelled acceptance. */
+export interface CommsAcceptanceProvenance {
   readonly actorUserId: string;
   readonly actorLabel: string | null;
   readonly acceptedAt: string;
+  readonly deliveryEpisodeVersion: number;
+  readonly lifecycle: 'current' | 'cancelled';
 }
 
-/** Return the current or directly-cancelled same-person acceptance, or fail closed to null.
- *
- * Rejection and reopening begin a new delivery episode. Within the current
- * episode an acceptance is same-person when its named internal authority also
- * performed at least one recorded evidence delivery. Direct cancellation from
- * Accepted supersedes the fact but does not erase the immutable act. */
-export function deriveCommsSelfAcceptance(
-  obligation: Pick<CommsObligationView, 'state' | 'version' | 'acceptanceKind' | 'acceptanceUserId' | 'events'>,
-): CommsSelfAcceptance | null {
+/** Return acceptance provenance without conflating current and superseded state. */
+export function deriveCommsAcceptanceProvenance(
+  obligation: Pick<CommsObligationView, 'state' | 'version' | 'acceptanceUserId' | 'events'>,
+): CommsAcceptanceProvenance | null {
   const cancellations = obligation.events.filter(
     (event) => event.eventType === 'Cancelled' && event.toState === 'Cancelled',
   );
@@ -341,20 +332,17 @@ export function deriveCommsSelfAcceptance(
     obligation.state === 'Cancelled' &&
     cancellations.length === 1 &&
     cancellations[0]!.fromState === 'Accepted';
-  if (
-    (obligation.state !== 'Accepted' && obligation.state !== 'Done' && !directlyCancelledAfterAcceptance) ||
-    obligation.acceptanceKind !== 'account'
-  ) {
+  const lifecycle = directlyCancelledAfterAcceptance ? 'cancelled' : 'current';
+  if (obligation.state !== 'Accepted' && obligation.state !== 'Done' && !directlyCancelledAfterAcceptance) {
     return null;
   }
 
   // Obligation version currently advances ONLY through state transitions.
-  // Accepted is one version after its Delivered basis; Done is exactly one
-  // further transition. This causal key survives transaction-start timestamp
-  // reversal and random UUID tie-breaking in the hydrated event order. A
-  // future non-state version bump must update this invariant and its tests.
-  const currentEpisodeVersion = obligation.version - (obligation.state === 'Accepted' ? 1 : 2);
-  if (!Number.isInteger(currentEpisodeVersion) || currentEpisodeVersion < 0) return null;
+  // Accepted is one version after its Delivered basis; Done and a direct
+  // Accepted -> Cancelled are exactly two. This causal key survives timestamp
+  // reversal and random UUID tie-breaking in the hydrated event order.
+  const deliveryEpisodeVersion = obligation.version - (obligation.state === 'Accepted' ? 1 : 2);
+  if (!Number.isInteger(deliveryEpisodeVersion) || deliveryEpisodeVersion < 0) return null;
 
   const acceptedEvents = obligation.events.filter(
     (event) =>
@@ -362,12 +350,38 @@ export function deriveCommsSelfAcceptance(
       event.fromState === 'Delivered' &&
       event.toState === 'Accepted' &&
       event.actorUserId === obligation.acceptanceUserId &&
-      event.deliveryEpisodeVersion === currentEpisodeVersion,
+      event.deliveryEpisodeVersion === deliveryEpisodeVersion,
   );
-  // State movement and CAS permit one current acceptance. Contradictory
-  // provenance must never be guessed into a same-person claim.
+  // State movement and CAS permit one acceptance for this causal episode.
+  // Contradictory provenance must never be guessed into a visible claim.
   if (acceptedEvents.length !== 1) return null;
   const accepted = acceptedEvents[0]!;
+
+  return {
+    actorUserId: accepted.actorUserId,
+    actorLabel: accepted.actorLabel,
+    acceptedAt: accepted.at,
+    deliveryEpisodeVersion,
+    lifecycle,
+  };
+}
+
+/** The explicit actor fact behind an internal same-person acceptance.
+ *
+ * This derivation intentionally uses immutable, version-linked acts — never
+ * assigned-role equality, timestamp order, or the evidence projection, which
+ * can outlive a reopened acceptance episode. External acceptance actors are
+ * internal transcribers, not the outside authority, and therefore can never
+ * produce this record. */
+export type CommsSelfAcceptance = CommsAcceptanceProvenance;
+
+/** Return the current or directly-cancelled same-person acceptance, or fail closed to null. */
+export function deriveCommsSelfAcceptance(
+  obligation: Pick<CommsObligationView, 'state' | 'version' | 'acceptanceKind' | 'acceptanceUserId' | 'events'>,
+): CommsSelfAcceptance | null {
+  if (obligation.acceptanceKind !== 'account') return null;
+  const accepted = deriveCommsAcceptanceProvenance(obligation);
+  if (!accepted) return null;
 
   const deliveredByAcceptor = obligation.events.some(
     (event) =>
@@ -375,15 +389,11 @@ export function deriveCommsSelfAcceptance(
       (event.fromState === 'Open' || event.fromState === 'Delivered') &&
       event.toState === 'Delivered' &&
       event.actorUserId === accepted.actorUserId &&
-      event.deliveryEpisodeVersion === currentEpisodeVersion,
+      event.deliveryEpisodeVersion === accepted.deliveryEpisodeVersion,
   );
   if (!deliveredByAcceptor) return null;
 
-  return {
-    actorUserId: accepted.actorUserId,
-    actorLabel: accepted.actorLabel,
-    acceptedAt: accepted.at,
-  };
+  return accepted;
 }
 
 // ── Receipts: derived from the private cursor + the watermark (Battle #1) ────
