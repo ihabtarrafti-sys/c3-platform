@@ -53,10 +53,34 @@
                   "properties": {
                     "status": {
                       "type": "string"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "app": {
+                          "type": "string"
+                        },
+                        "directory": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "app",
+                        "directory"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "unchecked": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
-                    "status"
+                    "status",
+                    "checks",
+                    "unchecked"
                   ],
                   "additionalProperties": false
                 }
@@ -72,10 +96,34 @@
                   "properties": {
                     "status": {
                       "type": "string"
+                    },
+                    "checks": {
+                      "type": "object",
+                      "properties": {
+                        "app": {
+                          "type": "string"
+                        },
+                        "directory": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "app",
+                        "directory"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "unchecked": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   },
                   "required": [
-                    "status"
+                    "status",
+                    "checks",
+                    "unchecked"
                   ],
                   "additionalProperties": false
                 }

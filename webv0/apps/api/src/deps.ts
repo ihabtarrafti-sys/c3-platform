@@ -68,9 +68,51 @@ export interface Deps {
    * a 5-min requestTimeout / 15-min lease).
    */
   connectionsCheckingIntervalMs?: number;
-  ready(): Promise<boolean>;
+  ready(): Promise<Readiness>;
   close(): Promise<void>;
 }
+
+/** `not-configured` is a THIRD state on purpose — it is neither working nor broken. */
+export type ReadinessCheck = 'ok' | 'failed' | 'not-configured';
+
+/**
+ * ⛔ WHY READINESS NAMES ITS CHECKS (2026-08-02, Neural's finding).
+ *
+ * `/ready` used to return a single boolean derived from ONE query on the
+ * `c3_app` pool. **Authentication does not use that pool.** It uses `c3_auth` —
+ * a different role, a different credential, a different pool — and that
+ * credential's password never matched `DATABASE_AUTH_URL` from the day the
+ * production environment was built. Every sign-in failed. **`/health` AND
+ * `/ready` were green throughout.**
+ *
+ * ⚖️ `/ready` was answering *"can I reach the database as the app role"* while
+ * being read as *"is the service working."* That is worse than `/health`,
+ * because `/health` never claimed to know — `/ready` LOOKS like it covers this.
+ *
+ * ⇒ The rule this type enforces: **readiness must exercise every credential the
+ * request path depends on, or state which ones it does not.** A partial check
+ * is fine; a partial check that reads as total is the defect. So the response
+ * carries the checks BY NAME, and `unchecked` states the gap out loud rather
+ * than leaving a reader to assume coverage that was never there.
+ */
+export interface Readiness {
+  readonly ready: boolean;
+  readonly checks: {
+    /** `c3_app` — business data. */
+    readonly app: ReadinessCheck;
+    /** `c3_auth` — identity resolution. The credential the outage was in. */
+    readonly directory: ReadinessCheck;
+  };
+  /**
+   * Dependencies deliberately NOT probed here, named so the gap is legible.
+   * These are per-request or scheduled concerns whose failure is reported where
+   * it happens; probing them on a public unauthenticated endpoint would add
+   * external calls to the one route that must stay cheap and always answerable.
+   */
+  readonly unchecked: readonly string[];
+}
+
+const UNCHECKED_DEPENDENCIES = ['documentStorage', 'mailer', 'fxProvider', 'commsLiveBus'] as const;
 
 /**
  * The build stamp is set on the platform by `scripts/stampBuild.mts` immediately
@@ -161,13 +203,34 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     requestTimeoutMs: env.requestReceiveTimeoutMs,
     deadlineMs: env.requestDeadlineMs,
     leaseTtlMs: env.intakeLeaseTtlMs,
-    async ready() {
-      try {
-        await persistence.pool.query('SELECT 1');
-        return true;
-      } catch {
-        return false;
-      }
+    async ready(): Promise<Readiness> {
+      // ⛔ BOTH CREDENTIALS, AND THE ERRORS ARE LOGGED. The outage this replaces
+      // was invisible twice over: the check never touched `c3_auth`, and the one
+      // place the failure did surface swallowed the reason. A readiness check
+      // that fails without saying why moves the diagnosis off the machine.
+      const probe = async (name: string, run: () => Promise<unknown>): Promise<ReadinessCheck> => {
+        try {
+          await run();
+          return 'ok';
+        } catch (err) {
+          logger.error({ err, check: name }, 'readiness check failed');
+          return 'failed';
+        }
+      };
+
+      const [app, directoryCheck] = await Promise.all([
+        probe('app', () => persistence.pool.query('SELECT 1')),
+        // `not-configured` rather than `ok`: an API that cannot resolve identity
+        // is not ready, and saying "ok" for an absent dependency is the exact
+        // conflation this whole change exists to remove.
+        directory ? probe('directory', () => directory.probe()) : Promise.resolve<ReadinessCheck>('not-configured'),
+      ]);
+
+      return {
+        ready: app === 'ok' && directoryCheck === 'ok',
+        checks: { app, directory: directoryCheck },
+        unchecked: UNCHECKED_DEPENDENCIES,
+      };
     },
     async close() {
       await liveBus?.stop().catch(() => {});

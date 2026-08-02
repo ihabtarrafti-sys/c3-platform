@@ -17,6 +17,7 @@ const USER_ID = '77777777-7777-7777-7777-777777777777';
 
 function fakeDirectory(resolve: (key: ExternalIdentityKey) => string | null): AdminDirectory {
   return {
+    probe: async () => {},
     resolveTenantBySlug: async () => null,
     resolveMembership: async () => null,
     resolveUserId: async (key: ExternalIdentityKey) => resolve(key),

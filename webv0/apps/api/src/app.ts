@@ -674,6 +674,17 @@ export function buildApp(deps: Deps): FastifyInstance {
       if (err instanceof AmbiguousMembershipError) {
         return sendError(req, reply, 403, 'MEMBERSHIP_AMBIGUOUS', err.message);
       }
+      // ⛔ AN UNEXPECTED ERROR HERE MUST BE LOGGED, even though the response
+      // stays generic. A pg connection failure is not an AuthError, so it fell
+      // through to this line and became `401 "Authentication failed."` with the
+      // real reason — `password authentication failed for user "c3_auth"` —
+      // written down nowhere. It took connecting to production by hand to find.
+      // ⚖️ The response is for the user; the log is for us. Today both were
+      // blind, and that is what turned a one-line credential fix into an
+      // investigation. AuthError is the EXPECTED case and stays quiet.
+      if (!(err instanceof AuthError)) {
+        req.log.error({ err }, 'authentication failed with an unexpected error');
+      }
       return sendError(req, reply, 401, 'UNAUTHENTICATED', err instanceof AuthError ? err.message : 'Authentication failed.');
     }
   });
@@ -763,9 +774,33 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   // ── health / readiness (public) ────────────────────────────────────────────
   const statusSchema = z.object({ status: z.string() });
   r.get('/health', { schema: { response: { 200: statusSchema } } }, async () => ({ status: 'ok' }));
-  r.get('/ready', { schema: { response: { 200: statusSchema, 503: statusSchema } } }, async (_req, reply) => {
-    const ok = await deps.ready();
-    return reply.status(ok ? 200 : 503).send({ status: ok ? 'ready' : 'unavailable' });
+  /*
+   * ⛔ READINESS NAMES ITS CHECKS — full reasoning on `Readiness` in deps.ts.
+   *
+   * A total authentication outage read as a HEALTHY service for the entire life
+   * of the production environment: `/ready` proved the `c3_app` connection,
+   * while authentication runs on `c3_auth` — a different role, a different
+   * credential, a different pool, whose password never matched
+   * `DATABASE_AUTH_URL`. **A partial check that reads as total is the defect**,
+   * so the body now reports each credential BY NAME and states what it does not
+   * cover.
+   *
+   * ⚖️ Subsystem names only. This route is public and unauthenticated: it says
+   * WHICH check failed, never why — no host, no role, no driver text. The reason
+   * goes to the log, which is where an operator can act on it.
+   */
+  const readinessSchema = z.object({
+    status: z.string(),
+    checks: z.object({ app: z.string(), directory: z.string() }),
+    unchecked: z.array(z.string()),
+  });
+  r.get('/ready', { schema: { response: { 200: readinessSchema, 503: readinessSchema } } }, async (_req, reply) => {
+    const readiness = await deps.ready();
+    return reply.status(readiness.ready ? 200 : 503).send({
+      status: readiness.ready ? 'ready' : 'unavailable',
+      checks: readiness.checks,
+      unchecked: [...readiness.unchecked],
+    });
   });
 
   /*

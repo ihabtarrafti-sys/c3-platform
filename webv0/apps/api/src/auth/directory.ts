@@ -32,8 +32,54 @@ export interface ResolvedMembership {
   readonly displayName: string;
 }
 
+/**
+ * The membership resolution query, shared by the real auth path and the
+ * readiness probe.
+ *
+ * ⚖️ IT IS ONE CONSTANT SO THE PROBE CANNOT DRIFT FROM THE PATH IT CERTIFIES.
+ * A probe with its own hand-written query certifies its own query — and would
+ * keep passing after the real one grew a join onto a table this role cannot
+ * read. That is the same shape as a readiness check that answers a narrower
+ * question than the one asked of it, which is the defect this probe exists for.
+ */
+const MEMBERSHIP_SQL = `SELECT u.id AS user_id, t.id AS tenant_id, t.slug AS tenant_slug, ra.role AS role,
+                u.email AS email, u.display_name AS display_name
+           FROM external_identity ei
+           JOIN app_user u        ON u.id = ei.user_id AND u.is_active = true
+           JOIN tenant_membership tm ON tm.user_id = u.id
+           JOIN role_assignment ra   ON ra.user_id = u.id AND ra.tenant_id = tm.tenant_id
+           JOIN tenant t          ON t.id = tm.tenant_id
+          WHERE ei.provider = $1 AND ei.issuer_tenant_id = $2 AND ei.subject = $3
+          ORDER BY t.id ASC, ra.role ASC`;
+
+/**
+ * ⛔ A KEY THAT CANNOT MATCH, AND THAT IS A REQUIREMENT RATHER THAN A
+ * CONVENIENCE. Entra's `issuer_tenant_id` and `subject` are both UUIDs; this is
+ * not a UUID, so no row can carry it. If the probe key COULD match, a
+ * multi-tenant identity would make the probe raise `AmbiguousMembershipError`
+ * and report a perfectly healthy service as unavailable — a readiness check
+ * that invents an outage is worse than one that misses it.
+ */
+const PROBE_KEY = 'c3-readiness-probe:never-matches';
+
 export interface AdminDirectory {
   resolveTenantBySlug(slug: string): Promise<{ tenantId: string } | null>;
+  /**
+   * Readiness probe for THIS credential. Runs the real membership query against
+   * a key that cannot match: zero rows, no side effects, and no ambiguity logic.
+   *
+   * It proves the three things the auth path needs and `/ready` could not see:
+   * the connection opens, **the credential authenticates**, and this role holds
+   * SELECT on all five identity tables (`external_identity`, `app_user`,
+   * `tenant_membership`, `role_assignment`, `tenant`) — Postgres checks
+   * privileges on every referenced relation, so a revoked grant fails here.
+   *
+   * ⛳ WHAT IT DOES NOT PROVE, stated rather than implied: RLS *visibility*. The
+   * probe matches nothing, so it cannot distinguish "policy permits reads" from
+   * "policy hides everything" — both return zero rows. Proving that needs a row,
+   * and readiness must not depend on data existing.
+   */
+  probe(): Promise<void>;
   /** Resolve an authenticated external identity to tenant + role. Fail-closed:
    *  unknown identity, inactive user, or missing membership/role => null. */
   resolveMembership(key: ExternalIdentityKey): Promise<ResolvedMembership | null>;
@@ -50,6 +96,13 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
   const pool = new Pool({ connectionString, options: '-c client_encoding=UTF8' });
 
   return {
+    async probe() {
+      // Deliberately runs the query and discards the rows: no `rows[0]`, no
+      // tenant counting, no AmbiguousMembershipError path. The probe asks
+      // "can this credential perform this read", never "what did it find".
+      await pool.query(MEMBERSHIP_SQL, ['entra', PROBE_KEY, PROBE_KEY]);
+    },
+
     async resolveTenantBySlug(slug) {
       const r = await pool.query('SELECT id FROM tenant WHERE slug = $1', [slug]);
       return r.rows[0] ? { tenantId: r.rows[0].id as string } : null;
@@ -65,18 +118,7 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
       // creates, because nothing underneath these tables catches a missing
       // scope. Every row is fetched so ambiguity can be SEEN rather than
       // ordered away. See AmbiguousMembershipError.
-      const r = await pool.query(
-        `SELECT u.id AS user_id, t.id AS tenant_id, t.slug AS tenant_slug, ra.role AS role,
-                u.email AS email, u.display_name AS display_name
-           FROM external_identity ei
-           JOIN app_user u        ON u.id = ei.user_id AND u.is_active = true
-           JOIN tenant_membership tm ON tm.user_id = u.id
-           JOIN role_assignment ra   ON ra.user_id = u.id AND ra.tenant_id = tm.tenant_id
-           JOIN tenant t          ON t.id = tm.tenant_id
-          WHERE ei.provider = $1 AND ei.issuer_tenant_id = $2 AND ei.subject = $3
-          ORDER BY t.id ASC, ra.role ASC`,
-        [key.provider, key.issuerTenantId, key.subject],
-      );
+      const r = await pool.query(MEMBERSHIP_SQL, [key.provider, key.issuerTenantId, key.subject]);
       const row = r.rows[0];
       if (!row) return null;
       // Ambiguity is counted over DISTINCT TENANTS, not rows: two roles within

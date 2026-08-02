@@ -24186,16 +24186,50 @@
         "200": {
           "t": "object",
           "keys": {
+            "checks": {
+              "t": "object",
+              "keys": {
+                "app": {
+                  "t": "string"
+                },
+                "directory": {
+                  "t": "string"
+                }
+              }
+            },
             "status": {
               "t": "string"
+            },
+            "unchecked": {
+              "t": "array",
+              "item": {
+                "t": "string"
+              }
             }
           }
         },
         "503": {
           "t": "object",
           "keys": {
+            "checks": {
+              "t": "object",
+              "keys": {
+                "app": {
+                  "t": "string"
+                },
+                "directory": {
+                  "t": "string"
+                }
+              }
+            },
             "status": {
               "t": "string"
+            },
+            "unchecked": {
+              "t": "array",
+              "item": {
+                "t": "string"
+              }
             }
           }
         }

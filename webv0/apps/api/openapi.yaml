@@ -38,8 +38,25 @@ paths:
                 properties:
                   status:
                     type: string
+                  checks:
+                    type: object
+                    properties:
+                      app:
+                        type: string
+                      directory:
+                        type: string
+                    required:
+                      - app
+                      - directory
+                    additionalProperties: false
+                  unchecked:
+                    type: array
+                    items:
+                      type: string
                 required:
                   - status
+                  - checks
+                  - unchecked
                 additionalProperties: false
         "503":
           description: Default Response
@@ -50,8 +67,25 @@ paths:
                 properties:
                   status:
                     type: string
+                  checks:
+                    type: object
+                    properties:
+                      app:
+                        type: string
+                      directory:
+                        type: string
+                    required:
+                      - app
+                      - directory
+                    additionalProperties: false
+                  unchecked:
+                    type: array
+                    items:
+                      type: string
                 required:
                   - status
+                  - checks
+                  - unchecked
                 additionalProperties: false
   /version:
     get:

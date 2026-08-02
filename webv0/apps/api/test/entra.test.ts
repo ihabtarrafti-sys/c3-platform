@@ -31,6 +31,7 @@ const membership: ResolvedMembership = {
 
 function fakeDirectory(known: Map<string, ResolvedMembership>): AdminDirectory {
   return {
+    probe: async () => {},
     resolveTenantBySlug: async () => null,
     resolveMembership: async (key: ExternalIdentityKey) =>
       known.get(`${key.provider}|${key.issuerTenantId}|${key.subject}`) ?? null,
