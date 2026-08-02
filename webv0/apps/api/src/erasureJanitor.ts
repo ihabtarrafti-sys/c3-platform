@@ -21,7 +21,23 @@ export const MAX_ERASURE_JANITOR_BOOT_READINESS_BUDGET_MS = 300_000;
 // growing jsonb. No behaviour change — just a structured warning past this bound.
 export const ERASURE_PENDING_DESTROY_LOUD_THRESHOLD = 1_000;
 
-export type ErasureJanitorTrigger = 'boot' | 'interval' | 'owner';
+/**
+ * The trigger vocabulary, as a VALUE rather than a bare type union.
+ *
+ * ⚖️ A TYPE ALIAS CANNOT BE CHECKED AT RUNTIME, and this vocabulary has to be
+ * checked: the same words are constrained in two places inside PostgreSQL — the
+ * `audit_event_platform_erasure_shape_chk` constraint and the body of
+ * `append_post_finalize_erasure_straggler_audit`. Types are erased, so a union
+ * alone leaves the TypeScript half unable to participate in a drift test at all.
+ * `vocabularyDrift.test.ts` binds this array to both SQL sites.
+ *
+ * ⛔ WIDENING IS ADDITIVE ONLY (`D-015`): historical audit rows carry the values
+ * below, so they must remain valid forever or the audit trail stops being
+ * readable backwards.
+ */
+export const ERASURE_JANITOR_TRIGGERS = ['boot', 'interval', 'owner'] as const;
+
+export type ErasureJanitorTrigger = (typeof ERASURE_JANITOR_TRIGGERS)[number];
 
 export interface ErasureJanitorResult {
   readonly recordsSeen: number;
