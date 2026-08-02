@@ -60,12 +60,13 @@ if (dirty) {
 const token = tokenForCommit(head);
 
 /**
- * ⛔ WHY THE VARIABLE IS SET **BEFORE** `railway up`, AND WHY THAT ALONE IS NOT
- * ENOUGH. Railway redeploys a service when its variables change, so setting the
- * token first can restart the CURRENTLY RUNNING (old) image carrying the NEW
- * token. For that window the service answers `/version` with a token naming a
- * commit it is not running — and the verifier, checking identity alone, would
- * PASS it. That is instance 52 rebuilt inside the tool meant to end it.
+ * ⛔ WHY THE VARIABLE IS SET **BEFORE** `railway up`, AND WHY IT MUST CARRY
+ * `--skip-deploys`. Railway redeploys a service when its variables change, so
+ * setting the token first would otherwise restart the CURRENTLY RUNNING (old)
+ * image carrying the NEW token. For that window the service answers `/version`
+ * with a token naming a commit it is not running — and a verifier checking
+ * identity alone would PASS it. That is instance 52 rebuilt inside the tool meant
+ * to end it.
  *
  * ⇒ Setting it AFTER would swap the failure, not remove it: the new image boots
  * with no token and fail-closes, so the deploy reads as broken until a second
@@ -73,10 +74,19 @@ const token = tokenForCommit(head);
  *
  * ⚖️ Neither ordering is safe on its own because ONE VALUE CANNOT CARRY BOTH
  * CLAIMS. The token answers *which build*; it cannot answer *did a deploy
- * happen*. So the deploymentId recorded below is the second half — the same
- * shape as the banked deploy witness (`active SUCCESS` **plus a MOVED
- * imageDigest**), re-derived here because a law does not transfer itself to a
- * new layer.
+ * happen*. So the deploymentId is the second half — the same shape as the banked
+ * deploy witness (`active SUCCESS` **plus a MOVED imageDigest**), re-derived here
+ * because a law does not transfer itself to a new layer.
+ *
+ * ⚠️ AND THE FRESHNESS HALF IS ONLY SOUND WITH `--skip-deploys` (Neural, measured
+ * during the first real production deploy). An earlier version of this ceremony
+ * asserted Railway "documents no flag to suppress" the redeploy. **That was false,
+ * and the way it was false is the lesson: the flag is listed by
+ * `railway variables set --help`.** This lane hedged the CLI *syntax* — telling
+ * the reader to check `--help` — while asserting the *non-existence of a flag*
+ * from a docs page that had just proven inadequate for the syntax question.
+ * **Absence in the documentation is not absence in the tool; the tool's own
+ * `--help` was the authority for both claims.**
  */
 console.log(
   `\n[stamp] token ${token}   (commit ${head.slice(0, 12)}, tree clean)\n` +
@@ -84,13 +94,14 @@ console.log(
     '\n  1. Record the deployment that is running NOW (the "before" half of the witness):\n' +
     '       railway status --json\n' +
     '     …and keep its deployment id.\n' +
-    '\n  2. Set the token on the service. ⚠️ CONFIRM THE SYNTAX FIRST — `railway variables --help`.\n' +
-    '     The Railway CLI has shipped BOTH forms and this lane cannot test either (no CLI\n' +
-    '     installed here), so neither is stated as fact:\n' +
-    `       railway variables --set C3_BUILD_TOKEN=${token}     (v4-style)\n` +
-    `       railway variables set C3_BUILD_TOKEN=${token}       (subcommand style)\n` +
-    '     A variable change TRIGGERS A REDEPLOY of the image running now, and Railway\n' +
-    '     documents no flag to suppress it. That is expected; step 4 is what catches it.\n' +
+    '\n  2. Set the token on the service — ⛔ WITH `--skip-deploys`, WHICH IS NOT OPTIONAL:\n' +
+    `       railway variable set C3_BUILD_TOKEN=${token} --skip-deploys\n` +
+    '     (`variable set` is current; `--set` still works but the CLI labels it legacy.)\n' +
+    '\n     ⚖️ `--skip-deploys` IS LOAD-BEARING FOR THE WITNESS, NOT CONVENIENCE. A variable\n' +
+    '     change redeploys the service. Without the flag that restart moves the deploymentId\n' +
+    '     BEFORE step 3 ships anything — so the "before" value recorded in step 1 is already\n' +
+    '     spent, and step 4 would see a moved id even if `railway up` FAILED. With it there is\n' +
+    '     exactly ONE deploy, and the id moving means exactly one thing.\n' +
     '\n  3. Ship the working directory — from webv0/, never a subdirectory:\n' +
     '       railway up\n' +
     '\n  4. Verify BOTH halves — identity and freshness:\n' +
