@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && node ../../node_modules/tsx/dist/cli.mjs scripts/emitHeaders.mts",
     "preview": "vite preview",
     "e2e": "node ../../node_modules/tsx/dist/cli.mjs e2e/support/preflight.ts && playwright test",
     "typecheck": "tsc --noEmit -p tsconfig.json"

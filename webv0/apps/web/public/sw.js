@@ -1,8 +1,11 @@
 /*
  * sw.js — C3 PWA service worker (Track B5). Makes C3 installable and gives it
  * an offline shell. Deliberately conservative:
- *   - It NEVER touches cross-origin requests (the API is api.staging.c3hq.org —
- *     a different origin — so auth/data always hit the network, never a cache).
+ *   - It NEVER touches cross-origin requests (the API is a DIFFERENT ORIGIN in
+ *     every environment — staging and production each have their own — so
+ *     auth/data always hit the network, never a cache). The origin is not named
+ *     here on purpose: this file ships to both environments, and a comment that
+ *     names one of them tells the next reader something false about the other.
  *   - Navigations are network-first, falling back to the cached app shell only
  *     when truly offline (so a fresh deploy is always served when online).
  *   - Same-origin static assets (the hashed JS/CSS, icons) are cache-first with
