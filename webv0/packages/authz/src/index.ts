@@ -3,3 +3,4 @@
  * @c3web/domain. No HTTP, no DB.
  */
 export * from './policy';
+export * from './platform';
