@@ -231,7 +231,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
   });
 });
 
-test('Tablework Comms: same-person delivery and acceptance are allowed and recorded plainly', async ({ page }) => {
+test('Tablework Comms: same-person acceptance stays visibly distinct when superseded', async ({ page }) => {
   test.slow();
   await login(page, 'ops@alpha.com', 'operations');
   await ensureMission(page, 'Comms Self Acceptance Cup');
@@ -263,6 +263,7 @@ test('Tablework Comms: same-person delivery and acceptance are allowed and recor
   const provenance = card.locator('[data-tablework="AcceptanceProvenance"][data-acceptance-shape="self"]');
   await expect(provenance).toContainText('Same-person record');
   await expect(provenance).toContainText('ops@alpha.com both delivered evidence and accepted it as the named authority.');
+  await expect(provenance).not.toHaveAttribute('data-acceptance-emphasis', 'governance-sensitive');
   await expect(card.locator('[data-truth-state]')).toHaveCount(3);
 
   await page.reload();
@@ -270,6 +271,23 @@ test('Tablework Comms: same-person delivery and acceptance are allowed and recor
   await expect(card.locator('[data-tablework="AcceptanceProvenance"][data-acceptance-shape="self"]')).toContainText(
     'ops@alpha.com both delivered evidence and accepted it as the named authority.',
   );
+
+  await card.getByRole('textbox', { name: 'Reason' }).fill('The accepted record is no longer current');
+  await card.getByRole('button', { name: 'Cancel' }).click();
+
+  const superseded = card.locator(
+    '[data-tablework="AcceptanceProvenance"][data-acceptance-shape="self"][data-acceptance-lifecycle="cancelled"]',
+  );
+  await expect(superseded).toHaveAttribute('data-acceptance-emphasis', 'governance-sensitive');
+  await expect(superseded).toContainText('Superseded same-person record');
+  await expect(superseded).toHaveCSS('display', 'block');
+  await expect(superseded).toHaveCSS('border-left-width', '3px');
+
+  await page.reload();
+  card = page.locator('[data-tablework="ObligationCard"]', { hasText: 'Solo evidence acceptance' });
+  await expect(
+    card.locator('[data-tablework="AcceptanceProvenance"][data-acceptance-emphasis="governance-sensitive"]'),
+  ).toContainText('Before cancellation, ops@alpha.com both delivered evidence and accepted it as the named authority.');
 });
 
 test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass collapse', async ({ page }) => {

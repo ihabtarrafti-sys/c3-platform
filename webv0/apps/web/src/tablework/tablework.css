@@ -2489,6 +2489,29 @@
   color: var(--c3-ink-strong);
 }
 
+/* D-010 survives cancellation as governance-sensitive history. The ordinary
+   superseded record remains prose; the same-person record gains structure and
+   the law's serif voice so the distinction survives a skim without implying
+   danger or relying on colour alone. Superseded history never earns the
+   standing-record gradient. */
+.tw-root .obligation-fact [data-acceptance-emphasis='governance-sensitive'] {
+  display: block;
+  margin-top: var(--c3-space-1);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border-inline-start: 3px solid var(--c3-state-info);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-tw-work-elevated);
+  color: var(--c3-ink-default);
+  font-family: var(--c3-font-family-editorial);
+  line-height: var(--c3-line-height-body);
+}
+
+.tw-root .obligation-fact [data-acceptance-emphasis='governance-sensitive'] > strong {
+  font-size: var(--c3-font-size-body);
+  font-weight: var(--c3-font-weight-bold);
+  line-height: var(--c3-line-height-snug);
+}
+
 .tw-root .obligation-meta {
   display: grid;
   gap: var(--c3-space-2);
