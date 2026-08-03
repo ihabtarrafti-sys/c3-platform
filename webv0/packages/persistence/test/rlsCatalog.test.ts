@@ -59,6 +59,41 @@ const EXEMPT: Record<string, string> = {
   platform_principal: 'platform plane: authority that is not tenant membership; guarded by grants, not RLS',
 };
 
+describe('the exemptions must be able to notice their own premise expiring', () => {
+  /**
+   * ⛔ LAW 30. `platform_principal`'s exemption is correct, and its correctness
+   * rests ENTIRELY on one fact: the table has no tenant column, so an RLS
+   * predicate could only be `USING (true)` — a policy in name only.
+   *
+   * ⚖️ A future migration adding tenant scoping to that table makes the exemption
+   * WRONG, and silently: the line in `EXEMPT` above will still read as
+   * *considered*. It **was** considered — under a premise that has since changed.
+   * *An exemption that cannot notice its own premise expiring is a decision
+   * decaying into an assumption.*
+   *
+   * So the premise is asserted rather than remembered. If this fails, the right
+   * response is to re-open the classification, never to widen the pattern.
+   */
+  it('⛔ platform_principal still has NO tenant-shaped column', async () => {
+    const columns = await db.adminQuery<{ column_name: string }>(
+      `SELECT column_name FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'platform_principal'
+        ORDER BY column_name`,
+    );
+
+    // POSITIVE CONTROL: an empty result would satisfy the assertion below while
+    // proving nothing — a dropped or renamed table must fail loudly here.
+    expect(columns.length, 'the table must exist for its exemption to mean anything').toBeGreaterThan(0);
+    expect(columns.map((c) => c.column_name)).toContain('accountable_owner');
+
+    const tenantShaped = columns.map((c) => c.column_name).filter((name) => /tenant/i.test(name));
+    expect(
+      tenantShaped,
+      'platform_principal gained a tenant column — its RLS exemption is no longer justified, RE-OPEN the classification',
+    ).toEqual([]);
+  });
+});
+
 describe('F05 — the RLS catalog law', () => {
   it('every tenant table has ENABLED + FORCED row-level security (exemptions named, never matched)', async () => {
     const rows = await db.adminQuery<{ relname: string; relrowsecurity: boolean; relforcerowsecurity: boolean }>(
