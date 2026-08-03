@@ -13,7 +13,7 @@
  *                    (truthful access-not-provisioned screen)
  *   authenticated  — provider session + C3 membership resolved
  */
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api } from './apiClient';
 import { ApiError, type MeResponse } from './api';
 import { authClient, AUTH_PROVIDER, IS_ENTRA } from './auth';
@@ -21,11 +21,48 @@ import type { AuthSession } from './auth';
 
 type Status = 'loading' | 'authenticated' | 'anonymous' | 'unprovisioned';
 
+/**
+ * The waiting person's truthful view of membership resolution. This stays
+ * separate from the legacy session status: `unprovisioned` continues to gate
+ * every product route, while the relay says why the gate is closed and what a
+ * single explicit recheck learned.
+ */
+export type MembershipRelayState =
+  | { readonly kind: 'checking' }
+  | { readonly kind: 'not_seated' }
+  | { readonly kind: 'verification_failed'; readonly message: string }
+  | { readonly kind: 'ambiguous' }
+  | { readonly kind: 'confirmed'; readonly me: MeResponse };
+
+type MembershipReadResult = MembershipRelayState | { readonly kind: 'session_rejected'; readonly message: string };
+
+/** One authoritative /me read. Deliberately contains no retry. */
+export async function readMembershipOnce(readMe: () => Promise<MeResponse> = () => api.me()): Promise<MembershipReadResult> {
+  try {
+    return { kind: 'confirmed', me: await readMe() };
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 403 && err.code === 'ACCESS_NOT_PROVISIONED') {
+      return { kind: 'not_seated' };
+    }
+    if (err instanceof ApiError && err.status === 403 && err.code === 'MEMBERSHIP_AMBIGUOUS') {
+      return { kind: 'ambiguous' };
+    }
+    if (err instanceof ApiError && err.status === 401) {
+      return { kind: 'session_rejected', message: err.message };
+    }
+    return {
+      kind: 'verification_failed',
+      message: err instanceof ApiError ? err.message : 'The membership register could not be reached.',
+    };
+  }
+}
+
 interface SessionValue {
   status: Status;
   me: MeResponse | null;
   /** Truthful reason the last session resolution failed (shown on the sign-in screen). */
   authNotice: string | null;
+  membershipRelay: MembershipRelayState;
   providerSession: AuthSession | null;
   authProvider: 'entra' | 'dev';
   /** Entra: interactive redirect sign-in. */
@@ -34,6 +71,10 @@ interface SessionValue {
   devLogin(input: { email: string; role: string; tenantSlug: string }): Promise<void>;
   signOut(): Promise<void>;
   refresh(): Promise<void>;
+  /** Re-read /me exactly once without discarding the provider session. */
+  checkSeat(): Promise<void>;
+  /** Admit a confirmed result into the product tree; the current URL stays put. */
+  enterSeat(): void;
 }
 
 const SessionContext = createContext<SessionValue | null>(null);
@@ -43,58 +84,81 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [me, setMe] = useState<MeResponse | null>(null);
   const [providerSession, setProviderSession] = useState<AuthSession | null>(null);
   const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [membershipRelay, setMembershipRelay] = useState<MembershipRelayState>({ kind: 'checking' });
+  const seatCheckInFlight = useRef<number | null>(null);
+  const seatCheckSequence = useRef(0);
+  // Every membership read belongs to exactly one session-resolution epoch.
+  // Sign-out, refresh, or a newer login invalidates older responses before
+  // they can write a stale identity back into the product boundary.
+  const resolutionEpoch = useRef(0);
 
-  const resolveMe = useCallback(async (session: AuthSession | null) => {
+  const resolveMe = useCallback(async (
+    session: AuthSession | null,
+    options: { handoff?: boolean; retryTransient?: boolean } = {},
+  ) => {
+    const epoch = ++resolutionEpoch.current;
+    const isCurrent = () => resolutionEpoch.current === epoch;
     setProviderSession(session);
     if (!session) {
       setMe(null);
+      setMembershipRelay({ kind: 'checking' });
       setStatus('anonymous');
       return;
     }
-    try {
-      const m = await api.me();
-      setMe(m);
-      setAuthNotice(null);
-      setStatus('authenticated');
-    } catch (err) {
-      setMe(null);
-      if (err instanceof ApiError && err.status === 403 && err.code === 'ACCESS_NOT_PROVISIONED') {
-        // Valid identity, no C3 membership: truthful state, not a login error.
-        setStatus('unprovisioned');
-        return;
-      }
-      if (err instanceof ApiError && err.status === 401) {
-        // The API REJECTED the token: the session is dead. Clear ONLY the
-        // local session — never bounce through the provider's logout page —
-        // and surface the exact refusal on the sign-in screen.
-        setAuthNotice(err.message);
-        await authClient.clearLocalSession().catch(() => {});
-        setStatus('anonymous');
-        return;
-      }
-      // Anything else (network blip, 5xx, a busy server) is TRANSIENT: the
-      // token was never rejected. Retry once; if it still fails, KEEP the
-      // stored session — a later refresh recovers silently. Deleting it here
-      // would sign the user out over a hiccup (a real defect S2's E2E load
-      // exposed: reload → one failed /me → login screen).
-      try {
-        await new Promise((r) => setTimeout(r, 1500));
-        const m = await api.me();
-        setMe(m);
-        setAuthNotice(null);
-        setStatus('authenticated');
-      } catch (retryErr) {
-        setAuthNotice(retryErr instanceof ApiError ? retryErr.message : 'The service could not be reached.');
-        setStatus('anonymous'); // stored session deliberately KEPT
-      }
+    setMembershipRelay({ kind: 'checking' });
+
+    let result = await readMembershipOnce();
+    if (!isCurrent()) return;
+    // Preserve the established one-retry protection during session restore,
+    // but never retry a named refusal and never retry an explicit seat check.
+    if (result.kind === 'verification_failed' && options.retryTransient) {
+      await new Promise((r) => setTimeout(r, 1500));
+      if (!isCurrent()) return;
+      result = await readMembershipOnce();
+      if (!isCurrent()) return;
     }
+
+    if (result.kind === 'confirmed') {
+      setAuthNotice(null);
+      setMembershipRelay(result);
+      if (options.handoff) {
+        // A person who was waiting sees the positive witness before product
+        // routes mount. `enterSeat` performs the only status transition.
+        setMe(null);
+        setStatus('unprovisioned');
+      } else {
+        setMe(result.me);
+        setStatus('authenticated');
+      }
+      return;
+    }
+
+    if (result.kind === 'session_rejected') {
+      setMe(null);
+      setProviderSession(null);
+      setAuthNotice(result.message);
+      // A 401 is the one result that does discard the rejected local session.
+      // The relay remains `checking` but is hidden behind `anonymous`; a
+      // rejected provider session never masquerades as a register verdict.
+      await authClient.clearLocalSession().catch(() => {});
+      if (!isCurrent()) return;
+      setStatus('anonymous');
+      return;
+    }
+
+    // Both named 403 outcomes and a transient verification failure retain the
+    // valid provider session. The relay, not the sign-in screen, owns them.
+    setMe(null);
+    setAuthNotice(null);
+    setMembershipRelay(result);
+    setStatus('unprovisioned');
   }, []);
 
   useEffect(() => {
     void (async () => {
       try {
         const session = await authClient.initialize();
-        await resolveMe(session);
+        await resolveMe(session, { retryTransient: true });
       } catch {
         setStatus('anonymous');
       }
@@ -119,19 +183,58 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    resolutionEpoch.current += 1;
+    seatCheckSequence.current += 1;
+    seatCheckInFlight.current = null;
     setMe(null);
     setProviderSession(null);
+    setAuthNotice(null);
+    setMembershipRelay({ kind: 'checking' });
     setStatus('anonymous');
     await authClient.signOut();
   }, []);
 
   const refresh = useCallback(async () => {
-    await resolveMe(authClient.getSession());
+    await resolveMe(authClient.getSession(), { retryTransient: true });
   }, [resolveMe]);
 
+  const checkSeat = useCallback(async () => {
+    if (seatCheckInFlight.current !== null) return;
+    const checkId = ++seatCheckSequence.current;
+    seatCheckInFlight.current = checkId;
+    try {
+      // No redirect and no provider logout: this is exactly one membership
+      // read against the existing provider session. The current route remains
+      // the intended destination throughout the relay.
+      await resolveMe(authClient.getSession(), { handoff: true });
+    } finally {
+      // A stale check must not clear the lock belonging to a newer session.
+      if (seatCheckInFlight.current === checkId) seatCheckInFlight.current = null;
+    }
+  }, [resolveMe]);
+
+  const enterSeat = useCallback(() => {
+    if (membershipRelay.kind !== 'confirmed') return;
+    setMe(membershipRelay.me);
+    setStatus('authenticated');
+  }, [membershipRelay]);
+
   const value = useMemo<SessionValue>(
-    () => ({ status, me, providerSession, authNotice, authProvider: AUTH_PROVIDER, signIn, devLogin, signOut, refresh }),
-    [status, me, providerSession, authNotice, signIn, devLogin, signOut, refresh],
+    () => ({
+      status,
+      me,
+      providerSession,
+      authNotice,
+      membershipRelay,
+      authProvider: AUTH_PROVIDER,
+      signIn,
+      devLogin,
+      signOut,
+      refresh,
+      checkSeat,
+      enterSeat,
+    }),
+    [status, me, providerSession, authNotice, membershipRelay, signIn, devLogin, signOut, refresh, checkSeat, enterSeat],
   );
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>;
 }

@@ -53,6 +53,14 @@ test('Member administration governed workflow, end to end', async ({ page }) => 
     expect(match).toBeTruthy();
     provisionApprovalId = match![0];
 
+    const handoff = page.getByTestId('seating-request-handoff');
+    await expect(handoff.getByRole('heading', { name: 'No access yet' })).toBeVisible();
+    await expect(handoff).toContainText('New Lead · new.lead@alpha.com · Requested role: management.');
+    await expect(handoff.getByRole('link', { name: 'Open approval' })).toHaveAttribute(
+      'href',
+      `/approvals/${provisionApprovalId}`,
+    );
+
     // Not a member until executed.
     await expect(page.getByTestId('member-row-new.lead@alpha.com')).toHaveCount(0);
   });
@@ -62,14 +70,23 @@ test('Member administration governed workflow, end to end', async ({ page }) => 
     await page.goto(`/approvals/${provisionApprovalId}`);
     await expect(page.getByTestId('approval-detail-status')).toHaveText('Submitted');
     await expect(page.getByTestId('approval-member-email')).toHaveText('new.lead@alpha.com');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('Seat request submitted');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('It has not created a seat');
     await page.getByTestId('begin-review').click();
     await expect(page.getByTestId('approval-detail-status')).toHaveText('In review');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('Seat request in review');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('It has not created a seat');
     await page.getByTestId('approve').click();
     await page.getByTestId('approve-confirm').click();
     await expect(page.getByTestId('approval-detail-status')).toHaveText('Approved');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('Approved — not yet seated');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('it has not created a seat');
     await page.getByTestId('execute').click();
     await page.getByTestId('execute-confirm').click();
     await expect(page.getByTestId('approval-detail-status')).toHaveText('Executed');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('Seat created by this request');
+    await expect(page.getByTestId('seating-approval-receipt')).toContainText('does not prove that access remains active');
+    await expect(page.getByTestId('seating-current-standing-link')).toHaveAttribute('href', '/members');
   });
 
   await test.step('The member is live in the register with the requested role', async () => {

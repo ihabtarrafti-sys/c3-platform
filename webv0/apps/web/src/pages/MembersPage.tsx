@@ -19,12 +19,13 @@ import {
   Selector,
   FormDrawer,
   GovernedAction,
+  RecordLink,
 } from '../tablework';
 
 /**
  * Members (Sprint 35 tenant-admin) — the organization's access register.
  * EVERY change is a governed request: submitting creates an approval that an
- * owner (never the requester) reviews and executes. Nothing on this page
+ * an authorized actor (never the requester) reviews and executes. Nothing on this page
  * mutates access directly; the notice copy says so on each action.
  *
  * Identity fields: production (entra build) binds the immutable Entra
@@ -56,6 +57,61 @@ function RolePicker({ value, onChange, testId }: { value: string; onChange: (r: 
   );
 }
 
+export type SeatingReviewAvailability = 'available' | 'unavailable' | 'unknown';
+
+/**
+ * The Members register can prove a distinct active owner and it can prove the
+ * one-member bootstrap dead end. It cannot prove that another non-owner lacks
+ * delegated review standing, so that middle case deliberately stays unknown.
+ */
+export function deriveSeatingReviewAvailability(
+  members: readonly MemberDto[] | undefined,
+  requesterUserId: string | undefined,
+  registerProven: boolean,
+): SeatingReviewAvailability {
+  if (!registerProven || !members || !requesterUserId) return 'unknown';
+  const activeOthers = members.filter((member) => member.isActive && member.userId !== requesterUserId);
+  if (activeOthers.some((member) => member.role === 'owner')) return 'available';
+  return activeOthers.length === 0 ? 'unavailable' : 'unknown';
+}
+
+export function SeatingRequestHandoff({
+  approvalId,
+  requestedRole,
+  displayName,
+  email,
+  reviewAvailability,
+}: {
+  approvalId: string;
+  requestedRole: MemberDto['role'];
+  displayName: string;
+  email: string;
+  reviewAvailability: SeatingReviewAvailability;
+}) {
+  const completionTruth =
+    reviewAvailability === 'available' ? (
+      <>A different authorized actor must review and execute this request.</>
+    ) : reviewAvailability === 'unavailable' ? (
+      <strong data-testid="seating-request-blocked">
+        The current register has no other active member who can review and execute it.
+      </strong>
+    ) : (
+      <>C3 cannot confirm distinct review and execution standing from the Members register alone.</>
+    );
+
+  return (
+    <section className="consequence seating-handoff" data-testid="seating-request-handoff" aria-label="Seat request submitted">
+      <small>Seating relay · {approvalId}</small>
+      <h2>No access yet</h2>
+      <p>{displayName} · {email} · Requested role: {requestedRole}.</p>
+      <p>{completionTruth}</p>
+      <p>
+        <RecordLink to={`/approvals/${approvalId}`}>Open approval →</RecordLink>
+      </p>
+    </section>
+  );
+}
+
 export function MembersPage() {
   return (
     <TableworkPage record="Members" section="Register" wide>
@@ -72,7 +128,7 @@ function MembersRegister() {
   const canChange = me?.capabilities.canSubmitMemberChange ?? false;
   // The wire law: the capability IS the `enabled` flag — the access register
   // never reaches a browser without standing to read it.
-  const { data, isLoading, isError, error } = useMembers(canRead);
+  const { data, isLoading, isFetching, isError, error } = useMembers(canRead);
 
   const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState('');
@@ -81,6 +137,12 @@ function MembersRegister() {
   const [oid, setOid] = useState('');
   const [issuerTid, setIssuerTid] = useState('');
   const [changeRoleTo, setChangeRoleTo] = useState<Record<string, string>>({});
+  const [seatingHandoff, setSeatingHandoff] = useState<{
+    approvalId: string;
+    requestedRole: MemberDto['role'];
+    displayName: string;
+    email: string;
+  } | null>(null);
 
   if (!canRead) {
     return (
@@ -90,10 +152,15 @@ function MembersRegister() {
     );
   }
 
-  async function submitChange(payload: Parameters<typeof api.submitMemberChange>[0], summary: string) {
+  async function submitChange(
+    payload: Parameters<typeof api.submitMemberChange>[0],
+    summary: string,
+    onSubmitted?: (approvalId: string) => void,
+  ) {
     try {
       const res = await api.submitMemberChange(payload);
-      notify('success', `Submitted ${res.approval.approvalId} for approval — ${summary}. Nothing changes until an owner executes it.`);
+      notify('success', `Submitted ${res.approval.approvalId} for approval — ${summary}. Nothing changes until an authorized actor executes it.`);
+      onSubmitted?.(res.approval.approvalId);
       void qc.invalidateQueries({ queryKey: ['approvals'] });
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Submission failed.');
@@ -102,12 +169,16 @@ function MembersRegister() {
   }
 
   async function submitProvision() {
+    const requestedRole = role as MemberDto['role'];
+    const requestedDisplayName = displayName.trim();
+    const requestedEmail = email.trim();
     const identity = IS_ENTRA
       ? { provider: 'entra' as const, issuerTenantId: issuerTid.trim(), subject: oid.trim() }
-      : { provider: 'dev' as const, issuerTenantId: 'dev', subject: email.trim().toLowerCase() };
+      : { provider: 'dev' as const, issuerTenantId: 'dev', subject: requestedEmail.toLowerCase() };
     await submitChange(
-      { operationType: 'ProvisionMember', input: { email: email.trim(), displayName: displayName.trim(), role: role as MemberDto['role'], identity } },
-      `provision ${email.trim()}`,
+      { operationType: 'ProvisionMember', input: { email: requestedEmail, displayName: requestedDisplayName, role: requestedRole, identity } },
+      `provision ${requestedEmail}`,
+      (approvalId) => setSeatingHandoff({ approvalId, requestedRole, displayName: requestedDisplayName, email: requestedEmail }),
     );
     setEmail('');
     setDisplayName('');
@@ -119,6 +190,11 @@ function MembersRegister() {
 
   const provisionReady =
     email.trim() !== '' && displayName.trim() !== '' && (!IS_ENTRA || (oid.trim() !== '' && issuerTid.trim() !== ''));
+  const reviewAvailability = deriveSeatingReviewAvailability(
+    data?.members,
+    me?.userId,
+    !isFetching && !isError && data !== undefined,
+  );
 
   const addAction = canChange ? (
     <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="provision-member-toggle">
@@ -140,6 +216,9 @@ function MembersRegister() {
             message={error instanceof ApiError ? error.message : 'Could not load members.'}
             correlationId={error instanceof ApiError ? error.correlationId : undefined}
           />
+        )}
+        {seatingHandoff && (
+          <SeatingRequestHandoff {...seatingHandoff} reviewAvailability={reviewAvailability} />
         )}
         {/* No empty branch: this register has never had one (an organization
             always has at least the reader), and inventing one would add an
@@ -240,19 +319,28 @@ function MembersRegister() {
           onClose={() => setShowForm(false)}
           eyebrow="Provision member"
           mode="governed"
-          intro="Member changes go through approval — an owner must review and execute before access changes."
+          intro="Member changes go through approval — a different authorized actor must review and execute before access changes."
           footer={
             <GovernedAction
               triggerLabel="Submit for approval"
               triggerTestId="provision-submit"
               triggerDisabled={!provisionReady}
               title="Request this member provision?"
-              description="Submitting creates an approval request. The member is not provisioned until an owner (other than you) approves and executes it."
+              description="Submitting creates an approval request. The member is not provisioned until a different authorized actor reviews and executes it."
               confirmLabel="Submit for approval"
               onConfirm={submitProvision}
             />
           }
         >
+          {reviewAvailability === 'unavailable' && (
+            <section className="consequence seating-availability" data-testid="seating-no-reviewer">
+              <small>Separation of duties</small>
+              <strong>No other active member can complete this request</strong>
+              <span>
+                You may record the request, but it cannot be reviewed or executed from the current Members register.
+              </span>
+            </section>
+          )}
           <Field label="Email" required>
             <Input value={email} onChange={(e) => setEmail(e.target.value)} data-testid="provision-email" />
           </Field>

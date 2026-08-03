@@ -1657,6 +1657,107 @@
   font-size: var(--c3-font-size-body-small);
 }
 
+/* D-022: seating states carry their stage structurally as well as in copy.
+   The numbered/symbol mark survives monochrome and the left rail is a second,
+   redundant cue rather than the sole distinction. */
+.tw-root .seating-receipt {
+  min-height: 0;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  align-items: start;
+  gap: var(--c3-space-4);
+  overflow-wrap: anywhere;
+  border-inline-start-width: 3px;
+}
+
+.tw-root .seating-receipt__mark {
+  width: var(--c3-tw-target-min);
+  height: var(--c3-tw-target-min);
+  display: grid;
+  place-items: center;
+  border: var(--tw-line) solid currentColor;
+  border-radius: var(--c3-radius-md);
+  color: var(--c3-tw-consequence-direct);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-bold);
+  line-height: 1;
+  background: var(--c3-tw-work-base);
+}
+
+.tw-root .seating-receipt__body {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .seating-receipt h2,
+.tw-root .seating-handoff h2 {
+  margin: 0;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-title);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: var(--c3-line-height-snug);
+}
+
+.tw-root .seating-receipt p,
+.tw-root .seating-handoff p {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-comfortable);
+}
+
+.tw-root .seating-receipt[data-seating-status="InReview"] {
+  border-inline-start-color: var(--c3-tw-consequence-review);
+}
+
+.tw-root .seating-receipt[data-seating-status="InReview"] .seating-receipt__mark {
+  color: var(--c3-tw-consequence-review);
+}
+
+.tw-root .seating-receipt[data-seating-status="Approved"] {
+  border-inline-start-color: var(--c3-tw-consequence-approve);
+}
+
+.tw-root .seating-receipt[data-seating-status="Approved"] .seating-receipt__mark {
+  color: var(--c3-tw-consequence-approve);
+}
+
+.tw-root .seating-receipt[data-seating-status="Rejected"] {
+  border-inline-start-color: var(--c3-tw-consequence-reject);
+}
+
+.tw-root .seating-receipt[data-seating-status="Rejected"] .seating-receipt__mark {
+  color: var(--c3-tw-consequence-reject);
+}
+
+.tw-root .seating-receipt[data-seating-status="Withdrawn"] {
+  border-inline-start-color: var(--c3-tw-consequence-readonly);
+}
+
+.tw-root .seating-receipt[data-seating-status="Withdrawn"] .seating-receipt__mark {
+  color: var(--c3-tw-consequence-readonly);
+}
+
+.tw-root .seating-receipt[data-seating-status="ExecutionFailed"] {
+  border-inline-start-color: var(--c3-tw-consequence-retry);
+}
+
+.tw-root .seating-receipt[data-seating-status="ExecutionFailed"] .seating-receipt__mark {
+  color: var(--c3-tw-consequence-retry);
+}
+
+.tw-root .seating-handoff {
+  overflow-wrap: anywhere;
+  border-inline-start: 3px solid var(--c3-tw-consequence-governed);
+}
+
+.tw-root .seating-availability {
+  border-inline-start: 3px solid var(--c3-tw-consequence-retry);
+}
+
 .tw-root .receipt {
   position: relative;
   display: grid;
