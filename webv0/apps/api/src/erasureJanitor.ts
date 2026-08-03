@@ -34,8 +34,18 @@ export const ERASURE_PENDING_DESTROY_LOUD_THRESHOLD = 1_000;
  * ⛔ WIDENING IS ADDITIVE ONLY (`D-015`): historical audit rows carry the values
  * below, so they must remain valid forever or the audit trail stops being
  * readable backwards.
+ *
+ * ⚖️ `platform_operator` was added by migration `0103` BEFORE any route emits it.
+ * The order is a ruling, not a preference: the sweep DESTROYS BYTES and then
+ * writes its audit row, so a value the database rejects means the destruction
+ * happened and the record of it did not. Widening the constraint alone would not
+ * have been enough either — the FUNCTION guards the write and the CONSTRAINT
+ * guards the row, and 0103 widens both live sites.
+ *
+ * ⛳ Nothing passes `platform_operator` yet. The vocabulary lands first so that
+ * reattribution is a change of caller, not a change of schema under a live route.
  */
-export const ERASURE_JANITOR_TRIGGERS = ['boot', 'interval', 'owner'] as const;
+export const ERASURE_JANITOR_TRIGGERS = ['boot', 'interval', 'owner', 'platform_operator'] as const;
 
 export type ErasureJanitorTrigger = (typeof ERASURE_JANITOR_TRIGGERS)[number];
 
