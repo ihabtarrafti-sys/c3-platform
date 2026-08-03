@@ -852,6 +852,8 @@ export interface NewCommsObligationEventRow {
   readonly reason: string | null;
   readonly attestation: string | null;
   readonly deliveryId: string | null;
+  /** Causal Delivered-state version shared by EvidenceDelivered + Accepted. */
+  readonly deliveryEpisodeVersion: number | null;
   readonly clientMutationId: string;
 }
 export interface NewCommsEvidenceDeliveryRow {
@@ -1358,7 +1360,7 @@ export interface WriteTx {
   insertCommsObligation(row: NewCommsObligationRow): Promise<void>;
   /** In-tx CAS state move; null = stale version (the optimistic-lock refusal). */
   updateCommsObligationState(obligationId: string, expectedVersion: number, toState: string): Promise<{ state: string; version: number } | null>;
-  /** In-tx read of the row the transition gates dispatch on. */
+  /** In-tx locking read of the row the transition gates dispatch on. */
   getCommsObligationRow(obligationId: string): Promise<CommsObligationRow | null>;
   /** Append a transition event (append-only; unique per actor+mutation). */
   insertCommsObligationEvent(row: NewCommsObligationEventRow): Promise<string>;

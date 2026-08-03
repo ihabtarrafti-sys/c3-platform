@@ -14263,6 +14263,11 @@
                                       "type": "string",
                                       "nullable": true
                                     },
+                                    "deliveryEpisodeVersion": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "nullable": true
+                                    },
                                     "at": {
                                       "type": "string"
                                     }
@@ -14275,6 +14280,7 @@
                                     "actorLabel",
                                     "reason",
                                     "attestation",
+                                    "deliveryEpisodeVersion",
                                     "at"
                                   ],
                                   "additionalProperties": false
@@ -14502,6 +14508,11 @@
                                       "type": "string",
                                       "nullable": true
                                     },
+                                    "deliveryEpisodeVersion": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "nullable": true
+                                    },
                                     "at": {
                                       "type": "string"
                                     }
@@ -14514,6 +14525,7 @@
                                     "actorLabel",
                                     "reason",
                                     "attestation",
+                                    "deliveryEpisodeVersion",
                                     "at"
                                   ],
                                   "additionalProperties": false
@@ -14741,6 +14753,11 @@
                                       "type": "string",
                                       "nullable": true
                                     },
+                                    "deliveryEpisodeVersion": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "nullable": true
+                                    },
                                     "at": {
                                       "type": "string"
                                     }
@@ -14753,6 +14770,7 @@
                                     "actorLabel",
                                     "reason",
                                     "attestation",
+                                    "deliveryEpisodeVersion",
                                     "at"
                                   ],
                                   "additionalProperties": false
@@ -14980,6 +14998,11 @@
                                       "type": "string",
                                       "nullable": true
                                     },
+                                    "deliveryEpisodeVersion": {
+                                      "type": "integer",
+                                      "minimum": 0,
+                                      "nullable": true
+                                    },
                                     "at": {
                                       "type": "string"
                                     }
@@ -14992,6 +15015,7 @@
                                     "actorLabel",
                                     "reason",
                                     "attestation",
+                                    "deliveryEpisodeVersion",
                                     "at"
                                   ],
                                   "additionalProperties": false
@@ -16716,6 +16740,11 @@
                                   "type": "string",
                                   "nullable": true
                                 },
+                                "deliveryEpisodeVersion": {
+                                  "type": "integer",
+                                  "minimum": 0,
+                                  "nullable": true
+                                },
                                 "at": {
                                   "type": "string"
                                 }
@@ -16728,6 +16757,7 @@
                                 "actorLabel",
                                 "reason",
                                 "attestation",
+                                "deliveryEpisodeVersion",
                                 "at"
                               ],
                               "additionalProperties": false
@@ -17096,6 +17126,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -17108,6 +17143,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false
@@ -17332,6 +17368,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -17344,6 +17385,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false
@@ -17598,6 +17640,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -17610,6 +17657,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false
@@ -17864,6 +17912,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -17876,6 +17929,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false
@@ -18130,6 +18184,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -18142,6 +18201,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false
@@ -18396,6 +18456,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -18408,6 +18473,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false
@@ -18662,6 +18728,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -18674,6 +18745,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false
@@ -18898,6 +18970,11 @@
                                 "type": "string",
                                 "nullable": true
                               },
+                              "deliveryEpisodeVersion": {
+                                "type": "integer",
+                                "minimum": 0,
+                                "nullable": true
+                              },
                               "at": {
                                 "type": "string"
                               }
@@ -18910,6 +18987,7 @@
                               "actorLabel",
                               "reason",
                               "attestation",
+                              "deliveryEpisodeVersion",
                               "at"
                             ],
                             "additionalProperties": false

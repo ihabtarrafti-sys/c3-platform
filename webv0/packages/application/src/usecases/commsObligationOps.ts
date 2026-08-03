@@ -118,6 +118,7 @@ export async function createMissionObligation(
       reason: null,
       attestation: null,
       deliveryId: null,
+      deliveryEpisodeVersion: null,
       clientMutationId: parsed.clientMutationId,
     });
   });
@@ -244,6 +245,7 @@ export async function transitionCommsObligation(
       reason: spec.words === 'reason' ? (parsed.note ?? null) : null,
       attestation,
       deliveryId: null,
+      deliveryEpisodeVersion: action === 'accept' ? row.version : null,
       clientMutationId: parsed.clientMutationId,
     });
   });
@@ -315,9 +317,11 @@ export async function deliverCommsEvidence(
       delivererLabel: actor.displayName,
       note: upload.note,
     });
+    let deliveryEpisodeVersion = row.version;
     if (row.state === 'Open') {
       const moved = await tx.updateCommsObligationState(obligationId, row.version, 'Delivered');
       if (!moved) throw new ConcurrencyError('Obligation', obligationId);
+      deliveryEpisodeVersion = moved.version;
     }
     await tx.insertCommsObligationEvent({
       obligationId,
@@ -329,6 +333,7 @@ export async function deliverCommsEvidence(
       reason: null,
       attestation: null,
       deliveryId,
+      deliveryEpisodeVersion,
       clientMutationId: upload.clientMutationId,
     });
     await tx.resolveCompensationIntent(upload.storageKey);

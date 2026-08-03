@@ -142,7 +142,7 @@ async function hydrateCommsObligationViews(db: Db, rows: any[]): Promise<CommsOb
   const ids: string[] = rows.map((r) => r.obligationId ?? r.obligation_id);
   const inIds = sql.join(ids.map((id) => sql`${id}`), sql`, `);
   const evRes = await db.execute(sql`
-    SELECT obligation_id, event_type, from_state, to_state, actor_user_id, actor_label, reason, attestation, at
+    SELECT obligation_id, event_type, from_state, to_state, actor_user_id, actor_label, reason, attestation, after_json, at
       FROM comms_obligation_event WHERE obligation_id IN (${inIds}) ORDER BY at, id
   `);
   const evdRes = await db.execute(sql`
@@ -163,6 +163,12 @@ async function hydrateCommsObligationViews(db: Db, rows: any[]): Promise<CommsOb
       actorLabel: e.actor_label ?? null,
       reason: e.reason ?? null,
       attestation: e.attestation ?? null,
+      deliveryEpisodeVersion:
+        typeof e.after_json?.deliveryEpisodeVersion === 'number' &&
+        Number.isSafeInteger(e.after_json.deliveryEpisodeVersion) &&
+        e.after_json.deliveryEpisodeVersion >= 0
+          ? e.after_json.deliveryEpisodeVersion
+          : null,
       at: isoStr(e.at),
     });
     eventsBy.set(e.obligation_id, arr);

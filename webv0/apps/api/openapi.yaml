@@ -10420,6 +10420,10 @@ paths:
                                   attestation:
                                     type: string
                                     nullable: true
+                                  deliveryEpisodeVersion:
+                                    type: integer
+                                    minimum: 0
+                                    nullable: true
                                   at:
                                     type: string
                                 required:
@@ -10430,6 +10434,7 @@ paths:
                                   - actorLabel
                                   - reason
                                   - attestation
+                                  - deliveryEpisodeVersion
                                   - at
                                 additionalProperties: false
                             evidence:
@@ -10601,6 +10606,10 @@ paths:
                                   attestation:
                                     type: string
                                     nullable: true
+                                  deliveryEpisodeVersion:
+                                    type: integer
+                                    minimum: 0
+                                    nullable: true
                                   at:
                                     type: string
                                 required:
@@ -10611,6 +10620,7 @@ paths:
                                   - actorLabel
                                   - reason
                                   - attestation
+                                  - deliveryEpisodeVersion
                                   - at
                                 additionalProperties: false
                             evidence:
@@ -10782,6 +10792,10 @@ paths:
                                   attestation:
                                     type: string
                                     nullable: true
+                                  deliveryEpisodeVersion:
+                                    type: integer
+                                    minimum: 0
+                                    nullable: true
                                   at:
                                     type: string
                                 required:
@@ -10792,6 +10806,7 @@ paths:
                                   - actorLabel
                                   - reason
                                   - attestation
+                                  - deliveryEpisodeVersion
                                   - at
                                 additionalProperties: false
                             evidence:
@@ -10963,6 +10978,10 @@ paths:
                                   attestation:
                                     type: string
                                     nullable: true
+                                  deliveryEpisodeVersion:
+                                    type: integer
+                                    minimum: 0
+                                    nullable: true
                                   at:
                                     type: string
                                 required:
@@ -10973,6 +10992,7 @@ paths:
                                   - actorLabel
                                   - reason
                                   - attestation
+                                  - deliveryEpisodeVersion
                                   - at
                                 additionalProperties: false
                             evidence:
@@ -12182,6 +12202,10 @@ paths:
                               attestation:
                                 type: string
                                 nullable: true
+                              deliveryEpisodeVersion:
+                                type: integer
+                                minimum: 0
+                                nullable: true
                               at:
                                 type: string
                             required:
@@ -12192,6 +12216,7 @@ paths:
                               - actorLabel
                               - reason
                               - attestation
+                              - deliveryEpisodeVersion
                               - at
                             additionalProperties: false
                         evidence:
@@ -12455,6 +12480,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -12465,6 +12494,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:
@@ -12629,6 +12659,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -12639,6 +12673,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:
@@ -12824,6 +12859,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -12834,6 +12873,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:
@@ -13019,6 +13059,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -13029,6 +13073,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:
@@ -13214,6 +13259,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -13224,6 +13273,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:
@@ -13409,6 +13459,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -13419,6 +13473,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:
@@ -13604,6 +13659,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -13614,6 +13673,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:
@@ -13778,6 +13838,10 @@ paths:
                             attestation:
                               type: string
                               nullable: true
+                            deliveryEpisodeVersion:
+                              type: integer
+                              minimum: 0
+                              nullable: true
                             at:
                               type: string
                           required:
@@ -13788,6 +13852,7 @@ paths:
                             - actorLabel
                             - reason
                             - attestation
+                            - deliveryEpisodeVersion
                             - at
                           additionalProperties: false
                       evidence:

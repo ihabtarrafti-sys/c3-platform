@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
+import { Client } from 'pg';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { loadEnv } from '../src/env';
 import { createLogger } from '../src/logger';
@@ -77,6 +78,22 @@ async function transition(token: string, obligationId: string, action: string, e
   });
 }
 
+async function waitForBlockedObligationLocks(minimum: number): Promise<void> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await db.adminQuery<{ n: string }>(
+      `SELECT count(*)::text AS n
+         FROM pg_stat_activity
+        WHERE datname = current_database()
+          AND pid <> pg_backend_pid()
+          AND wait_event_type = 'Lock'
+          AND query ILIKE '%comms_obligation%'`,
+    );
+    if (Number(rows[0]?.n ?? 0) >= minimum) return;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error(`Timed out waiting for ${minimum} obligation row-lock waiter(s).`);
+}
+
 beforeAll(async () => {
   db = await startTestDatabase();
   const env = loadEnv({
@@ -135,14 +152,67 @@ describe('the Obligation — delivered ≠ accepted ≠ done', () => {
     expect(replay.json().obligation.obligationId).toBe(o.obligationId);
   });
 
-  it('separation of duties: an internal acceptor may not be the accountable; the external-proxy overlap is legal', async () => {
+  it('same-person delivery and internal acceptance are legal, explicit immutable acts; external-proxy overlap remains legal', async () => {
     const missionId = await createMission();
-    // Self-certify (account acceptance == accountable) is STRUCTURALLY refused.
-    const selfCert = await mint(tokens.ops, missionId, {
+    const samePerson = await mint(tokens.ops, missionId, {
       accountableUserId: uids.visitor,
       acceptance: { kind: 'account', userId: uids.visitor },
     });
-    expect(selfCert.statusCode, selfCert.body).toBe(400);
+    expect(samePerson.statusCode, samePerson.body).toBe(201);
+
+    const born = samePerson.json().obligation;
+    expect(born).toMatchObject({
+      acceptanceKind: 'account',
+      accountableUserId: uids.visitor,
+      acceptanceUserId: uids.visitor,
+    });
+    const delivered = await deliver(tokens.visitor, born.obligationId);
+    expect(delivered.statusCode, delivered.body).toBe(201);
+    const wrongActor = await transition(tokens.ops, born.obligationId, 'accept', delivered.json().obligation.version);
+    expect(wrongActor.statusCode, wrongActor.body).toBe(403);
+    const accepted = await transition(tokens.visitor, born.obligationId, 'accept', delivered.json().obligation.version);
+    expect(accepted.statusCode, accepted.body).toBe(200);
+    expect(accepted.json().obligation.state).toBe('Accepted');
+
+    const handoffEvents = accepted
+      .json()
+      .obligation.events.filter((e: { eventType: string }) => e.eventType === 'EvidenceDelivered' || e.eventType === 'Accepted');
+    expect(
+      handoffEvents.map((e: { eventType: string; actorUserId: string; deliveryEpisodeVersion: number | null }) => [
+        e.eventType,
+        e.actorUserId,
+        e.deliveryEpisodeVersion,
+      ]),
+    ).toEqual([
+      ['EvidenceDelivered', uids.visitor, 1],
+      ['Accepted', uids.visitor, 1],
+    ]);
+    expect(handoffEvents.filter((e: { eventType: string }) => e.eventType === 'Accepted')).toHaveLength(1);
+
+    // The visible provenance is durable because its source acts are append-only,
+    // even to the privileged test connection.
+    await expect(
+      db.adminQuery(`UPDATE comms_obligation_event SET actor_label = 'tampered' WHERE obligation_id = $1 AND event_type = 'Accepted'`, [born.obligationId]),
+    ).rejects.toThrow(/append-only/i);
+    await expect(
+      db.adminQuery(`DELETE FROM comms_obligation_event WHERE obligation_id = $1 AND event_type = 'EvidenceDelivered'`, [born.obligationId]),
+    ).rejects.toThrow(/append-only/i);
+    const reread = await app.inject({ method: 'GET', url: `/api/v1/comms/obligations/${born.obligationId}`, headers: auth(tokens.visitor) });
+    expect(reread.statusCode, reread.body).toBe(200);
+    expect(
+      reread
+        .json()
+        .obligation.events.filter((e: { eventType: string }) => e.eventType === 'EvidenceDelivered' || e.eventType === 'Accepted')
+        .map((e: { eventType: string; actorUserId: string; deliveryEpisodeVersion: number | null }) => [
+          e.eventType,
+          e.actorUserId,
+          e.deliveryEpisodeVersion,
+        ]),
+    ).toEqual([
+      ['EvidenceDelivered', uids.visitor, 1],
+      ['Accepted', uids.visitor, 1],
+    ]);
+
     // The external-proxy overlap: the accountable may TRANSCRIBE an outside
     // authority's word (mandatory attestation carries it) — legal.
     const proxyOverlap = await mint(tokens.ops, missionId, {
@@ -150,6 +220,52 @@ describe('the Obligation — delivered ≠ accepted ≠ done', () => {
       acceptance: { kind: 'external', label: 'Publisher — R. Chen', proxyUserId: uids.visitor },
     });
     expect(proxyOverlap.statusCode, proxyOverlap.body).toBe(201);
+  });
+
+  it('serializes repeated delivery and acceptance on the obligation head', async () => {
+    const missionId = await createMission();
+    const born = (
+      await mint(tokens.ops, missionId, {
+        accountableUserId: uids.visitor,
+        acceptance: { kind: 'account', userId: uids.visitor },
+      })
+    ).json().obligation;
+    const firstDelivery = (await deliver(tokens.visitor, born.obligationId)).json().obligation;
+    expect(firstDelivery.state).toBe('Delivered');
+
+    const blocker = new Client({ connectionString: db.adminUrl });
+    await blocker.connect();
+    await blocker.query('BEGIN');
+    await blocker.query(`SELECT 1 FROM comms_obligation WHERE obligation_id = $1 FOR UPDATE`, [born.obligationId]);
+
+    let queuedDelivery: ReturnType<typeof deliver> | null = null;
+    let queuedAcceptance: ReturnType<typeof transition> | null = null;
+    let released = false;
+    try {
+      queuedDelivery = deliver(tokens.visitor, born.obligationId);
+      await waitForBlockedObligationLocks(1);
+      queuedAcceptance = transition(tokens.visitor, born.obligationId, 'accept', firstDelivery.version);
+      await waitForBlockedObligationLocks(2);
+
+      await blocker.query('COMMIT');
+      released = true;
+      const [deliveredAgain, accepted] = await Promise.all([queuedDelivery, queuedAcceptance]);
+      expect(deliveredAgain.statusCode, deliveredAgain.body).toBe(201);
+      expect(accepted.statusCode, accepted.body).toBe(200);
+      expect(accepted.json().obligation.state).toBe('Accepted');
+
+      const causalActs = accepted
+        .json()
+        .obligation.events.filter((e: { eventType: string }) => e.eventType === 'EvidenceDelivered' || e.eventType === 'Accepted');
+      expect(causalActs.map((e: { deliveryEpisodeVersion: number | null }) => e.deliveryEpisodeVersion)).toEqual([1, 1, 1]);
+    } finally {
+      if (!released) await blocker.query('ROLLBACK');
+      await blocker.end();
+      const outstanding: Promise<unknown>[] = [];
+      if (queuedDelivery) outstanding.push(queuedDelivery);
+      if (queuedAcceptance) outstanding.push(queuedAcceptance);
+      await Promise.allSettled(outstanding);
+    }
   });
 
   it('the full internal lifecycle: deliver (accountable) → accept (ONLY the authority) → done → reopen → cancel', async () => {
