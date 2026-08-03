@@ -124,7 +124,19 @@ describe('class-B: a caller-supplied userId must belong to the caller tenant', (
       headers: auth(alphaOps),
       payload: { otherUserId: betaUserId },
     });
-    expect([400, 404], `expected a refusal, got ${res.statusCode}: ${res.body}`).toContain(res.statusCode);
+    // ⛔ CR-008. This accepted `[400, 404]`, and those are NOT equivalent
+    // refusals: 404 CONCEALS — it is the answer a non-existent user would get —
+    // while 400 says "that identifier is real, and rejected", disclosing that a
+    // user exists in another tenant. The case was named for concealment and
+    // admitted the disclosing answer.
+    expect(res.statusCode, `concealment requires the absent-user answer: ${res.body}`).toBe(404);
+    expect(res.json().error.code).toBe('NOT_FOUND');
+    // ⛳ NOT asserted: that the body omits the userId. I wrote that assertion, it
+    // failed, and it was MINE that was wrong — the id is one the caller supplied
+    // in this very request, so echoing it discloses nothing they did not already
+    // hold. The same distinction Neural drew on CR-004. What must never appear is
+    // something only the OTHER tenant knows — a name, an email, a tenant id — and
+    // `NOT_FOUND` carries none of those.
 
     // …and nothing was seated. This is the assertion that matters: a refused
     // status with a written row would still be a cross-tenant reference.
@@ -151,7 +163,19 @@ describe('class-B: a caller-supplied userId must belong to the caller tenant', (
       headers: auth(alphaOps),
       payload: { userId: betaUserId, role: 'member' },
     });
-    expect([400, 404], `expected a refusal, got ${res.statusCode}: ${res.body}`).toContain(res.statusCode);
+    // ⛔ CR-008. This accepted `[400, 404]`, and those are NOT equivalent
+    // refusals: 404 CONCEALS — it is the answer a non-existent user would get —
+    // while 400 says "that identifier is real, and rejected", disclosing that a
+    // user exists in another tenant. The case was named for concealment and
+    // admitted the disclosing answer.
+    expect(res.statusCode, `concealment requires the absent-user answer: ${res.body}`).toBe(404);
+    expect(res.json().error.code).toBe('NOT_FOUND');
+    // ⛳ NOT asserted: that the body omits the userId. I wrote that assertion, it
+    // failed, and it was MINE that was wrong — the id is one the caller supplied
+    // in this very request, so echoing it discloses nothing they did not already
+    // hold. The same distinction Neural drew on CR-004. What must never appear is
+    // something only the OTHER tenant knows — a name, an email, a tenant id — and
+    // `NOT_FOUND` carries none of those.
 
     const seated = await db.adminQuery<{ n: string }>(
       'SELECT count(*)::text AS n FROM comms_thread_participant WHERE user_id = $1',

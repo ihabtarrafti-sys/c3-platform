@@ -260,17 +260,35 @@ describe('security guarantees (Phase 2A)', () => {
     expect(res.statusCode).toBe(400);
   });
 
-  it('a token signed with a WRONG secret is rejected (forged role/tenant claims useless)', async () => {
+  it('a token signed with a WRONG secret is rejected — because of the SIGNATURE', async () => {
+    // ⛔ CR-006. The previous version forged a token for `forger@alpha.com`, an
+    // identity nobody provisioned — so it would have been refused anyway, at
+    // membership resolution, with the same 401. **Delete the signature check and
+    // the test still passes**, because the second refusal stands behind the first.
+    //
+    // The subject below is a REAL, provisioned identity with a real role and
+    // tenant. Nothing but the signing key distinguishes the two requests, which
+    // is what makes the refusal attributable.
     const { SignJWT } = await import('jose');
-    const forged = await new SignJWT({ role: 'owner', tenant_id: '00000000-0000-0000-0000-0000000000aa', tenant_slug: 'alpha', name: 'Forger' })
-      .setProtectedHeader({ alg: 'HS256' })
-      .setSubject('forger@alpha.com')
-      .setIssuer('c3web-dev-idp')
-      .setIssuedAt()
-      .setExpirationTime('1h')
-      .sign(new TextEncoder().encode('not-the-server-secret'));
-    const res = await app.inject({ method: 'GET', url: '/api/v1/people', headers: auth(forged) });
-    expect(res.statusCode).toBe(401);
+    const claims = { role: 'owner', tenant_id: '00000000-0000-0000-0000-0000000000aa', tenant_slug: 'alpha', name: 'Owner A' };
+    const mint = (secret: string) =>
+      new SignJWT(claims)
+        .setProtectedHeader({ alg: 'HS256' })
+        .setSubject('owner@alpha.com')
+        .setIssuer('c3web-dev-idp')
+        .setIssuedAt()
+        .setExpirationTime('1h')
+        .sign(new TextEncoder().encode(secret));
+
+    const forged = await app.inject({ method: 'GET', url: '/api/v1/people', headers: auth(await mint('not-the-server-secret')) });
+    expect(forged.statusCode, forged.body).toBe(401);
+    expect(forged.json().error.code).toBe('UNAUTHENTICATED');
+
+    // ⛳ POSITIVE CONTROL. The identical claims, signed with the SERVER's secret,
+    // are accepted. Without this the 401 above could come from any part of the
+    // pipeline — a universally broken auth path would satisfy the negative.
+    const genuine = await app.inject({ method: 'GET', url: '/api/v1/people', headers: auth(await mint('api-test-secret-0123456789')) });
+    expect(genuine.statusCode, 'only the signing key differs between these two requests').toBe(200);
   });
 
   it('API responses carry no-store and nosniff headers', async () => {

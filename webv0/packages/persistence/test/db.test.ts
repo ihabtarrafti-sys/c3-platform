@@ -2421,7 +2421,38 @@ describe('append-only event streams', () => {
         `INSERT INTO audit_event (tenant_id, entity_type, entity_id, action, actor) VALUES ($1,'Person','PER-0001','PersonCreated','owner@a.com')`,
         [tenantA],
       );
-      await expect(c.query(`UPDATE audit_event SET actor='x'`)).rejects.toThrow();
+      // ⛔ CR-009. This asserted only `rejects.toThrow()` on UPDATE — so it was
+      // satisfied by the append-only TRIGGER's refusal, which is a different
+      // layer, and it never tried DELETE at all despite being named for both.
+      //
+      // ⚖️ Defence in depth erodes silently *because* each layer is "covered by
+      // the other one". A test that cannot see its own layer is how the
+      // second-to-last one disappears unnoticed: if the GRANT regressed, the
+      // trigger would still refuse, and this would still be green.
+      //
+      // `42501` is `insufficient_privilege` — the grant layer speaking. The
+      // trigger raises its own error, so pinning the SQLSTATE separates them.
+      const refusal = async (sql: string): Promise<string | undefined> => {
+        await c.query('SAVEPOINT probe');
+        try {
+          await c.query(sql);
+          return undefined; // no refusal at all
+        } catch (err) {
+          return (err as { code?: string }).code;
+        } finally {
+          await c.query('ROLLBACK TO SAVEPOINT probe');
+        }
+      };
+
+      expect(
+        await refusal(`UPDATE audit_event SET actor='x'`),
+        'UPDATE must be refused by the GRANT layer, not merely by the append-only trigger',
+      ).toBe('42501');
+      expect(
+        await refusal(`DELETE FROM audit_event`),
+        'DELETE was never exercised despite the name claiming it',
+      ).toBe('42501');
+
       await c.query('ROLLBACK');
     } finally {
       c.release();

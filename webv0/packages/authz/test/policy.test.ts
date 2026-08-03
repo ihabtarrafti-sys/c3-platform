@@ -100,15 +100,33 @@ describe('tenant match fails closed', () => {
     expect(() => assertTenantMatch('tenant-a', 'tenant-a')).toThrow();
   });
 
-  it('⛔ the other tenant’s id never travels in the error', () => {
+  it('⛔ the other tenant’s id never travels in the error — and a refusal MUST occur', () => {
     // You may learn about yourself; you may not learn another organisation's
     // identifiers from an error you triggered.
-    try {
-      assertTenantMatch(actor({ tenantId: 'tenant-a' }), 'tenant-SECRET');
-      throw new Error('expected a refusal');
-    } catch (err) {
-      expect(JSON.stringify(err instanceof ForbiddenError ? err.details : {})).not.toContain('tenant-SECRET');
-    }
+    //
+    // ⛔ CR-004. The previous shape put `throw new Error('expected a refusal')`
+    // INSIDE the `try`, where its own `catch` swallowed it: if `assertTenantMatch`
+    // returned quietly, `err` was not a `ForbiddenError`, `details` fell back to
+    // `{}`, and `{}` contains no secret — so **the test passed precisely when the
+    // guard was gone.** *A negative security test that accepts no refusal as
+    // proof of safe refusal is measuring nothing.*
+    //
+    // The capture below cannot conflate those: absence of a throw is `null`, and
+    // `null` is not a `ForbiddenError`.
+    const raised = ((): unknown => {
+      try {
+        assertTenantMatch(actor({ tenantId: 'tenant-a' }), 'tenant-SECRET');
+        return null;
+      } catch (err) {
+        return err;
+      }
+    })();
+
+    expect(raised, 'no refusal at all is a FAILURE, not a silent pass').toBeInstanceOf(ForbiddenError);
+    const forbidden = raised as ForbiddenError;
+    expect(JSON.stringify(forbidden.details ?? {})).not.toContain('tenant-SECRET');
+    // The message is a disclosure surface too — it reaches the client envelope.
+    expect(forbidden.message).not.toContain('tenant-SECRET');
   });
 });
 
