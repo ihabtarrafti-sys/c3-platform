@@ -18,6 +18,9 @@ const USER_ID = '77777777-7777-7777-7777-777777777777';
 function fakeDirectory(resolve: (key: ExternalIdentityKey) => string | null): AdminDirectory {
   return {
     probe: async () => {},
+    // Platform admission is not a tenant concern: these fakes exercise the TENANT
+    // path, where the registry must never be consulted, and null is the honest answer.
+    resolvePlatformPrincipal: async () => null,
     resolveTenantBySlug: async () => null,
     resolveMembership: async () => null,
     resolveUserId: async (key: ExternalIdentityKey) => resolve(key),

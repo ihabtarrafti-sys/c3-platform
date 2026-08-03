@@ -23,6 +23,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { Client } from 'pg';
 import { startTestDatabase, type TestDatabase } from '@c3web/test-support';
 import { C3_ROLES } from '@c3web/domain';
+import { PLATFORM_CAPABILITIES } from '@c3web/authz';
 import { ERASURE_JANITOR_TRIGGERS } from '../src/erasureJanitor';
 
 let db: TestDatabase;
@@ -117,6 +118,29 @@ describe('the erasure trigger vocabulary is bound in BOTH live places', () => {
       'p_trigger',
     );
     expect([...fromConstraint].sort()).toEqual([...fromFunction].sort());
+  });
+});
+
+describe('the platform capability vocabulary is bound too', () => {
+  // ⛳ BOUND ON ARRIVAL, not after it bites. The erasure trigger taught this the
+  // expensive way: a vocabulary enforced in both TypeScript and PostgreSQL drifts
+  // silently until something destructive fails halfway. `platform_principal`
+  // (0104) constrains its `capabilities` column, so it joins the same binding the
+  // day it is created.
+  it('PLATFORM_CAPABILITIES equals the platform_principal capabilities CHECK', async () => {
+    const r = await sql.query<{ def: string }>(
+      `SELECT pg_get_constraintdef(oid) AS def
+         FROM pg_constraint
+        WHERE conrelid = 'platform_principal'::regclass
+          AND contype = 'c'
+          AND pg_get_constraintdef(oid) LIKE '%capabilities%'`,
+    );
+    expect(r.rowCount, 'the capabilities CHECK must exist in the live schema').toBe(1);
+
+    // Stored as `capabilities <@ ARRAY['…'::text, …]`, so the literals are read
+    // the same way as any other ARRAY form.
+    const values = anyArrayAfter(r.rows[0]!.def, 'ARRAY[');
+    expect([...values].sort()).toEqual([...PLATFORM_CAPABILITIES].sort());
   });
 });
 

@@ -61,6 +61,9 @@ function spyDirectory(known: Map<string, ResolvedMembership>): {
 function fakeDirectory(known: Map<string, ResolvedMembership>): AdminDirectory {
   return {
     probe: async () => {},
+    // Platform admission is not a tenant concern: these fakes exercise the TENANT
+    // path, where the registry must never be consulted, and null is the honest answer.
+    resolvePlatformPrincipal: async () => null,
     resolveTenantBySlug: async () => null,
     resolveMembership: async (key: ExternalIdentityKey) =>
       known.get(`${key.provider}|${key.issuerTenantId}|${key.subject}`) ?? null,

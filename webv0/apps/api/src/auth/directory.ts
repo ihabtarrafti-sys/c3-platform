@@ -13,6 +13,7 @@
  * role. Entra sign-in NEVER auto-creates a membership.
  */
 import { Pool } from 'pg';
+import type { PlatformCapability, PlatformPrincipal } from '@c3web/authz';
 import { AmbiguousMembershipError } from './types';
 
 export interface ExternalIdentityKey {
@@ -62,8 +63,36 @@ const MEMBERSHIP_SQL = `SELECT u.id AS user_id, t.id AS tenant_id, t.slug AS ten
  */
 const PROBE_KEY = 'c3-readiness-probe:never-matches';
 
+/**
+ * The trust-root key for a PLATFORM principal — the same shape as
+ * `ExternalIdentityKey`, deliberately.
+ *
+ * ⚖️ `D-019`: Entra is the trust root "for now, maybe scale into C3-issued
+ * later", and that "for now" is binding — **a second trust root must later be a
+ * ROW AND AN ADAPTER, never a rewrite.** Keying on `(provider, issuer, subject)`
+ * rather than on an Entra `appId` is what keeps that true.
+ */
+export interface PlatformIdentityKey {
+  readonly provider: 'entra';
+  readonly issuer: string;
+  readonly subject: string;
+}
+
 export interface AdminDirectory {
   resolveTenantBySlug(slug: string): Promise<{ tenantId: string } | null>;
+  /**
+   * Resolve a platform principal from the registry (migration 0104).
+   *
+   * ⛔ ADMISSION REQUIRES A ROW — `null` when there is none, and the caller must
+   * treat that as a refusal. This is `D-016a` made mechanical: admission is the
+   * PRESENCE of a registration, never the ABSENCE of a tenant membership. There
+   * is deliberately no "authenticated but unregistered ⇒ allowed" path, because
+   * that is the shape that turns a door into a hole.
+   *
+   * ⛳ It reads on the SELECT-only auth connection, exactly as tenant membership
+   * does, and it can grant nothing the registry does not already say.
+   */
+  resolvePlatformPrincipal(key: PlatformIdentityKey): Promise<PlatformPrincipal | null>;
   /**
    * Readiness probe for THIS credential. Runs the real membership query against
    * a key that cannot match: zero rows, no side effects, and no ambiguity logic.
@@ -96,6 +125,26 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
   const pool = new Pool({ connectionString, options: '-c client_encoding=UTF8' });
 
   return {
+    async resolvePlatformPrincipal(key: PlatformIdentityKey): Promise<PlatformPrincipal | null> {
+      const r = await pool.query(
+        `SELECT subject, kind, accountable_owner, capabilities
+           FROM platform_principal
+          WHERE provider = $1 AND issuer = $2 AND subject = $3`,
+        [key.provider, key.issuer, key.subject],
+      );
+      const row = r.rows[0];
+      if (!row) return null;
+      return {
+        principalId: `${key.provider}:${key.issuer}:${row.subject as string}`,
+        kind: row.kind as PlatformPrincipal['kind'],
+        accountableOwner: row.accountable_owner as string,
+        // The column is CHECK-constrained to the closed vocabulary (0104) and
+        // bound to `PLATFORM_CAPABILITIES` by `vocabularyDrift.test.ts`, so this
+        // cannot widen the set — only report what was granted.
+        capabilities: (row.capabilities as PlatformCapability[]) ?? [],
+      };
+    },
+
     async probe() {
       // Deliberately runs the query and discards the rows: no `rows[0]`, no
       // tenant counting, no AmbiguousMembershipError path. The probe asks
