@@ -99,7 +99,7 @@ describe('Comms governance laws (the pilot UI)', () => {
     expect(page).toContain('C3 will record that same-person act plainly');
   });
 
-  it('D-010: a direct cancellation preserves the immutable same-person acceptance as superseded history', () => {
+  it('D-010: a direct cancellation preserves and visibly weights immutable same-person acceptance as superseded history', () => {
     const obligation: CommsObligationDto = {
       obligationId: 'OBL-0001',
       threadId: 'THR-0001',
@@ -182,6 +182,7 @@ describe('Comms governance laws (the pilot UI)', () => {
     );
 
     expect(markup).toContain('data-acceptance-lifecycle="cancelled"');
+    expect(markup).toContain('data-acceptance-emphasis="governance-sensitive"');
     expect(markup).toContain('Before cancellation, Bea both delivered evidence and accepted it as the named authority.');
     expect(markup).not.toContain('Not recorded · awaiting named authority');
 
@@ -217,6 +218,7 @@ describe('Comms governance laws (the pilot UI)', () => {
     );
 
     expect(ordinaryMarkup).toContain('data-acceptance-shape="ordinary"');
+    expect(ordinaryMarkup).not.toContain('data-acceptance-emphasis="governance-sensitive"');
     expect(ordinaryMarkup).toContain('Before cancellation, Bea accepted it as the named authority.');
     expect(ordinaryMarkup).not.toContain('Not recorded · awaiting named authority');
 

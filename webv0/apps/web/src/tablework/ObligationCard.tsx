@@ -150,6 +150,7 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, r
                 data-tablework="AcceptanceProvenance"
                 data-acceptance-shape="self"
                 data-acceptance-lifecycle={cancelled ? 'cancelled' : 'current'}
+                data-acceptance-emphasis={cancelled ? 'governance-sensitive' : undefined}
               >
                 <strong>{cancelled ? 'Superseded same-person record' : 'Same-person record'}</strong>
                 <br />
