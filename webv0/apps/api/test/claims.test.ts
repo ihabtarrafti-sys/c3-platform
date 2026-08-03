@@ -105,9 +105,20 @@ describe('claims over HTTP (S9)', () => {
     expect((await app.inject({ method: 'GET', url: `/api/v1/claims/${ownClaim.claimId}`, headers: auth(tokens.hr) })).statusCode).toBe(403);
 
     // ── the separation law: ops may not decide their OWN claim ───────────────
-    await post(tokens.ops, `/api/v1/claims/${ownClaim.claimId}/decide`, { expectedVersion: ownClaim.version, decision: 'beginReview' }, 403);
-    // …but MAY decide hr's; hr may decide nothing (no finance standing).
-    await post(tokens.hr, `/api/v1/claims/${claim.claimId}/decide`, { expectedVersion: claim.version, decision: 'beginReview' }, 403);
+    const ownDenied = await post(tokens.ops, `/api/v1/claims/${ownClaim.claimId}/decide`, { expectedVersion: ownClaim.version, decision: 'beginReview' }, 403);
+    expect(ownDenied.error.code, 'ops holds the standing; the refusal must be SEPARATION').toBe('SELF_REVIEW_BLOCKED');
+
+    // ⛔ CR-011. This previously had hr decide hr's OWN claim, so BOTH the role
+    // denial and the separation law applied — and it asserted only `403`. If hr
+    // ever gained finance standing the request would still be refused, as
+    // self-review, and the test named for role would still pass.
+    // **The role boundary was masked by the separation law standing behind it.**
+    //
+    // hr now decides OPS's claim, where separation cannot apply, and the exact
+    // code is asserted. The pair above and below therefore establish DIFFERENT
+    // refusals rather than the same one twice.
+    const roleDenied = await post(tokens.hr, `/api/v1/claims/${ownClaim.claimId}/decide`, { expectedVersion: ownClaim.version, decision: 'beginReview' }, 403);
+    expect(roleDenied.error.code, 'hr has no finance standing — this is a ROLE refusal').toBe('FORBIDDEN');
 
     // ── receipts: the submitter uploads and reads their own; strangers cannot ─
     const form = new FormData();

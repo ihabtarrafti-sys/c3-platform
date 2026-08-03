@@ -130,9 +130,21 @@ describe('review + execution (Owner)', () => {
     expect(people).toHaveLength(1);
   });
 
-  it('operations may not review or execute (403)', async () => {
-    const a = (await submit()).json().approval;
-    expect((await app.inject({ method: 'POST', url: `/api/v1/approvals/${a.approvalId}/begin-review`, headers: auth(tokens.ops), payload: { expectedVersion: a.version } })).statusCode).toBe(403);
+  it('operations may not review or execute — FORBIDDEN by role, not by self-review', async () => {
+    // ⛔ CR-007. This previously submitted as `tokens.ops` (the default) and then
+    // reviewed as ops, so the actor was ALSO the submitter — and it asserted only
+    // `403`. `FORBIDDEN` and `SELF_REVIEW_BLOCKED` are different codes at the same
+    // status, so the moment operations gained `canReviewApproval` the request
+    // would still be refused — as self-review — and the test would still pass.
+    // **A role widening was masked by a second refusal standing behind the first.**
+    //
+    // Two changes, and both are needed: OWNER submits, so self-review cannot fire
+    // at all; and the exact code is asserted, so the refusal must be the one this
+    // test is named for.
+    const a = (await submit(tokens.owner)).json().approval;
+    const res = await app.inject({ method: 'POST', url: `/api/v1/approvals/${a.approvalId}/begin-review`, headers: auth(tokens.ops), payload: { expectedVersion: a.version } });
+    expect(res.statusCode, res.body).toBe(403);
+    expect(res.json().error.code, 'the refusal must be about ROLE, never about self-review').toBe('FORBIDDEN');
   });
 
   it('the submitter may not review their own request (self-approval refusal)', async () => {

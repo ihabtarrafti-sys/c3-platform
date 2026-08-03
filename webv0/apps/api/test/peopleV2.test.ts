@@ -134,7 +134,7 @@ describe('people v2 over HTTP (S11)', () => {
     await call('PATCH', tokens.visitor, `/api/v1/people/${personId}`, { expectedVersion: 1, patch: { position: 'Y' } }, 403);
   });
 
-  it('governed identity change: pipeline end to end; requester cannot decide; one open request per person', async () => {
+  it('governed identity change: pipeline end to end; operations may not decide; one open request per person', async () => {
     const personId = await createPerson('Lena Fischer');
     const a = (
       await call('POST', tokens.ops, `/api/v1/people/${personId}/identity-request`, {
@@ -153,8 +153,18 @@ describe('people v2 over HTTP (S11)', () => {
     await call('POST', tokens.ops, `/api/v1/people/${personId}/identity-request`, { patch: { firstName: 'X' } }, 409);
     await call('POST', tokens.ops, `/api/v1/people/${personId}/deactivate-request`, { reason: 'dup probe' }, 409);
 
-    // the requester cannot decide their own request
-    await call('POST', tokens.ops, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version }, 403);
+    // ⛔ CR-010. This line was labelled "the requester cannot decide their own
+    // request", but `ops` holds no `canReviewApproval` at all — so the refusal is
+    // a ROLE denial that happens to occur on the requester's own request. The
+    // name claimed requester-separation; the assertion established role denial.
+    //
+    // ⚖️ Renamed rather than joined by a second self-review scenario:
+    // `api.test.ts:138` already pins `SELF_REVIEW_BLOCKED` exactly, and two guards
+    // on one invariant drift apart — the weaker one then silently becomes the
+    // definition. The exact code is asserted so this cannot re-blur if operations
+    // ever gains the review capability.
+    const denied = await call('POST', tokens.ops, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version }, 403);
+    expect(denied.error.code, 'operations is refused by ROLE here, not by self-review').toBe('FORBIDDEN');
 
     const r1 = (await call('POST', tokens.owner, `/api/v1/approvals/${a.approvalId}/begin-review`, { expectedVersion: a.version })).approval;
     const r2 = (await call('POST', tokens.owner, `/api/v1/approvals/${a.approvalId}/approve`, { expectedVersion: r1.version })).approval;
