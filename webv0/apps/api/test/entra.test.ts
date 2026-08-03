@@ -29,6 +29,35 @@ const membership: ResolvedMembership = {
   displayName: 'Geekay Owner',
 };
 
+/**
+ * A directory that COUNTS membership resolutions (CR-005).
+ *
+ * ⚖️ The count is the point. "Did it refuse?" and "did it refuse in the
+ * VALIDATION phase?" are different questions, and only the second one detects a
+ * deleted audience/issuer check — because deleting it does not stop the refusal,
+ * it merely moves the refusal downstream to the empty directory.
+ */
+function spyDirectory(known: Map<string, ResolvedMembership>): {
+  readonly directory: AdminDirectory;
+  readonly resolutionCalls: number;
+} {
+  let resolutionCalls = 0;
+  const base = fakeDirectory(known);
+  const directory: AdminDirectory = {
+    ...base,
+    resolveMembership: async (key: ExternalIdentityKey) => {
+      resolutionCalls += 1;
+      return base.resolveMembership(key);
+    },
+  };
+  return {
+    directory,
+    get resolutionCalls() {
+      return resolutionCalls;
+    },
+  };
+}
+
 function fakeDirectory(known: Map<string, ResolvedMembership>): AdminDirectory {
   return {
     probe: async () => {},
@@ -100,13 +129,75 @@ describe('createEntraAuthAdapter (signature + resolution)', () => {
     });
   });
 
-  it('rejects a wrong audience and a wrong issuer', async () => {
+  /**
+   * ⛔ CR-005. The previous version of this test asserted only
+   * `.rejects.toThrow(AuthError)` against an adapter built with an EMPTY
+   * directory — and `AccessNotProvisionedError extends AuthError` (`types.ts:74`).
+   * So a token with a wrong audience sailed through `jwtVerify`, reached
+   * membership resolution, found nothing, and threw `AccessNotProvisionedError`,
+   * which satisfied the assertion.
+   *
+   * ⚖️ **MEASURED, NOT INFERRED: with `audience: config.audience` deleted from
+   * `entra.ts`, the whole file still passed 10/10.** The test could not detect the
+   * removal of the control it exists to guard.
+   *
+   * *A negative test whose fixture guarantees the assertion by a second route has
+   * not tested the first one.* This matters more than its latency suggests: the
+   * staging↔production authentication boundary was verified once, by hand, on
+   * 2026-08-02. This test is the only STANDING guard on it.
+   */
+  it('⛔ rejects a wrong audience IN VALIDATION — never reaching membership resolution', async () => {
     const { keyResolver, sign } = await setup();
-    const adapter = createEntraAuthAdapter(CONFIG, fakeDirectory(new Map()), keyResolver);
-    await expect(adapter.authenticate(await sign(GOOD_CLAIMS, { audience: 'api://other' }))).rejects.toThrow(AuthError);
-    await expect(
-      adapter.authenticate(await sign(GOOD_CLAIMS, { issuer: `https://login.microsoftonline.com/${OTHER_TENANT}/v2.0` })),
-    ).rejects.toThrow(AuthError);
+    const spy = spyDirectory(new Map());
+    const adapter = createEntraAuthAdapter(CONFIG, spy.directory, keyResolver);
+
+    const failure = await adapter
+      .authenticate(await sign(GOOD_CLAIMS, { audience: 'api://other' }))
+      .then(() => null, (err: unknown) => err);
+
+    // 1 · the EXACT reason, not merely "some AuthError". This is the string
+    // production actually returned when the boundary was probed by hand.
+    expect(failure).toBeInstanceOf(AuthError);
+    expect((failure as Error).message).toMatch(/unexpected "aud" claim value/);
+    // …and NOT the class the empty fixture would have produced.
+    expect(failure, 'a resolution failure is not an audience failure').not.toBeInstanceOf(
+      AccessNotProvisionedError,
+    );
+
+    // 2 · THE STRUCTURAL HALF. An error-message match is a string comparison; an
+    // unreached collaborator is a fact about control flow. This is what makes the
+    // test fail when the audience check is deleted, because deletion lets the
+    // token through to resolution.
+    expect(spy.resolutionCalls, 'validation must refuse BEFORE the directory is consulted').toBe(0);
+  });
+
+  it('⛔ rejects a wrong issuer IN VALIDATION — never reaching membership resolution', async () => {
+    const { keyResolver, sign } = await setup();
+    const spy = spyDirectory(new Map());
+    const adapter = createEntraAuthAdapter(CONFIG, spy.directory, keyResolver);
+
+    const failure = await adapter
+      .authenticate(await sign(GOOD_CLAIMS, { issuer: `https://login.microsoftonline.com/${OTHER_TENANT}/v2.0` }))
+      .then(() => null, (err: unknown) => err);
+
+    expect(failure).toBeInstanceOf(AuthError);
+    expect((failure as Error).message).toMatch(/unexpected "iss" claim value/);
+    expect(failure).not.toBeInstanceOf(AccessNotProvisionedError);
+    expect(spy.resolutionCalls, 'validation must refuse BEFORE the directory is consulted').toBe(0);
+  });
+
+  it('⚖️ POSITIVE CONTROL: a valid token DOES reach resolution', async () => {
+    // Without this, a universally broken adapter — one that threw on every token
+    // before ever calling the directory — would satisfy both negatives above.
+    // *A negative result is evidence only with a positive control beside it.*
+    const { keyResolver, sign } = await setup();
+    const spy = spyDirectory(new Map([[`entra|${TENANT}|${OID}`, membership]]));
+    const adapter = createEntraAuthAdapter(CONFIG, spy.directory, keyResolver);
+
+    const principal = await adapter.authenticate(await sign(GOOD_CLAIMS));
+
+    expect(principal.identity).toBe('owner@geekay.com');
+    expect(spy.resolutionCalls, 'the happy path must consult the directory exactly once').toBe(1);
   });
 
   it('token role/group claims grant NOTHING (unprovisioned identity fails closed)', async () => {
