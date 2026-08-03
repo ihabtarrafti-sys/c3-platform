@@ -86,13 +86,34 @@ jobs:
       - name: Build web image (nginx-unprivileged, entra bundle)
         run: docker build -f apps/web/Dockerfile --build-arg VITE_API_BASE_URL=https://api.staging.c3hq.org --build-arg VITE_AUTH_PROVIDER=entra -t c3web-web:ci .
 
+      # CR-016. Three defects, all in five lines:
+      #   1. `docker run ... | tee` exposes TEE's exit status, never Docker's, so
+      #      the container's own success or failure was invisible. Redirecting to
+      #      a file and capturing $? directly is what makes it readable.
+      #   2. Nothing asserted the container REFUSED TO START. Fail-closed means a
+      #      non-zero exit; a booting API that merely logged the word would pass.
+      #   3. `grep -q "forbidden"` is the ONLY proof the refusal was the right one
+      #      — and env.ts:144 refuses RATE_LIMIT_MAX=0 with the same word. **The
+      #      smoke test for "dev auth was refused in production" passed when the
+      #      container refused for an entirely unrelated reason.** The exact
+      #      sentence is matched instead.
       - name: API image production boot smoke (fail-closed env honoured)
         run: |
           set +e
           docker run --rm -e NODE_ENV=production -e AUTH_PROVIDER=dev \
             -e DEV_AUTH_SECRET=should-not-be-allowed-here \
-            -e DATABASE_URL=postgres://c3_app:x@db:5432/x c3web-api:ci 2>&1 | tee boot.log
-          grep -q "forbidden" boot.log || (echo "::error::production dev-auth was not refused" && exit 1)
+            -e DATABASE_URL=postgres://c3_app:x@db:5432/x c3web-api:ci > boot.log 2>&1
+          status=$?
+          set -e
+          cat boot.log
+          if [ "$status" -eq 0 ]; then
+            echo "::error::the API BOOTED under NODE_ENV=production with AUTH_PROVIDER=dev"
+            exit 1
+          fi
+          grep -qF 'AUTH_PROVIDER=dev is forbidden when NODE_ENV=production' boot.log || {
+            echo "::error::the container exited ($status), but not for the dev-auth reason"
+            exit 1
+          }
 
       - name: Web entra bundle excludes dev-login controls
         run: |

@@ -59,6 +59,37 @@ export function buildCsp(apiOrigin: string): string {
  * and `emitHeaders.mts` refuses to run without an API origin, so "none" cannot
  * happen quietly either.
  */
+/**
+ * The source tokens of a served `connect-src`, or `null` when the directive is
+ * absent entirely.
+ *
+ * ⛔ CR-018. The verifier matched with `connect.includes(expectedApi)` — a
+ * SUBSTRING test — so a policy permitting **`https://api.c3hq.org.evil.invalid`**
+ * satisfied a check for `https://api.c3hq.org`. An attacker-registered subdomain
+ * suffix is precisely the shape that defeats substring matching, and CSP source
+ * lists are whitespace-separated, so exact token comparison is both correct and
+ * trivially available.
+ *
+ * ⚖️ `null` vs `[]` is deliberate. The old inverse check read
+ * `!connect?.includes(other)` — and `!undefined` is `true`, so **a MISSING
+ * connect-src silently passed the "does not permit the foreign API" assertion.**
+ * An absent directive must be distinguishable from a present, empty one.
+ */
+export function connectSrcTokens(csp: string): string[] | null {
+  const directive = csp
+    .split(';')
+    .map((d) => d.trim())
+    .find((d) => /^connect-src(\s|$)/i.test(d));
+  if (!directive) return null;
+  return directive.split(/\s+/).slice(1).filter(Boolean);
+}
+
+/** Exact source-token equality — never substring containment. */
+export function permitsOrigin(tokens: readonly string[] | null, origin: string): boolean {
+  if (!tokens) return false;
+  return tokens.some((token) => token === origin);
+}
+
 export function buildHeadersFile(apiOrigin: string): string {
   return `# GENERATED — do not edit. Source: apps/web/scripts/csp.mts (emitted by emitHeaders.mts).
 # connect-src is DERIVED from this build's VITE_API_BASE_URL, so each

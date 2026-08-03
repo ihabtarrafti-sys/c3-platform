@@ -272,7 +272,35 @@ export async function runErasureJanitorPass(
           [
             lockedRow.tenant_ref,
             confirmed,
-            JSON.stringify({ status: destroyed.size > 0 ? 'stragglers_destroyed' : 'clean', trigger, stragglersCaught: caught.size }),
+            // ⛔ CR-014. This read `destroyed.size > 0 ? 'stragglers_destroyed' : 'clean'`.
+            // If the FIRST delete failed, `destroyed` was empty and the durable
+            // row recorded **`clean`** — while `pending_destroy` still held the
+            // caught key and the pass reported `incomplete`. No data was orphaned;
+            // the OUTBOX is correct and the next pass retries. What was wrong was
+            // the sentence.
+            //
+            // ⚖️ And that sentence is the customer-facing claim about data
+            // destruction. *"We erased it" is the one thing a product must never
+            // say loosely* — a durable `clean` against keys that still exist is a
+            // false statement stored permanently, which is worse than a transient
+            // failure because it outlives the condition and nobody re-reads it.
+            // ⛳ ONLY THE FALSEHOOD IS CHANGED. `stragglers_destroyed` with a
+            // remainder is INCOMPLETE BUT TRUE — one was destroyed — and the row
+            // still lists what is pending, so an operator reading it is not
+            // misled. Relabelling that case would have rewritten a statement that
+            // was already honest, and broken a test encoding deliberate R10-N01
+            // reasoning. `clean` against pending keys is the only sentence here
+            // that was false.
+            JSON.stringify({
+              status:
+                destroyed.size > 0
+                  ? 'stragglers_destroyed'
+                  : destroyError || pending.size - confirmed.length > 0
+                    ? 'incomplete'
+                    : 'clean',
+              trigger,
+              stragglersCaught: caught.size,
+            }),
           ],
         );
         await client.query('COMMIT');

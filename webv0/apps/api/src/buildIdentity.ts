@@ -172,6 +172,30 @@ export type VersionVerdict =
   /** Both halves: this commit, and a deploy genuinely happened. */
   | { readonly kind: 'FRESH'; readonly from: string; readonly to: string };
 
+/**
+ * Parse an untrusted `/version` body into a `VersionPayload`.
+ *
+ * ⛔ CR-017. `verifyVersion.mts` did `(await res.json()) as {...}` — a compile-time
+ * assertion over a value that arrives from the network. **A cast at a trust
+ * boundary enforces nothing**, which is how `deploymentId: {}` could reach a
+ * FRESH verdict.
+ *
+ * ⚖️ Every field is narrowed to "a non-empty string, or null". Anything else —
+ * an object, a number, a blank — becomes `null`, and `null` is a condition the
+ * verdict already knows how to refuse. *A malformed field must not be able to
+ * mean anything better than a missing one.*
+ */
+export function parseVersionPayload(value: unknown): VersionPayload {
+  const body = (typeof value === 'object' && value !== null ? value : {}) as Record<string, unknown>;
+  const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null);
+  return {
+    buildToken: str(body.buildToken),
+    environmentName: str(body.environmentName),
+    projectId: str(body.projectId),
+    deploymentId: str(body.deploymentId),
+  };
+}
+
 export function versionVerdict(args: {
   readonly expected: string;
   readonly served: VersionPayload;
@@ -186,9 +210,20 @@ export function versionVerdict(args: {
   // mismatch, and collapsing them would hide the one that looks like success.
   const before = args.beforeDeploymentId?.trim();
   if (!before) return { kind: 'FRESHNESS_UNCHECKED' };
-  if (!served.deploymentId) return { kind: 'NO_DEPLOYMENT_ID' };
-  if (served.deploymentId === before) return { kind: 'STALE', deploymentId: served.deploymentId };
-  return { kind: 'FRESH', from: before, to: served.deploymentId };
+
+  // ⛔ CR-017. This read `if (!served.deploymentId)` — a TRUTHINESS test on a
+  // value that arrives as untrusted JSON and is merely CAST to `string`. A body
+  // serving `deploymentId: {}` is truthy, is not equal to the before-id, and so
+  // reached the FRESH verdict: **malformed deployment evidence classified as a
+  // successful deploy.** The type annotation described a hope, not a check.
+  //
+  // ⚖️ Same family as LAW 17 (truthiness, not presence), one turn further on: a
+  // non-empty STRING is the requirement, and a type assertion at a trust boundary
+  // enforces nothing at runtime.
+  const servedId = typeof served.deploymentId === 'string' ? served.deploymentId.trim() : '';
+  if (!servedId) return { kind: 'NO_DEPLOYMENT_ID' };
+  if (servedId === before) return { kind: 'STALE', deploymentId: servedId };
+  return { kind: 'FRESH', from: before, to: servedId };
 }
 
 export function readBuildStamp(env: NodeJS.ProcessEnv): BuildStamp | null {

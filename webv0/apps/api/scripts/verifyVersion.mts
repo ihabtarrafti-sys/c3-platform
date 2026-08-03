@@ -49,7 +49,7 @@
  * Usage:
  *   tsx apps/api/scripts/verifyVersion.mts https://api.c3hq.org <full-40-char-sha> [before-deployment-id]
  */
-import { tokenForCommit, versionVerdict } from '../src/buildIdentity.js';
+import { parseVersionPayload, tokenForCommit, versionVerdict } from '../src/buildIdentity.js';
 
 const [, , apiUrlArg, commitArg, beforeDeploymentArg] = process.argv;
 
@@ -83,12 +83,11 @@ async function main(): Promise<number> {
     return 1;
   }
 
-  const body = (await res.json()) as {
-    buildToken?: string;
-    environmentName?: string | null;
-    projectId?: string;
-    deploymentId?: string | null;
-  };
+  // ⛔ CR-017: PARSED, never cast. `as {...}` over a network response is a
+  // compile-time assertion that enforces nothing at runtime — which let a body
+  // serving `deploymentId: {}` reach a FRESH verdict, classifying malformed
+  // deployment evidence as a successful deploy.
+  const body = parseVersionPayload(await res.json());
 
   console.log(`\n${origin}/version`);
   console.log(`  environment   ${body.environmentName ?? '(unnamed)'}  [project ${body.projectId ?? '(none)'}]`);
@@ -96,16 +95,7 @@ async function main(): Promise<number> {
   console.log(`  served token  ${body.buildToken ?? '(none)'}`);
   console.log(`  expected      ${expected}   (from ${commitArg.trim().slice(0, 12)})`);
 
-  const verdict = versionVerdict({
-    expected,
-    served: {
-      buildToken: body.buildToken ?? null,
-      environmentName: body.environmentName ?? null,
-      projectId: body.projectId ?? null,
-      deploymentId: body.deploymentId ?? null,
-    },
-    beforeDeploymentId: beforeDeploymentArg,
-  });
+  const verdict = versionVerdict({ expected, served: body, beforeDeploymentId: beforeDeploymentArg });
 
   switch (verdict.kind) {
     case 'UNSTAMPED':

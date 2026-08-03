@@ -10,6 +10,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  parseVersionPayload,
   readBuildStamp,
   readRuntimeIdentity,
   tokenForCommit,
@@ -188,6 +189,66 @@ describe('⚖️ the verdict needs BOTH halves — identity and freshness', () =
     expect(
       versionVerdict({ expected: EXPECTED, served: served({ buildToken: null }), beforeDeploymentId: 'dep-OLD' }),
     ).toEqual({ kind: 'UNSTAMPED' });
+  });
+});
+
+describe('⛔ CR-017 — malformed deployment evidence is never FRESH', () => {
+  const EXPECTED = tokenForCommit(COMMIT_A);
+
+  it('a non-string deploymentId is NO_DEPLOYMENT_ID, not FRESH', () => {
+    // THE FINDING. `deploymentId` arrives as untrusted JSON and was merely CAST
+    // to `string`. `{}` is truthy and unequal to the before-id, so it reached the
+    // positive verdict: **malformed evidence classified as a successful deploy.**
+    // A type assertion at a trust boundary enforces nothing at runtime.
+    for (const bad of [{}, [], 42, true, null, undefined]) {
+      const verdict = versionVerdict({
+        expected: EXPECTED,
+        served: { buildToken: EXPECTED, environmentName: null, projectId: null, deploymentId: bad as never },
+        beforeDeploymentId: 'dep-OLD',
+      });
+      expect(verdict, `deploymentId ${JSON.stringify(bad)} must not be FRESH`).toEqual({
+        kind: 'NO_DEPLOYMENT_ID',
+      });
+    }
+  });
+
+  it('a blank deploymentId is absence, not a moved deployment', () => {
+    for (const blank of ['', '   ']) {
+      expect(
+        versionVerdict({
+          expected: EXPECTED,
+          served: { buildToken: EXPECTED, environmentName: null, projectId: null, deploymentId: blank },
+          beforeDeploymentId: 'dep-OLD',
+        }),
+      ).toEqual({ kind: 'NO_DEPLOYMENT_ID' });
+    }
+  });
+
+  it('parseVersionPayload narrows every field to a non-empty string or null', () => {
+    // The boundary fix: parsed, never cast. Anything that is not a usable string
+    // becomes null, and null is a condition the verdict already refuses.
+    expect(parseVersionPayload({ buildToken: {}, deploymentId: [], projectId: 7, environmentName: '  ' })).toEqual({
+      buildToken: null,
+      environmentName: null,
+      projectId: null,
+      deploymentId: null,
+    });
+    // …and a non-object body cannot crash it into a false positive either.
+    expect(parseVersionPayload('not json object')).toEqual({
+      buildToken: null,
+      environmentName: null,
+      projectId: null,
+      deploymentId: null,
+    });
+  });
+
+  it('and a well-formed payload still parses through untouched', () => {
+    expect(parseVersionPayload({ buildToken: EXPECTED, environmentName: 'production', projectId: 'p', deploymentId: 'dep-1' })).toEqual({
+      buildToken: EXPECTED,
+      environmentName: 'production',
+      projectId: 'p',
+      deploymentId: 'dep-1',
+    });
   });
 });
 

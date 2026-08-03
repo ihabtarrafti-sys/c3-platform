@@ -24,7 +24,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { CommsLiveBus } from '@c3web/persistence';
 import { getThreadRoom } from '@c3web/application';
-import type { Actor } from '@c3web/domain';
+import { isDomainError, type Actor } from '@c3web/domain';
 import type { Persistence } from '@c3web/application';
 
 const HEARTBEAT_MS = 10_000;
@@ -72,10 +72,21 @@ async function projectForSubscriber(
           recalled: false,
           preview: hit.body.slice(0, 140),
         };
-  } catch {
-    // Every failure arm — not entitled, not seated, thread gone — is silence.
-    // The subscriber learns nothing, which is the same posture the 404 takes.
-    return null;
+  } catch (err) {
+    // ⛔ CR-013. This was a bare `catch { return null }`, and the comment named
+    // only the CONCEALMENT arms — not entitled, not seated, thread gone — which
+    // are correctly silent, because silence is the same posture the 404 takes.
+    //
+    // But the same catch also absorbed **database and runtime failures**, and the
+    // heartbeat reports health from the live BUS alone. So projection could be
+    // failing for every event on the stream while `alive: true` went out every
+    // few seconds. *A subscriber cannot distinguish "nothing is happening" from
+    // "everything is failing" — and the instrument said things were fine.*
+    //
+    // A `DomainError` is a decision the product made and stated; anything else is
+    // a surprise, and a surprise must not be reported as a governed silence.
+    if (isDomainError(err)) return null;
+    throw err;
   }
 }
 
@@ -119,8 +130,21 @@ export function registerCommsStream(
       bus?.subscribe((e) => {
         if (e.tenantId !== actor.tenantId) return; // tenancy first, always
         void (async () => {
-          const push = await projectForSubscriber(deps.P, actor, e.threadId, e.messageId);
-          if (push) send('message', push);
+          try {
+            const push = await projectForSubscriber(deps.P, actor, e.threadId, e.messageId);
+            if (push) send('message', push);
+          } catch (err) {
+            // ⛔ CR-013, the half that makes the throw useful. An unexpected
+            // projection failure is now LOGGED — it was previously absorbed with
+            // no trace anywhere — and the subscriber is told the stream is not
+            // healthy, instead of receiving heartbeats that describe only the bus.
+            //
+            // ⚖️ The client's whole contract here is "go stale rather than trust
+            // silence". Reporting `alive: true` while projection fails is the one
+            // thing that breaks it, because silence then looks like calm.
+            req.log.error({ err, threadId: e.threadId }, 'comms stream projection failed');
+            send('health', { alive: false, lastConfirmedAt: bus?.health().lastConfirmedAt ?? null });
+          }
         })();
       }) ?? (() => {});
 

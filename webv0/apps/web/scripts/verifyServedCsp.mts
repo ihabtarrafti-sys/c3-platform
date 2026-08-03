@@ -23,7 +23,7 @@
  *   tsx scripts/verifyServedCsp.mts https://app.c3hq.org https://api.c3hq.org
  *   tsx scripts/verifyServedCsp.mts https://staging.c3hq.org https://api.staging.c3hq.org
  */
-import { apiOriginFrom } from './csp.mjs';
+import { apiOriginFrom, connectSrcTokens, permitsOrigin } from './csp.mjs';
 
 const [, , appUrlArg, apiUrlArg] = process.argv;
 
@@ -47,30 +47,48 @@ interface Finding {
 const findings: Finding[] = [];
 
 const res = await fetch(appOrigin, { redirect: 'follow' });
+
+// ⛔ CR-018. The status was never read. A 503 maintenance page or an edge error
+// carrying a default security header set would satisfy every check below —
+// **a policy read from an error page is not the policy.** This verifier is
+// ACCEPTED RELEASE EVIDENCE: its `exit 0` was used to certify the 2026-08-02
+// production deploy, so a check that passes against a broken origin is not a
+// weak test, it is a false certificate.
+findings.push({
+  ok: res.ok,
+  label: 'the app origin actually served a page',
+  detail: `HTTP ${res.status} from ${appOrigin}`,
+});
+
 const csp = res.headers.get('content-security-policy') ?? '';
 
 if (!csp) {
   findings.push({ ok: false, label: 'CSP present', detail: 'no Content-Security-Policy header served at all' });
 } else {
-  const connect = csp
-    .split(';')
-    .map((d) => d.trim())
-    .find((d) => d.startsWith('connect-src'));
+  const tokens = connectSrcTokens(csp);
+  const shown = tokens ? tokens.join(' ') : '(no connect-src directive)';
 
   findings.push({
-    ok: Boolean(connect?.includes(expectedApi)),
+    ok: permitsOrigin(tokens, expectedApi),
     label: 'connect-src permits THIS environment’s API',
-    detail: connect ?? '(no connect-src directive)',
+    detail: shown,
   });
 
   // The inverse is the same defect from the other side, and it is the half that
   // stayed invisible: production could reach staging, and nothing complained.
+  //
+  // ⛔ CR-018, and this arm was the more dangerous one: it read
+  // `!connect?.includes(other)`, where a MISSING directive made `!undefined`
+  // true — so "does not permit the foreign API" passed when there was no policy
+  // at all. `permitsOrigin` returns false for an absent directive, so the
+  // negation below is only reached once a directive genuinely exists, and the
+  // absence is reported by the `CSP present` finding instead.
   const foreign = [expectedApi.includes('staging') ? 'https://api.c3hq.org' : 'https://api.staging.c3hq.org'];
   for (const other of foreign) {
     findings.push({
-      ok: !connect?.includes(other),
+      ok: tokens !== null && !permitsOrigin(tokens, other),
       label: `connect-src does NOT permit ${other}`,
-      detail: connect ?? '(no connect-src directive)',
+      detail: shown,
     });
   }
 }
@@ -79,6 +97,10 @@ if (!csp) {
 // _headers asked for no-cache. A stale service worker pins the old shell in
 // users' browsers, so a correct deploy can still be invisible to them.
 const sw = await fetch(`${appOrigin}/sw.js`, { redirect: 'follow' });
+// CR-018 again: the same unread status, one fetch further on. A 404 for /sw.js
+// served by the SPA fallback has a content-type and a cache-control like any
+// other response, so both checks below could pass against a file that is not there.
+findings.push({ ok: sw.ok, label: '/sw.js is actually served', detail: `HTTP ${sw.status}` });
 const swCache = sw.headers.get('cache-control') ?? '';
 const swType = sw.headers.get('content-type') ?? '';
 findings.push({
