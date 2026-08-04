@@ -185,6 +185,17 @@ describe('Comms governance laws (the pilot UI)', () => {
     expect(markup).toContain('data-acceptance-emphasis="governance-sensitive"');
     expect(markup).toContain('Before cancellation, Bea both delivered evidence and accepted it as the named authority.');
     expect(markup).not.toContain('Not recorded · awaiting named authority');
+    expect(markup).toContain('data-tablework="SettledView"');
+    expect(markup).toContain('data-provenance="deterministic-rule"');
+    expect(markup).toContain('System-derived status');
+    expect(markup).toContain('Rule · Settled only when Delivery, Acceptance, and Done are all recorded.');
+    expect(markup).toContain('Not settled — the three facts above are not all recorded yet.');
+    expect(markup).toContain('States status only · does not record acceptance.');
+    const settledStart = markup.indexOf('data-tablework="SettledView"');
+    const settledMarkup = markup.slice(settledStart, markup.indexOf('</section>', settledStart));
+    expect(settledStart).toBeGreaterThan(-1);
+    expect(settledMarkup).not.toContain('actor-avatar');
+    expect(settledMarkup).not.toContain('data-authorship');
 
     const ordinaryObligation: CommsObligationDto = {
       ...obligation,

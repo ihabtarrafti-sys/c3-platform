@@ -6,6 +6,7 @@ import {
   approvalSchema,
   personIdParamSchema,
   approvalIdParamSchema,
+  commsMessageSchema,
 } from '../src/index';
 
 describe('wire contracts', () => {
@@ -43,5 +44,46 @@ describe('wire contracts', () => {
       createdAt: '2026-07-05T00:00:00.000Z', updatedAt: '2026-07-05T00:00:00.000Z',
     };
     expect(approvalSchema.safeParse(row).success).toBe(true);
+  });
+
+  it('adds explicit person authorship while preserving the frozen-v1 identity aliases', () => {
+    const message = {
+      recalled: false,
+      messageId: 'MSG-0001',
+      threadId: 'THR-0001',
+      seq: 1,
+      authorship: { kind: 'person', userId: 'user-1', label: 'Mara' },
+      authorUserId: 'user-1',
+      authorLabel: 'Mara',
+      revisionNo: 1,
+      createdAt: '2026-08-05T00:00:00.000Z',
+      body: 'Status recorded.',
+      links: [],
+      attachments: [],
+      messageKind: 'note',
+      supersedesMessageId: null,
+    };
+
+    expect(commsMessageSchema.parse(message).authorship).toEqual(message.authorship);
+    expect(commsMessageSchema.safeParse({ ...message, authorship: undefined }).success).toBe(false);
+    expect(commsMessageSchema.safeParse({ ...message, authorUserId: undefined }).success).toBe(false);
+    expect(commsMessageSchema.safeParse({ ...message, authorUserId: 'user-2' }).success).toBe(false);
+    expect(commsMessageSchema.safeParse({ ...message, authorLabel: 'Another person' }).success).toBe(false);
+    expect(commsMessageSchema.safeParse({ ...message, authorship: { kind: 'system', rule: 'deadline elapsed' } }).success).toBe(false);
+
+    const recalled = {
+      recalled: true,
+      messageId: 'MSG-0001',
+      threadId: 'THR-0001',
+      seq: 1,
+      authorship: { kind: 'person', userId: 'user-1', label: null },
+      authorUserId: 'user-1',
+      authorLabel: null,
+      revisionNo: 1,
+      createdAt: '2026-08-05T00:00:00.000Z',
+      recall: { reasonCode: 'AuthorRecall', actorLabel: 'Mara', at: '2026-08-05T00:01:00.000Z' },
+    };
+    expect(commsMessageSchema.parse(recalled).authorship).toEqual(recalled.authorship);
+    expect(commsMessageSchema.safeParse({ ...recalled, authorLabel: undefined }).success).toBe(false);
   });
 });

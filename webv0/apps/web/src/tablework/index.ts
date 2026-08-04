@@ -41,7 +41,7 @@ export {
 export { formatDisplayDate } from './dates';
 export { percentToBpsAllowingZero, positivePercentToBps, amountToMinorAllowingZero, positiveAmountToMinor } from './money';
 export { Thread, detectLinks } from './Thread';
-export { Message, initialsOf } from './Message';
+export { Message } from './Message';
 export { ObligationCard, type ObligationActionInput } from './ObligationCard';
 export { ObligationFact, type TruthState } from './TruthValue';
 export { TruthPanel, truthStateOf, type WitnessState } from './TruthPanel';

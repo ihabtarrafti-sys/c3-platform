@@ -205,7 +205,9 @@ function MissionCommsScreen({
   const nameOf = useMemo(() => {
     const map = new Map<string, string>();
     for (const m of members.data?.members ?? []) map.set(m.userId, m.displayName);
-    for (const msg of messages) if (msg.authorLabel) map.set(msg.authorUserId, msg.authorLabel);
+    for (const msg of messages) {
+      if (msg.authorship.label) map.set(msg.authorship.userId, msg.authorship.label);
+    }
     for (const o of obligations.data?.obligations ?? []) {
       for (const ev of o.events) if (ev.actorLabel) map.set(ev.actorUserId, ev.actorLabel);
       for (const ev of o.evidence) if (ev.delivererLabel) map.set(ev.deliveredByUserId, ev.delivererLabel);

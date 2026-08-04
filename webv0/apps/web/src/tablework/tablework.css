@@ -2388,7 +2388,7 @@
 
 .tw-root .message-group {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   align-items: start;
   gap: var(--c3-space-3);
 }
@@ -2401,9 +2401,85 @@
 
 .tw-root .message-copy header {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--c3-space-4);
+}
+
+.tw-root .message-header-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .authorship-mark {
+  min-width: 0;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .authorship-mark.compact {
+  align-items: center;
+}
+
+.tw-root .authorship-mark.compact .authorship-copy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: var(--c3-space-2);
+}
+
+.tw-root .authorship-copy {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.tw-root .authorship-copy strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .authorship-copy small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  overflow-wrap: anywhere;
+}
+
+.tw-root .authorship-mark[data-authorship='system'],
+.tw-root .authorship-mark[data-authorship='ai_assisted'],
+.tw-root .derived-status-mark {
+  padding-inline-start: var(--c3-space-3);
+  border-inline-start: 3px solid var(--c3-state-info);
+}
+
+.tw-root .authorship-mark[data-authorship='ai_assisted'] {
+  border-inline-start-color: var(--c3-state-warning);
+}
+
+.tw-root .authorship-mark .authorship-ratification,
+.tw-root .authorship-mark .authorship-boundary {
+  color: var(--c3-ink-default);
+  font-family: var(--c3-font-serif, var(--c3-font-human, Georgia, 'Times New Roman', serif));
+}
+
+.tw-root .derived-status-mark {
+  display: grid;
+  gap: 2px;
+}
+
+.tw-root .derived-status-mark strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .derived-status-mark small {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
 }
 
 .tw-root .message-copy header strong {
@@ -2547,6 +2623,19 @@
 .tw-root .obligation-facts {
   display: grid;
   gap: var(--c3-space-2);
+}
+
+.tw-root .settled-system-event {
+  display: grid;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-tw-work-subtle);
+}
+
+.tw-root .settled-system-event > p {
+  margin: 0;
 }
 
 .tw-root .obligation-fact {

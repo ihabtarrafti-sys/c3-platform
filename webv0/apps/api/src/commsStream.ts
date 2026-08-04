@@ -63,12 +63,12 @@ async function projectForSubscriber(
     const hit = room.messages.find((m) => m.messageId === messageId);
     if (!hit) return null;
     return hit.recalled !== undefined
-      ? { threadId, messageId, seq: hit.seq, authorLabel: hit.authorLabel, recalled: true }
+      ? { threadId, messageId, seq: hit.seq, authorLabel: hit.authorship.label, recalled: true }
       : {
           threadId,
           messageId,
           seq: hit.seq,
-          authorLabel: hit.authorLabel,
+          authorLabel: hit.authorship.label,
           recalled: false,
           preview: hit.body.slice(0, 140),
         };

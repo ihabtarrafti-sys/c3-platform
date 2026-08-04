@@ -128,6 +128,14 @@ describe('Mission Comms — the slice', () => {
     });
     expect(post.statusCode, post.body).toBe(201);
     expect(post.json().message.seq).toBe(1);
+    expect(post.json().message.authorship).toEqual({
+      kind: 'person',
+      userId: expect.any(String),
+      label: 'ops@alpha.com',
+    });
+    // Frozen-v1 aliases remain, and are projected from that same person fact.
+    expect(post.json().message.authorUserId).toBe(post.json().message.authorship.userId);
+    expect(post.json().message.authorLabel).toBe(post.json().message.authorship.label);
     expect(post.json().message.links).toEqual([{ targetType: 'Mission', targetId: missionId }]);
 
     // The mission-visible posture (owner-accepted): a visitor reads AND posts.

@@ -12,6 +12,7 @@ import {
   AGREEMENT_TERM_KINDS,
   COMMS_LINK_TARGET_TYPES,
   COMMS_OBLIGATION_STATES,
+  personRecordAuthorshipSchema,
   postCommsMessageInputSchema,
   createCommsObligationInputSchema,
   commsObligationTransitionInputSchema,
@@ -680,8 +681,11 @@ const commsMessageSpine = {
   messageId: z.string(),
   threadId: z.string(),
   seq: z.number().int(),
-  authorUserId: z.string(),
-  authorLabel: z.string().nullable(),
+  authorship: personRecordAuthorshipSchema,
+  /** Frozen-v1 compatibility aliases. New readers use `authorship`; these
+   * remain served so an existing client never loses or retypes a field. */
+  authorUserId: z.string().describe('Deprecated v1 alias of authorship.userId.'),
+  authorLabel: z.string().nullable().describe('Deprecated v1 alias of authorship.label.'),
   revisionNo: z.number().int(),
   createdAt: z.string(),
 };
@@ -692,35 +696,54 @@ const commsMessageSpine = {
  * flag an old client can ignore. `.strict()` on both arms means a body cannot
  * ride along even by accident: the schema itself refuses to serialize it.
  */
-export const commsMessageSchema = z.discriminatedUnion('recalled', [
-  z.object({
-    recalled: z.literal(false),
-    ...commsMessageSpine,
-    body: z.string(),
-    links: z.array(commsMessageLinkSchema),
-    attachments: z.array(commsMessageAttachmentSchema),
-    /** Phase C: decision records — the kind and what it supersedes. */
-    messageKind: z.enum(['note', 'decision']),
-    supersedesMessageId: z.string().nullable(),
-    blocks: z
-      .array(
-        z.object({
-          kind: z.enum(['roster', 'perdiem']),
-          anchorId: z.string(),
-          state: z.enum(['rendered', 'denied']),
-          title: z.string(),
-          rows: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
-          deniedReason: z.string().optional(),
-        }),
-      )
-      .optional(),
-  }).strict(),
-  z.object({
-    recalled: z.literal(true),
-    ...commsMessageSpine,
-    recall: commsRecallSchema,
-  }).strict(),
-]);
+export const commsMessageSchema = z
+  .discriminatedUnion('recalled', [
+    z.object({
+      recalled: z.literal(false),
+      ...commsMessageSpine,
+      body: z.string(),
+      links: z.array(commsMessageLinkSchema),
+      attachments: z.array(commsMessageAttachmentSchema),
+      /** Phase C: decision records — the kind and what it supersedes. */
+      messageKind: z.enum(['note', 'decision']),
+      supersedesMessageId: z.string().nullable(),
+      blocks: z
+        .array(
+          z.object({
+            kind: z.enum(['roster', 'perdiem']),
+            anchorId: z.string(),
+            state: z.enum(['rendered', 'denied']),
+            title: z.string(),
+            rows: z.array(z.object({ label: z.string(), value: z.string() })).optional(),
+            deniedReason: z.string().optional(),
+          }),
+        )
+        .optional(),
+    }).strict(),
+    z.object({
+      recalled: z.literal(true),
+      ...commsMessageSpine,
+      recall: commsRecallSchema,
+    }).strict(),
+  ])
+  .superRefine((message, ctx) => {
+    // Frozen-v1 clients still read the aliases, so contradictory identities
+    // would split one record into two apparent authors. Refuse that shape.
+    if (message.authorUserId !== message.authorship.userId) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['authorUserId'],
+        message: 'Must equal authorship.userId.',
+      });
+    }
+    if (message.authorLabel !== message.authorship.label) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['authorLabel'],
+        message: 'Must equal authorship.label.',
+      });
+    }
+  });
 export const missionThreadResponseSchema = z.object({
   thread: commsThreadSchema.nullable(),
   messages: z.array(commsMessageSchema),

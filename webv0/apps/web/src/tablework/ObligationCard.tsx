@@ -16,6 +16,8 @@ import type { CommsObligationAction } from '../api';
 import { deriveCommsAcceptanceProvenance, deriveCommsSelfAcceptance, isObligationSettled } from '@c3web/domain';
 import { ObligationFact } from './TruthValue';
 
+const SETTLEMENT_RULE = 'Settled only when Delivery, Acceptance, and Done are all recorded.';
+
 export interface ObligationActionInput {
   action: CommsObligationAction;
   expectedVersion: number;
@@ -193,15 +195,24 @@ export function ObligationCard({ obligation: o, myUserId, operational, lapsed, r
           FACTS, and a spec counts exactly three of them — Settled is not a
           fourth fact, it is a DERIVATION OF the three, so wearing their
           vocabulary would misrepresent it as a peer. It has its own artifact. */}
-      <p
-        className="cell-note"
+      <section
+        className="settled-system-event"
         data-tablework="SettledView"
         data-settled={settled ? 'derived-true' : 'derived-false'}
+        data-provenance="deterministic-rule"
+        aria-label="Derived settlement status"
       >
-        {settled
-          ? 'Settled — derived from the three facts above, not stored and not asserted.'
-          : 'Not settled — the three facts above are not all recorded yet.'}
-      </p>
+        <div className="derived-status-mark" role="group" aria-label="System-derived status">
+          <strong>System-derived status</strong>
+          <small>Rule · {SETTLEMENT_RULE}</small>
+          <small>States status only · does not record acceptance.</small>
+        </div>
+        <p className="cell-note">
+          {settled
+            ? 'Settled — derived from the three facts above, not stored and not asserted.'
+            : 'Not settled — the three facts above are not all recorded yet.'}
+        </p>
+      </section>
       {o.evidence.length > 0 ? (
         <div className="obligation-stack" data-tablework="EvidenceRequestSlot">
           {o.evidence.map((ev) => (

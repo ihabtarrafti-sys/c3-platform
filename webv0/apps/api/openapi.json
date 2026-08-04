@@ -13437,12 +13437,38 @@
                               "seq": {
                                 "type": "integer"
                               },
+                              "authorship": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "person"
+                                    ]
+                                  },
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "userId",
+                                  "label"
+                                ],
+                                "additionalProperties": false
+                              },
                               "authorUserId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Deprecated v1 alias of authorship.userId."
                               },
                               "authorLabel": {
                                 "type": "string",
-                                "nullable": true
+                                "nullable": true,
+                                "description": "Deprecated v1 alias of authorship.label."
                               },
                               "revisionNo": {
                                 "type": "integer"
@@ -13583,6 +13609,7 @@
                               "messageId",
                               "threadId",
                               "seq",
+                              "authorship",
                               "authorUserId",
                               "authorLabel",
                               "revisionNo",
@@ -13613,12 +13640,38 @@
                               "seq": {
                                 "type": "integer"
                               },
+                              "authorship": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "person"
+                                    ]
+                                  },
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "userId",
+                                  "label"
+                                ],
+                                "additionalProperties": false
+                              },
                               "authorUserId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Deprecated v1 alias of authorship.userId."
                               },
                               "authorLabel": {
                                 "type": "string",
-                                "nullable": true
+                                "nullable": true,
+                                "description": "Deprecated v1 alias of authorship.label."
                               },
                               "revisionNo": {
                                 "type": "integer"
@@ -13657,6 +13710,7 @@
                               "messageId",
                               "threadId",
                               "seq",
+                              "authorship",
                               "authorUserId",
                               "authorLabel",
                               "revisionNo",
@@ -13799,12 +13853,38 @@
                             "seq": {
                               "type": "integer"
                             },
+                            "authorship": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "person"
+                                  ]
+                                },
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "userId",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            },
                             "authorUserId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Deprecated v1 alias of authorship.userId."
                             },
                             "authorLabel": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Deprecated v1 alias of authorship.label."
                             },
                             "revisionNo": {
                               "type": "integer"
@@ -13945,6 +14025,7 @@
                             "messageId",
                             "threadId",
                             "seq",
+                            "authorship",
                             "authorUserId",
                             "authorLabel",
                             "revisionNo",
@@ -13975,12 +14056,38 @@
                             "seq": {
                               "type": "integer"
                             },
+                            "authorship": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "person"
+                                  ]
+                                },
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "userId",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            },
                             "authorUserId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Deprecated v1 alias of authorship.userId."
                             },
                             "authorLabel": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Deprecated v1 alias of authorship.label."
                             },
                             "revisionNo": {
                               "type": "integer"
@@ -14019,6 +14126,7 @@
                             "messageId",
                             "threadId",
                             "seq",
+                            "authorship",
                             "authorUserId",
                             "authorLabel",
                             "revisionNo",
@@ -15487,12 +15595,38 @@
                               "seq": {
                                 "type": "integer"
                               },
+                              "authorship": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "person"
+                                    ]
+                                  },
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "userId",
+                                  "label"
+                                ],
+                                "additionalProperties": false
+                              },
                               "authorUserId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Deprecated v1 alias of authorship.userId."
                               },
                               "authorLabel": {
                                 "type": "string",
-                                "nullable": true
+                                "nullable": true,
+                                "description": "Deprecated v1 alias of authorship.label."
                               },
                               "revisionNo": {
                                 "type": "integer"
@@ -15633,6 +15767,7 @@
                               "messageId",
                               "threadId",
                               "seq",
+                              "authorship",
                               "authorUserId",
                               "authorLabel",
                               "revisionNo",
@@ -15663,12 +15798,38 @@
                               "seq": {
                                 "type": "integer"
                               },
+                              "authorship": {
+                                "type": "object",
+                                "properties": {
+                                  "kind": {
+                                    "type": "string",
+                                    "enum": [
+                                      "person"
+                                    ]
+                                  },
+                                  "userId": {
+                                    "type": "string"
+                                  },
+                                  "label": {
+                                    "type": "string",
+                                    "nullable": true
+                                  }
+                                },
+                                "required": [
+                                  "kind",
+                                  "userId",
+                                  "label"
+                                ],
+                                "additionalProperties": false
+                              },
                               "authorUserId": {
-                                "type": "string"
+                                "type": "string",
+                                "description": "Deprecated v1 alias of authorship.userId."
                               },
                               "authorLabel": {
                                 "type": "string",
-                                "nullable": true
+                                "nullable": true,
+                                "description": "Deprecated v1 alias of authorship.label."
                               },
                               "revisionNo": {
                                 "type": "integer"
@@ -15707,6 +15868,7 @@
                               "messageId",
                               "threadId",
                               "seq",
+                              "authorship",
                               "authorUserId",
                               "authorLabel",
                               "revisionNo",
@@ -15908,12 +16070,38 @@
                             "seq": {
                               "type": "integer"
                             },
+                            "authorship": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "person"
+                                  ]
+                                },
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "userId",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            },
                             "authorUserId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Deprecated v1 alias of authorship.userId."
                             },
                             "authorLabel": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Deprecated v1 alias of authorship.label."
                             },
                             "revisionNo": {
                               "type": "integer"
@@ -16054,6 +16242,7 @@
                             "messageId",
                             "threadId",
                             "seq",
+                            "authorship",
                             "authorUserId",
                             "authorLabel",
                             "revisionNo",
@@ -16084,12 +16273,38 @@
                             "seq": {
                               "type": "integer"
                             },
+                            "authorship": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "person"
+                                  ]
+                                },
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "userId",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            },
                             "authorUserId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Deprecated v1 alias of authorship.userId."
                             },
                             "authorLabel": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Deprecated v1 alias of authorship.label."
                             },
                             "revisionNo": {
                               "type": "integer"
@@ -16128,6 +16343,7 @@
                             "messageId",
                             "threadId",
                             "seq",
+                            "authorship",
                             "authorUserId",
                             "authorLabel",
                             "revisionNo",
@@ -19115,12 +19331,38 @@
                             "seq": {
                               "type": "integer"
                             },
+                            "authorship": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "person"
+                                  ]
+                                },
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "userId",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            },
                             "authorUserId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Deprecated v1 alias of authorship.userId."
                             },
                             "authorLabel": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Deprecated v1 alias of authorship.label."
                             },
                             "revisionNo": {
                               "type": "integer"
@@ -19261,6 +19503,7 @@
                             "messageId",
                             "threadId",
                             "seq",
+                            "authorship",
                             "authorUserId",
                             "authorLabel",
                             "revisionNo",
@@ -19291,12 +19534,38 @@
                             "seq": {
                               "type": "integer"
                             },
+                            "authorship": {
+                              "type": "object",
+                              "properties": {
+                                "kind": {
+                                  "type": "string",
+                                  "enum": [
+                                    "person"
+                                  ]
+                                },
+                                "userId": {
+                                  "type": "string"
+                                },
+                                "label": {
+                                  "type": "string",
+                                  "nullable": true
+                                }
+                              },
+                              "required": [
+                                "kind",
+                                "userId",
+                                "label"
+                              ],
+                              "additionalProperties": false
+                            },
                             "authorUserId": {
-                              "type": "string"
+                              "type": "string",
+                              "description": "Deprecated v1 alias of authorship.userId."
                             },
                             "authorLabel": {
                               "type": "string",
-                              "nullable": true
+                              "nullable": true,
+                              "description": "Deprecated v1 alias of authorship.label."
                             },
                             "revisionNo": {
                               "type": "integer"
@@ -19335,6 +19604,7 @@
                             "messageId",
                             "threadId",
                             "seq",
+                            "authorship",
                             "authorUserId",
                             "authorLabel",
                             "revisionNo",

@@ -104,8 +104,14 @@ async function hydrateCommsMessageViews(db: Db, rows: CommsSpineRow[]): Promise<
       messageId: r.message_id,
       threadId: r.thread_id,
       seq: Number(r.seq),
-      authorUserId: r.author_user_id,
-      authorLabel: r.author_label,
+      // D-009: the database row is person-authored by construction. Project
+      // that fact into the typed record boundary here; do not make every
+      // downstream consumer infer a class from the presence of a name.
+      authorship: {
+        kind: 'person' as const,
+        userId: r.author_user_id,
+        label: r.author_label,
+      },
       revisionNo: r.revision_no,
       createdAt: r.created_at instanceof Date ? r.created_at.toISOString() : new Date(r.created_at).toISOString(),
     };

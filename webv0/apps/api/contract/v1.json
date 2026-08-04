@@ -6968,6 +6968,24 @@
                         "t": "string"
                       }
                     },
+                    "authorship": {
+                      "t": "object",
+                      "keys": {
+                        "kind": {
+                          "t": "literal",
+                          "value": "person"
+                        },
+                        "label": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "userId": {
+                          "t": "string"
+                        }
+                      }
+                    },
                     "authorUserId": {
                       "t": "string"
                     },
@@ -7087,6 +7105,24 @@
                       "t": "nullable",
                       "inner": {
                         "t": "string"
+                      }
+                    },
+                    "authorship": {
+                      "t": "object",
+                      "keys": {
+                        "kind": {
+                          "t": "literal",
+                          "value": "person"
+                        },
+                        "label": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "userId": {
+                          "t": "string"
+                        }
                       }
                     },
                     "authorUserId": {
@@ -7235,6 +7271,24 @@
                         "t": "string"
                       }
                     },
+                    "authorship": {
+                      "t": "object",
+                      "keys": {
+                        "kind": {
+                          "t": "literal",
+                          "value": "person"
+                        },
+                        "label": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "userId": {
+                          "t": "string"
+                        }
+                      }
+                    },
                     "authorUserId": {
                       "t": "string"
                     },
@@ -7354,6 +7408,24 @@
                       "t": "nullable",
                       "inner": {
                         "t": "string"
+                      }
+                    },
+                    "authorship": {
+                      "t": "object",
+                      "keys": {
+                        "kind": {
+                          "t": "literal",
+                          "value": "person"
+                        },
+                        "label": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "userId": {
+                          "t": "string"
+                        }
                       }
                     },
                     "authorUserId": {
@@ -8036,6 +8108,24 @@
                           "t": "string"
                         }
                       },
+                      "authorship": {
+                        "t": "object",
+                        "keys": {
+                          "kind": {
+                            "t": "literal",
+                            "value": "person"
+                          },
+                          "label": {
+                            "t": "nullable",
+                            "inner": {
+                              "t": "string"
+                            }
+                          },
+                          "userId": {
+                            "t": "string"
+                          }
+                        }
+                      },
                       "authorUserId": {
                         "t": "string"
                       },
@@ -8155,6 +8245,24 @@
                         "t": "nullable",
                         "inner": {
                           "t": "string"
+                        }
+                      },
+                      "authorship": {
+                        "t": "object",
+                        "keys": {
+                          "kind": {
+                            "t": "literal",
+                            "value": "person"
+                          },
+                          "label": {
+                            "t": "nullable",
+                            "inner": {
+                              "t": "string"
+                            }
+                          },
+                          "userId": {
+                            "t": "string"
+                          }
                         }
                       },
                       "authorUserId": {
@@ -10013,6 +10121,24 @@
                           "t": "string"
                         }
                       },
+                      "authorship": {
+                        "t": "object",
+                        "keys": {
+                          "kind": {
+                            "t": "literal",
+                            "value": "person"
+                          },
+                          "label": {
+                            "t": "nullable",
+                            "inner": {
+                              "t": "string"
+                            }
+                          },
+                          "userId": {
+                            "t": "string"
+                          }
+                        }
+                      },
                       "authorUserId": {
                         "t": "string"
                       },
@@ -10132,6 +10258,24 @@
                         "t": "nullable",
                         "inner": {
                           "t": "string"
+                        }
+                      },
+                      "authorship": {
+                        "t": "object",
+                        "keys": {
+                          "kind": {
+                            "t": "literal",
+                            "value": "person"
+                          },
+                          "label": {
+                            "t": "nullable",
+                            "inner": {
+                              "t": "string"
+                            }
+                          },
+                          "userId": {
+                            "t": "string"
+                          }
                         }
                       },
                       "authorUserId": {
@@ -10370,6 +10514,24 @@
                         "t": "string"
                       }
                     },
+                    "authorship": {
+                      "t": "object",
+                      "keys": {
+                        "kind": {
+                          "t": "literal",
+                          "value": "person"
+                        },
+                        "label": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "userId": {
+                          "t": "string"
+                        }
+                      }
+                    },
                     "authorUserId": {
                       "t": "string"
                     },
@@ -10489,6 +10651,24 @@
                       "t": "nullable",
                       "inner": {
                         "t": "string"
+                      }
+                    },
+                    "authorship": {
+                      "t": "object",
+                      "keys": {
+                        "kind": {
+                          "t": "literal",
+                          "value": "person"
+                        },
+                        "label": {
+                          "t": "nullable",
+                          "inner": {
+                            "t": "string"
+                          }
+                        },
+                        "userId": {
+                          "t": "string"
+                        }
                       }
                     },
                     "authorUserId": {

@@ -823,8 +823,14 @@ export function toCommsMessageDto(m: CommsMessageView) {
     messageId: m.messageId,
     threadId: m.threadId,
     seq: m.seq,
-    authorUserId: m.authorUserId,
-    authorLabel: m.authorLabel,
+    // D-009: authorship is one discriminated fact on the wire. A label alone
+    // must never be asked to imply whether this was a person, a deterministic
+    // rule, or AI-assisted output.
+    authorship: m.authorship,
+    // The v1 contract is frozen. These aliases are served from the same typed
+    // person source for existing clients; new readers must use `authorship`.
+    authorUserId: m.authorship.userId,
+    authorLabel: m.authorship.label,
     revisionNo: m.revisionNo,
     createdAt: m.createdAt,
   };

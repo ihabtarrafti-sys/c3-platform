@@ -9831,11 +9831,30 @@ paths:
                               type: string
                             seq:
                               type: integer
+                            authorship:
+                              type: object
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - person
+                                userId:
+                                  type: string
+                                label:
+                                  type: string
+                                  nullable: true
+                              required:
+                                - kind
+                                - userId
+                                - label
+                              additionalProperties: false
                             authorUserId:
                               type: string
+                              description: Deprecated v1 alias of authorship.userId.
                             authorLabel:
                               type: string
                               nullable: true
+                              description: Deprecated v1 alias of authorship.label.
                             revisionNo:
                               type: integer
                             createdAt:
@@ -9936,6 +9955,7 @@ paths:
                             - messageId
                             - threadId
                             - seq
+                            - authorship
                             - authorUserId
                             - authorLabel
                             - revisionNo
@@ -9958,11 +9978,30 @@ paths:
                               type: string
                             seq:
                               type: integer
+                            authorship:
+                              type: object
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - person
+                                userId:
+                                  type: string
+                                label:
+                                  type: string
+                                  nullable: true
+                              required:
+                                - kind
+                                - userId
+                                - label
+                              additionalProperties: false
                             authorUserId:
                               type: string
+                              description: Deprecated v1 alias of authorship.userId.
                             authorLabel:
                               type: string
                               nullable: true
+                              description: Deprecated v1 alias of authorship.label.
                             revisionNo:
                               type: integer
                             createdAt:
@@ -9990,6 +10029,7 @@ paths:
                             - messageId
                             - threadId
                             - seq
+                            - authorship
                             - authorUserId
                             - authorLabel
                             - revisionNo
@@ -10089,11 +10129,30 @@ paths:
                             type: string
                           seq:
                             type: integer
+                          authorship:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - person
+                              userId:
+                                type: string
+                              label:
+                                type: string
+                                nullable: true
+                            required:
+                              - kind
+                              - userId
+                              - label
+                            additionalProperties: false
                           authorUserId:
                             type: string
+                            description: Deprecated v1 alias of authorship.userId.
                           authorLabel:
                             type: string
                             nullable: true
+                            description: Deprecated v1 alias of authorship.label.
                           revisionNo:
                             type: integer
                           createdAt:
@@ -10194,6 +10253,7 @@ paths:
                           - messageId
                           - threadId
                           - seq
+                          - authorship
                           - authorUserId
                           - authorLabel
                           - revisionNo
@@ -10216,11 +10276,30 @@ paths:
                             type: string
                           seq:
                             type: integer
+                          authorship:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - person
+                              userId:
+                                type: string
+                              label:
+                                type: string
+                                nullable: true
+                            required:
+                              - kind
+                              - userId
+                              - label
+                            additionalProperties: false
                           authorUserId:
                             type: string
+                            description: Deprecated v1 alias of authorship.userId.
                           authorLabel:
                             type: string
                             nullable: true
+                            description: Deprecated v1 alias of authorship.label.
                           revisionNo:
                             type: integer
                           createdAt:
@@ -10248,6 +10327,7 @@ paths:
                           - messageId
                           - threadId
                           - seq
+                          - authorship
                           - authorUserId
                           - authorLabel
                           - revisionNo
@@ -11328,11 +11408,30 @@ paths:
                               type: string
                             seq:
                               type: integer
+                            authorship:
+                              type: object
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - person
+                                userId:
+                                  type: string
+                                label:
+                                  type: string
+                                  nullable: true
+                              required:
+                                - kind
+                                - userId
+                                - label
+                              additionalProperties: false
                             authorUserId:
                               type: string
+                              description: Deprecated v1 alias of authorship.userId.
                             authorLabel:
                               type: string
                               nullable: true
+                              description: Deprecated v1 alias of authorship.label.
                             revisionNo:
                               type: integer
                             createdAt:
@@ -11433,6 +11532,7 @@ paths:
                             - messageId
                             - threadId
                             - seq
+                            - authorship
                             - authorUserId
                             - authorLabel
                             - revisionNo
@@ -11455,11 +11555,30 @@ paths:
                               type: string
                             seq:
                               type: integer
+                            authorship:
+                              type: object
+                              properties:
+                                kind:
+                                  type: string
+                                  enum:
+                                    - person
+                                userId:
+                                  type: string
+                                label:
+                                  type: string
+                                  nullable: true
+                              required:
+                                - kind
+                                - userId
+                                - label
+                              additionalProperties: false
                             authorUserId:
                               type: string
+                              description: Deprecated v1 alias of authorship.userId.
                             authorLabel:
                               type: string
                               nullable: true
+                              description: Deprecated v1 alias of authorship.label.
                             revisionNo:
                               type: integer
                             createdAt:
@@ -11487,6 +11606,7 @@ paths:
                             - messageId
                             - threadId
                             - seq
+                            - authorship
                             - authorUserId
                             - authorLabel
                             - revisionNo
@@ -11629,11 +11749,30 @@ paths:
                             type: string
                           seq:
                             type: integer
+                          authorship:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - person
+                              userId:
+                                type: string
+                              label:
+                                type: string
+                                nullable: true
+                            required:
+                              - kind
+                              - userId
+                              - label
+                            additionalProperties: false
                           authorUserId:
                             type: string
+                            description: Deprecated v1 alias of authorship.userId.
                           authorLabel:
                             type: string
                             nullable: true
+                            description: Deprecated v1 alias of authorship.label.
                           revisionNo:
                             type: integer
                           createdAt:
@@ -11734,6 +11873,7 @@ paths:
                           - messageId
                           - threadId
                           - seq
+                          - authorship
                           - authorUserId
                           - authorLabel
                           - revisionNo
@@ -11756,11 +11896,30 @@ paths:
                             type: string
                           seq:
                             type: integer
+                          authorship:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - person
+                              userId:
+                                type: string
+                              label:
+                                type: string
+                                nullable: true
+                            required:
+                              - kind
+                              - userId
+                              - label
+                            additionalProperties: false
                           authorUserId:
                             type: string
+                            description: Deprecated v1 alias of authorship.userId.
                           authorLabel:
                             type: string
                             nullable: true
+                            description: Deprecated v1 alias of authorship.label.
                           revisionNo:
                             type: integer
                           createdAt:
@@ -11788,6 +11947,7 @@ paths:
                           - messageId
                           - threadId
                           - seq
+                          - authorship
                           - authorUserId
                           - authorLabel
                           - revisionNo
@@ -13943,11 +14103,30 @@ paths:
                             type: string
                           seq:
                             type: integer
+                          authorship:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - person
+                              userId:
+                                type: string
+                              label:
+                                type: string
+                                nullable: true
+                            required:
+                              - kind
+                              - userId
+                              - label
+                            additionalProperties: false
                           authorUserId:
                             type: string
+                            description: Deprecated v1 alias of authorship.userId.
                           authorLabel:
                             type: string
                             nullable: true
+                            description: Deprecated v1 alias of authorship.label.
                           revisionNo:
                             type: integer
                           createdAt:
@@ -14048,6 +14227,7 @@ paths:
                           - messageId
                           - threadId
                           - seq
+                          - authorship
                           - authorUserId
                           - authorLabel
                           - revisionNo
@@ -14070,11 +14250,30 @@ paths:
                             type: string
                           seq:
                             type: integer
+                          authorship:
+                            type: object
+                            properties:
+                              kind:
+                                type: string
+                                enum:
+                                  - person
+                              userId:
+                                type: string
+                              label:
+                                type: string
+                                nullable: true
+                            required:
+                              - kind
+                              - userId
+                              - label
+                            additionalProperties: false
                           authorUserId:
                             type: string
+                            description: Deprecated v1 alias of authorship.userId.
                           authorLabel:
                             type: string
                             nullable: true
+                            description: Deprecated v1 alias of authorship.label.
                           revisionNo:
                             type: integer
                           createdAt:
@@ -14102,6 +14301,7 @@ paths:
                           - messageId
                           - threadId
                           - seq
+                          - authorship
                           - authorUserId
                           - authorLabel
                           - revisionNo

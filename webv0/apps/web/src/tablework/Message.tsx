@@ -11,16 +11,7 @@ import { Link } from 'react-router-dom';
 import type { CommsMessageAttachmentDto, CommsMessageDto, CommsMessageLinkDto } from '@c3web/api-contracts';
 import { api } from '../apiClient';
 import { ApiError } from '../api';
-
-export function initialsOf(label: string | null): string {
-  if (!label) return '·';
-  return label
-    .split(/\s+/)
-    .map((part) => part[0] ?? '')
-    .join('')
-    .slice(0, 2)
-    .toUpperCase();
-}
+import { AuthorshipMark } from './AuthorshipMark';
 
 /** target type → the record's real route; null = an identity chip (no route). */
 function linkHref(link: CommsMessageLinkDto): string | null {
@@ -155,18 +146,18 @@ export function Message({ message, supersededBy }: { message: CommsMessageDto; s
     <article
       className={`message-group${isDecision ? ' decision-record' : ''}`}
       data-tablework="Message"
+      data-authorship={message.authorship.kind}
       data-message-kind={message.recalled ? 'recalled' : message.messageKind}
       id={`msg-${message.messageId}`}
     >
-      <span className="avatar-dot actor-avatar" aria-hidden="true">
-        {initialsOf(message.authorLabel)}
-      </span>
       <div className="message-copy">
         <header>
-          <strong>{message.authorLabel ?? 'Member'}</strong>
-          <time dateTime={message.createdAt}>{hhmm}</time>
-          {isDecision ? <span className="state-label info">Decision · {message.messageId}</span> : null}
-          {supersededBy ? <span className="state-label warning" data-superseded-by={supersededBy}>Superseded by {supersededBy}</span> : null}
+          <AuthorshipMark authorship={message.authorship} compact />
+          <span className="message-header-meta">
+            <time dateTime={message.createdAt}>{hhmm}</time>
+            {isDecision ? <span className="state-label info">Decision · {message.messageId}</span> : null}
+            {supersededBy ? <span className="state-label warning" data-superseded-by={supersededBy}>Superseded by {supersededBy}</span> : null}
+          </span>
         </header>
         {message.recalled ? (
           /* Block 6 (R2-02 item 5): the PLACEHOLDER. The wire's recalled arm

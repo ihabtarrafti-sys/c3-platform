@@ -14,6 +14,7 @@
  */
 
 import { z } from 'zod';
+import type { PersonRecordAuthorship } from './authorship';
 
 /** The module key of the Comms license row (tenant_module_entitlement). */
 export const COMMS_MODULE_KEY = 'comms';
@@ -169,8 +170,7 @@ export type CommsMessageView =
       readonly messageId: string;
       readonly threadId: string;
       readonly seq: number;
-      readonly authorUserId: string;
-      readonly authorLabel: string | null;
+      readonly authorship: PersonRecordAuthorship;
       readonly body: string;
       readonly revisionNo: number;
       readonly links: CommsMessageLink[];
@@ -187,8 +187,7 @@ export type CommsMessageView =
       readonly messageId: string;
       readonly threadId: string;
       readonly seq: number;
-      readonly authorUserId: string;
-      readonly authorLabel: string | null;
+      readonly authorship: PersonRecordAuthorship;
       readonly revisionNo: number;
       readonly createdAt: string;
     };
