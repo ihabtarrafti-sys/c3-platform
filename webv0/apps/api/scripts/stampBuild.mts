@@ -139,14 +139,31 @@ const token = tokenForCommit(head);
  * **Absence in the documentation is not absence in the tool; the tool's own
  * `--help` was the authority for both claims.**
  */
+/**
+ * ⛔ THE CEREMONY PRINTS THE RUNNABLE FORM, NOT THE IDIOMATIC ONE.
+ *
+ * It previously printed bare `railway …`, which assumes a GLOBAL install. The
+ * owner hit `The term 'railway' is not recognized` mid-deploy — **the ceremony
+ * emitted instructions the operator could not run.** The deploy-witness record
+ * already used the `npx` form; this text simply had not followed it.
+ *
+ * ⚖️ Same defect as the `--set` syntax it corrected two days earlier: **asserting
+ * something about the tool environment instead of checking it.** A ceremony is
+ * followed under pressure, so a command that does not run is worse than no
+ * command — it costs the reader the trust that the rest of the steps are right.
+ */
+const RAILWAY = 'npx --yes @railway/cli@latest';
+
 console.log(
   `\n[stamp] token ${token}   (commit ${head.slice(0, 12)}, tree clean)\n` +
     '\nCeremony — run these in order, from webv0/:\n' +
     '\n  1. Record the deployment that is running NOW (the "before" half of the witness):\n' +
-    '       railway status --json\n' +
+    `       ${RAILWAY} status --json\n` +
     '     …and keep its deployment id.\n' +
+    '     (If it asks you to authenticate or link, `login` then `link` to the project\n' +
+    '      and the c3-api service — a fresh clone carries no link.)\n' +
     '\n  2. Set the token on the service — ⛔ WITH `--skip-deploys`, WHICH IS NOT OPTIONAL:\n' +
-    `       railway variable set C3_BUILD_TOKEN=${token} --skip-deploys\n` +
+    `       ${RAILWAY} variable set C3_BUILD_TOKEN=${token} --skip-deploys\n` +
     '     (`variable set` is current; `--set` still works but the CLI labels it legacy.)\n' +
     '\n     ⚖️ `--skip-deploys` IS LOAD-BEARING FOR THE WITNESS, NOT CONVENIENCE. A variable\n' +
     '     change redeploys the service. Without the flag that restart moves the deploymentId\n' +
@@ -154,7 +171,7 @@ console.log(
     '     spent, and step 4 would see a moved id even if `railway up` FAILED. With it there is\n' +
     '     exactly ONE deploy, and the id moving means exactly one thing.\n' +
     '\n  3. Ship the working directory — from webv0/, never a subdirectory:\n' +
-    '       railway up\n' +
+    `       ${RAILWAY} up\n` +
     '\n  4. Verify BOTH halves — identity and freshness:\n' +
     `       tsx apps/api/scripts/verifyVersion.mts https://api.c3hq.org ${head} <before-deployment-id>\n` +
     '\n  A token that matches while the deployment id has NOT moved means step 2 restarted\n' +
