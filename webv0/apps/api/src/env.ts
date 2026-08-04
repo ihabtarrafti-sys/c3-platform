@@ -41,6 +41,9 @@ const rawSchema = z.object({
   ENTRA_JWKS_URI: z.string().optional(),
   ENTRA_AUDIENCE: z.string().optional(),
   ENTRA_SCOPE: z.string().default('C3.Access'),
+  // D-015/D-019: the platform surface's audience — a DISTINCT app registration
+  // in the same directory. Setting it is what turns the platform routes on.
+  PLATFORM_ENTRA_AUDIENCE: z.string().optional(),
 
   // S4 documents: private R2 (S3-compatible). All four together, or none —
   // dev/test falls back to a local filesystem driver; production REQUIRES R2.
@@ -98,6 +101,14 @@ export type Env = {
   entra:
     | { issuer: string; audience: string; jwksUri: string; tenantId: string; scope: string; clientId?: string }
     | undefined;
+  /**
+   * D-015/D-019: the PLATFORM surface — a distinct app registration in the SAME
+   * Entra directory, so it shares issuer/JWKS/tenant and differs ONLY in
+   * audience. Undefined = no platform surface is served (the routes are not
+   * registered at all). Never configurable under the dev provider: platform
+   * authority rides the Entra trust root or does not exist.
+   */
+  platformEntra: { issuer: string; audience: string; jwksUri: string; tenantId: string } | undefined;
   documents:
     | { driver: 'r2'; endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string }
     | { driver: 'fs'; dir: string };
@@ -191,6 +202,24 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     }
   }
 
+  // ── D-015/D-019: the platform surface (admission for platform principals) ──
+  let platformEntra: Env['platformEntra'];
+  if (e.PLATFORM_ENTRA_AUDIENCE) {
+    if (e.AUTH_PROVIDER !== 'entra' || !entra) {
+      // Platform authority rides the Entra trust root or does not exist. A dev
+      // platform door would be a second admission path with weaker keys — the
+      // exact shape D-016a forbids arriving quietly.
+      throw new Error('PLATFORM_ENTRA_AUDIENCE requires AUTH_PROVIDER=entra — the platform surface has no dev mode.');
+    }
+    if (e.PLATFORM_ENTRA_AUDIENCE === entra.audience) {
+      // ⛔ THE AUDIENCE IS THE LOCK. Identical audiences collapse the two doors
+      // into one: every tenant token would carry platform reach and vice versa,
+      // which is the precise separation D-019 exists to create.
+      throw new Error('PLATFORM_ENTRA_AUDIENCE must DIFFER from ENTRA_AUDIENCE — the audience is what separates the two surfaces.');
+    }
+    platformEntra = { issuer: entra.issuer, audience: e.PLATFORM_ENTRA_AUDIENCE, jwksUri: entra.jwksUri, tenantId: entra.tenantId };
+  }
+
   // ── S4 documents storage: all-or-none R2 config; production fails closed. ──
   const r2Given = [e.R2_ENDPOINT, e.R2_ACCESS_KEY_ID, e.R2_SECRET_ACCESS_KEY, e.R2_BUCKET_DOCUMENTS].filter(Boolean).length;
   if (r2Given > 0 && r2Given < 4) {
@@ -233,6 +262,7 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     authProvider: e.AUTH_PROVIDER,
     devAuthSecret: e.DEV_AUTH_SECRET,
     entra,
+    platformEntra,
     documents,
     smtp,
     backupStatus,

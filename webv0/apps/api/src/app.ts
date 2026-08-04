@@ -238,7 +238,8 @@ import {
 // (withdrawApproval imported with the application use-cases below)
 import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, createCommsObligationInputSchema, commsObligationTransitionInputSchema, advanceCommsCursorInputSchema, setCommsPrefsInputSchema, type PostCommsMessageInput, type CreateCommsObligationInput, type CommsObligationTransitionInput, type AdvanceCommsCursorInput, type SetCommsPrefsInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
-import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageDelegations, assertManageEntities } from '@c3web/authz';
+import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageEntities, type PlatformPrincipal } from '@c3web/authz';
+import { mayExercise, recordPlatformOperation } from './platformOperations';
 import { buildInvoicePdf } from './invoicePdf';
 import {
   approveApproval,
@@ -642,6 +643,38 @@ export function buildApp(deps: Deps): FastifyInstance {
     if (!header || !header.startsWith('Bearer ')) {
       return sendError(req, reply, 401, 'UNAUTHENTICATED', 'A bearer token is required.');
     }
+
+    /*
+     * ⛳ D-015/D-019 — THE PLATFORM DOOR, TRIED FIRST AND FAILING SOFT.
+     *
+     * A platform token cannot satisfy the tenant validator (different audience)
+     * and a tenant token cannot satisfy this one — the audiences are the lock,
+     * and `env.ts` refuses to start if they are equal. So this attempts platform
+     * admission and, on ANY failure, falls through to the tenant path unchanged.
+     *
+     * ⛔ Falling through is safe precisely because it grants nothing: a failed
+     * platform admission leaves `platformPrincipal` null, and null confers no
+     * capability (`D-016a`). The tenant path then refuses or admits on its own
+     * terms exactly as before. **This hook can only ADD authority to a request
+     * that already presented a valid platform token — it can never rescue one
+     * the tenant validator would have rejected.**
+     */
+    if (deps.platformAdmission) {
+      try {
+        const platformPrincipal = await deps.platformAdmission.admit(header.slice('Bearer '.length));
+        if (platformPrincipal) {
+          (req as unknown as { platformPrincipal?: PlatformPrincipal | null }).platformPrincipal = platformPrincipal;
+          // A platform principal has no tenant and therefore no Actor. Platform
+          // routes read the principal; every tenant route still requires an
+          // actor and will refuse below.
+          return;
+        }
+      } catch {
+        // Not a platform token (or not admissible as one) — the tenant path is
+        // authoritative for everything else and reports its own refusal.
+      }
+    }
+
     try {
       const principal = await deps.authAdapter.authenticate(header.slice('Bearer '.length));
       req.principal = principal;
@@ -727,6 +760,16 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   const r = app.withTypeProvider<ZodTypeProvider>();
   const P = deps.persistence;
   const actorOf = (req: FastifyRequest) => req.actor!;
+  /**
+   * D-015: the PLATFORM principal, if this request carried one.
+   *
+   * ⛔ `null` when absent, and null grants nothing — admission is the presence
+   * of a registration (`D-016a`), never the absence of a tenant. The platform
+   * preValidation hook is the only thing that ever sets it, and it only runs
+   * when a platform surface is configured.
+   */
+  const platformPrincipalOf = (req: FastifyRequest): PlatformPrincipal | null =>
+    (req as unknown as { platformPrincipal?: PlatformPrincipal | null }).platformPrincipal ?? null;
   // HARDEN-3.5 A: the request's deadline signal — threaded into EVERY byte-producing operation.
   const deadlineOf = (req: FastifyRequest): AbortSignal | undefined =>
     (req as unknown as { deadlineSignal?: AbortSignal }).deadlineSignal;
@@ -2642,8 +2685,19 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
    */
   // ── backup status (Tier 0.5): the Settings tile's one honest question ──────
   r.get('/api/v1/settings/backup-status', { schema: { response: { 200: backupStatusSchema } } }, async (req) => {
-    assertManageDelegations(actorOf(req)); // owner-only, same standing as delegations
-    return deps.backupStatus();
+    // D-015 REATTRIBUTED. Platform capability OR — transitionally, until the
+    // platform path is certified — tenant-owner standing. The OR is deliberate
+    // (clause 3) and its removal is one named predicate in platformOperations.ts.
+    const principal = platformPrincipalOf(req);
+    if (!mayExercise({ principal, actor: actorOf(req) }, 'platform.backup_status.read')) {
+      throw new ForbiddenError('Platform authority is required to read backup status.', {});
+    }
+    const view = await deps.backupStatus();
+    await recordPlatformOperation(deps.persistence.pool, principal, 'platform.backup_status.read', {
+      configured: view.configured,
+      healthy: view.healthy,
+    });
+    return view;
   });
 
   // ⛔ ALSO ARMED BY THE SECOND TENANT — see the block above `backup-status`.
@@ -2672,11 +2726,25 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
       },
     },
     async (req) => {
-      const actor = actorOf(req);
-      if (actor.role !== 'owner') {
-        throw new ForbiddenError('Only an owner may invoke the post-finalize erasure janitor.', { role: actor.role });
+      // D-015 REATTRIBUTED — and the trigger follows the caller, which is what
+      // migration 0103 existed to make possible: a platform-principal sweep is
+      // recorded as `platform_operator`, a transitional owner sweep as `owner`.
+      // The audit row now names WHICH KIND of authority ran it, not merely that
+      // someone with standing did.
+      const principal = platformPrincipalOf(req);
+      if (!mayExercise({ principal, actor: actorOf(req) }, 'platform.erasure_janitor.execute')) {
+        throw new ForbiddenError('Platform authority is required to invoke the post-finalize erasure janitor.', {});
       }
-      return deps.erasureJanitor.run('owner');
+      const result = await deps.erasureJanitor.run(principal ? 'platform_operator' : 'owner');
+      // ⛔ AWAITED, and its failure propagates: for a destructive platform sweep
+      // the record is half the authorisation. An operation that cannot be
+      // attributed must not be reported as having succeeded.
+      await recordPlatformOperation(deps.persistence.pool, principal, 'platform.erasure_janitor.execute', {
+        recordsSeen: result.recordsSeen,
+        recordsSwept: result.recordsSwept,
+        incomplete: result.incomplete,
+      });
+      return result;
     },
   );
 

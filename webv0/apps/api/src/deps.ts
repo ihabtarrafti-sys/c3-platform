@@ -11,6 +11,7 @@ import type { AuthAdapter } from './auth/types';
 import { createDevAuthAdapter } from './auth/devIdp';
 import { createEntraAuthAdapter } from './auth/entra';
 import { createAdminDirectory, type AdminDirectory } from './auth/directory';
+import { createPlatformAdmission, type PlatformAdmission } from './auth/platformEntra';
 import { createDocumentStorage, type DocumentStorage } from './storage';
 import { createMailer, type Mailer } from './mailer';
 import { createBackupStatusReader, type BackupStatusView } from './backupStatus';
@@ -22,6 +23,14 @@ export interface Deps {
   env: Env;
   persistence: PersistenceHandle;
   authAdapter: AuthAdapter;
+  /**
+   * D-015/D-019: the PLATFORM door. Undefined = no platform surface is served,
+   * and the routes then fall back to the transitional tenant-owner arm only.
+   * Configured solely by `PLATFORM_ENTRA_AUDIENCE`, which env validation refuses
+   * to accept without `AUTH_PROVIDER=entra` and refuses to let equal the tenant
+   * audience — the audience IS the separation between the two surfaces.
+   */
+  platformAdmission?: PlatformAdmission;
   directory?: AdminDirectory;
   documentStorage: DocumentStorage;
   /** Track B: FX auto-fetch source (keyless HTTP by default; stubbed in tests). */
@@ -179,10 +188,16 @@ export function buildDeps(env: Env, logger: Logger): Deps {
     authAdapter = createEntraAuthAdapter(env.entra!, directory);
   }
 
+  // D-015/D-019: the platform door is served only when its own audience is
+  // configured, and only the directory can admit (a row is required).
+  const platformAdmission =
+    env.platformEntra && directory ? createPlatformAdmission(env.platformEntra, directory) : undefined;
+
   return {
     env,
     persistence,
     authAdapter,
+    platformAdmission,
     directory,
     buildStamp,
     runtimeIdentity,

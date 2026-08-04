@@ -57,6 +57,13 @@ const EXEMPT: Record<string, string> = {
   // above — an exemption is a decision, and this one is being recorded as such
   // rather than added to make a gate green.
   platform_principal: 'platform plane: authority that is not tenant membership; guarded by grants, not RLS',
+  // D-015 reattribution (0105). Same reasoning as the registry above: a platform
+  // OPERATION has no tenant, so an RLS predicate could only be `true`. The
+  // protection is again the grant — c3_app holds INSERT and nothing else, so the
+  // app principal cannot read the history of who exercised platform authority.
+  // ⛳ c3_backup KEEPS its SELECT deliberately: the accountability record is
+  // exactly what must survive a restore.
+  platform_operation: 'platform plane: append-only operation record; INSERT-only for c3_app, no tenant to scope',
 };
 
 describe('the exemptions must be able to notice their own premise expiring', () => {
@@ -74,22 +81,25 @@ describe('the exemptions must be able to notice their own premise expiring', () 
    * So the premise is asserted rather than remembered. If this fails, the right
    * response is to re-open the classification, never to widen the pattern.
    */
-  it('⛔ platform_principal still has NO tenant-shaped column', async () => {
+  it.each(['platform_principal', 'platform_operation'])('⛔ %s still has NO tenant-shaped column', async (table) => {
     const columns = await db.adminQuery<{ column_name: string }>(
       `SELECT column_name FROM information_schema.columns
-        WHERE table_schema = 'public' AND table_name = 'platform_principal'
+        WHERE table_schema = 'public' AND table_name = $1
         ORDER BY column_name`,
+      [table],
     );
 
     // POSITIVE CONTROL: an empty result would satisfy the assertion below while
     // proving nothing — a dropped or renamed table must fail loudly here.
-    expect(columns.length, 'the table must exist for its exemption to mean anything').toBeGreaterThan(0);
+    expect(columns.length, `${table} must exist for its exemption to mean anything`).toBeGreaterThan(0);
+    // Both tables carry the answerable human, so this is a real shape check on
+    // each rather than a column that happens to exist on one of them.
     expect(columns.map((c) => c.column_name)).toContain('accountable_owner');
 
     const tenantShaped = columns.map((c) => c.column_name).filter((name) => /tenant/i.test(name));
     expect(
       tenantShaped,
-      'platform_principal gained a tenant column — its RLS exemption is no longer justified, RE-OPEN the classification',
+      `${table} gained a tenant column — its RLS exemption is no longer justified, RE-OPEN the classification`,
     ).toEqual([]);
   });
 });
