@@ -34,6 +34,119 @@ export function ApprovalDetailPage() {
   );
 }
 
+type SeatingApprovalReceiptProps = {
+  operationType: ApprovalDto['operationType'];
+  status: ApprovalDto['status'];
+  requestedRole: string | null;
+  canReadMembers: boolean;
+};
+
+/**
+ * D-022: the admitting person's seating receipt. This names only what THIS
+ * ProvisionMember request has proved. In particular, Executed proves that the
+ * request created a seat at that moment; current access is a separate truth
+ * held by the Members register. The requested role survives the API's
+ * member-directory projection, but no identity is recovered from top-level
+ * approval metadata when the projected payload withholds it.
+ */
+export function SeatingApprovalReceipt({
+  operationType,
+  status,
+  requestedRole,
+  canReadMembers,
+}: SeatingApprovalReceiptProps) {
+  if (operationType !== 'ProvisionMember') return null;
+
+  const role = requestedRole?.trim() ? `${requestedRole.trim()} ` : '';
+  const state =
+    status === 'Submitted'
+      ? {
+          stage: 'Request recorded',
+          mark: '1',
+          title: 'Seat request submitted',
+          detail: `This request asks for a ${role}seat. It has not created a seat; review and execution are still required.`,
+        }
+      : status === 'InReview'
+        ? {
+            stage: 'Review underway',
+            mark: '2',
+            title: 'Seat request in review',
+            detail: 'This request is being reviewed. It has not created a seat; a decision and execution are still required.',
+          }
+        : status === 'Approved'
+          ? {
+              stage: 'Decision recorded',
+              mark: '3',
+              title: 'Approved — not yet seated',
+              detail: 'Approval records the decision. This request has not executed, so it has not created a seat.',
+            }
+          : status === 'Executed'
+            ? {
+                stage: 'Execution recorded',
+                mark: '✓',
+                title: 'Seat created by this request',
+                detail: `Execution proves this request created the requested ${role}seat. It does not prove that access remains active.`,
+              }
+            : status === 'Rejected'
+              ? {
+                  stage: 'Request refused',
+                  mark: '×',
+                  title: 'Seat request rejected',
+                  detail: 'This request ended at review and was never executed. It did not create a seat.',
+                }
+              : status === 'Withdrawn'
+                ? {
+                    stage: 'Request withdrawn',
+                    mark: '—',
+                    title: 'Seat request withdrawn',
+                    detail: 'This request was withdrawn before execution. It did not create a seat.',
+                  }
+                : {
+                    stage: 'Execution attempt failed',
+                    mark: '!',
+                    title: 'Execution failed',
+                    detail: 'Execution did not complete. This request has not created a seat; an authorized owner may retry it.',
+                  };
+
+  const currentStanding = canReadMembers ? (
+    <RecordLink to="/members" data-testid="seating-current-standing-link">
+      Check current standing in Members →
+    </RecordLink>
+  ) : (
+    <>Current standing belongs to the Members register and is not asserted here.</>
+  );
+
+  if (status === 'Executed') {
+    return (
+      <section className="receipt seating-receipt seating-receipt--executed" data-testid="seating-approval-receipt" aria-label="Seating request receipt" data-seating-status={status}>
+        <span className="receipt-mark" aria-hidden="true">✓</span>
+        <div>
+          <h2>{state.title}</h2>
+          <p>{state.detail}</p>
+          <p>{currentStanding}</p>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section
+      className="consequence seating-receipt"
+      data-testid="seating-approval-receipt"
+      aria-label="Seating request receipt"
+      data-seating-status={status}
+    >
+      <span className="seating-receipt__mark" aria-hidden="true">{state.mark}</span>
+      <div className="seating-receipt__body">
+        <small>Seating relay · {state.stage}</small>
+        <h2>{state.title}</h2>
+        <p>{state.detail}</p>
+        <p>{currentStanding}</p>
+      </div>
+    </section>
+  );
+}
+
 function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
   const { me } = useSession();
   const { notify } = useNotify();
@@ -53,6 +166,10 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
         qc.invalidateQueries({ queryKey: ['approvalEvents', approvalId] }),
         qc.invalidateQueries({ queryKey: ['approvals'] }),
         qc.invalidateQueries({ queryKey: ['people'] }),
+        // Member-changing approvals make the Members register the current-
+        // standing witness. Invalidate it with the approval transition so an
+        // executed seating receipt cannot lead into a cached pre-seat view.
+        qc.invalidateQueries({ queryKey: ['members'] }),
       ]);
     } catch (err) {
       notify('error', err instanceof ApiError ? err.message : 'Action failed.');
@@ -288,6 +405,13 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
             <FactList items={items.filter((item) => item.label !== 'Status')} />
             <ProposedChange payload={payload!} />
 
+            <SeatingApprovalReceipt
+              operationType={a.operationType}
+              status={a.status}
+              requestedRole={payload?.operationType === 'ProvisionMember' ? payload.input.role : null}
+              canReadMembers={me?.capabilities.canReadMembers ?? false}
+            />
+
             {isOwnRequest && canReview && (
               <p className="record-quiet" data-testid="own-request-note">
                 You submitted this request. Separation of duties requires someone other than the submitter to review and
@@ -431,7 +555,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
               </section>
             )}
 
-            {a.status === 'Executed' && (
+            {a.status === 'Executed' && a.operationType !== 'ProvisionMember' && (
               <section className="receipt">
                 <span className="receipt-mark" aria-hidden="true">✓</span>
                 <div>

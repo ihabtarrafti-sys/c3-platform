@@ -12,7 +12,7 @@ import '../theme/front-door.css';
  * The Gather artwork is the approved brand asset, vendored byte-identical
  * from c3-brand — never redrawn, recolored, or morphed.
  */
-export function AuthScreen({ children }: { children: ReactNode }) {
+export function AuthScreen({ children, label = 'Sign in' }: { children: ReactNode; label?: string }) {
   return (
     <div className="front-door-screen">
       <div className="fd-ambient" aria-hidden="true">
@@ -74,7 +74,7 @@ export function AuthScreen({ children }: { children: ReactNode }) {
           </div>
         </div>
 
-        <section className="fd-panel" aria-label="Sign in">
+        <section className="fd-panel" aria-label={label}>
           {children}
           <p className="fd-help">
             Need help? <a href="mailto:team@c3hq.org">team@c3hq.org</a>

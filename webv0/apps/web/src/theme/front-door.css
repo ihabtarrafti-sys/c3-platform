@@ -290,12 +290,15 @@ img.fd-welcome-mark__image--light {
 }
 
 .fd-h1:focus-visible {
-  outline: none;
+  outline: 2px solid var(--c3-action-focus);
+  outline-offset: var(--c3-space-2);
+  border-radius: var(--c3-radius-xs);
 }
 
 .fd-support {
   margin: 0;
   max-width: 440px;
+  overflow-wrap: anywhere;
   color: var(--c3-ink-muted);
   font-size: var(--c3-font-size-body);
   line-height: var(--c3-line-height-comfortable);
@@ -303,6 +306,7 @@ img.fd-welcome-mark__image--light {
 
 .fd-note {
   margin: 0;
+  overflow-wrap: anywhere;
   color: var(--c3-ink-quiet);
   font-size: var(--c3-font-size-caption);
 }
@@ -346,10 +350,16 @@ img.fd-welcome-mark__image--light {
   background: var(--c3-action-primary);
 }
 
-.fd-action--primary:hover {
+.fd-action--primary:not(:disabled):hover {
   border-color: var(--c3-action-primary-hover);
   background: var(--c3-action-primary-hover);
   transform: translateY(calc(var(--c3-space-1) * -1));
+}
+
+.fd-action:disabled {
+  cursor: progress;
+  opacity: 0.62;
+  transform: none;
 }
 
 .fd-action--quiet {
@@ -439,6 +449,42 @@ img.fd-welcome-mark__image--light {
   color: var(--c3-accent-coral);
   font-size: var(--c3-font-size-lead);
   line-height: 1;
+}
+
+.fd-symbol__question {
+  position: absolute;
+  right: 16%;
+  bottom: 9%;
+  width: var(--c3-space-6);
+  height: var(--c3-space-6);
+  display: grid;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-accent-amber);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-bold);
+  line-height: 1;
+  background: var(--c3-surface-base);
+}
+
+.fd-symbol__door--left {
+  inset: 8% 51% 8% 6%;
+}
+
+.fd-symbol__door--right {
+  inset: 8% 6% 8% 51%;
+}
+
+.fd-symbol__fork {
+  position: absolute;
+  top: 42%;
+  left: calc(50% - var(--c3-space-1));
+  width: var(--c3-space-2);
+  height: var(--c3-space-2);
+  border: 2px solid var(--c3-accent-amber);
+  transform: rotate(45deg);
+  background: var(--c3-surface-base);
 }
 
 .fd-symbol__keyline {

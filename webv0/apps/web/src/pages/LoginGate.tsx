@@ -69,8 +69,10 @@ export function LoginGate({ intendedPath }: { intendedPath?: string }) {
   return (
     <AuthScreen>
       <p className="fd-eyebrow">Sign in</p>
-      <h1 className="fd-h1">Come in. Your place is ready.</h1>
-      <p className="fd-support">Development identity provider (dev IdP). Production uses Microsoft Entra.</p>
+      <h1 className="fd-h1">Sign in to find your place.</h1>
+      <p className="fd-support">
+        The development identity provider verifies this account. C3 checks its membership after sign-in.
+      </p>
       <div className="fd-slot tw-root tw-embedded">
         <Field label="Email">
           <Input value={email} onChange={(e) => setEmail(e.target.value)} data-testid="login-email" />
@@ -90,6 +92,7 @@ export function LoginGate({ intendedPath }: { intendedPath?: string }) {
           {busy ? 'Signing in...' : 'Sign in'}
         </button>
       </div>
+      <p className="fd-note">Signing in does not create C3 access. Membership is confirmed separately.</p>
     </AuthScreen>
   );
 }
