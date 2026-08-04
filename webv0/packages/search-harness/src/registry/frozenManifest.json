@@ -808,7 +808,7 @@
     "packages/authz/src#tree": "20fa063ee789c387af047d1f9fec2e68480918da41c22b87ac6c99ba741a446d",
     "packages/domain/src#tree": "b12a03f398f80143eacbcc509c5fe7b286052682e3ab23424a0d1dd6a41a8694",
     "packages/application/src#tree": "5a299f04b946a431124248df7f164b7a9c8317f3e6bd3d207250e55a4a5adfa4",
-    "packages/persistence/src#tree": "01052947c70579055883710739e86613c370c2f0f2e4fe5330f31c637bad8d9c",
+    "packages/persistence/src#tree": "2b3fc0cbcfedc476a25904004ac50c893a9925c8fb4d1472ad6aa17e9b769e2c",
     "packages/persistence/migrations#tree": "27284479ae3a7a6afa561eb2fe185df3a0ddc0e87d3664f3038ea7e9d77dcf58",
     "packages/api-contracts/src#tree": "b830e462b08d4e0ae9fff7c64e9d737e836e15480fc1fab39d20e07a4dea1e70",
     "packages/search-harness#enforcement-tree": "5a812b83c63a1279a1d78bce1aa0aa9002d5c1368b071951467b6773d3b4177f",
