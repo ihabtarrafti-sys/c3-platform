@@ -32,9 +32,40 @@ Review the report: active members must be 0; sole vs shared user split correct; 
 C3_EXIT_SECOND_CONFIRM=<slug> npm run exit:tenant -- \
   --tenant-slug <slug> --execute --confirm <slug> --manifest <dir>/manifest.json
 ```
-What it does, in ONE transaction: disable the two append-only triggers (`audit_event`, `approval_event`) → tenant-scoped deletes in FK-safe order → sole-tenant users + their identity bindings erased (shared users preserved) → triggers re-enabled → **in-transaction zero-row post-checks** → commit. Any failure rolls back everything including trigger state — no partial erasure is possible.
 
-**3. File the printed reconciliation report** in the exit register (the record *of* the erasure is retained; it contains counts, not content). Note the backup-residual horizon: encrypted backups keep the data until lifecycle expiry (max 180 days), and **any post-exit restore must re-apply this erasure** before serving traffic.
+What actually happens is **three phases plus a separate finalize — deliberately NOT
+one transaction** (CR-022: an earlier version of this page said "ONE transaction",
+which was false, and false in the *reassuring* direction — the real design is safer
+than the prose was):
+
+- **Phase 0 (its own committed transaction):** the tenant is marked `Exiting` and
+  every intake link is revoked, *then* commit. From this moment no new upload can
+  start and no new lease can be acquired. **A crash after this point leaves a
+  resumable state, not a partial erasure** — re-running execute on an `Exiting`
+  tenant is a no-op re-entry, which is exactly what "ONE transaction" could not
+  have given you: a single transaction that died would have to start over from a
+  tenant that still looked live.
+- **Data phase (the big transaction):** in-flight upload leases drained to zero →
+  append-only triggers (`audit_event`, `approval_event`) disabled → tenant-scoped
+  deletes in FK-safe order → sole-tenant users + identity bindings erased (shared
+  users preserved) → triggers re-enabled → **in-transaction zero-row post-checks**
+  → commit. Any failure rolls back this phase including trigger state. The tenant
+  ROW survives this phase — identity is held for finalize.
+- **Blob phase (after commit):** object-store prefixes deleted and re-listed to
+  zero. Storage deletes cannot ride a database transaction, which is one more
+  reason the one-transaction sentence could never have been true.
+
+**3. Finalize — the explicit point of no return.** The data-phase output prints the
+tenant uuid; finalizing is its own invocation, with the same dual authorization:
+```
+C3_EXIT_SECOND_CONFIRM=<slug> npm run exit:tenant -- --finalize <tenant-uuid> --confirm <slug>
+```
+This removes the tenant row itself and registers the permanent erasure authority
+(`erased_tenant_prefix`) that the post-finalize janitor sweeps forever after.
+**Until finalize runs, the exit is resumable; after it, the tenant's identity is
+gone and only the janitor's opaque prefixes remain.**
+
+**4. File the printed reconciliation report** in the exit register (the record *of* the erasure is retained; it contains counts, not content). Note the backup-residual horizon: encrypted backups keep the data until lifecycle expiry (max 180 days), and **any post-exit restore must re-apply this erasure** before serving traffic.
 
 ## Refusal conditions (all fail closed, nothing changes)
 

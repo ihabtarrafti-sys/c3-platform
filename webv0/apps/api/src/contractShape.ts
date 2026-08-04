@@ -172,7 +172,17 @@ function subsumes(committed: Shape, generated: Shape): boolean {
   switch (committed.t) {
     case 'object': {
       const g = (generated as Extract<Shape, { t: 'object' }>).keys;
-      return Object.entries(committed.keys).every(([k, v]) => k in g && subsumes(v, g[k]!));
+      return Object.entries(committed.keys).every(([k, v]) => {
+        if (!(k in g)) return false;
+        // ⛔ CR-023. Requiredness is part of the served contract, and this
+        // comparison ignored it — so `required → optional` classified as
+        // ADDITIVE. A v1 client written against "this field is always present"
+        // breaks the day the server first omits it, which is a retype in
+        // everything but name. The reverse (optional → required) stays legal:
+        // a client that tolerated absence is not broken by presence.
+        if (!v.optional && g[k]!.optional) return false;
+        return subsumes(v, g[k]!);
+      });
     }
     case 'array':
       return subsumes(committed.item, (generated as Extract<Shape, { t: 'array' }>).item);

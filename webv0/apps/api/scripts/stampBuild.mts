@@ -57,6 +57,57 @@ if (dirty) {
   process.exit(1);
 }
 
+/*
+ * ⛔ LAW 31 — THE COMMIT MUST BE ON THE SHARED REMOTE BEFORE IT IS STAMPED.
+ *
+ * Measured 2026-08-04: the deploy chain shipped a security boundary
+ * (`platformEntra.ts`) straight from this machine into production while GitHub
+ * sat two commits behind. Two consequences, and the second is the sharp one:
+ * the deployed code had NO off-machine copy, and **the build token stopped
+ * verifying against the shared repository** — a clean clone computed a
+ * different expected token than production served, so the verifier would refuse
+ * a CORRECT deploy, misleadingly. *An identity proof is only as shared as the
+ * repository it is computed from.*
+ *
+ * ⚖️ Instance 52 with the polarity reversed: there, the deploy did not happen
+ * and the record said it did; here, the deploy happened correctly and the
+ * shared record could not see it. In both, the artifact and the evidence lived
+ * in different places.
+ *
+ * ⇒ The push is enforced HERE rather than written as a ceremony step, for the
+ * same reason the dirty-tree check is: a step in prose is a step that gets
+ * skipped under pressure, and this tool exists to make the token trustworthy.
+ */
+try {
+  execFileSync('git', ['fetch', 'origin'], { encoding: 'utf8', stdio: 'pipe' });
+} catch (err) {
+  console.error(
+    `[stamp] REFUSING: cannot reach the shared remote (git fetch failed: ${(err as Error).message}).\n` +
+      '  Without the remote there is no way to prove this commit is SHARED, and a token\n' +
+      '  computed from an unshared commit verifies against a repository nobody else has.',
+  );
+  process.exit(1);
+}
+const onRemote = (() => {
+  try {
+    // Exit 0 iff HEAD is an ancestor of (or equal to) origin/master.
+    execFileSync('git', ['merge-base', '--is-ancestor', head, 'origin/master'], { stdio: 'pipe' });
+    return true;
+  } catch {
+    return false;
+  }
+})();
+if (!onRemote) {
+  console.error(
+    `[stamp] REFUSING: HEAD (${head.slice(0, 12)}) is NOT on origin/master.\n` +
+      '  Push first — `git push origin master` — then re-stamp. A token cut from an\n' +
+      '  unpushed commit verifies only against THIS machine: production would serve a\n' +
+      '  token no clean clone can reproduce, and the deployed code would have no\n' +
+      '  off-machine copy. Both happened on 2026-08-04.',
+  );
+  process.exit(1);
+}
+
 const token = tokenForCommit(head);
 
 /**
