@@ -116,9 +116,68 @@ function quoteLiteral(value: string): string {
   return `'${value.replace(/'/g, "''")}'`;
 }
 
-async function ensureRestrictedRole(client: Client, role: string, password: string, rotate: boolean): Promise<void> {
+/**
+ * What actually happened to a role's password on this run.
+ *
+ * ⛔ THE DEFECT THIS EXISTS TO END. The runner DEMANDS a password for every role
+ * (`assertStrongSecret` refuses without one), then applies it only when the role
+ * is ABSENT — an existing role's password changes only under the opt-in
+ * `MIGRATE_ROTATE_ROLE_SECRETS=yes`. **And it reported which nowhere.** So the
+ * operator's only evidence was the input they supplied, and *"I passed a
+ * password"* silently became *"the password is now that."*
+ *
+ * ⚖️ Three credential disagreements in this environment have come from that gap:
+ * `c3_auth` — found by a TOTAL sign-in outage that `/health` and `/ready` both
+ * called healthy — and `c3_backup` twice, the second time recorded as done by
+ * the person who wrote the law about asserting capabilities from inputs.
+ *
+ * ⇒ **A tool that takes a secret must say whether it APPLIED it.** Same family as
+ * LAW 32: the state, not the intention, is the thing worth reporting.
+ */
+export type RoleSecretOutcome = 'created-with-password' | 'password-rotated' | 'left-existing-password';
+
+/**
+ * Which outcome a run produces, given whether the role already exists and
+ * whether rotation was requested. Pure, so the reporting can be tested without
+ * a database — the branch that misleads is the one nobody exercises.
+ */
+export function classifyRoleSecretOutcome(existed: boolean, rotate: boolean): RoleSecretOutcome {
+  if (!existed) return 'created-with-password';
+  return rotate ? 'password-rotated' : 'left-existing-password';
+}
+
+/** Human-facing line for a role outcome. Names the CONSEQUENCE, not the branch. */
+export function describeRoleSecretOutcome(role: string, outcome: RoleSecretOutcome): string {
+  switch (outcome) {
+    case 'created-with-password':
+      return `↳ role ${role}: CREATED with the supplied password (it did not exist)`;
+    case 'password-rotated':
+      return `↳ role ${role}: password ROTATED to the supplied value (MIGRATE_ROTATE_ROLE_SECRETS=yes)`;
+    case 'left-existing-password':
+      // ⛔ The line the three disagreements needed. It states the gap plainly:
+      // a secret was supplied and DELIBERATELY not applied.
+      return (
+        `↳ role ${role}: existing password LEFT UNCHANGED — the supplied secret was NOT applied. ` +
+        `Set MIGRATE_ROTATE_ROLE_SECRETS=yes to rotate it, and do not record this run as having set it.`
+      );
+  }
+}
+
+async function ensureRestrictedRole(
+  client: Client,
+  role: string,
+  password: string,
+  rotate: boolean,
+): Promise<RoleSecretOutcome> {
   if (!ROLE_RE.test(role)) throw new Error(`Unsafe role name: ${role}`);
   const pw = quoteLiteral(password);
+
+  // ⛔ Read existence BEFORE acting, so the outcome is observed rather than
+  // inferred from the input. Inferring it from `rotate` alone is the original
+  // defect in a new place.
+  const existed =
+    ((await client.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [role])).rowCount ?? 0) > 0;
+
   // Create the role with its password if absent. If it ALREADY exists, only
   // reset the password when an explicit rotation was requested — an ordinary
   // schema migration must not reset (or silently downgrade) a live role secret
@@ -136,6 +195,8 @@ async function ensureRestrictedRole(client: Client, role: string, password: stri
   `);
   // Defense in depth: restricted roles never bypass RLS and are never superuser.
   await client.query(`ALTER ROLE ${role} NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE`);
+
+  return classifyRoleSecretOutcome(existed, rotate);
 }
 
 /** SHA-256 of file content with line endings normalized (git may check out LF or CRLF). */
@@ -206,13 +267,21 @@ export async function runMigrations(config: MigrateConfig): Promise<string[]> {
     // NULL-adoption check once. Released automatically when the session ends (the finally below).
     await client.query('SELECT pg_advisory_lock($1, hashtext(current_database()))', [MIGRATOR_LOCK_KEY]);
     log('↳ migrator single-flight lock acquired');
-    await ensureRestrictedRole(client, config.appRole, appPassword, rotateRoleSecrets);
+    // ⛔ EVERY ROLE REPORTS WHAT HAPPENED TO ITS SECRET. The runner demands a
+    // password for each role and applies it only when the role is ABSENT; an
+    // existing role changes only under MIGRATE_ROTATE_ROLE_SECRETS=yes. Saying
+    // so out loud is the whole fix: three credential disagreements in this
+    // environment came from "I supplied a password" being read as "the password
+    // is now that", including one recorded as done on the strength of the input.
+    log(describeRoleSecretOutcome(config.appRole, await ensureRestrictedRole(client, config.appRole, appPassword, rotateRoleSecrets)));
     // SELECT-only membership-resolution role for the API's auth boundary (the
     // running API never receives the privileged admin credentials).
-    await ensureRestrictedRole(client, config.authRole ?? 'c3_auth', authPassword, rotateRoleSecrets);
+    const authRole = config.authRole ?? 'c3_auth';
+    log(describeRoleSecretOutcome(authRole, await ensureRestrictedRole(client, authRole, authPassword, rotateRoleSecrets)));
     // Read-only logical-backup role (created here so 0006 can grant to it; the
     // documented BYPASSRLS exception is applied by migration 0006, not here).
-    await ensureRestrictedRole(client, config.backupRole ?? 'c3_backup', backupPassword, rotateRoleSecrets);
+    const backupRole = config.backupRole ?? 'c3_backup';
+    log(describeRoleSecretOutcome(backupRole, await ensureRestrictedRole(client, backupRole, backupPassword, rotateRoleSecrets)));
     await client.query(`
       CREATE TABLE IF NOT EXISTS _migrations (
         id text PRIMARY KEY,
