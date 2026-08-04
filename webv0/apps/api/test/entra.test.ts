@@ -11,6 +11,7 @@ import { SignJWT, exportJWK, generateKeyPair, createLocalJWKSet } from 'jose';
 import { createEntraAuthAdapter, validateEntraClaims, type EntraConfig } from '../src/auth/entra';
 import { AuthError, AccessNotProvisionedError } from '../src/auth/types';
 import type { AdminDirectory, ExternalIdentityKey, ResolvedMembership } from '../src/auth/directory';
+import { loadEnv } from '../src/env';
 
 const TENANT = 'aaaaaaaa-1111-2222-3333-444444444444';
 const OTHER_TENANT = 'bbbbbbbb-1111-2222-3333-444444444444';
@@ -18,7 +19,12 @@ const ISSUER = `https://login.microsoftonline.com/${TENANT}/v2.0`;
 const AUDIENCE = 'api://c3web-staging';
 const OID = 'cccccccc-1111-2222-3333-444444444444';
 
-const CONFIG: EntraConfig = { issuer: ISSUER, audience: AUDIENCE, jwksUri: 'https://unused', tenantId: TENANT, scope: 'C3.Access' };
+// CR-032: the JWKS endpoint used to be a placeholder ('https://unused') because
+// every test passes an explicit keyResolver, so the value was never fetched. It is
+// now CHECKED at adapter construction, and a fixture carrying an unreachable trust
+// root would be a fixture asserting something no deployment may do.
+const JWKS_URI = `https://login.microsoftonline.com/${TENANT}/discovery/v2.0/keys`;
+const CONFIG: EntraConfig = { issuer: ISSUER, audience: AUDIENCE, jwksUri: JWKS_URI, tenantId: TENANT, scope: 'C3.Access' };
 
 const membership: ResolvedMembership = {
   userId: '99999999-9999-9999-9999-999999999901',
@@ -218,5 +224,123 @@ describe('createEntraAuthAdapter (signature + resolution)', () => {
     const known = new Map([[`entra|${TENANT}|${OID}`, membership]]);
     const adapter = createEntraAuthAdapter(CONFIG, fakeDirectory(known), keyResolver);
     await expect(adapter.authenticate(await sign({ ...GOOD_CLAIMS, tid: OTHER_TENANT }))).rejects.toThrow(/different tenant/);
+  });
+});
+
+describe('CR-SWEEP-05 — the configured issuer and signing keys are one trust-root subject', () => {
+  async function foreignSigner(issuer: string) {
+    const { publicKey, privateKey } = await generateKeyPair('RS256');
+    const jwk = { ...(await exportJWK(publicKey)), kid: 'foreign-k1', alg: 'RS256', use: 'sig' };
+    const keyResolver = createLocalJWKSet({ keys: [jwk] });
+    const token = await new SignJWT(GOOD_CLAIMS)
+      .setProtectedHeader({ alg: 'RS256', kid: 'foreign-k1' })
+      .setIssuer(issuer)
+      .setAudience(AUDIENCE)
+      .setIssuedAt()
+      .setExpirationTime('5m')
+      .sign(privateKey);
+    return { keyResolver, token };
+  }
+
+  function configured(issuer: string, jwksUri: string): EntraConfig {
+    const env = loadEnv({
+      NODE_ENV: 'test',
+      DATABASE_URL: 'postgres://c3_app:unused@localhost/c3',
+      DATABASE_AUTH_URL: 'postgres://c3_auth:unused@localhost/c3',
+      AUTH_PROVIDER: 'entra',
+      ENTRA_TENANT_ID: TENANT,
+      ENTRA_ISSUER: issuer,
+      ENTRA_AUDIENCE: AUDIENCE,
+      ENTRA_JWKS_URI: jwksUri,
+    });
+    return env.entra!;
+  }
+
+  /*
+   * ⚖️ ADAPTED FROM CRUCIBLE'S RED PROOF AT 1ce4529 — THE REFUSAL MOVED EARLIER.
+   *
+   * Their proof asserted the rejection at `adapter.authenticate(...)`. The fix
+   * refuses at `loadEnv`, per the ruling's "or refuse at load", so `configured()`
+   * now throws before an adapter can be built and the original assertion could
+   * never be reached.
+   *
+   * ⛔ The forbidden CONFIGURATIONS are unchanged, which is the part that matters —
+   * a foreign issuer carrying the right tenant id, and a genuine issuer paired with
+   * foreign keys. Each is asserted twice, at both places a foreign trust root can
+   * enter: through configuration, and through a hand-built `EntraConfig` that never
+   * passed configuration at all. Crucible's end-to-end property is preserved by the
+   * second half rather than dropped.
+   */
+  it('refuses a non-Microsoft issuer whose path merely contains the tenant id', async () => {
+    const foreignIssuer = `https://tokens.example.invalid/${TENANT}/v2.0`;
+    expect(foreignIssuer).not.toBe(ISSUER); // independent S1 != S2 oracle
+    expect(foreignIssuer).toContain(TENANT); // …and it satisfies the OLD substring rule
+
+    // (1) It cannot be configured.
+    expect(() => configured(foreignIssuer, 'https://tokens.example.invalid/jwks.json')).toThrow(
+      /ENTRA_ISSUER must be exactly https:\/\/login\.microsoftonline\.com/i,
+    );
+
+    // (2) And it cannot be smuggled past configuration either.
+    const { keyResolver, token } = await foreignSigner(foreignIssuer);
+    const known = new Map([[`entra|${TENANT}|${OID}`, membership]]);
+    expect(() =>
+      createEntraAuthAdapter(
+        { issuer: foreignIssuer, audience: AUDIENCE, jwksUri: 'https://tokens.example.invalid/jwks.json', tenantId: TENANT, scope: 'C3.Access' },
+        fakeDirectory(known),
+        keyResolver,
+      ),
+    ).toThrow(/foreign trust root/i);
+    expect(token).toBeTruthy(); // the foreign signer really did mint a usable token
+  });
+
+  it('refuses foreign signing keys even when their token claims the exact Microsoft issuer', async () => {
+    // S2 evidence is internally valid and names the same tid/oid as S1; only
+    // the independently configured key authority is wrong.
+    expect(() => configured(ISSUER, 'https://tokens.example.invalid/jwks.json')).toThrow(
+      /ENTRA_JWKS_URI must be exactly https:\/\/login\.microsoftonline\.com/i,
+    );
+
+    const { keyResolver, token } = await foreignSigner(ISSUER);
+    const known = new Map([[`entra|${TENANT}|${OID}`, membership]]);
+    expect(() =>
+      createEntraAuthAdapter(
+        { issuer: ISSUER, audience: AUDIENCE, jwksUri: 'https://tokens.example.invalid/jwks.json', tenantId: TENANT, scope: 'C3.Access' },
+        fakeDirectory(known),
+        keyResolver,
+      ),
+    ).toThrow(/foreign trust root/i);
+    expect(token).toBeTruthy();
+  });
+
+  it('⛔ the adapter refuses a foreign ISSUER on its own, with GENUINE keys alongside', () => {
+    /*
+     * ⚠️ THIS TEST EXISTS BECAUSE FALSIFICATION FOUND IT MISSING. Disabling the
+     * adapter's issuer check broke nothing: both configs above pair a foreign issuer
+     * with a foreign JWKS, so the JWKS branch caught them first and the issuer branch
+     * was never exercised. Two checks, one of them decorative, and the suite could not
+     * tell the difference.
+     *
+     * ⇒ Foreign issuer, GENUINE keys — only the issuer check can refuse this.
+     */
+    const known = new Map([[`entra|${TENANT}|${OID}`, membership]]);
+    expect(() =>
+      createEntraAuthAdapter(
+        { issuer: `https://tokens.example.invalid/${TENANT}/v2.0`, audience: AUDIENCE, jwksUri: JWKS_URI, tenantId: TENANT, scope: 'C3.Access' },
+        fakeDirectory(known),
+      ),
+    ).toThrow(/foreign trust root.*issuer/is);
+  });
+
+  it('⛳ and the GENUINE trust root still builds — the refusal is not a constant', () => {
+    // Positive control. Without it, an adapter hard-wired to throw would satisfy
+    // both refusals above (LAW 29: a control that is right by coincidence).
+    const known = new Map([[`entra|${TENANT}|${OID}`, membership]]);
+    expect(() =>
+      createEntraAuthAdapter(
+        { issuer: ISSUER, audience: AUDIENCE, jwksUri: JWKS_URI, tenantId: TENANT, scope: 'C3.Access' },
+        fakeDirectory(known),
+      ),
+    ).not.toThrow();
   });
 });

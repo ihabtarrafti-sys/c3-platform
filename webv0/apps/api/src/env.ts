@@ -142,6 +142,25 @@ export type Env = {
   erasureJanitorBootReadinessBudgetMs: number;
 };
 
+/**
+ * ⛔ CR-032. The commercial Microsoft identity platform authority host.
+ *
+ * This is the trust root. It is a CONSTANT and not configuration on purpose: a
+ * deployment that can be pointed at a different authority is a deployment whose
+ * identity guarantees are whatever its environment variables happen to say.
+ */
+export const MICROSOFT_AUTHORITY_HOST = 'login.microsoftonline.com';
+
+/** The one issuer string a token from this tenant may legitimately carry. */
+export function microsoftIssuerFor(tenantId: string): string {
+  return `https://${MICROSOFT_AUTHORITY_HOST}/${tenantId}/v2.0`;
+}
+
+/** The one endpoint whose keys may sign a token this API accepts. */
+export function microsoftJwksUriFor(tenantId: string): string {
+  return `https://${MICROSOFT_AUTHORITY_HOST}/${tenantId}/discovery/v2.0/keys`;
+}
+
 export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
   const parsed = rawSchema.safeParse(source);
   if (!parsed.success) {
@@ -198,8 +217,47 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     if (/\/(common|organizations|consumers)\//i.test(issuer)) {
       throw new Error('ENTRA_ISSUER must be the tenant-specific v2 issuer, not common/organizations/consumers.');
     }
-    if (!issuer.includes(e.ENTRA_TENANT_ID) || !/\/v2\.0\/?$/.test(issuer)) {
-      throw new Error('ENTRA_ISSUER must be https://login.microsoftonline.com/<ENTRA_TENANT_ID>/v2.0');
+    /*
+     * ⛔ CR-032 — THE TRUST ROOT IS DERIVED FROM THE TENANT, NOT DESCRIBED ALONGSIDE IT.
+     *
+     * The old check was `issuer.includes(ENTRA_TENANT_ID)` plus a `/v2.0` suffix, and
+     * ENTRA_JWKS_URI was not checked at all. So `https://tokens.example.invalid/<tid>/v2.0`
+     * with a matching foreign JWKS endpoint satisfied every rule — a COHERENTLY foreign
+     * trust root, self-consistent end to end, able to mint the exact `(tid, oid)` of the
+     * provisioned owner. Nothing in the resulting token would look wrong, because nothing
+     * about it WOULD BE wrong: it would be a valid token from the wrong authority.
+     *
+     * ⚖️ THE ERROR MESSAGE BELOW ALREADY STATED THE RULE — "must be
+     * https://login.microsoftonline.com/<ENTRA_TENANT_ID>/v2.0". The message was right and
+     * the enforcement was a substring test. **A constraint stated in prose next to a check
+     * that does not enforce it reads, to every future reviewer, as though it were enforced.**
+     *
+     * ⚠️ Same defect class as the CSP verifier's substring bug, which shipped here already:
+     * `includes()` answers "does this text appear somewhere", never "is this the value".
+     *
+     * ⇒ Both values are now DERIVED from ENTRA_TENANT_ID and required to match exactly.
+     * Deriving is stronger than validating: there is no expression of a foreign authority
+     * that can be written here at all, rather than a list of foreign authorities to exclude.
+     *
+     * ⚠️ PREMISE (LAW 30): `login.microsoftonline.com` is the COMMERCIAL cloud. A sovereign
+     * deployment (US Gov, China) has a different authority host, and would need this changed
+     * deliberately — not a config override, which is exactly the door being closed.
+     */
+    const expectedIssuer = microsoftIssuerFor(e.ENTRA_TENANT_ID);
+    if (issuer.replace(/\/+$/, '') !== expectedIssuer) {
+      throw new Error(
+        `ENTRA_ISSUER must be exactly ${expectedIssuer} (derived from ENTRA_TENANT_ID), not ${issuer}. ` +
+          'An issuer that merely CONTAINS the tenant id can be any host at all, and a foreign issuer ' +
+          'serving its own keys is a complete, self-consistent trust root that can mint your owner.',
+      );
+    }
+    const expectedJwks = microsoftJwksUriFor(e.ENTRA_TENANT_ID);
+    if (e.ENTRA_JWKS_URI.replace(/\/+$/, '') !== expectedJwks) {
+      throw new Error(
+        `ENTRA_JWKS_URI must be exactly ${expectedJwks} (derived from ENTRA_TENANT_ID), not ${e.ENTRA_JWKS_URI}. ` +
+          'The signing keys ARE the trust root: a genuine issuer string paired with foreign keys means ' +
+          'anyone holding those keys can sign a token your API will accept.',
+      );
     }
     entra = {
       issuer,

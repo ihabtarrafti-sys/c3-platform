@@ -24,6 +24,7 @@ import { jwtVerify, createRemoteJWKSet, type JWTVerifyGetKey, type KeyLike } fro
 import { isC3Role } from '@c3web/domain';
 import { type AuthAdapter, type AuthenticatedPrincipal, AuthError, AccessNotProvisionedError } from './types';
 import type { AdminDirectory } from './directory';
+import { microsoftIssuerFor, microsoftJwksUriFor } from '../env';
 
 export interface EntraConfig {
   readonly issuer: string;
@@ -67,6 +68,41 @@ export function createEntraAuthAdapter(
   directory: AdminDirectory,
   keyResolver?: JWTVerifyGetKey | KeyLike | Uint8Array,
 ): AuthAdapter {
+  /*
+   * ⛔ CR-032 — THE TRUST ROOT IS CHECKED HERE TOO, AND THIS IS NOT A MIRROR.
+   *
+   * `loadEnv` refuses a foreign issuer or JWKS at boot, which is the primary and
+   * correct place: a process that cannot start with a foreign trust root cannot
+   * serve one. But `EntraConfig` is an ordinary object, and any caller that builds
+   * one by hand bypasses that boundary entirely.
+   *
+   * ⚖️ Two enforcement points would normally be a MIRROR, and this session has spent
+   * its length on what mirrors cost — `backupStatus.ts` drifted from `freshness.ts`
+   * once already, and CR-012 collected on it. The difference is that this calls the
+   * SAME `microsoftIssuerFor`/`microsoftJwksUriFor` used at load. One implementation,
+   * two call sites, nothing to drift.
+   *
+   * ⇒ At construction rather than per-authenticate: a trust root is not a
+   * per-request question, and a check that runs on every token invites someone to
+   * make it conditional later.
+   */
+  const expectedIssuer = microsoftIssuerFor(config.tenantId);
+  if (config.issuer.replace(/\/+$/, '') !== expectedIssuer) {
+    throw new Error(
+      `Refusing to build an Entra adapter for a foreign trust root: issuer ${config.issuer} is not ${expectedIssuer}. ` +
+        'A foreign issuer serving its own Microsoft-shaped keys is a complete, self-consistent authority ' +
+        'that can mint the exact (tid, oid) of a provisioned owner.',
+    );
+  }
+  const expectedJwks = microsoftJwksUriFor(config.tenantId);
+  if (config.jwksUri.replace(/\/+$/, '') !== expectedJwks) {
+    throw new Error(
+      `Refusing to build an Entra adapter for a foreign trust root: JWKS ${config.jwksUri} is not ${expectedJwks}. ` +
+        'The signing keys ARE the trust root — a genuine issuer string paired with foreign keys means anyone ' +
+        'holding those keys can sign a token this API accepts.',
+    );
+  }
+
   const keys = keyResolver ?? createRemoteJWKSet(new URL(config.jwksUri));
   return {
     name: 'entra',
