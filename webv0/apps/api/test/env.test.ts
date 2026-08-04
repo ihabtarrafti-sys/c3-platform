@@ -112,7 +112,34 @@ describe('production fail-closed guarantees', () => {
       BACKUP_STATUS_R2_SECRET_ACCESS_KEY: 'sk',
       BACKUP_STATUS_R2_BUCKET: 'c3-backups',
     } as NodeJS.ProcessEnv);
-    expect(full.backupStatus).toEqual({ endpoint: 'https://acct.r2.cloudflarestorage.com', accessKeyId: 'ak', secretAccessKey: 'sk', bucket: 'c3-backups' });
+    // CR-031: the R2 quartet alone leaves the tile UNBOUND — it now carries the
+    // subject it watches, and null here is the honest report that nobody has said
+    // which backup this is. `toEqual` is a SEAL on this shape, and it caught the
+    // two new fields exactly as it should have.
+    expect(full.backupStatus).toEqual({
+      endpoint: 'https://acct.r2.cloudflarestorage.com',
+      accessKeyId: 'ak',
+      secretAccessKey: 'sk',
+      bucket: 'c3-backups',
+      expectedEnvironment: null,
+      expectedMode: null,
+    });
+
+    // ⛳ And when the subject IS supplied it is carried through, not dropped —
+    // otherwise the assertion above would be satisfied by a reader that ignores
+    // the variables entirely (LAW 29: right by coincidence).
+    const bound = loadEnv({
+      ...base,
+      ...entraVars,
+      BACKUP_STATUS_R2_ENDPOINT: 'https://acct.r2.cloudflarestorage.com',
+      BACKUP_STATUS_R2_ACCESS_KEY_ID: 'ak',
+      BACKUP_STATUS_R2_SECRET_ACCESS_KEY: 'sk',
+      BACKUP_STATUS_R2_BUCKET: 'c3-backups',
+      BACKUP_STATUS_EXPECTED_ENVIRONMENT: 'production',
+      BACKUP_STATUS_EXPECTED_MODE: 'daily',
+    } as NodeJS.ProcessEnv);
+    expect(bound.backupStatus?.expectedEnvironment).toBe('production');
+    expect(bound.backupStatus?.expectedMode).toBe('daily');
   });
 });
 
