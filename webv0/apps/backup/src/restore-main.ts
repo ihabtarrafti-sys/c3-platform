@@ -27,7 +27,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 // drag drizzle/application/domain into the backup image (proven crash-loop,
 // ERR_MODULE_NOT_FOUND, 2026-07-07).
 import { exportTenant } from '../../../packages/persistence/src/exportTenant';
-import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobArchiveRecovery } from './restore';
+import { disposableDbName, assertDisposableDbName, classifyDropVerification, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobArchiveRecovery } from './restore';
 import { assertMarkerMatchesManifest, signatureKeyFor, validateLatestSuccess, validateManifest, verifyManifestBytes } from './signing';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
@@ -98,6 +98,9 @@ async function main(): Promise<void> {
 
   const admin = new Client({ connectionString: adminUrl });
   let created = false;
+  // CR-015: set in the cleanup path when the disposable database survives (or
+  // cannot be proven gone); checked after the finally so it fails the run.
+  let disposableCleanupFailure: string | null = null;
   try {
     // Locate newest successful backup. HARDEN-2 H-02: both bucket documents
     // are SCHEMA-VALIDATED (never JSON.parse-and-trust), the manifest's
@@ -288,11 +291,30 @@ async function main(): Promise<void> {
       await admin.query(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`).catch(async () => {
         await admin.query(`DROP DATABASE IF EXISTS ${dbName}`).catch(() => {});
       });
-      log('restore.disposable_dropped', { db: dbName });
+      // ⛔ CR-015. Both attempts above can fail — the outer catch feeds the
+      // inner, and the inner swallows everything — after which this block used
+      // to log `disposable_dropped` unconditionally and exit ZERO, leaving a
+      // full restored copy of the database in place while reporting cleanup
+      // succeeded. The drop is now VERIFIED; `classifyDropVerification` (pure,
+      // tested) names what happened, and a survivor fails the run.
+      const check = await admin.query('SELECT 1 FROM pg_database WHERE datname = $1', [dbName]).then(
+        (r) => ({ ok: true as const, survivorCount: r.rowCount ?? 0 }),
+        (err) => ({ ok: false as const, error: (err as Error).message }),
+      );
+      const verdict = classifyDropVerification(check, dbName);
+      log(verdict.event, { db: dbName });
+      disposableCleanupFailure = verdict.failure;
     }
     await admin.end().catch(() => {});
     await fs.rm(tempDir, { recursive: true, force: true });
     s3.destroy();
+  }
+
+  // Outside the finally so an in-drill error keeps ITS OWN failure (this path is
+  // only reached when the drill body succeeded); the cleanup failure then becomes
+  // the run's verdict rather than a footnote nobody reads.
+  if (disposableCleanupFailure) {
+    throw new Error(`restore cleanup FAILED: ${disposableCleanupFailure}`);
   }
 }
 

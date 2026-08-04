@@ -1,7 +1,34 @@
 # A-5 — Per-Organization Restore & Recoverability
 
+---
+
+## ⛔ SUPERSEDED IN SCOPE — 2026-08-04 (CR-021, backup chapter)
+
+**This certification is TRUE ONLY of the environment and date it names: the STAGING
+project, as drilled 2026-07-07 on image `51e5fcd`.** It was written before a production
+environment existed, carries no scope qualifier, and its unscoped `GREEN` was still being
+read as "C3 can recover" on 2026-08-04 — when the following was found to be true:
+
+- **Production has never taken a backup.** The `C3 Atlas Production` project has no backup
+  service at all; the account's only `c3-backup-cron` sits in STAGING, has no
+  configuration, and has **never deployed** (lane-board instance 63).
+- **The freshness monitor could not have noticed:** its workflow discarded the check's
+  exit code and reported success on error, so the absence produced no signal.
+
+**What this document certified was real and remains real for what it names** — the
+staging composed drill passed, the owner accepted it, and none of the evidence below is
+retracted. **What it must no longer be read as is a statement about production
+recoverability**, which as of 2026-08-04 is UNCERTIFIED and known-broken until the
+production backup chapter's restore drill passes (`C:\Projects\C3-BACKUP-CHAPTER.md`).
+
+⚖️ *This note supersedes visibly rather than rewriting, because a certification edited to
+match reality destroys the evidence that it was ever wrong — which is precisely the record
+a post-incident review needs most. The original text below is unchanged.*
+
+---
+
 **Gate item:** A-5 (recoverability / per-org restore), Stage-4 admission gate. **Author:** Architect-of-record · **Date:** 2026-07-07 · repo tip (this commit).
-**Result: ✅ GREEN — HOSTED-CERTIFIED + OWNER-ACCEPTED.** The composed drill passed (2026-07-07 12:56 UTC) and the Owner recorded formal acceptance the same day:
+**Result: ✅ GREEN — HOSTED-CERTIFIED + OWNER-ACCEPTED** *(scope-superseded 2026-08-04 — see the note above)*. The composed drill passed (2026-07-07 12:56 UTC) and the Owner recorded formal acceptance the same day:
 
 > "As Owner, I accept the per-organization restore posture — whole-database restore into a disposable environment composed with the organization-scoped export — as drilled on 2026-07-07, for the external-admission context." — Owner (Ihab), 2026-07-07
 

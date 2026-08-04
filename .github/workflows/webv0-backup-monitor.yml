@@ -52,14 +52,28 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_MONITOR_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_MONITOR_SECRET_ACCESS_KEY }}
+        # Instance 63. This step captured the exit code into CODE, NEVER READ IT,
+        # and exit 0'd — so an ERRORED check (bad credentials, missing bucket
+        # variable, tsx crash) produced an EMPTY `stale` output, every
+        # conditional step below skipped, and the run reported SUCCESS. The
+        # absence of any backup, ever, was concealed by the instrument built to
+        # report it: a correct monitor over an empty bucket would have gone RED
+        # weeks earlier. An errored check must be indistinguishable from a stale
+        # one, because from the owner's chair they are the same fact — nobody is
+        # watching the backups.
         run: |
           set +e
-          OUT=$(npx tsx apps/backup/scripts/check-freshness.mjs); CODE=$?
+          OUT=$(npx tsx apps/backup/scripts/check-freshness.mjs 2>&1); CODE=$?
+          set -e
           echo "$OUT"
-          echo "stale=$(echo "$OUT" | sed -n 's/^FRESHNESS_STALE=//p' | tail -1)" >> "$GITHUB_OUTPUT"
+          STALE=$(echo "$OUT" | sed -n 's/^FRESHNESS_STALE=//p' | tail -1)
           REASON=$(echo "$OUT" | sed -n 's/^FRESHNESS_REASON=//p' | tail -1)
+          if [ "$STALE" != "true" ] && [ "$STALE" != "false" ]; then
+            STALE=true
+            REASON="freshness check ERRORED (exit ${CODE}) without a verdict — an errored monitor is a stale backup until proven otherwise"
+          fi
+          echo "stale=${STALE}" >> "$GITHUB_OUTPUT"
           echo "reason=${REASON}" >> "$GITHUB_OUTPUT"
-          exit 0
 
       - name: Open or update stale-backup issue
         if: steps.fresh.outputs.stale == 'true'

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { disposableDbName, assertDisposableDbName, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery, verifyBlobArchiveRecovery, strongSample, type Rng } from '../src/restore';
+import { disposableDbName, assertDisposableDbName, classifyDropVerification, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery, verifyBlobArchiveRecovery, strongSample, type Rng } from '../src/restore';
 import type { ValidatedBlobInventory } from '../src/signing';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -257,5 +257,37 @@ describe('R4-N12: the drill sampler is sound, deterministic, and injectable', ()
     // Stratified: photos get quota 5 (== class size) → all 5 sampled every seed (other=240, first=60).
     // Old forced-first-entry: photo-0 dominates, photo-1..4 near-zero → otherCount < firstCount (RED).
     expect(otherCount).toBeGreaterThan(firstCount);
+  });
+});
+
+
+describe('CR-015 — the drop is VERIFIED, and a survivor fails the run', () => {
+  const DB = 'c3_restore_drill_20260804120000_x';
+
+  it('a clean verification logs dropped and carries no failure', () => {
+    const v = classifyDropVerification({ ok: true, survivorCount: 0 }, DB);
+    expect(v.event).toBe('restore.disposable_dropped');
+    expect(v.failure).toBeNull();
+  });
+
+  it('⛔ a SURVIVOR is a run-failing event — never dropped-with-a-footnote', () => {
+    // THE FINDING. Both DROP attempts can fail into swallowed catches, after
+    // which the drill logged disposable_dropped unconditionally and exited ZERO
+    // — a full restored copy of the database left in place by the one procedure
+    // whose whole purpose is to be trusted. assertDisposableDbName bounds what
+    // can be DROPPED; this bounds what can be LEFT BEHIND.
+    const v = classifyDropVerification({ ok: true, survivorCount: 1 }, DB);
+    expect(v.event).toBe('restore.disposable_drop_failed');
+    expect(v.failure).toMatch(/SURVIVED both DROP attempts/);
+    expect(v.failure).toContain(DB);
+  });
+
+  it('⛔ an UNVERIFIABLE drop is failure, not success — could-not-check never reads clean', () => {
+    // The verification query failing is likely the same outage that made the
+    // DROP fail — which is precisely when the survivor exists.
+    const v = classifyDropVerification({ ok: false, error: 'connection terminated' }, DB);
+    expect(v.event).toBe('restore.disposable_drop_unverified');
+    expect(v.failure).toMatch(/could not VERIFY/);
+    expect(v.failure).toContain('connection terminated');
   });
 });

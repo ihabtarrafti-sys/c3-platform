@@ -10,7 +10,22 @@ The existing restore drill (`apps/backup/src/restore-main.ts`) restores the newe
 ## Preconditions (unchanged from the 2D restore drill)
 
 Introduced only for this bounded run, never on the cron service:
-- `AGE_IDENTITY` — the private decryption key (owner password-manager only; in-memory only during the run).
+- `AGE_IDENTITY` — the private decryption key. ⛔ **CR-020 — the custody model, stated
+  honestly.** An earlier version of this line said *"in-memory only during the run"*,
+  and the procedure below contradicts it: step 1 puts the key into **Railway service
+  variables**, which are persisted configuration — and a deployment's environment may
+  be retained by the platform in its deployment history after the variable is deleted.
+  *A custody claim the procedure itself violates is worse than no claim: it tells the
+  reader to stop worrying at exactly the point the exposure begins.* The honest model:
+  - **HOME:** the owner's password manager + one offline copy. Nothing else, ever, at rest.
+  - **TRANSIT (drill window only):** the key enters Railway service variables for the
+    bounded run and is deleted the same day (step 5). While it is there — and in any
+    platform-retained environment snapshot of the drill deployment — **Railway is a
+    persistence surface holding the production decryption key.** That is the real cost
+    of a hosted drill, accepted deliberately, not defined away.
+  - **RESIDUAL:** after cleanup, remove the drill deployment from the service's history
+    if the platform retains it; if exposure of the key is ever suspected, the response
+    is ROTATION (new keypair, re-encrypt from the next backup on), not reassurance.
 - `RESTORE_ADMIN_URL` — privileged connection able to `CREATE`/`DROP DATABASE` + `pg_restore`.
 - `DATABASE_URL` — the read-only `c3_backup` connection (to read live counts and prove no change).
 - `R2_BUCKET`, `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` — read access to the backup bucket.

@@ -175,6 +175,52 @@ export function assertDisposableDbName(name: string): void {
   }
 }
 
+/**
+ * ⛔ CR-015 — the verdict on the disposable-database drop, as a value.
+ *
+ * The drill's cleanup used to log `disposable_dropped` unconditionally after two
+ * DROP attempts whose failures were both swallowed — so the run could exit ZERO
+ * with **a full restored copy of the database left in place**, created by the
+ * one procedure whose whole purpose is to be trusted. `assertDisposableDbName`
+ * bounds what can be DROPPED; this bounds what can be LEFT BEHIND.
+ *
+ * ⚖️ Pure so it can be tested: the drill itself is hosted-only (a Windows dev
+ * box has no `pg_restore`), which is exactly why its one loud-failure branch
+ * must not exist only inside an untestable script.
+ */
+export interface DropVerification {
+  /** The structured event the drill logs. Names what HAPPENED, never the hope. */
+  readonly event: 'restore.disposable_dropped' | 'restore.disposable_drop_failed' | 'restore.disposable_drop_unverified';
+  /** Non-null ⇒ the run must FAIL with this reason. */
+  readonly failure: string | null;
+}
+
+export function classifyDropVerification(
+  check: { readonly ok: true; readonly survivorCount: number } | { readonly ok: false; readonly error: string },
+  dbName: string,
+): DropVerification {
+  if (!check.ok) {
+    // ⛔ "Could not check" must never read as "clean": a copy we cannot PROVE is
+    // gone is not gone — and the check failing is likely the same outage that
+    // made the DROP fail, which is precisely when the survivor exists.
+    return {
+      event: 'restore.disposable_drop_unverified',
+      failure:
+        `could not VERIFY the disposable database ${dbName} was dropped (${check.error}) — ` +
+        'treat it as still present until proven otherwise',
+    };
+  }
+  if (check.survivorCount > 0) {
+    return {
+      event: 'restore.disposable_drop_failed',
+      failure:
+        `disposable database ${dbName} SURVIVED both DROP attempts — a full restored copy of ` +
+        'the database is still present and must be dropped by hand',
+    };
+  }
+  return { event: 'restore.disposable_dropped', failure: null };
+}
+
 export const REQUIRED_FIXTURES = {
   persons: ['PER-0001'],
   approvals: ['APR-0001', 'APR-0002'],

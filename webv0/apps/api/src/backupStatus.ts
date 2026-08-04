@@ -64,7 +64,21 @@ export function createBackupStatusReader(env: Env): () => Promise<BackupStatusVi
     if (!lastSuccessUtc || Number.isNaN(Date.parse(lastSuccessUtc))) {
       return { configured: true, healthy: false, lastSuccessUtc: null, ageHours: null, reason: 'latest-success marker has no valid lastSuccessUtc.' };
     }
-    const ageHours = Math.floor((Date.now() - Date.parse(lastSuccessUtc)) / 3_600_000);
+    const ageExact = (Date.now() - Date.parse(lastSuccessUtc)) / 3_600_000;
+    const ageHours = Math.floor(ageExact);
+    // ⛔ CR-012, the SECOND independent reader — fixing only the monitor would
+    // leave the Settings tile telling the owner a future-dated marker is
+    // healthy. A marker from the future is untrustworthy, not fresh; 15 minutes
+    // of clock skew is tolerated, beyond that the tile says what it sees.
+    if (ageExact < -0.25) {
+      return {
+        configured: true,
+        healthy: false,
+        lastSuccessUtc,
+        ageHours,
+        reason: `latest-success timestamp is in the FUTURE (${lastSuccessUtc}) — an untrustworthy marker is not a fresh backup.`,
+      };
+    }
     const stale = ageHours >= BACKUP_STALE_THRESHOLD_HOURS;
     return {
       configured: true,
