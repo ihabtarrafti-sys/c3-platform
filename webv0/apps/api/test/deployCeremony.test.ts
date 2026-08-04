@@ -22,7 +22,17 @@
  * EVERY CLI invocation in the rendered text and requires each one to be pinned.
  */
 import { describe, expect, it } from 'vitest';
-import { API_ORIGIN, PIN, PROJECT, RAILWAY, SERVICE, renderCeremony } from '../scripts/ceremony.mjs';
+import {
+  API_ORIGIN,
+  CANONICAL_REPO,
+  PIN,
+  PROJECT,
+  RAILWAY,
+  SERVICE,
+  githubRepoIdentity,
+  isCanonicalSharedRemote,
+  renderCeremony,
+} from '../scripts/ceremony.mjs';
 
 const TOKEN = '93ba330d4bea';
 const HEAD = 'a5885f05f473769049ea41e6a6adbf98cedb4400';
@@ -69,6 +79,52 @@ describe('⛔ every Railway command names its target explicitly (CR-029)', () =>
   });
 });
 
+describe('⛔ `origin` is a nickname — the remote SUBJECT is pinned (CR-028)', () => {
+  it('accepts the canonical repository over https, with or without .git', () => {
+    expect(isCanonicalSharedRemote('https://github.com/ihabtarrafti-sys/c3-platform')).toBe(true);
+    expect(isCanonicalSharedRemote('https://github.com/ihabtarrafti-sys/c3-platform.git')).toBe(true);
+    expect(isCanonicalSharedRemote('https://github.com/ihabtarrafti-sys/c3-platform/')).toBe(true);
+  });
+
+  it('⚖️ TRANSPORT IS NOT IDENTITY — an ssh clone is the same shared repository', () => {
+    // Refusing ssh would reject a legitimate clone for a reason unrelated to the
+    // threat. What is being pinned is which repository, not how it is reached.
+    expect(isCanonicalSharedRemote('git@github.com:ihabtarrafti-sys/c3-platform.git')).toBe(true);
+    expect(isCanonicalSharedRemote('ssh://git@github.com/ihabtarrafti-sys/c3-platform')).toBe(true);
+  });
+
+  it('is case-insensitive about the repository name, as GitHub is', () => {
+    expect(isCanonicalSharedRemote('https://github.com/IhabTarrafti-Sys/C3-Platform')).toBe(true);
+  });
+
+  it('⛔ REFUSES a local path merely NAMED origin — the finding itself', () => {
+    expect(isCanonicalSharedRemote('/tmp/c3-stamp-origin-abc/origin.git')).toBe(false);
+    expect(isCanonicalSharedRemote('C:\\Users\\x\\AppData\\Local\\Temp\\origin.git')).toBe(false);
+    expect(isCanonicalSharedRemote('file:///tmp/origin.git')).toBe(false);
+  });
+
+  it('⛔ REFUSES lookalikes — a permissive pattern would be the same defect', () => {
+    // Each of these contains the canonical string somewhere. A substring check
+    // would admit all of them; that class of error already shipped once here in
+    // the CSP verifier, which is why this is exact-token matching.
+    for (const hostile of [
+      'https://github.com/attacker/c3-platform',
+      'https://github.com/ihabtarrafti-sys/c3-platform-evil',
+      'https://github.com.evil.test/ihabtarrafti-sys/c3-platform',
+      'https://notgithub.com/ihabtarrafti-sys/c3-platform',
+      'https://github.com/ihabtarrafti-sys/c3-platform/extra',
+      'https://gitlab.com/ihabtarrafti-sys/c3-platform',
+    ]) {
+      expect(isCanonicalSharedRemote(hostile), `must refuse ${hostile}`).toBe(false);
+    }
+  });
+
+  it('reports a non-GitHub remote as having no identity at all', () => {
+    expect(githubRepoIdentity('/tmp/origin.git')).toBeNull();
+    expect(githubRepoIdentity('https://github.com/ihabtarrafti-sys/c3-platform')).toBe(CANONICAL_REPO);
+  });
+});
+
 describe('⛔ the printed commands are RUNNABLE as printed', () => {
   it('uses the npx form, never a bare `railway` that assumes a global install', () => {
     for (const line of railwayCommandLines(CEREMONY)) {
@@ -99,6 +155,12 @@ describe('⚖️ the witness halves stay coupled', () => {
     // stamp naming a commit the verifier will not expect.
     expect(CEREMONY).toContain(`[stamp] token ${TOKEN}`);
     expect(CEREMONY).toContain(`C3_BUILD_TOKEN=${TOKEN}`);
+  });
+
+  it('⛔ verification is PROJECT-SCOPED — the same project the deploy was pinned to (CR-029)', () => {
+    // Without this the verifier compares a before-id and an after-id that may come
+    // from different projects, and calls their difference a successful deploy.
+    expect(CEREMONY).toContain(`<before-deployment-id> ${PROJECT}`);
   });
 
   it('verification targets the production origin and the FULL commit sha', () => {

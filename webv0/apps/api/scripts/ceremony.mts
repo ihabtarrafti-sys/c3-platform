@@ -64,6 +64,50 @@ export const PIN = `-p ${PROJECT} -s ${SERVICE}`;
 /** The production API origin the ceremony's own verification step checks. */
 export const API_ORIGIN = 'https://api.c3hq.org';
 
+/** The one repository whose ancestry is evidence that a commit is SHARED. */
+export const CANONICAL_REPO = 'ihabtarrafti-sys/c3-platform';
+
+/**
+ * ⛔ CR-028 — `origin` IS A NICKNAME, NOT AN IDENTITY.
+ *
+ * LAW 31 made the stamper refuse a commit that is not an ancestor of
+ * `origin/master`, on the reasoning that a token computed from an unshared commit
+ * verifies only against this machine. But `origin` is whatever the local git config
+ * says it is. A bare repository sitting in a temp directory on the same disk
+ * satisfies every word of that check: the tree is clean, the fetch succeeds, the
+ * ancestry holds — and the commit has still never left the machine.
+ *
+ * ⚖️ So the guard was checking the SHAPE of sharedness while assuming its SUBJECT.
+ * That is the whole of Sweep 05 in one line: an instrument that works correctly and
+ * reports truthfully about the wrong thing. Measured today, `c3-deploy-prod`'s
+ * origin IS the genuine remote, so nothing was actually mis-shipped — but nothing
+ * pinned it either, and instance 52 lived in exactly this seam.
+ *
+ * ⇒ TRANSPORT IS NOT IDENTITY. https and ssh clones of the same repository are the
+ * same shared repository, and refusing one of them would reject a legitimate clone
+ * for a reason unrelated to the threat. What is pinned is `owner/repo` on github.com.
+ *
+ * @returns the normalized `owner/repo`, or null if this is not a GitHub remote at all.
+ */
+export function githubRepoIdentity(remoteUrl: string): string | null {
+  const url = remoteUrl.trim().replace(/\/+$/, '').replace(/\.git$/i, '');
+  const patterns = [
+    /^https?:\/\/(?:[^@/]+@)?github\.com\/([^/]+)\/([^/]+)$/i, // https://github.com/o/r
+    /^ssh:\/\/(?:[^@/]+@)?github\.com\/([^/]+)\/([^/]+)$/i, //    ssh://git@github.com/o/r
+    /^[^@\s]+@github\.com:([^/]+)\/([^/]+)$/i, //                 git@github.com:o/r
+  ];
+  for (const re of patterns) {
+    const m = re.exec(url);
+    if (m) return `${m[1]!.toLowerCase()}/${m[2]!.toLowerCase()}`;
+  }
+  return null;
+}
+
+/** True only for the canonical shared repository, on any transport. */
+export function isCanonicalSharedRemote(remoteUrl: string): boolean {
+  return githubRepoIdentity(remoteUrl) === CANONICAL_REPO;
+}
+
 /**
  * Render the ceremony for a given build token and commit.
  *
@@ -93,8 +137,11 @@ export function renderCeremony(token: string, head: string): string {
     '     exactly ONE deploy, and the id moving means exactly one thing.\n' +
     '\n  3. Ship the working directory — from webv0/, never a subdirectory:\n' +
     `       ${RAILWAY} up ${PIN}\n` +
-    '\n  4. Verify BOTH halves — identity and freshness:\n' +
-    `       tsx apps/api/scripts/verifyVersion.mts ${API_ORIGIN} ${head} <before-deployment-id>\n` +
+    '\n  4. Verify BOTH halves — identity and freshness, SCOPED to this project:\n' +
+    `       tsx apps/api/scripts/verifyVersion.mts ${API_ORIGIN} ${head} <before-deployment-id> ${PROJECT}\n` +
+    '     (The project id is the same one pinned above — freshness is a transition WITHIN one\n' +
+    '      project, and without it a staging before-id vs a production after-id reads as a\n' +
+    '      successful deploy simply because two unrelated ids differ.)\n' +
     '\n  A token that matches while the deployment id has NOT moved means step 2 restarted\n' +
     '  the old image and step 3 did not take. That is the only reading of it.\n'
   );

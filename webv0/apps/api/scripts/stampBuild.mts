@@ -25,7 +25,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { tokenForCommit } from '../src/buildIdentity.js';
-import { renderCeremony } from './ceremony.mjs';
+import { CANONICAL_REPO, isCanonicalSharedRemote, renderCeremony } from './ceremony.mjs';
 
 function git(...args: string[]): string {
   return execFileSync('git', args, { encoding: 'utf8' }).trim();
@@ -79,6 +79,39 @@ if (dirty) {
  * same reason the dirty-tree check is: a step in prose is a step that gets
  * skipped under pressure, and this tool exists to make the token trustworthy.
  */
+/*
+ * ⛔ CR-028 — WHICH REMOTE, CHECKED BEFORE THE FETCH RATHER THAN AFTER.
+ *
+ * The ancestry guard below proves HEAD is on `origin/master`. It does not prove
+ * `origin` is the shared repository — `origin` is a local nickname, and a bare repo
+ * in a temp directory answers to it just as well. Clean tree, successful fetch,
+ * valid ancestry, and the commit has still never left this machine.
+ *
+ * ⇒ Ordered FIRST on purpose: fetching an unknown remote is itself the thing worth
+ * not doing, and a refusal that happens after the network call has already told a
+ * stranger what we are looking for.
+ */
+let originUrl: string;
+try {
+  originUrl = git('config', '--get', 'remote.origin.url');
+} catch {
+  console.error(
+    '[stamp] REFUSING: this repository has no `origin` remote.\n' +
+      '  There is nothing to prove the commit is shared against.',
+  );
+  process.exit(1);
+}
+if (!isCanonicalSharedRemote(originUrl)) {
+  console.error(
+    `[stamp] REFUSING: \`origin\` is ${originUrl}, which is not ${CANONICAL_REPO}.\n` +
+      '  `origin` is a NICKNAME, not an identity. Ancestry against an arbitrary remote proves\n' +
+      '  the shape of sharedness while assuming its subject: a bare repository on this same\n' +
+      '  disk satisfies the clean-tree check, the fetch, and the ancestry check, and the commit\n' +
+      '  still has no off-machine copy. Point `origin` at the canonical repository and re-stamp.',
+  );
+  process.exit(1);
+}
+
 try {
   execFileSync('git', ['fetch', 'origin'], { encoding: 'utf8', stdio: 'pipe' });
 } catch (err) {

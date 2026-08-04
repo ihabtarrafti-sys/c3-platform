@@ -169,6 +169,16 @@ export type VersionVerdict =
   | { readonly kind: 'NO_DEPLOYMENT_ID' }
   /** ⛔ Token correct, deployment id unmoved: the old image restarted with the new token. */
   | { readonly kind: 'STALE'; readonly deploymentId: string }
+  /**
+   * ⛔ CR-029. The two observations are of DIFFERENT Railway projects, so the
+   * "transition" between them is not a transition at all. Two unrelated ids are
+   * different for the same reason two strangers have different names.
+   */
+  | {
+      readonly kind: 'PROJECT_MISMATCH';
+      readonly beforeProjectId: string;
+      readonly servedProjectId: string;
+    }
   /** Both halves: this commit, and a deploy genuinely happened. */
   | { readonly kind: 'FRESH'; readonly from: string; readonly to: string };
 
@@ -200,6 +210,12 @@ export function versionVerdict(args: {
   readonly expected: string;
   readonly served: VersionPayload;
   readonly beforeDeploymentId?: string | null;
+  /**
+   * ⛔ CR-029. The Railway project the before-id was observed IN. Freshness is a
+   * transition WITHIN one project; without this, the comparison is two ids from
+   * anywhere at all.
+   */
+  readonly beforeProjectId?: string | null;
 }): VersionVerdict {
   const { expected, served } = args;
   if (!served.buildToken) return { kind: 'UNSTAMPED' };
@@ -220,6 +236,38 @@ export function versionVerdict(args: {
   // ⚖️ Same family as LAW 17 (truthiness, not presence), one turn further on: a
   // non-empty STRING is the requirement, and a type assertion at a trust boundary
   // enforces nothing at runtime.
+  /*
+   * ⛔ CR-029 — SCOPE THE TRANSITION BEFORE MEASURING IT.
+   *
+   * `from !== to` was the entire freshness test, and it never asked whether the two
+   * ids named the same thing. A before-id recorded against STAGING and an after-id
+   * served by PRODUCTION are different for the most trivial reason imaginable —
+   * they are unrelated — and that difference read as a successful deploy.
+   *
+   * ⚠️ NOT HYPOTHETICAL: `railway up` from `webv0/` resolves to staging via the
+   * ambient link (CR-029's sibling, now pinned in the ceremony). The two halves are
+   * the same defect from opposite ends — nothing bound the deploy to a project, and
+   * nothing bound the EVIDENCE to one either. Pinning the deploy without scoping the
+   * check would leave the verifier still willing to bless a cross-project pair.
+   *
+   * ⇒ Ordered before the id comparison for the same reason CR-031 binds subject
+   * before age: when the observations are of different subjects, the measurement
+   * between them has no meaning worth computing.
+   *
+   * ⚖️ An absent `beforeProjectId` leaves the OLD, weaker behaviour rather than
+   * failing closed — deliberately, and unlike CR-031. The whole freshness half is
+   * already opt-in here (a routine spot-check has no before-id at all), so a missing
+   * scope is the caller declining a check they never started, not a caller silently
+   * losing one. `verifyVersion.mts` says so out loud when it happens.
+   */
+  const beforeProject = args.beforeProjectId?.trim();
+  if (beforeProject) {
+    const servedProject = typeof served.projectId === 'string' ? served.projectId.trim() : '';
+    if (servedProject !== beforeProject) {
+      return { kind: 'PROJECT_MISMATCH', beforeProjectId: beforeProject, servedProjectId: servedProject };
+    }
+  }
+
   const servedId = typeof served.deploymentId === 'string' ? served.deploymentId.trim() : '';
   if (!servedId) return { kind: 'NO_DEPLOYMENT_ID' };
   if (servedId === before) return { kind: 'STALE', deploymentId: servedId };

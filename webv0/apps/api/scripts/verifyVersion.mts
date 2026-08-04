@@ -51,13 +51,16 @@
  */
 import { parseVersionPayload, tokenForCommit, versionVerdict } from '../src/buildIdentity.js';
 
-const [, , apiUrlArg, commitArg, beforeDeploymentArg] = process.argv;
+const [, , apiUrlArg, commitArg, beforeDeploymentArg, beforeProjectArg] = process.argv;
 
 async function main(): Promise<number> {
   if (!apiUrlArg || !commitArg) {
     console.error(
-      'usage: verifyVersion.mts <api-origin> <commit-sha> [before-deployment-id]\n' +
-        '  e.g. verifyVersion.mts https://api.c3hq.org 07d2d64…(40 hex) dep-abc123\n' +
+      'usage: verifyVersion.mts <api-origin> <commit-sha> [before-deployment-id] [before-project-id]\n' +
+        '  e.g. verifyVersion.mts https://api.c3hq.org 07d2d64…(40 hex) dep-abc123 e6eb2f39-…\n' +
+        '  The before-project-id scopes the freshness check: without it, an id recorded\n' +
+        '  against one project and an id served by another are simply different, and that\n' +
+        '  difference reads as a successful deploy (CR-029).\n' +
         '  The commit is REQUIRED and not defaulted to HEAD: a mismatch may mean your\n' +
         '  local repo is behind, not that the deploy failed, and the tool must not\n' +
         '  choose between those for you.',
@@ -95,7 +98,25 @@ async function main(): Promise<number> {
   console.log(`  served token  ${body.buildToken ?? '(none)'}`);
   console.log(`  expected      ${expected}   (from ${commitArg.trim().slice(0, 12)})`);
 
-  const verdict = versionVerdict({ expected, served: body, beforeDeploymentId: beforeDeploymentArg });
+  const verdict = versionVerdict({
+    expected,
+    served: body,
+    beforeDeploymentId: beforeDeploymentArg,
+    beforeProjectId: beforeProjectArg,
+  });
+
+  // ⛔ CR-029. A before-id WITHOUT its project is a check that half-happened, and the
+  // one thing it must not do is look like the whole one. Said here rather than as a
+  // verdict kind because the freshness half is opt-in by design: this is a narrower
+  // check than the caller could have asked for, not a failure.
+  if (beforeDeploymentArg?.trim() && !beforeProjectArg?.trim()) {
+    console.log(
+      '\n[verify] ⚠️ FRESHNESS IS NOT PROJECT-SCOPED — a before-deployment-id was given without a' +
+        '\n         before-project-id, so a MOVED id proves only that the two observations differ,' +
+        '\n         not that they describe the same service. `webv0/` is linked to STAGING, so this' +
+        '\n         is the exact pair that can differ for the wrong reason.',
+    );
+  }
 
   switch (verdict.kind) {
     case 'UNSTAMPED':
@@ -130,6 +151,17 @@ async function main(): Promise<number> {
           '\n  The token is set on the SERVICE, not baked into the image, so this is the signature of' +
           '\n  the old image restarting with the new token while `railway up` did not take.' +
           '\n  ⛔ Identity alone would have passed this. That is why the second half exists.',
+      );
+      return 1;
+    case 'PROJECT_MISMATCH':
+      console.error(
+        `\n[verify] FAIL — the two observations are of DIFFERENT projects.` +
+          `\n  before-project  ${verdict.beforeProjectId}` +
+          `\n  served project  ${verdict.servedProjectId || '(none served)'}` +
+          '\n  A "moved" deployment id between two projects is not a deploy: unrelated ids differ' +
+          '\n  for the most trivial reason there is. Re-record the before-id against the project' +
+          '\n  you are actually shipping to — `webv0/` is linked to STAGING, so an unpinned' +
+          '\n  `railway status` reads the wrong one.',
       );
       return 1;
     case 'FRESH':
