@@ -221,6 +221,80 @@ export function classifyDropVerification(
   return { event: 'restore.disposable_dropped', failure: null };
 }
 
+/**
+ * ⛔ DEFECT 1 (first production drill, 2026-08-04) — the drill must verify that
+ * the restore reproduces THE SOURCE, not that it matches another environment's
+ * seed data.
+ *
+ * `REQUIRED_FIXTURES` below names `PER-0001` / `APR-0001` / `APR-0002`: STAGING
+ * seed fixtures. Production has zero people and zero approvals — legitimately;
+ * it is days old with two members and no data. ⇒ **A production restore drill
+ * could never pass, no matter how perfect the backup.**
+ *
+ * ⚖️ Same family as `CR-021` one layer down, and the symmetry is worth keeping:
+ * **the A5 CERTIFICATION claimed a scope it did not have; the A5 DRILL CHECKED a
+ * scope it could not have.** Both inherited staging's assumptions without saying
+ * so.
+ *
+ * ⇒ The signed manifest already knows what it backed up. Comparing the restored
+ * migration ledger against `manifest.migrations` is source-derived, environment-
+ * agnostic, and — the part that matters — **still able to FAIL**: a truncated
+ * dump, a wrong artifact, or a schema generation mismatch all break it. *An
+ * empty-source drill that asserts nothing certifies nothing, which would be a
+ * false green replacing a false red.*
+ */
+export interface SourceReproductionCheck {
+  readonly ok: boolean;
+  readonly failures: readonly string[];
+}
+
+export function verifySourceReproduced(
+  manifestMigrations: readonly string[],
+  restoredMigrations: readonly string[],
+): SourceReproductionCheck {
+  const failures: string[] = [];
+
+  // ⛔ NON-VACUITY FIRST. A manifest listing no migrations would make every
+  // comparison below trivially true — an empty expectation is not a passed one.
+  if (manifestMigrations.length === 0) {
+    failures.push('manifest lists NO migrations — there is nothing to reproduce, so nothing can be certified');
+  }
+
+  const expected = [...manifestMigrations].sort();
+  const actual = [...restoredMigrations].sort();
+
+  const missing = expected.filter((m) => !actual.includes(m));
+  const extra = actual.filter((m) => !expected.includes(m));
+  if (missing.length > 0) {
+    failures.push(`restore is MISSING migrations the source had: ${missing.join(', ')}`);
+  }
+  if (extra.length > 0) {
+    // Not merely untidy: extra migrations mean the disposable was not built from
+    // this artifact alone, so the thing verified is not the thing restored.
+    failures.push(`restore has migrations the source did NOT have: ${extra.join(', ')}`);
+  }
+
+  return { ok: failures.length === 0, failures };
+}
+
+/**
+ * ⛔ DEFECT 2 (same drill) — a one-shot that FAILS is not one-shot.
+ *
+ * The container exited non-zero and Railway restarted it ~2s later; **each
+ * iteration ran a full restore cycle and created a database.** The cheapest of
+ * the three available guards is the drill refusing to start when a previous
+ * disposable is still present — it halts the loop at iteration two instead of
+ * stacking databases, and it needs no platform configuration to work.
+ *
+ * ⚖️ It also closes the gap `CR-015` exposed from the other side: that fix makes
+ * a surviving disposable FAIL the run; this makes a survivor BLOCK the next one.
+ * *One says "you left something behind"; the other refuses to add to it.*
+ */
+export function orphanDisposables(datnames: readonly string[]): string[] {
+  return datnames.filter((name) => /^c3_restore_drill_[0-9]{14}_[0-9a-z]{1,6}$/.test(name)).sort();
+}
+
+/** @deprecated staging-only seed fixtures — see `verifySourceReproduced`. Opt-in via RESTORE_EXPECT_FIXTURES=yes. */
 export const REQUIRED_FIXTURES = {
   persons: ['PER-0001'],
   approvals: ['APR-0001', 'APR-0002'],

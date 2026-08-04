@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { createHash } from 'node:crypto';
-import { disposableDbName, assertDisposableDbName, classifyDropVerification, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobRecovery, verifyBlobArchiveRecovery, strongSample, type Rng } from '../src/restore';
+import { disposableDbName, assertDisposableDbName, classifyDropVerification, orphanDisposables, REQUIRED_FIXTURES, resolveExportTenant, verifySourceReproduced, verifyBlobRecovery, verifyBlobArchiveRecovery, strongSample, type Rng } from '../src/restore';
 import type { ValidatedBlobInventory } from '../src/signing';
 
 const sha = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -260,6 +260,72 @@ describe('R4-N12: the drill sampler is sound, deterministic, and injectable', ()
   });
 });
 
+
+describe('DEFECT 1 — the drill verifies the SOURCE, not another environment’s fixtures', () => {
+  const MIGS = ['0001_schema.sql', '0002_rls.sql', '0003_grants.sql'];
+
+  it('⛔ a PRODUCTION-shaped restore passes — zero people, zero approvals, and correct', () => {
+    // THE FINDING. The drill demanded staging seeds PER-0001 / APR-0001 / APR-0002.
+    // Production has none — legitimately — so the drill could NEVER pass there,
+    // no matter how perfect the backup. Reproducing the source is the question
+    // that has an answer in every environment.
+    expect(verifySourceReproduced(MIGS, [...MIGS])).toEqual({ ok: true, failures: [] });
+  });
+
+  it('⛔ and it still FAILS on a truncated restore — the replacement is not a rubber stamp', () => {
+    // The danger of relaxing a check that could never pass is replacing a false
+    // RED with a false GREEN. This is the assertion that stops that.
+    const v = verifySourceReproduced(MIGS, ['0001_schema.sql']);
+    expect(v.ok).toBe(false);
+    expect(v.failures.join(' ')).toMatch(/MISSING migrations/);
+  });
+
+  it('⛔ fails when the restore has migrations the source did not', () => {
+    // Extra migrations mean the disposable was not built from this artifact
+    // alone — so the thing verified is not the thing restored.
+    const v = verifySourceReproduced(MIGS, [...MIGS, '0099_stowaway.sql']);
+    expect(v.ok).toBe(false);
+    expect(v.failures.join(' ')).toMatch(/did NOT have/);
+  });
+
+  it('⛔ an EMPTY manifest expectation is a failure, never a vacuous pass', () => {
+    // A manifest listing nothing would make every comparison trivially true.
+    // An empty-source drill that asserts nothing certifies nothing.
+    const v = verifySourceReproduced([], []);
+    expect(v.ok).toBe(false);
+    expect(v.failures.join(' ')).toMatch(/nothing to reproduce/);
+  });
+
+  it('is order-independent — a ledger read in another order is the same ledger', () => {
+    expect(verifySourceReproduced(MIGS, [...MIGS].reverse()).ok).toBe(true);
+  });
+});
+
+describe('DEFECT 2 — a one-shot that FAILS is not one-shot', () => {
+  it('⛔ detects surviving disposables so a restart loop halts at iteration two', () => {
+    // Railway restarted the failing container ~2s later and EACH iteration ran a
+    // full restore cycle, creating a database. One survived at 9.9 MB while the
+    // log had already printed `disposable_dropped`.
+    const found = orphanDisposables([
+      'railway',
+      'postgres',
+      'c3_restore_drill_20260804184038_d',
+      'c3_restore_drill_20260804184512_e',
+    ]);
+    expect(found).toEqual(['c3_restore_drill_20260804184038_d', 'c3_restore_drill_20260804184512_e']);
+  });
+
+  it('⛔ never mistakes a LIVE database for a disposable', () => {
+    // The refusal must be incapable of pointing at something load-bearing — it
+    // uses the same pattern `assertDisposableDbName` enforces before any DROP.
+    expect(orphanDisposables(['railway', 'postgres', 'c3web', 'template1'])).toEqual([]);
+    expect(orphanDisposables(['c3_restore_drill_bogus', 'c3_restore_drill_'])).toEqual([]);
+  });
+
+  it('a clean cluster yields nothing — the drill starts normally', () => {
+    expect(orphanDisposables(['railway', 'postgres'])).toEqual([]);
+  });
+});
 
 describe('CR-015 — the drop is VERIFIED, and a survivor fails the run', () => {
   const DB = 'c3_restore_drill_20260804120000_x';

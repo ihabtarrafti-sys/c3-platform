@@ -27,7 +27,7 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 // drag drizzle/application/domain into the backup image (proven crash-loop,
 // ERR_MODULE_NOT_FOUND, 2026-07-07).
 import { exportTenant } from '../../../packages/persistence/src/exportTenant';
-import { disposableDbName, assertDisposableDbName, classifyDropVerification, REQUIRED_FIXTURES, resolveExportTenant, verifyBlobArchiveRecovery } from './restore';
+import { disposableDbName, assertDisposableDbName, classifyDropVerification, orphanDisposables, REQUIRED_FIXTURES, resolveExportTenant, verifySourceReproduced, verifyBlobArchiveRecovery } from './restore';
 import { assertMarkerMatchesManifest, signatureKeyFor, validateLatestSuccess, validateManifest, verifyManifestBytes } from './signing';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
@@ -176,6 +176,36 @@ async function main(): Promise<void> {
 
     // Create disposable DB and restore with no owner / no acl.
     await admin.connect();
+
+    /*
+     * ⛔ DEFECT 2 (first production drill) — A ONE-SHOT THAT FAILS IS NOT ONE-SHOT.
+     *
+     * The container exited non-zero and Railway restarted it ~2 seconds later.
+     * **Each iteration ran a full restore cycle and created a database**, and the
+     * run that fails AFTER the drop leaves its disposable behind — one survived
+     * at 9.9 MB while the log had already printed `disposable_dropped`.
+     *
+     * ⚖️ This refuses to start when a previous disposable exists, so a restart
+     * loop halts at iteration TWO instead of stacking databases. It is the
+     * cheapest of the three available guards and needs no platform config.
+     * Together with `CR-015` the pair is complete: that fix makes a survivor FAIL
+     * the run, this one refuses to ADD to it.
+     *
+     * ⛳ Refusing is safe because a disposable is never load-bearing — its
+     * presence means a previous drill did not finish cleanly, which is a fact an
+     * operator must see before another copy of the database is made.
+     */
+    const existing = orphanDisposables(
+      (await admin.query<{ datname: string }>('SELECT datname FROM pg_database')).rows.map((r) => r.datname),
+    );
+    if (existing.length > 0) {
+      throw new Error(
+        `Refusing to start: ${existing.length} disposable drill database(s) already exist — ${existing.join(', ')}. ` +
+          'A previous drill did not clean up (a failing one-shot that restarts creates one per iteration). ' +
+          'Drop them and re-run; do not let a restart loop stack restored copies of the database.',
+      );
+    }
+
     await admin.query(`CREATE DATABASE ${dbName} WITH ENCODING 'UTF8' TEMPLATE template0 LC_COLLATE 'C' LC_CTYPE 'C'`);
     created = true;
     const restoreUrl = new URL(adminUrl);
@@ -193,8 +223,26 @@ async function main(): Promise<void> {
       const persons = (await dc.query('SELECT person_id FROM person ORDER BY person_id')).rows.map((r) => r.person_id);
       const approvals = (await dc.query('SELECT approval_id, status FROM approval ORDER BY approval_id')).rows;
       const identities = Number((await dc.query("SELECT count(*)::int AS n FROM external_identity WHERE provider='entra'")).rows[0].n);
-      for (const p of REQUIRED_FIXTURES.persons) if (!persons.includes(p)) throw new Error(`Fixture person ${p} missing in restore.`);
-      for (const a of REQUIRED_FIXTURES.approvals) if (!approvals.find((r) => r.approval_id === a)) throw new Error(`Fixture approval ${a} missing in restore.`);
+      // ⛔ DEFECT 1 (first production drill). The drill previously demanded
+      // STAGING seed fixtures — PER-0001, APR-0001/0002 — which production has
+      // never had and legitimately never will. **A production restore could
+      // never pass, no matter how perfect the backup.** The correct question is
+      // whether the restore reproduces THE SOURCE, and the signed manifest
+      // already knows what the source contained.
+      const source = verifySourceReproduced(manifest.migrations, migs);
+      if (!source.ok) {
+        throw new Error(`Restore does not reproduce the source: ${source.failures.join('; ')}`);
+      }
+      log('restore.source_reproduced', { migrations: migs.length, environment: manifest.environment });
+
+      // ⛳ The fixture check survives as an OPT-IN for environments that genuinely
+      // seed them (staging). It is off by default because a check that cannot
+      // pass where it runs is not a check — it is a guaranteed red that trains
+      // people to ignore the drill.
+      if (process.env.RESTORE_EXPECT_FIXTURES === 'yes') {
+        for (const p of REQUIRED_FIXTURES.persons) if (!persons.includes(p)) throw new Error(`Fixture person ${p} missing in restore.`);
+        for (const a of REQUIRED_FIXTURES.approvals) if (!approvals.find((r) => r.approval_id === a)) throw new Error(`Fixture approval ${a} missing in restore.`);
+      }
       const restoredCounts = {
         tenant: tenants.length,
         person: persons.length,
