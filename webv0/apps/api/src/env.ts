@@ -63,6 +63,12 @@ const rawSchema = z.object({
   BACKUP_STATUS_R2_ACCESS_KEY_ID: z.string().optional(),
   BACKUP_STATUS_R2_SECRET_ACCESS_KEY: z.string().optional(),
   BACKUP_STATUS_R2_BUCKET: z.string().optional(),
+  // CR-031. Which backup this tile is responsible for. Deliberately NOT part of
+  // the all-or-none quartet above: missing them is a monitoring gap, and taking
+  // the whole API down over a status tile would turn a gap into an outage. They
+  // fail closed in BEHAVIOUR instead — see createBackupStatusReader.
+  BACKUP_STATUS_EXPECTED_ENVIRONMENT: z.string().optional(),
+  BACKUP_STATUS_EXPECTED_MODE: z.string().optional(),
   // Track B: FX auto-fetch source. Defaults to a KEYLESS provider (no secret to
   // manage); override to a different endpoint returning { rates: units-per-USD }.
   FX_RATES_URL: z.string().url().optional(),
@@ -115,7 +121,15 @@ export type Env = {
   /** S10 email channel; null = not configured (rows-only, honest). */
   smtp: { host: string; port: number; user: string; pass: string; from: string } | null;
   /** Tier 0.5 backup-status tile: read-only marker lookup; null = not configured. */
-  backupStatus: { endpoint: string; accessKeyId: string; secretAccessKey: string; bucket: string } | null;
+  backupStatus: {
+    endpoint: string;
+    accessKeyId: string;
+    secretAccessKey: string;
+    bucket: string;
+    /** CR-031: the subject this tile watches. Null = the tile must not claim healthy. */
+    expectedEnvironment: string | null;
+    expectedMode: string | null;
+  } | null;
   /** Track B: FX auto-fetch source (keyless by default). */
   fxRatesUrl: string;
   /** R6-N05: upload timing knobs (undefined = the documented defaults; validated in buildApp). */
@@ -241,7 +255,14 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     throw new Error('Backup-status config is partial: set ALL of BACKUP_STATUS_R2_ENDPOINT, BACKUP_STATUS_R2_ACCESS_KEY_ID, BACKUP_STATUS_R2_SECRET_ACCESS_KEY, BACKUP_STATUS_R2_BUCKET — or none.');
   }
   const backupStatus: Env['backupStatus'] = bkGiven === 4
-    ? { endpoint: e.BACKUP_STATUS_R2_ENDPOINT!, accessKeyId: e.BACKUP_STATUS_R2_ACCESS_KEY_ID!, secretAccessKey: e.BACKUP_STATUS_R2_SECRET_ACCESS_KEY!, bucket: e.BACKUP_STATUS_R2_BUCKET! }
+    ? {
+        endpoint: e.BACKUP_STATUS_R2_ENDPOINT!,
+        accessKeyId: e.BACKUP_STATUS_R2_ACCESS_KEY_ID!,
+        secretAccessKey: e.BACKUP_STATUS_R2_SECRET_ACCESS_KEY!,
+        bucket: e.BACKUP_STATUS_R2_BUCKET!,
+        expectedEnvironment: e.BACKUP_STATUS_EXPECTED_ENVIRONMENT ?? null,
+        expectedMode: e.BACKUP_STATUS_EXPECTED_MODE ?? null,
+      }
     : null;
 
   const documents: Env['documents'] =

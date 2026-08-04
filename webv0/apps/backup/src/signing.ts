@@ -259,13 +259,79 @@ export function validateManifest(raw: unknown): ValidatedManifest {
 }
 
 /**
+ * ⛔ CR-030 — HOW LONG A BACKUP RUN MAY PLAUSIBLY TAKE, AND WHY A NUMBER IS NEEDED.
+ *
+ * The manifest stamps `createdAtUtc` when the run STARTS (`runner.ts`, before the
+ * dump) and the pointer stamps `lastSuccessUtc` when it FINISHES (after upload and
+ * read-back verification). They are different quantities, legitimately apart by the
+ * duration of the run — so the binding below is a WINDOW, not an equality.
+ *
+ * ⚖️ THE WINDOW IS DELIBERATELY TIGHT, AND THE ASYMMETRY IS THE REASON. Too tight
+ * refuses a genuine backup; too loose admits a replayed one. Those failures are not
+ * equally bad:
+ *
+ *   - A false REFUSAL is loud, names itself, and has a documented way through —
+ *     `restore-main.ts` accepts a direct manifest key, which is self-authoritative
+ *     and bypasses the pointer entirely. The operator loses minutes.
+ *   - A false ACCEPTANCE is silent. The restore succeeds, reports success, and
+ *     produces data from the wrong day. Nobody looks again, because nothing asked
+ *     them to.
+ *
+ * ⇒ Loud-and-recoverable beats silent, so this errs tight. **If a real run ever
+ * exceeds it, the fix is to MEASURE the run and raise this deliberately — not to
+ * widen it until the refusal stops** (LAW 30: an exemption that cannot notice its
+ * premise expiring is a decision decaying into an assumption).
+ */
+export const MAX_RUN_DURATION_HOURS = 6;
+
+/**
  * The cross-document consistency law: the signed manifest must AGREE with the
  * (unsigned, mutable) latest-success pointer that led us to it. The pointer
  * only routes; the manifest is the authority once its signature verifies.
+ *
+ * ⛔ CR-030 — THE POINTER'S TIME CLAIM IS THE ONE FIELD AN ATTACKER MUST FABRICATE.
+ *
+ * Every other field here (`objectKey`, `encryptedSha256`, `encryptedBytes`,
+ * `environment`) is COPIED from the signed manifest — which is exactly why the
+ * agreement checks below pass a replay. Take yesterday's genuine, correctly-signed
+ * backup, leave it untouched, and rewrite only the pointer's `lastSuccessUtc` to
+ * now: the signature verifies, every field agrees, and both the restore path and the
+ * freshness monitor accept a stale artifact as current. `lastSuccessUtc` had no
+ * signed counterpart, so nothing could contradict it.
+ *
+ * ⇒ The fix DERIVES the pointer's currency from signed evidence instead of trusting
+ * it: `lastSuccessUtc` must sit in a plausible run-duration window after the signed
+ * `createdAtUtc`. The pointer may still route, but it can no longer assert a time
+ * the manifest does not corroborate.
  */
 export function assertMarkerMatchesManifest(latest: ValidatedLatestSuccess, manifest: ValidatedManifest): void {
   if (latest.objectKey !== manifest.objectKey) throw new Error('Marker/manifest disagree on objectKey.');
   if (latest.encryptedSha256 !== manifest.encryptedSha256) throw new Error('Marker/manifest disagree on encryptedSha256.');
   if (latest.encryptedBytes !== manifest.encryptedBytes) throw new Error('Marker/manifest disagree on encryptedBytes.');
   if (latest.environment !== manifest.environment) throw new Error('Marker/manifest disagree on environment.');
+
+  const pointerAt = Date.parse(latest.lastSuccessUtc);
+  const manifestAt = Date.parse(manifest.createdAtUtc);
+  if (Number.isNaN(pointerAt)) {
+    throw new Error(`Marker lastSuccessUtc is unparseable (${latest.lastSuccessUtc}) — an uncheckable time claim is not a current one.`);
+  }
+  if (Number.isNaN(manifestAt)) {
+    throw new Error(`Manifest createdAtUtc is unparseable (${manifest.createdAtUtc}) — the pointer's currency cannot be derived from it.`);
+  }
+  const gapHours = (pointerAt - manifestAt) / 3_600_000;
+  if (gapHours < 0) {
+    throw new Error(
+      `Marker/manifest temporal disagreement: the pointer (${latest.lastSuccessUtc}) PREDATES the manifest it names ` +
+        `(${manifest.createdAtUtc}). A success cannot be recorded before the run it reports started.`,
+    );
+  }
+  if (gapHours > MAX_RUN_DURATION_HOURS) {
+    throw new Error(
+      `Marker/manifest temporal disagreement: the pointer claims success at ${latest.lastSuccessUtc}, ` +
+        `but the signed manifest it names was created at ${manifest.createdAtUtc} — ${gapHours.toFixed(1)}h earlier ` +
+        `(limit ${MAX_RUN_DURATION_HOURS}h). This is the shape of a REPLAY: an authentic older backup re-pointed as current. ` +
+        `The manifest's signature does not vouch for the pointer's timestamp, so the gap is the only thing that can. ` +
+        `To restore this backup deliberately, target its manifest key directly — that path is self-authoritative and does not consult the pointer.`,
+    );
+  }
 }

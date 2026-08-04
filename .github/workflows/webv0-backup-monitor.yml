@@ -52,6 +52,13 @@ jobs:
           R2_BUCKET: ${{ secrets.R2_BUCKET }}
           R2_ACCESS_KEY_ID: ${{ secrets.R2_MONITOR_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_MONITOR_SECRET_ACCESS_KEY }}
+          # CR-031. The marker names its own environment and mode; this monitor
+          # now states which it is responsible for instead of accepting whichever
+          # marker is in the bucket. These are literals, NOT secrets, on purpose —
+          # the subject a monitor watches is a fact about the monitor, and hiding
+          # it in a secret would make a mismatch unreadable from the workflow file.
+          BACKUP_EXPECTED_ENVIRONMENT: staging
+          BACKUP_EXPECTED_MODE: daily
         # Instance 63. This step captured the exit code into CODE, NEVER READ IT,
         # and exit 0'd — so an ERRORED check (bad credentials, missing bucket
         # variable, tsx crash) produced an EMPTY `stale` output, every

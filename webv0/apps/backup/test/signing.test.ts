@@ -127,4 +127,40 @@ describe('H-02: restore-side schema validation (never JSON.parse-and-trust)', ()
       assertMarkerMatchesManifest(validateLatestSuccess({ ...latest, objectKey: 'daily/other.dump.age' }), m),
     ).toThrow(/disagree on objectKey/);
   });
+
+  it('CR-SWEEP-05: refuses a current pointer replaying an older authentic signed manifest', () => {
+    const oldManifest: BackupManifest = {
+      ...manifest,
+      createdAtUtc: '2026-07-07T02:15:00.000Z',
+      objectKey: 'daily/2026/07/07/c3-staging-20260707T021500Z-abc1234.dump.age',
+    };
+
+    const { priv, pub } = keypair();
+    const body = serializeManifest(oldManifest);
+    const signature = signManifestBytes(body, priv);
+
+    // Positive control: the evidence is genuine for S2. The signer and the
+    // manifest-to-artifact subject are innocent; only the pointer binding is at issue.
+    expect(verifyManifestBytes(body, signature, pub)).toBe(true);
+
+    const validatedManifest = validateManifest(JSON.parse(body));
+    const contemporaneous = validateLatestSuccess({
+      ...latest,
+      lastSuccessUtc: '2026-07-07T02:20:00.000Z',
+      objectKey: oldManifest.objectKey,
+      manifestKey: `${oldManifest.objectKey}.manifest.json`,
+    });
+    expect(() => assertMarkerMatchesManifest(contemporaneous, validatedManifest)).not.toThrow();
+
+    // Same authentic 07-07 subject, rebound as a current success on 07-11.
+    const replayedAsCurrent = validateLatestSuccess({
+      ...latest,
+      lastSuccessUtc: '2026-07-11T02:20:00.000Z',
+      objectKey: oldManifest.objectKey,
+      manifestKey: `${oldManifest.objectKey}.manifest.json`,
+    });
+    expect(() => assertMarkerMatchesManifest(replayedAsCurrent, validatedManifest)).toThrow(
+      /replay|temporal|lastSuccessUtc|createdAtUtc/i,
+    );
+  });
 });

@@ -30,6 +30,40 @@ const NOT_CONFIGURED: BackupStatusView = {
   reason: 'Backup-status monitoring is not configured on this API (BACKUP_STATUS_* env).',
 };
 
+/**
+ * ⛔ CR-031, THE SECOND INDEPENDENT READER — the same shape as CR-012 before it.
+ *
+ * `apps/backup/src/freshness.ts` is the monitor's canonical module and this file
+ * MIRRORS it, because apps are not cross-importable here. A mirror is a promise
+ * that two implementations will be changed together, and CR-012 already collected
+ * on that promise once: a fix applied only to the monitor left this tile telling
+ * the owner a future-dated marker was healthy.
+ *
+ * ⇒ Extracted as a pure function so the mirror is TESTABLE without standing up an
+ * S3 client. An untested mirror is the half of the pair that drifts, and until now
+ * `createBackupStatusReader` had no test of its own at all.
+ *
+ * @returns the refusal reason, or null when the marker's subject is the expected one.
+ */
+export function refuseUnlessMarkerSubjectMatches(
+  parsed: { environment?: unknown; mode?: unknown },
+  expected: { environment: string; mode: string },
+): string | null {
+  for (const [field, want] of [
+    ['environment', expected.environment],
+    ['mode', expected.mode],
+  ] as const) {
+    const got = parsed[field];
+    if (typeof got !== 'string' || got.length === 0) {
+      return `latest-success marker does not name its ${field} — it cannot be confirmed to describe the ${want} backup this tile watches.`;
+    }
+    if (got !== want) {
+      return `latest-success marker is for ${field}=${got}, but this tile watches ${field}=${want} — fresh evidence about a different subject is not evidence about this one.`;
+    }
+  }
+  return null;
+}
+
 export function createBackupStatusReader(env: Env): () => Promise<BackupStatusView> {
   const cfg = env.backupStatus;
   if (!cfg) return async () => NOT_CONFIGURED;
@@ -41,6 +75,36 @@ export function createBackupStatusReader(env: Env): () => Promise<BackupStatusVi
   });
 
   return async (): Promise<BackupStatusView> => {
+    /*
+     * ⛔ CR-031 — AN UNBOUND TILE MUST NOT GO GREEN, AND IT REFUSES BEFORE IT READS.
+     *
+     * The marker names its own environment and mode; this reader ignored both, so a
+     * genuine PRODUCTION marker would have made a STAGING tile healthy. The bucket was
+     * the only separation, and a bucket is a deployment detail, not an assertion.
+     *
+     * ⚖️ The refusal happens BEFORE the fetch on purpose. Reading first would produce a
+     * real `lastSuccessUtc` and a real `ageHours` that this function then has to decline
+     * to trust — and numbers that exist are numbers someone eventually surfaces. There is
+     * nothing worth computing when the answer cannot be interpreted.
+     *
+     * ⚠️ This costs a RED tile on any deployment that has R2 configured but not the
+     * subject, which is the correct direction: it is a real misconfiguration, it is
+     * fixed by setting two variables, and the alternative — booting green on unbound
+     * evidence — is the failure this whole finding is about.
+     */
+    if (!cfg.expectedEnvironment || !cfg.expectedMode) {
+      return {
+        configured: true,
+        healthy: false,
+        lastSuccessUtc: null,
+        ageHours: null,
+        reason:
+          'Backup-status monitoring cannot report health: BACKUP_STATUS_EXPECTED_ENVIRONMENT and/or ' +
+          'BACKUP_STATUS_EXPECTED_MODE are unset, so there is nothing to check the marker against. ' +
+          'A tile that does not know which backup it watches has not found that backup healthy.',
+      };
+    }
+
     let body: string;
     try {
       const res = await s3.send(new GetObjectCommand({ Bucket: cfg.bucket, Key: 'status/latest-success.json' }));
@@ -55,11 +119,20 @@ export function createBackupStatusReader(env: Env): () => Promise<BackupStatusVi
       };
     }
     let lastSuccessUtc: string | null = null;
+    let parsed: { lastSuccessUtc?: unknown; environment?: unknown; mode?: unknown };
     try {
-      const parsed = JSON.parse(body) as { lastSuccessUtc?: unknown };
+      parsed = JSON.parse(body) as { lastSuccessUtc?: unknown; environment?: unknown; mode?: unknown };
       if (typeof parsed.lastSuccessUtc === 'string') lastSuccessUtc = parsed.lastSuccessUtc;
     } catch {
       return { configured: true, healthy: false, lastSuccessUtc: null, ageHours: null, reason: 'latest-success marker is not valid JSON.' };
+    }
+
+    const subjectRefusal = refuseUnlessMarkerSubjectMatches(parsed, {
+      environment: cfg.expectedEnvironment,
+      mode: cfg.expectedMode,
+    });
+    if (subjectRefusal) {
+      return { configured: true, healthy: false, lastSuccessUtc: null, ageHours: null, reason: subjectRefusal };
     }
     if (!lastSuccessUtc || Number.isNaN(Date.parse(lastSuccessUtc))) {
       return { configured: true, healthy: false, lastSuccessUtc: null, ageHours: null, reason: 'latest-success marker has no valid lastSuccessUtc.' };
