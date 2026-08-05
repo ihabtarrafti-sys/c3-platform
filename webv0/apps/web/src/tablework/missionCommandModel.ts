@@ -1,45 +1,31 @@
 import type { WitnessState } from './TruthPanel';
+import {
+  clampWorkspaceRect,
+  defaultWorkspaceState,
+  restoreWorkspaceState,
+  workspaceReducer,
+  type WorkspaceAction,
+  type WorkspaceDefinition,
+  type WorkspaceLayout,
+  type WorkspaceRect,
+  type WorkspaceState,
+  type WorkspaceVisibility,
+  type WorkspaceWindowState,
+} from './workspaceModel';
 
 export type MissionCommandModuleId = 'mission-field' | 'mission-current' | 'mission-obligations' | 'mission-finance';
-export type MissionCommandVisibility = 'open' | 'minimized' | 'closed';
+export type MissionCommandVisibility = WorkspaceVisibility;
 export type MissionCommandPreset = 'commander' | 'review' | 'brief' | 'finance';
-export type MissionCommandLayout = MissionCommandPreset | 'custom';
+export type MissionCommandLayout = WorkspaceLayout<MissionCommandPreset>;
+export type MissionCommandRect = WorkspaceRect;
+export type MissionCommandWindowState = WorkspaceWindowState<MissionCommandModuleId>;
+export type MissionCommandState = WorkspaceState<MissionCommandModuleId, MissionCommandPreset>;
 
-export interface MissionCommandRect {
-  /** Percent of the workspace canvas. */
-  readonly x: number;
-  readonly y: number;
-  readonly width: number;
-  readonly height: number;
-}
-
-export interface MissionCommandWindowState {
-  readonly id: MissionCommandModuleId;
-  readonly visibility: MissionCommandVisibility;
-  readonly rect: MissionCommandRect;
-  readonly z: number;
-}
-
-export interface MissionCommandState {
-  readonly version: 1;
-  readonly layout: MissionCommandLayout;
-  readonly windows: readonly MissionCommandWindowState[];
-}
-
-type MissionCommandAction =
-  | { readonly type: 'set-visibility'; readonly id: MissionCommandModuleId; readonly visibility: MissionCommandVisibility }
-  | { readonly type: 'open'; readonly id: MissionCommandModuleId }
-  | { readonly type: 'set-rect'; readonly id: MissionCommandModuleId; readonly rect: MissionCommandRect }
-  | { readonly type: 'bring-forward'; readonly id: MissionCommandModuleId }
-  | { readonly type: 'activate-route'; readonly id: MissionCommandModuleId }
-  | { readonly type: 'apply-layout'; readonly layout: MissionCommandPreset }
-  | { readonly type: 'reset' };
+type MissionCommandAction = WorkspaceAction<MissionCommandModuleId, MissionCommandPreset>;
 
 const LEGACY_IDS = ['mission-field', 'mission-current', 'mission-obligations'] as const;
 const IDS: readonly MissionCommandModuleId[] = [...LEGACY_IDS, 'mission-finance'];
-const VISIBILITIES: readonly MissionCommandVisibility[] = ['open', 'minimized', 'closed'];
 const LEGACY_LAYOUTS: readonly MissionCommandLayout[] = ['commander', 'review', 'brief', 'custom'];
-const LAYOUTS: readonly MissionCommandLayout[] = [...LEGACY_LAYOUTS, 'finance'];
 
 const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWindowState[]>> = {
   commander: [
@@ -68,140 +54,55 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
   ],
 };
 
-function copyWindows(windows: readonly MissionCommandWindowState[]): MissionCommandWindowState[] {
-  return windows.map((window) => ({ ...window, rect: { ...window.rect } }));
-}
-
-export const DEFAULT_MISSION_COMMAND: MissionCommandState = {
-  version: 1,
-  layout: 'commander',
-  windows: copyWindows(PRESETS.commander),
+const MISSION_COMMAND_DEFINITION: WorkspaceDefinition<MissionCommandModuleId, MissionCommandPreset> = {
+  ids: IDS,
+  defaultPreset: 'commander',
+  presets: PRESETS,
 };
 
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
-}
+export const DEFAULT_MISSION_COMMAND: MissionCommandState = defaultWorkspaceState(MISSION_COMMAND_DEFINITION);
 
 export function clampMissionCommandRect(rect: MissionCommandRect): MissionCommandRect {
-  const width = clamp(Math.round(rect.width * 10) / 10, 24, 100);
-  const height = clamp(Math.round(rect.height * 10) / 10, 26, 100);
-  return {
-    x: clamp(Math.round(rect.x * 10) / 10, 0, 100 - width),
-    y: clamp(Math.round(rect.y * 10) / 10, 0, 100 - height),
-    width,
-    height,
-  };
-}
-
-function updateWindow(
-  state: MissionCommandState,
-  id: MissionCommandModuleId,
-  update: (window: MissionCommandWindowState) => MissionCommandWindowState,
-): MissionCommandState {
-  return {
-    ...state,
-    windows: state.windows.map((window) => (window.id === id ? update(window) : window)),
-  };
+  return clampWorkspaceRect(rect);
 }
 
 export function missionCommandReducer(state: MissionCommandState, action: MissionCommandAction): MissionCommandState {
-  switch (action.type) {
-    case 'set-visibility':
-      return {
-        ...updateWindow(state, action.id, (window) => ({ ...window, visibility: action.visibility })),
-        layout: 'custom',
-      };
-    case 'open': {
-      const nextZ = Math.max(...state.windows.map((window) => window.z)) + 1;
-      return {
-        ...updateWindow(state, action.id, (window) => ({ ...window, visibility: 'open', z: nextZ })),
-        layout: 'custom',
-      };
+  if (action.type === 'activate-route' && action.id === 'mission-finance') {
+    const target = state.windows.find((window) => window.id === action.id);
+    // The first journey from the untouched Commander workspace into Finance
+    // earns the deliberate 50/50 arrangement. Once the actor has customised
+    // the field, route activation only reopens and raises the stored rect.
+    if (state.layout === 'commander' && target?.visibility === 'closed') {
+      return workspaceReducer(MISSION_COMMAND_DEFINITION, state, { type: 'apply-layout', layout: 'finance' });
     }
-    case 'set-rect':
-      return {
-        ...updateWindow(state, action.id, (window) => ({
-          ...window,
-          rect: clampMissionCommandRect(action.rect),
-        })),
-        layout: 'custom',
-      };
-    case 'bring-forward': {
-      const nextZ = Math.max(...state.windows.map((window) => window.z)) + 1;
-      return updateWindow(state, action.id, (window) => ({ ...window, z: nextZ }));
-    }
-    case 'activate-route': {
-      const target = state.windows.find((window) => window.id === action.id);
-      if (!target) return state;
-      // The first journey from the untouched Commander workspace into Finance
-      // earns the deliberate 50/50 arrangement. Once the actor has customised
-      // the field, route activation only reopens and raises the stored rect.
-      if (action.id === 'mission-finance' && state.layout === 'commander' && target.visibility === 'closed') {
-        return { version: 1, layout: 'finance', windows: copyWindows(PRESETS.finance) };
-      }
-      const nextZ = Math.max(...state.windows.map((window) => window.z)) + 1;
-      const next = updateWindow(state, action.id, (window) => ({ ...window, visibility: 'open', z: nextZ }));
-      return target.visibility === 'open' ? next : { ...next, layout: 'custom' };
-    }
-    case 'apply-layout':
-      return { version: 1, layout: action.layout, windows: copyWindows(PRESETS[action.layout]) };
-    case 'reset':
-      return { ...DEFAULT_MISSION_COMMAND, windows: copyWindows(DEFAULT_MISSION_COMMAND.windows) };
   }
+  return workspaceReducer(MISSION_COMMAND_DEFINITION, state, action);
 }
 
-function isFiniteRect(value: unknown): value is MissionCommandRect {
-  if (!value || typeof value !== 'object') return false;
-  const rect = value as Partial<MissionCommandRect>;
-  return [rect.x, rect.y, rect.width, rect.height].every((part) => typeof part === 'number' && Number.isFinite(part));
-}
-
-function isWindow(value: unknown): value is MissionCommandWindowState {
-  if (!value || typeof value !== 'object') return false;
-  const window = value as Partial<MissionCommandWindowState>;
-  return (
-    IDS.includes(window.id as MissionCommandModuleId) &&
-    VISIBILITIES.includes(window.visibility as MissionCommandVisibility) &&
-    isFiniteRect(window.rect) &&
-    typeof window.z === 'number' &&
-    Number.isFinite(window.z)
+function migrateLegacyMissionCommand(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value;
+  const candidate = value as { version?: unknown; layout?: unknown; windows?: unknown };
+  if (candidate.version !== 1 || !Array.isArray(candidate.windows)) return value;
+  if (!LEGACY_LAYOUTS.includes(candidate.layout as MissionCommandLayout)) return value;
+  const ids = candidate.windows.map((window) =>
+    window && typeof window === 'object' ? (window as { id?: unknown }).id : null,
   );
-}
-
-function hasExactWindowIds(
-  windows: readonly MissionCommandWindowState[],
-  ids: readonly MissionCommandModuleId[],
-): boolean {
-  return windows.length === ids.length && new Set(windows.map((window) => window.id)).size === ids.length &&
-    windows.every((window) => ids.includes(window.id));
-}
-
-function defaultMissionCommand(): MissionCommandState {
-  return { ...DEFAULT_MISSION_COMMAND, windows: copyWindows(DEFAULT_MISSION_COMMAND.windows) };
+  if (
+    ids.length !== LEGACY_IDS.length ||
+    new Set(ids).size !== LEGACY_IDS.length ||
+    !ids.every((id) => LEGACY_IDS.includes(id as (typeof LEGACY_IDS)[number]))
+  ) {
+    return value;
+  }
+  const finance = PRESETS.commander.find((window) => window.id === 'mission-finance')!;
+  return {
+    ...candidate,
+    windows: [...candidate.windows, { ...finance, rect: { ...finance.rect } }],
+  };
 }
 
 export function restoreMissionCommand(raw: string | null): MissionCommandState {
-  if (!raw) return defaultMissionCommand();
-  try {
-    const parsed = JSON.parse(raw) as Partial<MissionCommandState>;
-    if (parsed.version !== 1 || !Array.isArray(parsed.windows) || !parsed.windows.every(isWindow)) return defaultMissionCommand();
-    const layout = parsed.layout as MissionCommandLayout;
-    const current = LAYOUTS.includes(layout) && hasExactWindowIds(parsed.windows, IDS);
-    const legacy = LEGACY_LAYOUTS.includes(layout) && hasExactWindowIds(parsed.windows, LEGACY_IDS);
-    if (!current && !legacy) return defaultMissionCommand();
-    const windows = parsed.windows.map((window) => ({ ...window, rect: clampMissionCommandRect(window.rect) }));
-    if (legacy) {
-      const finance = PRESETS.commander.find((window) => window.id === 'mission-finance')!;
-      windows.push({ ...finance, rect: { ...finance.rect } });
-    }
-    return {
-      version: 1,
-      layout,
-      windows,
-    };
-  } catch {
-    return defaultMissionCommand();
-  }
+  return restoreWorkspaceState(raw, MISSION_COMMAND_DEFINITION, [migrateLegacyMissionCommand]);
 }
 
 export interface ModuleChannelState {
