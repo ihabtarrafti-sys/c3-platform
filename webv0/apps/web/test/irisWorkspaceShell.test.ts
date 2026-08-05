@@ -64,6 +64,11 @@ describe('Iris cross-route workspace model', () => {
     });
     expect(missionWorkspaceTargetOf('/missions/finance', '')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=../../people')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=MSN-0042&workspace=MSN-0043')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=MSN-0042&extra=true')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=finance&extra=true')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=current')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/MSN-42/comms', '')).toBeNull();
   });
 
   it('rewrites only the Finance launcher while a mission workspace owns navigation', () => {

@@ -16,7 +16,7 @@
  * notifications, mode/effects toggles, nav-*) are the AppShell contract,
  * byte-identical — the e2e suite is the behavior oracle.
  */
-import { useState, type ReactNode } from 'react';
+import { useLayoutEffect, useState, type ReactNode } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 import { useSession, useNotify } from '../session';
 import { useThemeMode } from '../theme/mode';
@@ -196,10 +196,12 @@ interface AppFrameProps {
   wide?: boolean;
   /** A validated mission may keep Finance inside the persistent workspace. */
   workspaceMissionId?: string | null;
+  /** Parked workspaces keep their tree but close every top-layer shell surface. */
+  active?: boolean;
   children: ReactNode;
 }
 
-export function AppFrame({ place, actor, header, wide, workspaceMissionId = null, children }: AppFrameProps) {
+export function AppFrame({ place, actor, header, wide, workspaceMissionId = null, active = true, children }: AppFrameProps) {
   const { mode, toggleMode, skin, toggleSkin, effectsReduced, toggleEffects } = useThemeMode();
   const { me, signOut } = useSession();
   const { notices, dismiss } = useNotify();
@@ -207,6 +209,13 @@ export function AppFrame({ place, actor, header, wide, workspaceMissionId = null
   const [inboxOpen, setInboxOpen] = useState(false);
   const [browseOpen, setBrowseOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  useLayoutEffect(() => {
+    if (active) return;
+    setInboxOpen(false);
+    setBrowseOpen(false);
+    setMoreOpen(false);
+  }, [active]);
 
   const activePlace = activePlaceFor(location.pathname);
   const activeLabel = activePlace?.label ?? place;

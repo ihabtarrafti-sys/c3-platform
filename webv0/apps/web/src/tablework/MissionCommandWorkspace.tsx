@@ -50,6 +50,8 @@ interface MissionCommandWorkspaceProps {
   readonly onForegroundModuleChange?: (id: MissionCommandModuleId | null) => void;
   /** Runs only after a user close has committed; minimize never calls it. */
   readonly onCloseModule?: (id: MissionCommandModuleId) => void;
+  /** A parked workspace retains its model while releasing transient UI. */
+  readonly active?: boolean;
 }
 
 const LAYOUT_LABELS: ReadonlyArray<{ id: MissionCommandPreset; label: string }> = [
@@ -144,6 +146,7 @@ export function MissionCommandWorkspace({
   requestKey,
   onForegroundModuleChange,
   onCloseModule,
+  active = true,
 }: MissionCommandWorkspaceProps) {
   const rootRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -156,6 +159,7 @@ export function MissionCommandWorkspace({
   const pendingRouteForeground = useRef<MissionCommandModuleId | null>(null);
   const lastReportedForeground = useRef<MissionCommandModuleId | null | undefined>(undefined);
   const pendingCloseNotifications = useRef<MissionCommandModuleId[]>([]);
+  const pointerCleanup = useRef<(() => void) | null>(null);
   const compact = useCompactWorkspace();
   const [snapMenu, setSnapMenu] = useState<MissionCommandModuleId | null>(null);
   const [layoutLibraryOpen, setLayoutLibraryOpen] = useState(false);
@@ -185,6 +189,20 @@ export function MissionCommandWorkspace({
     if (!layoutLibraryOpen) return;
     window.requestAnimationFrame(() => layoutNameRef.current?.focus());
   }, [layoutLibraryOpen]);
+
+  useLayoutEffect(() => {
+    if (active) return;
+    setSnapMenu(null);
+    setLayoutLibraryOpen(false);
+    pointerCleanup.current?.();
+  }, [active]);
+
+  useEffect(
+    () => () => {
+      pointerCleanup.current?.();
+    },
+    [],
+  );
 
   const moduleById = useMemo(() => new Map(modules.map((module) => [module.id, module])), [modules]);
   const requestedModuleAvailable = requestedModule !== undefined && moduleById.has(requestedModule);
@@ -331,7 +349,7 @@ export function MissionCommandWorkspace({
     rect: MissionCommandRect,
     action: 'move' | 'resize',
   ) => {
-    if (compact) return;
+    if (!active || compact) return;
     const step = event.shiftKey ? 5 : 1;
     const horizontal = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
     const vertical = event.key === 'ArrowUp' ? -step : event.key === 'ArrowDown' ? step : 0;
@@ -353,7 +371,7 @@ export function MissionCommandWorkspace({
     rect: MissionCommandRect,
     action: 'move' | 'resize',
   ) => {
-    if (compact || event.button !== 0) return;
+    if (!active || compact || event.button !== 0) return;
     if (action === 'move' && (event.target as HTMLElement).closest('button, a, input, select, textarea, label')) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -375,11 +393,14 @@ export function MissionCommandWorkspace({
             : { ...rect, width: rect.width + dx, height: rect.height + dy },
       });
     };
+    pointerCleanup.current?.();
     const finish = () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', finish);
       window.removeEventListener('pointercancel', finish);
+      if (pointerCleanup.current === finish) pointerCleanup.current = null;
     };
+    pointerCleanup.current = finish;
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', finish, { once: true });
     window.addEventListener('pointercancel', finish, { once: true });

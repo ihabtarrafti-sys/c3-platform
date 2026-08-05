@@ -103,3 +103,60 @@ test('Workspace OS: snap, restore, save, apply, and reload remain geometry-only 
   await page.getByRole('button', { name: /^Views/ }).click();
   await expect(page.getByRole('dialog', { name: 'Saved workspace views' }).getByText('My command')).toBeVisible();
 });
+
+test('Workspace OS: ordinary routes park one principal workspace and a principal change destroys its live tree', async ({ page }) => {
+  await login(page);
+  let missionReads = 0;
+  await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => {
+    missionReads += 1;
+    return fulfillJson(route, { mission });
+  });
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread: null, messages: [], myLastReadSeq: null }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, (route) =>
+    fulfillJson(route, { obligations: [] }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
+  );
+
+  await page.goto(`/missions/${mission.missionId}/comms`);
+  const current = page.locator('[data-module="mission-current"]');
+  const draft = page.getByPlaceholder(`Write in the ${mission.name} Mission Thread`);
+  await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(1);
+  await expect(current).toBeVisible();
+  await draft.fill('Unsent handover survives parking');
+  await page.getByRole('button', { name: 'Arrange Mission Current' }).click();
+  await page.getByRole('button', { name: 'Right half: Mission Current' }).click();
+  await expect(current).toHaveAttribute('data-window-snap', 'right-half');
+
+  const readsBeforeParking = missionReads;
+  await page.getByTestId('nav-people').click();
+  await expect(page).toHaveURL(/\/people$/);
+  await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(0);
+  await expect(page.locator('.tw-root')).toHaveCount(1);
+  await page.waitForTimeout(300);
+  expect(missionReads).toBe(readsBeforeParking);
+
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
+  await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(1);
+  await expect(draft).toHaveValue('Unsent handover survives parking');
+  await expect(current).toHaveAttribute('data-window-snap', 'right-half');
+  await expect.poll(() => missionReads).toBeGreaterThan(readsBeforeParking);
+
+  await page.getByTestId('logout').click();
+  await page.getByTestId('login-email').fill('fresh-principal@alpha.com');
+  await page.getByTestId('login-role').click();
+  await page.getByRole('option', { name: 'operations', exact: true }).click();
+  await page.getByTestId('login-tenant').fill('alpha');
+  await page.getByTestId('login-submit').click();
+  await expect(page.getByTestId('role-display')).toContainText('operations');
+  await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(1);
+  await expect(page.getByPlaceholder(`Write in the ${mission.name} Mission Thread`)).toHaveValue('');
+  await expect(page.locator('[data-module="mission-current"]')).toHaveAttribute('data-window-snap', 'right-half');
+});
