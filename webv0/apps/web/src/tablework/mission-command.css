@@ -156,6 +156,174 @@
   font-weight: var(--c3-font-weight-bold);
 }
 
+.tw-root .mission-command-layoutlibrary {
+  position: absolute;
+  z-index: 80;
+  inset: 4.75rem var(--c3-space-4) auto auto;
+  width: min(29rem, calc(100% - var(--c3-space-8)));
+  max-height: calc(100% - 9.5rem);
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-xl);
+  background:
+    radial-gradient(circle at 100% 0, var(--c3-iris-glow), transparent 38%),
+    var(--c3-iris-window);
+  color: var(--c3-ink-muted);
+  box-shadow: var(--c3-shadow-room);
+}
+
+.tw-root .mission-command-layoutlibrary > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border-bottom: var(--tw-line) solid var(--c3-border-strong);
+  background: var(--c3-iris-windowbar);
+}
+
+.tw-root .mission-command-layoutlibrary > header > span {
+  display: grid;
+}
+
+.tw-root .mission-command-layoutlibrary > header small,
+.tw-root .mission-command-layoutlibrary > footer,
+.tw-root .mission-command-layoutlist article small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  letter-spacing: var(--c3-letter-spacing-label);
+  text-transform: uppercase;
+}
+
+.tw-root .mission-command-layoutlibrary > header strong,
+.tw-root .mission-command-layoutlist article strong {
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .mission-command-layoutlibrary > header button {
+  width: var(--c3-tw-target-min);
+  height: var(--c3-tw-target-min);
+  border: var(--tw-line) solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--c3-ink-quiet);
+  cursor: pointer;
+}
+
+.tw-root .mission-command-layoutlibrary > header button:hover,
+.tw-root .mission-command-layoutlibrary > header button:focus-visible {
+  border-color: var(--c3-border-strong);
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .mission-command-layoutlibrary > p {
+  margin: 0;
+  padding: var(--c3-space-3) var(--c3-space-4) 0;
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-body);
+}
+
+.tw-root .mission-command-layoutform {
+  display: grid;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-4);
+}
+
+.tw-root .mission-command-layoutform > label {
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+}
+
+.tw-root .mission-command-layoutform > span {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .mission-command-layoutform input {
+  min-width: 0;
+  min-height: var(--c3-tw-target-min);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-surface-base);
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .mission-command-layoutform button,
+.tw-root .mission-command-layoutlist button {
+  min-height: var(--c3-tw-target-min);
+  padding: var(--c3-space-2) var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-action-primary);
+  color: var(--c3-action-ink);
+  font-weight: var(--c3-font-weight-bold);
+  cursor: pointer;
+}
+
+.tw-root .mission-command-layoutform button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+.tw-root .mission-command-layoutempty {
+  padding-bottom: var(--c3-space-4) !important;
+}
+
+.tw-root .mission-command-layoutlist {
+  display: grid;
+  gap: var(--c3-space-2);
+  padding: 0 var(--c3-space-4) var(--c3-space-4);
+}
+
+.tw-root .mission-command-layoutlist article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-2);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .mission-command-layoutlist article.is-active {
+  border-color: var(--c3-accent-aqua);
+  box-shadow: inset 3px 0 0 var(--c3-accent-aqua);
+}
+
+.tw-root .mission-command-layoutlist article > span {
+  min-width: 0;
+  display: grid;
+}
+
+.tw-root .mission-command-layoutlist article strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tw-root .mission-command-layoutlist button.is-quiet {
+  background: transparent;
+  color: var(--c3-ink-muted);
+}
+
+.tw-root .mission-command-layoutlibrary > footer {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3) var(--c3-space-4);
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
+  background: var(--c3-iris-windowbar);
+}
+
 .tw-root .mission-command-canvas {
   position: relative;
   min-height: 0;
@@ -356,6 +524,7 @@
 }
 
 .tw-root .mission-command-windowactions {
+  position: relative;
   display: flex;
   align-items: center;
   gap: var(--c3-space-1);
@@ -379,6 +548,105 @@
   border-color: var(--c3-border-strong);
   background: var(--c3-surface-raised);
   color: var(--c3-ink-strong);
+}
+
+.tw-root .mission-command-snappalette {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + var(--c3-space-2));
+  right: 0;
+  width: 15.5rem;
+  display: grid;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-iris-windowbar);
+  color: var(--c3-ink-muted);
+  box-shadow: var(--c3-shadow-room);
+}
+
+.tw-root .mission-command-snappalette > strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .mission-command-snapgrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--c3-space-1);
+}
+
+.tw-root .mission-command-windowactions .mission-command-snapgrid button {
+  width: 100%;
+  min-width: var(--c3-tw-target-min);
+  border-color: var(--c3-border-subtle);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .mission-command-windowactions .mission-command-snapgrid button.is-active {
+  border-color: var(--c3-accent-aqua);
+  background: var(--c3-accent-aqua-wash);
+}
+
+.tw-root .mission-command-snapicon {
+  width: 1.35rem;
+  height: 1rem;
+  display: block;
+  border: 1px solid var(--c3-ink-quiet);
+  border-radius: 2px;
+  background-color: transparent;
+}
+
+.tw-root .mission-command-snapicon.snap-left-half {
+  background: linear-gradient(90deg, var(--c3-accent-aqua) 0 48%, transparent 48%);
+}
+
+.tw-root .mission-command-snapicon.snap-right-half {
+  background: linear-gradient(90deg, transparent 0 52%, var(--c3-accent-aqua) 52%);
+}
+
+.tw-root .mission-command-snapicon.snap-left-third {
+  background: linear-gradient(90deg, var(--c3-accent-aqua) 0 31%, transparent 31%);
+}
+
+.tw-root .mission-command-snapicon.snap-center-third {
+  background: linear-gradient(90deg, transparent 0 34%, var(--c3-accent-aqua) 34% 66%, transparent 66%);
+}
+
+.tw-root .mission-command-snapicon.snap-right-third {
+  background: linear-gradient(90deg, transparent 0 69%, var(--c3-accent-aqua) 69%);
+}
+
+.tw-root .mission-command-snapicon.snap-top-left {
+  background: linear-gradient(135deg, var(--c3-accent-aqua) 0 46%, transparent 46%);
+}
+
+.tw-root .mission-command-snapicon.snap-top-right {
+  background: linear-gradient(225deg, var(--c3-accent-aqua) 0 46%, transparent 46%);
+}
+
+.tw-root .mission-command-snapicon.snap-bottom-left {
+  background: linear-gradient(45deg, var(--c3-accent-aqua) 0 46%, transparent 46%);
+}
+
+.tw-root .mission-command-snapicon.snap-bottom-right {
+  background: linear-gradient(315deg, var(--c3-accent-aqua) 0 46%, transparent 46%);
+}
+
+.tw-root .mission-command-snapicon.snap-full {
+  background: var(--c3-accent-aqua);
+}
+
+.tw-root .mission-command-windowactions button.mission-command-freeform {
+  width: 100%;
+  height: auto;
+  min-height: var(--c3-tw-target-min);
+  border-color: var(--c3-border-subtle);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-surface-base);
+  font-size: var(--c3-font-size-caption);
 }
 
 .tw-root .mission-command-windowdetail {
@@ -781,6 +1049,24 @@
 
   .tw-root .mission-command-layouts button {
     flex: 1 0 auto;
+  }
+
+  .tw-root .mission-command-layoutlibrary {
+    inset: 9rem var(--c3-space-2) auto;
+    width: auto;
+    max-height: calc(100dvh - 10rem);
+  }
+
+  .tw-root .mission-command-layoutform > span {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .mission-command-layoutlist article {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .tw-root .mission-command-layoutlist article > button.is-quiet {
+    grid-column: 2;
   }
 
   .tw-root .mission-command-windowbar {

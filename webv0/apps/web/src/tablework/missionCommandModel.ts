@@ -8,9 +8,12 @@ import {
   type WorkspaceDefinition,
   type WorkspaceLayout,
   type WorkspaceRect,
+  type WorkspaceSnap,
   type WorkspaceState,
   type WorkspaceVisibility,
+  type WorkspaceWindowSeed,
   type WorkspaceWindowState,
+  type SavedWorkspaceLayout,
 } from './workspaceModel';
 
 export type MissionCommandModuleId = 'mission-field' | 'mission-current' | 'mission-obligations' | 'mission-finance';
@@ -18,7 +21,10 @@ export type MissionCommandVisibility = WorkspaceVisibility;
 export type MissionCommandPreset = 'commander' | 'review' | 'brief' | 'finance';
 export type MissionCommandLayout = WorkspaceLayout<MissionCommandPreset>;
 export type MissionCommandRect = WorkspaceRect;
+export type MissionCommandSnap = WorkspaceSnap;
 export type MissionCommandWindowState = WorkspaceWindowState<MissionCommandModuleId>;
+export type MissionCommandWindowSeed = WorkspaceWindowSeed<MissionCommandModuleId>;
+export type MissionCommandSavedLayout = SavedWorkspaceLayout<MissionCommandModuleId>;
 export type MissionCommandState = WorkspaceState<MissionCommandModuleId, MissionCommandPreset>;
 
 type MissionCommandAction = WorkspaceAction<MissionCommandModuleId, MissionCommandPreset>;
@@ -27,7 +33,7 @@ const LEGACY_IDS = ['mission-field', 'mission-current', 'mission-obligations'] a
 const IDS: readonly MissionCommandModuleId[] = [...LEGACY_IDS, 'mission-finance'];
 const LEGACY_LAYOUTS: readonly MissionCommandLayout[] = ['commander', 'review', 'brief', 'custom'];
 
-const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWindowState[]>> = {
+const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWindowSeed[]>> = {
   commander: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
     { id: 'mission-current', visibility: 'open', rect: { x: 25, y: 0, width: 49, height: 100 }, z: 3 },

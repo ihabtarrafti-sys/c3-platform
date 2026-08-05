@@ -19,6 +19,10 @@ import {
   type MissionCommandPreset,
   type MissionCommandRect,
 } from './missionCommandModel';
+import {
+  MAX_SAVED_WORKSPACE_LAYOUTS,
+  type WorkspaceSnap,
+} from './workspaceModel';
 import './mission-command.css';
 
 export interface MissionCommandModule {
@@ -57,6 +61,19 @@ const LAYOUT_LABELS: ReadonlyArray<{ id: MissionCommandPreset; label: string }> 
 
 const COMPACT_QUERY = '(max-width: 71.999rem)';
 
+const SNAP_OPTIONS: ReadonlyArray<{ id: WorkspaceSnap; label: string }> = [
+  { id: 'left-half', label: 'Left half' },
+  { id: 'right-half', label: 'Right half' },
+  { id: 'left-third', label: 'Left third' },
+  { id: 'center-third', label: 'Center third' },
+  { id: 'right-third', label: 'Right third' },
+  { id: 'top-left', label: 'Top left quarter' },
+  { id: 'top-right', label: 'Top right quarter' },
+  { id: 'bottom-left', label: 'Bottom left quarter' },
+  { id: 'bottom-right', label: 'Bottom right quarter' },
+  { id: 'full', label: 'Full canvas' },
+];
+
 function useCompactWorkspace(): boolean {
   const [compact, setCompact] = useState(() => window.matchMedia(COMPACT_QUERY).matches);
   useEffect(() => {
@@ -77,7 +94,19 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
 };
 
 function storageKey(missionId: string): string {
+  return `c3:mission-command:${missionId}:workspace:v2`;
+}
+
+function legacyStorageKey(missionId: string): string {
   return `c3:mission-command:${missionId}:workspace:v1`;
+}
+
+function nextSavedLayoutId(ids: readonly string[]): string | null {
+  for (let index = 1; index <= MAX_SAVED_WORKSPACE_LAYOUTS; index += 1) {
+    const candidate = `view-${index}`;
+    if (!ids.includes(candidate)) return candidate;
+  }
+  return null;
 }
 
 function truthLabel(truth: WitnessState): string {
@@ -118,6 +147,8 @@ export function MissionCommandWorkspace({
 }: MissionCommandWorkspaceProps) {
   const rootRef = useRef<HTMLElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  const layoutTriggerRef = useRef<HTMLButtonElement>(null);
+  const layoutNameRef = useRef<HTMLInputElement>(null);
   const governedControlWindow = useRef<MissionCommandModuleId | null>(null);
   const previousActionability = useRef(new Map<MissionCommandModuleId, boolean>());
   const initialRouteRequestHandled = useRef(false);
@@ -126,12 +157,16 @@ export function MissionCommandWorkspace({
   const lastReportedForeground = useRef<MissionCommandModuleId | null | undefined>(undefined);
   const pendingCloseNotifications = useRef<MissionCommandModuleId[]>([]);
   const compact = useCompactWorkspace();
+  const [snapMenu, setSnapMenu] = useState<MissionCommandModuleId | null>(null);
+  const [layoutLibraryOpen, setLayoutLibraryOpen] = useState(false);
+  const [layoutName, setLayoutName] = useState('');
   const [state, dispatch] = useReducer(
     missionCommandReducer,
     DEFAULT_MISSION_COMMAND,
     () => {
       try {
-        return restoreMissionCommand(localStorage.getItem(storageKey(missionId)));
+        const current = localStorage.getItem(storageKey(missionId));
+        return restoreMissionCommand(current ?? localStorage.getItem(legacyStorageKey(missionId)));
       } catch {
         return restoreMissionCommand(null);
       }
@@ -146,6 +181,11 @@ export function MissionCommandWorkspace({
     }
   }, [missionId, state]);
 
+  useEffect(() => {
+    if (!layoutLibraryOpen) return;
+    window.requestAnimationFrame(() => layoutNameRef.current?.focus());
+  }, [layoutLibraryOpen]);
+
   const moduleById = useMemo(() => new Map(modules.map((module) => [module.id, module])), [modules]);
   const requestedModuleAvailable = requestedModule !== undefined && moduleById.has(requestedModule);
   const foregroundModule = useMemo(() => {
@@ -158,6 +198,8 @@ export function MissionCommandWorkspace({
     }
     return front?.id ?? null;
   }, [moduleById, state.windows]);
+  const availableSavedLayoutId = nextSavedLayoutId(state.savedLayouts.map((layout) => layout.id));
+  const canSaveLayout = availableSavedLayoutId !== null && layoutName.trim().length > 0;
 
   const focusDockButton = (id: MissionCommandModuleId) => {
     window.requestAnimationFrame(() => {
@@ -171,6 +213,23 @@ export function MissionCommandWorkspace({
     window.requestAnimationFrame(() => {
       rootRef.current?.querySelector<HTMLElement>(`[data-module="${id}"]`)?.focus();
     });
+  };
+
+  const closeLayoutLibrary = () => {
+    setLayoutLibraryOpen(false);
+    window.requestAnimationFrame(() => layoutTriggerRef.current?.focus());
+  };
+
+  const arrangeWindow = (id: MissionCommandModuleId, snap: WorkspaceSnap) => {
+    dispatch({ type: 'snap-window', id, snap });
+    setSnapMenu(null);
+    focusWindow(id);
+  };
+
+  const restoreFreeformWindow = (id: MissionCommandModuleId) => {
+    dispatch({ type: 'restore-window', id });
+    setSnapMenu(null);
+    focusWindow(id);
   };
 
   useLayoutEffect(() => {
@@ -233,11 +292,13 @@ export function MissionCommandWorkspace({
 
   const parkWindow = (id: MissionCommandModuleId, visibility: 'minimized' | 'closed') => {
     if (visibility === 'closed') pendingCloseNotifications.current.push(id);
+    setSnapMenu(null);
     dispatch({ type: 'set-visibility', id, visibility });
     focusDockButton(id);
   };
 
   const applyLayout = (layout: MissionCommandPreset) => {
+    setSnapMenu(null);
     const finance = state.windows.find((window) => window.id === 'mission-finance');
     if (layout !== 'finance' && finance?.visibility !== 'closed') {
       pendingCloseNotifications.current.push('mission-finance');
@@ -245,7 +306,20 @@ export function MissionCommandWorkspace({
     dispatch({ type: 'apply-layout', layout });
   };
 
+  const applySavedLayout = (id: string) => {
+    const saved = state.savedLayouts.find((layout) => layout.id === id);
+    if (!saved) return;
+    const currentFinance = state.windows.find((window) => window.id === 'mission-finance');
+    const savedFinance = saved.windows.find((window) => window.id === 'mission-finance');
+    if (currentFinance?.visibility !== 'closed' && savedFinance?.visibility === 'closed') {
+      pendingCloseNotifications.current.push('mission-finance');
+    }
+    setSnapMenu(null);
+    dispatch({ type: 'apply-saved-layout', id });
+  };
+
   const resetLayout = () => {
+    setSnapMenu(null);
     const finance = state.windows.find((window) => window.id === 'mission-finance');
     if (finance?.visibility !== 'closed') pendingCloseNotifications.current.push('mission-finance');
     dispatch({ type: 'reset' });
@@ -359,8 +433,111 @@ export function MissionCommandWorkspace({
           <button type="button" onClick={resetLayout}>
             Reset
           </button>
+          <button
+            type="button"
+            ref={layoutTriggerRef}
+            className={state.activeSavedLayoutId !== null ? 'is-active' : undefined}
+            aria-expanded={layoutLibraryOpen}
+            aria-controls="mission-command-layout-library"
+            onClick={() => setLayoutLibraryOpen((open) => !open)}
+          >
+            Views {state.savedLayouts.length > 0 ? state.savedLayouts.length : ''}
+          </button>
         </div>
       </header>
+
+      {layoutLibraryOpen ? (
+        <dialog
+          open
+          id="mission-command-layout-library"
+          className="mission-command-layoutlibrary"
+          aria-label="Saved workspace views"
+          onCancel={(event) => {
+            event.preventDefault();
+            closeLayoutLibrary();
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') {
+              event.preventDefault();
+              closeLayoutLibrary();
+            }
+          }}
+        >
+          <header>
+            <span>
+              <small>Device workspace</small>
+              <strong>Saved views</strong>
+            </span>
+            <button type="button" aria-label="Close saved views" onClick={closeLayoutLibrary}>
+              ×
+            </button>
+          </header>
+          <p>Save window position, size, and lifecycle only. Records, identity, drafts, permissions, and truth never enter a view.</p>
+          <form
+            className="mission-command-layoutform"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!canSaveLayout || availableSavedLayoutId === null) return;
+              dispatch({ type: 'save-layout', id: availableSavedLayoutId, name: layoutName });
+              setLayoutName('');
+            }}
+          >
+            <label htmlFor="mission-command-layout-name">Name this view</label>
+            <span>
+              <input
+                ref={layoutNameRef}
+                id="mission-command-layout-name"
+                value={layoutName}
+                maxLength={48}
+                placeholder="e.g. Morning command"
+                onChange={(event) => setLayoutName(event.target.value)}
+              />
+              <button type="submit" disabled={!canSaveLayout}>
+                Save current
+              </button>
+            </span>
+          </form>
+          {state.savedLayouts.length === 0 ? (
+            <p className="mission-command-layoutempty">No saved views yet.</p>
+          ) : (
+            <div className="mission-command-layoutlist" role="list" aria-label="Saved views">
+              {state.savedLayouts.map((layout) => (
+                <article
+                  key={layout.id}
+                  role="listitem"
+                  className={state.activeSavedLayoutId === layout.id ? 'is-active' : undefined}
+                >
+                  <span>
+                    <strong>{layout.name}</strong>
+                    <small>{state.activeSavedLayoutId === layout.id ? 'In use' : 'Ready'}</small>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      applySavedLayout(layout.id);
+                      closeLayoutLibrary();
+                    }}
+                  >
+                    Apply
+                  </button>
+                  <button
+                    type="button"
+                    className="is-quiet"
+                    aria-label={`Delete ${layout.name}`}
+                    onClick={() => dispatch({ type: 'delete-saved-layout', id: layout.id })}
+                  >
+                    Delete
+                  </button>
+                </article>
+              ))}
+            </div>
+          )}
+          <footer>
+            <span>{state.savedLayouts.length} / {MAX_SAVED_WORKSPACE_LAYOUTS} views</span>
+            <span>Stored on this device</span>
+          </footer>
+        </dialog>
+      ) : null}
 
       <div className="mission-command-canvas" ref={canvasRef}>
         <div className="mission-command-contours" aria-hidden="true" />
@@ -373,6 +550,7 @@ export function MissionCommandWorkspace({
               className={`mission-command-window module-${module.id}`}
               data-module={module.id}
               data-module-truth={module.truth.kind}
+              data-window-snap={windowState.snap ?? 'freeform'}
               tabIndex={-1}
               aria-label={`${module.title} window`}
               hidden={windowState.visibility !== 'open'}
@@ -398,7 +576,64 @@ export function MissionCommandWorkspace({
                   <strong>{module.title}</strong>
                 </span>
                 <span className={`mission-command-truth truth-${module.truth.kind}`}>{truthLabel(module.truth)}</span>
-                <span className="mission-command-windowactions">
+                <div className="mission-command-windowactions">
+                  {!compact ? (
+                    <>
+                      <button
+                        type="button"
+                        className="mission-command-arrange"
+                        title={`Arrange ${module.title}`}
+                        aria-label={`Arrange ${module.title}`}
+                        aria-expanded={snapMenu === module.id}
+                        aria-controls={`snap-${missionId}-${module.id}`}
+                        onClick={() => setSnapMenu((open) => (open === module.id ? null : module.id))}
+                      >
+                        ▦
+                      </button>
+                      {snapMenu === module.id ? (
+                        <div
+                          id={`snap-${missionId}-${module.id}`}
+                          className="mission-command-snappalette"
+                          role="group"
+                          aria-label={`Arrange ${module.title} on the workspace`}
+                          onKeyDown={(event) => {
+                            if (event.key === 'Escape') {
+                              event.preventDefault();
+                              setSnapMenu(null);
+                              focusWindow(module.id);
+                            }
+                          }}
+                        >
+                          <strong>Snap window</strong>
+                          <span className="mission-command-snapgrid">
+                            {SNAP_OPTIONS.map((option) => (
+                              <button
+                                type="button"
+                                key={option.id}
+                                className={windowState.snap === option.id ? 'is-active' : undefined}
+                                data-snap-target={option.id}
+                                title={option.label}
+                                aria-label={`${option.label}: ${module.title}`}
+                                aria-pressed={windowState.snap === option.id}
+                                onClick={() => arrangeWindow(module.id, option.id)}
+                              >
+                                <span className={`mission-command-snapicon snap-${option.id}`} aria-hidden="true" />
+                              </button>
+                            ))}
+                          </span>
+                          {windowState.snap !== null ? (
+                            <button
+                              type="button"
+                              className="mission-command-freeform"
+                              onClick={() => restoreFreeformWindow(module.id)}
+                            >
+                              Restore freeform
+                            </button>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </>
+                  ) : null}
                   <button
                     type="button"
                     title={`Minimize ${module.title}`}
@@ -415,7 +650,7 @@ export function MissionCommandWorkspace({
                   >
                     ×
                   </button>
-                </span>
+                </div>
               </header>
               <p className="mission-command-windowdetail">{module.detail}</p>
               <div className="mission-command-windowbody">{module.children}</div>
