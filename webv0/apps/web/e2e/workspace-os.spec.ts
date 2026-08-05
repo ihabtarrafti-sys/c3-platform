@@ -160,3 +160,70 @@ test('Workspace OS: ordinary routes park one principal workspace and a principal
   await expect(page.getByPlaceholder(`Write in the ${mission.name} Mission Thread`)).toHaveValue('');
   await expect(page.locator('[data-module="mission-current"]')).toHaveAttribute('data-window-snap', 'right-half');
 });
+
+test('Workspace OS: Approvals and Calendar open as truthful singleton windows instead of pages', async ({ page }) => {
+  await login(page);
+  let approvalsReads = 0;
+  let calendarReads = 0;
+  await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread: null, messages: [], myLastReadSeq: null }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, (route) =>
+    fulfillJson(route, { obligations: [] }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
+  );
+  await page.route('**/api/v1/approvals', (route) => {
+    approvalsReads += 1;
+    return fulfillJson(route, { approvals: [] });
+  });
+  await page.route('**/api/v1/calendar**', (route) => {
+    calendarReads += 1;
+    return fulfillJson(route, { items: [], horizonDays: 90, todayIso: '2026-08-05' });
+  });
+
+  await page.goto(`/missions/${mission.missionId}/comms`);
+  const draft = page.getByPlaceholder(`Write in the ${mission.name} Mission Thread`);
+  await draft.fill('Keep the relay open beside the registers');
+
+  await page.getByTestId('nav-approvals').click();
+  await expect(page).toHaveURL(new RegExp(`/approvals\\?workspace=${mission.missionId}$`));
+  const approvals = page.locator('[data-module="approvals-register"]');
+  await expect(approvals).toBeVisible();
+  await expect(approvals).toHaveAttribute('data-module-truth', 'proven-empty');
+  await expect(page.locator('[data-module="mission-current"]')).toBeVisible();
+  await expect(draft).toHaveValue('Keep the relay open beside the registers');
+  expect(approvalsReads).toBeGreaterThan(0);
+
+  await page.getByTestId('nav-calendar').click();
+  await expect(page).toHaveURL(new RegExp(`/calendar\\?workspace=${mission.missionId}$`));
+  const calendar = page.locator('[data-module="calendar-horizon"]');
+  await expect(calendar).toBeVisible();
+  await expect(calendar).toHaveAttribute('data-module-truth', 'proven-empty');
+  await expect(approvals).toBeVisible();
+  await expect(draft).toHaveValue('Keep the relay open beside the registers');
+  expect(calendarReads).toBeGreaterThan(0);
+
+  const readsBeforeClose = calendarReads;
+  await page.getByRole('button', { name: 'Close Calendar Horizon' }).click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
+  await expect(calendar).toHaveCount(0);
+  await page.waitForTimeout(300);
+  expect(calendarReads).toBe(readsBeforeClose);
+
+  await page.getByTestId('nav-calendar').click();
+  await expect(calendar).toBeVisible();
+  await expect.poll(() => calendarReads).toBeGreaterThan(readsBeforeClose);
+  await expect(page.locator('[data-module="calendar-horizon"]')).toHaveCount(1);
+
+  await page.goto('/approvals');
+  await expect(page).toHaveURL(/\/approvals$/);
+  await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(0);
+  await expect(page.locator('[data-module="approvals-register"]')).toHaveCount(0);
+  await expect(page.getByTestId('approvals-empty')).toBeVisible();
+});

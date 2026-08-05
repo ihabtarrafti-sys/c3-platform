@@ -62,6 +62,16 @@ describe('Iris cross-route workspace model', () => {
       missionId: 'MSN-0042',
       requestedModule: 'mission-finance',
     });
+    expect(missionWorkspaceTargetOf('/approvals', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'approvals-register',
+    });
+    expect(missionWorkspaceTargetOf('/calendar/', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'calendar-horizon',
+    });
+    expect(missionWorkspaceTargetOf('/approvals', '')).toBeNull();
+    expect(missionWorkspaceTargetOf('/calendar', '?workspace=MSN-0042&extra=true')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=../../people')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=MSN-0042&workspace=MSN-0043')).toBeNull();
@@ -71,19 +81,25 @@ describe('Iris cross-route workspace model', () => {
     expect(missionWorkspaceTargetOf('/missions/MSN-42/comms', '')).toBeNull();
   });
 
-  it('rewrites only the Finance launcher while a mission workspace owns navigation', () => {
+  it('rewrites only known singleton module launchers while a mission workspace owns navigation', () => {
     expect(workspaceHrefFor('/missions/finance', 'MSN-0042')).toBe('/missions/finance?workspace=MSN-0042');
+    expect(workspaceHrefFor('/approvals', 'MSN-0042')).toBe('/approvals?workspace=MSN-0042');
+    expect(workspaceHrefFor('/calendar', 'MSN-0042')).toBe('/calendar?workspace=MSN-0042');
     expect(workspaceHrefFor('/missions', 'MSN-0042')).toBe('/missions');
+    expect(workspaceHrefFor('/approvals/APR-0001', 'MSN-0042')).toBe('/approvals/APR-0001');
     expect(workspaceHrefFor('/invoices', 'MSN-0042')).toBe('/invoices');
     expect(workspaceHrefFor('/missions/finance', null)).toBe('/missions/finance');
+    expect(workspaceHrefFor('/approvals', '../../people')).toBe('/approvals');
   });
 
-  it('adds Finance to the closed union without changing the three-window Commander opening', () => {
+  it('adds cross-product modules to the closed union without changing the three-window Commander opening', () => {
     expect(DEFAULT_MISSION_COMMAND.windows.map((window) => [window.id, window.visibility])).toEqual([
       ['mission-field', 'open'],
       ['mission-current', 'open'],
       ['mission-obligations', 'open'],
       ['mission-finance', 'closed'],
+      ['approvals-register', 'closed'],
+      ['calendar-horizon', 'closed'],
     ]);
   });
 
@@ -107,6 +123,41 @@ describe('Iris cross-route workspace model', () => {
       height: 74,
     });
     expect(restored.windows.find((window) => window.id === 'mission-finance')?.visibility).toBe('closed');
+    expect(restored.windows.find((window) => window.id === 'approvals-register')?.visibility).toBe('closed');
+    expect(restored.windows.find((window) => window.id === 'calendar-horizon')?.visibility).toBe('closed');
+  });
+
+  it('upgrades every saved four-window view without discarding its geometry or name', () => {
+    const prior = {
+      version: 2,
+      layout: 'custom',
+      activeSavedLayoutId: 'view-1',
+      windows: DEFAULT_MISSION_COMMAND.windows.slice(0, 4),
+      savedLayouts: [
+        {
+          id: 'view-1',
+          name: 'My command',
+          windows: DEFAULT_MISSION_COMMAND.windows.slice(0, 4).map((window) =>
+            window.id === 'mission-current'
+              ? { ...window, rect: { x: 4, y: 5, width: 61, height: 72 } }
+              : window,
+          ),
+        },
+      ],
+    };
+    const restored = restoreMissionCommand(JSON.stringify(prior));
+
+    expect(restored.activeSavedLayoutId).toBe('view-1');
+    expect(restored.savedLayouts[0]?.name).toBe('My command');
+    expect(restored.savedLayouts[0]?.windows.find((window) => window.id === 'mission-current')?.rect).toEqual({
+      x: 4,
+      y: 5,
+      width: 61,
+      height: 72,
+    });
+    expect(restored.savedLayouts[0]?.windows.map((window) => window.id)).toEqual(
+      DEFAULT_MISSION_COMMAND.windows.map((window) => window.id),
+    );
   });
 
   it('opens the first Finance request 50/50 beside Mission Current and preserves it on return', () => {
@@ -143,6 +194,36 @@ describe('Iris cross-route workspace model', () => {
     expect(reopened.windows.find((window) => window.id === 'mission-finance')).toMatchObject({
       visibility: 'open',
       rect: { x: 58, y: 12, width: 38, height: 76 },
+    });
+  });
+
+  it('earns deliberate Decisions and Planning compositions only on first open', () => {
+    const decisions = missionCommandReducer(DEFAULT_MISSION_COMMAND, {
+      type: 'activate-route',
+      id: 'approvals-register',
+    });
+    expect(decisions.layout).toBe('decisions');
+    expect(decisions.windows.find((window) => window.id === 'mission-current')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 0, y: 0, width: 49, height: 100 },
+    });
+    expect(decisions.windows.find((window) => window.id === 'approvals-register')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 51, y: 0, width: 49, height: 100 },
+    });
+
+    const planning = missionCommandReducer(DEFAULT_MISSION_COMMAND, {
+      type: 'activate-route',
+      id: 'calendar-horizon',
+    });
+    expect(planning.layout).toBe('planning');
+    expect(planning.windows.find((window) => window.id === 'mission-field')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 0, y: 0, width: 34, height: 100 },
+    });
+    expect(planning.windows.find((window) => window.id === 'calendar-horizon')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 35, y: 0, width: 65, height: 100 },
     });
   });
 });

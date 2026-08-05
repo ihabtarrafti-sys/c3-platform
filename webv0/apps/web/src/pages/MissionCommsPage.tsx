@@ -36,6 +36,19 @@ import { isActionableWitness, withModuleChannelTruth, type MissionCommandModuleI
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
+import { ApprovalsRegister } from './ApprovalsPage';
+import { CalendarHorizon } from './CalendarPage';
+
+const WORKSPACE_ROUTE_META: Readonly<
+  Record<MissionCommandModuleId, { readonly place: string; readonly origin: string; readonly section: string }>
+> = {
+  'mission-field': { place: 'Comms', origin: 'Mission', section: 'Mission Field' },
+  'mission-current': { place: 'Comms', origin: 'Mission', section: 'Mission Thread' },
+  'mission-obligations': { place: 'Comms', origin: 'Mission', section: 'Mission Obligations' },
+  'mission-finance': { place: 'Finance', origin: 'Mission Command', section: 'Finance beside Mission' },
+  'approvals-register': { place: 'Approvals', origin: 'Mission Command', section: 'Decisions beside Mission' },
+  'calendar-horizon': { place: 'Calendar', origin: 'Mission Command', section: 'Planning beside Mission' },
+};
 
 interface MissionCommsPageProps {
   readonly missionIdOverride?: string;
@@ -104,6 +117,8 @@ function MissionCommsScreen({
   const [actionError, setActionError] = useState<string | null>(null);
   const [mintOpen, setMintOpen] = useState(false);
   const [financeTruth, setFinanceTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [approvalsTruth, setApprovalsTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [calendarTruth, setCalendarTruth] = useState<WitnessState>({ kind: 'loading' });
   const [foregroundModule, setForegroundModule] = useState<MissionCommandModuleId | null>('mission-current');
   const attention = useDocumentAttention();
   const effectiveForeground = workspaceActive ? foregroundModule : null;
@@ -341,6 +356,7 @@ function MissionCommsScreen({
   );
   const missionActionsAvailable = isActionableWitness(missionTruth);
   const obligationActionsAvailable = missionActionsAvailable && isActionableWitness(obligationsTruth);
+  const routeMeta = WORKSPACE_ROUTE_META[requestedModule];
 
   // Lapse or an untrusted witness removes every governed write surface — the
   // open mint float included. Stale data stays readable, never actionable.
@@ -354,31 +370,34 @@ function MissionCommsScreen({
 
   return (
     <AppFrame
-      place={requestedModule === 'mission-finance' ? 'Finance' : 'Comms'}
+      place={routeMeta.place}
       wide
       workspaceMissionId={missionId}
       active={workspaceActive}
       actor={{ displayName: me?.displayName ?? 'Member', role: me?.role ?? '', tenantName: me?.tenantSlug ?? '' }}
       header={
         <ContextHeader
-          place={requestedModule === 'mission-finance' ? 'Finance' : 'Comms'}
-          origin={requestedModule === 'mission-finance' ? 'Mission Command' : 'Mission'}
+          place={routeMeta.place}
+          origin={routeMeta.origin}
           record={record}
-          section={requestedModule === 'mission-finance' ? 'Finance beside Mission' : 'Mission Thread'}
+          section={routeMeta.section}
           actions={
             <>
               <Link className="intent-button" to={`/missions/${missionId}`}>
                 Open mission workspace
               </Link>
-              {requestedModule === 'mission-finance' ? (
-                <Link className="intent-button" to={`/missions/${missionId}/comms`}>
-                  Return to Mission Current
-                </Link>
-              ) : (
-                <Link className="intent-button" to={`/missions/finance?workspace=${missionId}`}>
-                  Open finance beside mission
-                </Link>
-              )}
+              <Link className="intent-button" to={`/missions/${missionId}/comms`} aria-current={requestedModule === 'mission-current' ? 'page' : undefined}>
+                Mission Current
+              </Link>
+              <Link className="intent-button" to={`/missions/finance?workspace=${missionId}`} aria-current={requestedModule === 'mission-finance' ? 'page' : undefined}>
+                Finance
+              </Link>
+              <Link className="intent-button" to={`/approvals?workspace=${missionId}`} aria-current={requestedModule === 'approvals-register' ? 'page' : undefined}>
+                Approvals
+              </Link>
+              <Link className="intent-button" to={`/calendar?workspace=${missionId}`} aria-current={requestedModule === 'calendar-horizon' ? 'page' : undefined}>
+                Calendar
+              </Link>
             </>
           }
         />
@@ -415,9 +434,11 @@ function MissionCommsScreen({
             requestKey={workspaceRequestKey}
             onForegroundModuleChange={setForegroundModule}
             onCloseModule={(moduleId) => {
-              if (moduleId !== 'mission-finance') return;
-              setFinanceTruth({ kind: 'loading' });
-              if (requestedModule === 'mission-finance') {
+              if (moduleId === 'mission-finance') setFinanceTruth({ kind: 'loading' });
+              else if (moduleId === 'approvals-register') setApprovalsTruth({ kind: 'loading' });
+              else if (moduleId === 'calendar-horizon') setCalendarTruth({ kind: 'loading' });
+              else return;
+              if (requestedModule === moduleId) {
                 navigate(`/missions/${missionId}/comms`, { replace: true });
               }
             }}
@@ -536,6 +557,36 @@ function MissionCommsScreen({
                     foreground={effectiveForeground === 'mission-finance'}
                     onTruthChange={setFinanceTruth}
                     linkToMission={(nextMissionId) => `/missions/${nextMissionId}/comms?open=finance`}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'approvals-register' satisfies MissionCommandModuleId,
+                eyebrow: 'Relay · Authority',
+                title: 'Approvals Register',
+                detail: 'Requests for authority, independently witnessed beside the work they govern.',
+                truth: approvalsTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <ApprovalsRegister
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'approvals-register'}
+                    onTruthChange={setApprovalsTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'calendar-horizon' satisfies MissionCommandModuleId,
+                eyebrow: 'Forecast · Horizon',
+                title: 'Calendar Horizon',
+                detail: 'The dated field ahead: obligations, starts, ends, expiries, and delegated authority.',
+                truth: calendarTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <CalendarHorizon
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'calendar-horizon'}
+                    onTruthChange={setCalendarTruth}
                   />
                 ),
               } satisfies MissionCommandModule,

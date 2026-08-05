@@ -39,16 +39,18 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 describe('Iris Mission Command workspace model', () => {
-  it('opens one mission as three real modules and keeps Finance closed in the Commander layout', () => {
+  it('opens one mission as three real modules and keeps cross-product registers closed in Commander', () => {
     expect(DEFAULT_MISSION_COMMAND.layout).toBe('commander');
     expect(DEFAULT_MISSION_COMMAND.windows.map((window) => window.id)).toEqual([
       'mission-field',
       'mission-current',
       'mission-obligations',
       'mission-finance',
+      'approvals-register',
+      'calendar-horizon',
     ]);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(0, 3).every((window) => window.visibility === 'open')).toBe(true);
-    expect(DEFAULT_MISSION_COMMAND.windows.at(-1)?.visibility).toBe('closed');
+    expect(DEFAULT_MISSION_COMMAND.windows.slice(3).every((window) => window.visibility === 'closed')).toBe(true);
   });
 
   it('minimizes, closes, reopens, moves, resizes, and restores a preset deterministically', () => {

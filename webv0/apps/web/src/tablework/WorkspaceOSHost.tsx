@@ -3,11 +3,11 @@ import { createPortal } from 'react-dom';
 import { Outlet, useLocation } from 'react-router-dom';
 import { MissionCommsPage } from '../pages/MissionCommsPage';
 import {
-  missionWorkspaceTargetOf,
-  type MissionWorkspaceTarget,
-} from '../pages/MissionWorkspaceRoute';
+  workspaceRouteTargetOf,
+  type WorkspaceRouteTarget,
+} from './workspaceRoutes';
 
-interface RememberedMissionWorkspace extends MissionWorkspaceTarget {
+interface RememberedMissionWorkspace extends WorkspaceRouteTarget {
   readonly requestKey: string;
 }
 
@@ -70,7 +70,7 @@ function ParkableMissionWorkspace({
  */
 export function PrincipalWorkspaceOutlet() {
   const location = useLocation();
-  const routeTarget = missionWorkspaceTargetOf(location.pathname, location.search);
+  const routeTarget = workspaceRouteTargetOf(location.pathname, location.search);
   const [remembered, setRemembered] = useState<RememberedMissionWorkspace | null>(null);
   const current: RememberedMissionWorkspace | null = routeTarget
     ? { ...routeTarget, requestKey: location.key }

@@ -59,6 +59,8 @@ const LAYOUT_LABELS: ReadonlyArray<{ id: MissionCommandPreset; label: string }> 
   { id: 'review', label: 'Review' },
   { id: 'brief', label: 'Brief' },
   { id: 'finance', label: 'Finance' },
+  { id: 'decisions', label: 'Decisions' },
+  { id: 'planning', label: 'Planning' },
 ];
 
 const COMPACT_QUERY = '(max-width: 71.999rem)';
@@ -93,6 +95,8 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'mission-current': '↯',
   'mission-obligations': '✓',
   'mission-finance': '¤',
+  'approvals-register': '⌁',
+  'calendar-horizon': '◫',
 };
 
 function storageKey(missionId: string): string {
@@ -309,38 +313,50 @@ export function MissionCommandWorkspace({
   }, [modules]);
 
   const parkWindow = (id: MissionCommandModuleId, visibility: 'minimized' | 'closed') => {
-    if (visibility === 'closed') pendingCloseNotifications.current.push(id);
+    if (visibility === 'closed' && !pendingCloseNotifications.current.includes(id)) {
+      pendingCloseNotifications.current.push(id);
+    }
     setSnapMenu(null);
     dispatch({ type: 'set-visibility', id, visibility });
     focusDockButton(id);
   };
 
+  const queueForceCloseTransitions = (next: typeof state) => {
+    for (const module of modules) {
+      if (!module.unmountWhenClosed) continue;
+      const currentVisibility = state.windows.find((window) => window.id === module.id)?.visibility;
+      const nextVisibility = next.windows.find((window) => window.id === module.id)?.visibility;
+      if (
+        currentVisibility !== 'closed' &&
+        nextVisibility === 'closed' &&
+        !pendingCloseNotifications.current.includes(module.id)
+      ) {
+        pendingCloseNotifications.current.push(module.id);
+      }
+    }
+  };
+
   const applyLayout = (layout: MissionCommandPreset) => {
     setSnapMenu(null);
-    const finance = state.windows.find((window) => window.id === 'mission-finance');
-    if (layout !== 'finance' && finance?.visibility !== 'closed') {
-      pendingCloseNotifications.current.push('mission-finance');
-    }
-    dispatch({ type: 'apply-layout', layout });
+    const action = { type: 'apply-layout' as const, layout };
+    queueForceCloseTransitions(missionCommandReducer(state, action));
+    dispatch(action);
   };
 
   const applySavedLayout = (id: string) => {
     const saved = state.savedLayouts.find((layout) => layout.id === id);
     if (!saved) return;
-    const currentFinance = state.windows.find((window) => window.id === 'mission-finance');
-    const savedFinance = saved.windows.find((window) => window.id === 'mission-finance');
-    if (currentFinance?.visibility !== 'closed' && savedFinance?.visibility === 'closed') {
-      pendingCloseNotifications.current.push('mission-finance');
-    }
     setSnapMenu(null);
-    dispatch({ type: 'apply-saved-layout', id });
+    const action = { type: 'apply-saved-layout' as const, id };
+    queueForceCloseTransitions(missionCommandReducer(state, action));
+    dispatch(action);
   };
 
   const resetLayout = () => {
     setSnapMenu(null);
-    const finance = state.windows.find((window) => window.id === 'mission-finance');
-    if (finance?.visibility !== 'closed') pendingCloseNotifications.current.push('mission-finance');
-    dispatch({ type: 'reset' });
+    const action = { type: 'reset' as const };
+    queueForceCloseTransitions(missionCommandReducer(state, action));
+    dispatch(action);
   };
 
   const adjustWithKeyboard = (
