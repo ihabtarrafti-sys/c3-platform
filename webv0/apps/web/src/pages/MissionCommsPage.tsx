@@ -39,6 +39,7 @@ import { MissionContinuity, joinMissionContinuityWitness } from '../tablework/Mi
 import { ConversationRelay, type ConversationRelayMeta } from '../tablework/ConversationRelay';
 import { PeopleField } from '../tablework/PeopleField';
 import { PersonRecord, type PersonRecordMeta } from '../tablework/PersonRecord';
+import { SeatsStanding } from '../tablework/SeatsStanding';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
@@ -60,6 +61,7 @@ const WORKSPACE_ROUTE_META: Readonly<
   'conversation-relay': { place: 'Comms', origin: 'Mission Command', section: 'Conversation Relay' },
   'people-field': { place: 'People', origin: 'Workspace OS', section: 'Living Field' },
   'person-record': { place: 'People', origin: 'Living Field', section: 'Person Record' },
+  'seats-standing': { place: 'Organization', origin: 'Workspace OS', section: 'Seats & Standing' },
 };
 
 interface MissionCommsPageProps {
@@ -147,6 +149,7 @@ function MissionCommsScreen({
   const [constellationTruth, setConstellationTruth] = useState<WitnessState>({ kind: 'loading' });
   const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
   const [peopleTruth, setPeopleTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [seatsTruth, setSeatsTruth] = useState<WitnessState>({ kind: 'loading' });
   const [personWitness, setPersonWitness] = useState<{
     readonly personId: string | null;
     readonly truth: WitnessState;
@@ -589,7 +592,13 @@ function MissionCommsScreen({
         <ContextHeader
           place={routeMeta.place}
           origin={routeMeta.origin}
-          record={requestedModule === 'person-record' ? (activePersonMeta?.record ?? 'Person Record') : record}
+          record={
+            requestedModule === 'person-record'
+              ? (activePersonMeta?.record ?? 'Person Record')
+              : requestedModule === 'seats-standing'
+                ? 'Seats & Standing'
+                : record
+          }
           section={routeMeta.section}
           actions={
             <>
@@ -607,6 +616,9 @@ function MissionCommsScreen({
               </Link>
               <Link className="intent-button" to={`/people?workspace=${missionId}`} aria-current={requestedModule === 'people-field' ? 'page' : undefined}>
                 People
+              </Link>
+              <Link className="intent-button" to={`/members?workspace=${missionId}`} aria-current={requestedModule === 'seats-standing' ? 'page' : undefined}>
+                Seats
               </Link>
               <Link className="intent-button" to={`/missions/${missionId}/comms?open=continuity`} aria-current={requestedModule === 'mission-continuity' ? 'page' : undefined}>
                 Continuity
@@ -670,6 +682,7 @@ function MissionCommsScreen({
               else if (moduleId === 'command-constellation') setConstellationTruth({ kind: 'loading' });
               else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
               else if (moduleId === 'people-field') setPeopleTruth({ kind: 'loading' });
+              else if (moduleId === 'seats-standing') setSeatsTruth({ kind: 'loading' });
               else if (moduleId === 'person-record') {
                 setRememberedPersonId(null);
                 setPersonWitness({ personId: null, truth: { kind: 'loading' } });
@@ -899,6 +912,24 @@ function MissionCommsScreen({
                     requestKey={workspaceRequestKey}
                     hrefForPerson={workspacePersonHref}
                     onTruthChange={setPeopleTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'seats-standing' satisfies MissionCommandModuleId,
+                eyebrow: 'Organization · Access',
+                title: 'Seats & Standing',
+                detail: 'Current memberships and base tenant roles. Governed seat-change history appears only when independently readable.',
+                truth: seatsTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <SeatsStanding
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'seats-standing'}
+                    requestKey={workspaceRequestKey}
+                    membersHref="/members"
+                    approvalsHref={`/approvals?workspace=${missionId}`}
+                    onTruthChange={setSeatsTruth}
                   />
                 ),
               } satisfies MissionCommandModule,

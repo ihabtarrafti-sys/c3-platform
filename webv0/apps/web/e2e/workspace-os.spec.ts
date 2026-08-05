@@ -1,4 +1,5 @@
 import { expect, test, type Page, type Route } from '@playwright/test';
+import { E2E_API_ORIGIN } from './support/ports';
 
 async function login(page: Page): Promise<void> {
   await page.goto('/people');
@@ -54,7 +55,6 @@ test('Workspace OS: snap, restore, save, apply, and reload remain geometry-only 
   await page.route('**/api/v1/comms/prefs', (route) =>
     fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
   );
-
   await page.goto(`/missions/${mission.missionId}/comms`);
   const current = page.locator('[data-module="mission-current"]');
   await expect(current).toBeVisible();
@@ -423,6 +423,212 @@ test('People & Organization: Living Field and one transient Person Record keep g
   await page.getByRole('button', { name: 'Close Living Field' }).click();
   await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
   await expect(field).toHaveCount(0);
+});
+
+test('People & Organization: Seats & Standing keeps current access distinct from its governed relay', async ({ page }) => {
+  await login(page);
+  const devToken = await page.evaluate(() => localStorage.getItem('c3web.dev.token') ?? '');
+  const meResponse = await page.request.get(`${E2E_API_ORIGIN}/api/v1/me`, {
+    headers: { authorization: `Bearer ${devToken}` },
+  });
+  expect(meResponse.ok()).toBe(true);
+  const sessionUserId = ((await meResponse.json()) as { userId: string }).userId;
+  const members = [
+    {
+      userId: sessionUserId,
+      email: 'workspace-os@alpha.com',
+      displayName: 'Workspace Operator',
+      role: 'operations',
+      isActive: true,
+      createdAt: '2026-08-01T09:00:00.000Z',
+    },
+    {
+      userId: '22222222-2222-4222-8222-222222222222',
+      email: 'owner@alpha.example',
+      displayName: 'Alpha Owner',
+      role: 'owner',
+      isActive: true,
+      createdAt: '2026-08-01T09:05:00.000Z',
+    },
+    {
+      userId: '33333333-3333-4333-8333-333333333333',
+      email: 'former.finance@alpha.example',
+      displayName: 'Former Finance Seat',
+      role: 'finance',
+      isActive: false,
+      createdAt: '2026-08-01T09:10:00.000Z',
+    },
+  ];
+  const approvalBase = {
+    targetPersonId: 'N/A-MEMBER',
+    targetId: null,
+    reason: null,
+    submittedBy: '22222222-2222-4222-8222-222222222222',
+    submittedAt: '2026-08-06T11:00:00.000Z',
+    reviewedBy: null,
+    reviewedAt: null,
+    rejectionReason: null,
+    executedAt: null,
+    executionError: null,
+    version: 0,
+    editCount: 0,
+    revisionOf: null,
+    supersededBy: null,
+    createdAt: '2026-08-06T11:00:00.000Z',
+    updatedAt: '2026-08-06T11:00:00.000Z',
+  };
+  const approvals = [
+    { ...approvalBase, approvalId: 'APR-9101', operationType: 'ProvisionMember', status: 'Approved' },
+    {
+      ...approvalBase,
+      approvalId: 'APR-9102',
+      operationType: 'ChangeRole',
+      status: 'Executed',
+      submittedAt: '2026-08-06T10:00:00.000Z',
+      executedAt: '2026-08-06T10:30:00.000Z',
+    },
+    { ...approvalBase, approvalId: 'APR-9103', operationType: 'AddPerson', status: 'Submitted' },
+  ];
+
+  let memberReads = 0;
+  let denyMembers = false;
+  let holdMembers = false;
+  let releaseMembers!: () => void;
+  let membersGate = Promise.resolve();
+  const beginMembersHold = () => {
+    holdMembers = true;
+    membersGate = new Promise<void>((resolve) => {
+      releaseMembers = resolve;
+    });
+  };
+  await page.route('**/api/v1/members', async (route) => {
+    memberReads += 1;
+    if (holdMembers) await membersGate;
+    if (denyMembers) {
+      return route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'MEMBERS_DENIED', message: 'Members are not available.' } }),
+      });
+    }
+    return fulfillJson(route, { members });
+  });
+  await page.route('**/api/v1/approvals', (route) => fulfillJson(route, { approvals }));
+  await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread: null, messages: [], myLastReadSeq: null }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, (route) =>
+    fulfillJson(route, { obligations: [] }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
+  );
+
+  await page.goto(`/missions/${mission.missionId}/comms`);
+  const current = page.locator('[data-module="mission-current"]');
+  await expect(current).toBeVisible();
+  await page.getByTestId('nav-members').click();
+  await expect(page).toHaveURL(new RegExp(`/members\\?workspace=${mission.missionId}$`));
+
+  const seats = page.locator('[data-module="seats-standing"]');
+  await expect(seats).toBeVisible();
+  await expect(current).toBeVisible();
+  await expect(seats).toHaveAttribute('data-module-truth', 'verified');
+  await expect(seats.getByText('Workspace Operator')).toBeVisible();
+  await expect(seats.getByText('This session')).toBeVisible();
+  await expect(seats.getByText('Former Finance Seat')).toBeVisible();
+  await expect(seats.getByText('Base tenant role', { exact: true }).first()).toBeVisible();
+  await expect(seats.getByTestId('seating-relay-APR-9101')).toContainText('Approved — not executed');
+  await expect(seats.getByTestId('seating-relay-APR-9102')).toContainText('Execution recorded · check current standing');
+  await expect(seats.getByTestId('seating-relay-APR-9103')).toHaveCount(0);
+
+  const resizeSeats = page.getByRole('button', { name: 'Resize Seats & Standing. Drag or use arrow keys.' });
+  for (let step = 0; step < 12; step += 1) await resizeSeats.press('Shift+ArrowLeft');
+  await expect(seats).toHaveAttribute('style', /--mc-w: 24%/);
+  const chrome = seats.locator('.mission-command-windowbar');
+  const chromeActions = seats.locator('.mission-command-windowactions');
+  const chromeTruth = seats.locator('.mission-command-truth');
+  const [chromeBox, actionBox, truthBox] = await Promise.all([
+    chrome.boundingBox(),
+    chromeActions.boundingBox(),
+    chromeTruth.boundingBox(),
+  ]);
+  expect(chromeBox).not.toBeNull();
+  expect(actionBox).not.toBeNull();
+  expect(truthBox).not.toBeNull();
+  expect(actionBox!.x + actionBox!.width).toBeLessThanOrEqual(chromeBox!.x + chromeBox!.width + 1);
+  expect(truthBox!.y).toBeGreaterThanOrEqual(actionBox!.y + actionBox!.height - 1);
+  expect(await chrome.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+
+  await page.getByRole('button', { name: 'Arrange Seats & Standing' }).click();
+  const snapPalette = seats.locator('.mission-command-snappalette');
+  const [narrowWindowBox, paletteBox] = await Promise.all([seats.boundingBox(), snapPalette.boundingBox()]);
+  expect(narrowWindowBox).not.toBeNull();
+  expect(paletteBox).not.toBeNull();
+  expect(paletteBox!.x).toBeGreaterThanOrEqual(narrowWindowBox!.x);
+  expect(paletteBox!.x + paletteBox!.width).toBeLessThanOrEqual(narrowWindowBox!.x + narrowWindowBox!.width + 1);
+  expect(await snapPalette.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Right half: Seats & Standing' }).click();
+  await expect(seats).toHaveAttribute('data-window-snap', 'right-half');
+
+  const readsBeforeRecheck = memberReads;
+  beginMembersHold();
+  await page.getByRole('button', { name: 'Minimize Seats & Standing' }).click();
+  await page.locator('[data-window-launcher="seats-standing"]').click();
+  await expect.poll(() => memberReads).toBeGreaterThan(readsBeforeRecheck);
+  await expect(seats.getByTestId('seats-members-stale')).toContainText('new check is in progress');
+  await expect(seats.getByTestId('seats-members-stale')).not.toContainText('FAILED');
+  await expect(seats.getByText('Workspace Operator')).toBeVisible();
+
+  denyMembers = true;
+  holdMembers = false;
+  releaseMembers();
+  await expect(seats).toHaveAttribute('data-module-truth', 'denied');
+  await expect(seats.getByTestId('seats-members-denied')).toBeVisible();
+  await expect(seats.getByText('Workspace Operator')).toHaveCount(0);
+  await expect(seats.getByText('workspace-os@alpha.com')).toHaveCount(0);
+  await expect(seats.getByText('Former Finance Seat')).toHaveCount(0);
+  await expect(seats.getByTestId('seating-relay-verified')).toBeVisible();
+  await expect(seats.getByTestId('seating-relay-APR-9101')).toBeVisible();
+
+  await seats.getByRole('link', { name: 'Open governed register' }).click();
+  await expect(page).toHaveURL(/\/members$/);
+  await expect(page.getByTestId('members-denied')).toBeVisible();
+  await expect(page.getByTestId('members-table')).toHaveCount(0);
+  await expect(page.getByTestId('member-row-workspace-os@alpha.com')).toHaveCount(0);
+  await expect(page.getByText('Workspace Operator')).toHaveCount(0);
+  await page.goBack();
+  await expect(page).toHaveURL(new RegExp(`/members\\?workspace=${mission.missionId}$`));
+  await expect(seats).toHaveAttribute('data-module-truth', 'denied');
+
+  const storageKey = `c3:mission-command:${mission.missionId}:workspace:v2`;
+  const stored = await page.evaluate((key) => localStorage.getItem(key) ?? '', storageKey);
+  expect(stored).toContain('seats-standing');
+  for (const privateValue of [
+    'Workspace Operator',
+    'workspace-os@alpha.com',
+    'Former Finance Seat',
+    'former.finance@alpha.example',
+    sessionUserId,
+    'APR-9101',
+    'APR-9102',
+  ]) {
+    expect(stored).not.toContain(privateValue);
+  }
+
+  await page.getByRole('button', { name: 'Close Seats & Standing' }).click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
+  await expect(seats).toHaveCount(0);
+  denyMembers = false;
+  await page.getByTestId('nav-members').click();
+  await expect(seats).toBeVisible();
+  await expect(seats).toHaveAttribute('data-window-snap', 'right-half');
+  await expect(seats).toHaveAttribute('data-module-truth', 'verified');
+  await expect(seats.getByText('Workspace Operator')).toBeVisible();
 });
 
 test('Workspace OS: Approvals and Calendar open as truthful singleton windows instead of pages', async ({ page }) => {
@@ -838,6 +1044,8 @@ test('Workspace OS: the complete header control set clears the mission identity 
   await page.route('**/api/v1/comms/prefs', (route) =>
     fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
   );
+  await page.route('**/api/v1/members', (route) => fulfillJson(route, { members: [] }));
+  await page.route('**/api/v1/approvals', (route) => fulfillJson(route, { approvals: [] }));
 
   await page.goto(`/missions/${mission.missionId}/comms`);
 
@@ -880,9 +1088,32 @@ test('Workspace OS: the complete header control set clears the mission identity 
     await expect(layouts.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await expect(layouts.getByRole('button', { name: /^Views/ })).toBeVisible();
-  for (const name of ['Open mission workspace', 'Mission Current', 'Constellation', 'My Attention', 'People', 'Continuity', 'Finance', 'Approvals', 'Calendar']) {
+  for (const name of ['Open mission workspace', 'Mission Current', 'Constellation', 'My Attention', 'People', 'Seats', 'Continuity', 'Finance', 'Approvals', 'Calendar']) {
     await expect(routeIntents.getByRole('link', { name, exact: true })).toBeVisible();
   }
+
+  await routeIntents.getByRole('link', { name: 'Seats', exact: true }).click();
+  const seats = page.locator('[data-module="seats-standing"]');
+  const dock = page.locator('.mission-command-dock');
+  const seatsLauncher = page.locator('[data-window-launcher="seats-standing"]');
+  await expect(seats).toBeVisible();
+  await expect(seats).toHaveAttribute('aria-label', 'Seats & Standing window');
+  await expect(seatsLauncher).toBeVisible();
+  const [dockBox, launcherBox, seatsNameBox] = await Promise.all([
+    dock.boundingBox(),
+    seatsLauncher.boundingBox(),
+    seats.locator('.mission-command-windowname').boundingBox(),
+  ]);
+  expect(dockBox).not.toBeNull();
+  expect(launcherBox).not.toBeNull();
+  expect(seatsNameBox).not.toBeNull();
+  expect(launcherBox!.x).toBeGreaterThanOrEqual(dockBox!.x);
+  expect(launcherBox!.x + launcherBox!.width).toBeLessThanOrEqual(dockBox!.x + dockBox!.width + 1);
+  expect(dockBox!.y).toBeGreaterThanOrEqual(0);
+  expect(dockBox!.y + dockBox!.height).toBeLessThanOrEqual(900);
+  expect(
+    await seats.locator('.mission-command-windowname').evaluate((element) => element.scrollWidth <= element.clientWidth),
+  ).toBe(true);
 
   await page.setViewportSize({ width: 1280, height: 900 });
   const routeLinkWidths = await routeIntents.getByRole('link').evaluateAll((links) =>

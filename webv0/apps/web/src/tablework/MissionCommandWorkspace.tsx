@@ -107,6 +107,7 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'conversation-relay': '◉',
   'people-field': '○',
   'person-record': '◌',
+  'seats-standing': '⌾',
 };
 
 function isInteractiveTarget(target: EventTarget | null): boolean {

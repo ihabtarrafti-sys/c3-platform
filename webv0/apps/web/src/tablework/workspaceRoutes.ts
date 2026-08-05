@@ -24,6 +24,7 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
     | 'command-constellation'
     | 'command-attention'
     | 'people-field'
+    | 'seats-standing'
   >;
 }> = [
   { pathname: '/missions/finance', moduleId: 'mission-finance' },
@@ -32,6 +33,7 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
   { pathname: '/situation', moduleId: 'command-constellation' },
   { pathname: '/comms', moduleId: 'command-attention' },
   { pathname: '/people', moduleId: 'people-field' },
+  { pathname: '/members', moduleId: 'seats-standing' },
 ];
 
 export type WorkspaceRouteTarget =

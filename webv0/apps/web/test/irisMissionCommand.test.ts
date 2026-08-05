@@ -2,7 +2,7 @@
  * Iris Mission Command — the first in-place transformation contract.
  *
  * This guard is intentionally about mechanisms, not a screenshot:
- *  - one mission opens as three independently controllable modules while eight
+ *  - one mission opens as three independently controllable modules while ten
  *    cross-route and command-loop modules remain closed until requested;
  *  - window state survives navigation/reload, but malformed device state does not;
  *  - minimize, close, reopen, move, resize, and presets are deterministic;
@@ -39,7 +39,7 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 describe('Iris Mission Command workspace model', () => {
-  it('opens one mission as three real modules and keeps eight adjacent command modules closed in Commander', () => {
+  it('opens one mission as three real modules and keeps ten adjacent modules closed in Commander', () => {
     expect(DEFAULT_MISSION_COMMAND.layout).toBe('commander');
     expect(DEFAULT_MISSION_COMMAND.windows.map((window) => window.id)).toEqual([
       'mission-field',
@@ -54,6 +54,7 @@ describe('Iris Mission Command workspace model', () => {
       'conversation-relay',
       'people-field',
       'person-record',
+      'seats-standing',
     ]);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(0, 3).every((window) => window.visibility === 'open')).toBe(true);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(3).every((window) => window.visibility === 'closed')).toBe(true);

@@ -478,6 +478,11 @@
   container-type: inline-size;
 }
 
+.tw-root .mission-command-window.module-seats-standing {
+  --module-line: var(--c3-accent-amber);
+  container-type: inline-size;
+}
+
 .tw-root .module-mission-field .mission-command-truth,
 .tw-root .module-mission-obligations .mission-command-truth {
   display: none;
@@ -610,12 +615,56 @@
   color: var(--c3-ink-strong);
 }
 
+/* A freeform window may be only 24% of the canvas while the viewport remains
+   desktop-wide. Let each window's own inline size, not the viewport, fold its
+   chrome before truth and full-size controls compete with the title. */
+@container (max-width: 34rem) {
+  .tw-root .mission-command-windowbar {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+  }
+
+  .tw-root .mission-command-truth {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    justify-self: start;
+  }
+
+  .tw-root .mission-command-windowactions {
+    grid-column: 3;
+    grid-row: 1;
+  }
+}
+
+@container (max-width: 26rem) {
+  .tw-root .mission-command-windowbar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--c3-space-1);
+    padding-inline: var(--c3-space-2);
+  }
+
+  .tw-root .mission-command-windowglyph,
+  .tw-root .mission-command-windowname small {
+    display: none;
+  }
+
+  .tw-root .mission-command-windowactions {
+    grid-column: 2;
+  }
+
+  .tw-root .mission-command-windowactions .mission-command-snapgrid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .tw-root .mission-command-snappalette {
   position: absolute;
   z-index: 30;
   top: calc(100% + var(--c3-space-2));
   right: 0;
-  width: 15.5rem;
+  width: min(15.5rem, calc(100cqw - (2 * var(--c3-space-2))));
+  max-width: calc(100cqw - (2 * var(--c3-space-2)));
+  box-sizing: border-box;
   display: grid;
   gap: var(--c3-space-2);
   padding: var(--c3-space-3);
@@ -1423,6 +1472,535 @@
   }
 }
 
+/* People & Organization · milestone 03. Membership is the present access
+   witness; the seating relay is an independently witnessed path of governed
+   change. Their structure meets here, while their claims remain separate. */
+.tw-root .module-seats-standing .mission-command-windowbody {
+  overflow: auto;
+}
+
+.tw-root .seats-standing {
+  min-width: 0;
+  min-height: 100%;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  background:
+    radial-gradient(circle at 8% 0, var(--c3-accent-blue-wash), transparent 28rem),
+    radial-gradient(circle at 96% 8%, var(--c3-accent-aqua-wash), transparent 24rem),
+    transparent;
+}
+
+.tw-root .seats-standing-intro {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+  box-shadow: inset 0 .15rem 0 var(--c3-accent-amber);
+}
+
+.tw-root .seats-standing-intro > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .seats-standing-intro small,
+.tw-root .seats-standing-register header small,
+.tw-root .seats-standing-relay header small,
+.tw-root .seats-standing-relay-omitted > small,
+.tw-root .seats-standing-counts small,
+.tw-root .seats-standing-roles small,
+.tw-root .seats-standing-person small,
+.tw-root .seats-standing-role small,
+.tw-root .seats-standing-relay-copy small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .seats-standing-intro small,
+.tw-root .seats-standing-register header small,
+.tw-root .seats-standing-relay header small,
+.tw-root .seats-standing-relay-omitted > small {
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.tw-root .seats-standing-intro strong {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(1.8rem, 4cqi, 3rem);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: 1;
+}
+
+.tw-root .seats-standing-intro p,
+.tw-root .seats-standing-boundary,
+.tw-root .seats-standing-relay-law,
+.tw-root .seats-standing-relay-note,
+.tw-root .seats-standing-relay-omitted p,
+.tw-root .seats-standing-footer {
+  margin: 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-body);
+}
+
+.tw-root .seats-standing-seal {
+  position: relative;
+  width: 4.75rem;
+  height: 4.75rem;
+  display: block;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg);
+  background:
+    linear-gradient(135deg, var(--c3-accent-blue-wash), transparent 62%),
+    var(--c3-surface-base);
+}
+
+.tw-root .seats-standing-seal::before,
+.tw-root .seats-standing-seal::after {
+  content: "";
+  position: absolute;
+  left: 1.05rem;
+  width: 2.65rem;
+  height: var(--tw-line);
+  background: var(--c3-border-strong);
+  transform-origin: left center;
+}
+
+.tw-root .seats-standing-seal::before {
+  top: 1.35rem;
+  transform: rotate(28deg);
+}
+
+.tw-root .seats-standing-seal::after {
+  bottom: 1.35rem;
+  transform: rotate(-28deg);
+}
+
+.tw-root .seats-standing-seal i {
+  position: absolute;
+  z-index: 1;
+  width: .72rem;
+  height: .72rem;
+  border: .12rem solid var(--c3-surface-base);
+  border-radius: 50%;
+  background: var(--c3-accent-amber);
+  box-shadow: 0 0 0 var(--tw-line) var(--c3-accent-amber);
+}
+
+.tw-root .seats-standing-seal i:nth-child(1) { left: .78rem; top: 1rem; }
+.tw-root .seats-standing-seal i:nth-child(2) { right: .72rem; top: 2rem; background: var(--c3-accent-aqua); box-shadow: 0 0 0 var(--tw-line) var(--c3-accent-aqua); }
+.tw-root .seats-standing-seal i:nth-child(3) { left: .78rem; bottom: 1rem; background: var(--c3-accent-periwinkle); box-shadow: 0 0 0 var(--tw-line) var(--c3-accent-periwinkle); }
+
+.tw-root .seats-standing-boundary {
+  padding: var(--c3-space-3);
+  border-left: .2rem solid var(--c3-accent-periwinkle);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .seats-standing-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(18rem, 5fr);
+  align-items: start;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .seats-standing-grid.is-register-only {
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, .38fr);
+}
+
+.tw-root .seats-standing-register,
+.tw-root .seats-standing-relay,
+.tw-root .seats-standing-relay-omitted {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .seats-standing-register {
+  box-shadow: inset .15rem 0 0 var(--c3-accent-aqua);
+}
+
+.tw-root .seats-standing-relay {
+  box-shadow: inset .15rem 0 0 var(--c3-accent-amber);
+}
+
+.tw-root .seats-standing-register > header,
+.tw-root .seats-standing-relay > header {
+  min-width: 0;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding-bottom: var(--c3-space-3);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .seats-standing-register > header > span,
+.tw-root .seats-standing-relay > header > span {
+  min-width: 0;
+}
+
+.tw-root .seats-standing-register h2,
+.tw-root .seats-standing-relay h2 {
+  margin: var(--c3-space-1) 0 0;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-title);
+  font-weight: var(--c3-font-weight-regular);
+}
+
+.tw-root .seats-standing-members-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .seats-standing-counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--c3-space-2);
+}
+
+.tw-root .seats-standing-counts > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .seats-standing-counts strong,
+.tw-root .seats-standing-relay-summary strong {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(1.35rem, 3cqi, 2.2rem);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: 1;
+}
+
+.tw-root .seats-standing-roles {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-2) 0;
+  border-block: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .seats-standing-roles > span {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: end;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .seats-standing-roles i {
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-ink-muted);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.tw-root .seats-standing-roster,
+.tw-root .seats-standing-relays {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tw-root .seats-standing-roster > li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(9rem, 1fr) minmax(8rem, .55fr) auto;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .seats-standing-seat {
+  position: relative;
+  width: 2.3rem;
+  height: 2.3rem;
+  display: block;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: 50%;
+  background: var(--c3-surface-base);
+}
+
+.tw-root .seats-standing-seat::before,
+.tw-root .seats-standing-seat i {
+  content: "";
+  position: absolute;
+  left: 50%;
+  border-radius: 50%;
+  background: var(--c3-accent-aqua);
+  transform: translateX(-50%);
+}
+
+.tw-root .seats-standing-seat::before {
+  top: .48rem;
+  width: .48rem;
+  height: .48rem;
+}
+
+.tw-root .seats-standing-seat i {
+  bottom: .42rem;
+  width: 1.05rem;
+  height: .55rem;
+  border-radius: .8rem .8rem .35rem .35rem;
+}
+
+.tw-root .seats-standing-person,
+.tw-root .seats-standing-role,
+.tw-root .seats-standing-state,
+.tw-root .seats-standing-relay-copy {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .seats-standing-person strong,
+.tw-root .seats-standing-role strong,
+.tw-root .seats-standing-relay-copy strong {
+  min-width: 0;
+  color: var(--c3-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.tw-root .seats-standing-person small {
+  overflow-wrap: anywhere;
+}
+
+.tw-root .seats-standing-role strong {
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-body-small);
+  text-transform: capitalize;
+}
+
+.tw-root .seats-standing-state {
+  justify-items: end;
+}
+
+.tw-root .seats-standing-state em {
+  color: var(--c3-accent-periwinkle);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.tw-root .seats-standing-relay-law {
+  padding: var(--c3-space-3);
+  border-left: .2rem solid var(--c3-accent-amber);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .seats-standing-relay-summary {
+  display: flex;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding-bottom: var(--c3-space-3);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .seats-standing-relays > li {
+  position: relative;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--c3-space-2) var(--c3-space-3);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .seats-standing-relay-line {
+  position: relative;
+  grid-row: 1 / span 3;
+  width: 1.5rem;
+  display: block;
+}
+
+.tw-root .seats-standing-relay-line::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: .2rem;
+  bottom: .2rem;
+  width: var(--tw-line);
+  background: var(--c3-border-strong);
+}
+
+.tw-root .seats-standing-relay-line i {
+  position: absolute;
+  left: 50%;
+  top: .2rem;
+  width: .68rem;
+  height: .68rem;
+  border: .12rem solid var(--c3-surface-subtle);
+  border-radius: 50%;
+  background: var(--c3-accent-amber);
+  box-shadow: 0 0 0 var(--tw-line) var(--c3-accent-amber);
+  transform: translateX(-50%);
+}
+
+.tw-root .seats-standing-relay-copy > span {
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .seats-standing-relays .status-badge {
+  grid-column: 2;
+  justify-self: start;
+  white-space: normal;
+}
+
+.tw-root .seats-standing-relays a {
+  position: absolute;
+  top: var(--c3-space-2);
+  right: var(--c3-space-2);
+  min-width: var(--c3-tw-target-min);
+  min-height: var(--c3-tw-target-min);
+  display: grid;
+  place-items: center;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: 50%;
+  background: var(--c3-surface-base);
+  color: var(--c3-action-ink);
+  text-decoration: none;
+}
+
+.tw-root .seats-standing-relay-note {
+  padding-top: var(--c3-space-2);
+  border-top: var(--tw-line) dashed var(--c3-border-strong);
+}
+
+.tw-root .seats-standing-relay-omitted {
+  border-style: dashed;
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .seats-standing-relay-omitted > strong {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-lead);
+  font-weight: var(--c3-font-weight-regular);
+}
+
+.tw-root .seats-standing-footer {
+  padding: var(--c3-space-3);
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
+  text-align: center;
+}
+
+@container (max-width: 56rem) {
+  .tw-root .seats-standing-grid,
+  .tw-root .seats-standing-grid.is-register-only {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .seats-standing-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 36rem) {
+  .tw-root .seats-standing-intro {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .seats-standing-seal {
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+
+  .tw-root .seats-standing-seal::before,
+  .tw-root .seats-standing-seal::after {
+    left: .85rem;
+    width: 2rem;
+  }
+
+  .tw-root .seats-standing-seal::before { top: 1.1rem; }
+  .tw-root .seats-standing-seal::after { bottom: 1.1rem; }
+  .tw-root .seats-standing-seal i:nth-child(1) { left: .58rem; top: .78rem; }
+  .tw-root .seats-standing-seal i:nth-child(2) { right: .5rem; top: 1.55rem; }
+  .tw-root .seats-standing-seal i:nth-child(3) { left: .58rem; bottom: .78rem; }
+
+  .tw-root .seats-standing-register,
+  .tw-root .seats-standing-relay,
+  .tw-root .seats-standing-relay-omitted {
+    padding: var(--c3-space-3);
+  }
+
+  .tw-root .seats-standing-register > header,
+  .tw-root .seats-standing-relay > header,
+  .tw-root .seats-standing-roles {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tw-root .seats-standing-register > header .secondary-action,
+  .tw-root .seats-standing-relay > header .secondary-action {
+    width: 100%;
+  }
+
+  .tw-root .seats-standing-roles > span {
+    justify-content: start;
+  }
+
+  .tw-root .seats-standing-roster > li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .tw-root .seats-standing-role,
+  .tw-root .seats-standing-state {
+    grid-column: 2;
+    justify-items: start;
+  }
+
+  .tw-root .seats-standing-relays > li {
+    padding-right: calc(var(--c3-tw-target-min) + var(--c3-space-3));
+  }
+
+  .tw-root .seats-standing-footer {
+    text-align: left;
+  }
+}
+
 .tw-root .command-constellation-body {
   min-width: 0;
   display: grid;
@@ -1964,6 +2542,8 @@
   .tw-root .mission-command {
     height: auto;
     min-height: calc(100dvh - 7rem);
+    grid-template-rows: auto auto minmax(0, 1fr);
+    overflow: visible;
   }
 
   .tw-root .mission-command-canvas {
@@ -1996,6 +2576,26 @@
     display: none;
   }
 
+  .tw-root .mission-command-dock {
+    grid-row: 2;
+    position: sticky;
+    z-index: 40;
+    top: 0;
+    padding-inline: var(--c3-space-2);
+  }
+
+  .tw-root .mission-command-canvas {
+    grid-row: 3;
+  }
+
+  .tw-root .mission-command-docklabel {
+    display: none;
+  }
+
+  .tw-root .mission-command-dock > button {
+    min-width: 8.5rem;
+  }
+
   .tw-root .mission-command-windowbar {
     cursor: default;
     touch-action: auto;
@@ -2010,7 +2610,6 @@
 @media (max-width: 47.999rem) {
   .tw-root .mission-command {
     min-height: 0;
-    grid-template-rows: auto auto minmax(0, 1fr);
     border-radius: var(--c3-radius-xl);
   }
 
@@ -2076,24 +2675,6 @@
     max-height: 15rem;
   }
 
-  .tw-root .mission-command-dock {
-    grid-row: 2;
-    position: sticky;
-    top: 0;
-    padding-inline: var(--c3-space-2);
-  }
-
-  .tw-root .mission-command-canvas {
-    grid-row: 3;
-  }
-
-  .tw-root .mission-command-docklabel {
-    display: none;
-  }
-
-  .tw-root .mission-command-dock > button {
-    min-width: 8.5rem;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
