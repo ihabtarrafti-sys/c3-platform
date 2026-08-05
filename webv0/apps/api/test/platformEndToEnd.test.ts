@@ -69,7 +69,7 @@ beforeAll(async () => {
   const { publicKey, privateKey } = await generateKeyPair('RS256');
   const jwk = { ...(await exportJWK(publicKey)), kid: 'k1', alg: 'RS256', use: 'sig' };
   deps.platformAdmission = createPlatformAdmission(
-    { issuer: ISSUER, audience: PLATFORM_AUDIENCE, jwksUri: 'https://unused', tenantId: TENANT_GUID },
+    { issuer: ISSUER, audience: PLATFORM_AUDIENCE, jwksUri: `https://login.microsoftonline.com/${TENANT_GUID}/discovery/v2.0/keys`, tenantId: TENANT_GUID },
     deps.directory!,
     createLocalJWKSet({ keys: [jwk] }),
   );

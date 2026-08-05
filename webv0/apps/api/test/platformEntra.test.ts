@@ -25,7 +25,7 @@ const SP_OID = 'cccccccc-1111-2222-3333-444444444444';
 const CONFIG: PlatformEntraConfig = {
   issuer: ISSUER,
   audience: PLATFORM_AUDIENCE,
-  jwksUri: 'https://unused',
+  jwksUri: `https://login.microsoftonline.com/${TENANT}/discovery/v2.0/keys`,
   tenantId: TENANT,
 };
 
@@ -107,6 +107,44 @@ describe('⛳ app-only tokens are admitted HERE, and the registry decides', () =
   });
 });
 
+describe('⛔ CR-032 — the platform door refuses a foreign trust root too', () => {
+  /*
+   * ⚠️ This door accepts APP-ONLY tokens that the tenant door refuses, so a foreign
+   * authority here is strictly worse: it mints platform capability, which is
+   * authority ABOVE any single tenant. Fixing the tenant adapter and leaving this
+   * one would be the CR-012 mistake — one of two readers corrected, the other
+   * identical from a diff.
+   */
+  const genuineJwks = `https://login.microsoftonline.com/${TENANT}/discovery/v2.0/keys`;
+
+  it('refuses a foreign ISSUER even with genuine keys', () => {
+    expect(() =>
+      createPlatformAdmission(
+        { issuer: `https://tokens.example.invalid/${TENANT}/v2.0`, audience: PLATFORM_AUDIENCE, jwksUri: genuineJwks, tenantId: TENANT },
+        registry(new Map()).directory,
+      ),
+    ).toThrow(/foreign trust root.*issuer/is);
+  });
+
+  it('refuses foreign KEYS even with the genuine issuer', () => {
+    expect(() =>
+      createPlatformAdmission(
+        { issuer: ISSUER, audience: PLATFORM_AUDIENCE, jwksUri: 'https://tokens.example.invalid/jwks.json', tenantId: TENANT },
+        registry(new Map()).directory,
+      ),
+    ).toThrow(/foreign trust root.*JWKS/is);
+  });
+
+  it('⛳ and the genuine platform config still builds', () => {
+    expect(() =>
+      createPlatformAdmission(
+        { issuer: ISSUER, audience: PLATFORM_AUDIENCE, jwksUri: genuineJwks, tenantId: TENANT },
+        registry(new Map()).directory,
+      ),
+    ).not.toThrow();
+  });
+});
+
 describe('⛔ opening this door did NOT widen the tenant one', () => {
   it('the SAME app-only token the platform admits is REFUSED by the tenant validator', async () => {
     // ⚖️ THE LOAD-BEARING CROSS-CHECK. `entra.ts:52` rejects `idtyp: 'app'`, and
@@ -123,7 +161,7 @@ describe('⛔ opening this door did NOT widen the tenant one', () => {
     expect(await platform.admit(token), 'the platform door admits it').not.toBeNull();
 
     const tenant = createEntraAuthAdapter(
-      { issuer: ISSUER, audience: PLATFORM_AUDIENCE, jwksUri: 'https://unused', tenantId: TENANT, scope: 'C3.Access' },
+      { issuer: ISSUER, audience: PLATFORM_AUDIENCE, jwksUri: `https://login.microsoftonline.com/${TENANT}/discovery/v2.0/keys`, tenantId: TENANT, scope: 'C3.Access' },
       registry(new Map()).directory,
       keyResolver,
     );

@@ -22,6 +22,7 @@ import { jwtVerify, createRemoteJWKSet, type JWTVerifyGetKey, type KeyLike } fro
 import type { PlatformPrincipal } from '@c3web/authz';
 import { AuthError } from './types';
 import type { AdminDirectory } from './directory';
+import { microsoftIssuerFor, microsoftJwksUriFor } from '../env';
 
 export interface PlatformEntraConfig {
   /** The tenant-specific v2 issuer — never common/organizations/consumers. */
@@ -62,6 +63,37 @@ export function createPlatformAdmission(
   directory: AdminDirectory,
   keyResolver?: JWTVerifyGetKey | KeyLike | Uint8Array,
 ): PlatformAdmission {
+  /*
+   * ⛔ CR-032 — THE PLATFORM DOOR GETS THE SAME LOCK, FOR THE SAME REASON.
+   *
+   * This validator accepts APP-ONLY tokens, which the tenant validator refuses. A
+   * foreign trust root here is therefore strictly worse than on the tenant side:
+   * anyone holding the foreign keys could mint a platform principal, and platform
+   * capability is authority ABOVE any single tenant (D-015/D-016a).
+   *
+   * ⚠️ Fixing the tenant adapter and leaving this one would be precisely the CR-012
+   * mistake — a correction applied to one of two readers, with the untreated one
+   * looking identical from a diff. `platformEntra` shares issuer/JWKS/tenant with
+   * `entra` by construction and differs ONLY in audience, so it shares the defect too.
+   *
+   * Same two derivation functions as everywhere else: one implementation, three call
+   * sites, nothing to drift.
+   */
+  const expectedIssuer = microsoftIssuerFor(config.tenantId);
+  if (config.issuer.replace(/\/+$/, '') !== expectedIssuer) {
+    throw new Error(
+      `Refusing to build platform admission for a foreign trust root: issuer ${config.issuer} is not ${expectedIssuer}. ` +
+        'Platform capability is authority above any single tenant; a foreign authority here mints it directly.',
+    );
+  }
+  const expectedJwks = microsoftJwksUriFor(config.tenantId);
+  if (config.jwksUri.replace(/\/+$/, '') !== expectedJwks) {
+    throw new Error(
+      `Refusing to build platform admission for a foreign trust root: JWKS ${config.jwksUri} is not ${expectedJwks}. ` +
+        'These keys can sign an APP-ONLY token this door accepts and the tenant door does not.',
+    );
+  }
+
   const keys = keyResolver ?? createRemoteJWKSet(new URL(config.jwksUri));
 
   return {

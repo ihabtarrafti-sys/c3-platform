@@ -52,7 +52,9 @@ beforeAll(async () => {
     ENTRA_TENANT_ID: TID,
     ENTRA_ISSUER: ISSUER,
     ENTRA_AUDIENCE: AUD,
-    ENTRA_JWKS_URI: 'https://unused.example/keys',
+    // CR-032: the JWKS endpoint is now DERIVED from the tenant and checked, so a
+    // placeholder here would assert a trust root no deployment may hold.
+    ENTRA_JWKS_URI: `https://login.microsoftonline.com/${TID}/discovery/v2.0/keys`,
     DATABASE_URL: db.appUrl,
     DATABASE_AUTH_URL: db.authUrl,
   } as NodeJS.ProcessEnv);
