@@ -375,8 +375,11 @@ function normalizedWindow<ModuleId extends string>(
   minimumHeight?: number,
 ): WorkspaceWindowState<ModuleId> {
   return {
-    ...window,
+    id: window.id,
+    visibility: window.visibility,
     rect: clampWorkspaceRect(window.rect, minimumWidth, minimumHeight),
+    z: window.z,
+    snap: window.snap,
     restoreRect: window.restoreRect
       ? clampWorkspaceRect(window.restoreRect, minimumWidth, minimumHeight)
       : null,
@@ -425,7 +428,8 @@ export function restoreWorkspaceState<ModuleId extends string, Preset extends st
       activeSavedLayoutId: parsed.activeSavedLayoutId,
       windows: parsed.windows.map(normalize),
       savedLayouts: parsed.savedLayouts.map((layout) => ({
-        ...layout,
+        id: layout.id,
+        name: layout.name,
         windows: layout.windows.map(normalize),
       })),
     };

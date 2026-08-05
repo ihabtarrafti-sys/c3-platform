@@ -16,12 +16,13 @@ describe('foreground re-witness source ownership', () => {
     const hook = read('tablework/useForegroundRewitness.ts');
 
     expect(hook).toContain('const enteredForeground = foreground && !previousForeground.current;');
+    expect(hook).toContain('const reactivatedRoute = foreground && !Object.is(previousRequestKey.current, requestKey);');
     expect(hook).toContain('useLayoutEffect(() => {');
     expect(hook).toContain('if (!foregroundRef.current || !enabledRef.current || rewitnessingRef.current) return;');
     expect(hook).toContain("window.addEventListener('focus', restoreExposure)");
     expect(hook).toContain("document.addEventListener('visibilitychange', onVisibilityChange)");
     expect(hook).toContain('requestRef.current += 1;');
-    expect(hook).toContain('return rewitnessing || enteredForeground;');
+    expect(hook).toContain('return rewitnessing || enteredForeground || reactivatedRoute;');
   });
 
   it('makes Finance delegate with its capability-derived query gate', () => {
