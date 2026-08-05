@@ -21,6 +21,8 @@
     var(--c3-ground-sunken);
   box-shadow: var(--c3-shadow-room);
   isolation: isolate;
+  container-name: mission-command;
+  container-type: inline-size;
 }
 
 /* Component display rules must never override the platform hidden contract.
@@ -154,6 +156,29 @@
   background: var(--c3-action-primary);
   color: var(--c3-action-ink);
   font-weight: var(--c3-font-weight-bold);
+}
+
+/* The shell rail and page padding can make this header narrow while the
+   viewport is still wider than the mobile breakpoint. Let the workspace,
+   rather than the viewport, decide when its complete set of controls needs a
+   second row. Horizontal overflow preserves every labelled control at large
+   text sizes instead of clipping or collapsing it. */
+@container mission-command (max-width: 50rem) {
+  .tw-root .mission-command-bar {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tw-root .mission-command-layouts {
+    width: 100%;
+    min-width: 0;
+    overflow-x: auto;
+    border-radius: var(--c3-radius-md);
+  }
+
+  .tw-root .mission-command-layouts button {
+    flex: 0 0 auto;
+  }
 }
 
 .tw-root .mission-command-layoutlibrary {

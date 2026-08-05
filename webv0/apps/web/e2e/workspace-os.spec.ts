@@ -227,3 +227,46 @@ test('Workspace OS: Approvals and Calendar open as truthful singleton windows in
   await expect(page.locator('[data-module="approvals-register"]')).toHaveCount(0);
   await expect(page.getByTestId('approvals-empty')).toBeVisible();
 });
+
+test('Workspace OS: the complete header control set clears the mission identity at 800px', async ({ page }) => {
+  await page.setViewportSize({ width: 800, height: 900 });
+  await login(page);
+  await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread: null, messages: [], myLastReadSeq: null }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, (route) =>
+    fulfillJson(route, { obligations: [] }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
+  );
+
+  await page.goto(`/missions/${mission.missionId}/comms`);
+
+  const header = page.locator('.mission-command-bar');
+  const identity = page.locator('.mission-command-identity');
+  const layouts = page.getByRole('group', { name: 'Workspace layouts' });
+  await expect(header).toBeVisible();
+  await expect(layouts).toBeVisible();
+
+  const [headerBox, identityBox, layoutsBox] = await Promise.all([
+    header.boundingBox(),
+    identity.boundingBox(),
+    layouts.boundingBox(),
+  ]);
+  expect(headerBox).not.toBeNull();
+  expect(identityBox).not.toBeNull();
+  expect(layoutsBox).not.toBeNull();
+  expect(layoutsBox!.y).toBeGreaterThanOrEqual(identityBox!.y + identityBox!.height);
+  expect(layoutsBox!.x).toBeGreaterThanOrEqual(headerBox!.x);
+  expect(layoutsBox!.x + layoutsBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width + 1);
+
+  for (const name of ['Commander', 'Review', 'Brief', 'Finance', 'Decisions', 'Planning', 'Reset']) {
+    await expect(layouts.getByRole('button', { name, exact: true })).toBeVisible();
+  }
+  await expect(layouts.getByRole('button', { name: /^Views/ })).toBeVisible();
+});
