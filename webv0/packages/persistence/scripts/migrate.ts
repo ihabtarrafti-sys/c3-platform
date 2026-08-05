@@ -39,6 +39,15 @@ runMigrations({
   backupPassword: process.env.BACKUP_DB_PASSWORD ?? backup?.password,
   allowDevSecrets,
   rotateRoleSecrets,
+  // ⛔ The consumer strings THIS environment carries, for rotation agreement and
+  // the live secret check. Rotation refuses without the relevant one; the check
+  // proves this machine's copy, and the report names the platform store (Railway)
+  // that must also agree — which nothing in this lane can read.
+  consumerConnectionStrings: {
+    app: process.env.DATABASE_URL,
+    auth: process.env.DATABASE_AUTH_URL,
+    backup: process.env.DATABASE_BACKUP_URL,
+  },
   log: (m) => console.log(m),
 })
   .then((applied) => {

@@ -2,8 +2,11 @@
  * bootstrap-backup-role.ts — targeted, idempotent creation of the read-only
  * c3_backup identity + application of migration 0006 to an EXISTING database.
  *
- * Deliberately does NOT run the full migrate (which would re-ensure and thus
- * rotate the live c3_app / c3_auth passwords). It only:
+ * Deliberately does NOT run the full migrate — this is a ONE-ROLE tool that
+ * must not demand (or even see) the c3_app / c3_auth secrets the full migrator
+ * requires. (An earlier version of this comment claimed the full migrate would
+ * rotate live passwords; that stopped being true when rotation became opt-in
+ * via MIGRATE_ROTATE_ROLE_SECRETS. The narrow-scope reason stands.) It only:
  *   1. ensures the c3_backup LOGIN role (restricted; password from env);
  *   2. applies 0006_backup_role_grants.sql;
  *   3. records 0006 in _migrations if not already present;
@@ -37,6 +40,17 @@ async function main(): Promise<void> {
   await c.connect();
   try {
     // 1. Ensure the restricted role (create or reset password only).
+    //
+    // ⛔ THIS BRANCH IS A ROTATION SITE, AND IT NOW SAYS SO. The ELSE arm resets a
+    // LIVE role's password unconditionally — this script is the documented H-01
+    // rotation tool for c3_backup, so the capability stays. What was missing is
+    // what the migrate seam was missing: which branch ran was reported nowhere,
+    // and the consumer that reads this credential (Railway c3-backup-cron,
+    // variable DATABASE_URL) is not updated by anything this script does. The
+    // 2026-08-05 incident was exactly that gap: password rotated in Postgres,
+    // cron stranded on the old value, nightly backup down with a green log.
+    const existed =
+      ((await c.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [ROLE])).rowCount ?? 0) > 0;
     const pw = quoteLiteral(password);
     await c.query(`DO $do$ BEGIN
       IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = ${quoteLiteral(ROLE)}) THEN
@@ -46,7 +60,35 @@ async function main(): Promise<void> {
       END IF;
     END $do$;`);
     await c.query(`ALTER ROLE ${ROLE} NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION`);
-    console.log(JSON.stringify({ event: 'bootstrap.role_ensured', role: ROLE }));
+    console.log(JSON.stringify({ event: 'bootstrap.role_ensured', role: ROLE, action: existed ? 'password-ROTATED' : 'created' }));
+
+    // ⛔ LAW 34 — the applied secret must AUTHENTICATE, or this run fails rather
+    // than reporting a rotation the database refuses. Same subject the consumers
+    // dial: host/port/db from the admin URL, credentials the ones just applied.
+    const admin = new URL(adminUrl);
+    const probe = new Client({
+      connectionString: `${admin.protocol}//${encodeURIComponent(ROLE)}:${encodeURIComponent(password)}@${admin.host}${admin.pathname}`,
+    });
+    try {
+      await probe.connect();
+      await probe.query('SELECT 1');
+    } finally {
+      await probe.end().catch(() => {});
+    }
+    console.log(JSON.stringify({ event: 'bootstrap.role_connect_back_ok', role: ROLE }));
+    if (existed) {
+      // The one store this script cannot reach, named so the operator updates it
+      // NOW rather than at the next failed 02:15Z run.
+      console.log(
+        JSON.stringify({
+          event: 'bootstrap.rotation_consumer_reminder',
+          role: ROLE,
+          warning:
+            'The live password was ROTATED. This proves the DATABASE accepts it — it does NOT update the consumer: ' +
+            'Railway service c3-backup-cron, variable DATABASE_URL must carry the same value before the next scheduled run.',
+        }),
+      );
+    }
 
     // 2. Apply the grants migration (idempotent).
     await c.query('BEGIN');
