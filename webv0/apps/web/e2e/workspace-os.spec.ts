@@ -228,6 +228,116 @@ test('Workspace OS: Approvals and Calendar open as truthful singleton windows in
   await expect(page.getByTestId('approvals-empty')).toBeVisible();
 });
 
+test('Command & Coordination: Constellation, personal Attention, and Continuity form one navigable command loop', async ({ page }) => {
+  await login(page);
+  const thread = {
+    threadId: 'THR-9002',
+    kind: 'anchored',
+    anchorType: 'Mission',
+    anchorId: mission.missionId,
+    title: mission.name,
+    status: 'active',
+    lastSeq: 1,
+    lastMessageAt: '2026-08-05T10:04:00.000Z',
+    createdAt: '2026-08-05T10:00:00.000Z',
+  };
+  const decision = {
+    recalled: false,
+    messageId: 'MSG-9001',
+    threadId: thread.threadId,
+    seq: 1,
+    authorship: { kind: 'person', userId: 'user-commander', label: 'Commander' },
+    authorUserId: 'user-commander',
+    authorLabel: 'Commander',
+    revisionNo: 1,
+    createdAt: '2026-08-05T10:04:00.000Z',
+    body: 'Hold the northern relay until the handover is witnessed.',
+    links: [],
+    attachments: [],
+    messageKind: 'decision',
+    supersedesMessageId: null,
+    blocks: [],
+  };
+
+  await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread, messages: [decision], myLastReadSeq: 0 }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, (route) =>
+    fulfillJson(route, { obligations: [] }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
+  );
+  await page.route('**/api/v1/comms/ledger', (route) =>
+    fulfillJson(route, {
+      awaitingMyAcceptance: [],
+      awaitingMyDelivery: [],
+      awaitingMySettle: [],
+      watching: [],
+      threads: [{ thread, myLastReadSeq: 0, unread: 1 }],
+    }),
+  );
+  await page.route('**/api/v1/situation', (route) =>
+    fulfillJson(route, {
+      todayIso: '2026-08-05',
+      counts: { activeMissions: 1, rosteredPlayers: 4, credentialsTracked: 4, liveAgreements: 1, openApprovals: 0 },
+      checks: ['Mission readiness', 'Governance wedge', 'Credential expiry'],
+      signals: [
+        {
+          key: `MissionReadiness:${mission.missionId}`,
+          kind: 'MissionReadiness',
+          headline: 'Mission handover still needs a witnessed owner',
+          reasons: ['The mission is active.', 'The handover record has no named successor.'],
+          impact: 3,
+          urgency: 2,
+          score: 6,
+          band: 'immediate',
+          inMotion: false,
+          actions: [{ kind: 'ViewMission', missionId: mission.missionId }],
+        },
+      ],
+    }),
+  );
+
+  await page.goto(`/missions/${mission.missionId}/comms`);
+  const routeIntents = page.getByRole('navigation', { name: 'Global intent' });
+  await routeIntents.getByRole('link', { name: 'Constellation', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/situation\\?workspace=${mission.missionId}$`));
+
+  const constellation = page.locator('[data-module="command-constellation"]');
+  const attention = page.locator('[data-module="command-attention"]');
+  await expect(constellation).toBeVisible();
+  await expect(constellation).toHaveAttribute('data-module-truth', 'verified');
+  await expect(constellation.getByText('Mission handover still needs a witnessed owner')).toBeVisible();
+  await expect(constellation.getByText('3 checks ran')).toBeVisible();
+  await expect(attention).toBeVisible();
+  await expect(attention).toHaveAttribute('data-module-truth', /^(verified|stale)$/);
+  await expect(attention.getByTestId(`attention-thread-${thread.threadId}`)).toContainText('1 unread');
+
+  await constellation.getByRole('link', { name: 'Open view mission' }).click();
+  await expect(page.locator('[data-module="mission-current"]')).toBeVisible();
+  await expect(constellation).toBeVisible();
+
+  await routeIntents.getByRole('link', { name: 'Continuity', exact: true }).click();
+  const continuity = page.locator('[data-module="mission-continuity"]');
+  await expect(continuity).toBeVisible();
+  await expect(continuity).toHaveAttribute('data-module-truth', /^(verified|stale)$/);
+  const continuityTruth = await continuity.getAttribute('data-module-truth');
+  await expect(continuity.locator('[data-continuity-complete]')).toHaveAttribute(
+    'data-continuity-complete',
+    continuityTruth === 'verified' ? 'true' : 'false',
+  );
+  await expect(continuity.getByText('Decision recorded')).toBeVisible();
+
+  await continuity.getByRole('button', { name: `Focus ${decision.messageId}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms#msg-${decision.messageId}$`));
+  await expect(page.locator(`#msg-${decision.messageId}`)).toBeFocused();
+});
+
 test('Workspace OS: the complete header control set clears the mission identity at 800px', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 900 });
   await login(page);
@@ -250,8 +360,13 @@ test('Workspace OS: the complete header control set clears the mission identity 
   const header = page.locator('.mission-command-bar');
   const identity = page.locator('.mission-command-identity');
   const layouts = page.getByRole('group', { name: 'Workspace layouts' });
+  const routeHeader = page.locator('.context-header');
+  const routeContext = page.locator('.working-context');
+  const routeIntents = page.getByRole('navigation', { name: 'Global intent' });
   await expect(header).toBeVisible();
   await expect(layouts).toBeVisible();
+  await expect(routeHeader).toBeVisible();
+  await expect(routeIntents).toBeVisible();
 
   const [headerBox, identityBox, layoutsBox] = await Promise.all([
     header.boundingBox(),
@@ -265,8 +380,23 @@ test('Workspace OS: the complete header control set clears the mission identity 
   expect(layoutsBox!.x).toBeGreaterThanOrEqual(headerBox!.x);
   expect(layoutsBox!.x + layoutsBox!.width).toBeLessThanOrEqual(headerBox!.x + headerBox!.width + 1);
 
-  for (const name of ['Commander', 'Review', 'Brief', 'Finance', 'Decisions', 'Planning', 'Reset']) {
+  const [routeHeaderBox, routeContextBox, routeIntentsBox] = await Promise.all([
+    routeHeader.boundingBox(),
+    routeContext.boundingBox(),
+    routeIntents.boundingBox(),
+  ]);
+  expect(routeHeaderBox).not.toBeNull();
+  expect(routeContextBox).not.toBeNull();
+  expect(routeIntentsBox).not.toBeNull();
+  expect(routeIntentsBox!.y).toBeGreaterThanOrEqual(routeContextBox!.y + routeContextBox!.height);
+  expect(routeIntentsBox!.x).toBeGreaterThanOrEqual(routeHeaderBox!.x);
+  expect(routeIntentsBox!.x + routeIntentsBox!.width).toBeLessThanOrEqual(routeHeaderBox!.x + routeHeaderBox!.width + 1);
+
+  for (const name of ['Commander', 'Review', 'Brief', 'Finance', 'Decisions', 'Planning', 'Coordinate', 'Continuity', 'Command', 'Reset']) {
     await expect(layouts.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await expect(layouts.getByRole('button', { name: /^Views/ })).toBeVisible();
+  for (const name of ['Open mission workspace', 'Mission Current', 'Constellation', 'My Attention', 'Continuity', 'Finance', 'Approvals', 'Calendar']) {
+    await expect(routeIntents.getByRole('link', { name, exact: true })).toBeVisible();
+  }
 });

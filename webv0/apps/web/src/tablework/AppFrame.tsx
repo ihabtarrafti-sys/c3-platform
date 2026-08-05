@@ -228,7 +228,12 @@ export function AppFrame({ place, actor, header, wide, workspaceMissionId = null
         <a className="skip-link" href="#tw-room">
           Skip to {activeLabel}
         </a>
-        <section className="app-frame" data-tablework="AppFrame" aria-label={`C3 ${actor.tenantName}`}>
+        <section
+          className="app-frame"
+          data-tablework="AppFrame"
+          data-workspace={workspaceMissionId ? 'mission' : undefined}
+          aria-label={`C3 ${actor.tenantName}`}
+        >
           <aside className="place-rail work-surface" data-tablework="WorkSurface" data-material="work" aria-label="Product places">
             <a className="brand-lockup" href="#tw-room" aria-label={`C3 ${activeLabel}`}>
               <img src={mode === 'light' ? '/brand/gather-on-light.svg' : '/brand/gather-on-dark.svg'} alt="" />

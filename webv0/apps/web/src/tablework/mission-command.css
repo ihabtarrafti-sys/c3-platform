@@ -451,6 +451,18 @@
   --module-line: var(--c3-iris-route-c);
 }
 
+.tw-root .mission-command-window.module-command-constellation {
+  --module-line: var(--c3-accent-periwinkle);
+}
+
+.tw-root .mission-command-window.module-command-attention {
+  --module-line: var(--c3-accent-coral);
+}
+
+.tw-root .mission-command-window.module-mission-continuity {
+  --module-line: var(--c3-accent-aqua);
+}
+
 .tw-root .module-mission-field .mission-command-truth,
 .tw-root .module-mission-obligations .mission-command-truth {
   display: none;
@@ -811,6 +823,321 @@
   min-width: 0;
   max-width: 100%;
   overflow: auto;
+}
+
+/* Command & Coordination keeps the three new windows visually related while
+   preserving what each one actually knows. Constellation is an explainable
+   field, Attention is a personal relay, and Continuity is a recorded trace. */
+.tw-root .module-command-constellation .mission-command-windowbody,
+.tw-root .module-command-attention .mission-command-windowbody,
+.tw-root .module-mission-continuity .mission-command-windowbody {
+  overflow: auto;
+}
+
+.tw-root .module-command-attention .collection-frame {
+  min-width: 0;
+  min-height: 100%;
+  padding: var(--c3-space-3);
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.tw-root .module-command-attention .collection-title {
+  font-size: clamp(1.45rem, 2vw, 2.15rem);
+}
+
+.tw-root .command-attention-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(19rem, 100%), 1fr));
+  align-items: start;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .command-attention-grid > div {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .module-command-attention .comms-surface {
+  min-width: 0;
+  padding: var(--c3-space-3);
+  border-color: var(--c3-border-subtle);
+  background: var(--c3-surface-subtle);
+  box-shadow: none;
+}
+
+.tw-root .module-command-attention .surface-heading {
+  gap: var(--c3-space-2);
+  margin-bottom: var(--c3-space-2);
+}
+
+.tw-root .module-command-attention .surface-heading h2 {
+  font-size: var(--c3-font-size-body);
+}
+
+.tw-root .module-command-attention .group-box {
+  background: var(--c3-surface-base);
+}
+
+.tw-root .module-command-attention .group-box > header {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .module-command-attention .group-box > header small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  overflow-wrap: anywhere;
+}
+
+.tw-root .command-constellation-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+}
+
+.tw-root .command-constellation-counts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(8rem, 100%), 1fr));
+  gap: var(--c3-space-2);
+}
+
+.tw-root .command-constellation-counts > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .command-constellation-counts strong {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(1.7rem, 3vw, 2.6rem);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: 1;
+}
+
+.tw-root .command-constellation-counts small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.tw-root .command-constellation-checks {
+  display: grid;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3);
+  border-left: .2rem solid var(--c3-accent-periwinkle);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .command-constellation-checks > header,
+.tw-root .command-constellation-signal > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .command-constellation-checks small,
+.tw-root .command-constellation-signal > header small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .command-constellation-checks ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--c3-space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tw-root .command-constellation-checks li {
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .command-constellation-signals {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(18rem, 100%), 1fr));
+  gap: var(--c3-space-2);
+}
+
+.tw-root .command-constellation-signal {
+  --signal-line: var(--c3-state-info);
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-left: .25rem solid var(--signal-line);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .command-constellation-signal[data-signal-band='immediate'] {
+  --signal-line: var(--c3-state-danger);
+}
+
+.tw-root .command-constellation-signal[data-signal-band='attention'] {
+  --signal-line: var(--c3-state-warning);
+}
+
+.tw-root .command-constellation-signal[data-signal-band='watch'] {
+  --signal-line: var(--c3-state-info);
+}
+
+.tw-root .command-constellation-signal[data-signal-band='inMotion'] {
+  --signal-line: var(--c3-state-success);
+}
+
+.tw-root .command-constellation-signal h3,
+.tw-root .command-constellation-signal ul {
+  margin: 0;
+}
+
+.tw-root .command-constellation-signal h3 {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-lead);
+  font-weight: var(--c3-font-weight-regular);
+}
+
+.tw-root .command-constellation-signal ul {
+  display: grid;
+  gap: var(--c3-space-1);
+  padding-left: 1rem;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .mission-continuity {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+}
+
+.tw-root .mission-continuity > .boundary-note {
+  margin: 0;
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-left: .2rem solid var(--c3-accent-aqua);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .mission-continuity-trace {
+  position: relative;
+  display: grid;
+  gap: var(--c3-space-2);
+  margin: 0;
+  padding: 0 0 0 var(--c3-space-5);
+  list-style: none;
+}
+
+.tw-root .mission-continuity-trace::before {
+  content: "";
+  position: absolute;
+  left: .45rem;
+  top: var(--c3-space-3);
+  bottom: var(--c3-space-3);
+  width: var(--tw-line);
+  background: var(--c3-border-strong);
+}
+
+.tw-root .mission-continuity-entry {
+  position: relative;
+  min-width: 0;
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .mission-continuity-entry::before {
+  content: "";
+  position: absolute;
+  left: calc(-1 * var(--c3-space-5) + .05rem);
+  top: 1.1rem;
+  width: .8rem;
+  height: .8rem;
+  border: .15rem solid var(--c3-iris-window);
+  border-radius: 50%;
+  background: var(--c3-ink-quiet);
+  box-shadow: 0 0 0 var(--tw-line) var(--c3-border-strong);
+}
+
+.tw-root .mission-continuity-entry[data-continuity-bearing='standing'] {
+  border-color: var(--c3-accent-aqua);
+}
+
+.tw-root .mission-continuity-entry[data-continuity-bearing='standing']::before {
+  background: var(--c3-accent-aqua);
+}
+
+.tw-root .mission-continuity-entry[data-continuity-bearing='history'] {
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .mission-continuity-entry > article,
+.tw-root .mission-continuity-entry > article > header > span,
+.tw-root .mission-continuity-provenance {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .mission-continuity-entry > article {
+  gap: var(--c3-space-2);
+}
+
+.tw-root .mission-continuity-entry > article > header {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--c3-space-2);
+}
+
+.tw-root .mission-continuity-entry strong {
+  color: var(--c3-ink-strong);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .mission-continuity-entry small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .mission-continuity-entry p {
+  margin: 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  overflow-wrap: anywhere;
+}
+
+.tw-root .mission-continuity-provenance {
+  padding-top: var(--c3-space-2);
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
 }
 
 .tw-root .mission-command-resize {

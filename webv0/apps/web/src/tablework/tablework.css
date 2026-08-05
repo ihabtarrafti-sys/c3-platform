@@ -2941,6 +2941,39 @@
   }
 }
 
+/* A live workspace carries several module destinations in the route header.
+   Between the rail-collapse and mobile breakpoints, the rail leaves less room
+   than the viewport suggests: give context and destinations separate rows and
+   let the labelled controls scroll instead of colliding or being elided. */
+@media (min-width: 48rem) and (max-width: 71.999rem) {
+  .tw-root .app-frame[data-workspace='mission'] .context-header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .canonical-place {
+    display: none;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .working-context {
+    grid-column: 1;
+    grid-row: 1;
+    overflow: hidden;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .intent-bar {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .intent-bar > * {
+    flex: 0 0 auto;
+  }
+}
+
 @media (max-width: 47.999rem) {
   .tw-root {
     --tw-room-pad: var(--c3-space-4);

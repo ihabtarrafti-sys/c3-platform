@@ -61,6 +61,9 @@ const LAYOUT_LABELS: ReadonlyArray<{ id: MissionCommandPreset; label: string }> 
   { id: 'finance', label: 'Finance' },
   { id: 'decisions', label: 'Decisions' },
   { id: 'planning', label: 'Planning' },
+  { id: 'coordinate', label: 'Coordinate' },
+  { id: 'continuity', label: 'Continuity' },
+  { id: 'command', label: 'Command' },
 ];
 
 const COMPACT_QUERY = '(max-width: 71.999rem)';
@@ -97,7 +100,14 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'mission-finance': '¤',
   'approvals-register': '⌁',
   'calendar-horizon': '◫',
+  'command-constellation': '✦',
+  'command-attention': '◎',
+  'mission-continuity': '⟷',
 };
+
+function isInteractiveTarget(target: EventTarget | null): boolean {
+  return target instanceof HTMLElement && target.closest('button, a, input, select, textarea, label') !== null;
+}
 
 function storageKey(missionId: string): string {
   return `c3:mission-command:${missionId}:workspace:v2`;
@@ -391,6 +401,9 @@ export function MissionCommandWorkspace({
     if (action === 'move' && (event.target as HTMLElement).closest('button, a, input, select, textarea, label')) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // The resize handle is itself a button, so the article deliberately does
+    // not raise it on pointer-down. Raise here before the geometry gesture.
+    if (action === 'resize') dispatch({ type: 'bring-forward', id });
     event.preventDefault();
     dispatch({ type: 'bring-forward', id });
     const bounds = canvas.getBoundingClientRect();
@@ -592,7 +605,16 @@ export function MissionCommandWorkspace({
               aria-label={`${module.title} window`}
               hidden={windowState.visibility !== 'open'}
               style={styleFor(windowState.rect, windowState.z)}
-              onPointerDown={() => dispatch({ type: 'bring-forward', id: module.id })}
+              onPointerDown={(event) => {
+                // A foreground edge starts a synchronous re-witness and may
+                // replace a truth wrapper. Let links and controls receive
+                // their click before that transition; otherwise a pointer-down
+                // in a background window can remove its own click target.
+                if (!isInteractiveTarget(event.target)) dispatch({ type: 'bring-forward', id: module.id });
+              }}
+              onClick={(event) => {
+                if (isInteractiveTarget(event.target)) dispatch({ type: 'bring-forward', id: module.id });
+              }}
             >
               <header
                 className="mission-command-windowbar"

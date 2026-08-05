@@ -33,6 +33,9 @@ import { LoginGate } from './LoginGate';
 import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, TruthPanel, truthStateOf, WorkSurface, type ObligationActionInput, type WitnessState } from '../tablework';
 import { MissionCommandWorkspace, type MissionCommandModule } from '../tablework/MissionCommandWorkspace';
 import { isActionableWitness, withModuleChannelTruth, type MissionCommandModuleId } from '../tablework/missionCommandModel';
+import { CommandConstellation } from '../tablework/CommandConstellation';
+import { CommandAttention, type CommandAttentionTarget } from '../tablework/CommandAttention';
+import { MissionContinuity, joinMissionContinuityWitness } from '../tablework/MissionContinuity';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
@@ -48,6 +51,9 @@ const WORKSPACE_ROUTE_META: Readonly<
   'mission-finance': { place: 'Finance', origin: 'Mission Command', section: 'Finance beside Mission' },
   'approvals-register': { place: 'Approvals', origin: 'Mission Command', section: 'Decisions beside Mission' },
   'calendar-horizon': { place: 'Calendar', origin: 'Mission Command', section: 'Planning beside Mission' },
+  'command-constellation': { place: 'Command', origin: 'Mission Command', section: 'Organization Constellation' },
+  'command-attention': { place: 'Comms', origin: 'Mission Command', section: 'My Attention' },
+  'mission-continuity': { place: 'Comms', origin: 'Mission Command', section: 'Mission Continuity' },
 };
 
 interface MissionCommsPageProps {
@@ -101,6 +107,7 @@ function MissionCommsScreen({
   const { me } = useSession();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const location = useLocation();
   const mission = useMission(missionId, workspaceActive);
   const thread = useMissionThread(missionId, workspaceActive);
   const obligations = useMissionObligations(missionId, workspaceActive);
@@ -119,6 +126,8 @@ function MissionCommsScreen({
   const [financeTruth, setFinanceTruth] = useState<WitnessState>({ kind: 'loading' });
   const [approvalsTruth, setApprovalsTruth] = useState<WitnessState>({ kind: 'loading' });
   const [calendarTruth, setCalendarTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [constellationTruth, setConstellationTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
   const [foregroundModule, setForegroundModule] = useState<MissionCommandModuleId | null>('mission-current');
   const attention = useDocumentAttention();
   const effectiveForeground = workspaceActive ? foregroundModule : null;
@@ -147,6 +156,27 @@ function MissionCommsScreen({
       ...(canManage ? [members.refetch()] : []),
     ]);
   }, [workspaceActive, workspaceRequestKey, mission, thread, obligations, receipts, prefs, members, canManage]);
+
+  // Continuity and Attention only navigate. Once the requested owning window
+  // has reopened, focus the exact durable record named by the URL fragment.
+  // Unknown fragments are ignored rather than becoming document selectors.
+  useEffect(() => {
+    if (!workspaceActive || !/^#(?:msg|obl)-[A-Za-z0-9_-]+$/.test(location.hash)) return;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        const record = document.getElementById(location.hash.slice(1));
+        if (!record) return;
+        if (!record.hasAttribute('tabindex')) record.tabIndex = -1;
+        record.focus({ preventScroll: true });
+        record.scrollIntoView({ block: 'center', inline: 'nearest' });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
+  }, [location.hash, requestedModule, workspaceActive, workspaceRequestKey]);
 
   const invalidateThread = useCallback(
     () => Promise.all([qc.invalidateQueries({ queryKey: ['commsThread', missionId] }), qc.invalidateQueries({ queryKey: ['commsObligations', missionId] })]),
@@ -354,6 +384,24 @@ function MissionCommsScreen({
     { data: obligations.data, error: obligations.error, isLoading: obligations.isLoading, dataUpdatedAt: obligations.dataUpdatedAt },
     (d) => d.obligations.length === 0,
   );
+  const continuityTruth = joinMissionContinuityWitness({
+    messages,
+    messageTruth: threadTruth,
+    obligations: obligationList,
+    obligationTruth: obligationsTruth,
+  });
+  const resolveAttentionHref = useCallback(
+    (target: CommandAttentionTarget): string => {
+      if (target.threadKind === 'anchored' && target.anchorType === 'Mission' && target.anchorId) {
+        const base = `/missions/${target.anchorId}/comms`;
+        return target.kind === 'obligation-thread'
+          ? `${base}?open=obligations#obl-${target.obligationId}`
+          : base;
+      }
+      return `/comms/threads/${target.threadId}`;
+    },
+    [],
+  );
   const missionActionsAvailable = isActionableWitness(missionTruth);
   const obligationActionsAvailable = missionActionsAvailable && isActionableWitness(obligationsTruth);
   const routeMeta = WORKSPACE_ROUTE_META[requestedModule];
@@ -388,6 +436,15 @@ function MissionCommsScreen({
               </Link>
               <Link className="intent-button" to={`/missions/${missionId}/comms`} aria-current={requestedModule === 'mission-current' ? 'page' : undefined}>
                 Mission Current
+              </Link>
+              <Link className="intent-button" to={`/situation?workspace=${missionId}`} aria-current={requestedModule === 'command-constellation' ? 'page' : undefined}>
+                Constellation
+              </Link>
+              <Link className="intent-button" to={`/comms?workspace=${missionId}`} aria-current={requestedModule === 'command-attention' ? 'page' : undefined}>
+                My Attention
+              </Link>
+              <Link className="intent-button" to={`/missions/${missionId}/comms?open=continuity`} aria-current={requestedModule === 'mission-continuity' ? 'page' : undefined}>
+                Continuity
               </Link>
               <Link className="intent-button" to={`/missions/finance?workspace=${missionId}`} aria-current={requestedModule === 'mission-finance' ? 'page' : undefined}>
                 Finance
@@ -437,6 +494,8 @@ function MissionCommsScreen({
               if (moduleId === 'mission-finance') setFinanceTruth({ kind: 'loading' });
               else if (moduleId === 'approvals-register') setApprovalsTruth({ kind: 'loading' });
               else if (moduleId === 'calendar-horizon') setCalendarTruth({ kind: 'loading' });
+              else if (moduleId === 'command-constellation') setConstellationTruth({ kind: 'loading' });
+              else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
               else return;
               if (requestedModule === moduleId) {
                 navigate(`/missions/${missionId}/comms`, { replace: true });
@@ -587,6 +646,55 @@ function MissionCommsScreen({
                     enabled={workspaceActive}
                     foreground={effectiveForeground === 'calendar-horizon'}
                     onTruthChange={setCalendarTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'command-constellation' satisfies MissionCommandModuleId,
+                eyebrow: 'Constellation · Explainable field',
+                title: 'Command Constellation',
+                detail: 'Organization signals with their checks and score components visible. Read and navigate only; silence must be earned.',
+                truth: constellationTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <CommandConstellation
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'command-constellation'}
+                    onTruthChange={setConstellationTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'command-attention' satisfies MissionCommandModuleId,
+                eyebrow: 'Relay · Personal attention',
+                title: 'My Attention',
+                detail: 'Only obligations and unread conversations awaiting the signed-in person. Opens records; never acts on them.',
+                truth: commandAttentionTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <CommandAttention
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'command-attention'}
+                    channel={live.state}
+                    resolveHref={resolveAttentionHref}
+                    onTruthChange={setCommandAttentionTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'mission-continuity' satisfies MissionCommandModuleId,
+                eyebrow: 'Continuity · Recorded trace',
+                title: 'Mission Continuity',
+                detail: 'Messages, decisions, recalls, obligation transitions, and evidence in one trace. Standing and history stay distinct.',
+                truth: continuityTruth,
+                children: (
+                  <MissionContinuity
+                    messages={messages}
+                    messageTruth={threadTruth}
+                    obligations={obligationList}
+                    obligationTruth={obligationsTruth}
+                    onFocusMessage={(messageId) => navigate(`/missions/${missionId}/comms#msg-${messageId}`)}
+                    onFocusObligation={(obligationId) => navigate(`/missions/${missionId}/comms?open=obligations#obl-${obligationId}`)}
                   />
                 ),
               } satisfies MissionCommandModule,

@@ -22,9 +22,21 @@ export type MissionCommandModuleId =
   | 'mission-obligations'
   | 'mission-finance'
   | 'approvals-register'
-  | 'calendar-horizon';
+  | 'calendar-horizon'
+  | 'command-constellation'
+  | 'command-attention'
+  | 'mission-continuity';
 export type MissionCommandVisibility = WorkspaceVisibility;
-export type MissionCommandPreset = 'commander' | 'review' | 'brief' | 'finance' | 'decisions' | 'planning';
+export type MissionCommandPreset =
+  | 'commander'
+  | 'review'
+  | 'brief'
+  | 'finance'
+  | 'decisions'
+  | 'planning'
+  | 'coordinate'
+  | 'continuity'
+  | 'command';
 export type MissionCommandLayout = WorkspaceLayout<MissionCommandPreset>;
 export type MissionCommandRect = WorkspaceRect;
 export type MissionCommandSnap = WorkspaceSnap;
@@ -37,8 +49,22 @@ type MissionCommandAction = WorkspaceAction<MissionCommandModuleId, MissionComma
 
 const ORIGINAL_IDS = ['mission-field', 'mission-current', 'mission-obligations'] as const;
 const PRIOR_IDS = [...ORIGINAL_IDS, 'mission-finance'] as const;
-const IDS: readonly MissionCommandModuleId[] = [...PRIOR_IDS, 'approvals-register', 'calendar-horizon'];
-const PRIOR_LAYOUTS: readonly MissionCommandLayout[] = ['commander', 'review', 'brief', 'finance', 'custom'];
+const WORKSPACE_OS_IDS = [...PRIOR_IDS, 'approvals-register', 'calendar-horizon'] as const;
+const IDS: readonly MissionCommandModuleId[] = [
+  ...WORKSPACE_OS_IDS,
+  'command-constellation',
+  'command-attention',
+  'mission-continuity',
+];
+const PRIOR_LAYOUTS: readonly MissionCommandLayout[] = [
+  'commander',
+  'review',
+  'brief',
+  'finance',
+  'decisions',
+  'planning',
+  'custom',
+];
 
 const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWindowSeed[]>> = {
   commander: [
@@ -48,6 +74,9 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
     { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 5 },
     { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 6 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 7 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
   ],
   review: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 31, height: 43 }, z: 1 },
@@ -56,6 +85,9 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
     { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 5 },
     { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 6 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 7 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
   ],
   brief: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 34, height: 100 }, z: 2 },
@@ -64,6 +96,9 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
     { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 5 },
     { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 6 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 7 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
   ],
   finance: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -72,6 +107,9 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'mission-finance', visibility: 'open', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
     { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 5 },
     { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 6 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 7 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
   ],
   decisions: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -80,6 +118,9 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 3 },
     { id: 'approvals-register', visibility: 'open', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 6 },
     { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 5 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 7 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
   ],
   planning: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 34, height: 100 }, z: 4 },
@@ -88,6 +129,42 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 3 },
     { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 5 },
     { id: 'calendar-horizon', visibility: 'open', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 6 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 7 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
+  ],
+  coordinate: [
+    { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
+    { id: 'mission-current', visibility: 'open', rect: { x: 0, y: 0, width: 60, height: 100 }, z: 8 },
+    { id: 'mission-obligations', visibility: 'minimized', rect: { x: 75, y: 0, width: 25, height: 100 }, z: 2 },
+    { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 3 },
+    { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
+    { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 5 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 6 },
+    { id: 'command-attention', visibility: 'open', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 9 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 7 },
+  ],
+  continuity: [
+    { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
+    { id: 'mission-current', visibility: 'open', rect: { x: 0, y: 0, width: 54, height: 100 }, z: 8 },
+    { id: 'mission-obligations', visibility: 'minimized', rect: { x: 75, y: 0, width: 25, height: 100 }, z: 2 },
+    { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 3 },
+    { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
+    { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 5 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 6 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 7 },
+    { id: 'mission-continuity', visibility: 'open', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
+  ],
+  command: [
+    { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
+    { id: 'mission-current', visibility: 'minimized', rect: { x: 0, y: 0, width: 54, height: 100 }, z: 2 },
+    { id: 'mission-obligations', visibility: 'minimized', rect: { x: 75, y: 0, width: 25, height: 100 }, z: 3 },
+    { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
+    { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 5 },
+    { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 6 },
+    { id: 'command-constellation', visibility: 'open', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 8 },
+    { id: 'command-attention', visibility: 'open', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 9 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 7 },
   ],
 };
 
@@ -109,6 +186,9 @@ export function missionCommandReducer(state: MissionCommandState, action: Missio
       'mission-finance': 'finance',
       'approvals-register': 'decisions',
       'calendar-horizon': 'planning',
+      'command-constellation': 'command',
+      'command-attention': 'coordinate',
+      'mission-continuity': 'continuity',
     };
     const layout = firstOpenLayout[action.id];
     const target = state.windows.find((window) => window.id === action.id);
@@ -127,8 +207,10 @@ function knownPriorIds(value: unknown): value is readonly unknown[] {
   const ids = value.map((window) =>
     window && typeof window === 'object' ? (window as { id?: unknown }).id : null,
   );
-  const accepted = ids.length === ORIGINAL_IDS.length ? ORIGINAL_IDS : ids.length === PRIOR_IDS.length ? PRIOR_IDS : null;
-  return accepted !== null && new Set(ids).size === accepted.length && ids.every((id) => accepted.includes(id as never));
+  const accepted = [ORIGINAL_IDS, PRIOR_IDS, WORKSPACE_OS_IDS].find(
+    (known) => ids.length === known.length && ids.every((id) => known.includes(id as never)),
+  );
+  return accepted !== undefined && new Set(ids).size === accepted.length && ids.every((id) => accepted.includes(id as never));
 }
 
 function appendNewModules(windows: readonly unknown[]): readonly unknown[] {
