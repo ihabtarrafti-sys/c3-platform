@@ -473,6 +473,11 @@
   container-type: inline-size;
 }
 
+.tw-root .mission-command-window.module-person-record {
+  --module-line: var(--c3-accent-periwinkle);
+  container-type: inline-size;
+}
+
 .tw-root .module-mission-field .mission-command-truth,
 .tw-root .module-mission-obligations .mission-command-truth {
   display: none;
@@ -1178,6 +1183,243 @@
   .tw-root .people-field-standing {
     grid-column: 2;
     justify-self: start;
+  }
+}
+
+/* People & Organization · milestone 02. The Person Record is one transient
+   runtime occupant in a fixed geometry slot. It is intentionally read-focused:
+   importing the standalone profile's writes would require a separate governed
+   foreground contract, not a visual shortcut. */
+.tw-root .module-person-record .mission-command-windowbody {
+  overflow: auto;
+}
+
+.tw-root .person-record {
+  min-width: 0;
+  min-height: 100%;
+  padding: var(--c3-space-3);
+  background:
+    radial-gradient(circle at 92% 2%, var(--c3-accent-blue-wash), transparent 30rem),
+    transparent;
+}
+
+.tw-root .person-record-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .person-record-hero {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+  box-shadow: inset 0 .15rem 0 var(--c3-accent-periwinkle);
+}
+
+.tw-root .person-record-hero .person-avatar {
+  border-color: var(--c3-accent-periwinkle);
+  box-shadow: 0 0 0 var(--c3-space-1) var(--c3-accent-blue-wash);
+}
+
+.tw-root .person-record-title {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .person-record-title small,
+.tw-root .person-record-section header small,
+.tw-root .person-record-sensitive header small,
+.tw-root .person-record-notes small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.tw-root .person-record-title h1 {
+  margin: 0;
+  overflow: hidden;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(1.8rem, 4cqi, 3.1rem);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: 1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tw-root .person-record-title > span {
+  overflow: hidden;
+  color: var(--c3-ink-muted);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tw-root .person-record-boundary,
+.tw-root .person-record-projection {
+  margin: 0;
+  padding: var(--c3-space-3);
+  border-left: .2rem solid var(--c3-accent-periwinkle);
+  background: var(--c3-surface-subtle);
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-body);
+}
+
+.tw-root .person-record-sections {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--c3-space-3);
+}
+
+.tw-root .person-record-section,
+.tw-root .person-record-sensitive,
+.tw-root .person-record-notes {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .person-record-section header,
+.tw-root .person-record-sensitive header {
+  min-width: 0;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding-bottom: var(--c3-space-3);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .person-record-section h2,
+.tw-root .person-record-sensitive h2 {
+  margin: var(--c3-space-1) 0 0;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-title);
+  font-weight: var(--c3-font-weight-regular);
+}
+
+.tw-root .person-record .fact-list {
+  grid-template-columns: minmax(7rem, .45fr) minmax(0, 1fr);
+  gap: var(--c3-space-2) var(--c3-space-4);
+}
+
+.tw-root .person-record .fact-list dd {
+  overflow-wrap: anywhere;
+}
+
+.tw-root .person-record-sensitive {
+  border-color: var(--c3-accent-periwinkle);
+  background:
+    linear-gradient(var(--c3-accent-blue-wash), var(--c3-accent-blue-wash)),
+    var(--c3-surface-base);
+}
+
+.tw-root .person-record-sensitive-failed {
+  border-style: dashed;
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .person-record-sensitive header > span:first-child {
+  min-width: 0;
+}
+
+.tw-root .person-record-sensitive > p {
+  margin: 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .person-record-sensitive-mark {
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border: var(--tw-line) solid var(--c3-accent-periwinkle);
+  border-radius: var(--c3-radius-pill);
+  color: var(--c3-accent-periwinkle);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .person-record-notes p {
+  margin: 0;
+  color: var(--c3-ink-default);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-lead);
+  line-height: var(--c3-line-height-body);
+}
+
+.tw-root .person-record-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding-top: var(--c3-space-2);
+  color: var(--c3-ink-quiet);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .person-record-footer > span {
+  max-width: 44rem;
+}
+
+.tw-root .person-record-footer .secondary-action {
+  flex: 0 0 auto;
+}
+
+@container (max-width: 44rem) {
+  .tw-root .person-record-hero,
+  .tw-root .person-record-sections {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .person-record-title h1 {
+    overflow: visible;
+    overflow-wrap: anywhere;
+    text-overflow: clip;
+    white-space: normal;
+  }
+
+  .tw-root .person-record-hero .status-badge {
+    justify-self: start;
+  }
+
+  .tw-root .person-record .fact-list {
+    grid-template-columns: 1fr;
+    gap: var(--c3-space-1);
+  }
+
+  .tw-root .person-record .fact-pair {
+    display: grid;
+    gap: 2px;
+    padding-bottom: var(--c3-space-2);
+    border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+  }
+
+  .tw-root .person-record .fact-pair:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+  }
+
+  .tw-root .person-record-footer {
+    align-items: stretch;
+    flex-direction: column;
   }
 }
 

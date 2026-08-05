@@ -161,11 +161,12 @@ test('Workspace OS: ordinary routes park one principal workspace and a principal
   await expect(page.locator('[data-module="mission-current"]')).toHaveAttribute('data-window-snap', 'right-half');
 });
 
-test('People & Organization: the Living Field joins the workspace without persisting people or filters', async ({ page }) => {
+test('People & Organization: Living Field and one transient Person Record keep geometry, not identity', async ({ page }) => {
+  const minaName = 'Mina Rahal Al Noor Al Mansouri';
   const people = [
     {
       personId: 'PER-9001',
-      fullName: 'Mina Rahal',
+      fullName: minaName,
       ign: 'Northstar',
       nationality: null,
       primaryRole: 'Commander',
@@ -180,6 +181,14 @@ test('People & Organization: the Living Field joins the workspace without persis
       otherNationalities: [],
       position: null,
       dateOfJoining: null,
+      dateOfBirth: '1992-04-17',
+      photoUpdatedAt: '2026-08-06T08:30:00.000Z',
+      addressLine1: '14 Constellation Walk',
+      addressLine2: null,
+      addressCity: 'Dubai',
+      addressCountry: 'United Arab Emirates',
+      phone: '+971 50 900 1001',
+      email: 'mina.rahal@example.test',
       isActive: true,
       version: 0,
       createdAt: '2026-08-06T08:00:00.000Z',
@@ -202,6 +211,14 @@ test('People & Organization: the Living Field joins the workspace without persis
       otherNationalities: [],
       position: 'Analyst',
       dateOfJoining: null,
+      dateOfBirth: '1996-11-03',
+      photoUpdatedAt: null,
+      addressLine1: '22 Relay Lane',
+      addressLine2: null,
+      addressCity: 'Abu Dhabi',
+      addressCountry: 'United Arab Emirates',
+      phone: '+971 50 900 2002',
+      email: 'omar.vale@example.test',
       isActive: false,
       version: 0,
       createdAt: '2026-08-06T08:00:00.000Z',
@@ -209,7 +226,48 @@ test('People & Organization: the Living Field joins the workspace without persis
     },
   ];
 
+  let releaseOmarDetail!: () => void;
+  const omarDetailGate = new Promise<void>((resolve) => {
+    releaseOmarDetail = resolve;
+  });
+  let holdMinaRecheck = false;
+  let releaseMinaRecheck!: () => void;
+  const minaRecheckGate = new Promise<void>((resolve) => {
+    releaseMinaRecheck = resolve;
+  });
+  let incompleteMinaPii = false;
+  let holdMinaForVisitor = false;
+  let releaseVisitorMina!: () => void;
+  const visitorMinaGate = new Promise<void>((resolve) => {
+    releaseVisitorMina = resolve;
+  });
+  let denyOmar = false;
+  let photoReads = 0;
   await page.route('**/api/v1/people', (route) => fulfillJson(route, { people }));
+  await page.route('**/api/v1/people/*', async (route) => {
+    const personId = new URL(route.request().url()).pathname.split('/').at(-1);
+    const person = people.find((candidate) => candidate.personId === personId);
+    const projectedPerson = personId === 'PER-9001' && incompleteMinaPii && person
+      ? { ...person, email: undefined }
+      : person;
+    if (personId === 'PER-9002') await omarDetailGate;
+    if (personId === 'PER-9001' && holdMinaRecheck) await minaRecheckGate;
+    if (personId === 'PER-9001' && holdMinaForVisitor) await visitorMinaGate;
+    if (personId === 'PER-9002' && denyOmar) {
+      return route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({ error: { code: 'PERSON_NOT_AVAILABLE', message: 'This record is not available.' } }),
+      });
+    }
+    return projectedPerson
+      ? fulfillJson(route, { person: projectedPerson })
+      : route.fulfill({ status: 404, contentType: 'application/json', body: JSON.stringify({ code: 'PERSON_NOT_FOUND' }) });
+  });
+  await page.route('**/api/v1/people/*/photo**', (route) => {
+    photoReads += 1;
+    return route.fulfill({ status: 200, contentType: 'image/png', body: '' });
+  });
   await login(page);
   await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
   await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
@@ -233,14 +291,75 @@ test('People & Organization: the Living Field joins the workspace without persis
   await expect(field).toBeVisible();
   await expect(field).toHaveAttribute('data-module-truth', 'verified');
   await expect(page.locator('[data-module="mission-current"]')).toBeVisible();
-  await expect(field.getByText('Mina Rahal')).toBeVisible();
+  await expect(field.getByText(minaName)).toBeVisible();
   await expect(field.getByText('Omar Vale')).toHaveCount(0);
+
+  await field.getByTestId('people-field-person-PER-9001').click();
+  await expect(page).toHaveURL(new RegExp(`/people/PER-9001\\?workspace=${mission.missionId}$`));
+
+  const record = page.locator('[data-module="person-record"]');
+  await expect(record).toBeVisible();
+  await expect(record).toHaveAttribute('data-module-truth', 'verified');
+  const minaHeading = record.getByRole('heading', { name: minaName });
+  await expect(minaHeading).toBeVisible();
+  await expect(record.getByTestId('person-record-sensitive')).toContainText('mina.rahal@example.test');
+  await expect(field).toBeVisible();
+  await expect(page.locator('[data-module="mission-current"]')).toBeVisible();
+
+  await page.getByRole('button', { name: `Arrange ${minaName}` }).click();
+  await page.getByRole('button', { name: `Right half: ${minaName}` }).click();
+  await expect(record).toHaveAttribute('data-window-snap', 'right-half');
+  await expect(minaHeading).toHaveCSS('white-space', 'normal');
+  expect(await minaHeading.evaluate((heading) => heading.scrollWidth <= heading.clientWidth)).toBe(true);
+
+  holdMinaRecheck = true;
+  await page.getByRole('button', { name: `Minimize ${minaName}` }).click();
+  await expect(record).toBeHidden();
+  await page.locator('[data-window-launcher="person-record"]').click();
+  await expect(record).toBeVisible();
+  await expect(record).toHaveAttribute('data-module-truth', 'stale');
+  await expect(record.getByTestId('person-record-stale')).toContainText('new check is in progress');
+  await expect(record.getByTestId('person-record-stale')).not.toContainText('FAILED');
+  holdMinaRecheck = false;
+  releaseMinaRecheck();
+  await expect(record).toHaveAttribute('data-module-truth', 'verified');
+  await expect(record.getByRole('heading', { name: minaName })).toBeVisible();
+
+  await page.getByRole('button', { name: `Minimize ${minaName}` }).click();
+  await expect(record).toBeHidden();
 
   await field.getByTestId('people-field-status').selectOption('all');
   await field.getByTestId('people-field-search').fill('Omar');
   await expect(field.getByText('Omar Vale')).toBeVisible();
-  await expect(field.getByText('Mina Rahal')).toHaveCount(0);
+  await expect(field.getByText(minaName)).toHaveCount(0);
 
+  await field.getByTestId('people-field-person-PER-9002').click();
+  await expect(page).toHaveURL(new RegExp(`/people/PER-9002\\?workspace=${mission.missionId}$`));
+  await expect(record).toBeVisible();
+  await expect(record).toHaveAttribute('data-window-snap', 'right-half');
+  await expect(record).toHaveAttribute('aria-label', 'Person Record window');
+  await expect(record.getByText(minaName)).toHaveCount(0);
+  await expect(record.getByText('mina.rahal@example.test')).toHaveCount(0);
+  releaseOmarDetail();
+  await expect(record.getByRole('heading', { name: 'Omar Vale' })).toBeVisible();
+  await expect(record.getByText('Mina Rahal')).toHaveCount(0);
+  await expect(record.getByText('mina.rahal@example.test')).toHaveCount(0);
+  await expect(record.getByTestId('person-record-sensitive')).toContainText('omar.vale@example.test');
+
+  denyOmar = true;
+  await page.getByRole('button', { name: 'Minimize Omar Vale' }).click();
+  await expect(record).toBeHidden();
+  await page.locator('[data-window-launcher="person-record"]').click();
+  await expect(record).toHaveAttribute('data-module-truth', 'denied');
+  await expect(record).toHaveAttribute('aria-label', 'Person Record window');
+  await expect(record.getByText('Unavailable', { exact: true })).toBeVisible();
+  await expect(record.getByTestId('person-record-denied')).toContainText('does not reveal here whether the record is missing or outside your standing');
+  await expect(record.getByText('Omar Vale')).toHaveCount(0);
+  await expect(record.getByText('omar.vale@example.test')).toHaveCount(0);
+  await expect(record.getByTestId('person-record-sensitive')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Minimize Person Record' }).click();
+  await expect(record).toBeHidden();
   await page.getByRole('button', { name: 'Minimize Living Field' }).click();
   await expect(field).toBeHidden();
   await page.locator('[data-window-launcher="people-field"]').click();
@@ -252,8 +371,54 @@ test('People & Organization: the Living Field joins the workspace without persis
   expect(stored).toContain('people-field');
   expect(stored).not.toContain('PER-9001');
   expect(stored).not.toContain('PER-9002');
-  expect(stored).not.toContain('Mina Rahal');
+  expect(stored).not.toContain(minaName);
   expect(stored).not.toContain('Omar');
+  expect(stored).not.toContain('mina.rahal@example.test');
+  expect(stored).not.toContain('omar.vale@example.test');
+
+  await page.locator('[data-window-launcher="person-record"]').click();
+  await page.getByRole('button', { name: 'Close Person Record' }).click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
+  await expect(record).toHaveCount(0);
+  await expect(page.locator('[data-window-launcher="person-record"]')).toHaveCount(0);
+
+  incompleteMinaPii = true;
+  await field.getByTestId('people-field-search').fill('Mina');
+  await field.getByTestId('people-field-person-PER-9001').click();
+  await expect(record).toBeVisible();
+  await expect(record).toHaveAttribute('data-window-snap', 'right-half');
+  await expect(record.getByRole('heading', { name: minaName })).toBeVisible();
+  await expect(record.getByText('Omar Vale')).toHaveCount(0);
+  await expect(record.getByTestId('person-record-sensitive-failed')).toBeVisible();
+  await expect(record.getByTestId('person-record-sensitive-failed')).toContainText('No missing field is being described as “not recorded.”');
+  await expect(record).toHaveAttribute('data-module-truth', 'fetch-failed');
+  await expect(record.getByText('Fetch failed', { exact: true })).toBeVisible();
+
+  incompleteMinaPii = false;
+  holdMinaForVisitor = true;
+  const photoReadsBeforePrincipalChange = photoReads;
+  await page.getByTestId('logout').click();
+  await page.getByTestId('login-email').fill('pii-free@alpha.com');
+  await page.getByTestId('login-role').click();
+  await page.getByRole('option', { name: 'visitor', exact: true }).click();
+  await page.getByTestId('login-tenant').fill('alpha');
+  await page.getByTestId('login-submit').click();
+  await expect(page.getByTestId('role-display')).toContainText('visitor');
+  await expect(record).toBeVisible();
+  await expect(record).toHaveAttribute('data-module-truth', 'loading');
+  await expect(record).toHaveAttribute('aria-label', 'Person Record window');
+  await expect(record.getByText(minaName)).toHaveCount(0);
+  await expect(record.getByText('mina.rahal@example.test')).toHaveCount(0);
+  releaseVisitorMina();
+  await expect(record.getByRole('heading', { name: minaName })).toBeVisible();
+  await expect(record.getByRole('img', { name: `${minaName} avatar` })).toBeVisible();
+  await expect(record.getByTestId('person-record-projection')).toBeVisible();
+  await expect(record.getByTestId('person-record-sensitive')).toHaveCount(0);
+  await expect.poll(() => photoReads).toBe(photoReadsBeforePrincipalChange);
+
+  await page.getByRole('button', { name: 'People', exact: true }).click();
+  await expect(record).toHaveCount(0);
+  await expect(page.locator('[data-window-launcher="person-record"]')).toHaveCount(0);
 
   await page.getByRole('button', { name: 'Close Living Field' }).click();
   await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));

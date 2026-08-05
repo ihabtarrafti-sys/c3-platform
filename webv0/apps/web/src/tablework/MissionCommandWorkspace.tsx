@@ -106,6 +106,7 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'mission-continuity': '⟷',
   'conversation-relay': '◉',
   'people-field': '○',
+  'person-record': '◌',
 };
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -137,7 +138,9 @@ function truthLabel(truth: WitnessState): string {
     case 'proven-empty':
       return 'Verified empty';
     case 'denied':
-      return truth.reasonClass === 'THREAD_NOT_AVAILABLE' ? 'Unavailable' : 'Denied';
+      return truth.reasonClass === 'THREAD_NOT_AVAILABLE' || truth.reasonClass === 'PERSON_NOT_AVAILABLE'
+        ? 'Unavailable'
+        : 'Denied';
     case 'fetch-failed':
       return 'Fetch failed';
     case 'stale':

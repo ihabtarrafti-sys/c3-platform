@@ -4,8 +4,8 @@ import { api } from './apiClient';
 export const usePeople = (enabled = true) =>
   useQuery({ queryKey: ['people'], queryFn: () => api.listPeople(), enabled });
 
-export const usePerson = (id: string) =>
-  useQuery({ queryKey: ['person', id], queryFn: () => api.getPerson(id) });
+export const usePerson = (id: string, enabled = true) =>
+  useQuery({ queryKey: ['person', id], queryFn: () => api.getPerson(id), enabled });
 
 /** Track B: this user's saved views for a register (personal presets). */
 export const useSavedViews = (register: string, enabled = true) =>

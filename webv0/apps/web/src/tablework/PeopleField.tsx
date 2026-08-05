@@ -5,7 +5,8 @@ import { ApiError } from '../api';
 import { usePeople } from '../queries';
 import { useSession } from '../session';
 import { PersonAvatar } from './Avatar';
-import { TruthPanel, truthStateOf, type WitnessState } from './TruthPanel';
+import { RecheckingTruthPanel } from './RecheckingTruthPanel';
+import { truthStateOf, type WitnessState } from './TruthPanel';
 import { useForegroundRewitness } from './useForegroundRewitness';
 
 type PeopleFieldStatus = 'active' | 'all' | 'inactive';
@@ -91,6 +92,7 @@ export function PeopleField({
 }: PeopleFieldProps = {}) {
   const { me } = useSession();
   const canRead = me?.capabilities.canReadPeople ?? false;
+  const canViewPii = me?.capabilities.canViewPersonPII ?? false;
   const queryEnabled = enabled && canRead;
   const query = usePeople(queryEnabled);
   const { data, error, isLoading, isFetching, dataUpdatedAt, refetch } = query;
@@ -112,6 +114,7 @@ export function PeopleField({
       }),
     [canRead, data, error, isLoading, isFetching, rewitnessing, dataUpdatedAt],
   );
+  const rechecking = data !== undefined && error == null && (isFetching || rewitnessing);
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState<PeopleFieldStatus>('active');
 
@@ -156,8 +159,9 @@ export function PeopleField({
         </span>
       </header>
 
-      <TruthPanel
+      <RecheckingTruthPanel
         state={truth}
+        rechecking={rechecking}
         emptyLabel="No personnel records yet. A C3 access seat is not a person record."
         testids={{
           loading: 'people-field-loading',
@@ -219,7 +223,7 @@ export function PeopleField({
                 >
                   <PersonAvatar
                     personId={person.personId}
-                    photoUpdatedAt={person.photoUpdatedAt}
+                    photoUpdatedAt={canViewPii ? person.photoUpdatedAt : undefined}
                     name={person.fullName}
                     size={38}
                   />
@@ -241,7 +245,7 @@ export function PeopleField({
             </div>
           )}
         </div>
-      </TruthPanel>
+      </RecheckingTruthPanel>
     </section>
   );
 }

@@ -38,6 +38,7 @@ import { CommandAttention, type CommandAttentionTarget } from '../tablework/Comm
 import { MissionContinuity, joinMissionContinuityWitness } from '../tablework/MissionContinuity';
 import { ConversationRelay, type ConversationRelayMeta } from '../tablework/ConversationRelay';
 import { PeopleField } from '../tablework/PeopleField';
+import { PersonRecord, type PersonRecordMeta } from '../tablework/PersonRecord';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
@@ -58,18 +59,20 @@ const WORKSPACE_ROUTE_META: Readonly<
   'mission-continuity': { place: 'Comms', origin: 'Mission Command', section: 'Mission Continuity' },
   'conversation-relay': { place: 'Comms', origin: 'Mission Command', section: 'Conversation Relay' },
   'people-field': { place: 'People', origin: 'Workspace OS', section: 'Living Field' },
+  'person-record': { place: 'People', origin: 'Living Field', section: 'Person Record' },
 };
 
 interface MissionCommsPageProps {
   readonly missionIdOverride?: string;
   readonly requestedModule?: MissionCommandModuleId;
   readonly conversationThreadIdOverride?: string;
+  readonly personIdOverride?: string;
   readonly workspaceRequestKey?: string;
   readonly workspaceActive?: boolean;
   readonly activateRequestedModule?: boolean;
 }
 
-export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission-current', conversationThreadIdOverride, workspaceRequestKey = 'direct', workspaceActive = true, activateRequestedModule = true }: MissionCommsPageProps = {}) {
+export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission-current', conversationThreadIdOverride, personIdOverride, workspaceRequestKey = 'direct', workspaceActive = true, activateRequestedModule = true }: MissionCommsPageProps = {}) {
   const { missionId: routeMissionId } = useParams<{ missionId: string }>();
   const location = useLocation();
   const missionId = missionIdOverride ?? routeMissionId;
@@ -94,6 +97,7 @@ export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission
       missionId={missionId ?? ''}
       requestedModule={requestedModule}
       conversationThreadIdOverride={conversationThreadIdOverride}
+      personIdOverride={personIdOverride}
       workspaceRequestKey={workspaceRequestKey}
       workspaceActive={workspaceActive}
       activateRequestedModule={activateRequestedModule}
@@ -105,6 +109,7 @@ function MissionCommsScreen({
   missionId,
   requestedModule,
   conversationThreadIdOverride,
+  personIdOverride,
   workspaceRequestKey,
   workspaceActive,
   activateRequestedModule,
@@ -112,6 +117,7 @@ function MissionCommsScreen({
   missionId: string;
   requestedModule: MissionCommandModuleId;
   conversationThreadIdOverride?: string;
+  personIdOverride?: string;
   workspaceRequestKey: string;
   workspaceActive: boolean;
   activateRequestedModule: boolean;
@@ -141,6 +147,14 @@ function MissionCommsScreen({
   const [constellationTruth, setConstellationTruth] = useState<WitnessState>({ kind: 'loading' });
   const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
   const [peopleTruth, setPeopleTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [personWitness, setPersonWitness] = useState<{
+    readonly personId: string | null;
+    readonly truth: WitnessState;
+  }>({ personId: null, truth: { kind: 'loading' } });
+  const [personMeta, setPersonMeta] = useState<{
+    readonly personId: string | null;
+    readonly value: PersonRecordMeta | null;
+  }>({ personId: null, value: null });
   const [conversationWitness, setConversationWitness] = useState<{
     readonly threadId: string | null;
     readonly truth: WitnessState;
@@ -152,14 +166,30 @@ function MissionCommsScreen({
   const [rememberedConversationThreadId, setRememberedConversationThreadId] = useState<string | null>(
     conversationThreadIdOverride ?? null,
   );
+  const [rememberedPersonId, setRememberedPersonId] = useState<string | null>(personIdOverride ?? null);
   const [foregroundModule, setForegroundModule] = useState<MissionCommandModuleId | null>('mission-current');
   const attention = useDocumentAttention();
   const effectiveForeground = workspaceActive ? foregroundModule : null;
   const conversationThreadId = conversationThreadIdOverride ?? rememberedConversationThreadId;
+  const personId = personIdOverride ?? rememberedPersonId;
 
   useEffect(() => {
     if (conversationThreadIdOverride) setRememberedConversationThreadId(conversationThreadIdOverride);
   }, [conversationThreadIdOverride]);
+  useEffect(() => {
+    if (!personIdOverride) return;
+    setRememberedPersonId(personIdOverride);
+    setPersonWitness((current) =>
+      current.personId === personIdOverride
+        ? current
+        : { personId: personIdOverride, truth: { kind: 'loading' } },
+    );
+    setPersonMeta((current) =>
+      current.personId === personIdOverride
+        ? current
+        : { personId: personIdOverride, value: null },
+    );
+  }, [personIdOverride]);
   const mayRecordRead = mayRecordWorkspaceRead(
     effectiveForeground,
     attention.visibilityState,
@@ -435,6 +465,10 @@ function MissionCommsScreen({
     (threadId: string) => `/comms/threads/${threadId}?workspace=${missionId}`,
     [missionId],
   );
+  const workspacePersonHref = useCallback(
+    (nextPersonId: string) => `/people/${nextPersonId}?workspace=${missionId}`,
+    [missionId],
+  );
   const onConversationTruthChange = useCallback(
     (truth: WitnessState) => {
       if (conversationThreadId) setConversationWitness({ threadId: conversationThreadId, truth });
@@ -447,6 +481,18 @@ function MissionCommsScreen({
     },
     [conversationThreadId],
   );
+  const onPersonTruthChange = useCallback(
+    (truth: WitnessState) => {
+      if (personId) setPersonWitness({ personId, truth });
+    },
+    [personId],
+  );
+  const onPersonMetaChange = useCallback(
+    (value: PersonRecordMeta) => {
+      if (personId) setPersonMeta({ personId, value });
+    },
+    [personId],
+  );
   const onConversationModuleReadOnly = useCallback(() => setLapsed(true), []);
   const missionActionsAvailable = isActionableWitness(missionTruth);
   const obligationActionsAvailable = missionActionsAvailable && isActionableWitness(obligationsTruth);
@@ -457,6 +503,11 @@ function MissionCommsScreen({
       : ({ kind: 'loading' } as const);
   const activeConversationMeta =
     conversationMeta.threadId === conversationThreadId ? conversationMeta.value : null;
+  const activePersonTruth =
+    personWitness.personId === personId
+      ? personWitness.truth
+      : ({ kind: 'loading' } as const);
+  const activePersonMeta = personMeta.personId === personId ? personMeta.value : null;
   const conversationModule: MissionCommandModule | null = conversationThreadId
     ? {
         id: 'conversation-relay',
@@ -481,6 +532,28 @@ function MissionCommsScreen({
             onModuleReadOnly={onConversationModuleReadOnly}
             onTruthChange={onConversationTruthChange}
             onMetaChange={onConversationMetaChange}
+          />
+        ),
+      }
+    : null;
+  const personModule: MissionCommandModule | null = personId
+    ? {
+        id: 'person-record',
+        eyebrow: 'Living Field · Person',
+        title: activePersonMeta?.record ?? 'Person Record',
+        detail: 'One runtime personnel record. Geometry stays; person identity and sensitive facts never enter a saved workspace view.',
+        truth: activePersonTruth,
+        unmountWhenClosed: true,
+        children: (
+          <PersonRecord
+            key={personId}
+            personId={personId}
+            enabled={workspaceActive}
+            foreground={effectiveForeground === 'person-record'}
+            activationKey={workspaceRequestKey}
+            fullRecordHref={`/people/${personId}`}
+            onTruthChange={onPersonTruthChange}
+            onMetaChange={onPersonMetaChange}
           />
         ),
       }
@@ -516,7 +589,7 @@ function MissionCommsScreen({
         <ContextHeader
           place={routeMeta.place}
           origin={routeMeta.origin}
-          record={record}
+          record={requestedModule === 'person-record' ? (activePersonMeta?.record ?? 'Person Record') : record}
           section={routeMeta.section}
           actions={
             <>
@@ -597,6 +670,11 @@ function MissionCommsScreen({
               else if (moduleId === 'command-constellation') setConstellationTruth({ kind: 'loading' });
               else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
               else if (moduleId === 'people-field') setPeopleTruth({ kind: 'loading' });
+              else if (moduleId === 'person-record') {
+                setRememberedPersonId(null);
+                setPersonWitness({ personId: null, truth: { kind: 'loading' } });
+                setPersonMeta({ personId: null, value: null });
+              }
               else if (moduleId === 'conversation-relay') {
                 setRememberedConversationThreadId(null);
                 setConversationWitness({ threadId: null, truth: { kind: 'loading' } });
@@ -819,10 +897,12 @@ function MissionCommsScreen({
                     enabled={workspaceActive}
                     foreground={effectiveForeground === 'people-field'}
                     requestKey={workspaceRequestKey}
+                    hrefForPerson={workspacePersonHref}
                     onTruthChange={setPeopleTruth}
                   />
                 ),
               } satisfies MissionCommandModule,
+              ...(personModule ? [personModule] : []),
               ...(conversationModule ? [conversationModule] : []),
             ]}
           />
