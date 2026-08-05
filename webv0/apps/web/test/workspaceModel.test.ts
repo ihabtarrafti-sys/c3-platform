@@ -185,6 +185,33 @@ describe('Workspace OS model', () => {
     expect(restoreWorkspaceState('{not json', DEFINITION)).toEqual(defaultWorkspaceState(DEFINITION));
   });
 
+  it('projects persisted device state so unknown record identity cannot survive restoration', () => {
+    const state = defaultWorkspaceState(DEFINITION);
+    const tainted = {
+      ...state,
+      threadId: 'THR-9999',
+      activeSavedLayoutId: 'view-1',
+      windows: state.windows.map((window) => ({ ...window, threadId: 'THR-9999' })),
+      savedLayouts: [
+        {
+          id: 'view-1',
+          name: 'Tainted view',
+          threadId: 'THR-9999',
+          windows: state.windows.map((window) => ({ ...window, threadId: 'THR-9999' })),
+        },
+      ],
+    };
+
+    const restored = restoreWorkspaceState(JSON.stringify(tainted), DEFINITION);
+    expect(restored.activeSavedLayoutId).toBe('view-1');
+    expect(restored.savedLayouts).toHaveLength(1);
+    expect(JSON.stringify(restored)).not.toContain('THR-9999');
+    expect(Object.keys(restored.windows[0]!).sort()).toEqual(
+      ['id', 'rect', 'restoreRect', 'snap', 'visibility', 'z'].sort(),
+    );
+    expect(Object.keys(restored.savedLayouts[0]!).sort()).toEqual(['id', 'name', 'windows'].sort());
+  });
+
   it('runs an explicit compatibility migration before validating the current shape', () => {
     const legacy = {
       version: 1,

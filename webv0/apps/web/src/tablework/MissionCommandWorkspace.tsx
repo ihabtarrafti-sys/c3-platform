@@ -103,6 +103,7 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'command-constellation': '✦',
   'command-attention': '◎',
   'mission-continuity': '⟷',
+  'conversation-relay': '◉',
 };
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -134,7 +135,7 @@ function truthLabel(truth: WitnessState): string {
     case 'proven-empty':
       return 'Verified empty';
     case 'denied':
-      return 'Denied';
+      return truth.reasonClass === 'THREAD_NOT_AVAILABLE' ? 'Unavailable' : 'Denied';
     case 'fetch-failed':
       return 'Fetch failed';
     case 'stale':
@@ -174,6 +175,10 @@ export function MissionCommandWorkspace({
   const lastReportedForeground = useRef<MissionCommandModuleId | null | undefined>(undefined);
   const pendingCloseNotifications = useRef<MissionCommandModuleId[]>([]);
   const pointerCleanup = useRef<(() => void) | null>(null);
+  const blockedGovernedClick = useRef<{
+    readonly moduleId: MissionCommandModuleId;
+    readonly pointerId: number;
+  } | null>(null);
   const compact = useCompactWorkspace();
   const [snapMenu, setSnapMenu] = useState<MissionCommandModuleId | null>(null);
   const [layoutLibraryOpen, setLayoutLibraryOpen] = useState(false);
@@ -605,6 +610,49 @@ export function MissionCommandWorkspace({
               aria-label={`${module.title} window`}
               hidden={windowState.visibility !== 'open'}
               style={styleFor(windowState.rect, windowState.z)}
+              onPointerDownCapture={(event) => {
+                const governed =
+                  event.target instanceof HTMLElement && event.target.closest('[data-governed-control]') !== null;
+                if (!governed || module.id === foregroundModule) return;
+                blockedGovernedClick.current = { moduleId: module.id, pointerId: event.pointerId };
+                event.preventDefault();
+                event.stopPropagation();
+                dispatch({ type: 'bring-forward', id: module.id });
+              }}
+              onPointerUpCapture={(event) => {
+                const token = blockedGovernedClick.current;
+                if (!token || token.moduleId !== module.id || token.pointerId !== event.pointerId) return;
+                window.setTimeout(() => {
+                  if (blockedGovernedClick.current === token) blockedGovernedClick.current = null;
+                }, 0);
+              }}
+              onPointerCancelCapture={(event) => {
+                const token = blockedGovernedClick.current;
+                if (token?.moduleId === module.id && token.pointerId === event.pointerId) {
+                  blockedGovernedClick.current = null;
+                }
+              }}
+              onClickCapture={(event) => {
+                const governed =
+                  event.target instanceof HTMLElement && event.target.closest('[data-governed-control]') !== null;
+                if (!governed) return;
+                const hasPointerToken = blockedGovernedClick.current?.moduleId === module.id;
+                const isBackground = module.id !== foregroundModule;
+                if (!hasPointerToken && !isBackground) return;
+                blockedGovernedClick.current = null;
+                event.preventDefault();
+                event.stopPropagation();
+                if (isBackground) dispatch({ type: 'bring-forward', id: module.id });
+              }}
+              onKeyDownCapture={(event) => {
+                if (event.key !== 'Enter' && event.key !== ' ') return;
+                const governed =
+                  event.target instanceof HTMLElement && event.target.closest('[data-governed-control]') !== null;
+                if (!governed || (module.id === foregroundModule && module.actionable !== false)) return;
+                event.preventDefault();
+                event.stopPropagation();
+                if (module.id !== foregroundModule) dispatch({ type: 'bring-forward', id: module.id });
+              }}
               onPointerDown={(event) => {
                 // A foreground edge starts a synchronous re-witness and may
                 // replace a truth wrapper. Let links and controls receive

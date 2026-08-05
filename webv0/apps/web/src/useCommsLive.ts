@@ -25,12 +25,14 @@ export interface LiveArrival extends CommsLivePush {
   readonly key: string;
 }
 
-export function useCommsLive(enabled: boolean): {
-  state: CommsLiveState;
-  arrivals: LiveArrival[];
-  dismiss: (key: string) => void;
-  clear: () => void;
-} {
+export interface CommsLiveResource {
+  readonly state: CommsLiveState;
+  readonly arrivals: LiveArrival[];
+  readonly dismiss: (key: string) => void;
+  readonly clear: () => void;
+}
+
+export function useCommsLive(enabled: boolean): CommsLiveResource {
   const qc = useQueryClient();
   const [state, setState] = useState<CommsLiveState>({ healthy: false, lastConfirmedAt: null });
   const [arrivals, setArrivals] = useState<LiveArrival[]>([]);

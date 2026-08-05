@@ -51,6 +51,7 @@ describe('Iris Mission Command workspace model', () => {
       'command-constellation',
       'command-attention',
       'mission-continuity',
+      'conversation-relay',
     ]);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(0, 3).every((window) => window.visibility === 'open')).toBe(true);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(3).every((window) => window.visibility === 'closed')).toBe(true);

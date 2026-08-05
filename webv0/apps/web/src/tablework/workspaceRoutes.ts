@@ -2,8 +2,10 @@ import type { MissionCommandModuleId } from './missionCommandModel';
 
 const MISSION_ID = /^MSN-\d{4,}$/;
 const MISSION_COMMS_PATH = /^\/missions\/(MSN-\d{4,})\/comms\/?$/;
+const THREAD_ROOM_PATH = /^\/comms\/threads\/(THR-\d{4,})\/?$/;
+type PersistentWorkspaceModuleId = Exclude<MissionCommandModuleId, 'conversation-relay'>;
 
-const COMMS_OPEN_MODULES: Readonly<Record<string, MissionCommandModuleId>> = {
+const COMMS_OPEN_MODULES: Readonly<Record<string, PersistentWorkspaceModuleId>> = {
   finance: 'mission-finance',
   obligations: 'mission-obligations',
   constellation: 'command-constellation',
@@ -14,7 +16,7 @@ const COMMS_OPEN_MODULES: Readonly<Record<string, MissionCommandModuleId>> = {
 const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
   readonly pathname: string;
   readonly moduleId: Extract<
-    MissionCommandModuleId,
+    PersistentWorkspaceModuleId,
     | 'mission-finance'
     | 'approvals-register'
     | 'calendar-horizon'
@@ -29,10 +31,19 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
   { pathname: '/comms', moduleId: 'command-attention' },
 ];
 
-export interface WorkspaceRouteTarget {
-  readonly missionId: string;
-  readonly requestedModule: MissionCommandModuleId;
-}
+export type WorkspaceRouteTarget =
+  | {
+      readonly missionId: string;
+      readonly requestedModule: Exclude<MissionCommandModuleId, 'conversation-relay'>;
+      readonly conversationThreadId?: never;
+    }
+  | {
+      readonly missionId: string;
+      readonly requestedModule: 'conversation-relay';
+      /** Runtime identity for the one transient conversation slot. It travels
+       * in the route and live React tree, never in persisted window state. */
+      readonly conversationThreadId: string;
+    };
 
 function canonicalPath(pathname: string): string {
   return pathname.length > 1 && pathname.endsWith('/') ? pathname.slice(0, -1) : pathname;
@@ -52,6 +63,18 @@ export function workspaceRouteTargetOf(pathname: string, search: string): Worksp
     return {
       missionId: comms[1]!,
       requestedModule: open.length === 1 ? COMMS_OPEN_MODULES[open[0]!]! : 'mission-current',
+    };
+  }
+
+  const threadRoom = THREAD_ROOM_PATH.exec(pathname);
+  if (threadRoom) {
+    const params = new URLSearchParams(search);
+    const workspace = params.getAll('workspace');
+    if (params.size !== 1 || workspace.length !== 1 || !MISSION_ID.test(workspace[0]!)) return null;
+    return {
+      missionId: workspace[0]!,
+      requestedModule: 'conversation-relay',
+      conversationThreadId: threadRoom[1]!,
     };
   }
 

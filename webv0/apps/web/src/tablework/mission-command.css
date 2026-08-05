@@ -463,6 +463,11 @@
   --module-line: var(--c3-accent-aqua);
 }
 
+.tw-root .mission-command-window.module-conversation-relay {
+  --module-line: var(--c3-accent-coral);
+  container-type: inline-size;
+}
+
 .tw-root .module-mission-field .mission-command-truth,
 .tw-root .module-mission-obligations .mission-command-truth {
   display: none;
@@ -1140,6 +1145,86 @@
   border-top: var(--tw-line) solid var(--c3-border-subtle);
 }
 
+.tw-root .module-conversation-relay .mission-command-windowbody {
+  display: flex;
+  overflow: hidden;
+}
+
+.tw-root .conversation-relay {
+  min-width: 0;
+  min-height: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--c3-space-2);
+  padding: var(--c3-space-3);
+}
+
+.tw-root .conversation-relay-layout {
+  min-width: 0;
+  min-height: 0;
+  flex: 1 1 auto;
+  display: grid;
+  grid-template-columns: minmax(12rem, 15rem) minmax(20rem, 1fr);
+  align-items: stretch;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .conversation-relay-layout > .comms-surface {
+  min-height: 0;
+  height: 100%;
+  padding: var(--c3-space-3);
+  border-color: var(--c3-border-subtle);
+  box-shadow: none;
+}
+
+.tw-root .conversation-relay-facts {
+  gap: var(--c3-space-3);
+  overflow: auto;
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .conversation-relay-facts .surface-heading {
+  margin-bottom: 0;
+}
+
+.tw-root .conversation-relay-layout > [data-tablework~='Thread'] .conversation-header {
+  padding-bottom: var(--c3-space-2);
+}
+
+.tw-root .conversation-relay-layout > [data-tablework~='Thread'] .conversation {
+  min-height: 10rem;
+  gap: var(--c3-space-3);
+  overflow-y: auto;
+}
+
+.tw-root .conversation-relay-layout > [data-tablework~='Thread'] .compose {
+  gap: var(--c3-space-1);
+  padding-top: var(--c3-space-2);
+}
+
+.tw-root .conversation-relay-layout > [data-tablework~='Thread'] .compose textarea {
+  min-height: 3.5rem;
+}
+
+.tw-root .conversation-relay-missing {
+  min-height: 100%;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+@container (max-width: 40rem) {
+  .tw-root .conversation-relay-layout {
+    grid-template-columns: minmax(0, 1fr);
+    overflow-y: auto;
+  }
+
+  .tw-root .conversation-relay-facts {
+    max-height: 15rem;
+  }
+}
+
 .tw-root .mission-command-resize {
   position: absolute;
   z-index: 7;
@@ -1453,6 +1538,19 @@
 
   .tw-root .mission-command-window.module-mission-current {
     min-height: 46rem;
+  }
+
+  .tw-root .mission-command-window.module-conversation-relay {
+    min-height: 48rem;
+  }
+
+  .tw-root .conversation-relay-layout {
+    grid-template-columns: minmax(0, 1fr);
+    overflow: visible;
+  }
+
+  .tw-root .conversation-relay-facts {
+    max-height: 15rem;
   }
 
   .tw-root .mission-command-dock {

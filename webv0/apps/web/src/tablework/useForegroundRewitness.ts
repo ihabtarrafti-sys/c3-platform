@@ -4,6 +4,9 @@ export interface ForegroundRewitnessOptions {
   readonly foreground: boolean;
   readonly enabled: boolean;
   readonly refetch: () => Promise<unknown>;
+  /** A new explicit route activation must re-witness even when this window was
+   * already foreground. Undefined preserves the ordinary foreground contract. */
+  readonly requestKey?: string | number;
 }
 
 /**
@@ -19,10 +22,12 @@ export function useForegroundRewitness({
   foreground,
   enabled,
   refetch,
+  requestKey,
 }: ForegroundRewitnessOptions): boolean {
   const foregroundRef = useRef(foreground);
   const enabledRef = useRef(enabled);
   const previousForeground = useRef(foreground);
+  const previousRequestKey = useRef(requestKey);
   const exposureActive = useRef(
     typeof document === 'undefined'
       ? true
@@ -36,6 +41,7 @@ export function useForegroundRewitness({
   foregroundRef.current = foreground;
   enabledRef.current = enabled;
   const enteredForeground = foreground && !previousForeground.current;
+  const reactivatedRoute = foreground && !Object.is(previousRequestKey.current, requestKey);
 
   const rewitness = useCallback(() => {
     if (!foregroundRef.current || !enabledRef.current || rewitnessingRef.current) return;
@@ -53,9 +59,11 @@ export function useForegroundRewitness({
   // regular effect would leave one verified old-data frame.
   useLayoutEffect(() => {
     const wasForeground = previousForeground.current;
+    const priorRequestKey = previousRequestKey.current;
     previousForeground.current = foreground;
-    if (!wasForeground && foreground) rewitness();
-  }, [foreground, rewitness]);
+    previousRequestKey.current = requestKey;
+    if ((!wasForeground && foreground) || (foreground && !Object.is(priorRequestKey, requestKey))) rewitness();
+  }, [foreground, requestKey, rewitness]);
 
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return;
@@ -96,5 +104,5 @@ export function useForegroundRewitness({
     [],
   );
 
-  return rewitnessing || enteredForeground;
+  return rewitnessing || enteredForeground || reactivatedRoute;
 }

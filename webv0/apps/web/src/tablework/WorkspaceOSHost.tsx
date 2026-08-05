@@ -7,9 +7,10 @@ import {
   type WorkspaceRouteTarget,
 } from './workspaceRoutes';
 
-interface RememberedMissionWorkspace extends WorkspaceRouteTarget {
+type RememberedMissionWorkspace = WorkspaceRouteTarget & {
   readonly requestKey: string;
-}
+  readonly activateRequestedModule: boolean;
+};
 
 function ParkableMissionWorkspace({
   target,
@@ -52,8 +53,10 @@ function ParkableMissionWorkspace({
         <MissionCommsPage
           missionIdOverride={target.missionId}
           requestedModule={target.requestedModule}
+          conversationThreadIdOverride={target.conversationThreadId}
           workspaceRequestKey={target.requestKey}
           workspaceActive={active}
+          activateRequestedModule={target.activateRequestedModule}
         />,
         portalTarget,
       )}
@@ -71,15 +74,17 @@ function ParkableMissionWorkspace({
 export function PrincipalWorkspaceOutlet() {
   const location = useLocation();
   const routeTarget = workspaceRouteTargetOf(location.pathname, location.search);
+  const routeState = location.state as { readonly workspaceRouteNeutral?: unknown } | null;
+  const activateRequestedModule = routeState?.workspaceRouteNeutral !== true;
   const [remembered, setRemembered] = useState<RememberedMissionWorkspace | null>(null);
   const current: RememberedMissionWorkspace | null = routeTarget
-    ? { ...routeTarget, requestKey: location.key }
+    ? { ...routeTarget, requestKey: location.key, activateRequestedModule }
     : remembered;
 
   useLayoutEffect(() => {
     if (!routeTarget) return;
-    setRemembered({ ...routeTarget, requestKey: location.key });
-  }, [location.key, routeTarget?.missionId, routeTarget?.requestedModule]);
+    setRemembered({ ...routeTarget, requestKey: location.key, activateRequestedModule });
+  }, [activateRequestedModule, location.key, routeTarget?.missionId, routeTarget?.requestedModule]);
 
   const active = routeTarget !== null;
   return (

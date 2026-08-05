@@ -41,6 +41,16 @@ export function detectLinks(body: string): CommsLinkInput[] {
 }
 
 interface ThreadProps {
+  /** Optional DOM identity for hosts that render more than one Thread at once.
+   *  Omit it on the legacy standalone and Mission surfaces to preserve their
+   *  established `thread-heading` / `thread-message` ids exactly. */
+  instanceId?: string;
+  /** Host-owned copy seams for conversation kinds that are not mission
+   *  anchors. Their defaults are the exact legacy Mission Thread language. */
+  contextLabel?: string;
+  standingLabel?: string;
+  composerNoun?: string;
+  composerPlaceholder?: string;
   missionName: string;
   threadTitle: string;
   participantsLine: string;
@@ -74,10 +84,12 @@ interface ThreadProps {
   onPostKinded?: (body: string, links: CommsLinkInput[], kind: 'note' | 'decision', supersedes: string | null) => Promise<boolean>;
 }
 
-export function Thread({ missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, receiptEligible = true, hasEarlier, loadingEarlier, onLoadEarlier, truth, audienceTreaty, onPostKinded }: ThreadProps) {
+export function Thread({ instanceId, contextLabel = 'Mission Thread', standingLabel = 'Anchored', composerNoun = 'Mission Thread', composerPlaceholder, missionName, threadTitle, participantsLine, messages, myLastReadSeq, lapsed, seenLine, posting, onPost, onAttach, onReachedEnd, receiptEligible = true, hasEarlier, loadingEarlier, onLoadEarlier, truth, audienceTreaty, onPostKinded }: ThreadProps) {
   const [draft, setDraft] = useState('');
   const [asDecision, setAsDecision] = useState(false);
   const [supersedes, setSupersedes] = useState('');
+  const headingId = instanceId ? `${instanceId}-thread-heading` : 'thread-heading';
+  const messageId = instanceId ? `${instanceId}-thread-message` : 'thread-message';
   const actionsFresh = isActionableWitness(truth) && audienceTreaty.verified;
   const composerAvailable = !lapsed && actionsFresh;
   // The chain is DERIVED from the wire, never client state: a later decision
@@ -173,17 +185,17 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
       className="comms-surface work-surface raised"
       data-tablework="Thread ConversationHeader WorkSurface"
       data-material="work"
-      aria-labelledby="thread-heading"
+      aria-labelledby={headingId}
       ref={threadRef}
       tabIndex={-1}
     >
       <header className="conversation-header" data-tablework="ConversationHeader">
         <div>
-          <p className="eyebrow">{missionName} · Mission Thread</p>
-          <h2 id="thread-heading">{threadTitle}</h2>
+          <p className="eyebrow">{missionName} · {contextLabel}</p>
+          <h2 id={headingId}>{threadTitle}</h2>
           <p>{participantsLine}</p>
         </div>
-        <span className={`state-label ${lapsed ? 'warning' : 'info'}`}>{lapsed ? 'Read-only history' : 'Anchored'}</span>
+        <span className={`state-label ${lapsed ? 'warning' : 'info'}`}>{lapsed ? 'Read-only history' : standingLabel}</span>
       </header>
       <div className="conversation" ref={conversationRef}>
         {hasEarlier ? (
@@ -219,13 +231,13 @@ export function Thread({ missionName, threadTitle, participantsLine, messages, m
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) composerHadFocus.current = false;
           }}
         >
-          <label className="sr-only" htmlFor="thread-message">
+          <label className="sr-only" htmlFor={messageId}>
             Message {missionName}
           </label>
           <textarea
-            id="thread-message"
+            id={messageId}
             name="message"
-            placeholder={`Write in the ${missionName} Mission Thread`}
+            placeholder={composerPlaceholder ?? `Write in the ${missionName} ${composerNoun}`}
             value={draft}
             disabled={!actionsFresh}
             onChange={(e) => setDraft(e.target.value)}

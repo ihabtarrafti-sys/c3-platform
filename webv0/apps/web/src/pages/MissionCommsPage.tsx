@@ -30,12 +30,13 @@ import { ApiError, type CommsObligationCreateBody } from '../api';
 import { IS_ENTRA } from '../auth';
 import { EntraSignIn, AccessNotProvisioned } from './EntraSignIn';
 import { LoginGate } from './LoginGate';
-import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, TruthPanel, truthStateOf, WorkSurface, type ObligationActionInput, type WitnessState } from '../tablework';
+import { AppFrame, ContextHeader, FloatSurface, ObligationCard, Thread, ToastStack, TruthPanel, truthStateOf, WorkSurface, type ObligationActionInput, type WitnessState } from '../tablework';
 import { MissionCommandWorkspace, type MissionCommandModule } from '../tablework/MissionCommandWorkspace';
 import { isActionableWitness, withModuleChannelTruth, type MissionCommandModuleId } from '../tablework/missionCommandModel';
 import { CommandConstellation } from '../tablework/CommandConstellation';
 import { CommandAttention, type CommandAttentionTarget } from '../tablework/CommandAttention';
 import { MissionContinuity, joinMissionContinuityWitness } from '../tablework/MissionContinuity';
+import { ConversationRelay, type ConversationRelayMeta } from '../tablework/ConversationRelay';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
@@ -54,16 +55,19 @@ const WORKSPACE_ROUTE_META: Readonly<
   'command-constellation': { place: 'Command', origin: 'Mission Command', section: 'Organization Constellation' },
   'command-attention': { place: 'Comms', origin: 'Mission Command', section: 'My Attention' },
   'mission-continuity': { place: 'Comms', origin: 'Mission Command', section: 'Mission Continuity' },
+  'conversation-relay': { place: 'Comms', origin: 'Mission Command', section: 'Conversation Relay' },
 };
 
 interface MissionCommsPageProps {
   readonly missionIdOverride?: string;
   readonly requestedModule?: MissionCommandModuleId;
+  readonly conversationThreadIdOverride?: string;
   readonly workspaceRequestKey?: string;
   readonly workspaceActive?: boolean;
+  readonly activateRequestedModule?: boolean;
 }
 
-export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission-current', workspaceRequestKey = 'direct', workspaceActive = true }: MissionCommsPageProps = {}) {
+export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission-current', conversationThreadIdOverride, workspaceRequestKey = 'direct', workspaceActive = true, activateRequestedModule = true }: MissionCommsPageProps = {}) {
   const { missionId: routeMissionId } = useParams<{ missionId: string }>();
   const location = useLocation();
   const missionId = missionIdOverride ?? routeMissionId;
@@ -87,8 +91,10 @@ export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission
     <MissionCommsScreen key={missionId}
       missionId={missionId ?? ''}
       requestedModule={requestedModule}
+      conversationThreadIdOverride={conversationThreadIdOverride}
       workspaceRequestKey={workspaceRequestKey}
       workspaceActive={workspaceActive}
+      activateRequestedModule={activateRequestedModule}
     />
   );
 }
@@ -96,13 +102,17 @@ export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission
 function MissionCommsScreen({
   missionId,
   requestedModule,
+  conversationThreadIdOverride,
   workspaceRequestKey,
   workspaceActive,
+  activateRequestedModule,
 }: {
   missionId: string;
   requestedModule: MissionCommandModuleId;
+  conversationThreadIdOverride?: string;
   workspaceRequestKey: string;
   workspaceActive: boolean;
+  activateRequestedModule: boolean;
 }) {
   const { me } = useSession();
   const qc = useQueryClient();
@@ -128,9 +138,25 @@ function MissionCommsScreen({
   const [calendarTruth, setCalendarTruth] = useState<WitnessState>({ kind: 'loading' });
   const [constellationTruth, setConstellationTruth] = useState<WitnessState>({ kind: 'loading' });
   const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [conversationWitness, setConversationWitness] = useState<{
+    readonly threadId: string | null;
+    readonly truth: WitnessState;
+  }>({ threadId: null, truth: { kind: 'loading' } });
+  const [conversationMeta, setConversationMeta] = useState<{
+    readonly threadId: string | null;
+    readonly value: ConversationRelayMeta | null;
+  }>({ threadId: null, value: null });
+  const [rememberedConversationThreadId, setRememberedConversationThreadId] = useState<string | null>(
+    conversationThreadIdOverride ?? null,
+  );
   const [foregroundModule, setForegroundModule] = useState<MissionCommandModuleId | null>('mission-current');
   const attention = useDocumentAttention();
   const effectiveForeground = workspaceActive ? foregroundModule : null;
+  const conversationThreadId = conversationThreadIdOverride ?? rememberedConversationThreadId;
+
+  useEffect(() => {
+    if (conversationThreadIdOverride) setRememberedConversationThreadId(conversationThreadIdOverride);
+  }, [conversationThreadIdOverride]);
   const mayRecordRead = mayRecordWorkspaceRead(
     effectiveForeground,
     attention.visibilityState,
@@ -398,13 +424,73 @@ function MissionCommsScreen({
           ? `${base}?open=obligations#obl-${target.obligationId}`
           : base;
       }
-      return `/comms/threads/${target.threadId}`;
+      return `/comms/threads/${target.threadId}?workspace=${missionId}`;
     },
-    [],
+    [missionId],
   );
+  const workspaceThreadHref = useCallback(
+    (threadId: string) => `/comms/threads/${threadId}?workspace=${missionId}`,
+    [missionId],
+  );
+  const onConversationTruthChange = useCallback(
+    (truth: WitnessState) => {
+      if (conversationThreadId) setConversationWitness({ threadId: conversationThreadId, truth });
+    },
+    [conversationThreadId],
+  );
+  const onConversationMetaChange = useCallback(
+    (value: ConversationRelayMeta) => {
+      if (conversationThreadId) setConversationMeta({ threadId: conversationThreadId, value });
+    },
+    [conversationThreadId],
+  );
+  const onConversationModuleReadOnly = useCallback(() => setLapsed(true), []);
   const missionActionsAvailable = isActionableWitness(missionTruth);
   const obligationActionsAvailable = missionActionsAvailable && isActionableWitness(obligationsTruth);
   const routeMeta = WORKSPACE_ROUTE_META[requestedModule];
+  const activeConversationTruth =
+    conversationWitness.threadId === conversationThreadId
+      ? conversationWitness.truth
+      : ({ kind: 'loading' } as const);
+  const activeConversationMeta =
+    conversationMeta.threadId === conversationThreadId ? conversationMeta.value : null;
+  const conversationModule: MissionCommandModule | null = conversationThreadId
+    ? {
+        id: 'conversation-relay',
+        eyebrow: `Relay · ${activeConversationMeta?.kindLabel ?? 'Conversation'}`,
+        title: activeConversationMeta?.record ?? 'Conversation Relay',
+        detail: 'One runtime conversation beside the command field. Geometry stays; private thread identity and drafts never enter a saved layout.',
+        truth: activeConversationTruth,
+        actionable: isActionableWitness(activeConversationTruth) && !lapsed,
+        unmountWhenClosed: true,
+        children: (
+          <ConversationRelay
+            key={conversationThreadId}
+            threadId={conversationThreadId}
+            instanceId={`workspace-relay-${conversationThreadId}`}
+            live={live}
+            enabled={workspaceActive}
+            foreground={effectiveForeground === 'conversation-relay'}
+            activationKey={workspaceRequestKey}
+            hrefForThread={workspaceThreadHref}
+            backHref={`/comms?workspace=${missionId}`}
+            moduleReadOnly={lapsed}
+            onModuleReadOnly={onConversationModuleReadOnly}
+            onTruthChange={onConversationTruthChange}
+            onMetaChange={onConversationMetaChange}
+          />
+        ),
+      }
+    : null;
+  const workspaceArrivals = live.arrivals.map((arrival) => ({
+    id: arrival.key,
+    title: arrival.recalled ? 'A message was recalled' : `New message from ${arrival.authorLabel ?? 'a member'}`,
+    detail: arrival.recalled ? null : (arrival.preview ?? null),
+    href:
+      arrival.threadId === firstPage?.thread?.threadId
+        ? `/missions/${missionId}/comms#msg-${arrival.messageId}`
+        : workspaceThreadHref(arrival.threadId),
+  }));
 
   // Lapse or an untrusted witness removes every governed write surface — the
   // open mint float included. Stale data stays readable, never actionable.
@@ -474,6 +560,14 @@ function MissionCommsScreen({
         </WorkSurface>
       ) : (
         <>
+          <ToastStack
+            items={workspaceArrivals}
+            onDismiss={live.dismiss}
+            onOpen={(item) => {
+              live.dismiss(item.id);
+              if (item.href) navigate(item.href);
+            }}
+          />
           {lapsed ? (
             <div className="lapsed-banner" role="status" data-tablework="LapsedBanner">
               <strong>Comms access lapsed · retained history is read-only.</strong> Message, upload, obligation, and acceptance controls are absent.
@@ -487,7 +581,7 @@ function MissionCommsScreen({
           <MissionCommandWorkspace
             missionId={missionId}
             missionName={record}
-            requestedModule={requestedModule}
+            requestedModule={activateRequestedModule ? requestedModule : undefined}
             requestKey={workspaceRequestKey}
             onForegroundModuleChange={setForegroundModule}
             onCloseModule={(moduleId) => {
@@ -496,9 +590,17 @@ function MissionCommsScreen({
               else if (moduleId === 'calendar-horizon') setCalendarTruth({ kind: 'loading' });
               else if (moduleId === 'command-constellation') setConstellationTruth({ kind: 'loading' });
               else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
+              else if (moduleId === 'conversation-relay') {
+                setRememberedConversationThreadId(null);
+                setConversationWitness({ threadId: null, truth: { kind: 'loading' } });
+                setConversationMeta({ threadId: null, value: null });
+              }
               else return;
               if (requestedModule === moduleId) {
-                navigate(`/missions/${missionId}/comms`, { replace: true });
+                navigate(`/missions/${missionId}/comms`, {
+                  replace: true,
+                  state: { workspaceRouteNeutral: true },
+                });
               }
             }}
             active={workspaceActive}
@@ -698,6 +800,7 @@ function MissionCommsScreen({
                   />
                 ),
               } satisfies MissionCommandModule,
+              ...(conversationModule ? [conversationModule] : []),
             ]}
           />
           {canManage && !lapsed ? (

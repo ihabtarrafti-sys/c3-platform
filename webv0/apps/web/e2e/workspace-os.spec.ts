@@ -338,6 +338,226 @@ test('Command & Coordination: Constellation, personal Attention, and Continuity 
   await expect(page.locator(`#msg-${decision.messageId}`)).toBeFocused();
 });
 
+test('Command & Coordination: a transient Conversation Relay keeps geometry, not private identity', async ({ page }) => {
+  await login(page);
+  const firstThread = {
+    threadId: 'THR-9003',
+    kind: 'direct',
+    anchorType: null,
+    anchorId: null,
+    title: 'Field pair',
+    status: 'active',
+    lastSeq: 1,
+    lastMessageAt: '2026-08-05T20:14:00.000Z',
+    createdAt: '2026-08-05T20:00:00.000Z',
+  };
+  const secondThread = {
+    ...firstThread,
+    threadId: 'THR-9004',
+    kind: 'standing',
+    title: 'Ops room',
+    lastMessageAt: '2026-08-05T20:16:00.000Z',
+  };
+  const roomPayload = (thread: typeof firstThread | typeof secondThread, body: string) => ({
+    thread,
+    messages: [
+      {
+        recalled: false,
+        messageId: thread.threadId === firstThread.threadId ? 'MSG-9003' : 'MSG-9004',
+        threadId: thread.threadId,
+        seq: 1,
+        authorship: { kind: 'person', userId: 'user-relay', label: 'Relay operator' },
+        authorUserId: 'user-relay',
+        authorLabel: 'Relay operator',
+        revisionNo: 1,
+        createdAt: thread.lastMessageAt,
+        body,
+        links: [],
+        attachments: [],
+        messageKind: 'note',
+        supersedesMessageId: null,
+        blocks: [],
+      },
+    ],
+    myLastReadSeq: 0,
+    participants: [
+      { userId: 'user-relay', role: 'member', displayName: 'Relay operator' },
+      { userId: 'user-partner', role: 'member', displayName: 'Field partner' },
+    ],
+    events: [{ eventType: 'Created', actorLabel: 'Relay operator', at: thread.createdAt }],
+    retentionDays: thread.kind === 'direct' ? 30 : null,
+  });
+  const roomReads = new Map<string, number>();
+  let streamRequests = 0;
+  let missionWrites = 0;
+  let denyFirstThread = false;
+  let lapseWrites = 0;
+  page.on('request', (request) => {
+    if (new URL(request.url()).pathname === '/api/v1/comms/stream') streamRequests += 1;
+  });
+
+  await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread: null, messages: [], myLastReadSeq: null }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, (route) =>
+    fulfillJson(route, { obligations: [] }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, {
+      receiptsEnabled: true,
+      presenceEnabled: false,
+      soundDirectEnabled: false,
+      soundThreadEnabled: false,
+      version: null,
+    }),
+  );
+  await page.route('**/api/v1/comms/ledger', (route) =>
+    fulfillJson(route, {
+      awaitingMyAcceptance: [],
+      awaitingMyDelivery: [],
+      awaitingMySettle: [],
+      watching: [],
+      threads: [
+        { thread: firstThread, myLastReadSeq: 0, unread: 1 },
+        { thread: secondThread, myLastReadSeq: 0, unread: 1 },
+      ],
+    }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/messages`, (route) => {
+    missionWrites += 1;
+    return fulfillJson(route, { message: null });
+  });
+  await page.route('**/api/v1/comms/threads/**', (route) => {
+    if (route.request().method() !== 'GET') {
+      lapseWrites += 1;
+      return route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'MODULE_READ_ONLY', message: 'Comms is read-only.' },
+        }),
+      });
+    }
+    const threadId = new URL(route.request().url()).pathname.split('/').at(-1)!;
+    roomReads.set(threadId, (roomReads.get(threadId) ?? 0) + 1);
+    if (threadId === firstThread.threadId && denyFirstThread) {
+      return route.fulfill({
+        status: 403,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          error: { code: 'THREAD_NOT_SEATED', message: 'This room is not available.' },
+        }),
+      });
+    }
+    return fulfillJson(
+      route,
+      threadId === firstThread.threadId
+        ? roomPayload(firstThread, 'Meet beside the northern relay.')
+        : roomPayload(secondThread, 'Keep the direct handover private.'),
+    );
+  });
+  await page.route('**/api/v1/calendar**', (route) =>
+    fulfillJson(route, { items: [], horizonDays: 90, todayIso: '2026-08-05' }),
+  );
+
+  await page.goto(`/comms?workspace=${mission.missionId}`);
+  const attention = page.locator('[data-module="command-attention"]');
+  await expect(attention).toBeVisible();
+  await expect.poll(() => streamRequests).toBeGreaterThan(0);
+  await page.waitForTimeout(250);
+  const streamBaseline = streamRequests;
+  const missionCurrentDraft = page.getByPlaceholder(`Write in the ${mission.name} Mission Thread`);
+  await missionCurrentDraft.fill('A background control must not click through');
+  await attention.getByTestId(`attention-thread-${firstThread.threadId}`).click();
+  await expect(page).toHaveURL(new RegExp(`/comms/threads/${firstThread.threadId}\\?workspace=${mission.missionId}$`));
+
+  const relay = page.locator('[data-module="conversation-relay"]');
+  await expect(relay).toBeVisible();
+  await expect(page.locator('[data-module="mission-current"]')).toBeVisible();
+  await expect(attention).toBeVisible();
+  await expect(relay).toHaveAttribute('data-module-truth', 'verified', { timeout: 20_000 });
+  await page.waitForTimeout(250);
+  expect(streamRequests).toBe(streamBaseline);
+
+  await page.locator('[data-module="mission-current"]').getByRole('button', { name: 'Send', exact: true }).evaluate((button) => {
+    (button as HTMLButtonElement).click();
+  });
+  expect(missionWrites).toBe(0);
+  await expect(relay.getByPlaceholder('Write in this conversation')).toBeDisabled();
+  await page.locator('[data-window-launcher="conversation-relay"]').click();
+  await expect(relay).toHaveAttribute('data-module-truth', 'verified');
+
+  const draft = relay.getByPlaceholder('Write in this conversation');
+  await expect(draft).toBeEnabled();
+  await draft.fill('Private draft stays in the live window only');
+  await page.getByRole('button', { name: 'Arrange Field pair' }).click();
+  await page.getByRole('button', { name: 'Right half: Field pair' }).click();
+  await expect(relay).toHaveAttribute('data-window-snap', 'right-half');
+
+  await page.getByRole('button', { name: 'Minimize Field pair' }).click();
+  await expect(relay).toBeHidden();
+  await page.locator('[data-window-launcher="conversation-relay"]').click();
+  await expect(relay).toBeVisible();
+  await expect(draft).toHaveValue('Private draft stays in the live window only');
+
+  const storageKey = `c3:mission-command:${mission.missionId}:workspace:v2`;
+  const stored = await page.evaluate((key) => localStorage.getItem(key) ?? '', storageKey);
+  expect(stored).toContain('conversation-relay');
+  expect(stored).not.toContain(firstThread.threadId);
+  expect(stored).not.toContain('Field pair');
+  expect(stored).not.toContain('Private draft');
+
+  await page.getByRole('navigation', { name: 'Global intent' }).getByRole('link', { name: 'My Attention', exact: true }).click();
+  denyFirstThread = true;
+  await attention.getByTestId(`attention-thread-${firstThread.threadId}`).click();
+  await expect(relay).toHaveAttribute('data-module-truth', 'denied');
+  await expect(relay.getByText('This thread is not available')).toBeVisible();
+  await expect(relay.getByText('Field pair')).toHaveCount(0);
+  await expect(relay.getByText('Meet beside the northern relay.')).toHaveCount(0);
+  await expect(relay.getByTestId('room-seats')).toHaveCount(0);
+  await expect(relay.getByTestId('room-log')).toHaveCount(0);
+  await expect(relay.getByTestId('retention-notice')).toHaveCount(0);
+
+  const readsBeforeClose = roomReads.get(firstThread.threadId) ?? 0;
+  await page.getByRole('button', { name: 'Close Conversation Relay' }).click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
+  await expect(relay).toHaveCount(0);
+  await expect(page.locator('[data-window-launcher="conversation-relay"]')).toHaveCount(0);
+  await page.waitForTimeout(300);
+  expect(roomReads.get(firstThread.threadId) ?? 0).toBe(readsBeforeClose);
+
+  await page.getByRole('navigation', { name: 'Global intent' }).getByRole('link', { name: 'My Attention', exact: true }).click();
+  await attention.getByTestId(`attention-thread-${secondThread.threadId}`).click();
+  await expect(page).toHaveURL(new RegExp(`/comms/threads/${secondThread.threadId}\\?workspace=${mission.missionId}$`));
+  await expect(relay).toBeVisible();
+  await expect(relay).toHaveAttribute('data-window-snap', 'right-half');
+  await expect(relay.getByPlaceholder('Write in this conversation')).toHaveValue('');
+
+  await relay.getByPlaceholder('Write in this conversation').fill('This write should prove the shared lapse posture');
+  await relay.getByRole('button', { name: 'Send', exact: true }).click();
+  await expect.poll(() => lapseWrites).toBe(1);
+  await expect(page.getByText('Comms access lapsed · retained history is read-only.')).toBeVisible();
+  await expect(relay.locator('[data-tablework="Composer"]')).toHaveCount(0);
+  await expect(page.locator('[data-module="mission-current"] [data-tablework="Composer"]')).toHaveCount(0);
+
+  await page.getByRole('group', { name: 'Workspace layouts' }).getByRole('button', { name: 'Planning', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
+  await expect(page.getByRole('group', { name: 'Workspace layouts' }).getByRole('button', { name: 'Planning', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('[data-module="mission-current"]')).toBeHidden();
+  await expect(page.locator('[data-window-launcher="mission-current"]')).toHaveAttribute('data-window-state', 'minimized');
+  await expect(relay).toHaveCount(0);
+
+  denyFirstThread = false;
+  await page.goto(`/comms/threads/${firstThread.threadId}`);
+  await expect(page).toHaveURL(new RegExp(`/comms/threads/${firstThread.threadId}$`));
+  await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(0);
+  await expect(page.locator('#thread-message')).toBeVisible();
+});
+
 test('Workspace OS: the complete header control set clears the mission identity at 800px', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 900 });
   await login(page);

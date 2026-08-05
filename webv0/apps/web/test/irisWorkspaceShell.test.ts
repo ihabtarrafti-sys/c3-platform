@@ -86,6 +86,16 @@ describe('Iris cross-route workspace model', () => {
       missionId: 'MSN-0042',
       requestedModule: 'command-attention',
     });
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-0042', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'conversation-relay',
+      conversationThreadId: 'THR-0042',
+    });
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-0042/', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'conversation-relay',
+      conversationThreadId: 'THR-0042',
+    });
     expect(missionWorkspaceTargetOf('/approvals', '')).toBeNull();
     expect(missionWorkspaceTargetOf('/calendar', '?workspace=MSN-0042&extra=true')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '')).toBeNull();
@@ -95,6 +105,14 @@ describe('Iris cross-route workspace model', () => {
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=finance&extra=true')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=current')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=attention&open=continuity')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-0042', '')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/not-a-thread', '?workspace=MSN-0042')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-42', '?workspace=MSN-0042')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/thr-0042', '?workspace=MSN-0042')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-0042', '?workspace=MSN-42')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-0042', '?workspace=msn-0042')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-0042', '?workspace=MSN-0042&workspace=MSN-0043')).toBeNull();
+    expect(missionWorkspaceTargetOf('/comms/threads/THR-0042', '?workspace=MSN-0042&extra=true')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-42/comms', '')).toBeNull();
   });
 
@@ -122,6 +140,7 @@ describe('Iris cross-route workspace model', () => {
       ['command-constellation', 'closed'],
       ['command-attention', 'closed'],
       ['mission-continuity', 'closed'],
+      ['conversation-relay', 'closed'],
     ]);
   });
 
@@ -150,6 +169,27 @@ describe('Iris cross-route workspace model', () => {
     expect(restored.windows.find((window) => window.id === 'command-constellation')?.visibility).toBe('closed');
     expect(restored.windows.find((window) => window.id === 'command-attention')?.visibility).toBe('closed');
     expect(restored.windows.find((window) => window.id === 'mission-continuity')?.visibility).toBe('closed');
+    expect(restored.windows.find((window) => window.id === 'conversation-relay')?.visibility).toBe('closed');
+  });
+
+  it('upgrades the nine-window command-loop milestone without persisting a thread identity', () => {
+    const prior = {
+      version: 2,
+      layout: 'command',
+      activeSavedLayoutId: null,
+      windows: DEFAULT_MISSION_COMMAND.windows.slice(0, 9),
+      savedLayouts: [],
+    };
+    const restored = restoreMissionCommand(JSON.stringify(prior));
+
+    expect(restored.layout).toBe('command');
+    expect(restored.windows).toHaveLength(10);
+    expect(restored.windows.at(-1)).toMatchObject({
+      id: 'conversation-relay',
+      visibility: 'closed',
+      rect: { x: 18, y: 8, width: 64, height: 84 },
+    });
+    expect(JSON.stringify(restored)).not.toContain('THR-');
   });
 
   it('upgrades every saved four-window view without discarding its geometry or name', () => {
@@ -219,6 +259,21 @@ describe('Iris cross-route workspace model', () => {
     expect(reopened.windows.find((window) => window.id === 'mission-finance')).toMatchObject({
       visibility: 'open',
       rect: { x: 58, y: 12, width: 38, height: 76 },
+    });
+  });
+
+  it('opens the transient conversation slot without changing its stored geometry or applying a preset', () => {
+    const placed = missionCommandReducer(DEFAULT_MISSION_COMMAND, {
+      type: 'set-rect',
+      id: 'conversation-relay',
+      rect: { x: 9, y: 7, width: 73, height: 81 },
+    });
+    const opened = missionCommandReducer(placed, { type: 'activate-route', id: 'conversation-relay' });
+
+    expect(opened.layout).toBe('custom');
+    expect(opened.windows.find((window) => window.id === 'conversation-relay')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 9, y: 7, width: 73, height: 81 },
     });
   });
 
