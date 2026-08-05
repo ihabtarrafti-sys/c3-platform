@@ -41,13 +41,23 @@ RUN set -eux; \
 COPY --from=deps /app/node_modules ./node_modules
 COPY package.json ./
 COPY apps/backup ./apps/backup
-# The composed per-org restore step (B-5/A-5) imports this CLOSED THREE-FILE
+# The composed per-org restore step (B-5/A-5) imports this CLOSED SIX-FILE
 # set by relative path. Any new relative import inside these files MUST be
 # added here too. Deliberately NOT a workspace install — this credentialed
 # image stays minimal.
+#
+# CR-034 widened the set from three: the drill now certifies the tenant export
+# through the REAL full-bundle writer/verifier (exportBundle), never a
+# drill-local imitation of it. exportBundle pulls blobBundle (reader + orphan
+# discovery; its @aws-sdk/client-s3 import is already a backup dep) and
+# exitManifest (pure strict verifier). exitManifest and blobUniverse import
+# nothing outside this set.
 COPY packages/persistence/src/exportTenant.ts ./packages/persistence/src/exportTenant.ts
 COPY packages/persistence/src/tenantTables.ts ./packages/persistence/src/tenantTables.ts
 COPY packages/persistence/src/blobUniverse.ts ./packages/persistence/src/blobUniverse.ts
+COPY packages/persistence/src/exportBundle.ts ./packages/persistence/src/exportBundle.ts
+COPY packages/persistence/src/blobBundle.ts ./packages/persistence/src/blobBundle.ts
+COPY packages/persistence/src/exitManifest.ts ./packages/persistence/src/exitManifest.ts
 
 # Non-root runtime (the official node user).
 USER node

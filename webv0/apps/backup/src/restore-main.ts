@@ -27,7 +27,12 @@ import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 // drag drizzle/application/domain into the backup image (proven crash-loop,
 // ERR_MODULE_NOT_FOUND, 2026-07-07).
 import { exportTenant } from '../../../packages/persistence/src/exportTenant';
-import { disposableDbName, assertDisposableDbName, classifyDropVerification, orphanDisposables, REQUIRED_FIXTURES, resolveExportTenant, verifySourceReproduced, verifyBlobArchiveRecovery } from './restore';
+// CR-034: the SAME writer/verifier the real export:tenant CLI runs — the drill may
+// not certify a bundle through any other door. Both files are in the Dockerfile's
+// closed relative-import set (see the COPY block there).
+import { writeAndVerifyExportBundle } from '../../../packages/persistence/src/exportBundle';
+import { createBlobReader } from '../../../packages/persistence/src/blobBundle';
+import { disposableDbName, assertDisposableDbName, classifyClusterBinding, classifyDropVerification, orphanDisposables, REQUIRED_FIXTURES, resolveExportTenant, verifySourceReproduced, verifyBlobArchiveRecovery, type FingerprintObservation } from './restore';
 import { assertMarkerMatchesManifest, signatureKeyFor, validateLatestSuccess, validateManifest, verifyManifestBytes } from './signing';
 
 const log = (event: string, fields?: Record<string, unknown>) =>
@@ -52,6 +57,31 @@ function req(k: string): string {
   const v = process.env[k];
   if (!v) throw new Error(`Missing required env: ${k}`);
   return v;
+}
+
+/** Read the cluster's initdb-stamped identity through one client; never throws. */
+async function clusterFingerprint(client: Client): Promise<FingerprintObservation> {
+  try {
+    const r = await client.query('SELECT system_identifier::text AS id FROM pg_control_system()');
+    const id = (r.rows[0] as { id?: unknown } | undefined)?.id;
+    return typeof id === 'string' && id.length > 0
+      ? { ok: true, systemIdentifier: id }
+      : { ok: false, error: 'pg_control_system() returned no identifier' };
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  }
+}
+
+async function fingerprintViaUrl(url: string): Promise<FingerprintObservation> {
+  const c = new Client({ connectionString: url });
+  try {
+    await c.connect();
+    return await clusterFingerprint(c);
+  } catch (err) {
+    return { ok: false, error: (err as Error).message };
+  } finally {
+    await c.end().catch(() => {});
+  }
 }
 
 async function liveCounts(url: string): Promise<Record<string, number>> {
@@ -171,11 +201,23 @@ async function main(): Promise<void> {
     if (plainSha !== manifest.plaintextSha256) throw new Error('Decrypted dump sha256 mismatch.');
     log('restore.decrypted_verified', {});
 
+    /*
+     * ⛔ CR-035 — PROVE BOTH CREDENTIALS TERMINATE AT THE SAME CLUSTER, FIRST.
+     *
+     * Everything below reads "live" state through DATABASE_URL and mutates through
+     * RESTORE_ADMIN_URL. If those name different clusters, the liveBefore/liveAfter
+     * counts are genuine measurements of the WRONG subject, and `live_unchanged`
+     * certifies a cluster the restore never touched. So the binding is proven
+     * before the first count is read and before anything is created — a
+     * measurement whose subject is unproven is not worth taking.
+     */
+    await admin.connect();
+    const binding = classifyClusterBinding(await clusterFingerprint(admin), await fingerprintViaUrl(liveReadUrl));
+    if (!binding.ok) throw new Error(binding.failure);
+    log('restore.cluster_binding', { systemIdentifier: binding.systemIdentifier });
+
     // Snapshot live counts BEFORE restore (to prove live is untouched).
     const liveBefore = await liveCounts(liveReadUrl);
-
-    // Create disposable DB and restore with no owner / no acl.
-    await admin.connect();
 
     /*
      * ⛔ DEFECT 2 (first production drill) — A ONE-SHOT THAT FAILS IS NOT ONE-SHOT.
@@ -259,7 +301,8 @@ async function main(): Promise<void> {
     const liveAfter = await liveCounts(liveReadUrl);
     const liveUnchanged = JSON.stringify(liveBefore) === JSON.stringify(liveAfter);
     if (!liveUnchanged) throw new Error('Live database counts changed during the restore drill!');
-    log('restore.live_unchanged', { liveBefore, liveAfter });
+    // CR-035: the evidence names WHICH cluster it is evidence about.
+    log('restore.live_unchanged', { liveBefore, liveAfter, systemIdentifier: binding.systemIdentifier });
 
     // H-08 (Option A): prove the OBJECT STORE is recoverable from the INDEPENDENT
     // encrypted archive — the LIVE documents bucket is assumed LOST. Download the
@@ -305,24 +348,74 @@ async function main(): Promise<void> {
       log('restore.blob_recovery_skipped', { invObjectCount });
     }
 
-    // Optional composed per-org restore (Track A, B-5 / A-5): run the
-    // organization-scoped export against the DISPOSABLE restored DB — proving
+    // Optional composed per-org restore (Track A, B-5 / A-5): prove
     // per-org restore = whole-DB restore ∘ export:tenant, with no new backup
-    // infrastructure. Bundle is verified for internal consistency then
-    // discarded with the disposable DB; only redacted evidence (row counts +
-    // checksums, no PII) is logged.
+    // infrastructure. Bundle is discarded with tempDir; only redacted evidence
+    // (row counts + checksums, no PII) is logged.
     const exportSlug = resolveExportTenant(process.env.RESTORE_EXPORT_TENANT);
     if (exportSlug) {
+      /*
+       * ⛔ CR-034 — THE CERTIFICATE COMES FROM THE REAL FULL-BUNDLE WRITER, OR NOT AT ALL.
+       *
+       * This step used to run `exportTenant` (a DATABASE row query), log its row
+       * counts and checksums as `restore.tenant_export_verified`, and exit zero.
+       * Every logged fact was true — of the row snapshot. The event name and the A5
+       * procedure consumed them as evidence of the full per-tenant deliverable:
+       * rows AND document bytes AND orphan coverage. The real export CLI refuses
+       * that exact result without an object-store reader; the drill had quietly
+       * built a second, laxer door. 🏛️ Neural's binding ruling closed the
+       * acceptance path while this landed: `restore.tenant_export_verified` + exit 0
+       * is NOT A5 evidence — only the full-bundle verifier's `mode:'full'` manifest is.
+       *
+       * ⇒ So the drill now walks the SAME door: `writeAndVerifyExportBundle`, whose
+       * strict verifier re-checks the bundle it just wrote. No drill-local
+       * re-implementation, no second guard to drift (the CR-012 lesson).
+       *
+       * ⚖️ THE READER IS THE EXTRACTED INDEPENDENT ARCHIVE — the drill's premise is
+       * that the live documents bucket is LOST, so the archive is the only object
+       * store that honestly exists in the scenario being certified. Orphan
+       * discovery runs for real against it. ⚠️ PREMISE (LAW 30): the archive holds
+       * the backup's DB-COHERENT census, so this certifies recovery of what the
+       * BACKUP captured — an orphan the census never saw is the backup's gap, not
+       * this drill's; it cannot be conjured here and is not claimed.
+       *
+       * ⛔ A backup with NO archive gets NO reader — null, NOT a reader over an
+       * empty directory. An empty directory would let orphan discovery "inspect"
+       * a fabricated store and truthfully find nothing: a working instrument bound
+       * to a subject that does not exist, which is this whole sweep's defect. The
+       * real writer refuses a null reader (even for zero DB-known blobs), and that
+       * refusal — not a drill-local check — is what fails the run.
+       */
       const ec = new Client({ connectionString: restoreUrl.toString() });
       await ec.connect();
       try {
-        const { manifest } = await exportTenant(ec, { tenantSlug: exportSlug });
-        const rows = manifest.files.reduce((n, f) => n + f.rows, 0);
+        const result = await exportTenant(ec, { tenantSlug: exportSlug });
+        const bundleDir = join(tempDir, 'tenant-export');
+        const archiveReader = archive ? createBlobReader({ DOCUMENTS_DIR: join(tempDir, 'blobs') }) : null;
+        let bundle;
+        try {
+          bundle = await writeAndVerifyExportBundle(bundleDir, result, archiveReader, { skipDocBytes: false });
+        } catch (err) {
+          throw new Error(
+            `Tenant-export certification FAILED — the full-bundle writer/verifier refused: ${(err as Error).message}` +
+              (archive ? '' : ' (This backup carries NO independent blob archive, so no object-store reader exists to offer it. Take a fresh Option-A backup, or drop RESTORE_EXPORT_TENANT for this run.)'),
+          );
+        } finally {
+          archiveReader?.close();
+        }
+        const rows = bundle.manifest.files.reduce((n, f) => n + f.rows, 0);
         const tenantExport = {
-          slug: manifest.tenant.slug,
+          slug: bundle.manifest.tenant.slug,
+          // 🏛️ The ruling's required artifact marker. Structurally 'full' here
+          // (skipDocBytes is hardcoded false), logged so the EVIDENCE says so.
+          mode: bundle.manifest.mode,
           rowsTotal: rows,
-          files: manifest.files, // name + rows + sha256 only — no content
-          schemaVersionCount: manifest.schemaVersion.length,
+          files: bundle.manifest.files, // name + rows + sha256 only — no content
+          schemaVersionCount: bundle.manifest.schemaVersion.length,
+          // Counts only — blob bundle names embed original filenames (PII).
+          blobCount: bundle.blobCount,
+          orphanCount: bundle.orphanCount,
+          readerSource: 'independent-archive',
         };
         evidence = { ...evidence, tenantExport };
         log('restore.tenant_export_verified', tenantExport);

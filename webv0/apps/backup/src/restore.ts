@@ -316,3 +316,71 @@ export function resolveExportTenant(raw: string | undefined): string | null {
   }
   return slug;
 }
+
+/** One side's attempt to read its cluster's identity. `ok:false` carries why. */
+export interface FingerprintObservation {
+  readonly ok: boolean;
+  readonly systemIdentifier?: string;
+  readonly error?: string;
+}
+
+export type ClusterBindingVerdict =
+  | { readonly ok: true; readonly systemIdentifier: string }
+  | { readonly ok: false; readonly failure: string };
+
+/**
+ * ⛔ CR-035 — THE TWO CREDENTIALS MUST NAME THE SAME CLUSTER, PROVEN, NOT ASSUMED.
+ *
+ * `restore.live_unchanged` compares counts read through `DATABASE_URL` before and
+ * after a restore performed through `RESTORE_ADMIN_URL`. Nothing bound the two
+ * URLs to the same PostgreSQL cluster — so with the admin URL naming cluster B
+ * and the read URL naming cluster A, perfectly valid unchanged counts from A
+ * certified that B was untouched. The counts were genuine; the subject was wrong.
+ *
+ * ⚖️ A guard for this DID exist — in `configure-restore-drill.mjs`, an operator
+ * scratchpad script that compares hostnames. Neural's ruling names the defect in
+ * that arrangement: **a control that exists only in one operator's tooling is a
+ * habit, not a mechanism.** This moves it in-code, and upgrades it from hostname
+ * comparison to cluster identity: two hostnames can front one cluster (a pooler,
+ * a CNAME), and one hostname can front two (DNS round-robin). The
+ * `pg_control_system()` system identifier is stamped at initdb and survives all
+ * of that.
+ *
+ * ⛔ FAIL-CLOSED ON UNREADABILITY, per LAW 32: a fingerprint we could not read is
+ * not a fingerprint that matched. The refusal names which side failed, because
+ * "cannot prove same-cluster" has a different fix than "proved different-cluster".
+ *
+ * Pure and tested (the drill script is hosted-only): the branch that fires
+ * exactly when it runs is provable before it runs.
+ */
+export function classifyClusterBinding(
+  admin: FingerprintObservation,
+  live: FingerprintObservation,
+): ClusterBindingVerdict {
+  if (!admin.ok || !admin.systemIdentifier) {
+    return {
+      ok: false,
+      failure:
+        `Cluster binding UNPROVABLE: the ADMIN credential could not read its cluster fingerprint (${admin.error ?? 'no identifier returned'}). ` +
+        'An unverifiable binding is not a same-cluster proof — refusing before anything is created.',
+    };
+  }
+  if (!live.ok || !live.systemIdentifier) {
+    return {
+      ok: false,
+      failure:
+        `Cluster binding UNPROVABLE: the LIVE-READ credential could not read its cluster fingerprint (${live.error ?? 'no identifier returned'}). ` +
+        'An unverifiable binding is not a same-cluster proof — refusing before anything is created.',
+    };
+  }
+  if (admin.systemIdentifier !== live.systemIdentifier) {
+    return {
+      ok: false,
+      failure:
+        `Cluster binding REFUSED: RESTORE_ADMIN_URL terminates at cluster ${admin.systemIdentifier} but DATABASE_URL ` +
+        `terminates at cluster ${live.systemIdentifier}. These are DIFFERENT clusters, so "live unchanged" read through ` +
+        'one cannot certify a restore performed on the other. Fix the URLs so both name the intended cluster.',
+    };
+  }
+  return { ok: true, systemIdentifier: admin.systemIdentifier };
+}
