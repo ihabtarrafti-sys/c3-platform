@@ -26,7 +26,8 @@ export type MissionCommandModuleId =
   | 'command-constellation'
   | 'command-attention'
   | 'mission-continuity'
-  | 'conversation-relay';
+  | 'conversation-relay'
+  | 'people-field';
 export type MissionCommandVisibility = WorkspaceVisibility;
 export type MissionCommandPreset =
   | 'commander'
@@ -37,7 +38,8 @@ export type MissionCommandPreset =
   | 'planning'
   | 'coordinate'
   | 'continuity'
-  | 'command';
+  | 'command'
+  | 'people';
 export type MissionCommandLayout = WorkspaceLayout<MissionCommandPreset>;
 export type MissionCommandRect = WorkspaceRect;
 export type MissionCommandSnap = WorkspaceSnap;
@@ -57,12 +59,19 @@ const COMMAND_LOOP_IDS = [
   'command-attention',
   'mission-continuity',
 ] as const;
-const IDS: readonly MissionCommandModuleId[] = [...COMMAND_LOOP_IDS, 'conversation-relay'];
+const RELAY_IDS = [...COMMAND_LOOP_IDS, 'conversation-relay'] as const;
+const IDS: readonly MissionCommandModuleId[] = [...RELAY_IDS, 'people-field'];
 const CONVERSATION_SEED: MissionCommandWindowSeed = {
   id: 'conversation-relay',
   visibility: 'closed',
   rect: { x: 18, y: 8, width: 64, height: 84 },
   z: 10,
+};
+const PEOPLE_FIELD_SEED: MissionCommandWindowSeed = {
+  id: 'people-field',
+  visibility: 'closed',
+  rect: { x: 42, y: 0, width: 58, height: 100 },
+  z: 11,
 };
 const PRIOR_LAYOUTS: readonly MissionCommandLayout[] = [
   'commander',
@@ -89,6 +98,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   review: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 31, height: 43 }, z: 1 },
@@ -101,6 +111,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   brief: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 34, height: 100 }, z: 2 },
@@ -113,6 +124,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   finance: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -125,6 +137,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   decisions: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -137,6 +150,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   planning: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 34, height: 100 }, z: 4 },
@@ -149,6 +163,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 8 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   coordinate: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -161,6 +176,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'open', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 9 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 7 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   continuity: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -173,6 +189,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 7 },
     { id: 'mission-continuity', visibility: 'open', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 9 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
   ],
   command: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -185,6 +202,20 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     { id: 'command-attention', visibility: 'open', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 9 },
     { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 7 },
     CONVERSATION_SEED,
+    PEOPLE_FIELD_SEED,
+  ],
+  people: [
+    { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
+    { id: 'mission-current', visibility: 'open', rect: { x: 0, y: 0, width: 44, height: 100 }, z: 10 },
+    { id: 'mission-obligations', visibility: 'minimized', rect: { x: 75, y: 0, width: 25, height: 100 }, z: 2 },
+    { id: 'mission-finance', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 3 },
+    { id: 'approvals-register', visibility: 'closed', rect: { x: 51, y: 0, width: 49, height: 100 }, z: 4 },
+    { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 5 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 6 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 7 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 8 },
+    CONVERSATION_SEED,
+    { ...PEOPLE_FIELD_SEED, visibility: 'open', rect: { x: 45, y: 0, width: 55, height: 100 }, z: 11 },
   ],
 };
 
@@ -209,6 +240,7 @@ export function missionCommandReducer(state: MissionCommandState, action: Missio
       'command-constellation': 'command',
       'command-attention': 'coordinate',
       'mission-continuity': 'continuity',
+      'people-field': 'people',
     };
     const layout = firstOpenLayout[action.id];
     const target = state.windows.find((window) => window.id === action.id);
@@ -227,7 +259,7 @@ function knownPriorIds(value: unknown): value is readonly unknown[] {
   const ids = value.map((window) =>
     window && typeof window === 'object' ? (window as { id?: unknown }).id : null,
   );
-  const accepted = [ORIGINAL_IDS, PRIOR_IDS, WORKSPACE_OS_IDS, COMMAND_LOOP_IDS].find(
+  const accepted = [ORIGINAL_IDS, PRIOR_IDS, WORKSPACE_OS_IDS, COMMAND_LOOP_IDS, RELAY_IDS].find(
     (known) => ids.length === known.length && ids.every((id) => known.includes(id as never)),
   );
   return accepted !== undefined && new Set(ids).size === accepted.length && ids.every((id) => accepted.includes(id as never));

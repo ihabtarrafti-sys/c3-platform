@@ -22,6 +22,7 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
     | 'calendar-horizon'
     | 'command-constellation'
     | 'command-attention'
+    | 'people-field'
   >;
 }> = [
   { pathname: '/missions/finance', moduleId: 'mission-finance' },
@@ -29,6 +30,7 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
   { pathname: '/calendar', moduleId: 'calendar-horizon' },
   { pathname: '/situation', moduleId: 'command-constellation' },
   { pathname: '/comms', moduleId: 'command-attention' },
+  { pathname: '/people', moduleId: 'people-field' },
 ];
 
 export type WorkspaceRouteTarget =

@@ -2942,10 +2942,10 @@
 }
 
 /* A live workspace carries several module destinations in the route header.
-   Between the rail-collapse and mobile breakpoints, the rail leaves less room
-   than the viewport suggests: give context and destinations separate rows and
-   let the labelled controls scroll instead of colliding or being elided. */
-@media (min-width: 48rem) and (max-width: 71.999rem) {
+   Across laptop and medium-desktop widths, the rail leaves less room than the
+   viewport suggests: give context and destinations separate rows and let the
+   labelled controls scroll instead of colliding or being elided. */
+@media (min-width: 48rem) and (max-width: 111.999rem) {
   .tw-root .app-frame[data-workspace='mission'] .context-header {
     grid-template-columns: minmax(0, 1fr);
     align-items: stretch;

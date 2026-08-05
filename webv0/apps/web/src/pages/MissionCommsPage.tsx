@@ -37,6 +37,7 @@ import { CommandConstellation } from '../tablework/CommandConstellation';
 import { CommandAttention, type CommandAttentionTarget } from '../tablework/CommandAttention';
 import { MissionContinuity, joinMissionContinuityWitness } from '../tablework/MissionContinuity';
 import { ConversationRelay, type ConversationRelayMeta } from '../tablework/ConversationRelay';
+import { PeopleField } from '../tablework/PeopleField';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
@@ -56,6 +57,7 @@ const WORKSPACE_ROUTE_META: Readonly<
   'command-attention': { place: 'Comms', origin: 'Mission Command', section: 'My Attention' },
   'mission-continuity': { place: 'Comms', origin: 'Mission Command', section: 'Mission Continuity' },
   'conversation-relay': { place: 'Comms', origin: 'Mission Command', section: 'Conversation Relay' },
+  'people-field': { place: 'People', origin: 'Workspace OS', section: 'Living Field' },
 };
 
 interface MissionCommsPageProps {
@@ -138,6 +140,7 @@ function MissionCommsScreen({
   const [calendarTruth, setCalendarTruth] = useState<WitnessState>({ kind: 'loading' });
   const [constellationTruth, setConstellationTruth] = useState<WitnessState>({ kind: 'loading' });
   const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [peopleTruth, setPeopleTruth] = useState<WitnessState>({ kind: 'loading' });
   const [conversationWitness, setConversationWitness] = useState<{
     readonly threadId: string | null;
     readonly truth: WitnessState;
@@ -529,6 +532,9 @@ function MissionCommsScreen({
               <Link className="intent-button" to={`/comms?workspace=${missionId}`} aria-current={requestedModule === 'command-attention' ? 'page' : undefined}>
                 My Attention
               </Link>
+              <Link className="intent-button" to={`/people?workspace=${missionId}`} aria-current={requestedModule === 'people-field' ? 'page' : undefined}>
+                People
+              </Link>
               <Link className="intent-button" to={`/missions/${missionId}/comms?open=continuity`} aria-current={requestedModule === 'mission-continuity' ? 'page' : undefined}>
                 Continuity
               </Link>
@@ -590,6 +596,7 @@ function MissionCommsScreen({
               else if (moduleId === 'calendar-horizon') setCalendarTruth({ kind: 'loading' });
               else if (moduleId === 'command-constellation') setConstellationTruth({ kind: 'loading' });
               else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
+              else if (moduleId === 'people-field') setPeopleTruth({ kind: 'loading' });
               else if (moduleId === 'conversation-relay') {
                 setRememberedConversationThreadId(null);
                 setConversationWitness({ threadId: null, truth: { kind: 'loading' } });
@@ -797,6 +804,22 @@ function MissionCommsScreen({
                     obligationTruth={obligationsTruth}
                     onFocusMessage={(messageId) => navigate(`/missions/${missionId}/comms#msg-${messageId}`)}
                     onFocusObligation={(obligationId) => navigate(`/missions/${missionId}/comms?open=obligations#obl-${obligationId}`)}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'people-field' satisfies MissionCommandModuleId,
+                eyebrow: 'Living field · Personnel',
+                title: 'Living Field',
+                detail: 'Personnel records beside the work. No presence, ranking, inferred access seat, or invented team relationship.',
+                truth: peopleTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <PeopleField
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'people-field'}
+                    requestKey={workspaceRequestKey}
+                    onTruthChange={setPeopleTruth}
                   />
                 ),
               } satisfies MissionCommandModule,

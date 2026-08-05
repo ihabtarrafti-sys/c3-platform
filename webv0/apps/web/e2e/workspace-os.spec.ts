@@ -135,8 +135,8 @@ test('Workspace OS: ordinary routes park one principal workspace and a principal
   await expect(current).toHaveAttribute('data-window-snap', 'right-half');
 
   const readsBeforeParking = missionReads;
-  await page.getByTestId('nav-people').click();
-  await expect(page).toHaveURL(/\/people$/);
+  await page.getByTestId('nav-journeys').click();
+  await expect(page).toHaveURL(/\/journeys$/);
   await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(0);
   await expect(page.locator('.tw-root')).toHaveCount(1);
   await page.waitForTimeout(300);
@@ -159,6 +159,105 @@ test('Workspace OS: ordinary routes park one principal workspace and a principal
   await expect(page.locator('[data-workspace-owner="principal"]')).toHaveCount(1);
   await expect(page.getByPlaceholder(`Write in the ${mission.name} Mission Thread`)).toHaveValue('');
   await expect(page.locator('[data-module="mission-current"]')).toHaveAttribute('data-window-snap', 'right-half');
+});
+
+test('People & Organization: the Living Field joins the workspace without persisting people or filters', async ({ page }) => {
+  const people = [
+    {
+      personId: 'PER-9001',
+      fullName: 'Mina Rahal',
+      ign: 'Northstar',
+      nationality: null,
+      primaryRole: 'Commander',
+      personnelCode: null,
+      currentTeam: 'Atlas',
+      currentGameTitle: null,
+      primaryDepartment: null,
+      entityId: null,
+      notes: null,
+      firstName: 'Mina',
+      lastName: 'Rahal',
+      otherNationalities: [],
+      position: null,
+      dateOfJoining: null,
+      isActive: true,
+      version: 0,
+      createdAt: '2026-08-06T08:00:00.000Z',
+      updatedAt: '2026-08-06T08:00:00.000Z',
+    },
+    {
+      personId: 'PER-9002',
+      fullName: 'Omar Vale',
+      ign: null,
+      nationality: null,
+      primaryRole: null,
+      personnelCode: null,
+      currentTeam: null,
+      currentGameTitle: null,
+      primaryDepartment: null,
+      entityId: null,
+      notes: null,
+      firstName: 'Omar',
+      lastName: 'Vale',
+      otherNationalities: [],
+      position: 'Analyst',
+      dateOfJoining: null,
+      isActive: false,
+      version: 0,
+      createdAt: '2026-08-06T08:00:00.000Z',
+      updatedAt: '2026-08-06T08:00:00.000Z',
+    },
+  ];
+
+  await page.route('**/api/v1/people', (route) => fulfillJson(route, { people }));
+  await login(page);
+  await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread: null, messages: [], myLastReadSeq: null }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, (route) =>
+    fulfillJson(route, { obligations: [] }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
+  );
+
+  await page.goto(`/missions/${mission.missionId}/comms`);
+  await page.getByTestId('nav-people').click();
+  await expect(page).toHaveURL(new RegExp(`/people\\?workspace=${mission.missionId}$`));
+
+  const field = page.locator('[data-module="people-field"]');
+  await expect(field).toBeVisible();
+  await expect(field).toHaveAttribute('data-module-truth', 'verified');
+  await expect(page.locator('[data-module="mission-current"]')).toBeVisible();
+  await expect(field.getByText('Mina Rahal')).toBeVisible();
+  await expect(field.getByText('Omar Vale')).toHaveCount(0);
+
+  await field.getByTestId('people-field-status').selectOption('all');
+  await field.getByTestId('people-field-search').fill('Omar');
+  await expect(field.getByText('Omar Vale')).toBeVisible();
+  await expect(field.getByText('Mina Rahal')).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Minimize Living Field' }).click();
+  await expect(field).toBeHidden();
+  await page.locator('[data-window-launcher="people-field"]').click();
+  await expect(field).toBeVisible();
+  await expect(field.getByTestId('people-field-search')).toHaveValue('Omar');
+
+  const storageKey = `c3:mission-command:${mission.missionId}:workspace:v2`;
+  const stored = await page.evaluate((key) => localStorage.getItem(key) ?? '', storageKey);
+  expect(stored).toContain('people-field');
+  expect(stored).not.toContain('PER-9001');
+  expect(stored).not.toContain('PER-9002');
+  expect(stored).not.toContain('Mina Rahal');
+  expect(stored).not.toContain('Omar');
+
+  await page.getByRole('button', { name: 'Close Living Field' }).click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms$`));
+  await expect(field).toHaveCount(0);
 });
 
 test('Workspace OS: Approvals and Calendar open as truthful singleton windows instead of pages', async ({ page }) => {
@@ -558,7 +657,7 @@ test('Command & Coordination: a transient Conversation Relay keeps geometry, not
   await expect(page.locator('#thread-message')).toBeVisible();
 });
 
-test('Workspace OS: the complete header control set clears the mission identity at 800px', async ({ page }) => {
+test('Workspace OS: the complete header control set clears the mission identity without label collisions', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 900 });
   await login(page);
   await page.route(`**/api/v1/missions/${mission.missionId}`, (route) => fulfillJson(route, { mission }));
@@ -612,11 +711,25 @@ test('Workspace OS: the complete header control set clears the mission identity 
   expect(routeIntentsBox!.x).toBeGreaterThanOrEqual(routeHeaderBox!.x);
   expect(routeIntentsBox!.x + routeIntentsBox!.width).toBeLessThanOrEqual(routeHeaderBox!.x + routeHeaderBox!.width + 1);
 
-  for (const name of ['Commander', 'Review', 'Brief', 'Finance', 'Decisions', 'Planning', 'Coordinate', 'Continuity', 'Command', 'Reset']) {
+  for (const name of ['Commander', 'Review', 'Brief', 'Finance', 'Decisions', 'Planning', 'Coordinate', 'Continuity', 'Command', 'People', 'Reset']) {
     await expect(layouts.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await expect(layouts.getByRole('button', { name: /^Views/ })).toBeVisible();
-  for (const name of ['Open mission workspace', 'Mission Current', 'Constellation', 'My Attention', 'Continuity', 'Finance', 'Approvals', 'Calendar']) {
+  for (const name of ['Open mission workspace', 'Mission Current', 'Constellation', 'My Attention', 'People', 'Continuity', 'Finance', 'Approvals', 'Calendar']) {
     await expect(routeIntents.getByRole('link', { name, exact: true })).toBeVisible();
   }
+
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const routeLinkWidths = await routeIntents.getByRole('link').evaluateAll((links) =>
+    links.map((link) => ({ clientWidth: link.clientWidth, scrollWidth: link.scrollWidth })),
+  );
+  expect(routeLinkWidths.every(({ clientWidth, scrollWidth }) => scrollWidth <= clientWidth)).toBe(true);
+
+  const [wideIdentityBox, wideLayoutsBox] = await Promise.all([
+    identity.boundingBox(),
+    layouts.boundingBox(),
+  ]);
+  expect(wideIdentityBox).not.toBeNull();
+  expect(wideLayoutsBox).not.toBeNull();
+  expect(wideLayoutsBox!.y).toBeGreaterThanOrEqual(wideIdentityBox!.y + wideIdentityBox!.height);
 });

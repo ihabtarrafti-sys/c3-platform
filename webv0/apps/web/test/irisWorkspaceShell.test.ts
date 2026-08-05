@@ -78,6 +78,10 @@ describe('Iris cross-route workspace model', () => {
       missionId: 'MSN-0042',
       requestedModule: 'command-attention',
     });
+    expect(missionWorkspaceTargetOf('/people', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'people-field',
+    });
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=continuity')).toEqual({
       missionId: 'MSN-0042',
       requestedModule: 'mission-continuity',
@@ -97,6 +101,8 @@ describe('Iris cross-route workspace model', () => {
       conversationThreadId: 'THR-0042',
     });
     expect(missionWorkspaceTargetOf('/approvals', '')).toBeNull();
+    expect(missionWorkspaceTargetOf('/people', '')).toBeNull();
+    expect(missionWorkspaceTargetOf('/people', '?workspace=MSN-0042&extra=true')).toBeNull();
     expect(missionWorkspaceTargetOf('/calendar', '?workspace=MSN-0042&extra=true')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=../../people')).toBeNull();
@@ -122,6 +128,7 @@ describe('Iris cross-route workspace model', () => {
     expect(workspaceHrefFor('/calendar', 'MSN-0042')).toBe('/calendar?workspace=MSN-0042');
     expect(workspaceHrefFor('/situation', 'MSN-0042')).toBe('/situation?workspace=MSN-0042');
     expect(workspaceHrefFor('/comms', 'MSN-0042')).toBe('/comms?workspace=MSN-0042');
+    expect(workspaceHrefFor('/people', 'MSN-0042')).toBe('/people?workspace=MSN-0042');
     expect(workspaceHrefFor('/missions', 'MSN-0042')).toBe('/missions');
     expect(workspaceHrefFor('/approvals/APR-0001', 'MSN-0042')).toBe('/approvals/APR-0001');
     expect(workspaceHrefFor('/invoices', 'MSN-0042')).toBe('/invoices');
@@ -129,7 +136,7 @@ describe('Iris cross-route workspace model', () => {
     expect(workspaceHrefFor('/approvals', '../../people')).toBe('/approvals');
   });
 
-  it('adds six adjacent modules to the closed union without changing the three-window Commander opening', () => {
+  it('adds seven adjacent modules to the closed union without changing the three-window Commander opening', () => {
     expect(DEFAULT_MISSION_COMMAND.windows.map((window) => [window.id, window.visibility])).toEqual([
       ['mission-field', 'open'],
       ['mission-current', 'open'],
@@ -141,6 +148,7 @@ describe('Iris cross-route workspace model', () => {
       ['command-attention', 'closed'],
       ['mission-continuity', 'closed'],
       ['conversation-relay', 'closed'],
+      ['people-field', 'closed'],
     ]);
   });
 
@@ -170,9 +178,10 @@ describe('Iris cross-route workspace model', () => {
     expect(restored.windows.find((window) => window.id === 'command-attention')?.visibility).toBe('closed');
     expect(restored.windows.find((window) => window.id === 'mission-continuity')?.visibility).toBe('closed');
     expect(restored.windows.find((window) => window.id === 'conversation-relay')?.visibility).toBe('closed');
+    expect(restored.windows.find((window) => window.id === 'people-field')?.visibility).toBe('closed');
   });
 
-  it('upgrades the nine-window command-loop milestone without persisting a thread identity', () => {
+  it('upgrades the nine-window command-loop milestone without persisting a record identity', () => {
     const prior = {
       version: 2,
       layout: 'command',
@@ -183,13 +192,38 @@ describe('Iris cross-route workspace model', () => {
     const restored = restoreMissionCommand(JSON.stringify(prior));
 
     expect(restored.layout).toBe('command');
-    expect(restored.windows).toHaveLength(10);
-    expect(restored.windows.at(-1)).toMatchObject({
+    expect(restored.windows).toHaveLength(11);
+    expect(restored.windows.find((window) => window.id === 'conversation-relay')).toMatchObject({
       id: 'conversation-relay',
       visibility: 'closed',
       rect: { x: 18, y: 8, width: 64, height: 84 },
     });
+    expect(restored.windows.find((window) => window.id === 'people-field')).toMatchObject({
+      id: 'people-field',
+      visibility: 'closed',
+      rect: { x: 42, y: 0, width: 58, height: 100 },
+    });
     expect(JSON.stringify(restored)).not.toContain('THR-');
+    expect(JSON.stringify(restored)).not.toContain('PER-');
+  });
+
+  it('upgrades the ten-window relay milestone with geometry but no person identity', () => {
+    const prior = {
+      version: 2,
+      layout: 'custom',
+      activeSavedLayoutId: null,
+      windows: DEFAULT_MISSION_COMMAND.windows.slice(0, 10),
+      savedLayouts: [],
+    };
+    const restored = restoreMissionCommand(JSON.stringify(prior));
+
+    expect(restored.windows).toHaveLength(11);
+    expect(restored.windows.find((window) => window.id === 'people-field')).toMatchObject({
+      id: 'people-field',
+      visibility: 'closed',
+      rect: { x: 42, y: 0, width: 58, height: 100 },
+    });
+    expect(JSON.stringify(restored)).not.toContain('PER-');
   });
 
   it('upgrades every saved four-window view without discarding its geometry or name', () => {
@@ -348,6 +382,23 @@ describe('Iris cross-route workspace model', () => {
     expect(command.windows.find((window) => window.id === 'command-attention')).toMatchObject({
       visibility: 'open',
       rect: { x: 51, y: 0, width: 49, height: 100 },
+    });
+  });
+
+  it('earns a personnel composition only on the first Living Field open', () => {
+    const people = missionCommandReducer(DEFAULT_MISSION_COMMAND, {
+      type: 'activate-route',
+      id: 'people-field',
+    });
+
+    expect(people.layout).toBe('people');
+    expect(people.windows.find((window) => window.id === 'mission-current')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 0, y: 0, width: 44, height: 100 },
+    });
+    expect(people.windows.find((window) => window.id === 'people-field')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 45, y: 0, width: 55, height: 100 },
     });
   });
 });
