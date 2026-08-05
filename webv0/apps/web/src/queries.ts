@@ -114,8 +114,8 @@ export const usePersonTeams = (personId: string) =>
   useQuery({ queryKey: ['personTeams', personId], queryFn: () => api.personTeams(personId) });
 
 export const useMissions = (enabled = true) => useQuery({ queryKey: ['missions'], queryFn: () => api.listMissions(), enabled });
-export const useMission = (missionId: string) =>
-  useQuery({ queryKey: ['mission', missionId], queryFn: () => api.getMission(missionId) });
+export const useMission = (missionId: string, enabled = true) =>
+  useQuery({ queryKey: ['mission', missionId], queryFn: () => api.getMission(missionId), enabled });
 export const useMissionParticipants = (missionId: string) =>
   useQuery({ queryKey: ['missionParticipants', missionId], queryFn: () => api.missionParticipants(missionId) });
 export const useMissionAudit = (missionId: string, enabled = true) =>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { formatMoney } from '@c3web/domain';
 import { useMissionsFinanceSummary } from '../queries';
@@ -17,6 +17,7 @@ import {
   type WitnessState,
 } from '../tablework';
 import { missionFinanceStageOf } from '../labels';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
 
 export interface MissionFinanceTruthFacts {
   readonly canView: boolean;
@@ -114,81 +115,11 @@ export function MissionFinanceOverview({
   // browser that has no financial standing.
   const query = useMissionsFinanceSummary(queryEnabled);
   const { data, error, isLoading, isFetching, dataUpdatedAt, refetch } = query;
-  const foregroundRef = useRef(foreground);
-  const queryEnabledRef = useRef(queryEnabled);
-  const previousForeground = useRef(foreground);
-  const exposureActive = useRef(
-    typeof document === 'undefined'
-      ? true
-      : document.visibilityState === 'visible' &&
-          (typeof document.hasFocus !== 'function' || document.hasFocus()),
-  );
-  const rewitnessingRef = useRef(false);
-  const requestRef = useRef(0);
-  const [rewitnessing, setRewitnessing] = useState(false);
-
-  foregroundRef.current = foreground;
-  queryEnabledRef.current = queryEnabled;
-  const enteredForeground = foreground && !previousForeground.current;
-
-  const rewitness = useCallback(() => {
-    if (!foregroundRef.current || !queryEnabledRef.current || rewitnessingRef.current) return;
-    const request = ++requestRef.current;
-    rewitnessingRef.current = true;
-    setRewitnessing(true);
-    void refetch().finally(() => {
-      if (request !== requestRef.current) return;
-      rewitnessingRef.current = false;
-      setRewitnessing(false);
-    });
-  }, [refetch]);
-
-  // useLayoutEffect makes cached content stale before the foreground frame is
-  // painted. A regular effect would leave one verified old-data frame.
-  useLayoutEffect(() => {
-    const wasForeground = previousForeground.current;
-    previousForeground.current = foreground;
-    if (!wasForeground && foreground) rewitness();
-  }, [foreground, rewitness]);
-
-  useEffect(() => {
-    if (typeof document === 'undefined' || typeof window === 'undefined') return;
-
-    const restoreExposure = () => {
-      if (document.visibilityState !== 'visible' || exposureActive.current) return;
-      exposureActive.current = true;
-      rewitness();
-    };
-    const onBlur = () => {
-      exposureActive.current = false;
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState !== 'visible') {
-        exposureActive.current = false;
-        return;
-      }
-      if (typeof document.hasFocus !== 'function' || document.hasFocus()) restoreExposure();
-    };
-
-    window.addEventListener('blur', onBlur);
-    window.addEventListener('focus', restoreExposure);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    return () => {
-      window.removeEventListener('blur', onBlur);
-      window.removeEventListener('focus', restoreExposure);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-    };
-  }, [rewitness]);
-
-  useEffect(
-    () => () => {
-      // A force-close unmounts this module. Ignore any refetch completion that
-      // was already in flight instead of scheduling state into a dead window.
-      requestRef.current += 1;
-      rewitnessingRef.current = false;
-    },
-    [],
-  );
+  const rewitnessing = useForegroundRewitness({
+    foreground,
+    enabled: queryEnabled,
+    refetch,
+  });
 
   const truth = useMemo(
     () =>
@@ -197,10 +128,10 @@ export function MissionFinanceOverview({
         data,
         error,
         isLoading,
-        isFetching: isFetching || rewitnessing || enteredForeground,
+        isFetching: isFetching || rewitnessing,
         dataUpdatedAt,
       }),
-    [canView, data, error, isLoading, isFetching, rewitnessing, enteredForeground, dataUpdatedAt],
+    [canView, data, error, isLoading, isFetching, rewitnessing, dataUpdatedAt],
   );
 
   useEffect(() => {

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { CalendarItemDto } from '@c3web/api-contracts';
 import { useCalendar } from '../queries';
@@ -13,7 +13,10 @@ import {
   EmptyState,
   ErrorState,
   LoadingState,
+  truthStateOf,
+  type WitnessState,
 } from '../tablework';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
 
 /**
  * Ops calendar / timeline (Track B) — the forward horizon, on the Tablework
@@ -63,6 +66,60 @@ function bucketOf(d: number): string {
 }
 const BUCKET_ORDER = ['Overdue', 'Next 7 days', 'This month', 'Later'];
 
+interface CalendarView {
+  readonly items: CalendarItemDto[];
+  readonly horizonDays: number;
+  readonly todayIso: string;
+}
+
+export interface CalendarTruthFacts {
+  readonly canView: boolean;
+  readonly data: CalendarView | undefined;
+  readonly error: unknown;
+  readonly isLoading: boolean;
+  readonly isFetching: boolean;
+  readonly dataUpdatedAt: number;
+}
+
+/** Calendar owns its witness independently from every other workspace tool. */
+export function calendarTruthOf({
+  canView,
+  data,
+  error,
+  isLoading,
+  isFetching,
+  dataUpdatedAt,
+}: CalendarTruthFacts): WitnessState {
+  if (!canView) return { kind: 'denied', reasonClass: 'SITUATION_UNAVAILABLE' };
+
+  // Authentication and standing refusals revoke any cached projection. Other
+  // failures may retain it, but only under the explicit stale artifact.
+  if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+    return { kind: 'denied', reasonClass: error.code || `HTTP_${error.status}` };
+  }
+
+  const base = truthStateOf(
+    { data, error, isLoading, dataUpdatedAt },
+    (view) => view.items.length === 0,
+  );
+
+  if (isFetching && data !== undefined && (base.kind === 'verified' || base.kind === 'proven-empty')) {
+    return {
+      kind: 'stale',
+      verifiedAt: new Date(dataUpdatedAt > 0 ? dataUpdatedAt : 0),
+      message: 'The calendar horizon is being checked again.',
+    };
+  }
+
+  return base;
+}
+
+export interface CalendarHorizonProps {
+  readonly enabled?: boolean;
+  readonly foreground?: boolean;
+  readonly onTruthChange?: (truth: WitnessState) => void;
+}
+
 export function CalendarPage() {
   return (
     <TableworkPage record="Calendar" section="Horizon">
@@ -71,14 +128,38 @@ export function CalendarPage() {
   );
 }
 
-function CalendarHorizon() {
+export function CalendarHorizon({
+  enabled = true,
+  foreground = true,
+  onTruthChange,
+}: CalendarHorizonProps = {}) {
   const { me } = useSession();
   const canView = me?.capabilities.canViewSituation ?? false;
   const [horizon, setHorizon] = useState(90);
   const [kindFilter, setKindFilter] = useState<CalendarItemDto['kind'] | null>(null);
+  const queryEnabled = enabled && canView;
   // THE WIRE LAW: the capability IS the `enabled` flag — never hoisted to
   // always-on and hidden.
-  const { data, isLoading, isError, error } = useCalendar(horizon, canView);
+  const query = useCalendar(horizon, queryEnabled);
+  const { data, isLoading, isFetching, error, dataUpdatedAt, refetch } = query;
+  const rewitnessing = useForegroundRewitness({ foreground, enabled: queryEnabled, refetch });
+
+  const truth = useMemo(
+    () =>
+      calendarTruthOf({
+        canView,
+        data,
+        error,
+        isLoading,
+        isFetching: isFetching || rewitnessing,
+        dataUpdatedAt,
+      }),
+    [canView, data, error, isLoading, isFetching, rewitnessing, dataUpdatedAt],
+  );
+
+  useEffect(() => {
+    onTruthChange?.(truth);
+  }, [onTruthChange, truth]);
 
   const all = useMemo(() => data?.items ?? [], [data]);
   const items = kindFilter ? all.filter((i) => i.kind === kindFilter) : all;
@@ -95,10 +176,104 @@ function CalendarHorizon() {
   if (!canView) {
     return (
       <CollectionFrame title="Calendar">
-        <EmptyState data-testid="calendar-denied" message="The calendar is available to owners and operations." />
+        <div data-truth="denied">
+          <EmptyState data-testid="calendar-denied" message="The calendar is available to owners and operations." />
+        </div>
       </CollectionFrame>
     );
   }
+
+  const calendarDataView =
+    all.length === 0 ? (
+      <EmptyState data-testid="calendar-empty" message={`Nothing dated in the next ${horizon} days — the horizon is clear.`} />
+    ) : (
+      <>
+        {kindsPresent.length > 1 && (
+          <div className="filter-chips" data-testid="calendar-chips">
+            <button type="button" className={kindFilter === null ? 'filter-chip active' : 'filter-chip'} onClick={() => setKindFilter(null)}>
+              All ({all.length})
+            </button>
+            {kindsPresent.map((k) => (
+              <button
+                type="button"
+                key={k}
+                className={kindFilter === k ? 'filter-chip active' : 'filter-chip'}
+                onClick={() => setKindFilter(kindFilter === k ? null : k)}
+                data-testid={`calendar-chip-${k}`}
+              >
+                {KIND_LABEL[k]} ({all.filter((i) => i.kind === k).length})
+              </button>
+            ))}
+          </div>
+        )}
+
+        {buckets.map(([bucket, rows]) => (
+          <div key={bucket}>
+            <SectionHeading>{bucket} · {rows.length}</SectionHeading>
+            <ComparisonTable label={`${bucket} items`} testId={`calendar-bucket-${bucket.replace(/\s+/g, '-').toLowerCase()}`}>
+              <tbody>
+                {rows.map((it) => (
+                  <tr key={`${it.kind}-${it.id}-${it.date}`} data-testid={`calendar-item-${it.id}-${it.kind}`}>
+                    {/* The date stays RAW ISO — formatDisplayDate is a NEGATIVE
+                        contract; the relative line is the local relLabel. */}
+                    <td className="mono">
+                      <div>{it.date}</div>
+                      <div className="record-row-meta">{relLabel(it.daysUntil)}</div>
+                    </td>
+                    <td>
+                      <div>
+                        {it.title} <StatusBadge variant={urgencyVariant(it.daysUntil)}>{KIND_LABEL[it.kind]}</StatusBadge>
+                      </div>
+                      {it.subtitle && <div className="collection-scope">{it.subtitle}</div>}
+                    </td>
+                    <td>
+                      <Link className="mini-action" to={it.route} data-testid={`calendar-open-${it.id}`}>Open →</Link>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </ComparisonTable>
+          </div>
+        ))}
+      </>
+    );
+
+  const errorView = (
+    <ErrorState
+      message={error instanceof ApiError ? error.message : 'Could not load the calendar.'}
+      correlationId={error instanceof ApiError ? error.correlationId : undefined}
+    />
+  );
+
+  const truthView = (() => {
+    switch (truth.kind) {
+      case 'loading':
+        return (
+          <div data-truth="loading">
+            <LoadingState label="Gathering the horizon…" />
+          </div>
+        );
+      case 'denied':
+        return <div data-truth="denied">{errorView}</div>;
+      case 'fetch-failed':
+        return <div data-truth="fetch-failed">{errorView}</div>;
+      case 'proven-empty':
+        return <div data-truth="proven-empty">{calendarDataView}</div>;
+      case 'verified':
+        return <div data-truth="verified">{calendarDataView}</div>;
+      case 'stale':
+        return (
+          <div data-truth="stale">
+            <p className="boundary-note" role="status">
+              Showing the last verified horizon
+              {isFetching || rewitnessing ? ' while it is checked again.' : ` because the latest check failed: ${truth.message}`}{' '}
+              Treat it as stale.
+            </p>
+            {calendarDataView}
+          </div>
+        );
+    }
+  })();
 
   return (
     <CollectionFrame
@@ -128,69 +303,7 @@ function CalendarHorizon() {
         </>
       }
     >
-      {isLoading && <LoadingState label="Gathering the horizon…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load the calendar.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-
-      {data && all.length === 0 && (
-        <EmptyState data-testid="calendar-empty" message={`Nothing dated in the next ${horizon} days — the horizon is clear.`} />
-      )}
-
-      {data && all.length > 0 && (
-        <>
-          {kindsPresent.length > 1 && (
-            <div className="filter-chips" data-testid="calendar-chips">
-              <button type="button" className={kindFilter === null ? 'filter-chip active' : 'filter-chip'} onClick={() => setKindFilter(null)}>
-                All ({all.length})
-              </button>
-              {kindsPresent.map((k) => (
-                <button
-                  type="button"
-                  key={k}
-                  className={kindFilter === k ? 'filter-chip active' : 'filter-chip'}
-                  onClick={() => setKindFilter(kindFilter === k ? null : k)}
-                  data-testid={`calendar-chip-${k}`}
-                >
-                  {KIND_LABEL[k]} ({all.filter((i) => i.kind === k).length})
-                </button>
-              ))}
-            </div>
-          )}
-
-          {buckets.map(([bucket, rows]) => (
-            <div key={bucket}>
-              <SectionHeading>{bucket} · {rows.length}</SectionHeading>
-              <ComparisonTable label={`${bucket} items`} testId={`calendar-bucket-${bucket.replace(/\s+/g, '-').toLowerCase()}`}>
-                <tbody>
-                  {rows.map((it) => (
-                    <tr key={`${it.kind}-${it.id}-${it.date}`} data-testid={`calendar-item-${it.id}-${it.kind}`}>
-                      {/* The date stays RAW ISO — formatDisplayDate is a NEGATIVE
-                          contract; the relative line is the local relLabel. */}
-                      <td className="mono">
-                        <div>{it.date}</div>
-                        <div className="record-row-meta">{relLabel(it.daysUntil)}</div>
-                      </td>
-                      <td>
-                        <div>
-                          {it.title} <StatusBadge variant={urgencyVariant(it.daysUntil)}>{KIND_LABEL[it.kind]}</StatusBadge>
-                        </div>
-                        {it.subtitle && <div className="collection-scope">{it.subtitle}</div>}
-                      </td>
-                      <td>
-                        <Link className="mini-action" to={it.route} data-testid={`calendar-open-${it.id}`}>Open →</Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </ComparisonTable>
-            </div>
-          ))}
-        </>
-      )}
+      {truthView}
     </CollectionFrame>
   );
 }

@@ -1,9 +1,7 @@
 import { createContext, useContext, useMemo, type ReactNode } from 'react';
+import { workspaceHrefFor } from './workspaceRoutes';
 
-export function workspaceHrefFor(destination: string, missionId: string | null): string {
-  if (destination !== '/missions/finance' || missionId === null) return destination;
-  return `/missions/finance?workspace=${encodeURIComponent(missionId)}`;
-}
+export { workspaceHrefFor } from './workspaceRoutes';
 
 interface WorkspaceNavigationValue {
   readonly workspaceMissionId: string | null;

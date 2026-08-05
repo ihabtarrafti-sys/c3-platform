@@ -1,6 +1,6 @@
 import { createElement } from 'react';
-import { Outlet } from 'react-router-dom';
 import { useSession } from './session';
+import { PrincipalWorkspaceOutlet } from './tablework/WorkspaceOSHost';
 
 export type PrincipalSessionStatus = 'loading' | 'authenticated' | 'anonymous' | 'unprovisioned';
 
@@ -34,7 +34,7 @@ export function principalDataScopeOf<TCapabilities extends object>(
 }
 
 function PrincipalRouteOutlet() {
-  return createElement(Outlet);
+  return createElement(PrincipalWorkspaceOutlet);
 }
 
 /**
