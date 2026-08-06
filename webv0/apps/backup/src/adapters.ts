@@ -109,22 +109,16 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
   return {
     now: () => new Date(),
     serverVersion: () => queryScalar('SHOW server_version'),
-    async migrations() {
-      const c = new Client({ connectionString: env.databaseUrl });
-      await c.connect();
-      try {
-        const r = await c.query('SELECT id FROM _migrations ORDER BY id');
-        return r.rows.map((x) => x.id as string);
-      } finally {
-        await c.end();
-      }
-    },
+    // CR-038: the ledger read that used to live here (its own throwaway
+    // connection) moved INSIDE the census transaction — see readLedger in
+    // coherentDumpAndCensus. A ledger read outside the snapshot can disagree
+    // with the dump it gets signed alongside.
     pgDumpVersion: () => capture('pg_dump', ['--version']),
 
     // H-08: census the object store from the DB (c3_backup reads every tenant).
     // Per class: a count + a representative {storageKey, sha256} the restore
     // drill fetches + hash-checks. Only rows with a verifiable sha256 count.
-    async coherentDumpAndCensus(dumpPath: string): Promise<{ bytes: number; blobs: BlobArchiveEntry[] }> {
+    async coherentDumpAndCensus(dumpPath: string): Promise<{ bytes: number; blobs: BlobArchiveEntry[]; migrations: string[] }> {
       // R3-N06: ONE coherent image — the blob census and pg_dump read the IDENTICAL MVCC
       // snapshot, so no between-reads delete/insert can make them incoherent. The ordering
       // and snapshot-threading are in coherentDumpAndCensusFlow (unit-tested); here we supply
@@ -145,6 +139,9 @@ export function createBackupDeps(env: BackupEnv): BackupDeps & { close(): Promis
           begin: async () => { await c.query(CENSUS_TX_BEGIN); },
           exportSnapshot: async () => String((await c.query('SELECT pg_export_snapshot() AS id')).rows[0].id),
           enumerate: () => enumerateBlobsInTx(c),
+          // CR-038: SAME client, SAME open tx — the ledger the manifest embeds is
+          // the ledger the dump contains, by MVCC construction rather than by luck.
+          readLedger: async () => (await c.query('SELECT id FROM _migrations ORDER BY id')).rows.map((x) => x.id as string),
           // R4-N09: pg_dump with --lock-wait-timeout (via pgDumpArgs) + a bounded retry, so a
           // lock-queue cycle fails fast and retries rather than hanging the exporter indefinitely.
           runDump: (snapshotId) =>

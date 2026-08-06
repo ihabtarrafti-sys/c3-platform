@@ -18,6 +18,19 @@ export interface CoherentIo {
   exportSnapshot(): Promise<string>;
   /** Enumerate the blob census IN this transaction (same MVCC snapshot as the dump). */
   enumerate(): Promise<BlobArchiveEntry[]>;
+  /**
+   * ⛔ CR-038: read the migration ledger IN this transaction too. It was read on a
+   * throwaway connection BEFORE the snapshot opened, then embedded verbatim in the
+   * SIGNED manifest — so a migration committing in that window produced a
+   * correctly-signed artifact that MISDESCRIBES ITSELF. And the misdescription
+   * lands on the instrument built to prove recovery: `verifySourceReproduced`
+   * compares the restored ledger against `manifest.migrations`, so a skewed
+   * manifest fails a CORRECT restore or passes a WRONG one. The backup advisory
+   * lock cannot close the window — it is backup-vs-backup only and the migrator
+   * does not take it. Sharing the dump's MVCC snapshot is the only thing that can:
+   * the ledger in the manifest is then BY CONSTRUCTION the ledger in the dump.
+   */
+  readLedger(): Promise<string[]>;
   /** Run pg_dump ON the exported snapshot — the id MUST be threaded through as --snapshot. */
   runDump(snapshotId: string): Promise<void>;
   /** COMMIT — only AFTER runDump finishes (an earlier close invalidates the snapshot). */
@@ -34,16 +47,21 @@ export interface CoherentIo {
   pauseBeforeDump?: () => Promise<void>;
 }
 
-export async function coherentDumpAndCensusFlow(io: CoherentIo): Promise<{ bytes: number; blobs: BlobArchiveEntry[] }> {
+export async function coherentDumpAndCensusFlow(
+  io: CoherentIo,
+): Promise<{ bytes: number; blobs: BlobArchiveEntry[]; migrations: string[] }> {
   await io.begin();
   try {
     const snapshotId = await io.exportSnapshot();
     const blobs = await io.enumerate();
+    // CR-038: the ledger joins the census inside the snapshot — the manifest may
+    // only ever describe the dump it rides with.
+    const migrations = await io.readLedger();
     if (io.pauseBeforeDump) await io.pauseBeforeDump(); // R4-N09 ceremony window (inert when absent)
     await io.runDump(snapshotId); // pg_dump ON that exact snapshot
     await io.commit(); // ONLY after the dump has fully finished
     const bytes = await io.dumpBytes();
-    return { bytes, blobs };
+    return { bytes, blobs, migrations };
   } catch (err) {
     await io.rollback().catch(() => {});
     throw err;

@@ -62,6 +62,9 @@ describe('R3-N06 (achievable-real half) — the census reads INSIDE the exported
         // The REAL adapter statement (imported, not copied) — neutering it in adapters.ts
         // to READ COMMITTED is exactly what turns this test RED.
         begin: async () => { await census.query(CENSUS_TX_BEGIN); },
+        // CR-038: the ledger rides the same snapshot — this live test's io reads
+        // it through the SAME census connection, as the real adapter does.
+        readLedger: async () => (await census.query('SELECT id FROM _migrations ORDER BY id')).rows.map((x) => x.id as string),
         exportSnapshot: async () => {
           const id = String((await census.query('SELECT pg_export_snapshot() AS id')).rows[0].id);
           exportedSnapshotId = id;

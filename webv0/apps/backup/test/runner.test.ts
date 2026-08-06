@@ -49,10 +49,10 @@ function makeDeps(over: Partial<BackupDeps> = {}, when = new Date('2026-07-07T02
   const deps: BackupDeps = {
     now: () => when,
     serverVersion: async () => '18.4',
-    migrations: async () => ['0001_schema.sql', '0006_backup_role_grants.sql'],
     pgDumpVersion: async () => 'pg_dump (PostgreSQL) 18.4',
-    // R3-N06: the dump and the blob census from ONE coherent snapshot.
-    coherentDumpAndCensus: async () => ({ bytes: 4096, blobs: CENSUS_BLOBS }),
+    // R3-N06 + CR-038: the dump, the blob census, AND the migration ledger from
+    // ONE coherent snapshot — the ledger has no other door into the manifest.
+    coherentDumpAndCensus: async () => ({ bytes: 4096, blobs: CENSUS_BLOBS, migrations: ['0001_schema.sql', '0006_backup_role_grants.sql'] }),
     // Capture EXACTLY the census (fail-closed on any missing key upstream), so count+key
     // coverage passes.
     snapshotBlobs: async (_p: string, blobs) => ({ entries: blobs }),
@@ -106,6 +106,23 @@ describe('runBackup orchestration', () => {
     expect(rec.uploads).toContain('daily/2026/07/07/c3-staging-20260707T021500Z-d133f0f.dump.age');
   });
 
+  it('⛔ CR-038: the SIGNED manifest embeds the SNAPSHOT ledger — there is no other door', async () => {
+    // The defect: a ledger read on its own connection BEFORE the snapshot opened,
+    // embedded verbatim in the signed manifest. A migration committing in the
+    // window made a correctly-signed artifact misdescribe itself — and
+    // verifySourceReproduced judges every restore against manifest.migrations,
+    // so the skew fails a correct restore or passes a wrong one. The interface
+    // now has exactly ONE source: whatever the coherent snapshot returned.
+    const SNAPSHOT_LEDGER = ['0001_schema.sql', '0106_committed_inside_the_snapshot.sql'];
+    const { deps, rec } = makeDeps({
+      coherentDumpAndCensus: async () => ({ bytes: 4096, blobs: CENSUS_BLOBS, migrations: SNAPSHOT_LEDGER }),
+    });
+    await runBackup(env, deps);
+    const manifestKey = rec.uploads.find((k) => k.endsWith('.manifest.json'))!;
+    const manifest = JSON.parse(rec.bodies[manifestKey]!);
+    expect(manifest.migrations).toEqual(SNAPSHOT_LEDGER);
+  });
+
   it('H-08 Option A: builds + uploads an INDEPENDENT encrypted blob archive, recorded in the manifest', async () => {
     const { deps, rec } = makeDeps();
     await runBackup(env, deps);
@@ -140,7 +157,7 @@ describe('runBackup orchestration', () => {
   });
 
   it('H-08: a zero-blob tenant uploads NO archive and records blobArchive: null', async () => {
-    const { deps, rec } = makeDeps({ coherentDumpAndCensus: async () => ({ bytes: 4096, blobs: [] }) });
+    const { deps, rec } = makeDeps({ coherentDumpAndCensus: async () => ({ bytes: 4096, blobs: [], migrations: ['0001_schema.sql'] }) });
     await runBackup(env, deps);
     expect(rec.uploads.some((k) => k.endsWith('.blobs.age'))).toBe(false);
     const manifestKey = rec.uploads.find((k) => k.endsWith('.manifest.json'))!;
@@ -165,7 +182,7 @@ describe('runBackup orchestration', () => {
   });
 
   it('rejects an empty dump and never uploads or writes latest-success', async () => {
-    const { deps, rec } = makeDeps({ coherentDumpAndCensus: async () => ({ bytes: 0, blobs: [] }) });
+    const { deps, rec } = makeDeps({ coherentDumpAndCensus: async () => ({ bytes: 0, blobs: [], migrations: ['0001_schema.sql'] }) });
     await expect(runBackup(env, deps)).rejects.toThrow(/empty dump/);
     expect(rec.uploads).toHaveLength(0);
     expect(rec.cleaned).toContain('/tmp/c3bkp-xyz'); // still cleaned up

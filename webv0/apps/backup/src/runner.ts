@@ -21,7 +21,6 @@ import { signManifestBytes, signatureKeyFor, verifyManifestBytes, publicKeyPemFr
 export interface BackupDeps {
   now(): Date;
   serverVersion(): Promise<string>;
-  migrations(): Promise<string[]>;
   pgDumpVersion(): Promise<string>;
   /**
    * R3-N06: ONE coherent read — pg_dump to `dumpPath` AND the DB blob census enumerated
@@ -29,8 +28,16 @@ export interface BackupDeps {
    * rows and the returned blob list are the same point in time, so no between-reads
    * delete/insert can produce a signed-but-incoherent image. Returns the dump size and
    * the authoritative blob index (used for the archive, coverage, and the manifest).
+   *
+   * ⛔ CR-038: the MIGRATION LEDGER rides the same snapshot. There used to be a
+   * separate `migrations()` dep read on its own connection BEFORE this snapshot
+   * opened; a migration committing in that window put a ledger in the SIGNED
+   * manifest that the dump did not contain — and `verifySourceReproduced` then
+   * judges restores against that wrong list, failing a correct restore or passing
+   * a wrong one. The ledger is not a fourth piece of metadata; it is part of the
+   * coherent image, so it comes from inside it.
    */
-  coherentDumpAndCensus(dumpPath: string): Promise<{ bytes: number; blobs: BlobArchiveEntry[] }>;
+  coherentDumpAndCensus(dumpPath: string): Promise<{ bytes: number; blobs: BlobArchiveEntry[]; migrations: string[] }>;
   /**
    * H-08 (Option A): capture EXACTLY the census `blobs` into a single plaintext archive
    * at `destPath` (downloaded from the live store, sha-verified at capture). Fail-closed:
@@ -164,20 +171,16 @@ export async function runBackup(env: BackupEnv, deps: BackupDeps): Promise<Backu
 
   let tempDir: string | undefined;
   try {
-    const [serverVersion, migrations, pgDumpVersion] = await Promise.all([
-      deps.serverVersion(),
-      deps.migrations(),
-      deps.pgDumpVersion(),
-    ]);
+    const [serverVersion, pgDumpVersion] = await Promise.all([deps.serverVersion(), deps.pgDumpVersion()]);
 
     // Step 3: secure temp dir.
     tempDir = await deps.makeTempDir();
     const dumpPath = `${tempDir}/dump.pgc`;
     const encPath = `${tempDir}/dump.pgc.age`;
 
-    // Step 4–5: R3-N06 ONE coherent image — pg_dump AND the blob census from the identical
-    // MVCC snapshot. Reject an empty dump.
-    const { bytes: dumpBytes, blobs } = await deps.coherentDumpAndCensus(dumpPath);
+    // Step 4–5: R3-N06 ONE coherent image — pg_dump, the blob census, AND the
+    // migration ledger (CR-038) from the identical MVCC snapshot. Reject an empty dump.
+    const { bytes: dumpBytes, blobs, migrations } = await deps.coherentDumpAndCensus(dumpPath);
     if (dumpBytes <= 0) throw new Error('pg_dump produced an empty dump.');
     const blobInventory = inventoryOf(blobs);
     deps.log('backup.dumped', { bytes: dumpBytes });

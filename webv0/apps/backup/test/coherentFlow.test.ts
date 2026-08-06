@@ -17,6 +17,9 @@ import type { BlobArchiveEntry } from '../src/manifest';
 
 const CENSUS: BlobArchiveEntry[] = [{ storageKey: 'tid/doc', sha256: 'd'.repeat(64), cls: 'document' }];
 
+/** The ledger as visible INSIDE the snapshot tx — distinct from any out-of-tx state. */
+const IN_SNAPSHOT_LEDGER = ['0001_schema.sql', '0106_only_visible_inside_the_snapshot.sql'];
+
 /** A recorder io that logs the call order and threads a known snapshot id. */
 function recorderIo(over: Partial<CoherentIo> = {}): { io: CoherentIo; calls: string[]; dumpSnapshot: { id: string | null } } {
   const calls: string[] = [];
@@ -25,6 +28,7 @@ function recorderIo(over: Partial<CoherentIo> = {}): { io: CoherentIo; calls: st
     begin: async () => { calls.push('begin'); },
     exportSnapshot: async () => { calls.push('exportSnapshot'); return 'SNAP-123'; },
     enumerate: async () => { calls.push('enumerate'); return CENSUS; },
+    readLedger: async () => { calls.push('readLedger'); return IN_SNAPSHOT_LEDGER; },
     runDump: async (snapshotId) => { calls.push('runDump'); dumpSnapshot.id = snapshotId; },
     commit: async () => { calls.push('commit'); },
     rollback: async () => { calls.push('rollback'); },
@@ -38,9 +42,9 @@ describe('coherentDumpAndCensusFlow — ordering + snapshot threading (R3-N06 un
   it('exports the snapshot, enumerates in-tx, dumps ON that snapshot, then commits AFTER the dump', async () => {
     const { io, calls, dumpSnapshot } = recorderIo();
     const res = await coherentDumpAndCensusFlow(io);
-    expect(res).toEqual({ bytes: 4096, blobs: CENSUS });
-    // The order is load-bearing: enumerate BEFORE the dump, commit AFTER the dump.
-    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'runDump', 'commit', 'dumpBytes']);
+    expect(res).toEqual({ bytes: 4096, blobs: CENSUS, migrations: IN_SNAPSHOT_LEDGER });
+    // The order is load-bearing: enumerate + ledger BEFORE the dump, commit AFTER the dump.
+    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'readLedger', 'runDump', 'commit', 'dumpBytes']);
     // The exported snapshot id is threaded into pg_dump (dropping this => census/dump divergence).
     expect(dumpSnapshot.id).toBe('SNAP-123');
   });
@@ -51,6 +55,20 @@ describe('coherentDumpAndCensusFlow — ordering + snapshot threading (R3-N06 un
     expect(calls.indexOf('enumerate')).toBeGreaterThan(calls.indexOf('exportSnapshot'));
     expect(calls.indexOf('enumerate')).toBeLessThan(calls.indexOf('commit'));
     expect(calls.indexOf('runDump')).toBeLessThan(calls.indexOf('commit')); // dump finishes before the tx closes
+  });
+
+  it('⛔ CR-038: the migration ledger is read INSIDE the snapshot window — after export, before commit', async () => {
+    // The defect was a ledger read on its own connection BEFORE the snapshot
+    // opened: a migration committing in that window put a list in the SIGNED
+    // manifest that the dump did not contain, and verifySourceReproduced then
+    // judged restores against the wrong list — a correct restore failing, or a
+    // wrong one passing. Inside the window, disagreement is impossible by MVCC.
+    const { io, calls } = recorderIo();
+    const res = await coherentDumpAndCensusFlow(io);
+    expect(calls.indexOf('readLedger')).toBeGreaterThan(calls.indexOf('exportSnapshot'));
+    expect(calls.indexOf('readLedger')).toBeLessThan(calls.indexOf('commit'));
+    // And the flow RETURNS the in-snapshot value — the only ledger a manifest may embed.
+    expect(res.migrations).toEqual(IN_SNAPSHOT_LEDGER);
   });
 
   it('rolls back (never commits) when the dump fails', async () => {
@@ -96,14 +114,14 @@ describe('R4-N09 ceremony pause — env-gated, inert by default', () => {
     const { io, calls, dumpSnapshot } = recorderIo();
     io.pauseBeforeDump = async () => { calls.push('pause'); };
     await coherentDumpAndCensusFlow(io);
-    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'pause', 'runDump', 'commit', 'dumpBytes']);
+    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'readLedger', 'pause', 'runDump', 'commit', 'dumpBytes']);
     expect(dumpSnapshot.id).toBe('SNAP-123'); // the pause never detaches the snapshot threading
   });
 
   it('INERT flow ordering is byte-identical to the pre-hook flow (no pause step exists)', async () => {
     const { io, calls } = recorderIo(); // no pauseBeforeDump supplied
     await coherentDumpAndCensusFlow(io);
-    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'runDump', 'commit', 'dumpBytes']);
+    expect(calls).toEqual(['begin', 'exportSnapshot', 'enumerate', 'readLedger', 'runDump', 'commit', 'dumpBytes']);
   });
 });
 
