@@ -40,6 +40,7 @@ import { ConversationRelay, type ConversationRelayMeta } from '../tablework/Conv
 import { PeopleField } from '../tablework/PeopleField';
 import { PersonRecord, type PersonRecordMeta } from '../tablework/PersonRecord';
 import { SeatsStanding } from '../tablework/SeatsStanding';
+import { OrganizationContinuity } from '../tablework/OrganizationContinuity';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
@@ -62,6 +63,7 @@ const WORKSPACE_ROUTE_META: Readonly<
   'people-field': { place: 'People', origin: 'Workspace OS', section: 'Living Field' },
   'person-record': { place: 'People', origin: 'Living Field', section: 'Person Record' },
   'seats-standing': { place: 'Organization', origin: 'Workspace OS', section: 'Seats & Standing' },
+  'organization-continuity': { place: 'Organization', origin: 'Workspace OS', section: 'Organization Continuity' },
 };
 
 interface MissionCommsPageProps {
@@ -150,6 +152,7 @@ function MissionCommsScreen({
   const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
   const [peopleTruth, setPeopleTruth] = useState<WitnessState>({ kind: 'loading' });
   const [seatsTruth, setSeatsTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [organizationTruth, setOrganizationTruth] = useState<WitnessState>({ kind: 'loading' });
   const [personWitness, setPersonWitness] = useState<{
     readonly personId: string | null;
     readonly truth: WitnessState;
@@ -597,6 +600,8 @@ function MissionCommsScreen({
               ? (activePersonMeta?.record ?? 'Person Record')
               : requestedModule === 'seats-standing'
                 ? 'Seats & Standing'
+                : requestedModule === 'organization-continuity'
+                  ? 'Organization Continuity'
                 : record
           }
           section={routeMeta.section}
@@ -619,6 +624,9 @@ function MissionCommsScreen({
               </Link>
               <Link className="intent-button" to={`/members?workspace=${missionId}`} aria-current={requestedModule === 'seats-standing' ? 'page' : undefined}>
                 Seats
+              </Link>
+              <Link className="intent-button" to={`/teams?workspace=${missionId}`} aria-current={requestedModule === 'organization-continuity' ? 'page' : undefined}>
+                Organization
               </Link>
               <Link className="intent-button" to={`/missions/${missionId}/comms?open=continuity`} aria-current={requestedModule === 'mission-continuity' ? 'page' : undefined}>
                 Continuity
@@ -683,6 +691,7 @@ function MissionCommsScreen({
               else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
               else if (moduleId === 'people-field') setPeopleTruth({ kind: 'loading' });
               else if (moduleId === 'seats-standing') setSeatsTruth({ kind: 'loading' });
+              else if (moduleId === 'organization-continuity') setOrganizationTruth({ kind: 'loading' });
               else if (moduleId === 'person-record') {
                 setRememberedPersonId(null);
                 setPersonWitness({ personId: null, truth: { kind: 'loading' } });
@@ -930,6 +939,25 @@ function MissionCommsScreen({
                     membersHref="/members"
                     approvalsHref={`/approvals?workspace=${missionId}`}
                     onTruthChange={setSeatsTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'organization-continuity' satisfies MissionCommandModuleId,
+                eyebrow: 'Organization · Continuity',
+                title: 'Organization Continuity',
+                detail: 'Teams, canonical Team memberships on selection, and legal Entities only where that register is already exposed. No hierarchy is inferred.',
+                truth: organizationTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <OrganizationContinuity
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'organization-continuity'}
+                    requestKey={workspaceRequestKey}
+                    teamsHref="/teams"
+                    entitiesHref="/entities"
+                    hrefForPerson={workspacePersonHref}
+                    onTruthChange={setOrganizationTruth}
                   />
                 ),
               } satisfies MissionCommandModule,

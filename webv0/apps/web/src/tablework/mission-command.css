@@ -483,6 +483,11 @@
   container-type: inline-size;
 }
 
+.tw-root .mission-command-window.module-organization-continuity {
+  --module-line: var(--c3-accent-periwinkle);
+  container-type: inline-size;
+}
+
 .tw-root .module-mission-field .mission-command-truth,
 .tw-root .module-mission-obligations .mission-command-truth {
   display: none;
@@ -1998,6 +2003,537 @@
 
   .tw-root .seats-standing-footer {
     text-align: left;
+  }
+}
+
+/* People & Organization · milestone 04. Teams and legal Entities are parallel
+   tenant registers, not branches of one inferred tree. The twin rails are an
+   envelope motif only; record cards never draw a relationship the wire does
+   not name. One selected Team may reveal its canonical membership register,
+   and that runtime selection never enters workspace persistence. */
+.tw-root .module-organization-continuity .mission-command-windowbody {
+  overflow: auto;
+}
+
+.tw-root .organization-continuity {
+  min-width: 0;
+  min-height: 100%;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  background:
+    radial-gradient(circle at 6% 2%, var(--c3-accent-aqua-wash), transparent 26rem),
+    radial-gradient(circle at 96% 8%, var(--c3-accent-blue-wash), transparent 28rem),
+    transparent;
+}
+
+.tw-root .organization-continuity-intro {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: var(--c3-space-4);
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+  box-shadow: inset 0 .15rem 0 var(--c3-accent-periwinkle);
+}
+
+.tw-root .organization-continuity-intro > span:last-child {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .organization-continuity-intro small,
+.tw-root .organization-continuity-lane > header small,
+.tw-root .organization-continuity-omitted > small,
+.tw-root .organization-continuity-roster > header small,
+.tw-root .organization-continuity-counts small,
+.tw-root .organization-continuity-record-copy small,
+.tw-root .organization-continuity-record-copy em,
+.tw-root .organization-continuity-members small {
+  color: var(--c3-ink-quiet);
+  font-family: var(--c3-font-mono, monospace);
+  font-size: var(--c3-font-size-caption);
+}
+
+.tw-root .organization-continuity-intro small,
+.tw-root .organization-continuity-lane > header small,
+.tw-root .organization-continuity-omitted > small,
+.tw-root .organization-continuity-roster > header small {
+  font-weight: var(--c3-font-weight-bold);
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+
+.tw-root .organization-continuity-intro strong {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(1.8rem, 4cqi, 3rem);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: 1;
+}
+
+.tw-root .organization-continuity-intro p,
+.tw-root .organization-continuity-boundary,
+.tw-root .organization-continuity-omitted p,
+.tw-root .organization-continuity-roster > header p,
+.tw-root .organization-continuity-footer {
+  margin: 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  line-height: var(--c3-line-height-body);
+}
+
+.tw-root .organization-continuity-rails {
+  position: relative;
+  width: 5rem;
+  height: 5rem;
+  display: block;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+  box-shadow: inset 0 0 0 .65rem var(--c3-accent-blue-wash);
+}
+
+.tw-root .organization-continuity-rails::before,
+.tw-root .organization-continuity-rails::after {
+  content: "";
+  position: absolute;
+  top: .75rem;
+  bottom: .75rem;
+  width: var(--tw-line);
+}
+
+.tw-root .organization-continuity-rails::before {
+  left: 1.42rem;
+  background: var(--c3-accent-aqua);
+}
+
+.tw-root .organization-continuity-rails::after {
+  right: 1.42rem;
+  border-left: var(--tw-line) dashed var(--c3-accent-amber);
+}
+
+.tw-root .organization-continuity-rails i {
+  position: absolute;
+  z-index: 1;
+  width: .68rem;
+  height: .68rem;
+  border: .12rem solid var(--c3-surface-base);
+  border-radius: 50%;
+  background: var(--c3-accent-aqua);
+  box-shadow: 0 0 0 var(--tw-line) var(--c3-accent-aqua);
+  transform: translateX(-50%);
+}
+
+.tw-root .organization-continuity-rails i:nth-child(1) { left: 1.45rem; top: .8rem; }
+.tw-root .organization-continuity-rails i:nth-child(2) { left: 1.45rem; bottom: .8rem; }
+.tw-root .organization-continuity-rails i:nth-child(3),
+.tw-root .organization-continuity-rails i:nth-child(4) {
+  left: calc(100% - 1.4rem);
+  background: var(--c3-accent-amber);
+  box-shadow: 0 0 0 var(--tw-line) var(--c3-accent-amber);
+}
+.tw-root .organization-continuity-rails i:nth-child(3) { top: .8rem; }
+.tw-root .organization-continuity-rails i:nth-child(4) { bottom: .8rem; }
+
+.tw-root .organization-continuity-boundary {
+  padding: var(--c3-space-3);
+  border-left: .2rem solid var(--c3-accent-periwinkle);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .organization-continuity-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .organization-continuity-grid.is-team-only {
+  grid-template-columns: minmax(0, 1fr) minmax(14rem, .38fr);
+}
+
+.tw-root .organization-continuity-lane,
+.tw-root .organization-continuity-omitted,
+.tw-root .organization-continuity-roster {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-4);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .organization-continuity-lane.is-teams {
+  box-shadow: inset .15rem 0 0 var(--c3-accent-aqua);
+}
+
+.tw-root .organization-continuity-lane.is-entities {
+  box-shadow: inset .15rem 0 0 var(--c3-accent-amber);
+}
+
+.tw-root .organization-continuity-lane > header,
+.tw-root .organization-continuity-roster > header {
+  min-width: 0;
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+  padding-bottom: var(--c3-space-3);
+  border-bottom: var(--tw-line) solid var(--c3-border-subtle);
+}
+
+.tw-root .organization-continuity-lane > header > span,
+.tw-root .organization-continuity-roster > header > span {
+  min-width: 0;
+}
+
+.tw-root .organization-continuity-lane h2,
+.tw-root .organization-continuity-roster h2 {
+  margin: var(--c3-space-1) 0 0;
+  overflow-wrap: anywhere;
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-title);
+  font-weight: var(--c3-font-weight-regular);
+}
+
+.tw-root .organization-continuity-roster > header p {
+  margin-top: var(--c3-space-2);
+  max-width: 54rem;
+}
+
+.tw-root .organization-continuity-lane-body {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .organization-continuity-counts {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--c3-space-2);
+}
+
+.tw-root .organization-continuity-counts > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-md);
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .organization-continuity-counts strong {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: clamp(1.35rem, 3cqi, 2.15rem);
+  font-weight: var(--c3-font-weight-regular);
+  line-height: 1;
+}
+
+.tw-root .organization-continuity-records,
+.tw-root .organization-continuity-members {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tw-root .organization-continuity-records > li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-subtle);
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.tw-root .organization-continuity-records > li.is-selected {
+  border-color: var(--c3-accent-periwinkle);
+  background:
+    linear-gradient(var(--c3-accent-blue-wash), var(--c3-accent-blue-wash)),
+    var(--c3-surface-subtle);
+  box-shadow: inset .15rem 0 0 var(--c3-accent-periwinkle);
+}
+
+.tw-root .organization-continuity-node {
+  position: relative;
+  width: 2.35rem;
+  height: 2.35rem;
+  display: block;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: 50%;
+  background: var(--c3-surface-base);
+}
+
+.tw-root .organization-continuity-node::before,
+.tw-root .organization-continuity-node::after,
+.tw-root .organization-continuity-node i {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+}
+
+.tw-root .organization-continuity-node::before {
+  inset: .52rem;
+  border: var(--tw-line) solid var(--module-line);
+}
+
+.tw-root .organization-continuity-node::after {
+  inset: .92rem;
+  background: var(--module-line);
+}
+
+.tw-root .organization-continuity-node i {
+  top: .2rem;
+  right: .2rem;
+  width: .42rem;
+  height: .42rem;
+  background: var(--c3-accent-amber);
+}
+
+.tw-root .organization-continuity-record-copy,
+.tw-root .organization-continuity-record-standing,
+.tw-root .organization-continuity-members > li > span {
+  min-width: 0;
+  display: grid;
+  gap: var(--c3-space-1);
+}
+
+.tw-root .organization-continuity-record-copy strong,
+.tw-root .organization-continuity-members strong {
+  min-width: 0;
+  color: var(--c3-ink-strong);
+  overflow-wrap: anywhere;
+}
+
+.tw-root .organization-continuity-record-copy > span {
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  overflow-wrap: anywhere;
+}
+
+.tw-root .organization-continuity-record-copy em {
+  font-style: normal;
+}
+
+.tw-root .organization-continuity-record-standing {
+  justify-items: end;
+}
+
+.tw-root .organization-continuity-inspect {
+  min-height: var(--c3-tw-target-min);
+  padding: var(--c3-space-1) var(--c3-space-2);
+  border: 0;
+  background: transparent;
+  color: var(--c3-action-ink);
+  font: inherit;
+  font-size: var(--c3-font-size-caption);
+  text-decoration: underline;
+  text-underline-offset: .2rem;
+  cursor: pointer;
+}
+
+.tw-root .organization-continuity-inspect:focus-visible,
+.tw-root .organization-continuity-record-standing > a:focus-visible,
+.tw-root .organization-continuity-members > li > a:focus-visible {
+  outline: 2px solid var(--c3-action-focus);
+  outline-offset: 2px;
+}
+
+.tw-root .organization-continuity-record-standing > a,
+.tw-root .organization-continuity-members > li > a {
+  min-width: var(--c3-tw-target-min);
+  min-height: var(--c3-tw-target-min);
+  display: grid;
+  place-items: center;
+  border: var(--tw-line) solid var(--c3-border-strong);
+  border-radius: 50%;
+  background: var(--c3-surface-base);
+  color: var(--c3-action-ink);
+  text-decoration: none;
+}
+
+.tw-root .organization-continuity-omitted {
+  border-style: dashed;
+  background: var(--c3-surface-subtle);
+}
+
+.tw-root .organization-continuity-omitted > strong {
+  color: var(--c3-ink-strong);
+  font-family: var(--c3-font-family-editorial);
+  font-size: var(--c3-font-size-lead);
+  font-weight: var(--c3-font-weight-regular);
+}
+
+.tw-root .organization-continuity-roster {
+  border-color: var(--c3-accent-periwinkle);
+  background:
+    linear-gradient(var(--c3-accent-blue-wash), var(--c3-accent-blue-wash)),
+    var(--c3-surface-base);
+  box-shadow: inset 0 .15rem 0 var(--c3-accent-periwinkle);
+}
+
+.tw-root .organization-continuity-members {
+  grid-template-columns: repeat(auto-fit, minmax(min(20rem, 100%), 1fr));
+}
+
+.tw-root .organization-continuity-members > li {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) minmax(7rem, .55fr) auto auto;
+  align-items: center;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  border: var(--tw-line) solid var(--c3-border-subtle);
+  border-radius: var(--c3-radius-lg);
+  background: var(--c3-surface-base);
+}
+
+.tw-root .organization-continuity-membership-mark {
+  position: relative;
+  width: 1.75rem;
+  height: 2.6rem;
+  display: block;
+}
+
+.tw-root .organization-continuity-membership-mark::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: .2rem;
+  bottom: .2rem;
+  width: var(--tw-line);
+  background: var(--c3-accent-aqua);
+}
+
+.tw-root .organization-continuity-membership-mark i {
+  position: absolute;
+  left: 50%;
+  top: .2rem;
+  width: .68rem;
+  height: .68rem;
+  border: .12rem solid var(--c3-surface-base);
+  border-radius: 50%;
+  background: var(--c3-accent-aqua);
+  box-shadow: 0 0 0 var(--tw-line) var(--c3-accent-aqua);
+  transform: translateX(-50%);
+}
+
+.tw-root .organization-continuity-footer {
+  padding: var(--c3-space-3);
+  border-top: var(--tw-line) solid var(--c3-border-subtle);
+  text-align: center;
+}
+
+@container (max-width: 56rem) {
+  .tw-root .organization-continuity-grid,
+  .tw-root .organization-continuity-grid.is-team-only {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .organization-continuity-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@container (max-width: 36rem) {
+  .tw-root .organization-continuity-intro {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .organization-continuity-rails {
+    width: 3.75rem;
+    height: 3.75rem;
+  }
+
+  .tw-root .organization-continuity-rails::before { left: 1.05rem; }
+  .tw-root .organization-continuity-rails::after { right: 1.05rem; }
+  .tw-root .organization-continuity-rails i:nth-child(1),
+  .tw-root .organization-continuity-rails i:nth-child(2) { left: 1.08rem; }
+  .tw-root .organization-continuity-rails i:nth-child(3),
+  .tw-root .organization-continuity-rails i:nth-child(4) { left: calc(100% - 1rem); }
+
+  .tw-root .organization-continuity-lane,
+  .tw-root .organization-continuity-omitted,
+  .tw-root .organization-continuity-roster {
+    padding: var(--c3-space-3);
+  }
+
+  .tw-root .organization-continuity-lane > header,
+  .tw-root .organization-continuity-roster > header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .tw-root .organization-continuity-lane > header .secondary-action,
+  .tw-root .organization-continuity-roster > header .quiet-action {
+    width: 100%;
+  }
+
+  .tw-root .organization-continuity-records > li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .tw-root .organization-continuity-record-standing {
+    grid-column: 2;
+    grid-template-columns: repeat(3, auto);
+    align-items: center;
+    justify-content: start;
+    justify-items: start;
+  }
+
+  .tw-root .organization-continuity-members > li {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .tw-root .organization-continuity-members > li > span:nth-child(3),
+  .tw-root .organization-continuity-members > li > .status-badge,
+  .tw-root .organization-continuity-members > li > a {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .tw-root .organization-continuity-footer {
+    text-align: left;
+  }
+}
+
+@container (max-width: 26rem) {
+  .tw-root .organization-continuity-counts {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .organization-continuity-records > li,
+  .tw-root .organization-continuity-members > li {
+    grid-template-columns: 1fr;
+  }
+
+  .tw-root .organization-continuity-record-standing,
+  .tw-root .organization-continuity-members > li > span:nth-child(3),
+  .tw-root .organization-continuity-members > li > .status-badge,
+  .tw-root .organization-continuity-members > li > a {
+    grid-column: 1;
+  }
+
+  .tw-root .organization-continuity-record-standing {
+    grid-template-columns: 1fr;
   }
 }
 

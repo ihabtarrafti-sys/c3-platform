@@ -3000,6 +3000,32 @@
     padding: var(--c3-space-3) var(--c3-space-4);
   }
 
+  .tw-root .app-frame[data-workspace='mission'] .context-header {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: stretch;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .canonical-place {
+    display: none;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .working-context {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .intent-bar {
+    grid-column: 1;
+    grid-row: 2;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .tw-root .app-frame[data-workspace='mission'] .intent-bar > * {
+    flex: 0 0 auto;
+  }
+
   .tw-root .working-context {
     grid-column: 1 / -1;
     grid-row: 2;

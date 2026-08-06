@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
 import { suggestEntityCode } from '@c3web/domain';
@@ -11,15 +11,14 @@ import {
   CollectionFrame,
   ComparisonTable,
   StatusBadge,
-  EmptyState,
-  ErrorState,
-  LoadingState,
   Field,
   Input,
   Selector,
   FormDrawer,
   GovernedAction,
 } from '../tablework';
+import { RecheckingTruthPanel } from '../tablework/RecheckingTruthPanel';
+import { entitiesRegisterTruthOf, organizationRegisterActionsAvailable } from '../tablework/OrganizationContinuity';
 
 /**
  * Entities (S48) — the tenant company's own legal operating entities per
@@ -58,7 +57,7 @@ function EntitiesRegister() {
   const { notify } = useNotify();
   const qc = useQueryClient();
   const canManage = me?.capabilities.canManageEntities ?? false;
-  const { data, isLoading, isError, error } = useEntities();
+  const { data, dataUpdatedAt, isLoading, isFetching, error } = useEntities();
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -70,6 +69,21 @@ function EntitiesRegister() {
   // NO-TOUCH: the `edit` record is never cleared, and the double-spread seeding
   // order below is deliberate. Both are existing behaviour, not defects.
   const [edit, setEdit] = useState<Record<string, EditState>>({});
+
+  const entitiesTruth = entitiesRegisterTruthOf({
+    included: true,
+    data,
+    error,
+    isLoading,
+    isFetching,
+    dataUpdatedAt,
+  });
+  const actionsCurrent = organizationRegisterActionsAvailable(canManage, entitiesTruth);
+  const rechecking = data !== undefined && error == null && isFetching;
+
+  useEffect(() => {
+    if (!actionsCurrent) setShowForm(false);
+  }, [actionsCurrent]);
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: ['entities'] });
 
@@ -111,7 +125,7 @@ function EntitiesRegister() {
 
   const ready = name.trim() !== '' && jurisdiction.trim() !== '';
 
-  const addAction = canManage ? (
+  const addAction = actionsCurrent ? (
     <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-entity-toggle">
       Add entity
     </button>
@@ -122,32 +136,25 @@ function EntitiesRegister() {
       <CollectionFrame
         kicker="Register"
         title="Entities"
-        count={data ? `${data.entities.length} in this view` : undefined}
+        count={entitiesTruth.kind === 'verified' || entitiesTruth.kind === 'proven-empty' ? `${data?.entities.length ?? 0} in this view` : undefined}
         actions={addAction}
       >
-        {isLoading && <LoadingState label="Loading entities…" />}
-        {isError && (
-          <ErrorState
-            message={error instanceof ApiError ? error.message : 'Could not load entities.'}
-            correlationId={error instanceof ApiError ? error.correlationId : undefined}
-          />
-        )}
-        {data && data.entities.length === 0 && (
-          <EmptyState
-            data-testid="entities-empty"
-            message="No entities yet."
-            action={
-              canManage ? (
-                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="entities-empty-add">
-                  Add entity
-                </button>
-              ) : undefined
-            }
-          />
-        )}
-        {/* M2 — the count is stated ONCE, in CollectionFrame's header. The old
-            `r.count` footer repeated it; no testid and no spec asserted it. */}
-        {data && data.entities.length > 0 && (
+        <RecheckingTruthPanel
+          state={entitiesTruth}
+          rechecking={rechecking}
+          emptyLabel="No legal-Entity records were returned. This is a verified register result; Teams do not imply a legal Entity."
+          testids={{
+            loading: 'entities-loading',
+            verified: 'entities-verified',
+            empty: 'entities-empty',
+            denied: 'entities-denied',
+            failed: 'entities-failed',
+            stale: 'entities-stale',
+          }}
+        >
+          {/* M2 — the count is stated ONCE, in CollectionFrame's header. The old
+              `r.count` footer repeated it; no testid and no spec asserted it. */}
+          {data && data.entities.length > 0 && (
           <ComparisonTable label="Entities register" testId="entities-table">
             <thead>
               <tr>
@@ -158,7 +165,7 @@ function EntitiesRegister() {
                 <th>Currency</th>
                 <th>Registration</th>
                 <th>Status</th>
-                {canManage && <th>Actions</th>}
+                {actionsCurrent && <th>Actions</th>}
               </tr>
             </thead>
             <tbody>
@@ -181,7 +188,7 @@ function EntitiesRegister() {
                         {e.isActive ? 'Active' : 'Inactive'}
                       </StatusBadge>
                     </td>
-                    {canManage && (
+                    {actionsCurrent && (
                       <td>
                         {e.isActive && (
                           <div className="row-actions">
@@ -279,10 +286,11 @@ function EntitiesRegister() {
               })}
             </tbody>
           </ComparisonTable>
-        )}
+          )}
+        </RecheckingTruthPanel>
       </CollectionFrame>
 
-      {canManage && (
+      {actionsCurrent && (
         <FormDrawer
           open={showForm}
           onClose={() => setShowForm(false)}

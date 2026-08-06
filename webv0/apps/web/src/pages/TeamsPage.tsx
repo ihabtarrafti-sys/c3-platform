@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { suggestEntityCode } from '@c3web/domain';
 import { useTeams } from '../queries';
@@ -15,15 +15,14 @@ import {
   ComparisonTable,
   RecordLink,
   StatusBadge,
-  EmptyState,
-  ErrorState,
-  LoadingState,
   Field,
   Input,
   Selector,
   FormDrawer,
   GovernedAction,
 } from '../tablework';
+import { RecheckingTruthPanel } from '../tablework/RecheckingTruthPanel';
+import { organizationRegisterActionsAvailable, teamsRegisterTruthOf } from '../tablework/OrganizationContinuity';
 
 /**
  * Teams (S7) — the structure GK-Core runs its P&L on: game divisions (R6,
@@ -49,8 +48,9 @@ function TeamsRegister() {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
+  const canRead = me?.capabilities.canReadPeople ?? false;
   const canManage = me?.capabilities.canManageEntities ?? false;
-  const { data, isLoading, isError, error } = useTeams();
+  const { data, dataUpdatedAt, isLoading, isFetching, error } = useTeams(canRead);
 
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -58,6 +58,21 @@ function TeamsRegister() {
   const [codeTouched, setCodeTouched] = useState(false);
   const [kind, setKind] = useState<'GameDivision' | 'Department'>('GameDivision');
   const [gameTitle, setGameTitle] = useState('');
+
+  const teamsTruth = teamsRegisterTruthOf({
+    included: canRead,
+    data,
+    error,
+    isLoading,
+    isFetching,
+    dataUpdatedAt,
+  });
+  const actionsCurrent = organizationRegisterActionsAvailable(canManage, teamsTruth);
+  const rechecking = data !== undefined && error == null && isFetching;
+
+  useEffect(() => {
+    if (!actionsCurrent) setShowForm(false);
+  }, [actionsCurrent]);
 
   const invalidate = () => void qc.invalidateQueries({ queryKey: ['teams'] });
 
@@ -89,36 +104,29 @@ function TeamsRegister() {
       <CollectionFrame
         kicker="Register"
         title="Teams"
-        count={data ? `${data.teams.length} in this view` : undefined}
+        count={teamsTruth.kind === 'verified' || teamsTruth.kind === 'proven-empty' ? `${data?.teams.length ?? 0} in this view` : undefined}
         actions={
-          canManage ? (
+          actionsCurrent ? (
             <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-team-toggle">
               Add team
             </button>
           ) : undefined
         }
       >
-        {isLoading && <LoadingState label="Loading teams…" />}
-        {isError && (
-          <ErrorState
-            message={error instanceof ApiError ? error.message : 'Could not load teams.'}
-            correlationId={error instanceof ApiError ? error.correlationId : undefined}
-          />
-        )}
-        {data && data.teams.length === 0 && (
-          <EmptyState
-            data-testid="teams-empty"
-            message="No teams yet. Divisions and departments make the org's structure — and its per-team P&L — first-class."
-            action={
-              canManage ? (
-                <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="teams-empty-add">
-                  Add team
-                </button>
-              ) : undefined
-            }
-          />
-        )}
-        {data && data.teams.length > 0 && (
+        <RecheckingTruthPanel
+          state={teamsTruth}
+          rechecking={rechecking}
+          emptyLabel="No Team records were returned. This is a verified register result, not a claim that the organization has no people, Entities, or access seats."
+          testids={{
+            loading: 'teams-loading',
+            verified: 'teams-verified',
+            empty: 'teams-empty',
+            denied: 'teams-denied',
+            failed: 'teams-failed',
+            stale: 'teams-stale',
+          }}
+        >
+          {data && data.teams.length > 0 && (
           <ComparisonTable label="Teams register" testId="teams-table">
             <thead>
               <tr>
@@ -153,10 +161,11 @@ function TeamsRegister() {
               ))}
             </tbody>
           </ComparisonTable>
-        )}
+          )}
+        </RecheckingTruthPanel>
       </CollectionFrame>
 
-      {canManage && (
+      {actionsCurrent && (
         <FormDrawer
           open={showForm}
           onClose={() => setShowForm(false)}
