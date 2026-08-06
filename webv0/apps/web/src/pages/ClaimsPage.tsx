@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
 import { CLAIM_CATEGORIES } from '@c3web/domain';
@@ -17,9 +17,7 @@ import {
   ComparisonTable,
   RecordLink,
   StatusBadge,
-  EmptyState,
-  ErrorState,
-  LoadingState,
+  RecheckingTruthPanel,
   Field,
   Input,
   DateInput,
@@ -27,9 +25,14 @@ import {
   Selector,
   FormDrawer,
   GovernedAction,
+  isCurrentMoneyWitness,
+  moneyActionsAvailable,
+  moneyWitnessOf,
   positiveAmountToMinor,
+  type WitnessState,
 } from '../tablework';
 import { claimStatusOf, formatMinor, lineCategoryOf } from '../labels';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
 
 /**
  * Expense claims (S9) — retires the Finance Intelligence Hub. Everyone
@@ -45,7 +48,21 @@ export function ClaimsPage() {
   );
 }
 
-function ClaimsRegister() {
+export interface ClaimsRegisterProps {
+  readonly enabled?: boolean;
+  readonly foreground?: boolean;
+  readonly requestKey?: string | number;
+  readonly onTruthChange?: (truth: WitnessState) => void;
+  readonly linkToClaim?: (claimId: string) => string;
+}
+
+export function ClaimsRegister({
+  enabled = true,
+  foreground = true,
+  requestKey,
+  onTruthChange,
+  linkToClaim = (claimId) => `/claims/${claimId}`,
+}: ClaimsRegisterProps = {}) {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -56,9 +73,41 @@ function ClaimsRegister() {
   // The capability IS the `enabled` flag — the register is never fetched for a
   // role that may not read it, and the denial below is a render of that fact,
   // not a curtain over data already on the wire.
-  const { data, isLoading, isError, error } = useClaims(canReadClaims);
+  const queryEnabled = enabled && canReadClaims;
+  const query = useClaims(queryEnabled);
+  const rewitnessing = useForegroundRewitness({ foreground, enabled: queryEnabled, refetch: query.refetch, requestKey });
+  const truth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: canReadClaims,
+          data: query.data,
+          error: query.error,
+          isLoading: query.isLoading,
+          isFetching: query.isFetching || rewitnessing,
+          dataUpdatedAt: query.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) => view.claims.length === 0,
+          omittedReason: 'CLAIMS_UNAVAILABLE',
+          recheckMessage: 'The claims register is being checked again.',
+        },
+      ),
+    [canReadClaims, query.data, query.dataUpdatedAt, query.error, query.isFetching, query.isLoading, rewitnessing],
+  );
+  const canSubmitCurrent = moneyActionsAvailable(canSubmit && enabled, truth, foreground);
+  const canExportCurrent = moneyActionsAvailable(canViewFinancials && enabled, truth, foreground);
+  const claims = query.data?.claims ?? [];
+
+  useEffect(() => {
+    onTruthChange?.(truth);
+  }, [onTruthChange, truth]);
 
   async function downloadPayroll(): Promise<void> {
+    if (!canExportCurrent) {
+      notify('error', 'The claims register must be current before payroll can be exported.');
+      return;
+    }
     try {
       const { blob, fileName } = await api.downloadPayrollCsv();
       const url = URL.createObjectURL(blob);
@@ -79,15 +128,11 @@ function ClaimsRegister() {
   const [currency, setCurrency] = useState('USD');
   const [expenseOn, setExpenseOn] = useState('');
 
-  const invalidate = () => void qc.invalidateQueries({ queryKey: ['claims'] });
+  useLayoutEffect(() => {
+    if (!canSubmitCurrent) setShowForm(false);
+  }, [canSubmitCurrent]);
 
-  if (!canReadClaims) {
-    return (
-      <CollectionFrame title="Claims">
-        <EmptyState data-testid="claims-denied" message="Expense claims are unavailable for your role." />
-      </CollectionFrame>
-    );
-  }
+  const invalidate = () => void qc.invalidateQueries({ queryKey: ['claims'] });
 
   // M-02: exact-decimal law — excess precision refuses instead of rounding.
   // A zero-value claim is meaningless, so the ZERO-REJECTING parser is the
@@ -96,6 +141,10 @@ function ClaimsRegister() {
   const ready = description.trim() !== '' && amountMinor !== null && /^\d{4}-\d{2}-\d{2}$/.test(expenseOn);
 
   async function submit() {
+    if (!canSubmitCurrent) {
+      notify('error', 'The claims register must be current before a claim can be submitted.');
+      return;
+    }
     try {
       const res = await api.submitClaim({
         category,
@@ -121,15 +170,15 @@ function ClaimsRegister() {
       <CollectionFrame
         kicker="Register"
         title="Claims"
-        count={data ? `${data.claims.length} in this view${canDecide ? ' · all submitters' : ' · yours'}` : undefined}
+        count={isCurrentMoneyWitness(truth) ? `${claims.length} in this view${canDecide ? ' · all submitters' : ' · yours'}` : undefined}
         actions={
           <>
-            {canViewFinancials && (
+            {canExportCurrent && (
               <button className="secondary-action" type="button" onClick={() => void downloadPayroll()} data-testid="payroll-export">
                 Payroll export
               </button>
             )}
-            {canSubmit && (
+            {canSubmitCurrent && (
               <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="add-claim-toggle">
                 Submit claim
               </button>
@@ -137,17 +186,18 @@ function ClaimsRegister() {
           </>
         }
       >
-        {isLoading && <LoadingState label="Loading claims…" />}
-        {isError && (
-          <ErrorState
-            message={error instanceof ApiError ? error.message : 'Could not load claims.'}
-            correlationId={error instanceof ApiError ? error.correlationId : undefined}
-          />
-        )}
-        {data && data.claims.length === 0 && (
-          <EmptyState data-testid="claims-empty" message="No claims yet — submit an expense and watch it move." />
-        )}
-        {data && data.claims.length > 0 && (
+        <RecheckingTruthPanel
+          state={truth}
+          rechecking={rewitnessing || (query.isFetching && query.error == null)}
+          emptyLabel="No claims yet — submit an expense and watch it move."
+          testids={{
+            loading: 'claims-loading',
+            empty: 'claims-empty',
+            denied: 'claims-denied',
+            failed: 'claims-error',
+            stale: 'claims-stale',
+          }}
+        >
           <ComparisonTable label="Expense claims" testId="claims-table">
             <thead>
               <tr>
@@ -161,10 +211,10 @@ function ClaimsRegister() {
               </tr>
             </thead>
             <tbody>
-              {data.claims.map((c) => (
+              {claims.map((c) => (
                 <tr key={c.claimId} data-testid={`claim-row-${c.claimId}`}>
                   <td>
-                    <RecordLink to={`/claims/${c.claimId}`} data-testid={`claim-link-${c.claimId}`}>
+                    <RecordLink to={linkToClaim(c.claimId)} data-testid={`claim-link-${c.claimId}`}>
                       {c.claimId}
                     </RecordLink>
                   </td>
@@ -182,11 +232,11 @@ function ClaimsRegister() {
               ))}
             </tbody>
           </ComparisonTable>
-        )}
+        </RecheckingTruthPanel>
       </CollectionFrame>
 
       <FormDrawer
-        open={showForm}
+        open={showForm && canSubmitCurrent}
         onClose={() => setShowForm(false)}
         eyebrow="New expense claim"
         mode="direct"

@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatMoney, CURRENCY_CODES, SUBSCRIPTION_CADENCES, type CurrencyCode } from '@c3web/domain';
 import type { SubscriptionDto } from '@c3web/api-contracts';
@@ -12,16 +12,18 @@ import {
   CollectionFrame,
   ComparisonTable,
   StatusBadge,
-  EmptyState,
-  ErrorState,
-  LoadingState,
+  RecheckingTruthPanel,
   Field,
   Input,
   Textarea,
   Selector,
   FormDrawer,
   GovernedAction,
+  moneyActionsAvailable,
+  moneyWitnessOf,
+  type WitnessState,
 } from '../tablework';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
 
 /**
  * Recurring subscriptions (Track B) — a small register of the org's recurring
@@ -62,7 +64,19 @@ export function SubscriptionsPage() {
   );
 }
 
-function SubscriptionsRegister() {
+export interface SubscriptionsRegisterProps {
+  readonly enabled?: boolean;
+  readonly foreground?: boolean;
+  readonly requestKey?: string | number;
+  readonly onTruthChange?: (truth: WitnessState) => void;
+}
+
+export function SubscriptionsRegister({
+  enabled = true,
+  foreground = true,
+  requestKey,
+  onTruthChange,
+}: SubscriptionsRegisterProps = {}) {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -70,7 +84,33 @@ function SubscriptionsRegister() {
   const canManage = me?.capabilities.canManageSubscriptions ?? false;
   // THE WIRE LAW: the capability IS the `enabled` flag — never hoisted to
   // always-on and hidden visually.
-  const { data, isLoading, isError, error } = useSubscriptions(canView);
+  const queryEnabled = enabled && canView;
+  const query = useSubscriptions(queryEnabled);
+  const rewitnessing = useForegroundRewitness({ foreground, enabled: queryEnabled, refetch: query.refetch, requestKey });
+  const truth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: canView,
+          data: query.data,
+          error: query.error,
+          isLoading: query.isLoading,
+          isFetching: query.isFetching || rewitnessing,
+          dataUpdatedAt: query.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) => view.subscriptions.length === 0,
+          omittedReason: 'FINANCIALS_UNAVAILABLE',
+          recheckMessage: 'The subscription register is being checked again.',
+        },
+      ),
+    [canView, query.data, query.dataUpdatedAt, query.error, query.isFetching, query.isLoading, rewitnessing],
+  );
+  const canManageCurrent = moneyActionsAvailable(canManage && enabled, truth, foreground);
+
+  useEffect(() => {
+    onTruthChange?.(truth);
+  }, [onTruthChange, truth]);
 
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<SubscriptionDto | null>(null);
@@ -79,22 +119,25 @@ function SubscriptionsRegister() {
   const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setF((p) => ({ ...p, [k]: e.target.value }));
 
-  if (!canView) {
-    return (
-      <CollectionFrame title="Subscriptions">
-        <EmptyState data-testid="subs-denied" message="Recurring subscriptions are available to finance-visible roles." />
-      </CollectionFrame>
-    );
-  }
+  useLayoutEffect(() => {
+    if (canManageCurrent) return;
+    setOpen(false);
+    setEditing(null);
+  }, [canManageCurrent]);
 
-  const openAdd = () => { setEditing(null); setF(EMPTY); setOpen(true); };
+  const openAdd = () => {
+    if (!canManageCurrent) return;
+    setEditing(null); setF(EMPTY); setOpen(true);
+  };
   const openEdit = (sub: SubscriptionDto) => {
+    if (!canManageCurrent) return;
     setEditing(sub);
     setF({ name: sub.name, vendorName: sub.vendorName, amount: (sub.amountMinor / 100).toFixed(2), currency: sub.currency, cadence: sub.cadence, category: sub.category ?? '', startedOn: sub.startedOn, nextRenewalOn: sub.nextRenewalOn ?? '', notes: sub.notes ?? '' });
     setOpen(true);
   };
 
   async function submit(): Promise<void> {
+    if (!canManageCurrent) return notify('error', 'The subscription register must be current before it can be changed.');
     // F-1 CALL-SITE MIGRATION COMPLETE (the marker that stood here is CLOSED):
     // the zero-allowing parse rides the kit's NAMED policy — behaviour-
     // identical by construction (the kit export IS the domain parser,
@@ -125,6 +168,7 @@ function SubscriptionsRegister() {
   }
 
   async function setStatus(sub: SubscriptionDto, action: 'cancel' | 'reactivate'): Promise<void> {
+    if (!canManageCurrent) return notify('error', 'The subscription register must be current before it can be changed.');
     try {
       if (action === 'cancel') await api.cancelSubscription(sub.subscriptionId, sub.version);
       else await api.reactivateSubscription(sub.subscriptionId, sub.version);
@@ -136,7 +180,7 @@ function SubscriptionsRegister() {
     }
   }
 
-  const subs = data?.subscriptions ?? [];
+  const subs = query.data?.subscriptions ?? [];
 
   return (
     <>
@@ -150,21 +194,23 @@ function SubscriptionsRegister() {
           </>
         }
         actions={
-          canManage ? (
+          canManageCurrent ? (
             <button className="primary-action" type="button" onClick={openAdd} data-testid="subs-add">Add subscription</button>
           ) : undefined
         }
       >
-        {isLoading && <LoadingState label="Loading subscriptions…" />}
-        {isError && (
-          <ErrorState
-            message={error instanceof ApiError ? error.message : 'Could not load subscriptions.'}
-            correlationId={error instanceof ApiError ? error.correlationId : undefined}
-          />
-        )}
-        {data && subs.length === 0 && <EmptyState data-testid="subs-empty" message="No subscriptions yet." />}
-
-        {data && subs.length > 0 && (
+        <RecheckingTruthPanel
+          state={truth}
+          rechecking={rewitnessing || (query.isFetching && query.error == null)}
+          emptyLabel="No subscriptions yet."
+          testids={{
+            loading: 'subs-loading',
+            empty: 'subs-empty',
+            denied: 'subs-denied',
+            failed: 'subs-error',
+            stale: 'subs-stale',
+          }}
+        >
           <ComparisonTable label="Subscriptions register" testId="subs-table">
             <thead>
               <tr>
@@ -172,7 +218,7 @@ function SubscriptionsRegister() {
                 <th>Cost</th>
                 <th>Next renewal</th>
                 <th>Status</th>
-                {canManage && <th></th>}
+                {canManageCurrent && <th></th>}
               </tr>
             </thead>
             <tbody>
@@ -194,7 +240,7 @@ function SubscriptionsRegister() {
                   </td>
                   <td className="mono">{sub.nextRenewalOn ?? '—'}</td>
                   <td><StatusBadge variant={sub.status === 'Active' ? 'ready' : 'neutral'}>{sub.status}</StatusBadge></td>
-                  {canManage && (
+                  {canManageCurrent && (
                     <td>
                       <div className="row-actions">
                         <button className="quiet-action" type="button" onClick={() => openEdit(sub)} data-testid={`subs-edit-${sub.subscriptionId}`}>Edit</button>
@@ -218,11 +264,11 @@ function SubscriptionsRegister() {
               ))}
             </tbody>
           </ComparisonTable>
-        )}
+        </RecheckingTruthPanel>
       </CollectionFrame>
 
       <FormDrawer
-        open={open}
+        open={open && canManageCurrent}
         onClose={() => setOpen(false)}
         eyebrow={editing ? `Edit ${editing.subscriptionId}` : 'Add subscription'}
         mode="direct"

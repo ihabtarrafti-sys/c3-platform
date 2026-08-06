@@ -11,6 +11,7 @@ import {
   positivePercentToBps,
   amountToMinorAllowingZero,
   positiveAmountToMinor,
+  positiveFiniteRatio,
 } from '../src/tablework/money';
 
 describe('percentToBpsAllowingZero — percent → bps, zero ALLOWED', () => {
@@ -144,5 +145,19 @@ describe('positiveAmountToMinor — major units → integer minor units, zero RE
     expect(positiveAmountToMinor('0.1')! + positiveAmountToMinor('0.2')!).toBe(
       positiveAmountToMinor('0.3'),
     );
+  });
+});
+
+describe('positiveFiniteRatio — receipt FX ratio', () => {
+  it('uses Number semantics consistently, including scientific notation', () => {
+    expect(positiveFiniteRatio('1.25')).toBe(1.25);
+    expect(positiveFiniteRatio('1e3')).toBe(1000);
+    expect(positiveFiniteRatio(' 0.001 ')).toBe(0.001);
+  });
+
+  it('refuses every blank, non-finite, non-numeric, zero, or negative ratio', () => {
+    for (const input of ['', ' ', 'Infinity', '-Infinity', 'NaN', 'not-a-rate', '0', '-1']) {
+      expect(positiveFiniteRatio(input), input).toBeNull();
+    }
   });
 });

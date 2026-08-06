@@ -39,10 +39,12 @@ export {
   type DefItem,
 } from './collections';
 export { formatDisplayDate } from './dates';
-export { percentToBpsAllowingZero, positivePercentToBps, amountToMinorAllowingZero, positiveAmountToMinor } from './money';
+export { percentToBpsAllowingZero, positivePercentToBps, amountToMinorAllowingZero, positiveAmountToMinor, positiveFiniteRatio } from './money';
+export { moneyWitnessOf, isCurrentMoneyWitness, moneyActionsAvailable, type MoneyWitnessFacts, type MoneyWitnessOptions } from './moneyWitness';
 export { Thread, detectLinks } from './Thread';
 export { Message } from './Message';
 export { ObligationCard, type ObligationActionInput } from './ObligationCard';
 export { ObligationFact, type TruthState } from './TruthValue';
 export { TruthPanel, truthStateOf, type WitnessState } from './TruthPanel';
+export { RecheckingTruthPanel } from './RecheckingTruthPanel';
 export { ToastStack, type ToastItem } from './Toast';

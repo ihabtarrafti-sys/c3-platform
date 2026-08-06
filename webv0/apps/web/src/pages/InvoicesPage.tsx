@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInvoices } from '../queries';
 import { ApiError } from '../api';
@@ -10,14 +10,17 @@ import {
   ComparisonTable,
   RecordLink,
   StatusBadge,
-  EmptyState,
-  ErrorState,
-  LoadingState,
+  RecheckingTruthPanel,
   Field,
   Input,
   GovernedAction,
+  isCurrentMoneyWitness,
+  moneyActionsAvailable,
+  moneyWitnessOf,
+  type WitnessState,
 } from '../tablework';
 import { formatMinor, invoiceStatusOf } from '../labels';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
 
 /**
  * Invoices (S6) — the register of outward claims, on the Tablework frame
@@ -39,7 +42,21 @@ export function InvoicesPage() {
   );
 }
 
-function InvoicesRegister() {
+export interface InvoicesRegisterProps {
+  readonly enabled?: boolean;
+  readonly foreground?: boolean;
+  readonly requestKey?: string | number;
+  readonly onTruthChange?: (truth: WitnessState) => void;
+  readonly linkToMission?: (missionId: string) => string;
+}
+
+export function InvoicesRegister({
+  enabled = true,
+  foreground = true,
+  requestKey,
+  onTruthChange,
+  linkToMission = (missionId) => `/missions/${missionId}`,
+}: InvoicesRegisterProps = {}) {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
@@ -47,19 +64,42 @@ function InvoicesRegister() {
   const canAct = (me?.capabilities.canManageMissions ?? false) && canSee;
   // THE WIRE LAW: the capability IS the `enabled` flag — a denied role never
   // fetches the register, it does not fetch-and-hide.
-  const { data, isLoading, isError, error } = useInvoices(canSee);
+  const queryEnabled = enabled && canSee;
+  const query = useInvoices(queryEnabled);
+  const rewitnessing = useForegroundRewitness({ foreground, enabled: queryEnabled, refetch: query.refetch, requestKey });
+  const truth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: canSee,
+          data: query.data,
+          error: query.error,
+          isLoading: query.isLoading,
+          isFetching: query.isFetching || rewitnessing,
+          dataUpdatedAt: query.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) => view.invoices.length === 0,
+          omittedReason: 'FINANCIALS_UNAVAILABLE',
+          recheckMessage: 'The invoice register is being checked again.',
+        },
+      ),
+    [canSee, query.data, query.dataUpdatedAt, query.error, query.isFetching, query.isLoading, rewitnessing],
+  );
+  const actionsCurrent = moneyActionsAvailable(canAct && enabled, truth, foreground);
+  const invoices = query.data?.invoices ?? [];
   // Polish wave #11: the Actions column exists only while an Issued invoice
   // can still be acted on — a header over uniformly empty cells reads dead.
-  const showActions = canAct && (data?.invoices.some((i) => i.status === 'Issued') ?? false);
+  const showActions = actionsCurrent && invoices.some((invoice) => invoice.status === 'Issued');
   const [voidReason, setVoidReason] = useState<Record<string, string>>({});
 
-  if (!canSee) {
-    return (
-      <CollectionFrame title="Invoices">
-        <EmptyState data-testid="invoices-denied" message="Invoices are financial records — unavailable for your role." />
-      </CollectionFrame>
-    );
-  }
+  useEffect(() => {
+    onTruthChange?.(truth);
+  }, [onTruthChange, truth]);
+
+  useLayoutEffect(() => {
+    if (!actionsCurrent) setVoidReason({});
+  }, [actionsCurrent]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['invoices'] });
@@ -81,6 +121,10 @@ function InvoicesRegister() {
   }
 
   async function retryPdf(invoiceId: string) {
+    if (!actionsCurrent) {
+      notify('error', 'The invoice register must be current before paper can be generated.');
+      return;
+    }
     try {
       await api.retryInvoicePdf(invoiceId);
       notify('success', `The PDF for ${invoiceId} is stored.`);
@@ -91,21 +135,23 @@ function InvoicesRegister() {
   }
 
   return (
-    <CollectionFrame kicker="Register" title="Invoices" count={data ? `${data.invoices.length} in this view` : undefined}>
-      {isLoading && <LoadingState label="Loading invoices…" />}
-      {isError && (
-        <ErrorState
-          message={error instanceof ApiError ? error.message : 'Could not load invoices.'}
-          correlationId={error instanceof ApiError ? error.correlationId : undefined}
-        />
-      )}
-      {data && data.invoices.length === 0 && (
-        <EmptyState
-          data-testid="invoices-empty"
-          message="No invoices yet. Issue one from a mission's P&L — any income line still Expected."
-        />
-      )}
-      {data && data.invoices.length > 0 && (
+    <CollectionFrame
+      kicker="Register"
+      title="Invoices"
+      count={isCurrentMoneyWitness(truth) ? `${invoices.length} in this view` : undefined}
+    >
+      <RecheckingTruthPanel
+        state={truth}
+        rechecking={rewitnessing || (query.isFetching && query.error == null)}
+        emptyLabel="No invoices yet. Issue one from a mission's P&L — any income line still Expected."
+        testids={{
+          loading: 'invoices-loading',
+          empty: 'invoices-empty',
+          denied: 'invoices-denied',
+          failed: 'invoices-error',
+          stale: 'invoices-stale',
+        }}
+      >
         <ComparisonTable label="Invoices register" testId="invoices-table">
           <thead>
             <tr>
@@ -122,14 +168,14 @@ function InvoicesRegister() {
             </tr>
           </thead>
           <tbody>
-            {data.invoices.map((inv) => (
+            {invoices.map((inv) => (
               <tr key={inv.invoiceId} data-testid={`invoice-row-${inv.invoiceId}`}>
                 <td className="mono" data-testid={`invoice-number-${inv.invoiceId}`}>
                   {inv.invoiceNumber}
                 </td>
                 <td>{inv.entityId}</td>
                 <td>
-                  <RecordLink to={`/missions/${inv.missionId}`}>{inv.missionId}</RecordLink>
+                  <RecordLink to={linkToMission(inv.missionId)}>{inv.missionId}</RecordLink>
                 </td>
                 <td>{inv.billedToName}</td>
                 <td>{inv.incomeCategory}</td>
@@ -158,7 +204,7 @@ function InvoicesRegister() {
                     >
                       PDF
                     </button>
-                  ) : canAct && inv.status === 'Issued' ? (
+                  ) : actionsCurrent && inv.status === 'Issued' ? (
                     <button
                       className="mini-action"
                       type="button"
@@ -192,6 +238,10 @@ function InvoicesRegister() {
                         confirmLabel="Void invoice"
                         confirmDisabled={(voidReason[inv.invoiceId] ?? '').trim() === ''}
                         onConfirm={async () => {
+                          if (!actionsCurrent) {
+                            notify('error', 'The invoice register must be current before an invoice can be voided.');
+                            throw new Error('money witness is not current');
+                          }
                           try {
                             await api.voidInvoice(inv.invoiceId, (voidReason[inv.invoiceId] ?? '').trim(), inv.version);
                             notify('success', `${inv.invoiceNumber} voided — the line is Expected again.`);
@@ -209,7 +259,7 @@ function InvoicesRegister() {
             ))}
           </tbody>
         </ComparisonTable>
-      )}
+      </RecheckingTruthPanel>
     </CollectionFrame>
   );
 }

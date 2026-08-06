@@ -108,8 +108,8 @@ export const useNotifications = () => useQuery({ queryKey: ['notifications'], qu
 export const useClaims = (enabled = true) => useQuery({ queryKey: ['claims'], queryFn: () => api.listClaims(), enabled });
 export const useClaim = (claimId: string) => useQuery({ queryKey: ['claim', claimId], queryFn: () => api.getClaim(claimId) });
 export const useClaimAudit = (claimId: string) => useQuery({ queryKey: ['claimAudit', claimId], queryFn: () => api.claimAudit(claimId) });
-export const useMissionDistributions = (missionId: string) =>
-  useQuery({ queryKey: ['missionDistributions', missionId], queryFn: () => api.missionDistributions(missionId) });
+export const useMissionDistributions = (missionId: string, enabled = true) =>
+  useQuery({ queryKey: ['missionDistributions', missionId], queryFn: () => api.missionDistributions(missionId), enabled });
 export const usePersonTeams = (personId: string) =>
   useQuery({ queryKey: ['personTeams', personId], queryFn: () => api.personTeams(personId) });
 

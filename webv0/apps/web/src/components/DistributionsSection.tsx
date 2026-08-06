@@ -1,11 +1,31 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useReducer, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatMoney, type CurrencyCode } from '@c3web/domain';
 import { useMissionDistributions, useMissionPnl, usePeople } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
-import { useNotify } from '../session';
-import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, WorkSurface, percentToBpsAllowingZero } from '../tablework';
+import { useNotify, useSession } from '../session';
+import {
+  StatusBadge,
+  GovernedAction,
+  ComparisonTable,
+  Field,
+  Input,
+  Selector,
+  WorkSurface,
+  RecheckingTruthPanel,
+  isCurrentMoneyWitness,
+  moneyActionsAvailable,
+  moneyWitnessOf,
+  percentToBpsAllowingZero,
+  type WitnessState,
+} from '../tablework';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
+import {
+  distributionSeedReducer,
+  EMPTY_DISTRIBUTION_SEED,
+  type DistributionShareDraft,
+} from './distributionSeedModel';
 
 /**
  * Distributions (S8) — the payout list under a mission's P&L. A distribution
@@ -69,30 +89,165 @@ import { StatusBadge, GovernedAction, ComparisonTable, Field, Input, Selector, W
 // 12px cell scale — half a pixel, ruled in ("one family, two scales"); the ink
 // (quiet) is unchanged.
 
-interface ShareDraft {
-  personId: string;
-  personName: string;
-  bps: string; // percent text, e.g. "45"
+export interface DistributionsSectionProps {
+  readonly missionId: string;
+  readonly canManage: boolean;
+  readonly enabled?: boolean;
+  readonly foreground?: boolean;
+  readonly requestKey?: string | number;
+  readonly onTruthChange?: (truth: WitnessState) => void;
 }
 
-export function DistributionsSection({ missionId, canManage }: { missionId: string; canManage: boolean }) {
+export function DistributionsSection({
+  missionId,
+  canManage,
+  enabled = true,
+  foreground = true,
+  requestKey,
+  onTruthChange,
+}: DistributionsSectionProps) {
+  const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
-  const dists = useMissionDistributions(missionId);
-  const people = usePeople();
+  const canViewFinancials = me?.capabilities.canViewFinancials ?? false;
+  const queryEnabled = enabled && canViewFinancials;
+  const dists = useMissionDistributions(missionId, queryEnabled);
+  const distsRewitnessing = useForegroundRewitness({
+    foreground,
+    enabled: queryEnabled,
+    refetch: dists.refetch,
+    requestKey,
+  });
+  const distsTruth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: canViewFinancials,
+          data: dists.data,
+          error: dists.error,
+          isLoading: dists.isLoading,
+          isFetching: dists.isFetching || distsRewitnessing,
+          dataUpdatedAt: dists.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) => view.distributions.length === 0,
+          omittedReason: 'FINANCIALS_UNAVAILABLE',
+          recheckMessage: "This mission's distribution record is being checked again.",
+          notFoundMessage: "This mission's distribution record no longer resolves.",
+        },
+      ),
+    [
+      canViewFinancials,
+      dists.data,
+      dists.dataUpdatedAt,
+      dists.error,
+      dists.isFetching,
+      dists.isLoading,
+      distsRewitnessing,
+    ],
+  );
   // The same cache key MissionPnlSection uses — React Query dedupes the fetch.
-  const pnl = useMissionPnl(missionId);
+  const pnl = useMissionPnl(missionId, queryEnabled);
+  const pnlRewitnessing = useForegroundRewitness({
+    foreground,
+    enabled: queryEnabled,
+    refetch: pnl.refetch,
+    requestKey,
+  });
+  const pnlTruth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: canViewFinancials,
+          data: pnl.data,
+          error: pnl.error,
+          isLoading: pnl.isLoading,
+          isFetching: pnl.isFetching || pnlRewitnessing,
+          dataUpdatedAt: pnl.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) =>
+            view.lines.length === 0 && view.budgets.length === 0 && view.pnl.perDiem.entries.length === 0,
+          omittedReason: 'FINANCIALS_UNAVAILABLE',
+          recheckMessage: "This mission's financial record is being checked again.",
+          notFoundMessage: "This mission's financial record no longer resolves.",
+        },
+      ),
+    [
+      canViewFinancials,
+      pnl.data,
+      pnl.dataUpdatedAt,
+      pnl.error,
+      pnl.isFetching,
+      pnl.isLoading,
+      pnlRewitnessing,
+    ],
+  );
+  const recordActionsCurrent = moneyActionsAvailable(canManage && enabled, distsTruth, foreground);
+  const peopleEnabled = recordActionsCurrent && isCurrentMoneyWitness(pnlTruth);
+  const people = usePeople(peopleEnabled);
+  const peopleRewitnessing = useForegroundRewitness({
+    foreground,
+    enabled: peopleEnabled,
+    refetch: people.refetch,
+    requestKey,
+  });
+  const peopleTruth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: canManage,
+          data: people.data,
+          error: people.error,
+          isLoading: people.isLoading,
+          isFetching: people.isFetching || peopleRewitnessing,
+          dataUpdatedAt: people.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) => view.people.length === 0,
+          omittedReason: 'DISTRIBUTION_AUTHORING_UNAVAILABLE',
+          recheckMessage: 'The People register is being checked again before distribution authoring.',
+        },
+      ),
+    [
+      canManage,
+      people.data,
+      people.dataUpdatedAt,
+      people.error,
+      people.isFetching,
+      people.isLoading,
+      peopleRewitnessing,
+    ],
+  );
+  const canCreate = moneyActionsAvailable(canManage && enabled, distsTruth, foreground, [pnlTruth, peopleTruth]);
   const lines = pnl.data?.lines ?? [];
 
   const receivedIncome = lines.filter((l) => l.direction === 'Income' && l.paymentStatus === 'Received' && l.isActive);
   const liveLineIds = new Set((dists.data?.distributions ?? []).filter((v) => v.distribution.status === 'Live').map((v) => v.distribution.lineId));
   const distributable = receivedIncome.filter((l) => !liveLineIds.has(l.lineId));
 
-  const [lineId, setLineId] = useState('');
   const [orgPct, setOrgPct] = useState('20');
-  const [drafts, setDrafts] = useState<ShareDraft[] | null>(null);
+  const [seed, dispatchSeed] = useReducer(distributionSeedReducer, EMPTY_DISTRIBUTION_SEED);
   const [payoutForms, setPayoutForms] = useState<Record<string, { label: string; refNo: string }>>({});
   const [revokeReason, setRevokeReason] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    onTruthChange?.(distsTruth);
+  }, [distsTruth, onTruthChange]);
+
+  useLayoutEffect(() => {
+    if (recordActionsCurrent) return;
+    dispatchSeed({ type: 'reset' });
+    setOrgPct('20');
+    setPayoutForms({});
+    setRevokeReason({});
+  }, [recordActionsCurrent]);
+
+  useLayoutEffect(() => {
+    if (canCreate) return;
+    dispatchSeed({ type: 'reset' });
+    setOrgPct('20');
+  }, [canCreate]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['missionDistributions', missionId] });
@@ -100,19 +255,33 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
   };
 
   async function openSeed(forLineId: string) {
-    setLineId(forLineId);
+    if (!canCreate) return;
+    dispatchSeed({ type: 'start', lineId: forLineId });
     try {
       const seed = await api.distributionSeed(missionId);
       // ⚖️ MONEY — `!== null`, never truthiness. A seeded suggestion of 0 bps is
       // a real suggestion; `r0.suggestedBps ? …` would blank the row and report
       // "no term on file" for a term that exists and says zero.
-      setDrafts(seed.rows.map((r0) => ({ personId: r0.personId, personName: r0.personName, bps: r0.suggestedBps !== null ? String(r0.suggestedBps / 100) : '' })));
-    } catch {
-      setDrafts([]);
+      dispatchSeed({
+        type: 'succeed',
+        lineId: forLineId,
+        rows: seed.rows.map((r0) => ({
+          personId: r0.personId,
+          personName: r0.personName,
+          bps: r0.suggestedBps !== null ? String(r0.suggestedBps / 100) : '',
+        })),
+      });
+    } catch (err) {
+      dispatchSeed({
+        type: 'fail',
+        lineId: forLineId,
+        message: err instanceof ApiError ? err.message : 'The suggested share rows could not be checked.',
+      });
     }
   }
 
-  const activeDrafts = (drafts ?? []).filter((d) => d.bps.trim() !== '');
+  const drafts: readonly DistributionShareDraft[] = seed.kind === 'verified' ? seed.rows : [];
+  const activeDrafts = drafts.filter((d) => d.bps.trim() !== '');
   // ⚖️ MONEY — ALL FOUR percent sites below stay on `percentToBpsAllowingZero`,
   // and the `> 0` on the share rows stays HERE. orgBps legitimately accepts 0
   // (all-to-players) while each share row must be > 0; both read the SAME
@@ -128,17 +297,24 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
     orgBps !== null &&
     activeDrafts.every((d) => percentToBpsAllowingZero(d.bps) !== null && percentToBpsAllowingZero(d.bps)! > 0) &&
     (activeDrafts.length === 0 ? orgBps === 10000 : draftBpsSum === 10000);
+  const lineId = seed.kind === 'idle' ? '' : seed.lineId;
   const chosenLine = lines.find((l) => l.lineId === lineId);
   // ⚖️ MONEY — `??`, never `||`. A line that landed exactly 0 minor units has a
   // real received amount of 0; `||` would fall through to the EXPECTED amount
   // and state a pool that never arrived.
   const pool = chosenLine ? (chosenLine.receivedAmountMinor ?? chosenLine.amountMinor) : 0;
 
+  function requireRecordAction(): void {
+    if (recordActionsCurrent) return;
+    notify('error', 'The distribution record must be current before this action can be recorded.');
+    throw new Error('money witness is not current');
+  }
+
   return (
     <section className="record-section" data-testid="mission-distributions">
       <div className="record-section-head">
         <h2>Prize distributions</h2>
-        {canManage && distributable.length > 0 && (
+        {canCreate && distributable.length > 0 && (
           <GovernedAction
             triggerLabel="Distribute…"
             triggerTestId="distribute-toggle"
@@ -162,7 +338,17 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                 <Field label="Org share %" required hint="The org's cut of the pool; the rest is the player pool.">
                   <Input type="number" value={orgPct} onChange={(e) => setOrgPct(e.target.value)} data-testid="distribute-org-pct" />
                 </Field>
-                {drafts !== null && (
+                {seed.kind === 'loading' && (
+                  <span className="record-quiet" role="status" data-testid="distribution-seed-loading">
+                    Checking suggested share rows…
+                  </span>
+                )}
+                {seed.kind === 'fetch-failed' && (
+                  <span className="field-error-block" role="alert" data-truth="fetch-failed" data-testid="distribution-seed-error">
+                    {seed.message} No empty split has been assumed; choose the income line again to retry.
+                  </span>
+                )}
+                {seed.kind === 'verified' && (
                   <>
                     <span className="record-quiet">
                       Player shares (% of the player pool — leave blank to exclude; seeded from PrizeShare terms where they exist):
@@ -175,7 +361,12 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                           width="digits"
                           type="number"
                           value={d.bps}
-                          onChange={(e) => setDrafts(drafts.map((x, j) => (j === i ? { ...x, bps: e.target.value } : x)))}
+                          onChange={(e) =>
+                            dispatchSeed({
+                              type: 'replace-rows',
+                              rows: drafts.map((x, j) => (j === i ? { ...x, bps: e.target.value } : x)),
+                            })
+                          }
                           data-testid={`distribute-share-${d.personId}`}
                         />
                         <span className="record-quiet">%</span>
@@ -191,7 +382,10 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                       onSelect={(value) => {
                         if (value && !drafts.some((x) => x.personId === value)) {
                           const p = people.data?.people.find((x) => x.personId === value);
-                          setDrafts([...drafts, { personId: value, personName: p?.fullName ?? value, bps: '' }]);
+                          dispatchSeed({
+                            type: 'replace-rows',
+                            rows: [...drafts, { personId: value, personName: p?.fullName ?? value, bps: '' }],
+                          });
                         }
                       }}
                     />
@@ -207,8 +401,12 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
               </>
             }
             confirmLabel="Create distribution"
-            confirmDisabled={!chosenLine || !draftsValid}
+            confirmDisabled={!chosenLine || seed.kind !== 'verified' || !draftsValid}
             onConfirm={async () => {
+              if (!canCreate || seed.kind !== 'verified') {
+                notify('error', 'Every source record must be current before a distribution can be created.');
+                throw new Error('money witness is not current');
+              }
               try {
                 const res = await api.createDistribution({
                   missionId,
@@ -222,8 +420,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                 });
                 notify('success', `${res.distribution.distributionId} allocated — org ${formatMoney(res.distribution.orgCutMinor, res.distribution.currency)} + ${res.shares.length} payout row${res.shares.length === 1 ? '' : 's'}.`);
                 invalidate();
-                setLineId('');
-                setDrafts(null);
+                dispatchSeed({ type: 'reset' });
               } catch (err) {
                 notify('error', err instanceof ApiError ? err.message : 'The distribution failed.');
                 throw err instanceof Error ? err : new Error('failed');
@@ -233,12 +430,18 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
         )}
       </div>
 
-      {dists.data && dists.data.distributions.length === 0 && (
-        <p className="record-quiet" data-testid="distributions-empty">
-          No distributions yet — they become available once income is recorded as Received.
-        </p>
-      )}
-
+      <RecheckingTruthPanel
+        state={distsTruth}
+        rechecking={distsRewitnessing || (dists.isFetching && dists.error == null)}
+        emptyLabel="No distributions yet — they become available once income is recorded as Received."
+        testids={{
+          loading: 'distributions-loading',
+          empty: 'distributions-empty',
+          denied: 'distributions-denied',
+          failed: 'distributions-error',
+          stale: 'distributions-stale',
+        }}
+      >
       <div className="record-rows">
         {(dists.data?.distributions ?? []).map(({ distribution: d, shares }) => (
           <WorkSurface key={d.distributionId} tier="elevated" className="record-card" data-testid={`distribution-${d.distributionId}`}>
@@ -250,7 +453,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
               <span className="record-quiet">
                 {`Pool ${formatMoney(d.poolMinor, d.currency)} · org ${(d.orgShareBps / 100).toFixed(2)}% = ${formatMoney(d.orgCutMinor, d.currency)}`}
               </span>
-              {canManage && d.status === 'Live' && shares.every((x) => x.payoutStatus === 'Pending') && (
+              {recordActionsCurrent && d.status === 'Live' && shares.every((x) => x.payoutStatus === 'Pending') && (
                 <GovernedAction
                   triggerLabel="Revoke…"
                   triggerTestId={`revoke-${d.distributionId}`}
@@ -269,6 +472,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                   confirmLabel="Revoke distribution"
                   confirmDisabled={(revokeReason[d.distributionId] ?? '').trim() === ''}
                   onConfirm={async () => {
+                    requireRecordAction();
                     try {
                       await api.revokeDistribution(d.distributionId, (revokeReason[d.distributionId] ?? '').trim(), d.version);
                       notify('success', `${d.distributionId} revoked — the line is free for a corrected allocation.`);
@@ -289,7 +493,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                     <th>Share</th>
                     <th>Amount</th>
                     <th>Payout</th>
-                    {canManage && <th aria-label="Actions" />}
+                    {recordActionsCurrent && <th aria-label="Actions" />}
                   </tr>
                 </thead>
                 <tbody>
@@ -304,7 +508,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                         </StatusBadge>
                         {sh.payoutStatus === 'Paid' && <span className="cell-note">{` · ${sh.paymentSourceLabel}${sh.refNo ? ` · ${sh.refNo}` : ''} · ${sh.paidOn}`}</span>}
                       </td>
-                      {canManage && (
+                      {recordActionsCurrent && (
                         <td>
                           {d.status === 'Live' && sh.payoutStatus === 'Pending' && (
                             <GovernedAction
@@ -333,6 +537,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                               confirmLabel="Mark paid"
                               confirmDisabled={(payoutForms[`${d.distributionId}/${sh.personId}`]?.label ?? '').trim() === ''}
                               onConfirm={async () => {
+                                requireRecordAction();
                                 const f = payoutForms[`${d.distributionId}/${sh.personId}`]!;
                                 try {
                                   await api.markPayout(d.distributionId, sh.personId, {
@@ -359,6 +564,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
                               description="An audited correction — the history keeps both events."
                               confirmLabel="Return to pending"
                               onConfirm={async () => {
+                                requireRecordAction();
                                 try {
                                   await api.markPayout(d.distributionId, sh.personId, { expectedVersion: sh.version, paid: false });
                                   notify('success', 'Payout returned to pending (recorded).');
@@ -380,6 +586,7 @@ export function DistributionsSection({ missionId, canManage }: { missionId: stri
           </WorkSurface>
         ))}
       </div>
+      </RecheckingTruthPanel>
     </section>
   );
 }
