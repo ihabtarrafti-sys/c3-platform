@@ -2,7 +2,7 @@
  * Iris Mission Command — the first in-place transformation contract.
  *
  * This guard is intentionally about mechanisms, not a screenshot:
- *  - one mission opens as three independently controllable modules while eleven
+ *  - one mission opens as three independently controllable modules while twelve
  *    cross-route and command-loop modules remain closed until requested;
  *  - window state survives navigation/reload, but malformed device state does not;
  *  - minimize, close, reopen, move, resize, and presets are deterministic;
@@ -39,7 +39,7 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 describe('Iris Mission Command workspace model', () => {
-  it('opens one mission as three real modules and keeps eleven adjacent modules closed in Commander', () => {
+  it('opens one mission as three real modules and keeps twelve adjacent modules closed in Commander', () => {
     expect(DEFAULT_MISSION_COMMAND.layout).toBe('commander');
     expect(DEFAULT_MISSION_COMMAND.windows.map((window) => window.id)).toEqual([
       'mission-field',
@@ -56,19 +56,59 @@ describe('Iris Mission Command workspace model', () => {
       'person-record',
       'seats-standing',
       'organization-continuity',
+      'mission-completion',
     ]);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(0, 3).every((window) => window.visibility === 'open')).toBe(true);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(3).every((window) => window.visibility === 'closed')).toBe(true);
   });
 
-  it('keeps the same fourteen singleton IDs exactly once in every built-in composition', () => {
-    for (const layout of ['commander', 'review', 'brief', 'finance', 'decisions', 'planning', 'coordinate', 'continuity', 'command', 'people'] as const) {
+  it('keeps the same fifteen singleton IDs exactly once in every built-in composition', () => {
+    for (const layout of ['commander', 'review', 'brief', 'finance', 'decisions', 'planning', 'coordinate', 'continuity', 'command', 'people', 'completion'] as const) {
       const state = missionCommandReducer(DEFAULT_MISSION_COMMAND, { type: 'apply-layout', layout });
       const ids = state.windows.map((window) => window.id);
-      expect(ids).toHaveLength(14);
-      expect(new Set(ids).size).toBe(14);
+      expect(ids).toHaveLength(15);
+      expect(new Set(ids).size).toBe(15);
       expect(ids).toContain('organization-continuity');
+      expect(ids).toContain('mission-completion');
     }
+  });
+
+  it('opens the Closeout desk with Money left, Authority above Completion, and every other module parked', () => {
+    const closeout = missionCommandReducer(DEFAULT_MISSION_COMMAND, {
+      type: 'activate-route',
+      id: 'mission-completion',
+    });
+
+    expect(closeout.layout).toBe('completion');
+    expect(closeout.windows.find((window) => window.id === 'mission-finance')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 0, y: 0, width: 58, height: 100 },
+    });
+    expect(closeout.windows.find((window) => window.id === 'approvals-register')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 59, y: 0, width: 41, height: 48 },
+    });
+    expect(closeout.windows.find((window) => window.id === 'mission-completion')).toMatchObject({
+      visibility: 'open',
+      rect: { x: 59, y: 49, width: 41, height: 51 },
+    });
+    expect(
+      closeout.windows
+        .filter((window) => ['mission-field', 'mission-current', 'mission-obligations'].includes(window.id))
+        .every((window) => window.visibility === 'minimized'),
+    ).toBe(true);
+    expect(
+      closeout.windows
+        .filter((window) => ![
+          'mission-field',
+          'mission-current',
+          'mission-obligations',
+          'mission-finance',
+          'approvals-register',
+          'mission-completion',
+        ].includes(window.id))
+        .every((window) => window.visibility === 'closed'),
+    ).toBe(true);
   });
 
   it('minimizes, closes, reopens, moves, resizes, and restores a preset deterministically', () => {
@@ -117,6 +157,60 @@ describe('Iris Mission Command workspace model', () => {
     expect(restoreMissionCommand(JSON.stringify({ windows: [{ id: 'people-scoreboard' }] }))).toEqual(
       DEFAULT_MISSION_COMMAND,
     );
+  });
+
+  it('upgrades the exact fourteen-window v2 milestone without moving current or saved geometry', () => {
+    const priorWindows = DEFAULT_MISSION_COMMAND.windows.slice(0, 14).map((window) =>
+      window.id === 'mission-finance'
+        ? {
+            ...window,
+            visibility: 'minimized' as const,
+            rect: { x: 7, y: 9, width: 57, height: 81 },
+            snap: 'left-half' as const,
+            restoreRect: { x: 8, y: 10, width: 55, height: 79 },
+          }
+        : window,
+    );
+    const savedWindows = priorWindows.map((window) =>
+      window.id === 'organization-continuity'
+        ? { ...window, rect: { x: 11, y: 6, width: 77, height: 88 } }
+        : window,
+    );
+    const prior = {
+      version: 2,
+      layout: 'custom',
+      activeSavedLayoutId: 'closeout-review',
+      windows: priorWindows,
+      savedLayouts: [{ id: 'closeout-review', name: 'Closeout review', windows: savedWindows }],
+    };
+
+    const restored = restoreMissionCommand(JSON.stringify(prior));
+
+    expect(restored.version).toBe(2);
+    expect(restored.windows).toHaveLength(15);
+    expect(restored.windows.slice(0, 14)).toEqual(priorWindows);
+    expect(restored.windows.at(14)).toMatchObject({
+      id: 'mission-completion',
+      visibility: 'closed',
+      rect: { x: 58, y: 42, width: 42, height: 58 },
+      snap: null,
+      restoreRect: null,
+    });
+    expect(restored.activeSavedLayoutId).toBe('closeout-review');
+    expect(restored.savedLayouts[0]?.name).toBe('Closeout review');
+    expect(restored.savedLayouts[0]?.windows.slice(0, 14)).toEqual(savedWindows);
+    expect(restored.savedLayouts[0]?.windows.at(14)).toMatchObject({
+      id: 'mission-completion',
+      visibility: 'closed',
+    });
+
+    const malformed = priorWindows.map((window, index) =>
+      index === 13 ? { ...window, id: 'mission-finance' } : window,
+    );
+    expect(
+      restoreMissionCommand(JSON.stringify({ ...prior, activeSavedLayoutId: null, windows: malformed, savedLayouts: [] })),
+    ).toEqual(DEFAULT_MISSION_COMMAND);
+    expect(restoreMissionCommand(JSON.stringify({ ...prior, layout: 'completion' }))).toEqual(DEFAULT_MISSION_COMMAND);
   });
 
   it('makes live-channel staleness a module-contract property, not a caller memory test', () => {

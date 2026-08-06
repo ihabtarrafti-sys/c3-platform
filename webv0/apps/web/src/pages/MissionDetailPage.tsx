@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { CURRENCY_CODES } from '@c3web/api-contracts';
@@ -43,11 +43,19 @@ import {
   Field,
   Input,
   Selector,
+  RecheckingTruthPanel,
+  isCurrentMoneyWitness,
+  moneyActionsAvailable,
+  moneyWitnessOf,
+  requiredCurrentSelection,
   percentToBpsAllowingZero,
   positiveAmountToMinor,
+  positiveFiniteRatio,
+  type WitnessState,
 } from '../tablework';
 import { DistributionsSection } from '../components/DistributionsSection';
 import { auditActionOf, lineCategoryOf, missionFinanceStageOf, paymentStatusOf } from '../labels';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
 
 /**
  * MissionDetailPage (Sprint 39) — the operational hub for one mission. The
@@ -809,10 +817,68 @@ function lineFormInvalid(f: LineForm): boolean {
  * an expense automatically; profit blends to USD through the org's FX table —
  * honestly: a missing rate means "no blended figure", never an invented one.
  */
-function MissionPnlSection({ missionId, canManage, organizer }: { missionId: string; canManage: boolean; organizer: string | null }) {
+export interface MissionPnlSectionProps {
+  readonly missionId: string;
+  readonly canManage: boolean;
+  readonly organizer: string | null;
+  readonly enabled?: boolean;
+  readonly foreground?: boolean;
+  readonly requestKey?: string | number;
+  readonly onTruthChange?: (truth: WitnessState) => void;
+}
+
+export function MissionPnlSection({
+  missionId,
+  canManage,
+  organizer,
+  enabled = true,
+  foreground = true,
+  requestKey,
+  onTruthChange,
+}: MissionPnlSectionProps) {
+  const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
-  const { data, isLoading } = useMissionPnl(missionId);
+  const canViewFinancials = me?.capabilities.canViewFinancials ?? false;
+  const queryEnabled = enabled && canViewFinancials;
+  const query = useMissionPnl(missionId, queryEnabled);
+  const rewitnessing = useForegroundRewitness({
+    foreground,
+    enabled: queryEnabled,
+    refetch: query.refetch,
+    requestKey,
+  });
+  const truth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: canViewFinancials,
+          data: query.data,
+          error: query.error,
+          isLoading: query.isLoading,
+          isFetching: query.isFetching || rewitnessing,
+          dataUpdatedAt: query.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) =>
+            view.lines.length === 0 && view.budgets.length === 0 && view.pnl.perDiem.entries.length === 0,
+          omittedReason: 'FINANCIALS_UNAVAILABLE',
+          recheckMessage: "This mission's financial record is being checked again.",
+          notFoundMessage: "This mission's financial record no longer resolves.",
+        },
+      ),
+    [
+      canViewFinancials,
+      query.data,
+      query.dataUpdatedAt,
+      query.error,
+      query.isFetching,
+      query.isLoading,
+      rewitnessing,
+    ],
+  );
+  const actionsCurrent = moneyActionsAvailable(canManage && enabled, truth, foreground);
+  const data = query.data;
   const lines = data?.lines ?? [];
   const pnl = data?.pnl;
 
@@ -822,8 +888,79 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
   const [budget, setBudget] = useState<BudgetForm>(EMPTY_BUDGET);
   // S6: per-line issue-invoice forms (entity series, billed-to, VAT %).
   const [invoiceForms, setInvoiceForms] = useState<Record<string, InvoiceForm>>({});
-  const { data: entitiesData } = useEntities(canManage);
-  const invoiceEntities = (entitiesData?.entities ?? []).filter((e) => e.isActive);
+  // Invoice issuance is governed by Manage Missions + View Financials. Entity
+  // administration is a different authority; requiring it here would invent
+  // a stricter UI policy than issueInvoice enforces.
+  const entitiesIncluded = canManage && canViewFinancials;
+  const entitiesEnabled = enabled && entitiesIncluded;
+  const entitiesQuery = useEntities(entitiesEnabled);
+  const entitiesRewitnessing = useForegroundRewitness({
+    foreground,
+    enabled: entitiesEnabled,
+    refetch: entitiesQuery.refetch,
+    requestKey,
+  });
+  const entitiesTruth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: entitiesIncluded,
+          data: entitiesQuery.data,
+          error: entitiesQuery.error,
+          isLoading: entitiesQuery.isLoading,
+          isFetching: entitiesQuery.isFetching || entitiesRewitnessing,
+          dataUpdatedAt: entitiesQuery.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) => view.entities.length === 0,
+          omittedReason: 'ENTITIES_UNAVAILABLE',
+          recheckMessage: 'The issuing Entity choices are being checked again.',
+        },
+      ),
+    [
+      entitiesIncluded,
+      entitiesQuery.data,
+      entitiesQuery.dataUpdatedAt,
+      entitiesQuery.error,
+      entitiesQuery.isFetching,
+      entitiesQuery.isLoading,
+      entitiesRewitnessing,
+    ],
+  );
+  const invoiceActionsCurrent = moneyActionsAvailable(
+    canManage && canViewFinancials && enabled,
+    truth,
+    foreground,
+    [entitiesTruth],
+  );
+  const invoiceEntities = useMemo(
+    () =>
+      (isCurrentMoneyWitness(entitiesTruth) ? entitiesQuery.data?.entities ?? [] : []).filter(
+        (entity) => entity.isActive,
+      ),
+    [entitiesQuery.data, entitiesTruth],
+  );
+  const invoiceEntityIds = useMemo(
+    () => new Set(invoiceEntities.map((entity) => entity.entityId)),
+    [invoiceEntities],
+  );
+
+  useEffect(() => {
+    onTruthChange?.(truth);
+  }, [onTruthChange, truth]);
+
+  useLayoutEffect(() => {
+    if (actionsCurrent) return;
+    setAdd(EMPTY_LINE);
+    setEdits({});
+    setPayments({});
+    setBudget(EMPTY_BUDGET);
+    setInvoiceForms({});
+  }, [actionsCurrent]);
+
+  useLayoutEffect(() => {
+    if (!invoiceActionsCurrent) setInvoiceForms({});
+  }, [invoiceActionsCurrent]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['missionPnl', missionId] });
@@ -832,6 +969,10 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
   };
 
   async function run(fn: () => Promise<unknown>, message: string): Promise<void> {
+    if (!actionsCurrent) {
+      notify('error', 'The financial record must be current before this action can be recorded.');
+      throw new Error('money witness is not current');
+    }
     try {
       await fn();
       notify('success', message);
@@ -912,7 +1053,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
     <div className="record-section" data-testid="mission-pnl-panel">
       <div className="record-section-head">
         <h2>Profit &amp; loss</h2>
-        {canManage && (
+        {actionsCurrent && (
           <div className="row-actions">
             <GovernedAction
               triggerLabel="Set budget…"
@@ -1000,11 +1141,18 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
         )}
       </div>
 
-      {isLoading && <LoadingState label="Loading P&L…" />}
-      {!isLoading && lines.length === 0 && perDiemEntries.length === 0 && (
-        <p data-testid="mission-pnl-empty">No income or expense lines yet.</p>
-      )}
-
+      <RecheckingTruthPanel
+        state={truth}
+        rechecking={rewitnessing || (query.isFetching && query.error == null)}
+        emptyLabel="No income, expense, per-diem, or budget records yet."
+        testids={{
+          loading: 'mission-pnl-loading',
+          empty: 'mission-pnl-empty',
+          denied: 'mission-pnl-denied',
+          failed: 'mission-pnl-error',
+          stale: 'mission-pnl-stale',
+        }}
+      >
       {(lines.length > 0 || perDiemEntries.length > 0) && (
         <ComparisonTable label="Mission income and expense lines" testId="mission-pnl-lines">
           <thead>
@@ -1014,7 +1162,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
               <th>Label</th>
               <th>Amount</th>
               <th>Payment</th>
-              {canManage && <th aria-label="Actions" />}
+              {actionsCurrent && <th aria-label="Actions" />}
             </tr>
           </thead>
           <tbody>
@@ -1023,6 +1171,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
               const setEf = (f: LineForm) => setEdits({ ...edits, [l.lineId]: f });
               const pf = payments[l.lineId] ?? paymentFromLine(l);
               const setPf = (f: PaymentForm) => setPayments({ ...payments, [l.lineId]: f });
+              const receivedRate = positiveFiniteRatio(pf.rate);
               return (
                 <tr key={l.lineId} data-testid={`pnl-line-${l.lineId}`}>
                   <td>{l.direction}</td>
@@ -1044,10 +1193,10 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                     )}
                     {l.refNo && <span className="cell-note">{` · ${l.refNo}`}</span>}
                   </td>
-                  {canManage && (
+                   {actionsCurrent && (
                     <td>
                       <div className="row-actions">
-                        {l.direction === 'Income' && l.paymentStatus === 'Expected' && (
+                        {invoiceActionsCurrent && l.direction === 'Income' && l.paymentStatus === 'Expected' && (
                           <GovernedAction
                             triggerLabel="Invoice…"
                             triggerTestId={`invoice-line-${l.lineId}`}
@@ -1087,18 +1236,33 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                             confirmDisabled={(() => {
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
                               const chosen = invoiceEntities.find((e) => e.entityId === f.entityId);
-                              return !chosen || !chosen.code || f.billedTo.trim() === '' || percentToBpsAllowingZero(f.vatPct) === null;
+                              return !requiredCurrentSelection(f.entityId, invoiceEntityIds) || !chosen?.code || f.billedTo.trim() === '' || percentToBpsAllowingZero(f.vatPct) === null;
                             })()}
                             onConfirm={async () => {
+                              if (!invoiceActionsCurrent) {
+                                notify('error', 'The financial record and issuing Entity choices must be current before an invoice can be issued.');
+                                throw new Error('money witness is not current');
+                              }
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
+                              const chosen = invoiceEntities.find((entity) => entity.entityId === f.entityId);
+                              const vatRateBps = percentToBpsAllowingZero(f.vatPct);
+                              if (
+                                !requiredCurrentSelection(f.entityId, invoiceEntityIds) ||
+                                !chosen?.code ||
+                                f.billedTo.trim() === '' ||
+                                vatRateBps === null
+                              ) {
+                                notify('error', 'Choose a current issuing Entity with a code and complete the invoice fields.');
+                                throw new Error('invoice dependency is not current');
+                              }
                               try {
                                 const res = await api.issueInvoice({
                                   missionId,
                                   lineId: l.lineId,
-                                  entityId: f.entityId,
+                                  entityId: chosen.entityId,
                                   billedToName: f.billedTo.trim(),
                                   billedToDetails: f.details.trim() === '' ? null : f.details.trim(),
-                                  vatRateBps: percentToBpsAllowingZero(f.vatPct)!,
+                                  vatRateBps,
                                   description: f.description.trim() === '' ? null : f.description.trim(),
                                 });
                                 notify('success', `Issued ${res.invoice.invoiceNumber} — the line is now Invoiced.`);
@@ -1154,7 +1318,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                             confirmLabel="Save payment"
                             confirmDisabled={
                               (pf.received.trim() !== '' && positiveAmountToMinor(pf.received) == null) ||
-                              (pf.rate.trim() !== '' && !(Number.parseFloat(pf.rate) > 0))
+                              (pf.rate.trim() !== '' && receivedRate == null)
                             }
                             onConfirm={() =>
                               run(
@@ -1163,7 +1327,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                                     expectedVersion: l.version,
                                     paymentStatus: pf.status,
                                     receivedAmountMinor: pf.status === 'Received' && pf.received.trim() !== '' ? positiveAmountToMinor(pf.received) : null,
-                                    receivedUsdPerUnit: pf.status === 'Received' && pf.rate.trim() !== '' ? Number.parseFloat(pf.rate) : null,
+                                    receivedUsdPerUnit: pf.status === 'Received' && pf.rate.trim() !== '' ? receivedRate : null,
                                     paymentSourceLabel: pf.source.trim() === '' ? null : pf.source.trim(),
                                     refNo: pf.refNo.trim() === '' ? null : pf.refNo.trim(),
                                   }),
@@ -1232,7 +1396,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
                       : `${formatMoney(e.amountMinor, e.currency)}/day`}
                 </td>
                 <td>—</td>
-                {canManage && <td />}
+                {actionsCurrent && <td />}
               </tr>
             ))}
           </tbody>
@@ -1309,6 +1473,7 @@ function MissionPnlSection({ missionId, canManage, organizer }: { missionId: str
           )}
         </div>
       )}
+      </RecheckingTruthPanel>
     </div>
   );
 }

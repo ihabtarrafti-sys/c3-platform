@@ -30,7 +30,8 @@ export type MissionCommandModuleId =
   | 'people-field'
   | 'person-record'
   | 'seats-standing'
-  | 'organization-continuity';
+  | 'organization-continuity'
+  | 'mission-completion';
 export type MissionCommandVisibility = WorkspaceVisibility;
 export type MissionCommandPreset =
   | 'commander'
@@ -42,7 +43,8 @@ export type MissionCommandPreset =
   | 'coordinate'
   | 'continuity'
   | 'command'
-  | 'people';
+  | 'people'
+  | 'completion';
 export type MissionCommandLayout = WorkspaceLayout<MissionCommandPreset>;
 export type MissionCommandRect = WorkspaceRect;
 export type MissionCommandSnap = WorkspaceSnap;
@@ -66,7 +68,8 @@ const RELAY_IDS = [...COMMAND_LOOP_IDS, 'conversation-relay'] as const;
 const PEOPLE_FIELD_IDS = [...RELAY_IDS, 'people-field'] as const;
 const PERSON_RECORD_IDS = [...PEOPLE_FIELD_IDS, 'person-record'] as const;
 const SEATS_STANDING_IDS = [...PERSON_RECORD_IDS, 'seats-standing'] as const;
-const IDS: readonly MissionCommandModuleId[] = [...SEATS_STANDING_IDS, 'organization-continuity'];
+const ORGANIZATION_CONTINUITY_IDS = [...SEATS_STANDING_IDS, 'organization-continuity'] as const;
+const IDS: readonly MissionCommandModuleId[] = [...ORGANIZATION_CONTINUITY_IDS, 'mission-completion'];
 const CONVERSATION_SEED: MissionCommandWindowSeed = {
   id: 'conversation-relay',
   visibility: 'closed',
@@ -96,6 +99,12 @@ const ORGANIZATION_CONTINUITY_SEED: MissionCommandWindowSeed = {
   visibility: 'closed',
   rect: { x: 8, y: 4, width: 84, height: 92 },
   z: 14,
+};
+const MISSION_COMPLETION_SEED: MissionCommandWindowSeed = {
+  id: 'mission-completion',
+  visibility: 'closed',
+  rect: { x: 58, y: 42, width: 42, height: 58 },
+  z: 15,
 };
 const PRIOR_LAYOUTS: readonly MissionCommandLayout[] = [
   'commander',
@@ -127,6 +136,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   review: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 31, height: 43 }, z: 1 },
@@ -143,6 +153,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   brief: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 34, height: 100 }, z: 2 },
@@ -159,6 +170,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   finance: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -175,6 +187,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   decisions: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -191,6 +204,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   planning: [
     { id: 'mission-field', visibility: 'open', rect: { x: 0, y: 0, width: 34, height: 100 }, z: 4 },
@@ -207,6 +221,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   coordinate: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -223,6 +238,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   continuity: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -239,6 +255,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   command: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -255,6 +272,7 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
   ],
   people: [
     { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
@@ -271,6 +289,24 @@ const PRESETS: Readonly<Record<MissionCommandPreset, readonly MissionCommandWind
     PERSON_RECORD_SEED,
     SEATS_STANDING_SEED,
     ORGANIZATION_CONTINUITY_SEED,
+    MISSION_COMPLETION_SEED,
+  ],
+  completion: [
+    { id: 'mission-field', visibility: 'minimized', rect: { x: 0, y: 0, width: 24, height: 100 }, z: 1 },
+    { id: 'mission-current', visibility: 'minimized', rect: { x: 25, y: 0, width: 49, height: 100 }, z: 2 },
+    { id: 'mission-obligations', visibility: 'minimized', rect: { x: 75, y: 0, width: 25, height: 100 }, z: 3 },
+    { id: 'mission-finance', visibility: 'open', rect: { x: 0, y: 0, width: 58, height: 100 }, z: 13 },
+    { id: 'approvals-register', visibility: 'open', rect: { x: 59, y: 0, width: 41, height: 48 }, z: 14 },
+    { id: 'calendar-horizon', visibility: 'closed', rect: { x: 35, y: 0, width: 65, height: 100 }, z: 4 },
+    { id: 'command-constellation', visibility: 'closed', rect: { x: 0, y: 0, width: 49, height: 100 }, z: 5 },
+    { id: 'command-attention', visibility: 'closed', rect: { x: 61, y: 0, width: 39, height: 100 }, z: 6 },
+    { id: 'mission-continuity', visibility: 'closed', rect: { x: 55, y: 0, width: 45, height: 100 }, z: 7 },
+    { ...CONVERSATION_SEED, z: 8 },
+    { ...PEOPLE_FIELD_SEED, z: 9 },
+    { ...PERSON_RECORD_SEED, z: 10 },
+    { ...SEATS_STANDING_SEED, z: 11 },
+    { ...ORGANIZATION_CONTINUITY_SEED, z: 12 },
+    { ...MISSION_COMPLETION_SEED, visibility: 'open', rect: { x: 59, y: 49, width: 41, height: 51 }, z: 15 },
   ],
 };
 
@@ -296,6 +332,7 @@ export function missionCommandReducer(state: MissionCommandState, action: Missio
       'command-attention': 'coordinate',
       'mission-continuity': 'continuity',
       'people-field': 'people',
+      'mission-completion': 'completion',
     };
     const layout = firstOpenLayout[action.id];
     const target = state.windows.find((window) => window.id === action.id);
@@ -314,7 +351,17 @@ function knownPriorIds(value: unknown): value is readonly unknown[] {
   const ids = value.map((window) =>
     window && typeof window === 'object' ? (window as { id?: unknown }).id : null,
   );
-  const accepted = [ORIGINAL_IDS, PRIOR_IDS, WORKSPACE_OS_IDS, COMMAND_LOOP_IDS, RELAY_IDS, PEOPLE_FIELD_IDS, PERSON_RECORD_IDS, SEATS_STANDING_IDS].find(
+  const accepted = [
+    ORIGINAL_IDS,
+    PRIOR_IDS,
+    WORKSPACE_OS_IDS,
+    COMMAND_LOOP_IDS,
+    RELAY_IDS,
+    PEOPLE_FIELD_IDS,
+    PERSON_RECORD_IDS,
+    SEATS_STANDING_IDS,
+    ORGANIZATION_CONTINUITY_IDS,
+  ].find(
     (known) => ids.length === known.length && ids.every((id) => known.includes(id as never)),
   );
   return accepted !== undefined && new Set(ids).size === accepted.length && ids.every((id) => accepted.includes(id as never));

@@ -13,6 +13,7 @@ import {
   AuditTimeline,
   FactList,
   StatusBadge,
+  EmptyState,
   ErrorState,
   LoadingState,
   Field,
@@ -20,10 +21,18 @@ import {
   GovernedAction,
   type DefItem,
   type TimelineEntry,
+  type WitnessState,
   RecordLink,
 } from '../tablework';
 import { CorrectionDialog, isCorrectable } from '../components/RequestCorrections';
 import { agreementTermKindOf, approvalStatusOf, operationOf } from '../labels';
+import {
+  approvalAuthorityActionOf,
+  approvalDetailTruthOf,
+  approvalHistoryTruthOf,
+  isCurrentApprovalWitness,
+  approvalRequesterActionsAvailable,
+} from '../tablework/approvalAuthority';
 
 export function ApprovalDetailPage() {
   const { approvalId = '' } = useParams();
@@ -147,11 +156,81 @@ export function SeatingApprovalReceipt({
   );
 }
 
+export function ApprovalHistorySurface({
+  state,
+  entries,
+  error,
+  rechecking = false,
+}: {
+  state: WitnessState;
+  entries: TimelineEntry[];
+  error: unknown;
+  rechecking?: boolean;
+}) {
+  switch (state.kind) {
+    case 'loading':
+      return (
+        <div data-truth="loading" data-testid="approval-events-loading">
+          <LoadingState label="Checking approval history…" />
+        </div>
+      );
+    case 'denied':
+      return (
+        <div data-truth="denied">
+          <ErrorState
+            data-testid="approval-events-error"
+            message={`The history is unavailable for this session (${state.reasonClass}). No absence is claimed.`}
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        </div>
+      );
+    case 'fetch-failed':
+      return (
+        <div data-truth="fetch-failed">
+          <ErrorState
+            data-testid="approval-events-error"
+            message="The history could not be loaded — what happened here may not be shown."
+            correlationId={error instanceof ApiError ? error.correlationId : undefined}
+          />
+        </div>
+      );
+    case 'proven-empty':
+      return (
+        <div data-truth="proven-empty" data-testid="approval-events-empty">
+          <EmptyState message="No events are present in this successfully witnessed history." />
+        </div>
+      );
+    case 'verified':
+      return (
+        <div data-truth="verified">
+          <AuditTimeline entries={entries} testId="approval-events" />
+        </div>
+      );
+    case 'stale':
+      return (
+        <div data-truth="stale" data-testid="approval-events-stale">
+          <p className="boundary-note">
+            {rechecking
+              ? 'Showing the last verified history while a new check is in progress.'
+              : `Showing the last verified history because the latest check failed: ${state.message}`}{' '}
+            Actor provenance may be incomplete; this history does not grant or veto authority.
+          </p>
+          {entries.length > 0 ? (
+            <AuditTimeline entries={entries} testId="approval-events" />
+          ) : (
+            <EmptyState message="The last verified history contained no events; the current history is not yet known." />
+          )}
+        </div>
+      );
+  }
+}
+
 function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
   const { me } = useSession();
   const { notify } = useNotify();
   const qc = useQueryClient();
-  const { data, isLoading, isError, error } = useApproval(approvalId);
+  const approvalQuery = useApproval(approvalId);
+  const { data, isLoading, isFetching, error, dataUpdatedAt } = approvalQuery;
   const events = useApprovalEvents(approvalId);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
@@ -178,7 +257,16 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
     }
   }
 
-  if (isError) {
+  const detailTruth = approvalDetailTruthOf({ data, error, isLoading, isFetching, dataUpdatedAt });
+  const historyTruth = approvalHistoryTruthOf({
+    data: events.data,
+    error: events.error,
+    isLoading: events.isLoading,
+    isFetching: events.isFetching,
+    dataUpdatedAt: events.dataUpdatedAt,
+  });
+
+  if (detailTruth.kind === 'denied' || detailTruth.kind === 'fetch-failed') {
     const is404 = error instanceof ApiError && error.status === 404;
     return (
       <RecordPage eyebrow="Approval" title={approvalId}>
@@ -200,8 +288,27 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
   const st = a ? approvalStatusOf(a.status) : null;
   const canReview = me?.capabilities.canReviewApproval ?? false;
   const canExecute = me?.capabilities.canExecuteApproval ?? false;
-  const isOwnRequest = a ? me?.identity === a.submittedBy : false;
-  const actionable = !isOwnRequest;
+  // A review/execute affordance is a time-sensitive authority claim. It is
+  // derived from the current approval row/version and effective actor standing.
+  // Event history is an independent provenance witness: it never grants or
+  // vetoes authority, and a failed history read cannot deadlock a valid row.
+  const detailCurrentlyWitnessed = isCurrentApprovalWitness(detailTruth);
+  const authority = a
+    ? approvalAuthorityActionOf(
+        a,
+        {
+          identity: me?.identity,
+          canReviewApproval: canReview,
+          canExecuteApproval: canExecute,
+        },
+        detailCurrentlyWitnessed,
+      )
+    : null;
+  const isOwnRequest = authority?.relation === 'self';
+  const authorityIndeterminate = authority?.relation === 'indeterminate';
+  const requesterActionsAvailable = a
+    ? approvalRequesterActionsAvailable(a, me?.identity, detailCurrentlyWitnessed)
+    : false;
   const correctable = a ? isCorrectable(a.operationType) : false;
 
   const entries: TimelineEntry[] = (events.data?.events ?? []).map((e) => {
@@ -313,11 +420,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
     });
   }
 
-  const showDecision =
-    !!a &&
-    actionable &&
-    ((canReview && (a.status === 'Submitted' || a.status === 'InReview')) ||
-      (canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed')));
+  const showDecision = !!a && authority?.action !== null;
 
   const reviewComplete = !!a && ['Approved', 'ExecutionFailed', 'Executed'].includes(a.status);
   const executeComplete = a?.status === 'Executed';
@@ -330,7 +433,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
           ? 0
           : 3;
 
-  if (isLoading) {
+  if (detailTruth.kind === 'loading') {
     return (
       <RecordPage eyebrow="Approval" title={approvalId}>
         <LoadingState label="Loading approval…" />
@@ -352,6 +455,14 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
         ) : undefined
       }
     >
+      {detailTruth.kind === 'stale' && (
+        <p className="boundary-note" data-truth="stale" data-testid="approval-detail-stale">
+          {isFetching
+            ? 'Showing the last verified approval record while a new check is in progress.'
+            : `Showing the last verified approval record because the latest check failed: ${detailTruth.message}`}{' '}
+          Review, execution, and requester changes are withheld until a current record returns.
+        </p>
+      )}
       {a && st && (
         <div className="ceremony-shell">
           <aside className="work-surface subtle ceremony-rail" aria-label="Approval ceremony">
@@ -412,14 +523,26 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
               canReadMembers={me?.capabilities.canReadMembers ?? false}
             />
 
-            {isOwnRequest && canReview && (
+            {isOwnRequest && (canReview || canExecute) && (
               <p className="record-quiet" data-testid="own-request-note">
                 You submitted this request. Separation of duties requires someone other than the submitter to review and
                 execute it.
               </p>
             )}
 
-            {isOwnRequest && (a.status === 'Submitted' || a.status === 'InReview') && (
+            {authorityIndeterminate && (canReview || canExecute) && (
+              <p className="field-error-block" data-testid="approval-authority-indeterminate">
+                Submitter and signed-in actor could not be compared safely. Review and execution are withheld rather than guessing that they are different people.
+              </p>
+            )}
+
+            {authority?.reason === 'not-current' && authority.relation === 'distinct' && (
+              <p className="boundary-note" data-testid="approval-authority-rechecking">
+                The current approval record must be witnessed before review or execution is offered. History is checked separately as provenance.
+              </p>
+            )}
+
+            {requesterActionsAvailable && (a.status === 'Submitted' || a.status === 'InReview') && (
               <section className="consequence">
                 <span>
                   {a.status === 'Submitted'
@@ -463,7 +586,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
               </section>
             )}
 
-            {isOwnRequest && (a.status === 'Rejected' || a.status === 'Withdrawn') && !a.supersededBy && correctable && (
+            {requesterActionsAvailable && (a.status === 'Rejected' || a.status === 'Withdrawn') && !a.supersededBy && correctable && (
               <section className="consequence">
                 <span>
                   {a.status === 'Rejected'
@@ -492,7 +615,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
                 <div className="consequence">
                   <span>Governed action — approval and execution are separate steps.</span>
                   <div className="panel-actions">
-                    {canReview && a.status === 'Submitted' && (
+                    {authority?.action === 'begin-review' && (
                       <button
                         className="primary-action"
                         type="button"
@@ -503,7 +626,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
                         Begin review
                       </button>
                     )}
-                    {canReview && a.status === 'InReview' && (
+                    {authority?.action === 'decide' && (
                       <>
                         <GovernedAction
                           triggerLabel="Approve"
@@ -530,7 +653,7 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
                         />
                       </>
                     )}
-                    {canExecute && (a.status === 'Approved' || a.status === 'ExecutionFailed') && (
+                    {authority?.action === 'execute' && (
                       <GovernedAction
                         triggerLabel={a.status === 'ExecutionFailed' ? 'Retry execute' : 'Execute'}
                         triggerTestId="execute"
@@ -569,13 +692,12 @@ function ApprovalDetailRecord({ approvalId }: { approvalId: string }) {
 
             <section className="record-section">
               <h2>History</h2>
-              {/* F04 (instance 21): a denied or failed history fetch surfaces —
-                  an empty timeline is a CLAIM about what happened here. */}
-              {events.isError ? (
-                <ErrorState data-testid="approval-events-error" message="The history could not be loaded — what happened here may not be shown." correlationId={events.error instanceof ApiError ? events.error.correlationId : undefined} />
-              ) : (
-                <AuditTimeline entries={entries} testId="approval-events" />
-              )}
+              <ApprovalHistorySurface
+                state={historyTruth}
+                entries={entries}
+                error={events.error}
+                rechecking={events.isFetching}
+              />
             </section>
           </main>
         </div>
