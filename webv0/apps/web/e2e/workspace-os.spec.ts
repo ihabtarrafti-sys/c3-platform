@@ -1622,7 +1622,7 @@ test('Workspace OS: the complete header control set clears the mission identity 
     await expect(layouts.getByRole('button', { name, exact: true })).toBeVisible();
   }
   await expect(layouts.getByRole('button', { name: /^Views/ })).toBeVisible();
-  for (const name of ['Open mission workspace', 'Mission Current', 'Constellation', 'My Attention', 'People', 'Seats', 'Organization', 'Continuity', 'Finance', 'Approvals', 'Calendar']) {
+  for (const name of ['Open mission workspace', 'Mission Current', 'Constellation', 'My Attention', 'People', 'Seats', 'Organization', 'Continuity', 'Completion', 'Money', 'Approvals', 'Calendar']) {
     await expect(routeIntents.getByRole('link', { name, exact: true })).toBeVisible();
   }
 
