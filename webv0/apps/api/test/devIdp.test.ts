@@ -23,6 +23,9 @@ function fakeDirectory(resolve: (key: ExternalIdentityKey) => string | null): Ad
     resolvePlatformPrincipal: async () => null,
     resolveTenantBySlug: async () => null,
     resolveMembership: async () => null,
+    // CR-036: capability re-derivation is a stream concern; this fake exercises
+    // the token path, where it must never be consulted — null is the honest answer.
+    resolveCurrentRole: async () => null,
     resolveUserId: async (key: ExternalIdentityKey) => resolve(key),
     upsertDevMembership: async () => {},
     close: async () => {},

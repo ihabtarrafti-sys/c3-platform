@@ -236,7 +236,7 @@ import {
   commsPrefsResponseSchema,
 } from '@c3web/api-contracts';
 // (withdrawApproval imported with the application use-cases below)
-import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, createCommsObligationInputSchema, commsObligationTransitionInputSchema, advanceCommsCursorInputSchema, setCommsPrefsInputSchema, type PostCommsMessageInput, type CreateCommsObligationInput, type CommsObligationTransitionInput, type AdvanceCommsCursorInput, type SetCommsPrefsInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
+import { DOCUMENT_MAX_BYTES, ForbiddenError, documentBytesMatchDeclaredType, isAllowedDocumentContentType, isC3Role, PERSON_PHOTO_MAX_BYTES, isAllowedPersonPhotoContentType, postCommsMessageInputSchema, createCommsObligationInputSchema, commsObligationTransitionInputSchema, advanceCommsCursorInputSchema, setCommsPrefsInputSchema, type PostCommsMessageInput, type CreateCommsObligationInput, type CommsObligationTransitionInput, type AdvanceCommsCursorInput, type SetCommsPrefsInput, type DocumentOwnerType, type IntakeKind, type IntakeUpload } from '@c3web/domain';
 import { mintIntakeToken, hashIntakeToken } from './intakeToken';
 import { capabilityView, canViewPerDiem, canViewPersonPII, disclosureOf, assertManageEntities, type PlatformPrincipal } from '@c3web/authz';
 import { mayExercise, recordPlatformOperation } from './platformOperations';
@@ -1963,7 +1963,24 @@ function registerRoutes(app: FastifyInstance, deps: Deps): void {
   );
   // Phase B-LIVE: the SSE surface (its own module — the per-subscriber gate
   // and the heartbeat live together where they can be read as one contract).
-  registerCommsStream(app, { P, getBus: () => deps.commsLiveBus, actorOf });
+  //
+  // ⛔ CR-036: the stream re-derives capability per event through the SAME
+  // directory the auth boundary resolves membership from — one vocabulary, no
+  // mirror. No directory (a bare harness) ⇒ every derivation returns null ⇒ the
+  // stream terminates on its first event: fail-closed and loud, never quietly
+  // stale. Role comes back as a plain string from the CHECK-constrained column;
+  // an unknown value refuses rather than coerces.
+  registerCommsStream(app, {
+    P,
+    getBus: () => deps.commsLiveBus,
+    actorOf,
+    freshActor: async (actor) => {
+      const current = await deps.directory?.resolveCurrentRole(actor.tenantId, actor.userId);
+      const role = current?.role;
+      if (!current || role === undefined || !isC3Role(role)) return null;
+      return { ...actor, role, displayName: current.displayName || actor.displayName };
+    },
+  });
 
   r.get(
     '/api/v1/comms/directory',

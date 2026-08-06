@@ -112,6 +112,20 @@ export interface AdminDirectory {
   /** Resolve an authenticated external identity to tenant + role. Fail-closed:
    *  unknown identity, inactive user, or missing membership/role => null. */
   resolveMembership(key: ExternalIdentityKey): Promise<ResolvedMembership | null>;
+  /**
+   * ⛔ CR-036: re-derive a live principal's CURRENT capability at the moment of
+   * use. `resolveMembership` answers at the AUTH boundary; a long-lived
+   * connection (the SSE stream) then carries that answer for hours, and a
+   * role change or offboarding never reaches it — the capability was read once
+   * and exercised indefinitely. This is the same membership spine WITHOUT the
+   * external-identity hop: identity (userId, tenantId) is pinned by the token;
+   * capability (role, liveness) is what must stay current.
+   *
+   * Fail-closed: inactive user, missing membership/role, or an ambiguous answer
+   * (≠ 1 row) => null — and for a stream, null means the authority to keep
+   * receiving is over.
+   */
+  resolveCurrentRole(tenantId: string, userId: string): Promise<{ role: string; displayName: string } | null>;
   /** Resolve an external identity to just the stable app_user.id (uuid). Used by
    *  the dev adapter to obtain a SERVER-resolved userId (never a self-asserted
    *  token claim). Fail-closed: unknown identity or inactive user => null. */
@@ -183,6 +197,25 @@ export function createAdminDirectory(connectionString: string): AdminDirectory {
         email: row.email,
         displayName: row.display_name,
       };
+    },
+
+    async resolveCurrentRole(tenantId: string, userId: string): Promise<{ role: string; displayName: string } | null> {
+      // CR-036: the SAME membership spine as MEMBERSHIP_SQL minus the
+      // external-identity hop — app_user liveness, tenant membership, role
+      // assignment. A join added to one of these belongs in both; the readiness
+      // probe already certifies this role's SELECT on all three tables.
+      const r = await pool.query(
+        `SELECT ra.role AS role, u.display_name AS display_name
+           FROM app_user u
+           JOIN tenant_membership tm ON tm.user_id = u.id AND tm.tenant_id = $1
+           JOIN role_assignment ra   ON ra.user_id = u.id AND ra.tenant_id = tm.tenant_id
+          WHERE u.id = $2 AND u.is_active = true`,
+        [tenantId, userId],
+      );
+      // ≠ 1 row is null on purpose: zero is an ended membership, and two is an
+      // answer this cannot arbitrate — a stream must not keep pushing on either.
+      if (r.rows.length !== 1) return null;
+      return { role: r.rows[0].role as string, displayName: (r.rows[0].display_name as string | null) ?? '' };
     },
 
     async resolveUserId(key: ExternalIdentityKey): Promise<string | null> {

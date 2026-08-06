@@ -96,7 +96,30 @@ export function registerCommsStream(
   // LISTEN connection is established asynchronously), so capturing the value at
   // registration time would pin `null` forever and the stream would be
   // permanently DEGRADED while looking perfectly healthy in code review.
-  deps: { P: Persistence; getBus: () => CommsLiveBus | null; actorOf: (req: FastifyRequest) => Actor },
+  deps: {
+    P: Persistence;
+    getBus: () => CommsLiveBus | null;
+    actorOf: (req: FastifyRequest) => Actor;
+    /**
+     * ⛔ CR-036: re-derive the subscriber's CURRENT capability at the moment of
+     * use. The `actor` captured at connection open is a statement about the
+     * moment the stream OPENED; this connection then lives for hours, and the
+     * per-event gate's mission arm evaluates a pure function of that captured
+     * object — so a downgraded or off-boarded principal kept receiving live
+     * mission-thread pushes until the CLIENT chose to close. (The direct/standing
+     * arm re-reads seating from the DB per event and was never stale — but
+     * seating does not notice a deactivated USER, so offboarding leaked there
+     * too. One fresh derivation covers both arms.)
+     *
+     * Returns the CURRENT actor (fresh role), or null when the membership is
+     * over — and null means this stream's authority to receive is over with it.
+     * REQUIRED, not optional: an optional freshness source is the same hole with
+     * better manners (the CR-031 law) — a harness that cannot re-derive
+     * capability gets a stream that pushes nothing, loudly, not a quietly
+     * stale one.
+     */
+    freshActor: (actor: Actor) => Promise<Actor | null>;
+  },
 ): void {
   app.get('/api/v1/comms/stream', async (req: FastifyRequest, reply: FastifyReply) => {
     const actor = deps.actorOf(req);
@@ -131,7 +154,16 @@ export function registerCommsStream(
         if (e.tenantId !== actor.tenantId) return; // tenancy first, always
         void (async () => {
           try {
-            const push = await projectForSubscriber(deps.P, actor, e.threadId, e.messageId);
+            // ⛔ CR-036: identity is pinned by the token (userId, tenantId);
+            // CAPABILITY is re-derived here, per event. A membership that has
+            // ended TERMINATES the stream server-side — the client's reconnect
+            // then meets the auth boundary, where the truth already lives.
+            const fresh = await deps.freshActor(actor);
+            if (!fresh) {
+              reply.raw.end();
+              return;
+            }
+            const push = await projectForSubscriber(deps.P, fresh, e.threadId, e.messageId);
             if (push) send('message', push);
           } catch (err) {
             // ⛔ CR-013, the half that makes the throw useful. An unexpected

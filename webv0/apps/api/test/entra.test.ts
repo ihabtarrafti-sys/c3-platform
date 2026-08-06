@@ -71,6 +71,8 @@ function fakeDirectory(known: Map<string, ResolvedMembership>): AdminDirectory {
     // path, where the registry must never be consulted, and null is the honest answer.
     resolvePlatformPrincipal: async () => null,
     resolveTenantBySlug: async () => null,
+    // CR-036: stream-freshness derivation; never consulted on the token path.
+    resolveCurrentRole: async () => null,
     resolveMembership: async (key: ExternalIdentityKey) =>
       known.get(`${key.provider}|${key.issuerTenantId}|${key.subject}`) ?? null,
     resolveUserId: async (key: ExternalIdentityKey) =>
