@@ -806,7 +806,7 @@
     "apps/web/src/tablework/TruthPanel.tsx#deniedReasonOf": "0ac05a60439ad06c2f70038d31a7f77c22e9050d8ea706a5efd33e6155396eda",
     "apps/api/src#tree": "5e7303dc4ffa8a22dfcb9cc1c594ccd45425a99625a734da24ebc4a14e52e236",
     "packages/authz/src#tree": "20fa063ee789c387af047d1f9fec2e68480918da41c22b87ac6c99ba741a446d",
-    "packages/domain/src#tree": "0d3d07d9a8b06fc56d5863879bc5f3f07307931e81f06dad4e47b14c1a57f113",
+    "packages/domain/src#tree": "79567f0a7577c32f009290fc18aa0b1d260a41879db85e67428d4e5ee8653739",
     "packages/application/src#tree": "6223824cae2994f5a815b0a50d967d1404baf404f88499353588f6a3bd09cda2",
     "packages/persistence/src#tree": "864939c56153f65dea996c131c164d8dcd0f9fc09ffd48cb3e6add1006217cca",
     "packages/persistence/migrations#tree": "27284479ae3a7a6afa561eb2fe185df3a0ddc0e87d3664f3038ea7e9d77dcf58",
