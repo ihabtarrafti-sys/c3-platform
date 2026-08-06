@@ -1427,6 +1427,141 @@ test('Command & Coordination: a transient Conversation Relay keeps geometry, not
   await expect(page.locator('#thread-message')).toBeVisible();
 });
 
+test('Money, Authority & Completion: Closeout re-witnesses cached parent facts without persisting record identity', async ({ page }) => {
+  await login(page);
+
+  let missionReads = 0;
+  let obligationReads = 0;
+  let holdParentReads = false;
+  let releaseMission: () => void = () => undefined;
+  let releaseObligations: () => void = () => undefined;
+  let missionGate = Promise.resolve();
+  let obligationsGate = Promise.resolve();
+  const holdNextParentReads = () => {
+    holdParentReads = true;
+    missionGate = new Promise<void>((resolve) => {
+      releaseMission = resolve;
+    });
+    obligationsGate = new Promise<void>((resolve) => {
+      releaseObligations = resolve;
+    });
+  };
+  const releaseParentReads = () => {
+    holdParentReads = false;
+    releaseMission();
+    releaseObligations();
+  };
+
+  await page.route(`**/api/v1/missions/${mission.missionId}`, async (route) => {
+    missionReads += 1;
+    if (holdParentReads) await missionGate;
+    await fulfillJson(route, { mission });
+  });
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/thread**`, (route) =>
+    fulfillJson(route, { thread: null, messages: [], myLastReadSeq: null }),
+  );
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/obligations`, async (route) => {
+    obligationReads += 1;
+    if (holdParentReads) await obligationsGate;
+    await fulfillJson(route, { obligations: [] });
+  });
+  await page.route(`**/api/v1/comms/missions/${mission.missionId}/receipts`, (route) =>
+    fulfillJson(route, { receipts: [] }),
+  );
+  await page.route('**/api/v1/comms/prefs', (route) =>
+    fulfillJson(route, { receiptsEnabled: true, presenceEnabled: false, version: null }),
+  );
+  await page.route(`**/api/v2/missions/${mission.missionId}/pnl`, (route) =>
+    fulfillJson(route, {
+      lines: [],
+      budgets: [],
+      pnl: {
+        perCurrency: [],
+        perDiem: { openEnded: false, entries: [] },
+        perCategory: [],
+        settlement: { outstandingIncomeCount: 0, incomeComplete: false },
+        blended: {
+          income: { status: 'ok', amountMinor: 0 },
+          expense: { status: 'ok', amountMinor: 0 },
+          profit: { status: 'ok', amountMinor: 0 },
+        },
+        missingRates: [],
+      },
+    }),
+  );
+  await page.route('**/api/v1/invoices', (route) => fulfillJson(route, { invoices: [] }));
+  await page.route(`**/api/v1/missions/${mission.missionId}/distributions`, (route) =>
+    fulfillJson(route, { distributions: [] }),
+  );
+  await page.route('**/api/v1/claims', (route) => fulfillJson(route, { claims: [] }));
+  await page.route('**/api/v1/approvals', (route) => fulfillJson(route, { approvals: [] }));
+
+  await page.goto(`/missions/${mission.missionId}/comms`);
+  await expect(page.locator('[data-module="mission-current"]')).toBeVisible();
+  await expect(page.locator('[data-module="mission-completion"]')).toHaveCount(0);
+
+  const firstMissionBaseline = missionReads;
+  const firstObligationsBaseline = obligationReads;
+  holdNextParentReads();
+  await page
+    .getByRole('navigation', { name: 'Global intent' })
+    .getByRole('link', { name: 'Completion', exact: true })
+    .click();
+  await expect(page).toHaveURL(new RegExp(`/missions/${mission.missionId}/comms\\?open=completion$`));
+
+  const finance = page.locator('[data-module="mission-finance"]');
+  const approvals = page.locator('[data-module="approvals-register"]');
+  const completion = page.locator('[data-module="mission-completion"]');
+  await expect.poll(() => missionReads).toBeGreaterThan(firstMissionBaseline);
+  await expect.poll(() => obligationReads).toBeGreaterThan(firstObligationsBaseline);
+  await expect(completion.getByTestId('completion-mission-stale')).toContainText(mission.name);
+  await expect(completion.getByTestId('completion-obligations-stale')).toBeVisible();
+  await expect(completion.getByTestId('completion-mission-loading')).toHaveCount(0);
+  await expect(completion.getByTestId('completion-obligations-loading')).toHaveCount(0);
+
+  releaseParentReads();
+  await expect(completion.getByTestId('completion-mission-verified')).toContainText(mission.name);
+  await expect(completion.getByTestId('completion-obligations-empty')).toBeVisible();
+  await expect(completion).toHaveAttribute('data-module-truth', 'verified');
+
+  await expect(page.getByRole('group', { name: 'Workspace layouts' }).getByRole('button', { name: 'Closeout', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await expect(finance).toHaveCount(1);
+  await expect(approvals).toHaveCount(1);
+  await expect(completion).toHaveCount(1);
+  await expect(finance).toBeVisible();
+  await expect(approvals).toBeVisible();
+  await expect(completion).toBeVisible();
+  await expect(finance).toHaveAttribute('style', /--mc-x: 0%;.*--mc-y: 0%;.*--mc-w: 58%;.*--mc-h: 100%/);
+  await expect(approvals).toHaveAttribute('style', /--mc-x: 59%;.*--mc-y: 0%;.*--mc-w: 41%;.*--mc-h: 48%/);
+  await expect(completion).toHaveAttribute('style', /--mc-x: 59%;.*--mc-y: 49%;.*--mc-w: 41%;.*--mc-h: 51%/);
+  await expect(completion.getByText('Recorded completion facts. No overall completion is inferred.')).toBeVisible();
+  await expect(completion.getByTestId('mission-completion-boundary')).toContainText('it does not create a verdict, score, or new state');
+
+  await page.locator('[data-window-launcher="mission-finance"]').click();
+  await expect(finance).toBeFocused();
+  const secondMissionBaseline = missionReads;
+  const secondObligationsBaseline = obligationReads;
+  holdNextParentReads();
+  await page.locator('[data-window-launcher="mission-completion"]').click();
+  await expect(completion).toBeFocused();
+  await expect.poll(() => missionReads).toBeGreaterThan(secondMissionBaseline);
+  await expect.poll(() => obligationReads).toBeGreaterThan(secondObligationsBaseline);
+  await expect(completion.getByTestId('completion-mission-stale')).toContainText(mission.name);
+  await expect(completion.getByTestId('completion-obligations-stale')).toBeVisible();
+  releaseParentReads();
+  await expect(completion.getByTestId('completion-mission-verified')).toContainText(mission.name);
+  await expect(completion.getByTestId('completion-obligations-empty')).toBeVisible();
+
+  const storageKey = `c3:mission-command:${mission.missionId}:workspace:v2`;
+  await expect
+    .poll(() => page.evaluate((key) => localStorage.getItem(key) ?? '', storageKey))
+    .toContain('mission-completion');
+  const stored = await page.evaluate((key) => localStorage.getItem(key) ?? '', storageKey);
+  expect(JSON.parse(stored).windows.filter((window: { id: string }) => window.id === 'mission-completion')).toHaveLength(1);
+  expect(stored).not.toContain(mission.name);
+  expect(stored).not.toContain(mission.missionId);
+});
+
 test('Workspace OS: the complete header control set clears the mission identity without label collisions', async ({ page }) => {
   await page.setViewportSize({ width: 800, height: 900 });
   await login(page);

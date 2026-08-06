@@ -120,6 +120,10 @@ describe('Iris cross-route workspace model', () => {
       missionId: 'MSN-0042',
       requestedModule: 'mission-continuity',
     });
+    expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=completion')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'mission-completion',
+    });
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=attention')).toEqual({
       missionId: 'MSN-0042',
       requestedModule: 'command-attention',
@@ -173,6 +177,9 @@ describe('Iris cross-route workspace model', () => {
     expect(missionWorkspaceTargetOf('/agreements/AGR-0042', '?workspace=MSN-0042')).toBeNull();
     expect(missionWorkspaceTargetOf('/claims/CLM-0042', '?workspace=MSN-0042')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=finance&extra=true')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=completion&extra=true')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=constructor')).toBeNull();
+    expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=toString')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=current')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=attention&open=continuity')).toBeNull();
     expect(missionWorkspaceTargetOf('/comms/threads/THR-0042', '')).toBeNull();
@@ -211,9 +218,12 @@ describe('Iris cross-route workspace model', () => {
     expect(workspaceHrefFor('/members', 'MSN-42')).toBe('/members');
     expect(JSON.stringify(DEFAULT_MISSION_COMMAND)).not.toContain('moneyLens');
     expect(JSON.stringify(DEFAULT_MISSION_COMMAND)).not.toContain('portfolio');
+    expect(JSON.stringify(DEFAULT_MISSION_COMMAND)).not.toMatch(
+      /(?:invoiceId|claimId|agreementId|subscriptionId|personId)/,
+    );
   });
 
-  it('adds eleven adjacent modules to the closed union without changing the three-window Commander opening', () => {
+  it('adds twelve adjacent modules to the closed union without changing the three-window Commander opening', () => {
     expect(DEFAULT_MISSION_COMMAND.windows.map((window) => [window.id, window.visibility])).toEqual([
       ['mission-field', 'open'],
       ['mission-current', 'open'],
@@ -229,6 +239,7 @@ describe('Iris cross-route workspace model', () => {
       ['person-record', 'closed'],
       ['seats-standing', 'closed'],
       ['organization-continuity', 'closed'],
+      ['mission-completion', 'closed'],
     ]);
   });
 
@@ -262,6 +273,7 @@ describe('Iris cross-route workspace model', () => {
     expect(restored.windows.find((window) => window.id === 'person-record')?.visibility).toBe('closed');
     expect(restored.windows.find((window) => window.id === 'seats-standing')?.visibility).toBe('closed');
     expect(restored.windows.find((window) => window.id === 'organization-continuity')?.visibility).toBe('closed');
+    expect(restored.windows.find((window) => window.id === 'mission-completion')?.visibility).toBe('closed');
   });
 
   it('upgrades the nine-window command-loop milestone without persisting a record identity', () => {
@@ -275,7 +287,7 @@ describe('Iris cross-route workspace model', () => {
     const restored = restoreMissionCommand(JSON.stringify(prior));
 
     expect(restored.layout).toBe('command');
-    expect(restored.windows).toHaveLength(14);
+    expect(restored.windows).toHaveLength(15);
     expect(restored.windows.find((window) => window.id === 'conversation-relay')).toMatchObject({
       id: 'conversation-relay',
       visibility: 'closed',
@@ -301,6 +313,11 @@ describe('Iris cross-route workspace model', () => {
       visibility: 'closed',
       rect: { x: 8, y: 4, width: 84, height: 92 },
     });
+    expect(restored.windows.find((window) => window.id === 'mission-completion')).toMatchObject({
+      id: 'mission-completion',
+      visibility: 'closed',
+      rect: { x: 58, y: 42, width: 42, height: 58 },
+    });
     expect(JSON.stringify(restored)).not.toContain('THR-');
     expect(JSON.stringify(restored)).not.toContain('PER-');
   });
@@ -315,7 +332,7 @@ describe('Iris cross-route workspace model', () => {
     };
     const restored = restoreMissionCommand(JSON.stringify(prior));
 
-    expect(restored.windows).toHaveLength(14);
+    expect(restored.windows).toHaveLength(15);
     expect(restored.windows.find((window) => window.id === 'people-field')).toMatchObject({
       id: 'people-field',
       visibility: 'closed',
@@ -335,7 +352,7 @@ describe('Iris cross-route workspace model', () => {
     const restored = restoreMissionCommand(JSON.stringify(prior));
 
     expect(restored.layout).toBe('people');
-    expect(restored.windows).toHaveLength(14);
+    expect(restored.windows).toHaveLength(15);
     expect(restored.windows.find((window) => window.id === 'person-record')).toMatchObject({
       id: 'person-record',
       visibility: 'closed',
@@ -364,7 +381,7 @@ describe('Iris cross-route workspace model', () => {
     };
     const restored = restoreMissionCommand(JSON.stringify(prior));
 
-    expect(restored.windows).toHaveLength(14);
+    expect(restored.windows).toHaveLength(15);
     expect(restored.windows.slice(0, 12)).toEqual(priorWindows);
     expect(restored.windows.at(12)).toMatchObject({
       id: 'seats-standing',
@@ -376,11 +393,17 @@ describe('Iris cross-route workspace model', () => {
       visibility: 'closed',
       rect: { x: 8, y: 4, width: 84, height: 92 },
     });
+    expect(restored.windows.at(14)).toMatchObject({
+      id: 'mission-completion',
+      visibility: 'closed',
+      rect: { x: 58, y: 42, width: 42, height: 58 },
+    });
     expect(restored.activeSavedLayoutId).toBe('people-review');
     expect(restored.savedLayouts[0]?.name).toBe('People review');
     expect(restored.savedLayouts[0]?.windows.slice(0, 12)).toEqual(savedWindows);
     expect(restored.savedLayouts[0]?.windows.at(12)?.id).toBe('seats-standing');
     expect(restored.savedLayouts[0]?.windows.at(13)?.id).toBe('organization-continuity');
+    expect(restored.savedLayouts[0]?.windows.at(14)?.id).toBe('mission-completion');
     expect(JSON.stringify(restored)).not.toMatch(/(?:email|userId|approvalId|PER-\d|APR-\d)/);
   });
 
@@ -410,17 +433,23 @@ describe('Iris cross-route workspace model', () => {
     };
     const restored = restoreMissionCommand(JSON.stringify(prior));
 
-    expect(restored.windows).toHaveLength(14);
+    expect(restored.windows).toHaveLength(15);
     expect(restored.windows.slice(0, 13)).toEqual(priorWindows);
     expect(restored.windows.at(13)).toMatchObject({
       id: 'organization-continuity',
       visibility: 'closed',
       rect: { x: 8, y: 4, width: 84, height: 92 },
     });
+    expect(restored.windows.at(14)).toMatchObject({
+      id: 'mission-completion',
+      visibility: 'closed',
+      rect: { x: 58, y: 42, width: 42, height: 58 },
+    });
     expect(restored.activeSavedLayoutId).toBe('organization-review');
     expect(restored.savedLayouts[0]?.name).toBe('Organization review');
     expect(restored.savedLayouts[0]?.windows.slice(0, 13)).toEqual(savedWindows);
     expect(restored.savedLayouts[0]?.windows.at(13)?.id).toBe('organization-continuity');
+    expect(restored.savedLayouts[0]?.windows.at(14)?.id).toBe('mission-completion');
   });
 
   it('rejects malformed thirteen-window current or saved sets instead of blessing them as a migration', () => {
@@ -440,6 +469,72 @@ describe('Iris cross-route workspace model', () => {
     expect(restoreMissionCommand(raw(duplicate))).toEqual(DEFAULT_MISSION_COMMAND);
     expect(restoreMissionCommand(raw(unknown))).toEqual(DEFAULT_MISSION_COMMAND);
     expect(restoreMissionCommand(raw(validThirteen, unknown))).toEqual(DEFAULT_MISSION_COMMAND);
+  });
+
+  it('upgrades the exact fourteen-window Organization milestone without moving current or saved geometry', () => {
+    const priorWindows = DEFAULT_MISSION_COMMAND.windows.slice(0, 14).map((window) =>
+      window.id === 'organization-continuity'
+        ? {
+            ...window,
+            visibility: 'minimized' as const,
+            rect: { x: 11, y: 7, width: 72, height: 81 },
+            snap: 'right-half' as const,
+            restoreRect: { x: 12, y: 9, width: 69, height: 77 },
+          }
+        : window,
+    );
+    const savedWindows = priorWindows.map((window) =>
+      window.id === 'mission-finance'
+        ? { ...window, visibility: 'open' as const, rect: { x: 3, y: 5, width: 55, height: 89 } }
+        : window,
+    );
+    const prior = {
+      version: 2,
+      layout: 'custom',
+      activeSavedLayoutId: 'organization-command',
+      windows: priorWindows,
+      savedLayouts: [{ id: 'organization-command', name: 'Organization command', windows: savedWindows }],
+    };
+    const restored = restoreMissionCommand(JSON.stringify(prior));
+
+    expect(restored.windows).toHaveLength(15);
+    expect(restored.windows.slice(0, 14)).toEqual(priorWindows);
+    expect(restored.windows.at(14)).toMatchObject({
+      id: 'mission-completion',
+      visibility: 'closed',
+      rect: { x: 58, y: 42, width: 42, height: 58 },
+      snap: null,
+      restoreRect: null,
+    });
+    expect(restored.layout).toBe('custom');
+    expect(restored.activeSavedLayoutId).toBe('organization-command');
+    expect(restored.savedLayouts[0]?.name).toBe('Organization command');
+    expect(restored.savedLayouts[0]?.windows.slice(0, 14)).toEqual(savedWindows);
+    expect(restored.savedLayouts[0]?.windows.at(14)).toMatchObject({
+      id: 'mission-completion',
+      visibility: 'closed',
+    });
+  });
+
+  it('rejects malformed fourteen-window current or saved sets instead of blessing them as a migration', () => {
+    const validFourteen = DEFAULT_MISSION_COMMAND.windows.slice(0, 14);
+    const missingMiddle = validFourteen.filter((window) => window.id !== 'mission-current');
+    const duplicate = validFourteen.map((window, index) => index === 13 ? validFourteen[12]! : window);
+    const unknown = validFourteen.map((window, index) =>
+      index === 13 ? { ...window, id: 'completion-scoreboard' } : window,
+    );
+    const raw = (windows: readonly unknown[], savedWindows: readonly unknown[] = windows) => JSON.stringify({
+      version: 2,
+      layout: 'custom',
+      activeSavedLayoutId: 'view-1',
+      windows,
+      savedLayouts: [{ id: 'view-1', name: 'Review', windows: savedWindows }],
+    });
+
+    expect(restoreMissionCommand(raw(missingMiddle))).toEqual(DEFAULT_MISSION_COMMAND);
+    expect(restoreMissionCommand(raw(duplicate))).toEqual(DEFAULT_MISSION_COMMAND);
+    expect(restoreMissionCommand(raw(unknown))).toEqual(DEFAULT_MISSION_COMMAND);
+    expect(restoreMissionCommand(raw(validFourteen, unknown))).toEqual(DEFAULT_MISSION_COMMAND);
   });
 
   it('upgrades every saved four-window view without discarding its geometry or name', () => {

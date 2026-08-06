@@ -42,6 +42,14 @@ export interface ClaimsView {
   readonly claims: readonly ClaimDto[];
 }
 
+export interface MissionRecordView {
+  readonly mission: MissionDto;
+}
+
+export interface MissionObligationsView {
+  readonly obligations: readonly CommsObligationDto[];
+}
+
 export interface CompletionSourceTruthFacts<T> {
   readonly included: boolean;
   readonly data: T | undefined;
@@ -143,6 +151,31 @@ export function claimsCompletionTruthOf(
   });
 }
 
+/** Parent-owned sources use the same fail-closed witness law as the ledger's
+ * own queries. This keeps a cached Mission or obligation register from looking
+ * current while React Query is revalidating it for Completion. */
+export function missionRecordCompletionTruthOf(
+  facts: CompletionSourceTruthFacts<MissionRecordView>,
+): WitnessState {
+  return completionSourceTruthOf(facts, {
+    isEmpty: () => false,
+    omittedReason: 'MISSION_NOT_INCLUDED',
+    recheckMessage: 'The Mission record is being checked again.',
+    missingMessage: 'The selected Mission no longer resolves, so its prior record has been withheld.',
+  });
+}
+
+export function missionObligationsCompletionTruthOf(
+  facts: CompletionSourceTruthFacts<MissionObligationsView>,
+): WitnessState {
+  return completionSourceTruthOf(facts, {
+    isEmpty: (view) => view.obligations.length === 0,
+    omittedReason: 'OBLIGATIONS_NOT_INCLUDED',
+    recheckMessage: 'Mission obligations are being checked again.',
+    missingMessage: 'The selected Mission no longer resolves, so its prior obligation view has been withheld.',
+  });
+}
+
 interface CompletionTruthSources {
   readonly mission: WitnessState;
   readonly obligations: WitnessState;
@@ -238,6 +271,12 @@ export interface CompletionObligationRow {
         readonly lifecycle: 'current' | 'cancelled';
         readonly actorName: string;
       }
+    | {
+        readonly shape: 'external';
+        readonly lifecycle: 'current' | 'cancelled';
+        readonly actorName: string;
+        readonly authorityLabel: string;
+      }
     | null;
 }
 
@@ -294,11 +333,18 @@ export function projectMissionCompletion({
               actorName: actorNameOf(selfAcceptance.actorLabel, selfAcceptance.actorUserId),
             }
           : provenance
-            ? {
-                shape: 'ordinary',
-                lifecycle: provenance.lifecycle,
-                actorName: actorNameOf(provenance.actorLabel, provenance.actorUserId),
-              }
+            ? obligation.acceptanceKind === 'external'
+              ? {
+                  shape: 'external',
+                  lifecycle: provenance.lifecycle,
+                  actorName: actorNameOf(provenance.actorLabel, provenance.actorUserId),
+                  authorityLabel: obligation.acceptanceLabel?.trim() || 'the external authority',
+                }
+              : {
+                  shape: 'ordinary',
+                  lifecycle: provenance.lifecycle,
+                  actorName: actorNameOf(provenance.actorLabel, provenance.actorUserId),
+                }
             : null,
       };
     });
@@ -585,15 +631,21 @@ export function MissionCompletionView({
                         {provenance.lifecycle === 'cancelled'
                           ? provenance.shape === 'same-person'
                             ? 'Superseded same-person record'
+                            : provenance.shape === 'external'
+                              ? 'Superseded external acceptance record'
                             : 'Superseded acceptance record'
                           : provenance.shape === 'same-person'
                             ? 'Same-person record'
+                            : provenance.shape === 'external'
+                              ? 'External acceptance record'
                             : 'Acceptance provenance'}
                       </strong>
                       <span>
                         {provenance.lifecycle === 'cancelled' ? 'Before cancellation, ' : ''}
                         {provenance.shape === 'same-person'
                           ? `${provenance.actorName} both delivered evidence and accepted it as the named authority.`
+                          : provenance.shape === 'external'
+                            ? `${provenance.authorityLabel}'s acceptance was recorded by ${provenance.actorName}.`
                           : `${provenance.actorName} accepted it as the named authority.`}
                       </span>
                     </p>

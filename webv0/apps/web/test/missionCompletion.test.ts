@@ -18,7 +18,9 @@ import {
   invoicesCompletionTruthOf,
   joinMissionCompletionTruth,
   MissionCompletionView,
+  missionObligationsCompletionTruthOf,
   missionPnlCompletionTruthOf,
+  missionRecordCompletionTruthOf,
   projectMissionCompletion,
   type CompletionSourceTruthFacts,
   type MissionCompletionProjection,
@@ -242,6 +244,29 @@ const selfAcceptedCancelled: CommsObligationDto = {
   ],
 };
 
+const externalAccepted: CommsObligationDto = {
+  ...selfAcceptedCancelled,
+  obligationId: 'OBL-0002',
+  state: 'Accepted',
+  acceptanceKind: 'external',
+  acceptanceUserId: 'user-cameron',
+  acceptanceLabel: 'Publisher council',
+  version: 2,
+  events: selfAcceptedCancelled.events.slice(0, 2).map((event) =>
+    event.eventType === 'Accepted'
+      ? { ...event, actorUserId: 'user-cameron', actorLabel: 'Cameron Recorder' }
+      : event,
+  ),
+};
+
+const externalAcceptedThenCancelled: CommsObligationDto = {
+  ...externalAccepted,
+  obligationId: 'OBL-0003',
+  state: 'Cancelled',
+  version: 3,
+  events: [...externalAccepted.events, selfAcceptedCancelled.events[2]!],
+};
+
 function facts<T>(overrides: Partial<CompletionSourceTruthFacts<T>> = {}): CompletionSourceTruthFacts<T> {
   return {
     included: true,
@@ -355,6 +380,43 @@ describe('Mission Completion independent source witnesses', () => {
       ),
     ).toEqual({ kind: 'stale', verifiedAt: new Date(witnessedAt), message: 'Try again.' });
   });
+
+  it('marks rechecking parent-owned Mission and obligation sources stale instead of borrowing cached standing', () => {
+    const missionFacts: CompletionSourceTruthFacts<{ mission: MissionDto }> = {
+      included: true,
+      data: { mission },
+      error: null,
+      isLoading: false,
+      isFetching: true,
+      dataUpdatedAt: witnessedAt,
+    };
+    const obligationFacts: CompletionSourceTruthFacts<{ obligations: readonly CommsObligationDto[] }> = {
+      included: true,
+      data: { obligations: [selfAcceptedCancelled] },
+      error: null,
+      isLoading: false,
+      isFetching: true,
+      dataUpdatedAt: witnessedAt,
+    };
+
+    expect(missionRecordCompletionTruthOf(missionFacts)).toEqual({
+      kind: 'stale',
+      verifiedAt: new Date(witnessedAt),
+      message: 'The Mission record is being checked again.',
+    });
+    expect(missionObligationsCompletionTruthOf(obligationFacts)).toEqual({
+      kind: 'stale',
+      verifiedAt: new Date(witnessedAt),
+      message: 'Mission obligations are being checked again.',
+    });
+    expect(
+      missionRecordCompletionTruthOf({
+        ...missionFacts,
+        isFetching: false,
+        error: new ApiError(403, 'MISSION_REFUSED', 'Standing refused.'),
+      }),
+    ).toEqual({ kind: 'denied', reasonClass: 'MISSION_REFUSED' });
+  });
 });
 
 describe('Mission Completion projection boundaries', () => {
@@ -419,6 +481,28 @@ describe('Mission Completion projection boundaries', () => {
         pnl: pnlView([receivedIncome], { outstandingIncomeCount: 0, incomeComplete: true }),
       }).incomeCriterion,
     ).toEqual({ kind: 'recorded-true' });
+  });
+
+  it('keeps the outside authority separate from the internal recorder for current and superseded acceptance', () => {
+    const projection = projectMissionCompletion({
+      missionId,
+      obligations: [externalAccepted, externalAcceptedThenCancelled],
+    });
+
+    expect(projection.obligations.map(({ acceptanceProvenance }) => acceptanceProvenance)).toEqual([
+      {
+        shape: 'external',
+        lifecycle: 'current',
+        actorName: 'Cameron Recorder',
+        authorityLabel: 'Publisher council',
+      },
+      {
+        shape: 'external',
+        lifecycle: 'cancelled',
+        actorName: 'Cameron Recorder',
+        authorityLabel: 'Publisher council',
+      },
+    ]);
   });
 });
 
@@ -526,6 +610,25 @@ describe('Mission Completion rendered contract', () => {
     expect(markup).toContain('Superseded same-person record');
     expect(markup).toContain('Before cancellation, Avery both delivered evidence and accepted it as the named authority.');
     expect(markup).toContain('Not currently recorded');
+  });
+
+  it('names external authority acceptance as recorded by its internal transcriber, current or superseded', () => {
+    const projection = projectMissionCompletion({
+      missionId,
+      obligations: [externalAccepted, externalAcceptedThenCancelled],
+    });
+    const markup = renderToStaticMarkup(
+      createElement(MissionCompletionView, viewProps({ projection })),
+    );
+
+    expect(markup).toContain('data-acceptance-shape="external"');
+    expect(markup).toContain('data-acceptance-lifecycle="current"');
+    expect(markup).toContain('External acceptance record');
+    expect(markup).toContain('Publisher council&#x27;s acceptance was recorded by Cameron Recorder.');
+    expect(markup).toContain('data-acceptance-lifecycle="cancelled"');
+    expect(markup).toContain('Superseded external acceptance record');
+    expect(markup).toContain('Before cancellation, Publisher council&#x27;s acceptance was recorded by Cameron Recorder.');
+    expect(markup).not.toContain('Cameron Recorder accepted it as the named authority.');
   });
 
   it('does not let verified invoice truth authorize a denied P&L payment subfact', () => {

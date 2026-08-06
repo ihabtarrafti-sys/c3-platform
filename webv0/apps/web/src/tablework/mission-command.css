@@ -488,6 +488,11 @@
   container-type: inline-size;
 }
 
+.tw-root .mission-command-window.module-mission-completion {
+  --module-line: var(--c3-accent-periwinkle);
+  container-type: inline-size;
+}
+
 .tw-root .module-mission-field .mission-command-truth,
 .tw-root .module-mission-obligations .mission-command-truth {
   display: none;
@@ -864,8 +869,13 @@
    the persistent window owns the outer surface and the independent scroll. */
 .tw-root .module-mission-finance .mission-command-windowbody,
 .tw-root .module-approvals-register .mission-command-windowbody,
-.tw-root .module-calendar-horizon .mission-command-windowbody {
+.tw-root .module-calendar-horizon .mission-command-windowbody,
+.tw-root .module-mission-completion .mission-command-windowbody {
   overflow: auto;
+}
+
+.tw-root .module-mission-completion .mission-command-windowbody {
+  overscroll-behavior: contain;
 }
 
 .tw-root .module-mission-finance .collection-frame,
@@ -3104,7 +3114,8 @@
 
   .tw-root .mission-command-window.module-mission-finance,
   .tw-root .mission-command-window.module-approvals-register,
-  .tw-root .mission-command-window.module-calendar-horizon {
+  .tw-root .mission-command-window.module-calendar-horizon,
+  .tw-root .mission-command-window.module-mission-completion {
     min-height: 32rem;
   }
 
@@ -3200,6 +3211,10 @@
 
   .tw-root .mission-command-window.module-conversation-relay {
     min-height: 48rem;
+  }
+
+  .tw-root .mission-command-window.module-mission-completion {
+    min-height: 44rem;
   }
 
   .tw-root .conversation-relay-layout {

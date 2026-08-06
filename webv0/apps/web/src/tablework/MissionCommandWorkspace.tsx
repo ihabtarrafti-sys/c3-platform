@@ -65,6 +65,7 @@ const LAYOUT_LABELS: ReadonlyArray<{ id: MissionCommandPreset; label: string }> 
   { id: 'continuity', label: 'Continuity' },
   { id: 'command', label: 'Command' },
   { id: 'people', label: 'People' },
+  { id: 'completion', label: 'Closeout' },
 ];
 
 const COMPACT_QUERY = '(max-width: 71.999rem)';
@@ -109,6 +110,7 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'person-record': '◌',
   'seats-standing': '⌾',
   'organization-continuity': '⌘',
+  'mission-completion': '◈',
 };
 
 function isInteractiveTarget(target: EventTarget | null): boolean {

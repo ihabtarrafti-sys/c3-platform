@@ -36,6 +36,11 @@ import { isActionableWitness, withModuleChannelTruth, type MissionCommandModuleI
 import { CommandConstellation } from '../tablework/CommandConstellation';
 import { CommandAttention, type CommandAttentionTarget } from '../tablework/CommandAttention';
 import { MissionContinuity, joinMissionContinuityWitness } from '../tablework/MissionContinuity';
+import {
+  MissionCompletion,
+  missionObligationsCompletionTruthOf,
+  missionRecordCompletionTruthOf,
+} from '../tablework/MissionCompletion';
 import { ConversationRelay, type ConversationRelayMeta } from '../tablework/ConversationRelay';
 import { PeopleField } from '../tablework/PeopleField';
 import { PersonRecord, type PersonRecordMeta } from '../tablework/PersonRecord';
@@ -44,6 +49,7 @@ import { OrganizationContinuity } from '../tablework/OrganizationContinuity';
 import { MoneyContinuity } from '../tablework/MoneyContinuity';
 import type { MoneyContinuityLens } from '../tablework/moneyContinuityModel';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
+import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
 import { useCommsLive } from '../useCommsLive';
 import { ApprovalsRegister } from './ApprovalsPage';
 import { CalendarHorizon } from './CalendarPage';
@@ -60,6 +66,7 @@ const WORKSPACE_ROUTE_META: Readonly<
   'command-constellation': { place: 'Command', origin: 'Mission Command', section: 'Organization Constellation' },
   'command-attention': { place: 'Comms', origin: 'Mission Command', section: 'My Attention' },
   'mission-continuity': { place: 'Comms', origin: 'Mission Command', section: 'Mission Continuity' },
+  'mission-completion': { place: 'Completion', origin: 'Workspace OS', section: 'Completion Ledger' },
   'conversation-relay': { place: 'Comms', origin: 'Mission Command', section: 'Conversation Relay' },
   'people-field': { place: 'People', origin: 'Workspace OS', section: 'Living Field' },
   'person-record': { place: 'People', origin: 'Living Field', section: 'Person Record' },
@@ -187,6 +194,7 @@ function MissionCommsScreen({
   const [calendarTruth, setCalendarTruth] = useState<WitnessState>({ kind: 'loading' });
   const [constellationTruth, setConstellationTruth] = useState<WitnessState>({ kind: 'loading' });
   const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [completionTruth, setCompletionTruth] = useState<WitnessState>({ kind: 'loading' });
   const [peopleTruth, setPeopleTruth] = useState<WitnessState>({ kind: 'loading' });
   const [seatsTruth, setSeatsTruth] = useState<WitnessState>({ kind: 'loading' });
   const [organizationTruth, setOrganizationTruth] = useState<WitnessState>({ kind: 'loading' });
@@ -472,6 +480,19 @@ function MissionCommsScreen({
   const record = notFound ? missionId : (mission.data?.mission.name ?? missionId);
 
   const obligationList = obligations.data?.obligations ?? [];
+  const completionForeground = effectiveForeground === 'mission-completion';
+  const completionMissionRewitnessing = useForegroundRewitness({
+    foreground: completionForeground,
+    enabled: workspaceActive,
+    refetch: mission.refetch,
+    requestKey: `${workspaceRequestKey}:completion-mission`,
+  });
+  const completionObligationsRewitnessing = useForegroundRewitness({
+    foreground: completionForeground,
+    enabled: workspaceActive,
+    refetch: obligations.refetch,
+    requestKey: `${workspaceRequestKey}:completion-obligations`,
+  });
 
   // Phase A — the six-state contract: BOTH regions derive through the ONE
   // deriver (the shipped page's hand-rolled empty branch was the instance-21
@@ -490,6 +511,44 @@ function MissionCommsScreen({
   const obligationsTruth = truthStateOf(
     { data: obligations.data, error: obligations.error, isLoading: obligations.isLoading, dataUpdatedAt: obligations.dataUpdatedAt },
     (d) => d.obligations.length === 0,
+  );
+  const completionMissionTruth = useMemo(
+    () =>
+      missionRecordCompletionTruthOf({
+        included: true,
+        data: mission.data,
+        error: mission.error,
+        isLoading: mission.isLoading,
+        isFetching: mission.isFetching || completionMissionRewitnessing,
+        dataUpdatedAt: mission.dataUpdatedAt,
+      }),
+    [
+      completionMissionRewitnessing,
+      mission.data,
+      mission.dataUpdatedAt,
+      mission.error,
+      mission.isFetching,
+      mission.isLoading,
+    ],
+  );
+  const completionObligationsTruth = useMemo(
+    () =>
+      missionObligationsCompletionTruthOf({
+        included: true,
+        data: obligations.data,
+        error: obligations.error,
+        isLoading: obligations.isLoading,
+        isFetching: obligations.isFetching || completionObligationsRewitnessing,
+        dataUpdatedAt: obligations.dataUpdatedAt,
+      }),
+    [
+      completionObligationsRewitnessing,
+      obligations.data,
+      obligations.dataUpdatedAt,
+      obligations.error,
+      obligations.isFetching,
+      obligations.isLoading,
+    ],
   );
   const continuityTruth = joinMissionContinuityWitness({
     messages,
@@ -679,6 +738,9 @@ function MissionCommsScreen({
               <Link className="intent-button" to={`/missions/${missionId}/comms?open=continuity`} aria-current={requestedModule === 'mission-continuity' ? 'page' : undefined}>
                 Continuity
               </Link>
+              <Link className="intent-button" to={`/missions/${missionId}/comms?open=completion`} aria-current={requestedModule === 'mission-completion' ? 'page' : undefined}>
+                Completion
+              </Link>
               <Link className="intent-button" to={`/missions/${missionId}/comms?open=finance`} aria-current={requestedModule === 'mission-finance' ? 'page' : undefined}>
                 Money
               </Link>
@@ -739,6 +801,7 @@ function MissionCommsScreen({
               else if (moduleId === 'calendar-horizon') setCalendarTruth({ kind: 'loading' });
               else if (moduleId === 'command-constellation') setConstellationTruth({ kind: 'loading' });
               else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
+              else if (moduleId === 'mission-completion') setCompletionTruth({ kind: 'loading' });
               else if (moduleId === 'people-field') setPeopleTruth({ kind: 'loading' });
               else if (moduleId === 'seats-standing') setSeatsTruth({ kind: 'loading' });
               else if (moduleId === 'organization-continuity') setOrganizationTruth({ kind: 'loading' });
@@ -958,6 +1021,37 @@ function MissionCommsScreen({
                     obligationTruth={obligationsTruth}
                     onFocusMessage={(messageId) => navigate(`/missions/${missionId}/comms#msg-${messageId}`)}
                     onFocusObligation={(obligationId) => navigate(`/missions/${missionId}/comms?open=obligations#obl-${obligationId}`)}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'mission-completion' satisfies MissionCommandModuleId,
+                eyebrow: 'Completion · Recorded facts',
+                title: 'Completion Ledger',
+                detail: 'A closeout reading across independent records. It records what each source says and never invents an overall complete verdict.',
+                truth: completionTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <MissionCompletion
+                    missionId={missionId}
+                    mission={mission.data?.mission}
+                    missionTruth={completionMissionTruth}
+                    obligations={obligationList}
+                    obligationsTruth={completionObligationsTruth}
+                    missionRechecking={
+                      mission.data !== undefined &&
+                      mission.error == null &&
+                      (mission.isFetching || completionMissionRewitnessing)
+                    }
+                    obligationsRechecking={
+                      obligations.data !== undefined &&
+                      obligations.error == null &&
+                      (obligations.isFetching || completionObligationsRewitnessing)
+                    }
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'mission-completion'}
+                    requestKey={workspaceRequestKey}
+                    onTruthChange={setCompletionTruth}
                   />
                 ),
               } satisfies MissionCommandModule,

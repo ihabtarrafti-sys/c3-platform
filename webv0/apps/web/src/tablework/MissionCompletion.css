@@ -202,7 +202,8 @@
 }
 
 .mission-completion-mission-record strong,
-.mission-completion-record > header strong {
+.mission-completion-record > header strong,
+.mission-completion-payouts strong {
   overflow-wrap: anywhere;
   font-size: var(--c3-font-size-body);
 }
@@ -387,7 +388,8 @@
   .mission-completion-mission-record,
   .mission-completion-record > header,
   .mission-completion-linked-state,
-  .mission-completion-ledger-note {
+  .mission-completion-ledger-note,
+  .mission-completion-payouts li {
     align-items: flex-start;
     flex-direction: column;
   }
@@ -425,7 +427,8 @@
   .mission-completion-mission-record,
   .mission-completion-record > header,
   .mission-completion-linked-state,
-  .mission-completion-ledger-note {
+  .mission-completion-ledger-note,
+  .mission-completion-payouts li {
     align-items: flex-start;
     flex-direction: column;
   }

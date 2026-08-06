@@ -16,6 +16,7 @@ const COMMS_OPEN_MODULES: Readonly<Record<string, PersistentWorkspaceModuleId>> 
   constellation: 'command-constellation',
   attention: 'command-attention',
   continuity: 'mission-continuity',
+  completion: 'mission-completion',
 };
 
 const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
@@ -91,7 +92,10 @@ export function workspaceRouteTargetOf(pathname: string, search: string): Worksp
   if (comms) {
     const params = new URLSearchParams(search);
     const open = params.getAll('open');
-    if (params.size > 0 && (params.size !== 1 || open.length !== 1 || !COMMS_OPEN_MODULES[open[0]!])) return null;
+    if (
+      params.size > 0 &&
+      (params.size !== 1 || open.length !== 1 || !Object.hasOwn(COMMS_OPEN_MODULES, open[0]!))
+    ) return null;
     const requestedModule = open.length === 1 ? COMMS_OPEN_MODULES[open[0]!]! : 'mission-current';
     return requestedModule === 'mission-finance'
       ? { missionId: comms[1]!, requestedModule, moneyLens: 'mission' }
