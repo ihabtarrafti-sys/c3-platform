@@ -69,6 +69,23 @@ async function ensureMission(page: Page, name: string): Promise<void> {
   missionId = /\/missions\/(MSN-\d+)/.exec(page.url())![1]!;
 }
 
+async function foregroundModule(page: Page, moduleId: string): Promise<void> {
+  await page.locator(`[data-window-launcher="${moduleId}"]`).click();
+  await expect(page.locator(`[data-module="${moduleId}"]`)).toBeVisible();
+}
+
+async function openObligationFloat(page: Page) {
+  // Workspace OS consumes a governed click in a background window to bring
+  // that window forward without acting. Foreground Obligations explicitly,
+  // then exercise the action from its re-witnessed surface.
+  await foregroundModule(page, 'mission-obligations');
+  const trigger = page.getByRole('button', { name: 'Create obligation' });
+  await trigger.click();
+  const float = page.locator('dialog.float-surface[open]');
+  await expect(float).toBeVisible();
+  return { float, trigger };
+}
+
 test('Tablework Comms: the full obligation arc — three truths flip one at a time; receipts disclose and hide', async ({ page }) => {
   test.slow();
   mkdirSync(SHOTS, { recursive: true });
@@ -120,9 +137,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
   });
 
   await test.step('Minting: the ordinary two-person record is born all-unknown', async () => {
-    await page.getByRole('button', { name: 'Create obligation' }).click();
-    const float = page.locator('dialog.float-surface[open]');
-    await expect(float).toBeVisible();
+    const { float } = await openObligationFloat(page);
 
     await float.getByRole('textbox', { name: 'Description' }).fill('Participant pack to publisher');
     await float.getByRole('combobox', { name: 'Accountable owner' }).selectOption({ label: 'ops@alpha.com · operations' });
@@ -169,6 +184,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     // Linger at the end of the thread: the read cursor advances on SEEING it
     // (debounced) — this is what the receipts step witnesses later.
     await page.waitForTimeout(2000);
+    await foregroundModule(page, 'mission-obligations');
     await card.getByRole('button', { name: 'Accept' }).click();
     await expect(card.locator('[data-truth-state="known"]')).toHaveCount(2);
     await expect(card.locator('[data-truth-state="known"]')).toContainText(['Delivery', 'Acceptance']);
@@ -182,6 +198,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
     await login(page, 'ops@alpha.com', 'operations');
     await page.goto(`/missions/${missionId}/comms`);
     const card = page.locator('[data-tablework="ObligationCard"]');
+    await foregroundModule(page, 'mission-obligations');
     await card.getByRole('button', { name: 'Record Done' }).click();
     await expect(card.locator('[data-truth-state="known"]')).toHaveCount(3);
     await expect(card.locator('[data-truth-state="known"]')).toContainText(['Delivery', 'Acceptance', 'Done']);
@@ -191,6 +208,7 @@ test('Tablework Comms: the full obligation arc — three truths flip one at a ti
   });
 
   await test.step('The unread divider sits exactly at the reader’s cursor', async () => {
+    await foregroundModule(page, 'mission-current');
     await page.locator('#thread-message').fill('Wrapped — thanks all.');
     await page.getByRole('button', { name: 'Send' }).click();
     await expect(page.locator('[data-tablework="Message"]').last()).toContainText('Wrapped');
@@ -237,8 +255,7 @@ test('Tablework Comms: same-person acceptance stays visibly distinct when supers
   await ensureMission(page, 'Comms Self Acceptance Cup');
   await page.goto(`/missions/${missionId}/comms`);
 
-  await page.getByRole('button', { name: 'Create obligation' }).click();
-  const float = page.locator('dialog.float-surface[open]');
+  const { float } = await openObligationFloat(page);
   await float.getByRole('textbox', { name: 'Description' }).fill('Solo evidence acceptance');
   await float.getByRole('combobox', { name: 'Accountable owner' }).selectOption({ label: 'ops@alpha.com · operations' });
   await float.getByRole('combobox', { name: 'Beneficiary', exact: true }).selectOption('external');
@@ -272,6 +289,7 @@ test('Tablework Comms: same-person acceptance stays visibly distinct when supers
     'ops@alpha.com both delivered evidence and accepted it as the named authority.',
   );
 
+  await foregroundModule(page, 'mission-obligations');
   await card.getByRole('textbox', { name: 'Reason' }).fill('The accepted record is no longer current');
   await card.getByRole('button', { name: 'Cancel' }).click();
 
@@ -308,10 +326,7 @@ test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass c
   await test.step('Reduced effects collapse the Float to opaque; Escape returns focus to the opener', async () => {
     await page.evaluate(() => localStorage.setItem('c3-effects', 'reduced'));
     await page.reload();
-    const trigger = page.getByRole('button', { name: 'Create obligation' });
-    await trigger.click();
-    const float = page.locator('dialog.float-surface[open]');
-    await expect(float).toBeVisible();
+    const { float, trigger } = await openObligationFloat(page);
     const backdrop = await float.evaluate((el) => getComputedStyle(el).backdropFilter);
     expect(backdrop).toBe('none'); // glass collapsed — the reduced-effects law
     await page.keyboard.press('Escape');
@@ -321,8 +336,16 @@ test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass c
   });
 
   await test.step('Lapse: the write is refused, the posture flips, reads and own-prefs stay live', async () => {
+    // This test may run in a fresh worker after an earlier failure. Earn its
+    // retained-history claim here instead of borrowing another test's message.
+    await foregroundModule(page, 'mission-current');
+    await page.locator('#thread-message').fill('Baseline history remains readable.');
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.locator('[data-tablework="Message"]', { hasText: 'Baseline history remains readable.' })).toBeVisible();
+
     await page.request.post(`${API}/__e2e/comms-entitlement`, { data: { state: 'lapsed' } });
     await page.reload();
+    await foregroundModule(page, 'mission-current');
     await page.locator('#thread-message').fill('This send must be refused.');
     await page.getByRole('button', { name: 'Send' }).click();
 
@@ -332,7 +355,7 @@ test('Tablework Comms: lapse posture, keyboard contract, reduced-effects glass c
     await expect(page.locator('.compose')).toHaveCount(0);
     await expect(page.locator('[data-tablework="ObligationActions"]')).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Create obligation' })).toHaveCount(0);
-    await expect(page.locator('[data-tablework="Message"]').first()).toBeVisible();
+    await expect(page.locator('[data-tablework="Message"]', { hasText: 'Baseline history remains readable.' })).toBeVisible();
     // The refused message never landed.
     await expect(page.locator('[data-tablework="Message"]', { hasText: 'must be refused' })).toHaveCount(0);
 

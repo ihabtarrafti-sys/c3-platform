@@ -49,12 +49,18 @@ test('a failed thread fetch renders the FETCH-FAILED artifact — never the gree
 
   await page.goto('/missions/MSN-0042/comms');
 
-  // THE CONTRACT: the failure artifact renders…
-  await expect(page.locator('[data-truth="fetch-failed"]').first()).toBeVisible();
+  const currentWindow = page.locator('[data-module="mission-current"]');
+  const obligationsWindow = page.locator('[data-module="mission-obligations"]');
+
+  // THE CONTRACT: each visible surface reports its own failed read…
+  await expect(currentWindow.locator('[data-truth="fetch-failed"]')).toHaveCount(1);
+  await expect(obligationsWindow.locator('[data-truth="fetch-failed"]')).toHaveCount(1);
+  await expect(currentWindow.locator('[data-truth="fetch-failed"]')).toBeVisible();
+  await expect(obligationsWindow.locator('[data-truth="fetch-failed"]')).toBeVisible();
   // …and the proven-empty artifact does NOT (empty requires a successful witness).
   await expect(page.locator('[data-truth="proven-empty"]')).toHaveCount(0);
-  // The obligations rail fails the same honest way (it also aborted).
-  await expect(page.locator('[data-truth="fetch-failed"]')).toHaveCount(2);
+  // Hidden workspace modules may truthfully stamp the same state; they cannot
+  // change the contract of the two surfaces under test.
 });
 
 test('a truly empty thread renders the PROVEN-EMPTY artifact — emptiness earned by a successful witness', async ({ page }) => {
