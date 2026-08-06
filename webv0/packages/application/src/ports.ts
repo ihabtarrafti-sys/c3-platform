@@ -1333,6 +1333,14 @@ export interface WriteTx {
   /** Row-lock bump of the thread's seq + last_message_at; null when the thread is missing. */
   bumpCommsThreadSeq(threadId: string): Promise<number | null>;
   /**
+   * ⛔ CR-037: is this user seated in this thread RIGHT NOW, read inside the
+   * write transaction. The pre-tx gate's answer is true when read and can be
+   * false when USED — a removal committing in the window still admitted the
+   * message, because nothing re-derived the seat at the moment of the write.
+   * Active seats only (`removed_at IS NULL`); soft-removed rows do not count.
+   */
+  isCommsParticipantSeated(threadId: string, userId: string): Promise<boolean>;
+  /**
    * Insert the immutable spine row. ON CONFLICT on the (author, clientMutationId)
    * send-idempotency unique DO NOTHING — false = a duplicate send (the caller
    * re-reads the existing message; the tx stays healthy).

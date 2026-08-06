@@ -1867,6 +1867,17 @@ export function makeWriteTx(db: Db, actor: Actor): WriteTx {
       return res.rows.length > 0;
     },
 
+    // CR-037: the seat, read at the moment of the write (soft-removed ≠ seated).
+    // READ COMMITTED gives each statement a fresh snapshot, so a removal that
+    // committed before this statement is SEEN — which is the entire fix.
+    async isCommsParticipantSeated(threadId: string, userId: string): Promise<boolean> {
+      const res = await db.execute(sql`
+        SELECT 1 FROM comms_thread_participant
+         WHERE thread_id = ${threadId} AND user_id = ${userId} AND removed_at IS NULL
+      `);
+      return res.rows.length > 0;
+    },
+
     async bumpCommsThreadSeq(threadId: string): Promise<number | null> {
       // The row lock serialises concurrent senders per thread (the business-id
       // counter argument: never MAX+1). Held to COMMIT of the enclosing tx.

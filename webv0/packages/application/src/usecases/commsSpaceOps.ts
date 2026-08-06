@@ -121,6 +121,25 @@ export async function postThreadMessage(
   if (replay) return replay;
 
   await p.writes.transaction(actor, async (tx) => {
+    /*
+     * ⛔ CR-037 — THE SEAT IS RE-DERIVED INSIDE THE TRANSACTION, WHERE IT IS USED.
+     *
+     * The `assertViewCommsThread` above runs BEFORE this transaction; a
+     * `removeFromRoom` committing between it and here still admitted the message,
+     * because nothing re-asked at the moment of the write. The pre-gate stays —
+     * it is the concealment surface (a non-member gets the room's own 404 without
+     * a transaction ever opening) — but it no longer authorizes the write; this
+     * does. Same law as the sibling document post one screen down, which re-checks
+     * entitlement/mission/thread inside ITS tx: the state, not the earlier answer,
+     * is what a write may rely on.
+     *
+     * ⚠️ Kind-scoped exactly as the seating model is: direct/standing threads HAVE
+     * seats; a mission-anchored thread has none (its gate is role+mission, both
+     * request-fresh), so re-asking for a seat there would refuse every lawful post.
+     */
+    if (thread.kind === 'direct' || thread.kind === 'standing') {
+      if (!(await tx.isCommsParticipantSeated(threadId, actor.userId))) throw conceal;
+    }
     const nextSeq = await tx.bumpCommsThreadSeq(threadId);
     if (nextSeq === null) throw conceal;
     const messageId = formatMessageId(await tx.allocateSequence('message'));
