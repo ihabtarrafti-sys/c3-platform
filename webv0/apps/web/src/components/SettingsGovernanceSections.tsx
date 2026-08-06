@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { DelegationDto } from '@c3web/api-contracts';
+import { isDelegationUnrevoked } from '@c3web/domain';
 import { useBackupStatus, useDelegations, useMembers } from '../queries';
 import { ApiError } from '../api';
 import { api } from '../apiClient';
@@ -186,7 +187,11 @@ export function DelegationSection() {
             <StatusBadge variant={STATE_VARIANT[d.state]} data-testid={`delegation-state-${d.delegationId}`}>
               {d.state}
             </StatusBadge>
-            {(d.state === 'Active' || d.state === 'Scheduled') &&
+            {/* ⛔ Revoke is offered on EXACTLY the predicate that blocks a new
+                grant (unrevoked) — never a hand-list of state names. The old
+                list (`Active || Scheduled`) left an Expired delegation blocking
+                its grantee's slot with the only clearing control unrendered. */}
+            {isDelegationUnrevoked(d.state) &&
               (revokeFor?.delegationId === d.delegationId ? (
                 <>
                   <Input

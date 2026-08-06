@@ -64,3 +64,22 @@ export function delegationState(d: Pick<Delegation, 'startsOn' | 'endsOn' | 'rev
 
 export const isDelegationActive = (d: Pick<Delegation, 'startsOn' | 'endsOn' | 'revokedAt'>, todayIso: string): boolean =>
   delegationState(d, todayIso) === 'Active';
+
+/**
+ * ⛔ THE PREDICATE THAT BLOCKS A NEW GRANT — one question, three consumers.
+ *
+ * The DB partial-unique (`delegation_one_unrevoked_per_grantee`) and the grant
+ * guard (`findUnrevokedDelegationId`) both key on UNREVOKED. The Settings
+ * surface used to key its Revoke control on a hand-list (`Active || Scheduled`)
+ * — a DIFFERENT predicate — so an `Expired` delegation blocked every new grant
+ * while the only control that could clear it was not rendered: a dead end with
+ * no path out through the product, found by the owner's own hands on staging.
+ *
+ * ⚖️ `delegationState` puts `Revoked` first, so `state !== 'Revoked'` IS
+ * "revokedAt is null" — the exact question the index and the guard ask. Any
+ * surface deciding whether to offer Revoke derives from THIS, never from a list
+ * of state names: a list recreates the bug the day a fifth state is added.
+ * (Product-layer twin of CR-036/CR-037: a decision made by one predicate,
+ * consumed by another.)
+ */
+export const isDelegationUnrevoked = (state: DelegationState): boolean => state !== 'Revoked';
