@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import type { ApprovalSummaryDto } from '@c3web/api-contracts';
 import { useApprovals } from '../queries';
 import { ApiError } from '../api';
@@ -6,7 +6,6 @@ import { useSession } from '../session';
 import {
   TableworkPage,
   CollectionFrame,
-  ComparisonTable,
   StatusBadge,
   EmptyState,
   ErrorState,
@@ -16,7 +15,14 @@ import {
   type WitnessState,
 } from '../tablework';
 import { useForegroundRewitness } from '../tablework/useForegroundRewitness';
+import {
+  approvalAuthorityActionOf,
+  approvalCapabilityLineOf,
+  approvalAuthorityCountsOf,
+  approvalAuthorityStageOf,
+} from '../tablework/approvalAuthority';
 import { approvalStatusOf, operationOf } from '../labels';
+import '../tablework/authority-relay.css';
 
 interface ApprovalsView {
   readonly approvals: ApprovalSummaryDto[];
@@ -122,45 +128,124 @@ export function ApprovalsRegister({
 
   const rows = data?.approvals ?? [];
   const countVisible = truth.kind === 'verified' || truth.kind === 'stale';
+  const counts = approvalAuthorityCountsOf(rows);
+  const currentlyWitnessed = truth.kind === 'verified';
+  const capabilityLine = approvalCapabilityLineOf({
+    canSubmitApproval: me?.capabilities.canSubmitApproval ?? false,
+    canReviewApproval: me?.capabilities.canReviewApproval ?? false,
+    canExecuteApproval: me?.capabilities.canExecuteApproval ?? false,
+  });
+
+  const when = (value: string | null): ReactNode => {
+    if (!value) return 'not recorded';
+    const date = new Date(value);
+    return Number.isNaN(date.getTime()) ? value : <time dateTime={value}>{date.toLocaleString()}</time>;
+  };
 
   const rowsView =
     data && rows.length > 0 ? (
-      <>
-        <ComparisonTable label="Approvals inbox" testId="approvals-table">
-          <thead>
-            <tr>
-              <th>Approval</th>
-              <th>Operation</th>
-              <th>Status</th>
-              <th>Submitted by</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((a) => {
-              const st = approvalStatusOf(a.status);
-              return (
-                <tr key={a.approvalId} data-testid={`approval-row-${a.approvalId}`}>
-                  <td>
-                    <RecordLink to={`/approvals/${a.approvalId}`}>
-                      {a.approvalId}
-                    </RecordLink>
-                  </td>
-                  <td>{operationOf(a.operationType)}</td>
-                  <td>
-                    <StatusBadge variant={st.variant} data-testid={`approval-status-${a.approvalId}`}>
-                      {st.label}
-                    </StatusBadge>
-                  </td>
-                  <td>{a.submittedBy}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </ComparisonTable>
+      <div className="authority-relay" data-testid="authority-relay">
+        <header className="authority-relay-intro">
+          <span className="authority-relay-mark" aria-hidden="true"><i /><i /><i /><i /></span>
+          <span>
+            <small>Request → decision → execution</small>
+            <strong>Authority Relay</strong>
+            <p>Organization-wide approvals shown beside the current work. This view does not infer that a request belongs to the open mission.</p>
+          </span>
+        </header>
+
+        <div className="authority-relay-counts" aria-label="Approval stage counts">
+          <span data-authority-count="review"><strong>{counts.review}</strong><small>Review required</small></span>
+          <span data-authority-count="decision"><strong>{counts.decision}</strong><small>Decision required</small></span>
+          <span data-authority-count="execution"><strong>{counts.execution}</strong><small>Execution required</small></span>
+          <span data-authority-count="execution-failed"><strong>{counts.executionFailed}</strong><small>Execution failed</small></span>
+          <span data-authority-count="closed"><strong>{counts.closed}</strong><small>Closed records</small></span>
+        </div>
+
+        <p className="authority-relay-standing" data-testid="authority-session-standing">
+          <strong>Effective standing</strong>
+          <span>{capabilityLine}</span>
+        </p>
+
+        <ol className="authority-relay-records" aria-label="Approvals authority relay" data-testid="approvals-table">
+          {rows.map((a) => {
+            const st = approvalStatusOf(a.status);
+            const stage = approvalAuthorityStageOf(a);
+            const authority = approvalAuthorityActionOf(
+              a,
+              {
+                identity: me?.identity,
+                canReviewApproval: me?.capabilities.canReviewApproval ?? false,
+                canExecuteApproval: me?.capabilities.canExecuteApproval ?? false,
+              },
+              currentlyWitnessed,
+            );
+            const sessionLine = authority.reason === 'self'
+              ? 'Another authorized person must act on this session\'s request.'
+              : authority.reason === 'indeterminate'
+                ? 'Actor distinction is unverified; no authority is claimed.'
+                : authority.reason === 'not-current'
+                  ? 'The register is being rechecked; no action is claimed.'
+                  : authority.action === 'begin-review'
+                    ? 'This session holds review standing; the detail rechecks the current approval before offering action.'
+                    : authority.action === 'decide'
+                      ? 'This session holds decision standing; the detail rechecks the current approval before offering action.'
+                      : authority.action === 'execute'
+                        ? 'This session holds execution standing; the detail rechecks the current approval before offering action.'
+                        : 'No action is available to this session at this stage.';
+            return (
+              <li
+                key={a.approvalId}
+                data-testid={`approval-row-${a.approvalId}`}
+                data-authority-stage={stage.stage}
+              >
+                <span className="authority-relay-line" aria-hidden="true"><i /></span>
+                <span className="authority-relay-record-head">
+                  <span>
+                    <small>{stage.step} · {a.approvalId}</small>
+                    <strong>{operationOf(a.operationType)}</strong>
+                  </span>
+                  <StatusBadge variant={st.variant} data-testid={`approval-status-${a.approvalId}`}>
+                    {st.label}
+                  </StatusBadge>
+                </span>
+
+                <span className="authority-relay-completion">
+                  <strong>{stage.headline}</strong>
+                  <span>{stage.detail}</span>
+                </span>
+
+                <dl className="authority-relay-provenance">
+                  <div>
+                    <dt>Requested by</dt>
+                    <dd>{a.submittedBy}<small>{when(a.submittedAt)}</small></dd>
+                  </div>
+                  <div>
+                    <dt>Review / decision record</dt>
+                    <dd>{a.reviewedBy ?? 'not recorded'}<small>{when(a.reviewedAt)}</small></dd>
+                  </div>
+                  <div>
+                    <dt>Execution record</dt>
+                    <dd>{a.executedAt ? 'Recorded' : 'not recorded'}<small>{when(a.executedAt)}</small></dd>
+                  </div>
+                </dl>
+
+                <span className="authority-relay-session" data-testid={`approval-authority-${a.approvalId}`}>
+                  {sessionLine}
+                </span>
+                <RecordLink to={`/approvals/${a.approvalId}`}>Open record →</RecordLink>
+              </li>
+            );
+          })}
+        </ol>
+
+        <p className="authority-relay-boundary">
+          Approval summaries are payload-free. Executor identity is not present here; it is shown only when the approval&rsquo;s event history is successfully witnessed.
+        </p>
         <p className="collection-count">
           {rows.length} {rows.length === 1 ? 'approval' : 'approvals'}
         </p>
-      </>
+      </div>
     ) : null;
 
   const errorView = (
@@ -194,10 +279,16 @@ export function ApprovalsRegister({
         return (
           <div data-truth="stale">
             <p className="boundary-note" role="status">
-              Showing the last verified approvals view while it is checked again. Treat it as stale.
+              {isFetching || rewitnessing
+                ? 'Showing the last verified approvals view while a new check is in progress.'
+                : `Showing the last verified approvals view because the latest check failed: ${truth.message}`}{' '}
+              Treat it as stale; no action is claimed here.
             </p>
             {rows.length === 0 ? (
-              <EmptyState data-testid="approvals-empty" message="No approvals in this view." />
+              <EmptyState
+                data-testid="approvals-empty"
+                message="The last verified approvals view was empty; the current register is not yet known."
+              />
             ) : (
               rowsView
             )}
