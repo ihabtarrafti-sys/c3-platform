@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { ApiError } from '../src/api';
-import { moneyActionsAvailable, moneyWitnessOf } from '../src/tablework/moneyWitness';
+import {
+  moneyActionsAvailable,
+  moneyWitnessOf,
+  optionalCurrentSelection,
+  requiredCurrentSelection,
+} from '../src/tablework/moneyWitness';
 
 interface View {
   readonly rows: readonly string[];
@@ -88,5 +93,22 @@ describe('moneyActionsAvailable', () => {
     expect(moneyActionsAvailable(true, current, false, [empty])).toBe(false);
     expect(moneyActionsAvailable(true, stale, true, [empty])).toBe(false);
     expect(moneyActionsAvailable(true, current, true, [stale])).toBe(false);
+  });
+});
+
+describe('current dependency selections', () => {
+  const currentIds = new Set(['ENT-1', 'ENT-2']);
+
+  it('requires a non-empty selected id to exist in the current witness', () => {
+    expect(requiredCurrentSelection('ENT-1', currentIds)).toBe(true);
+    expect(requiredCurrentSelection('ENT-OLD', currentIds)).toBe(false);
+    expect(requiredCurrentSelection('', currentIds)).toBe(false);
+  });
+
+  it('accepts an explicit empty optional selection but refuses a retained missing id', () => {
+    expect(optionalCurrentSelection('', currentIds)).toBe(true);
+    expect(optionalCurrentSelection('ENT-2', currentIds)).toBe(true);
+    expect(optionalCurrentSelection('ENT-OLD', currentIds)).toBe(false);
+    expect(optionalCurrentSelection('ENT-1', new Set())).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useReducer, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatMoney, type CurrencyCode } from '@c3web/domain';
 import { useMissionDistributions, useMissionPnl, usePeople } from '../queries';
@@ -228,6 +228,7 @@ export function DistributionsSection({
 
   const [orgPct, setOrgPct] = useState('20');
   const [seed, dispatchSeed] = useReducer(distributionSeedReducer, EMPTY_DISTRIBUTION_SEED);
+  const seedRequestToken = useRef(0);
   const [payoutForms, setPayoutForms] = useState<Record<string, { label: string; refNo: string }>>({});
   const [revokeReason, setRevokeReason] = useState<Record<string, string>>({});
 
@@ -256,16 +257,18 @@ export function DistributionsSection({
 
   async function openSeed(forLineId: string) {
     if (!canCreate) return;
-    dispatchSeed({ type: 'start', lineId: forLineId });
+    const requestToken = ++seedRequestToken.current;
+    dispatchSeed({ type: 'start', lineId: forLineId, requestToken });
     try {
-      const seed = await api.distributionSeed(missionId);
+      const response = await api.distributionSeed(missionId);
       // ⚖️ MONEY — `!== null`, never truthiness. A seeded suggestion of 0 bps is
       // a real suggestion; `r0.suggestedBps ? …` would blank the row and report
       // "no term on file" for a term that exists and says zero.
       dispatchSeed({
         type: 'succeed',
         lineId: forLineId,
-        rows: seed.rows.map((r0) => ({
+        requestToken,
+        rows: response.rows.map((r0) => ({
           personId: r0.personId,
           personName: r0.personName,
           bps: r0.suggestedBps !== null ? String(r0.suggestedBps / 100) : '',
@@ -275,6 +278,7 @@ export function DistributionsSection({
       dispatchSeed({
         type: 'fail',
         lineId: forLineId,
+        requestToken,
         message: err instanceof ApiError ? err.message : 'The suggested share rows could not be checked.',
       });
     }

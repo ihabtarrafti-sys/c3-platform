@@ -5,19 +5,29 @@ export interface DistributionShareDraft {
 }
 
 export type DistributionSeedState =
-  | { readonly kind: 'idle' }
-  | { readonly kind: 'loading'; readonly lineId: string }
-  | { readonly kind: 'verified'; readonly lineId: string; readonly rows: readonly DistributionShareDraft[] }
-  | { readonly kind: 'fetch-failed'; readonly lineId: string; readonly message: string };
+  | { readonly kind: 'idle'; readonly requestToken: number }
+  | { readonly kind: 'loading'; readonly lineId: string; readonly requestToken: number }
+  | {
+      readonly kind: 'verified';
+      readonly lineId: string;
+      readonly requestToken: number;
+      readonly rows: readonly DistributionShareDraft[];
+    }
+  | { readonly kind: 'fetch-failed'; readonly lineId: string; readonly requestToken: number; readonly message: string };
 
 export type DistributionSeedAction =
-  | { readonly type: 'start'; readonly lineId: string }
-  | { readonly type: 'succeed'; readonly lineId: string; readonly rows: readonly DistributionShareDraft[] }
-  | { readonly type: 'fail'; readonly lineId: string; readonly message: string }
+  | { readonly type: 'start'; readonly lineId: string; readonly requestToken: number }
+  | {
+      readonly type: 'succeed';
+      readonly lineId: string;
+      readonly requestToken: number;
+      readonly rows: readonly DistributionShareDraft[];
+    }
+  | { readonly type: 'fail'; readonly lineId: string; readonly requestToken: number; readonly message: string }
   | { readonly type: 'replace-rows'; readonly rows: readonly DistributionShareDraft[] }
   | { readonly type: 'reset' };
 
-export const EMPTY_DISTRIBUTION_SEED: DistributionSeedState = { kind: 'idle' };
+export const EMPTY_DISTRIBUTION_SEED: DistributionSeedState = { kind: 'idle', requestToken: 0 };
 
 /**
  * A seed request is a witnessed read, not a convenience default. Failure can
@@ -30,18 +40,20 @@ export function distributionSeedReducer(
 ): DistributionSeedState {
   switch (action.type) {
     case 'start':
-      return { kind: 'loading', lineId: action.lineId };
+      return action.requestToken > state.requestToken
+        ? { kind: 'loading', lineId: action.lineId, requestToken: action.requestToken }
+        : state;
     case 'succeed':
-      return state.kind === 'loading' && state.lineId === action.lineId
-        ? { kind: 'verified', lineId: action.lineId, rows: action.rows }
+      return state.kind === 'loading' && state.requestToken === action.requestToken && state.lineId === action.lineId
+        ? { kind: 'verified', lineId: action.lineId, requestToken: action.requestToken, rows: action.rows }
         : state;
     case 'fail':
-      return state.kind === 'loading' && state.lineId === action.lineId
-        ? { kind: 'fetch-failed', lineId: action.lineId, message: action.message }
+      return state.kind === 'loading' && state.requestToken === action.requestToken && state.lineId === action.lineId
+        ? { kind: 'fetch-failed', lineId: action.lineId, requestToken: action.requestToken, message: action.message }
         : state;
     case 'replace-rows':
       return state.kind === 'verified' ? { ...state, rows: action.rows } : state;
     case 'reset':
-      return EMPTY_DISTRIBUTION_SEED;
+      return { kind: 'idle', requestToken: state.requestToken };
   }
 }

@@ -152,11 +152,12 @@ describe('positiveFiniteRatio — receipt FX ratio', () => {
   it('uses Number semantics consistently, including scientific notation', () => {
     expect(positiveFiniteRatio('1.25')).toBe(1.25);
     expect(positiveFiniteRatio('1e3')).toBe(1000);
+    expect(positiveFiniteRatio('1e6')).toBe(1_000_000);
     expect(positiveFiniteRatio(' 0.001 ')).toBe(0.001);
   });
 
-  it('refuses every blank, non-finite, non-numeric, zero, or negative ratio', () => {
-    for (const input of ['', ' ', 'Infinity', '-Infinity', 'NaN', 'not-a-rate', '0', '-1']) {
+  it('refuses every blank, non-finite, non-numeric, out-of-domain, zero, or negative ratio', () => {
+    for (const input of ['', ' ', 'Infinity', '-Infinity', 'NaN', 'not-a-rate', '1000000.01', '1e7', '0', '-1']) {
       expect(positiveFiniteRatio(input), input).toBeNull();
     }
   });

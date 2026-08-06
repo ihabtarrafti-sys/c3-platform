@@ -66,6 +66,7 @@ export function missionFinanceTruthOf({
 export interface MissionFinanceOverviewProps {
   readonly enabled?: boolean;
   readonly foreground?: boolean;
+  readonly requestKey?: string | number;
   readonly onTruthChange?: (truth: WitnessState) => void;
   readonly linkToMission?: (missionId: string) => string;
 }
@@ -104,6 +105,7 @@ export function MissionFinancePage() {
 export function MissionFinanceOverview({
   enabled = true,
   foreground = true,
+  requestKey,
   onTruthChange,
   linkToMission = directMissionLink,
 }: MissionFinanceOverviewProps = {}) {
@@ -119,6 +121,7 @@ export function MissionFinanceOverview({
     foreground,
     enabled: queryEnabled,
     refetch,
+    requestKey,
   });
 
   const truth = useMemo(

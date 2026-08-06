@@ -57,10 +57,32 @@ describe('Iris cross-route workspace model', () => {
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=finance')).toEqual({
       missionId: 'MSN-0042',
       requestedModule: 'mission-finance',
+      moneyLens: 'mission',
     });
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=MSN-0042')).toEqual({
       missionId: 'MSN-0042',
       requestedModule: 'mission-finance',
+      moneyLens: 'portfolio',
+    });
+    expect(missionWorkspaceTargetOf('/invoices', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'mission-finance',
+      moneyLens: 'invoices',
+    });
+    expect(missionWorkspaceTargetOf('/claims/', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'mission-finance',
+      moneyLens: 'claims',
+    });
+    expect(missionWorkspaceTargetOf('/subscriptions', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'mission-finance',
+      moneyLens: 'subscriptions',
+    });
+    expect(missionWorkspaceTargetOf('/agreements', '?workspace=MSN-0042')).toEqual({
+      missionId: 'MSN-0042',
+      requestedModule: 'mission-finance',
+      moneyLens: 'agreements',
     });
     expect(missionWorkspaceTargetOf('/approvals', '?workspace=MSN-0042')).toEqual({
       missionId: 'MSN-0042',
@@ -145,6 +167,11 @@ describe('Iris cross-route workspace model', () => {
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=../../people')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=MSN-0042&workspace=MSN-0043')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/finance', '?workspace=MSN-0042&extra=true')).toBeNull();
+    expect(missionWorkspaceTargetOf('/invoices', '')).toBeNull();
+    expect(missionWorkspaceTargetOf('/claims', '?workspace=MSN-42')).toBeNull();
+    expect(missionWorkspaceTargetOf('/subscriptions', '?workspace=MSN-0042&extra=true')).toBeNull();
+    expect(missionWorkspaceTargetOf('/agreements/AGR-0042', '?workspace=MSN-0042')).toBeNull();
+    expect(missionWorkspaceTargetOf('/claims/CLM-0042', '?workspace=MSN-0042')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=finance&extra=true')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=current')).toBeNull();
     expect(missionWorkspaceTargetOf('/missions/MSN-0042/comms', '?open=attention&open=continuity')).toBeNull();
@@ -173,10 +200,17 @@ describe('Iris cross-route workspace model', () => {
     expect(workspaceHrefFor('/people/PER-0042', 'MSN-0042')).toBe('/people/PER-0042');
     expect(workspaceHrefFor('/missions', 'MSN-0042')).toBe('/missions');
     expect(workspaceHrefFor('/approvals/APR-0001', 'MSN-0042')).toBe('/approvals/APR-0001');
-    expect(workspaceHrefFor('/invoices', 'MSN-0042')).toBe('/invoices');
+    expect(workspaceHrefFor('/invoices', 'MSN-0042')).toBe('/invoices?workspace=MSN-0042');
+    expect(workspaceHrefFor('/claims', 'MSN-0042')).toBe('/claims?workspace=MSN-0042');
+    expect(workspaceHrefFor('/subscriptions', 'MSN-0042')).toBe('/subscriptions?workspace=MSN-0042');
+    expect(workspaceHrefFor('/agreements', 'MSN-0042')).toBe('/agreements?workspace=MSN-0042');
+    expect(workspaceHrefFor('/claims/CLM-0042', 'MSN-0042')).toBe('/claims/CLM-0042');
+    expect(workspaceHrefFor('/agreements/AGR-0042', 'MSN-0042')).toBe('/agreements/AGR-0042');
     expect(workspaceHrefFor('/missions/finance', null)).toBe('/missions/finance');
     expect(workspaceHrefFor('/approvals', '../../people')).toBe('/approvals');
     expect(workspaceHrefFor('/members', 'MSN-42')).toBe('/members');
+    expect(JSON.stringify(DEFAULT_MISSION_COMMAND)).not.toContain('moneyLens');
+    expect(JSON.stringify(DEFAULT_MISSION_COMMAND)).not.toContain('portfolio');
   });
 
   it('adds eleven adjacent modules to the closed union without changing the three-window Commander opening', () => {

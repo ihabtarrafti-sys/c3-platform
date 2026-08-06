@@ -82,3 +82,15 @@ export function moneyActionsAvailable(
 ): boolean {
   return capability && foreground && isCurrentMoneyWitness(truth) && dependencies.every(isCurrentMoneyWitness);
 }
+
+/** A retained required selection is safe only while it still names a row in
+ * the current dependency witness. */
+export function requiredCurrentSelection(selectedId: string, currentIds: ReadonlySet<string>): boolean {
+  return selectedId !== '' && currentIds.has(selectedId);
+}
+
+/** Optional selections use the empty string as an explicit "not selected";
+ * every non-empty value must still resolve in the current witness. */
+export function optionalCurrentSelection(selectedId: string, currentIds: ReadonlySet<string>): boolean {
+  return selectedId === '' || currentIds.has(selectedId);
+}

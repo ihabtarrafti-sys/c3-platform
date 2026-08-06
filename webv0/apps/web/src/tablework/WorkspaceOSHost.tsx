@@ -53,6 +53,7 @@ function ParkableMissionWorkspace({
         <MissionCommsPage
           missionIdOverride={target.missionId}
           requestedModule={target.requestedModule}
+          moneyLensOverride={target.moneyLens}
           conversationThreadIdOverride={target.conversationThreadId}
           personIdOverride={target.personId}
           workspaceRequestKey={target.requestKey}
@@ -90,6 +91,7 @@ export function PrincipalWorkspaceOutlet() {
     location.key,
     routeTarget?.conversationThreadId,
     routeTarget?.missionId,
+    routeTarget?.moneyLens,
     routeTarget?.personId,
     routeTarget?.requestedModule,
   ]);

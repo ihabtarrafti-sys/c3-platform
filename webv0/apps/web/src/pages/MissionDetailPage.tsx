@@ -44,8 +44,10 @@ import {
   Input,
   Selector,
   RecheckingTruthPanel,
+  isCurrentMoneyWitness,
   moneyActionsAvailable,
   moneyWitnessOf,
+  requiredCurrentSelection,
   percentToBpsAllowingZero,
   positiveAmountToMinor,
   positiveFiniteRatio,
@@ -886,8 +888,62 @@ export function MissionPnlSection({
   const [budget, setBudget] = useState<BudgetForm>(EMPTY_BUDGET);
   // S6: per-line issue-invoice forms (entity series, billed-to, VAT %).
   const [invoiceForms, setInvoiceForms] = useState<Record<string, InvoiceForm>>({});
-  const { data: entitiesData } = useEntities(actionsCurrent);
-  const invoiceEntities = (entitiesData?.entities ?? []).filter((e) => e.isActive);
+  // Invoice issuance is governed by Manage Missions + View Financials. Entity
+  // administration is a different authority; requiring it here would invent
+  // a stricter UI policy than issueInvoice enforces.
+  const entitiesIncluded = canManage && canViewFinancials;
+  const entitiesEnabled = enabled && entitiesIncluded;
+  const entitiesQuery = useEntities(entitiesEnabled);
+  const entitiesRewitnessing = useForegroundRewitness({
+    foreground,
+    enabled: entitiesEnabled,
+    refetch: entitiesQuery.refetch,
+    requestKey,
+  });
+  const entitiesTruth = useMemo(
+    () =>
+      moneyWitnessOf(
+        {
+          included: entitiesIncluded,
+          data: entitiesQuery.data,
+          error: entitiesQuery.error,
+          isLoading: entitiesQuery.isLoading,
+          isFetching: entitiesQuery.isFetching || entitiesRewitnessing,
+          dataUpdatedAt: entitiesQuery.dataUpdatedAt,
+        },
+        {
+          isEmpty: (view) => view.entities.length === 0,
+          omittedReason: 'ENTITIES_UNAVAILABLE',
+          recheckMessage: 'The issuing Entity choices are being checked again.',
+        },
+      ),
+    [
+      entitiesIncluded,
+      entitiesQuery.data,
+      entitiesQuery.dataUpdatedAt,
+      entitiesQuery.error,
+      entitiesQuery.isFetching,
+      entitiesQuery.isLoading,
+      entitiesRewitnessing,
+    ],
+  );
+  const invoiceActionsCurrent = moneyActionsAvailable(
+    canManage && canViewFinancials && enabled,
+    truth,
+    foreground,
+    [entitiesTruth],
+  );
+  const invoiceEntities = useMemo(
+    () =>
+      (isCurrentMoneyWitness(entitiesTruth) ? entitiesQuery.data?.entities ?? [] : []).filter(
+        (entity) => entity.isActive,
+      ),
+    [entitiesQuery.data, entitiesTruth],
+  );
+  const invoiceEntityIds = useMemo(
+    () => new Set(invoiceEntities.map((entity) => entity.entityId)),
+    [invoiceEntities],
+  );
 
   useEffect(() => {
     onTruthChange?.(truth);
@@ -901,6 +957,10 @@ export function MissionPnlSection({
     setBudget(EMPTY_BUDGET);
     setInvoiceForms({});
   }, [actionsCurrent]);
+
+  useLayoutEffect(() => {
+    if (!invoiceActionsCurrent) setInvoiceForms({});
+  }, [invoiceActionsCurrent]);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ['missionPnl', missionId] });
@@ -1136,7 +1196,7 @@ export function MissionPnlSection({
                    {actionsCurrent && (
                     <td>
                       <div className="row-actions">
-                        {l.direction === 'Income' && l.paymentStatus === 'Expected' && (
+                        {invoiceActionsCurrent && l.direction === 'Income' && l.paymentStatus === 'Expected' && (
                           <GovernedAction
                             triggerLabel="Invoice…"
                             triggerTestId={`invoice-line-${l.lineId}`}
@@ -1176,22 +1236,33 @@ export function MissionPnlSection({
                             confirmDisabled={(() => {
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
                               const chosen = invoiceEntities.find((e) => e.entityId === f.entityId);
-                              return !chosen || !chosen.code || f.billedTo.trim() === '' || percentToBpsAllowingZero(f.vatPct) === null;
+                              return !requiredCurrentSelection(f.entityId, invoiceEntityIds) || !chosen?.code || f.billedTo.trim() === '' || percentToBpsAllowingZero(f.vatPct) === null;
                             })()}
                             onConfirm={async () => {
-                              if (!actionsCurrent) {
-                                notify('error', 'The financial record must be current before an invoice can be issued.');
+                              if (!invoiceActionsCurrent) {
+                                notify('error', 'The financial record and issuing Entity choices must be current before an invoice can be issued.');
                                 throw new Error('money witness is not current');
                               }
                               const f = invoiceForms[l.lineId] ?? { entityId: invoiceEntities[0]?.entityId ?? '', billedTo: organizer ?? '', details: '', vatPct: '0', description: '' };
+                              const chosen = invoiceEntities.find((entity) => entity.entityId === f.entityId);
+                              const vatRateBps = percentToBpsAllowingZero(f.vatPct);
+                              if (
+                                !requiredCurrentSelection(f.entityId, invoiceEntityIds) ||
+                                !chosen?.code ||
+                                f.billedTo.trim() === '' ||
+                                vatRateBps === null
+                              ) {
+                                notify('error', 'Choose a current issuing Entity with a code and complete the invoice fields.');
+                                throw new Error('invoice dependency is not current');
+                              }
                               try {
                                 const res = await api.issueInvoice({
                                   missionId,
                                   lineId: l.lineId,
-                                  entityId: f.entityId,
+                                  entityId: chosen.entityId,
                                   billedToName: f.billedTo.trim(),
                                   billedToDetails: f.details.trim() === '' ? null : f.details.trim(),
-                                  vatRateBps: percentToBpsAllowingZero(f.vatPct)!,
+                                  vatRateBps,
                                   description: f.description.trim() === '' ? null : f.description.trim(),
                                 });
                                 notify('success', `Issued ${res.invoice.invoiceNumber} — the line is now Invoiced.`);

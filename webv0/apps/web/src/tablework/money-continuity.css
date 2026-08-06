@@ -1,0 +1,103 @@
+.tw-root .mission-command-window.module-mission-finance {
+  container-type: inline-size;
+}
+
+.tw-root .money-continuity {
+  min-width: 0;
+  min-height: 100%;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  color: var(--c3-ink-default);
+}
+
+.tw-root .money-continuity-header {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  display: grid;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+  border-bottom: 1px solid var(--c3-border-subtle);
+  background: color-mix(in srgb, var(--c3-surface-raised) 94%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.tw-root .money-continuity-header > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--c3-space-3);
+}
+
+.tw-root .money-continuity-header p {
+  max-width: 44rem;
+  margin: 0;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+}
+
+.tw-root .money-continuity-lenses {
+  display: flex;
+  gap: var(--c3-space-1);
+  overflow-x: auto;
+  padding-bottom: 1px;
+  scrollbar-width: thin;
+}
+
+.tw-root .money-continuity-lenses a {
+  flex: 0 0 auto;
+  padding: 0.42rem 0.7rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  color: var(--c3-ink-muted);
+  font-size: var(--c3-font-size-body-small);
+  font-weight: var(--c3-font-weight-semibold);
+  text-decoration: none;
+}
+
+.tw-root .money-continuity-lenses a:hover,
+.tw-root .money-continuity-lenses a:focus-visible {
+  border-color: var(--c3-border-strong);
+  color: var(--c3-ink-strong);
+  outline: none;
+}
+
+.tw-root .money-continuity-lenses a[aria-current='page'] {
+  border-color: color-mix(in srgb, var(--c3-accent-amber) 58%, var(--c3-border-subtle));
+  background: color-mix(in srgb, var(--c3-accent-amber) 12%, transparent);
+  color: var(--c3-ink-strong);
+}
+
+.tw-root .money-continuity-body,
+.tw-root .money-continuity-mission {
+  min-width: 0;
+}
+
+.tw-root .money-continuity-mission > .boundary-note {
+  margin: var(--c3-space-3) var(--c3-space-3) 0;
+}
+
+.tw-root .money-continuity-mission-grid {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(19rem, 0.82fr);
+  align-items: start;
+  gap: var(--c3-space-3);
+  padding: var(--c3-space-3);
+}
+
+.tw-root .money-continuity-mission-grid > * {
+  min-width: 0;
+}
+
+@container (max-width: 60rem) {
+  .tw-root .money-continuity-mission-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@container (max-width: 42rem) {
+  .tw-root .money-continuity-header > div {
+    display: grid;
+  }
+}

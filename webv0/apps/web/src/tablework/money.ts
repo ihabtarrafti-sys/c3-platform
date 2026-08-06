@@ -80,9 +80,11 @@ export function positiveAmountToMinor(input: string): number | null {
  * an amount parser: ratios may carry more than two decimals and exponent form
  * is meaningful. `Number` is used once for both validation and the write so an
  * input such as `1e3` cannot validate as one value and be stored as another.
+ * The upper bound is the existing domain law in both SetFxRate and
+ * SetLinePayment: usdPerUnit is at most 1,000,000.
  */
 export function positiveFiniteRatio(input: string): number | null {
   if (input.trim() === '') return null;
   const ratio = Number(input);
-  return Number.isFinite(ratio) && ratio > 0 ? ratio : null;
+  return Number.isFinite(ratio) && ratio > 0 && ratio <= 1_000_000 ? ratio : null;
 }

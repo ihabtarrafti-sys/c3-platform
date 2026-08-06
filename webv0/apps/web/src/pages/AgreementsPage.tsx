@@ -22,6 +22,7 @@ import {
   isCurrentMoneyWitness,
   moneyActionsAvailable,
   moneyWitnessOf,
+  optionalCurrentSelection,
   type SelectorOption,
   type WitnessState,
 } from '../tablework';
@@ -169,10 +170,32 @@ export function AgreementsRegister({
   const [endsOn, setEndsOn] = useState('');
   const [valueUsd, setValueUsd] = useState('');
   const [linkedId, setLinkedId] = useState('');
-  const activeEntities = (isCurrentMoneyWitness(entitiesTruth) ? entities.data?.entities ?? [] : []).filter((e) => e.isActive);
+  const currentPeople = useMemo(
+    () => (isCurrentMoneyWitness(peopleTruth) ? people.data?.people ?? [] : []),
+    [people.data, peopleTruth],
+  );
+  const currentEntities = useMemo(
+    () => (isCurrentMoneyWitness(entitiesTruth) ? entities.data?.entities ?? [] : []),
+    [entities.data, entitiesTruth],
+  );
+  const currentAgreements = useMemo(
+    () => (isCurrentMoneyWitness(truth) ? query.data?.agreements ?? [] : []),
+    [query.data, truth],
+  );
+  const activeEntities = useMemo(() => currentEntities.filter((entity) => entity.isActive), [currentEntities]);
+  const currentPersonIds = useMemo(() => new Set(currentPeople.map((person) => person.personId)), [currentPeople]);
+  const currentEntityIds = useMemo(() => new Set(activeEntities.map((entity) => entity.entityId)), [activeEntities]);
+  const currentAgreementIds = useMemo(
+    () => new Set(currentAgreements.map((agreement) => agreement.agreementId)),
+    [currentAgreements],
+  );
+  const dependencyIdsCurrent =
+    optionalCurrentSelection(personId, currentPersonIds) &&
+    optionalCurrentSelection(entityId, currentEntityIds) &&
+    optionalCurrentSelection(linkedId, currentAgreementIds);
   const entityName = (id: string | null): string => {
     if (!id) return '—';
-    const e = (isCurrentMoneyWitness(entitiesTruth) ? entities.data?.entities ?? [] : []).find((x) => x.entityId === id);
+    const e = currentEntities.find((x) => x.entityId === id);
     return e ? e.name : id;
   };
 
@@ -182,11 +205,20 @@ export function AgreementsRegister({
   }, [query.data, filter, today]);
 
   useLayoutEffect(() => {
-    if (!canCompose) setShowForm(false);
-  }, [canCompose]);
+    if (!canCompose) {
+      setShowForm(false);
+      setPersonId('');
+      setEntityId('');
+      setLinkedId('');
+      return;
+    }
+    if (!optionalCurrentSelection(personId, currentPersonIds)) setPersonId('');
+    if (!optionalCurrentSelection(entityId, currentEntityIds)) setEntityId('');
+    if (!optionalCurrentSelection(linkedId, currentAgreementIds)) setLinkedId('');
+  }, [canCompose, currentAgreementIds, currentEntityIds, currentPersonIds, entityId, linkedId, personId]);
 
   async function submitCreate() {
-    if (!canCompose) {
+    if (!canCompose || !dependencyIdsCurrent) {
       notify('error', 'The agreement register and its authoring choices must be current before a request can be submitted.');
       return;
     }
@@ -244,6 +276,7 @@ export function AgreementsRegister({
   // stricter than the submit-time parser, or Submit disables itself with no
   // message. Tightening it here would silently strand the user.
   const ready =
+    dependencyIdsCurrent &&
     (personId !== '' || entityId !== '') &&
     agreementType.trim() !== '' &&
     /^\d{4}-\d{2}-\d{2}$/.test(startsOn) &&
@@ -259,7 +292,7 @@ export function AgreementsRegister({
 
   const personOptions: SelectorOption[] = [
     { value: '', label: 'No person — entity-level' },
-    ...(isCurrentMoneyWitness(peopleTruth) ? people.data?.people ?? [] : []).map((p) => ({ value: p.personId, label: `${p.fullName} (${p.personId})` })),
+    ...currentPeople.map((p) => ({ value: p.personId, label: `${p.fullName} (${p.personId})` })),
   ];
   const entityOptions: SelectorOption[] = [
     { value: '', label: 'Not assigned' },
@@ -267,7 +300,7 @@ export function AgreementsRegister({
   ];
   const linkOptions: SelectorOption[] = [
     { value: '', label: 'Not linked' },
-    ...(isCurrentMoneyWitness(truth) ? query.data?.agreements ?? [] : []).map((a) => ({ value: a.agreementId, label: `${a.agreementId} — ${a.agreementType}` })),
+    ...currentAgreements.map((a) => ({ value: a.agreementId, label: `${a.agreementId} — ${a.agreementType}` })),
   ];
 
   const filters = (
@@ -316,6 +349,11 @@ export function AgreementsRegister({
         >
         {/* M2 — the count is stated ONCE, in CollectionFrame's header. The old
             r.count footer repeated it; no testid, no spec asserted its text. */}
+        {filter !== 'all' && rows.length === 0 && (
+          <p className="boundary-note" data-testid="agreements-filter-empty">
+            Nothing in this renewal window.
+          </p>
+        )}
         {rows.length > 0 && (
           <ComparisonTable label="Agreements register" testId="agreements-table">
             <thead>

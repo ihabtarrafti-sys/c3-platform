@@ -1,4 +1,8 @@
 import type { MissionCommandModuleId } from './missionCommandModel';
+import {
+  MONEY_CONTINUITY_EXTERNAL_ROUTES,
+  type MoneyContinuityLens,
+} from './moneyContinuityModel';
 
 const MISSION_ID = /^MSN-\d{4,}$/;
 const MISSION_COMMS_PATH = /^\/missions\/(MSN-\d{4,})\/comms\/?$/;
@@ -18,7 +22,6 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
   readonly pathname: string;
   readonly moduleId: Extract<
     PersistentWorkspaceModuleId,
-    | 'mission-finance'
     | 'approvals-register'
     | 'calendar-horizon'
     | 'command-constellation'
@@ -28,7 +31,6 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
     | 'organization-continuity'
   >;
 }> = [
-  { pathname: '/missions/finance', moduleId: 'mission-finance' },
   { pathname: '/approvals', moduleId: 'approvals-register' },
   { pathname: '/calendar', moduleId: 'calendar-horizon' },
   { pathname: '/situation', moduleId: 'command-constellation' },
@@ -42,7 +44,17 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
 export type WorkspaceRouteTarget =
   | {
       readonly missionId: string;
-      readonly requestedModule: Exclude<MissionCommandModuleId, 'conversation-relay' | 'person-record'>;
+      readonly requestedModule: Exclude<MissionCommandModuleId, 'conversation-relay' | 'person-record' | 'mission-finance'>;
+      readonly conversationThreadId?: never;
+      readonly personId?: never;
+      readonly moneyLens?: never;
+    }
+  | {
+      readonly missionId: string;
+      readonly requestedModule: 'mission-finance';
+      /** Runtime selection for the one persistent money desk. It is route and
+       * React state only; the saved window owns geometry, never this lens. */
+      readonly moneyLens: MoneyContinuityLens;
       readonly conversationThreadId?: never;
       readonly personId?: never;
     }
@@ -53,6 +65,7 @@ export type WorkspaceRouteTarget =
        * in the route and live React tree, never in persisted window state. */
       readonly conversationThreadId: string;
       readonly personId?: never;
+      readonly moneyLens?: never;
     }
   | {
       readonly missionId: string;
@@ -61,6 +74,7 @@ export type WorkspaceRouteTarget =
       /** Runtime identity for the one transient person slot. The fixed window
        * may persist geometry; this record key never does. */
       readonly personId: string;
+      readonly moneyLens?: never;
     };
 
 function canonicalPath(pathname: string): string {
@@ -78,10 +92,10 @@ export function workspaceRouteTargetOf(pathname: string, search: string): Worksp
     const params = new URLSearchParams(search);
     const open = params.getAll('open');
     if (params.size > 0 && (params.size !== 1 || open.length !== 1 || !COMMS_OPEN_MODULES[open[0]!])) return null;
-    return {
-      missionId: comms[1]!,
-      requestedModule: open.length === 1 ? COMMS_OPEN_MODULES[open[0]!]! : 'mission-current',
-    };
+    const requestedModule = open.length === 1 ? COMMS_OPEN_MODULES[open[0]!]! : 'mission-current';
+    return requestedModule === 'mission-finance'
+      ? { missionId: comms[1]!, requestedModule, moneyLens: 'mission' }
+      : { missionId: comms[1]!, requestedModule };
   }
 
   const threadRoom = THREAD_ROOM_PATH.exec(pathname);
@@ -108,6 +122,14 @@ export function workspaceRouteTargetOf(pathname: string, search: string): Worksp
     };
   }
 
+  const moneyRoute = MONEY_CONTINUITY_EXTERNAL_ROUTES.find((candidate) => candidate.pathname === canonicalPath(pathname));
+  if (moneyRoute) {
+    const params = new URLSearchParams(search);
+    const workspace = params.getAll('workspace');
+    if (params.size !== 1 || workspace.length !== 1 || !MISSION_ID.test(workspace[0]!)) return null;
+    return { missionId: workspace[0]!, requestedModule: 'mission-finance', moneyLens: moneyRoute.lens };
+  }
+
   const route = MISSION_SCOPED_MODULE_ROUTES.find((candidate) => candidate.pathname === canonicalPath(pathname));
   if (!route) return null;
   const params = new URLSearchParams(search);
@@ -123,7 +145,9 @@ export function workspaceRouteTargetOf(pathname: string, search: string): Worksp
  */
 export function workspaceHrefFor(destination: string, missionId: string | null): string {
   if (missionId === null || !MISSION_ID.test(missionId)) return destination;
-  const route = MISSION_SCOPED_MODULE_ROUTES.find((candidate) => candidate.pathname === destination);
-  if (!route) return destination;
+  const ownsSingleton =
+    MISSION_SCOPED_MODULE_ROUTES.some((candidate) => candidate.pathname === destination) ||
+    MONEY_CONTINUITY_EXTERNAL_ROUTES.some((candidate) => candidate.pathname === destination);
+  if (!ownsSingleton) return destination;
   return `${destination}?workspace=${encodeURIComponent(missionId)}`;
 }

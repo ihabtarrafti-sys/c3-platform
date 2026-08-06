@@ -40,7 +40,15 @@ export {
 } from './collections';
 export { formatDisplayDate } from './dates';
 export { percentToBpsAllowingZero, positivePercentToBps, amountToMinorAllowingZero, positiveAmountToMinor, positiveFiniteRatio } from './money';
-export { moneyWitnessOf, isCurrentMoneyWitness, moneyActionsAvailable, type MoneyWitnessFacts, type MoneyWitnessOptions } from './moneyWitness';
+export {
+  moneyWitnessOf,
+  isCurrentMoneyWitness,
+  moneyActionsAvailable,
+  requiredCurrentSelection,
+  optionalCurrentSelection,
+  type MoneyWitnessFacts,
+  type MoneyWitnessOptions,
+} from './moneyWitness';
 export { Thread, detectLinks } from './Thread';
 export { Message } from './Message';
 export { ObligationCard, type ObligationActionInput } from './ObligationCard';
