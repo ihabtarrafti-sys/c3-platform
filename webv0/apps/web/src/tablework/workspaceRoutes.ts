@@ -3,7 +3,8 @@ import type { MissionCommandModuleId } from './missionCommandModel';
 const MISSION_ID = /^MSN-\d{4,}$/;
 const MISSION_COMMS_PATH = /^\/missions\/(MSN-\d{4,})\/comms\/?$/;
 const THREAD_ROOM_PATH = /^\/comms\/threads\/(THR-\d{4,})\/?$/;
-type PersistentWorkspaceModuleId = Exclude<MissionCommandModuleId, 'conversation-relay'>;
+const PERSON_RECORD_PATH = /^\/people\/(PER-\d{4,})\/?$/;
+type PersistentWorkspaceModuleId = Exclude<MissionCommandModuleId, 'conversation-relay' | 'person-record'>;
 
 const COMMS_OPEN_MODULES: Readonly<Record<string, PersistentWorkspaceModuleId>> = {
   finance: 'mission-finance',
@@ -22,6 +23,9 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
     | 'calendar-horizon'
     | 'command-constellation'
     | 'command-attention'
+    | 'people-field'
+    | 'seats-standing'
+    | 'organization-continuity'
   >;
 }> = [
   { pathname: '/missions/finance', moduleId: 'mission-finance' },
@@ -29,13 +33,18 @@ const MISSION_SCOPED_MODULE_ROUTES: ReadonlyArray<{
   { pathname: '/calendar', moduleId: 'calendar-horizon' },
   { pathname: '/situation', moduleId: 'command-constellation' },
   { pathname: '/comms', moduleId: 'command-attention' },
+  { pathname: '/people', moduleId: 'people-field' },
+  { pathname: '/members', moduleId: 'seats-standing' },
+  { pathname: '/teams', moduleId: 'organization-continuity' },
+  { pathname: '/entities', moduleId: 'organization-continuity' },
 ];
 
 export type WorkspaceRouteTarget =
   | {
       readonly missionId: string;
-      readonly requestedModule: Exclude<MissionCommandModuleId, 'conversation-relay'>;
+      readonly requestedModule: Exclude<MissionCommandModuleId, 'conversation-relay' | 'person-record'>;
       readonly conversationThreadId?: never;
+      readonly personId?: never;
     }
   | {
       readonly missionId: string;
@@ -43,6 +52,15 @@ export type WorkspaceRouteTarget =
       /** Runtime identity for the one transient conversation slot. It travels
        * in the route and live React tree, never in persisted window state. */
       readonly conversationThreadId: string;
+      readonly personId?: never;
+    }
+  | {
+      readonly missionId: string;
+      readonly requestedModule: 'person-record';
+      readonly conversationThreadId?: never;
+      /** Runtime identity for the one transient person slot. The fixed window
+       * may persist geometry; this record key never does. */
+      readonly personId: string;
     };
 
 function canonicalPath(pathname: string): string {
@@ -75,6 +93,18 @@ export function workspaceRouteTargetOf(pathname: string, search: string): Worksp
       missionId: workspace[0]!,
       requestedModule: 'conversation-relay',
       conversationThreadId: threadRoom[1]!,
+    };
+  }
+
+  const personRecord = PERSON_RECORD_PATH.exec(pathname);
+  if (personRecord) {
+    const params = new URLSearchParams(search);
+    const workspace = params.getAll('workspace');
+    if (params.size !== 1 || workspace.length !== 1 || !MISSION_ID.test(workspace[0]!)) return null;
+    return {
+      missionId: workspace[0]!,
+      requestedModule: 'person-record',
+      personId: personRecord[1]!,
     };
   }
 

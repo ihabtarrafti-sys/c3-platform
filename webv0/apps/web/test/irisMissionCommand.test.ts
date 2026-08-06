@@ -2,7 +2,7 @@
  * Iris Mission Command — the first in-place transformation contract.
  *
  * This guard is intentionally about mechanisms, not a screenshot:
- *  - one mission opens as three independently controllable modules while six
+ *  - one mission opens as three independently controllable modules while eleven
  *    cross-route and command-loop modules remain closed until requested;
  *  - window state survives navigation/reload, but malformed device state does not;
  *  - minimize, close, reopen, move, resize, and presets are deterministic;
@@ -39,7 +39,7 @@ function contrastRatio(foreground: string, background: string): number {
 }
 
 describe('Iris Mission Command workspace model', () => {
-  it('opens one mission as three real modules and keeps six adjacent command modules closed in Commander', () => {
+  it('opens one mission as three real modules and keeps eleven adjacent modules closed in Commander', () => {
     expect(DEFAULT_MISSION_COMMAND.layout).toBe('commander');
     expect(DEFAULT_MISSION_COMMAND.windows.map((window) => window.id)).toEqual([
       'mission-field',
@@ -52,9 +52,23 @@ describe('Iris Mission Command workspace model', () => {
       'command-attention',
       'mission-continuity',
       'conversation-relay',
+      'people-field',
+      'person-record',
+      'seats-standing',
+      'organization-continuity',
     ]);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(0, 3).every((window) => window.visibility === 'open')).toBe(true);
     expect(DEFAULT_MISSION_COMMAND.windows.slice(3).every((window) => window.visibility === 'closed')).toBe(true);
+  });
+
+  it('keeps the same fourteen singleton IDs exactly once in every built-in composition', () => {
+    for (const layout of ['commander', 'review', 'brief', 'finance', 'decisions', 'planning', 'coordinate', 'continuity', 'command', 'people'] as const) {
+      const state = missionCommandReducer(DEFAULT_MISSION_COMMAND, { type: 'apply-layout', layout });
+      const ids = state.windows.map((window) => window.id);
+      expect(ids).toHaveLength(14);
+      expect(new Set(ids).size).toBe(14);
+      expect(ids).toContain('organization-continuity');
+    }
   });
 
   it('minimizes, closes, reopens, moves, resizes, and restores a preset deterministically', () => {

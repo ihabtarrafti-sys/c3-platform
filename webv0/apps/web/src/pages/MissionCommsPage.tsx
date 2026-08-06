@@ -37,6 +37,10 @@ import { CommandConstellation } from '../tablework/CommandConstellation';
 import { CommandAttention, type CommandAttentionTarget } from '../tablework/CommandAttention';
 import { MissionContinuity, joinMissionContinuityWitness } from '../tablework/MissionContinuity';
 import { ConversationRelay, type ConversationRelayMeta } from '../tablework/ConversationRelay';
+import { PeopleField } from '../tablework/PeopleField';
+import { PersonRecord, type PersonRecordMeta } from '../tablework/PersonRecord';
+import { SeatsStanding } from '../tablework/SeatsStanding';
+import { OrganizationContinuity } from '../tablework/OrganizationContinuity';
 import { documentHasOpenDialog, mayRecordWorkspaceRead, useDocumentAttention } from '../tablework/workspaceAttention';
 import { useCommsLive } from '../useCommsLive';
 import { MissionFinanceOverview } from './MissionFinancePage';
@@ -56,18 +60,23 @@ const WORKSPACE_ROUTE_META: Readonly<
   'command-attention': { place: 'Comms', origin: 'Mission Command', section: 'My Attention' },
   'mission-continuity': { place: 'Comms', origin: 'Mission Command', section: 'Mission Continuity' },
   'conversation-relay': { place: 'Comms', origin: 'Mission Command', section: 'Conversation Relay' },
+  'people-field': { place: 'People', origin: 'Workspace OS', section: 'Living Field' },
+  'person-record': { place: 'People', origin: 'Living Field', section: 'Person Record' },
+  'seats-standing': { place: 'Organization', origin: 'Workspace OS', section: 'Seats & Standing' },
+  'organization-continuity': { place: 'Organization', origin: 'Workspace OS', section: 'Organization Continuity' },
 };
 
 interface MissionCommsPageProps {
   readonly missionIdOverride?: string;
   readonly requestedModule?: MissionCommandModuleId;
   readonly conversationThreadIdOverride?: string;
+  readonly personIdOverride?: string;
   readonly workspaceRequestKey?: string;
   readonly workspaceActive?: boolean;
   readonly activateRequestedModule?: boolean;
 }
 
-export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission-current', conversationThreadIdOverride, workspaceRequestKey = 'direct', workspaceActive = true, activateRequestedModule = true }: MissionCommsPageProps = {}) {
+export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission-current', conversationThreadIdOverride, personIdOverride, workspaceRequestKey = 'direct', workspaceActive = true, activateRequestedModule = true }: MissionCommsPageProps = {}) {
   const { missionId: routeMissionId } = useParams<{ missionId: string }>();
   const location = useLocation();
   const missionId = missionIdOverride ?? routeMissionId;
@@ -92,6 +101,7 @@ export function MissionCommsPage({ missionIdOverride, requestedModule = 'mission
       missionId={missionId ?? ''}
       requestedModule={requestedModule}
       conversationThreadIdOverride={conversationThreadIdOverride}
+      personIdOverride={personIdOverride}
       workspaceRequestKey={workspaceRequestKey}
       workspaceActive={workspaceActive}
       activateRequestedModule={activateRequestedModule}
@@ -103,6 +113,7 @@ function MissionCommsScreen({
   missionId,
   requestedModule,
   conversationThreadIdOverride,
+  personIdOverride,
   workspaceRequestKey,
   workspaceActive,
   activateRequestedModule,
@@ -110,6 +121,7 @@ function MissionCommsScreen({
   missionId: string;
   requestedModule: MissionCommandModuleId;
   conversationThreadIdOverride?: string;
+  personIdOverride?: string;
   workspaceRequestKey: string;
   workspaceActive: boolean;
   activateRequestedModule: boolean;
@@ -138,6 +150,17 @@ function MissionCommsScreen({
   const [calendarTruth, setCalendarTruth] = useState<WitnessState>({ kind: 'loading' });
   const [constellationTruth, setConstellationTruth] = useState<WitnessState>({ kind: 'loading' });
   const [commandAttentionTruth, setCommandAttentionTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [peopleTruth, setPeopleTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [seatsTruth, setSeatsTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [organizationTruth, setOrganizationTruth] = useState<WitnessState>({ kind: 'loading' });
+  const [personWitness, setPersonWitness] = useState<{
+    readonly personId: string | null;
+    readonly truth: WitnessState;
+  }>({ personId: null, truth: { kind: 'loading' } });
+  const [personMeta, setPersonMeta] = useState<{
+    readonly personId: string | null;
+    readonly value: PersonRecordMeta | null;
+  }>({ personId: null, value: null });
   const [conversationWitness, setConversationWitness] = useState<{
     readonly threadId: string | null;
     readonly truth: WitnessState;
@@ -149,14 +172,30 @@ function MissionCommsScreen({
   const [rememberedConversationThreadId, setRememberedConversationThreadId] = useState<string | null>(
     conversationThreadIdOverride ?? null,
   );
+  const [rememberedPersonId, setRememberedPersonId] = useState<string | null>(personIdOverride ?? null);
   const [foregroundModule, setForegroundModule] = useState<MissionCommandModuleId | null>('mission-current');
   const attention = useDocumentAttention();
   const effectiveForeground = workspaceActive ? foregroundModule : null;
   const conversationThreadId = conversationThreadIdOverride ?? rememberedConversationThreadId;
+  const personId = personIdOverride ?? rememberedPersonId;
 
   useEffect(() => {
     if (conversationThreadIdOverride) setRememberedConversationThreadId(conversationThreadIdOverride);
   }, [conversationThreadIdOverride]);
+  useEffect(() => {
+    if (!personIdOverride) return;
+    setRememberedPersonId(personIdOverride);
+    setPersonWitness((current) =>
+      current.personId === personIdOverride
+        ? current
+        : { personId: personIdOverride, truth: { kind: 'loading' } },
+    );
+    setPersonMeta((current) =>
+      current.personId === personIdOverride
+        ? current
+        : { personId: personIdOverride, value: null },
+    );
+  }, [personIdOverride]);
   const mayRecordRead = mayRecordWorkspaceRead(
     effectiveForeground,
     attention.visibilityState,
@@ -432,6 +471,10 @@ function MissionCommsScreen({
     (threadId: string) => `/comms/threads/${threadId}?workspace=${missionId}`,
     [missionId],
   );
+  const workspacePersonHref = useCallback(
+    (nextPersonId: string) => `/people/${nextPersonId}?workspace=${missionId}`,
+    [missionId],
+  );
   const onConversationTruthChange = useCallback(
     (truth: WitnessState) => {
       if (conversationThreadId) setConversationWitness({ threadId: conversationThreadId, truth });
@@ -444,6 +487,18 @@ function MissionCommsScreen({
     },
     [conversationThreadId],
   );
+  const onPersonTruthChange = useCallback(
+    (truth: WitnessState) => {
+      if (personId) setPersonWitness({ personId, truth });
+    },
+    [personId],
+  );
+  const onPersonMetaChange = useCallback(
+    (value: PersonRecordMeta) => {
+      if (personId) setPersonMeta({ personId, value });
+    },
+    [personId],
+  );
   const onConversationModuleReadOnly = useCallback(() => setLapsed(true), []);
   const missionActionsAvailable = isActionableWitness(missionTruth);
   const obligationActionsAvailable = missionActionsAvailable && isActionableWitness(obligationsTruth);
@@ -454,6 +509,11 @@ function MissionCommsScreen({
       : ({ kind: 'loading' } as const);
   const activeConversationMeta =
     conversationMeta.threadId === conversationThreadId ? conversationMeta.value : null;
+  const activePersonTruth =
+    personWitness.personId === personId
+      ? personWitness.truth
+      : ({ kind: 'loading' } as const);
+  const activePersonMeta = personMeta.personId === personId ? personMeta.value : null;
   const conversationModule: MissionCommandModule | null = conversationThreadId
     ? {
         id: 'conversation-relay',
@@ -478,6 +538,28 @@ function MissionCommsScreen({
             onModuleReadOnly={onConversationModuleReadOnly}
             onTruthChange={onConversationTruthChange}
             onMetaChange={onConversationMetaChange}
+          />
+        ),
+      }
+    : null;
+  const personModule: MissionCommandModule | null = personId
+    ? {
+        id: 'person-record',
+        eyebrow: 'Living Field · Person',
+        title: activePersonMeta?.record ?? 'Person Record',
+        detail: 'One runtime personnel record. Geometry stays; person identity and sensitive facts never enter a saved workspace view.',
+        truth: activePersonTruth,
+        unmountWhenClosed: true,
+        children: (
+          <PersonRecord
+            key={personId}
+            personId={personId}
+            enabled={workspaceActive}
+            foreground={effectiveForeground === 'person-record'}
+            activationKey={workspaceRequestKey}
+            fullRecordHref={`/people/${personId}`}
+            onTruthChange={onPersonTruthChange}
+            onMetaChange={onPersonMetaChange}
           />
         ),
       }
@@ -513,7 +595,15 @@ function MissionCommsScreen({
         <ContextHeader
           place={routeMeta.place}
           origin={routeMeta.origin}
-          record={record}
+          record={
+            requestedModule === 'person-record'
+              ? (activePersonMeta?.record ?? 'Person Record')
+              : requestedModule === 'seats-standing'
+                ? 'Seats & Standing'
+                : requestedModule === 'organization-continuity'
+                  ? 'Organization Continuity'
+                : record
+          }
           section={routeMeta.section}
           actions={
             <>
@@ -528,6 +618,15 @@ function MissionCommsScreen({
               </Link>
               <Link className="intent-button" to={`/comms?workspace=${missionId}`} aria-current={requestedModule === 'command-attention' ? 'page' : undefined}>
                 My Attention
+              </Link>
+              <Link className="intent-button" to={`/people?workspace=${missionId}`} aria-current={requestedModule === 'people-field' ? 'page' : undefined}>
+                People
+              </Link>
+              <Link className="intent-button" to={`/members?workspace=${missionId}`} aria-current={requestedModule === 'seats-standing' ? 'page' : undefined}>
+                Seats
+              </Link>
+              <Link className="intent-button" to={`/teams?workspace=${missionId}`} aria-current={requestedModule === 'organization-continuity' ? 'page' : undefined}>
+                Organization
               </Link>
               <Link className="intent-button" to={`/missions/${missionId}/comms?open=continuity`} aria-current={requestedModule === 'mission-continuity' ? 'page' : undefined}>
                 Continuity
@@ -590,6 +689,14 @@ function MissionCommsScreen({
               else if (moduleId === 'calendar-horizon') setCalendarTruth({ kind: 'loading' });
               else if (moduleId === 'command-constellation') setConstellationTruth({ kind: 'loading' });
               else if (moduleId === 'command-attention') setCommandAttentionTruth({ kind: 'loading' });
+              else if (moduleId === 'people-field') setPeopleTruth({ kind: 'loading' });
+              else if (moduleId === 'seats-standing') setSeatsTruth({ kind: 'loading' });
+              else if (moduleId === 'organization-continuity') setOrganizationTruth({ kind: 'loading' });
+              else if (moduleId === 'person-record') {
+                setRememberedPersonId(null);
+                setPersonWitness({ personId: null, truth: { kind: 'loading' } });
+                setPersonMeta({ personId: null, value: null });
+              }
               else if (moduleId === 'conversation-relay') {
                 setRememberedConversationThreadId(null);
                 setConversationWitness({ threadId: null, truth: { kind: 'loading' } });
@@ -800,6 +907,61 @@ function MissionCommsScreen({
                   />
                 ),
               } satisfies MissionCommandModule,
+              {
+                id: 'people-field' satisfies MissionCommandModuleId,
+                eyebrow: 'Living field · Personnel',
+                title: 'Living Field',
+                detail: 'Personnel records beside the work. No presence, ranking, inferred access seat, or invented team relationship.',
+                truth: peopleTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <PeopleField
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'people-field'}
+                    requestKey={workspaceRequestKey}
+                    hrefForPerson={workspacePersonHref}
+                    onTruthChange={setPeopleTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'seats-standing' satisfies MissionCommandModuleId,
+                eyebrow: 'Organization · Access',
+                title: 'Seats & Standing',
+                detail: 'Current memberships and base tenant roles. Governed seat-change history appears only when independently readable.',
+                truth: seatsTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <SeatsStanding
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'seats-standing'}
+                    requestKey={workspaceRequestKey}
+                    membersHref="/members"
+                    approvalsHref={`/approvals?workspace=${missionId}`}
+                    onTruthChange={setSeatsTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              {
+                id: 'organization-continuity' satisfies MissionCommandModuleId,
+                eyebrow: 'Organization · Continuity',
+                title: 'Organization Continuity',
+                detail: 'Teams, canonical Team memberships on selection, and legal Entities only where that register is already exposed. No hierarchy is inferred.',
+                truth: organizationTruth,
+                unmountWhenClosed: true,
+                children: (
+                  <OrganizationContinuity
+                    enabled={workspaceActive}
+                    foreground={effectiveForeground === 'organization-continuity'}
+                    requestKey={workspaceRequestKey}
+                    teamsHref="/teams"
+                    entitiesHref="/entities"
+                    hrefForPerson={workspacePersonHref}
+                    onTruthChange={setOrganizationTruth}
+                  />
+                ),
+              } satisfies MissionCommandModule,
+              ...(personModule ? [personModule] : []),
               ...(conversationModule ? [conversationModule] : []),
             ]}
           />

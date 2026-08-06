@@ -64,6 +64,7 @@ const LAYOUT_LABELS: ReadonlyArray<{ id: MissionCommandPreset; label: string }> 
   { id: 'coordinate', label: 'Coordinate' },
   { id: 'continuity', label: 'Continuity' },
   { id: 'command', label: 'Command' },
+  { id: 'people', label: 'People' },
 ];
 
 const COMPACT_QUERY = '(max-width: 71.999rem)';
@@ -104,6 +105,10 @@ const MODULE_GLYPHS: Readonly<Record<MissionCommandModuleId, string>> = {
   'command-attention': '◎',
   'mission-continuity': '⟷',
   'conversation-relay': '◉',
+  'people-field': '○',
+  'person-record': '◌',
+  'seats-standing': '⌾',
+  'organization-continuity': '⌘',
 };
 
 function isInteractiveTarget(target: EventTarget | null): boolean {
@@ -135,7 +140,9 @@ function truthLabel(truth: WitnessState): string {
     case 'proven-empty':
       return 'Verified empty';
     case 'denied':
-      return truth.reasonClass === 'THREAD_NOT_AVAILABLE' ? 'Unavailable' : 'Denied';
+      return truth.reasonClass === 'THREAD_NOT_AVAILABLE' || truth.reasonClass === 'PERSON_NOT_AVAILABLE'
+        ? 'Unavailable'
+        : 'Denied';
     case 'fetch-failed':
       return 'Fetch failed';
     case 'stale':

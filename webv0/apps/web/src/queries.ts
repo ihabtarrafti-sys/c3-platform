@@ -4,8 +4,8 @@ import { api } from './apiClient';
 export const usePeople = (enabled = true) =>
   useQuery({ queryKey: ['people'], queryFn: () => api.listPeople(), enabled });
 
-export const usePerson = (id: string) =>
-  useQuery({ queryKey: ['person', id], queryFn: () => api.getPerson(id) });
+export const usePerson = (id: string, enabled = true) =>
+  useQuery({ queryKey: ['person', id], queryFn: () => api.getPerson(id), enabled });
 
 /** Track B: this user's saved views for a register (personal presets). */
 export const useSavedViews = (register: string, enabled = true) =>
@@ -74,8 +74,8 @@ export const useInvoices = (enabled = true) =>
 
 export const useTeams = (enabled = true) => useQuery({ queryKey: ['teams'], queryFn: () => api.listTeams(), enabled });
 export const useTeam = (teamId: string) => useQuery({ queryKey: ['team', teamId], queryFn: () => api.getTeam(teamId) });
-export const useTeamMembers = (teamId: string) =>
-  useQuery({ queryKey: ['teamMembers', teamId], queryFn: () => api.listTeamMembers(teamId) });
+export const useTeamMembers = (teamId: string, enabled = true) =>
+  useQuery({ queryKey: ['teamMembers', teamId], queryFn: () => api.listTeamMembers(teamId), enabled });
 export const useTeamFinance = (teamId: string, enabled = true) =>
   useQuery({ queryKey: ['teamFinance', teamId], queryFn: () => api.teamFinance(teamId), enabled });
 export const useTeamAudit = (teamId: string) =>

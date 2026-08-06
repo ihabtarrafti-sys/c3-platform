@@ -63,10 +63,10 @@ export function PersonAvatar({
       className={`person-avatar${className ? ` ${className}` : ''}`}
       style={{ width: size, height: size, fontSize: Math.round(size * 0.38) }}
       data-testid={`person-avatar-${personId}`}
-      aria-label={`${name} photo`}
+      aria-label={`${name} avatar`}
       role="img"
     >
-      {url ? <img src={url} alt={`${name} photo`} /> : <span aria-hidden="true">{initialsOf(name)}</span>}
+      {url ? <img src={url} alt="" /> : <span aria-hidden="true">{initialsOf(name)}</span>}
     </span>
   );
 }

@@ -54,6 +54,7 @@ function ParkableMissionWorkspace({
           missionIdOverride={target.missionId}
           requestedModule={target.requestedModule}
           conversationThreadIdOverride={target.conversationThreadId}
+          personIdOverride={target.personId}
           workspaceRequestKey={target.requestKey}
           workspaceActive={active}
           activateRequestedModule={target.activateRequestedModule}
@@ -84,7 +85,14 @@ export function PrincipalWorkspaceOutlet() {
   useLayoutEffect(() => {
     if (!routeTarget) return;
     setRemembered({ ...routeTarget, requestKey: location.key, activateRequestedModule });
-  }, [activateRequestedModule, location.key, routeTarget?.missionId, routeTarget?.requestedModule]);
+  }, [
+    activateRequestedModule,
+    location.key,
+    routeTarget?.conversationThreadId,
+    routeTarget?.missionId,
+    routeTarget?.personId,
+    routeTarget?.requestedModule,
+  ]);
 
   const active = routeTarget !== null;
   return (

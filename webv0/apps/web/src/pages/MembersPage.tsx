@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { MemberDto } from '../api';
 import { useMembers } from '../queries';
@@ -11,16 +11,16 @@ import {
   CollectionFrame,
   ComparisonTable,
   StatusBadge,
-  EmptyState,
-  ErrorState,
-  LoadingState,
   Field,
   Input,
   Selector,
   FormDrawer,
   GovernedAction,
   RecordLink,
+  type WitnessState,
 } from '../tablework';
+import { RecheckingTruthPanel } from '../tablework/RecheckingTruthPanel';
+import { memberRegisterTruthOf } from '../tablework/SeatsStanding';
 
 /**
  * Members (Sprint 35 tenant-admin) — the organization's access register.
@@ -73,6 +73,13 @@ export function deriveSeatingReviewAvailability(
   const activeOthers = members.filter((member) => member.isActive && member.userId !== requesterUserId);
   if (activeOthers.some((member) => member.role === 'owner')) return 'available';
   return activeOthers.length === 0 ? 'unavailable' : 'unknown';
+}
+
+/** A successful empty register contradicts the authenticated member-bearing
+ * session. It remains visible as witnessed truth, but never becomes a
+ * bootstrap write surface. */
+export function membersRegisterActionsAvailable(canChange: boolean, truth: WitnessState): boolean {
+  return canChange && truth.kind === 'verified';
 }
 
 export function SeatingRequestHandoff({
@@ -128,7 +135,7 @@ function MembersRegister() {
   const canChange = me?.capabilities.canSubmitMemberChange ?? false;
   // The wire law: the capability IS the `enabled` flag — the access register
   // never reaches a browser without standing to read it.
-  const { data, isLoading, isFetching, isError, error } = useMembers(canRead);
+  const { data, dataUpdatedAt, isLoading, isFetching, error } = useMembers(canRead);
 
   const [showForm, setShowForm] = useState(false);
   const [email, setEmail] = useState('');
@@ -144,13 +151,23 @@ function MembersRegister() {
     email: string;
   } | null>(null);
 
-  if (!canRead) {
-    return (
-      <CollectionFrame title="Members">
-        <EmptyState data-testid="members-denied" message="Organization members are not available for your role." />
-      </CollectionFrame>
-    );
-  }
+  const membersTruth = memberRegisterTruthOf({
+    canRead,
+    data,
+    error,
+    isLoading,
+    isFetching,
+    dataUpdatedAt,
+  });
+  // An authenticated session with a proven-empty Members register is an
+  // invariant anomaly, not a bootstrap invitation. Keep it readable and
+  // fail closed on every governed write.
+  const actionsCurrent = membersRegisterActionsAvailable(canChange, membersTruth);
+  const rechecking = data !== undefined && error == null && isFetching;
+
+  useEffect(() => {
+    if (!actionsCurrent) setShowForm(false);
+  }, [actionsCurrent]);
 
   async function submitChange(
     payload: Parameters<typeof api.submitMemberChange>[0],
@@ -193,10 +210,10 @@ function MembersRegister() {
   const reviewAvailability = deriveSeatingReviewAvailability(
     data?.members,
     me?.userId,
-    !isFetching && !isError && data !== undefined,
+    membersTruth.kind === 'verified',
   );
 
-  const addAction = canChange ? (
+  const addAction = actionsCurrent ? (
     <button className="primary-action" type="button" onClick={() => setShowForm(true)} data-testid="provision-member-toggle">
       Provision Member
     </button>
@@ -207,23 +224,26 @@ function MembersRegister() {
       <CollectionFrame
         kicker="Register"
         title="Members"
-        count={data ? `${data.members.length} in this organization` : undefined}
+        count={membersTruth.kind === 'verified' ? `${data?.members.length ?? 0} in this organization` : undefined}
         actions={addAction}
       >
-        {isLoading && <LoadingState label="Loading members…" />}
-        {isError && (
-          <ErrorState
-            message={error instanceof ApiError ? error.message : 'Could not load members.'}
-            correlationId={error instanceof ApiError ? error.correlationId : undefined}
-          />
-        )}
-        {seatingHandoff && (
-          <SeatingRequestHandoff {...seatingHandoff} reviewAvailability={reviewAvailability} />
-        )}
-        {/* No empty branch: this register has never had one (an organization
-            always has at least the reader), and inventing one would add an
-            unasserted surface. M2: the count lives ONCE, in the header. */}
-        {data && data.members.length > 0 && (
+        <RecheckingTruthPanel
+          state={membersTruth}
+          rechecking={rechecking}
+          emptyLabel="No Members rows are recorded in this verified access-register view."
+          testids={{
+            loading: 'members-loading',
+            verified: 'members-verified',
+            empty: 'members-empty',
+            denied: 'members-denied',
+            failed: 'members-failed',
+            stale: 'members-stale',
+          }}
+        >
+          {seatingHandoff && (
+            <SeatingRequestHandoff {...seatingHandoff} reviewAvailability={reviewAvailability} />
+          )}
+          {data && data.members.length > 0 && (
           <ComparisonTable label="Members register" testId="members-table">
             <thead>
               <tr>
@@ -231,7 +251,7 @@ function MembersRegister() {
                 <th>Email</th>
                 <th>Role</th>
                 <th>Status</th>
-                {canChange && <th>Request change</th>}
+                {actionsCurrent && <th>Request change</th>}
               </tr>
             </thead>
             <tbody>
@@ -246,7 +266,7 @@ function MembersRegister() {
                     <td>
                       <StatusBadge variant={m.isActive ? 'ready' : 'neutral'}>{m.isActive ? 'Active' : 'Inactive'}</StatusBadge>
                     </td>
-                    {canChange && (
+                    {actionsCurrent && (
                       <td>
                         {isSelf ? (
                           // Enforced by NOT RENDERING — you may never request a
@@ -310,10 +330,11 @@ function MembersRegister() {
               })}
             </tbody>
           </ComparisonTable>
-        )}
+          )}
+        </RecheckingTruthPanel>
       </CollectionFrame>
 
-      {canChange && (
+      {actionsCurrent && (
         <FormDrawer
           open={showForm}
           onClose={() => setShowForm(false)}
