@@ -226,10 +226,21 @@ export function createApiClient(deps: ApiClientDeps) {
 
   async function request<T>(method: string, path: string, body?: unknown, signal?: AbortSignal): Promise<T> {
     const token = await deps.getToken();
+    /*
+     * ⛔ THE HEADER FOLLOWS THE BODY — the two were split once, and the split was
+     * a dead end. This helper used to announce `content-type: application/json`
+     * UNCONDITIONALLY while sending a body only conditionally, so every bodyless
+     * call announced JSON and sent nothing — and fastify refuses that shape
+     * before the route ever runs ("Body cannot be empty when content-type is
+     * set…"). The owner hit it on FX → Refresh from source: route correct,
+     * use-case correct, call correct, composition never once worked anywhere
+     * (LAW 34, live in production). Deliberately NOT fixed by sending `{}` —
+     * an empty object changes what the route's schema sees; absence is honest.
+     */
     const res = await doFetch(deps.baseUrl + path, {
       method,
       headers: {
-        'content-type': 'application/json',
+        ...(body !== undefined ? { 'content-type': 'application/json' } : {}),
         ...(token ? { authorization: `Bearer ${token}` } : {}),
       },
       body: body !== undefined ? JSON.stringify(body) : undefined,
